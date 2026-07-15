@@ -139,14 +139,20 @@ window.exportSoundsData = function(format, allSounds = false) {
 
 window.onboardingSteps = [
     { target: null, title: 'Добро пожаловать в Audio Map', text: 'Интерактивная карта звуков Ростовской области. Пройдите короткий тур — это займёт 30 секунд.' },
-    { target: '#sidebar', title: 'Библиотека звуков', text: 'Меню слева — поиск, фильтры по UCS и тегам, список всех записей региона.' },
-    { target: '#player-card', title: 'Аудиоплеер', text: 'Выберите звук на карте или в списке. Для ambisonics включите 360° и крутите звуковую сферу в наушниках.' },
-    { target: '#fab-add', title: 'Добавьте свой звук', text: 'Кнопка «+» — загрузка WAV с метаданными UCS. На телефоне удерживайте палец на карте, чтобы поставить метку.' }
+    { target: '#burger-btn', title: 'Библиотека звуков', text: 'Кнопка меню слева открывает поиск, фильтры по UCS и тегам, а также список всех записей.' },
+    { target: null, title: 'Аудиоплеер', text: 'Нажмите на любую метку на карте, чтобы открыть плеер. Для ambisonics записей доступно вращение на 360°.' },
+    { target: '#fab-add', title: 'Добавьте свой звук', text: 'Кнопка «+» — загрузка WAV с метаданными. На телефоне удерживайте палец на карте, чтобы быстро поставить метку.' }
 ];
 
 window.startOnboarding = function(step = 0) {
     const overlay = document.getElementById('onboarding-overlay');
     if (!overlay) return;
+    
+    // Закрываем всё лишнее, чтобы тур был поверх чистой карты
+    const sb = document.getElementById('sidebar');
+    if (sb && !sb.classList.contains('sidebar-hidden')) window.toggleSidebar();
+    if (window.closePlayerCard) window.closePlayerCard();
+
     window.__onboardingStep = step;
     overlay.classList.remove('hidden');
     overlay.classList.add('pointer-events-auto');
@@ -163,12 +169,18 @@ window.updateOnboardingStep = function() {
     document.getElementById('onboarding-step-label').textContent = `Шаг ${window.__onboardingStep + 1} / ${window.onboardingSteps.length}`;
     document.getElementById('onboarding-title').textContent = step.title;
     document.getElementById('onboarding-text').textContent = step.text;
-    document.getElementById('onboarding-prev').classList.toggle('invisible', window.__onboardingStep === 0);
-    document.getElementById('onboarding-next').textContent = window.__onboardingStep === window.onboardingSteps.length - 1 ? 'Готово' : 'Далее';
+    
+    const prevBtn = document.getElementById('onboarding-prev');
+    if (prevBtn) prevBtn.style.visibility = window.__onboardingStep === 0 ? 'hidden' : 'visible';
+    
+    const nextBtn = document.getElementById('onboarding-next');
+    if (nextBtn) nextBtn.textContent = window.__onboardingStep === window.onboardingSteps.length - 1 ? 'Готово' : 'Далее';
 
+    // Сбрасываем стили
     card.style.cssText = '';
     highlight.style.cssText = 'display:none';
 
+    // Центрирование (если нет цели)
     if (!step.target) {
         card.style.left = '50%';
         card.style.top = '50%';
@@ -177,50 +189,58 @@ window.updateOnboardingStep = function() {
     }
 
     const el = document.querySelector(step.target);
-    if (!el) return;
-
-    if (step.target === '#sidebar') {
-        const sb = document.getElementById('sidebar');
-        if (sb && sb.classList.contains('sidebar-hidden')) window.toggleSidebar();
-    }
-    if (step.target === '#player-card') {
-        const pc = document.getElementById('player-card');
-        if (pc) {
-            pc.classList.remove('translate-y-[150%]', 'opacity-0');
-            document.body.classList.add('player-visible');
-        }
+    if (!el) {
+        card.style.left = '50%';
+        card.style.top = '50%';
+        card.style.transform = 'translate(-50%, -50%)';
+        return;
     }
 
-    setTimeout(() => {
-        const rect = el.getBoundingClientRect();
-        const pad = 8;
-        highlight.style.display = 'block';
-        highlight.style.left = `${rect.left - pad}px`;
-        highlight.style.top = `${rect.top - pad}px`;
-        highlight.style.width = `${rect.width + pad * 2}px`;
-        highlight.style.height = `${rect.height + pad * 2}px`;
+    // Рассчитываем позицию цели
+    const rect = el.getBoundingClientRect();
+    const pad = 8;
+    highlight.style.display = 'block';
+    highlight.style.left = `${rect.left - pad}px`;
+    highlight.style.top = `${rect.top - pad}px`;
+    highlight.style.width = `${rect.width + pad * 2}px`;
+    highlight.style.height = `${rect.height + pad * 2}px`;
 
-        const cardRect = card.getBoundingClientRect();
-        let top = rect.bottom + 16;
-        let left = Math.min(Math.max(16, rect.left), window.innerWidth - cardRect.width - 16);
-        
-        if (top + cardRect.height > window.innerHeight - 16) {
-            top = rect.top - cardRect.height - 16;
-        }
-        
-        if (top < 16) {
-            top = (window.innerHeight - cardRect.height) / 2;
-            left = (window.innerWidth - cardRect.width) / 2;
-        }
+    // Вычисляем реальные размеры карточки после обновления текста
+    const cardRect = card.getBoundingClientRect();
+    const cardWidth = cardRect.width;
+    const cardHeight = cardRect.height;
 
-        if (window.innerWidth < 600) {
-            left = (window.innerWidth - cardRect.width) / 2;
-        }
+    let top = rect.bottom + 16;
+    let left = rect.left;
 
-        card.style.left = `${left}px`;
-        card.style.top = `${Math.max(16, top)}px`;
-        card.style.transform = 'none';
-    }, 550);
+    // Проверка выхода за нижний край
+    if (top + cardHeight > window.innerHeight - 16) {
+        top = rect.top - cardHeight - 16;
+    }
+    
+    // Мобильная адаптация: центрируем по горизонтали
+    if (window.innerWidth < 640) {
+        left = (window.innerWidth - cardWidth) / 2;
+    } else {
+        // Защита от выхода за правый край
+        if (left + cardWidth > window.innerWidth - 16) {
+            left = window.innerWidth - cardWidth - 16;
+        }
+        // Защита от выхода за левый край
+        if (left < 16) {
+            left = 16;
+        }
+    }
+
+    // Защита от выхода за верхний край
+    if (top < 16) {
+        top = (window.innerHeight - cardHeight) / 2;
+        left = (window.innerWidth - cardWidth) / 2;
+    }
+
+    card.style.left = `${left}px`;
+    card.style.top = `${top}px`;
+    card.style.transform = 'none';
 };
 
 window.nextOnboardingStep = function() {
@@ -251,12 +271,13 @@ window.dismissOnboarding = function() {
 window.restartOnboarding = function() {
     localStorage.removeItem('rosmap_onboarding_done');
     if (window.closeSettingsModal) window.closeSettingsModal();
+    if (window.closeCabinet) window.closeCabinet();
     window.startOnboarding(0);
 };
 
 window.initOnboarding = function() {
     if (localStorage.getItem('rosmap_onboarding_done')) return;
-    setTimeout(() => window.startOnboarding(0), 900);
+    setTimeout(() => window.startOnboarding(0), 500);
 };
 
 // ДОБАВЛЕНО: Кастомные UI Окна (для правого клика и подтверждений)
