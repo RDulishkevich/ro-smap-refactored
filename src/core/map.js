@@ -25,29 +25,36 @@ window.initMap = function() {
 
 window.updateMapMarkers = function() {
     if (!window.map) return;
-    window.map.geoObjects.each(function (obj) {
+
+    const filtered = window.getFilteredSounds ? window.getFilteredSounds() : window.soundsData || [];
+    const currentActiveId = window.currentPlayingId;
+
+    if (currentActiveId && !filtered.some(sound => sound.id === currentActiveId)) {
+        window.currentPlayingId = null;
+    }
+
+    window.map.geoObjects.each(function(obj) {
         if (obj !== window.activePolyline && obj !== window.walkerMarker) {
             window.map.geoObjects.remove(obj);
         }
     });
 
     const createMarkerLayout = (colorClass, id, isSoundwalk, isAmbisonic) => ymaps.templateLayoutFactory.createClass(
-        `<div id="marker-${id}" class="w-6 h-6 md:w-7 md:h-7 custom-marker ${colorClass} ${window.currentPlayingId === id ? 'selected' : ''} flex items-center justify-center text-white shadow-lg transition-transform hover:scale-110">
+        `<div id="marker-${id}" class="w-6 h-6 md:w-7 md:h-7 custom-marker ${colorClass} ${currentActiveId === id ? 'selected' : ''} flex items-center justify-center text-white shadow-lg transition-transform hover:scale-110">
             ${isSoundwalk ? '<i class="fa-solid fa-route text-[11px] md:text-[13px] opacity-90"></i>' : (isAmbisonic ? '<i class="fa-solid fa-cube text-[10px] md:text-[12px] opacity-90"></i>' : '')}
         </div>`
     );
-            
-    const filtered = window.getFilteredSounds();
+
     filtered.forEach(sound => {
         let colorClass = sound.ecoCategory === 'geophony' ? 'marker-geo' : sound.ecoCategory === 'biophony' ? 'marker-bio' : 'marker-anthro';
         const isSoundwalk = sound.recPrinciple && sound.recPrinciple.includes('Soundwalk');
         const isAmbisonic = sound.channels && sound.channels.toLowerCase().includes('ambisonics');
-        const hitRadius = window.currentPlayingId === sound.id ? 40 : 28; 
-                
-        const p = new ymaps.Placemark([sound.lat, sound.lng], {}, { 
-            iconLayout: createMarkerLayout(colorClass, sound.id, isSoundwalk, isAmbisonic), 
-            iconShape: { type: 'Circle', coordinates: [0, 0], radius: hitRadius }, 
-            iconOffset: [-14, -14] 
+        const hitRadius = currentActiveId === sound.id ? 40 : 28;
+
+        const p = new ymaps.Placemark([sound.lat, sound.lng], {}, {
+            iconLayout: createMarkerLayout(colorClass, sound.id, isSoundwalk, isAmbisonic),
+            iconShape: { type: 'Circle', coordinates: [0, 0], radius: hitRadius },
+            iconOffset: [-14, -14]
         });
         p.events.add('click', () => window.selectSound(sound.id));
         window.map.geoObjects.add(p);

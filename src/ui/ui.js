@@ -200,23 +200,52 @@ window.renderFilterPanels = function() {
 window.renderActiveTags = function() {
     const container = document.getElementById('active-tags-container');
     if (!container) return;
-    const totalActive = window.activeEcoLayer.size + window.activeUcsCat.size + window.activeUcsSub.size + window.activeGenTags.size + 
-                        window.activeGear.size + window.activeMic.size + window.activeChannels.size + window.activeLicense.size + 
-                        window.activeRecordist.size + window.activeWeather.size + window.activeDate.size + window.activePrinciple.size;
-    if (totalActive === 0) { container.innerHTML = ''; return; }
-    let html = `<button onclick="window.activeEcoLayer.clear(); window.activeUcsCat.clear(); window.activeUcsSub.clear(); window.activeGenTags.clear(); window.activePrinciple.clear(); window.activeGear.clear(); window.activeMic.clear(); window.activeChannels.clear(); window.activeLicense.clear(); window.activeRecordist.clear(); window.activeWeather.clear(); window.activeDate.clear(); window.processFilterChange();" class="text-[10px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 uppercase tracking-wider transition-colors"><i class="fa-solid fa-trash-can mr-1"></i>Сбросить</button>`;
+
+    const activeSets = [
+        ['eco', window.activeEcoLayer],
+        ['ucsCat', window.activeUcsCat],
+        ['ucsSub', window.activeUcsSub],
+        ['principle', window.activePrinciple],
+        ['gear', window.activeGear],
+        ['mic', window.activeMic],
+        ['channels', window.activeChannels],
+        ['license', window.activeLicense],
+        ['recordist', window.activeRecordist],
+        ['weather', window.activeWeather],
+        ['date', window.activeDate]
+    ];
+
+    const totalActive = activeSets.reduce((sum, [, set]) => sum + set.size, 0);
+    if (totalActive === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const html = `<button onclick="window.activeEcoLayer.clear(); window.activeUcsCat.clear(); window.activeUcsSub.clear(); window.activeGenTags.clear(); window.activePrinciple.clear(); window.activeGear.clear(); window.activeMic.clear(); window.activeChannels.clear(); window.activeLicense.clear(); window.activeRecordist.clear(); window.activeWeather.clear(); window.activeDate.clear(); window.processFilterChange();" class="text-[10px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 uppercase tracking-wider transition-colors"><i class="fa-solid fa-trash-can mr-1"></i>Сбросить</button>`;
     container.innerHTML = html;
 }
 
 window.getFilteredSounds = function() {
     const queryEl = document.getElementById('search-input');
-    const query = queryEl ? queryEl.value.toLowerCase() : '';
+    const query = queryEl ? queryEl.value.trim().toLowerCase() : '';
+
     return window.soundsData.filter(s => {
         const searchTarget = `${s.title} ${s.description} ${s.keywords} ${s.ecoCategory} ${s.ucsCat} ${s.typeTag} ${s.recPrinciple} ${s.gear} ${s.micType} ${s.recordist} ${s.weather} ${s.date} ${s.license} ${s.channels}`.toLowerCase();
         const searchMatch = !query || searchTarget.includes(query);
+
         const ecoMatch = window.activeEcoLayer.size === 0 || window.activeEcoLayer.has(s.ecoCategory);
-        const priMatch = window.activePrinciple.size === 0 || window.activePrinciple.has(s.recPrinciple);
-        return searchMatch && ecoMatch && priMatch; // Упрощено для примера, работают все
+        const ucsCatMatch = window.activeUcsCat.size === 0 || window.activeUcsCat.has(s.ucsCat);
+        const ucsSubMatch = window.activeUcsSub.size === 0 || window.activeUcsSub.has(s.typeTag);
+        const principleMatch = window.activePrinciple.size === 0 || window.activePrinciple.has(s.recPrinciple);
+        const gearMatch = window.activeGear.size === 0 || window.activeGear.has(s.gear);
+        const micMatch = window.activeMic.size === 0 || window.activeMic.has(s.micType);
+        const channelMatch = window.activeChannels.size === 0 || window.activeChannels.has(s.channels);
+        const licenseMatch = window.activeLicense.size === 0 || window.activeLicense.has(s.license);
+        const recordistMatch = window.activeRecordist.size === 0 || window.activeRecordist.has(s.recordist);
+        const weatherMatch = window.activeWeather.size === 0 || window.activeWeather.has(s.weather);
+        const dateMatch = window.activeDate.size === 0 || window.activeDate.has(s.date);
+
+        return searchMatch && ecoMatch && ucsCatMatch && ucsSubMatch && principleMatch && gearMatch && micMatch && channelMatch && licenseMatch && recordistMatch && weatherMatch && dateMatch;
     });
 }
 
@@ -280,12 +309,19 @@ window.switchFilterTab = function(tab) {
 window.selectSound = function(id) {
     const s = window.soundsData.find(x => x.id === id);
     if(!s) return;
-    
-    if (window.innerWidth < 768) { 
-        const sb = document.getElementById('sidebar'); 
-        if (sb && !sb.classList.contains('sidebar-hidden')) window.toggleSidebar(); 
+
+    const filtered = window.getFilteredSounds();
+    const isVisible = filtered.some(item => item.id === id);
+    if (!isVisible) {
+        window.showToast('Этот звук сейчас не виден по активным фильтрам');
+        return;
     }
-            
+
+    if (window.innerWidth < 768) {
+        const sb = document.getElementById('sidebar');
+        if (sb && !sb.classList.contains('sidebar-hidden')) window.toggleSidebar();
+    }
+
     window.clearMapRoutes();
     const ambiBtn = document.getElementById('btn-ambi-toggle');
     if(s.channels && s.channels.toLowerCase().includes('ambisonics')) {
@@ -302,22 +338,25 @@ window.selectSound = function(id) {
     } else if (window.map) {
         window.map.setCenter([s.lat, s.lng], 15, { duration: 800 });
     }
-            
-    window.currentPlayingId = id; window.updateMapMarkers();
+
+    window.currentPlayingId = id;
+    window.updateMapMarkers();
     const card = document.getElementById('player-card');
     if(card) card.classList.remove('translate-y-[150%]', 'opacity-0');
-    
-    document.getElementById('player-title').textContent = s.title;
-    document.getElementById('player-gear').innerHTML = `<i class="fa-solid fa-walkie-talkie mr-1 text-slate-400"></i>${s.gear}`;
-    
+
+    const titleEl = document.getElementById('player-title');
+    const gearEl = document.getElementById('player-gear');
+    if (titleEl) titleEl.textContent = s.title;
+    if (gearEl) gearEl.innerHTML = `<i class="fa-solid fa-walkie-talkie mr-1 text-slate-400"></i>${s.gear}`;
+
     if (s.url) {
-        if (window.audioElement) { 
-            if (window.audioElement.src !== s.url && !window.audioElement.src.endsWith(s.url)) window.audioElement.src = s.url; 
+        if (window.audioElement) {
+            if (window.audioElement.src !== s.url && !window.audioElement.src.endsWith(s.url)) window.audioElement.src = s.url;
             if(!window.isPlaying) {
                 const playPromise = window.audioElement.play();
                 if (playPromise !== undefined) {
                     playPromise.then(() => { window.isPlaying = true; window.startTimelineAnimation(); window.updateUIState(); })
-                               .catch((err) => { window.isPlaying = false; window.prepareMockPlayback(s); }); 
+                               .catch(() => { window.isPlaying = false; window.prepareMockPlayback(s); });
                 }
             }
         }
@@ -328,30 +367,59 @@ window.selectSound = function(id) {
 }
 
 window.openDetailsModal = function() {
-    const s = window.soundsData.find(x => x.id === window.currentPlayingId); if (!s) return;
-    const detImg = document.getElementById('details-image');
-    if(s.images && s.images.length > 0) {
-        if(detImg) { detImg.src = s.images[0]; detImg.onclick = () => window.openLightboxForSound(s.id, 0); }
-    } else {
-        if(detImg) { detImg.src = `https://picsum.photos/seed/${s.id}/800/500`; detImg.onclick = () => window.openLightbox([`https://picsum.photos/seed/${s.id}/800/500`], 0); }
-    }
-            
-    document.getElementById('details-title').textContent = s.title; 
-    document.getElementById('details-filename').innerHTML = `<i class="fa-solid fa-file-waveform mr-1"></i>${s.archiveNum}_${s.fileName}`;
-    document.getElementById('details-description').textContent = s.description;
+    const s = window.soundsData.find(x => x.id === window.currentPlayingId);
+    if (!s) return;
 
-    const safeText = (id, txt) => { const el = document.getElementById(id); if(el) el.textContent = txt; }
-    safeText('det-location', s.location || "Ростовская область");
-    safeText('det-coords', `${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}`);
+    const detImg = document.getElementById('details-image');
+    if (s.images && s.images.length > 0) {
+        if (detImg) {
+            detImg.src = s.images[0];
+            detImg.onclick = () => window.openLightboxForSound(s.id, 0);
+        }
+    } else {
+        if (detImg) {
+            detImg.src = `https://picsum.photos/seed/${s.id}/800/500`;
+            detImg.onclick = () => window.openLightbox([`https://picsum.photos/seed/${s.id}/800/500`], 0);
+        }
+    }
+
+    const titleEl = document.getElementById('details-title');
+    const fileEl = document.getElementById('details-filename');
+    const descEl = document.getElementById('details-description');
+
+    if (titleEl) titleEl.textContent = s.title;
+    if (fileEl) fileEl.innerHTML = `<i class="fa-solid fa-file-waveform mr-1"></i>${s.archiveNum}_${s.fileName}`;
+    if (descEl) descEl.textContent = s.description;
+
+    const safeText = (id, txt) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = txt;
+    };
+
+    safeText('det-location', s.location || 'Ростовская область');
+    safeText('det-coords', `${Number(s.lat).toFixed(4)}, ${Number(s.lng).toFixed(4)}`);
     window.renderComments(s);
-            
-    const m = document.getElementById('details-modal'), c = document.getElementById('details-modal-content');
-    if (m && c) { m.classList.remove('hidden'); void m.offsetWidth; m.classList.remove('opacity-0', 'pointer-events-none'); c.classList.remove('scale-95'); }
+
+    const m = document.getElementById('details-modal');
+    const c = document.getElementById('details-modal-content');
+    if (m && c) {
+        m.classList.remove('hidden');
+        void m.offsetWidth;
+        m.classList.remove('opacity-0', 'pointer-events-none');
+        c.classList.remove('scale-95');
+    }
 }
 
 window.closeDetailsModal = function() {
-    const m = document.getElementById('details-modal'), c = document.getElementById('details-modal-content');
-    if(m && c) { m.classList.add('opacity-0', 'pointer-events-none'); c.classList.add('scale-95'); setTimeout(() => { m.classList.add('hidden') }, 300); }
+    const m = document.getElementById('details-modal');
+    const c = document.getElementById('details-modal-content');
+    if (m && c) {
+        m.classList.add('opacity-0', 'pointer-events-none');
+        c.classList.add('scale-95');
+        setTimeout(() => {
+            if (m.classList.contains('opacity-0')) m.classList.add('hidden');
+        }, 300);
+    }
 }
 
 window.downloadSound = function(format) {
@@ -427,21 +495,33 @@ window.publishSound = async function() {
 
 // ИЗМЕНЕНО: Принимаем координаты при клике ПКМ
 window.toggleAddModal = function(forceClose = false, coords = null) {
-    const m = document.getElementById('add-modal'), c = document.getElementById('add-modal-content');
-    if(m && m.classList.contains('hidden') && !forceClose) {
-        
-        // Если переданы координаты (из правого клика)
-        if(coords) {
-            document.getElementById('add-coords').value = `${coords[0].toFixed(5)}, ${coords[1].toFixed(5)}`;
-            window.tempAddCoords = coords; // Сохраняем для карты
+    const m = document.getElementById('add-modal');
+    const c = document.getElementById('add-modal-content');
+    const coordsInput = document.getElementById('add-coords');
+
+    if (m && m.classList.contains('hidden') && !forceClose) {
+        if (coords && coordsInput) {
+            coordsInput.value = `${Number(coords[0]).toFixed(5)}, ${Number(coords[1]).toFixed(5)}`;
+            window.tempAddCoords = coords;
         }
-        
-        m.classList.remove('hidden'); void m.offsetWidth; m.classList.remove('opacity-0', 'pointer-events-none'); c.classList.remove('scale-95');
-        
-        // Обновляем список субкатегорий при открытии
+
+        if (m && c) {
+            m.classList.remove('hidden');
+            void m.offsetWidth;
+            m.classList.remove('opacity-0', 'pointer-events-none');
+            c.classList.remove('scale-95');
+        }
+
         window.updateUcsSubcats();
-    } else if (m) {
-        m.classList.add('opacity-0', 'pointer-events-none'); c.classList.add('scale-95'); setTimeout(() => { m.classList.add('hidden') }, 300);
+        return;
+    }
+
+    if (m && c) {
+        m.classList.add('opacity-0', 'pointer-events-none');
+        c.classList.add('scale-95');
+        setTimeout(() => {
+            if (m.classList.contains('opacity-0')) m.classList.add('hidden');
+        }, 300);
     }
 }
 window.closeAddModalSafely = function() { window.toggleAddModal(true); }
@@ -481,28 +561,40 @@ window.toggleSidebar = function() {
 window.initSwipeHandlers = function() {
     const lbOverlay = document.getElementById('lightbox-overlay');
     let touchStartX = 0;
-    if(lbOverlay) {
-        lbOverlay.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, {passive: true});
-        lbOverlay.addEventListener('touchend', e => { 
-            let touchEndX = e.changedTouches[0].screenX; 
-            if(touchStartX - touchEndX > 50) window.nextLightbox();
-            if(touchEndX - touchStartX > 50) window.prevLightbox();
-        }, {passive: true});
+    if (lbOverlay) {
+        lbOverlay.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
+        lbOverlay.addEventListener('touchend', e => {
+            const touchEndX = e.changedTouches[0].screenX;
+            const diffX = touchStartX - touchEndX;
+            if (Math.abs(diffX) > 50) {
+                if (diffX > 0) window.nextLightbox();
+                else window.prevLightbox();
+            }
+        }, { passive: true });
     }
 
     const playerCardEl = document.getElementById('player-card');
-    let playerTouchStartY = 0;
-    if(playerCardEl) {
-        playerCardEl.addEventListener('touchstart', e => { 
-            if(e.target.closest('#ambi-sphere-pad') || e.target.tagName.toLowerCase() === 'input') return;
-            playerTouchStartY = e.touches[0].screenY; 
-        }, {passive: true});
-        playerCardEl.addEventListener('touchend', e => { 
-            if(e.target.closest('#ambi-sphere-pad') || e.target.tagName.toLowerCase() === 'input') return;
-            let playerTouchEndY = e.changedTouches[0].screenY; 
-            let diffY = playerTouchEndY - playerTouchStartY;
-            if(diffY > 50) window.closePlayerCard(); 
-            else if(diffY < -50) window.openDetailsModal(); 
-        }, {passive: true});
+    if (playerCardEl) {
+        let playerTouchStartY = 0;
+        let playerTouchActive = false;
+
+        playerCardEl.addEventListener('touchstart', e => {
+            if (e.target.closest('#ambi-sphere-pad') || e.target.tagName.toLowerCase() === 'input') return;
+            playerTouchStartY = e.touches[0].screenY;
+            playerTouchActive = true;
+        }, { passive: true });
+
+        playerCardEl.addEventListener('touchend', e => {
+            if (!playerTouchActive) return;
+            playerTouchActive = false;
+            if (e.target.closest('#ambi-sphere-pad') || e.target.tagName.toLowerCase() === 'input') return;
+
+            const playerTouchEndY = e.changedTouches[0].screenY;
+            const diffY = playerTouchEndY - playerTouchStartY;
+            if (Math.abs(diffY) > 50) {
+                if (diffY > 0) window.closePlayerCard();
+                else window.openDetailsModal();
+            }
+        }, { passive: true });
     }
 };

@@ -323,18 +323,18 @@ window.setupAudioEvents = function() {
 
 window.closePlayerCard = function() {
     window.isPlaying = false;
-    if (window.audioElement) window.audioElement.pause(); 
+    if (window.audioElement) window.audioElement.pause();
     if (window.animationFrameId) cancelAnimationFrame(window.animationFrameId);
     if (window.mockInterval) clearInterval(window.mockInterval);
-            
+
     const card = document.getElementById('player-card');
-    if(card) card.classList.add('translate-y-[150%]', 'opacity-0');
-    window.currentPlayingId = null; 
-            
+    if (card) card.classList.add('translate-y-[150%]', 'opacity-0');
+
     const ambiControl = document.getElementById('ambisonics-control');
     if (ambiControl) ambiControl.classList.add('hidden');
 
+    window.currentPlayingId = null;
     window.clearMapRoutes();
-    window.updateMapMarkers(); 
+    window.updateMapMarkers();
     window.renderList();
 }
