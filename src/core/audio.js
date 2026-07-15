@@ -386,22 +386,32 @@ window.formatHzLabel = function(hz) {
     return String(Math.round(hz));
 };
 
-window.freqToColor = function(value) {
+// iZotope RX-style heatmap colormap: near-black/navy → magenta → red/orange → yellow/white
+window.izotopeColorStops = [
+    { t: 0.00, c: [10, 10, 30] },
+    { t: 0.14, c: [30, 12, 55] },
+    { t: 0.34, c: [138, 43, 226] },
+    { t: 0.56, c: [255, 69, 0] },
+    { t: 0.74, c: [255, 165, 0] },
+    { t: 0.90, c: [255, 255, 0] },
+    { t: 1.00, c: [255, 255, 255] }
+];
+
+window.izotopeColor = function(value) {
     const v = Math.max(0, Math.min(1, value));
-    if (v < 0.25) {
-        const t = v / 0.25;
-        return [0, Math.round(40 + t * 80), Math.round(80 + t * 100)];
+    const stops = window.izotopeColorStops;
+    for (let i = 0; i < stops.length - 1; i++) {
+        const a = stops[i], b = stops[i + 1];
+        if (v >= a.t && v <= b.t) {
+            const localT = (v - a.t) / (b.t - a.t || 1);
+            const r = Math.round(a.c[0] + (b.c[0] - a.c[0]) * localT);
+            const g = Math.round(a.c[1] + (b.c[1] - a.c[1]) * localT);
+            const bch = Math.round(a.c[2] + (b.c[2] - a.c[2]) * localT);
+            return `rgb(${r},${g},${bch})`;
+        }
     }
-    if (v < 0.5) {
-        const t = (v - 0.25) / 0.25;
-        return [0, Math.round(120 + t * 100), Math.round(180 - t * 40)];
-    }
-    if (v < 0.75) {
-        const t = (v - 0.5) / 0.25;
-        return [Math.round(t * 240), Math.round(220 - t * 40), Math.round(40 - t * 40)];
-    }
-    const t = (v - 0.75) / 0.25;
-    return [Math.round(240 + t * 15), Math.round(180 + t * 75), Math.round(t * 255)];
+    const last = stops[stops.length - 1].c;
+    return `rgb(${last[0]},${last[1]},${last[2]})`;
 };
 
 // Picks a channel pair for the Lissajous/vectorscope plot depending on layout
@@ -430,12 +440,30 @@ window.resizeAnalyzerCanvas = function(canvas, minCssHeight) {
     canvas.height = Math.max(Math.floor(minCssHeight * dpr), Math.floor(cssH * dpr));
 };
 
+window.primeSpectrogramCanvas = function() {
+    const canvas = document.getElementById('spectrum-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = window.izotopeColor(0);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+};
+
+window.renderSpectrogramAxis = function() {
+    const axis = document.getElementById('spectrum-freq-axis');
+    if (!axis || axis.childElementCount) return;
+    const ticks = ['20k', '5k', '1k', '200', '20'];
+    axis.innerHTML = ticks.map(t => `<span>${t}</span>`).join('');
+};
+
 window.resizeAnalyzerCanvases = function() {
     window.resizeAnalyzerCanvas(document.getElementById('goniometer-canvas'), 130);
     window.resizeAnalyzerCanvas(document.getElementById('spectrum-canvas'), 130);
+    window.primeSpectrogramCanvas();
+    window.renderSpectrogramAxis();
 };
 
-// --- Module 1: Goniometer / Vectorscope (Lissajous) ---
+// --- Module 1: Goniometer / Vectorscope (Lissajous, phosphor trail) ---
 window.drawGoniometerFrame = function() {
     const canvas = document.getElementById('goniometer-canvas');
     if (!canvas) return;
@@ -447,7 +475,7 @@ window.drawGoniometerFrame = function() {
     const scale = Math.min(w, h) / 2 * 0.82;
 
     // Fade previous trail instead of clearing, for a smooth phosphor-like decay
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.24)';
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.2)';
     ctx.fillRect(0, 0, w, h);
 
     // Grid redrawn at full opacity every frame so it never fades out
@@ -480,10 +508,11 @@ window.drawGoniometerFrame = function() {
     analyserA.getFloatTimeDomainData(window._gonioBufA);
     analyserB.getFloatTimeDomainData(window._gonioBufB);
 
-    ctx.strokeStyle = '#22d3ee';
-    ctx.lineWidth = 1.3;
-    ctx.shadowColor = 'rgba(34, 211, 238, 0.65)';
-    ctx.shadowBlur = 5;
+    // Neon teal/cyan stroke with a soft glow — kept light to protect frame rate
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = 'rgba(56, 189, 248, 0.55)';
+    ctx.shadowBlur = 4;
     ctx.beginPath();
     const step = Math.max(1, Math.floor(n / 360));
     for (let i = 0; i < n; i += step) {
@@ -497,19 +526,17 @@ window.drawGoniometerFrame = function() {
     ctx.shadowBlur = 0;
 };
 
-// --- Module 2: Frequency Analyzer (logarithmic spectrum) ---
+// --- Module 2: Spectrogram (scrolling heatmap / waterfall, iZotope RX style) ---
 window.drawSpectrumFrame = function() {
     const canvas = document.getElementById('spectrum-canvas');
     if (!canvas || !window.analyserNode || !window.audioContext) return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
     const w = canvas.width, h = canvas.height;
-    const padL = 30, padB = 14;
-    const plotW = w - padL, plotH = h - padB;
 
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(0, 0, w, h);
+    // Scroll the whole heatmap 1px to the left; the new column is drawn at the right edge
+    ctx.drawImage(canvas, -1, 0);
 
     const binCount = window.analyserNode.frequencyBinCount;
     if (!window._spectrumData || window._spectrumData.length !== binCount) {
@@ -522,60 +549,14 @@ window.drawSpectrumFrame = function() {
     const minFreq = 20, maxFreq = Math.min(20000, nyquist);
     const minLog = Math.log10(minFreq), maxLog = Math.log10(maxFreq);
 
-    // dB grid + Y axis label
-    const minDb = window.analyserNode.minDecibels, maxDb = window.analyserNode.maxDecibels;
-    const dbTicks = [-10, -30, -50, -70, -90].filter(v => v >= minDb && v <= maxDb);
-    ctx.font = '8px ui-monospace, SFMono-Regular, Menlo, monospace';
-    ctx.textBaseline = 'middle';
-    dbTicks.forEach(db => {
-        const y = plotH - ((db - minDb) / (maxDb - minDb)) * plotH;
-        ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)';
-        ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w, y); ctx.stroke();
-        ctx.fillStyle = 'rgba(148, 163, 184, 0.75)';
-        ctx.fillText(`${db}`, 1, y);
-    });
-    ctx.textBaseline = 'alphabetic';
-    ctx.save();
-    ctx.translate(9, plotH / 2);
-    ctx.rotate(-Math.PI / 2);
-    ctx.fillStyle = 'rgba(148, 163, 184, 0.55)';
-    ctx.textAlign = 'center';
-    ctx.fillText('dB', 0, 0);
-    ctx.restore();
-
-    // Frequency grid + X axis label (log scale, 20 Hz .. 20 kHz)
-    const freqTicks = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
-        .filter(f => f >= minFreq && f <= maxFreq);
-    ctx.textAlign = 'center';
-    freqTicks.forEach(f => {
-        const x = padL + ((Math.log10(f) - minLog) / (maxLog - minLog)) * plotW;
-        ctx.strokeStyle = 'rgba(148, 163, 184, 0.1)';
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, plotH); ctx.stroke();
-        ctx.fillStyle = 'rgba(148, 163, 184, 0.7)';
-        ctx.fillText(window.formatHzLabel(f), x, h - 3);
-    });
-    ctx.textAlign = 'right';
-    ctx.fillStyle = 'rgba(148, 163, 184, 0.55)';
-    ctx.fillText('Hz', w - 2, h - 3);
-    ctx.textAlign = 'left';
-
-    // Bars (log-spaced), colored by amplitude
-    const barCount = Math.max(24, Math.min(160, Math.floor(plotW / 3)));
-    for (let i = 0; i < barCount; i++) {
-        const t0 = i / barCount, t1 = (i + 1) / barCount;
-        const f0 = Math.pow(10, minLog + t0 * (maxLog - minLog));
-        const bin = Math.max(0, Math.min(binCount - 1, Math.round((f0 / nyquist) * binCount)));
-        const mag = window._spectrumData[bin] / 255;
-        const barH = mag * plotH;
-        const x = padL + t0 * plotW;
-        const barW = Math.max(1, (t1 - t0) * plotW - 1);
-        const [r, g, b] = window.freqToColor(mag);
-
-        const grad = ctx.createLinearGradient(0, plotH, 0, plotH - barH);
-        grad.addColorStop(0, `rgba(${r},${g},${b},0.55)`);
-        grad.addColorStop(1, `rgb(${r},${g},${b})`);
-        ctx.fillStyle = grad;
-        ctx.fillRect(x, plotH - barH, barW, barH);
+    // Bottom = bass (more screen space via log scale), top = highs
+    for (let y = 0; y < h; y++) {
+        const t = 1 - y / h;
+        const freq = Math.pow(10, minLog + t * (maxLog - minLog));
+        const bin = Math.max(0, Math.min(binCount - 1, Math.round((freq / nyquist) * binCount)));
+        const mag = Math.pow(window._spectrumData[bin] / 255, 0.85);
+        ctx.fillStyle = window.izotopeColor(mag);
+        ctx.fillRect(w - 1, y, 1, 1);
     }
 };
 
@@ -606,8 +587,8 @@ window.buildAnalyzerMetersUI = function() {
                     <div id="loudness-peak-${i}" class="loudness-peak-v"></div>
                     <div id="loudness-cover-${i}" class="loudness-cover-v"></div>
                 </div>
-                <span class="loudness-ch-label">${label}</span>
-                <span id="loudness-db-${i}" class="loudness-db-label-v">−∞</span>
+                <span class="loudness-ch-label font-mono">${label}</span>
+                <span id="loudness-db-${i}" class="loudness-db-label-v font-mono">−∞</span>
             </div>
         `).join('');
     }
@@ -631,11 +612,11 @@ window.updateLoudnessPeak = function(i, pct) {
 
     if (pct >= currentPeak) {
         window.loudnessPeaks[i] = pct;
-        window.loudnessPeakHold[i] = 26; // ~0.4s hold at 60fps before falling
+        window.loudnessPeakHold[i] = 84; // ~1.4s hold at 60fps before falling
     } else if ((window.loudnessPeakHold[i] || 0) > 0) {
         window.loudnessPeakHold[i] -= 1;
     } else {
-        window.loudnessPeaks[i] = Math.max(pct, currentPeak - 1.1);
+        window.loudnessPeaks[i] = Math.max(pct, currentPeak - 1.4);
     }
     return window.loudnessPeaks[i];
 };

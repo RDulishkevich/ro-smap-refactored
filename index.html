@@ -198,43 +198,44 @@
                     </div>
 
                     <!-- Гониометр (Стереокартина / Lissajous) -->
-                    <div class="analyzer-block">
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3">
                         <div class="flex justify-between items-center mb-2">
-                            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider" data-lang="goniometer_title">Гониометр (Стереокартина)</span>
-                            <span id="goniometer-meta" class="text-[9px] font-mono font-semibold text-cyan-600 dark:text-cyan-400">L / R</span>
+                            <span class="text-[10px] uppercase text-slate-500 font-bold tracking-widest" data-lang="goniometer_title">Гониометр (Стереокартина)</span>
+                            <span id="goniometer-meta" class="text-[9px] font-mono font-semibold text-cyan-400">L / R</span>
                         </div>
                         <div class="goniometer-canvas-wrap">
                             <canvas id="goniometer-canvas" width="260" height="130"></canvas>
                         </div>
                         <div id="stereo-panner-row" class="flex items-center gap-2 mt-3">
-                            <span class="text-[9px] font-bold text-slate-400 w-3 text-center">L</span>
-                            <input type="range" id="stereo-panner-slider" min="-1" max="1" step="0.01" value="0" class="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600" oninput="window.setStereoPan(this.value)">
-                            <span class="text-[9px] font-bold text-slate-400 w-3 text-center">R</span>
-                            <span id="panner-value" class="text-[10px] font-mono font-semibold text-blue-600 dark:text-blue-400 w-12 text-right">C</span>
+                            <span class="text-[9px] font-bold text-slate-500 w-3 text-center">L</span>
+                            <input type="range" id="stereo-panner-slider" min="-1" max="1" step="0.01" value="0" class="flex-1 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500" oninput="window.setStereoPan(this.value)">
+                            <span class="text-[9px] font-bold text-slate-500 w-3 text-center">R</span>
+                            <span id="panner-value" class="text-[10px] font-mono font-semibold text-sky-400 w-12 text-right">C</span>
                         </div>
                     </div>
 
-                    <!-- Частотный анализатор -->
-                    <div class="analyzer-block">
+                    <!-- Спектрограмма (Waterfall, iZotope RX style) -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3">
                         <div class="flex justify-between items-center mb-2">
-                            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider" data-lang="frequency_analyzer_title">Частотный анализатор</span>
-                            <span class="text-[9px] font-semibold text-slate-400">Hz / dB</span>
+                            <span class="text-[10px] uppercase text-slate-500 font-bold tracking-widest" data-lang="frequency_analyzer_title">Спектрограмма</span>
+                            <span class="text-[9px] font-mono font-semibold text-slate-500">Hz · dB→color</span>
                         </div>
-                        <div class="spectrum-canvas-wrap">
+                        <div class="spectrum-canvas-wrap relative">
+                            <div id="spectrum-freq-axis" class="spectrum-freq-axis" aria-hidden="true"></div>
                             <canvas id="spectrum-canvas" width="600" height="130"></canvas>
                         </div>
                     </div>
 
                     <!-- Loudness Meter -->
-                    <div class="analyzer-block">
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3">
                         <div class="flex justify-between items-center mb-2">
-                            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider" data-lang="loudness_meter">Loudness Meter</span>
-                            <span id="loudness-db-label" class="text-[10px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">−∞ dB</span>
+                            <span class="text-[10px] uppercase text-slate-500 font-bold tracking-widest" data-lang="loudness_meter">Loudness Meter</span>
+                            <span id="loudness-db-label" class="text-[10px] font-mono font-semibold text-emerald-400">−∞ dB</span>
                         </div>
                         <div id="loudness-meter-v" class="loudness-meter-v" aria-hidden="true"></div>
                         <div class="flex justify-between items-center mt-1.5 px-0.5">
-                            <span class="text-[8px] font-semibold text-slate-400">RMS · Peak hold</span>
-                            <span id="loudness-meter-meta" class="text-[8px] font-mono font-semibold text-slate-400">2 ch</span>
+                            <span class="text-[8px] font-semibold text-slate-500">RMS · Peak hold</span>
+                            <span id="loudness-meter-meta" class="text-[8px] font-mono font-semibold text-slate-500">2 ch</span>
                         </div>
                     </div>
                 </div>
