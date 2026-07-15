@@ -998,5 +998,28 @@ window.initSwipeHandlers = function() {
                 else window.openDetailsModal();
             }
         }, { passive: true });
+
+        // Mouse-drag equivalent for desktop: click-drag up/down on the card mirrors the
+        // mobile swipe (open details / close player), so the gesture isn't phone-only.
+        let playerMouseStartY = 0;
+        let playerMouseActive = false;
+
+        playerCardEl.addEventListener('mousedown', e => {
+            if (isSwipeNavBlocked(e)) { playerMouseActive = false; return; }
+            playerMouseStartY = e.clientY;
+            playerMouseActive = true;
+        });
+
+        window.addEventListener('mouseup', e => {
+            if (!playerMouseActive) return;
+            playerMouseActive = false;
+            if (isSwipeNavBlocked(e)) return;
+
+            const diffY = e.clientY - playerMouseStartY;
+            if (Math.abs(diffY) > 50) {
+                if (diffY > 0) window.closePlayerCard();
+                else window.openDetailsModal();
+            }
+        });
     }
 };
