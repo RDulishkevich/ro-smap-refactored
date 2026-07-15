@@ -736,6 +736,8 @@ window.selectSound = function(id) {
         if (window.audioElement) { window.audioElement.pause(); window.audioElement.removeAttribute('src'); }
         window.prepareMockPlayback(s);
     }
+
+    if (window.refreshAnalyzerMetersIfOpen) window.refreshAnalyzerMetersIfOpen();
 }
 
 window.openDetailsModal = function() {

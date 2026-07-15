@@ -66,15 +66,7 @@ window.ensureAudioGraph = async function() {
             window.analyserNode.maxDecibels = -10;
         }
 
-        if (!window.channelSplitter) {
-            window.channelSplitter = window.audioContext.createChannelSplitter(2);
-            window.analyserL = window.audioContext.createAnalyser();
-            window.analyserR = window.audioContext.createAnalyser();
-            window.analyserL.fftSize = 1024;
-            window.analyserR.fftSize = 1024;
-            window.analyserL.smoothingTimeConstant = 0.5;
-            window.analyserR.smoothingTimeConstant = 0.5;
-        }
+        window.setupChannelAnalysers(window.getCurrentChannelLayout().count);
 
         if (!window.isAmbisonicMode && !window._normalAudioRouted) {
             window.routeNormalAudio();
@@ -96,22 +88,92 @@ window.disconnectAudioGraph = function() {
         window.gainNode,
         window.analyserNode,
         window.channelSplitter,
-        window.analyserL,
-        window.analyserR,
         window.foaDecoder && window.foaDecoder.output
     ];
+    if (Array.isArray(window.channelAnalysers)) {
+        nodes.push(...window.channelAnalysers);
+    }
     nodes.forEach(node => {
         if (!node) return;
         try { node.disconnect(); } catch (e) {}
     });
 };
 
-window.connectAnalyzerTaps = function(fromNode) {
-    if (!fromNode || !window.analyserNode || !window.channelSplitter) return;
-    try { fromNode.connect(window.analyserNode); } catch (e) {}
-    try { fromNode.connect(window.channelSplitter); } catch (e) {}
-    try { window.channelSplitter.connect(window.analyserL, 0); } catch (e) {}
-    try { window.channelSplitter.connect(window.analyserR, 1); } catch (e) {}
+window.connectAnalyzerTaps = function(mixNode) {
+    if (mixNode && window.analyserNode) {
+        try { mixNode.connect(window.analyserNode); } catch (e) {}
+    }
+    if (window.audioElementSource && window.channelSplitter && Array.isArray(window.channelAnalysers)) {
+        try { window.audioElementSource.connect(window.channelSplitter); } catch (e) {}
+        window.channelAnalysers.forEach((analyser, i) => {
+            try { window.channelSplitter.connect(analyser, i); } catch (e) {}
+        });
+    }
+};
+
+window.getCurrentChannelLayout = function() {
+    const sound = window.soundsData && window.currentPlayingId
+        ? window.soundsData.find(x => x.id === window.currentPlayingId)
+        : null;
+    return window.getChannelLayout(sound);
+};
+
+window.getChannelLayout = function(sound) {
+    const raw = (sound && sound.channels ? String(sound.channels) : 'Stereo').toLowerCase();
+    let layout;
+
+    if (raw.includes('ambison')) {
+        layout = { count: 4, labels: ['W', 'X', 'Y', 'Z'], kind: 'ambisonics' };
+    } else if (raw.includes('mono')) {
+        layout = { count: 1, labels: ['M'], kind: 'mono' };
+    } else if (raw.includes('binaural')) {
+        layout = { count: 2, labels: ['L', 'R'], kind: 'binaural' };
+    } else {
+        layout = { count: 2, labels: ['L', 'R'], kind: 'stereo' };
+    }
+
+    // Prefer real MediaElementSource channel count when browser exposes it
+    const srcCount = window.audioElementSource && window.audioElementSource.channelCount
+        ? window.audioElementSource.channelCount
+        : 0;
+    if (srcCount > layout.count && srcCount <= 8) {
+        const labels = [];
+        for (let i = 0; i < srcCount; i++) {
+            labels.push(layout.labels[i] || `Ch${i + 1}`);
+        }
+        layout = { ...layout, count: srcCount, labels };
+    }
+
+    return layout;
+};
+
+window.setupChannelAnalysers = function(channelCount) {
+    if (!window.audioContext) return false;
+    const n = Math.max(1, Math.min(8, channelCount || 2));
+
+    if (window.channelAnalysers && window.channelAnalysers.length === n && window.channelSplitter) {
+        window.meterChannelCount = n;
+        return false;
+    }
+
+    if (window.channelSplitter) {
+        try { window.channelSplitter.disconnect(); } catch (e) {}
+    }
+    if (Array.isArray(window.channelAnalysers)) {
+        window.channelAnalysers.forEach(a => { try { a.disconnect(); } catch (e) {} });
+    }
+
+    window.channelSplitter = window.audioContext.createChannelSplitter(n);
+    window.channelAnalysers = [];
+    for (let i = 0; i < n; i++) {
+        const analyser = window.audioContext.createAnalyser();
+        analyser.fftSize = 1024;
+        analyser.smoothingTimeConstant = 0.5;
+        window.channelAnalysers.push(analyser);
+    }
+    window.meterChannelCount = n;
+    window.loudnessPeaks = new Array(n).fill(0);
+    return true;
 };
 
 window.routeNormalAudio = function() {
@@ -252,6 +314,7 @@ window.toggleAmbisonics = function() {
         if(angleDisplay) angleDisplay.textContent = `Y: 0° | P: 0°`;
         window.updateAmbisonicRotation(0, 0);
     }
+    if (window.refreshAnalyzerMetersIfOpen) window.refreshAnalyzerMetersIfOpen();
 }
 
 // --- Analyzers panel ---
@@ -300,8 +363,89 @@ window.rmsFromAnalyser = function(analyser) {
     return Math.sqrt(sum / buf.length);
 };
 
+window.dbToMeterPercent = function(db) {
+    if (!isFinite(db)) return 0;
+    return Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
+};
+
+window.formatHzLabel = function(hz) {
+    if (hz >= 1000) {
+        const k = hz / 1000;
+        return (k >= 10 ? Math.round(k) : Math.round(k * 10) / 10) + 'k';
+    }
+    return String(Math.round(hz));
+};
+
+window.renderSpectrogramAxes = function() {
+    const hzAxis = document.getElementById('spectrogram-hz-axis');
+    const dbAxis = document.getElementById('spectrogram-db-axis');
+    if (!hzAxis || !dbAxis) return;
+
+    const sampleRate = window.audioContext ? window.audioContext.sampleRate : 48000;
+    const maxFreq = (sampleRate / 2) * 0.55;
+    const freqAtRatio = (ratio) => Math.pow(ratio, 1.4) * maxFreq;
+    const hzTicks = [1, 0.72, 0.42, 0.18].map(r => window.formatHzLabel(freqAtRatio(r)));
+
+    hzAxis.innerHTML = hzTicks.map(t => `<span>${t}</span>`).join('') +
+        '<span class="spec-axis-unit">Hz</span>';
+
+    dbAxis.innerHTML = ['-10', '-30', '-50', '-70']
+        .map(t => `<span>${t}</span>`).join('') +
+        '<span class="spec-axis-unit">dB</span>';
+};
+
+window.buildAnalyzerMetersUI = function() {
+    const layout = window.getCurrentChannelLayout();
+    const rebuilt = window.setupChannelAnalysers(layout.count);
+
+    if (rebuilt) {
+        if (window.isAmbisonicMode && window.foaDecoder) {
+            window.routeAmbisonics();
+        } else if (window.audioElementSource && window.gainNode) {
+            window.routeNormalAudio();
+        }
+    }
+
+    const meta = document.getElementById('stereo-image-meta');
+    if (meta) meta.textContent = `${layout.count} ch · ${layout.kind}`;
+
+    const stereoWrap = document.getElementById('stereo-image-meters');
+    if (stereoWrap) {
+        stereoWrap.innerHTML = layout.labels.map((label, i) => `
+            <div class="stereo-image-col">
+                <div class="stereo-image-track">
+                    <div id="stereo-fill-${i}" class="stereo-image-fill"></div>
+                </div>
+                <span class="stereo-image-label">${label}</span>
+            </div>
+        `).join('');
+    }
+
+    const loudnessWrap = document.getElementById('loudness-meter');
+    if (loudnessWrap) {
+        loudnessWrap.innerHTML = layout.labels.map((label, i) => `
+            <div class="loudness-channel">
+                <span class="loudness-ch-label">${label}</span>
+                <div class="loudness-bar-track">
+                    <div id="loudness-bar-${i}" class="loudness-bar-fill"></div>
+                    <div id="loudness-peak-${i}" class="loudness-peak"></div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    const panRow = document.getElementById('stereo-panner-row');
+    const panSlider = document.getElementById('stereo-panner-slider');
+    const canPan = layout.kind === 'stereo' || layout.kind === 'binaural';
+    if (panRow) panRow.classList.toggle('hidden', !canPan || !!window.isAmbisonicMode);
+    if (panSlider) panSlider.disabled = !canPan || !!window.isAmbisonicMode;
+
+    window.loudnessPeaks = new Array(layout.count).fill(0);
+    window.currentChannelLayout = layout;
+    window.renderSpectrogramAxes();
+};
+
 window.freqToColor = function(value) {
-    // value 0..1 → dark blue → cyan → yellow → white
     const v = Math.max(0, Math.min(1, value));
     if (v < 0.25) {
         const t = v / 0.25;
@@ -332,7 +476,6 @@ window.drawSpectrogramFrame = function() {
     const data = new Uint8Array(binCount);
     window.analyserNode.getByteFrequencyData(data);
 
-    // Scroll left by 1px
     const imageData = ctx.getImageData(1, 0, w - 1, h);
     ctx.putImageData(imageData, 0, 0);
 
@@ -347,50 +490,51 @@ window.drawSpectrogramFrame = function() {
     }
 };
 
-window.drawLoudnessFrame = function() {
-    const rmsL = window.rmsFromAnalyser(window.analyserL);
-    const rmsR = window.rmsFromAnalyser(window.analyserR);
-    const dbL = window.dbFromRms(rmsL);
-    const dbR = window.dbFromRms(rmsR);
-    const dbMax = Math.max(dbL === -Infinity ? -100 : dbL, dbR === -Infinity ? -100 : dbR);
+window.drawChannelMetersFrame = function() {
+    const analysers = window.channelAnalysers || [];
+    const layout = window.currentChannelLayout || window.getCurrentChannelLayout();
+    if (!analysers.length) return;
 
-    const toPercent = (db) => {
-        if (!isFinite(db)) return 0;
-        // Map -60..0 dB to 0..100%
-        return Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
-    };
+    if (!window.loudnessPeaks || window.loudnessPeaks.length !== analysers.length) {
+        window.loudnessPeaks = new Array(analysers.length).fill(0);
+    }
 
-    const pctL = toPercent(dbL);
-    const pctR = toPercent(dbR);
+    let dbMax = -Infinity;
 
-    window.loudnessPeakL = Math.max((window.loudnessPeakL || 0) * 0.985, pctL);
-    window.loudnessPeakR = Math.max((window.loudnessPeakR || 0) * 0.985, pctR);
+    analysers.forEach((analyser, i) => {
+        const rms = window.rmsFromAnalyser(analyser);
+        const db = window.dbFromRms(rms);
+        const pct = window.dbToMeterPercent(db);
+        if (isFinite(db) && db > dbMax) dbMax = db;
 
-    const barL = document.getElementById('loudness-bar-l');
-    const barR = document.getElementById('loudness-bar-r');
-    const peakL = document.getElementById('loudness-peak-l');
-    const peakR = document.getElementById('loudness-peak-r');
+        window.loudnessPeaks[i] = Math.max((window.loudnessPeaks[i] || 0) * 0.985, pct);
+
+        const stereoFill = document.getElementById(`stereo-fill-${i}`);
+        const bar = document.getElementById(`loudness-bar-${i}`);
+        const peak = document.getElementById(`loudness-peak-${i}`);
+        if (stereoFill) stereoFill.style.height = `${pct}%`;
+        if (bar) bar.style.width = `${pct}%`;
+        if (peak) peak.style.left = `calc(${window.loudnessPeaks[i]}% - 1px)`;
+    });
+
     const label = document.getElementById('loudness-db-label');
-
-    if (barL) barL.style.width = `${pctL}%`;
-    if (barR) barR.style.width = `${pctR}%`;
-    if (peakL) peakL.style.left = `calc(${window.loudnessPeakL}% - 1px)`;
-    if (peakR) peakR.style.left = `calc(${window.loudnessPeakR}% - 1px)`;
     if (label) {
         label.textContent = !isFinite(dbMax) || dbMax <= -90
             ? '−∞ dB'
-            : `${dbMax.toFixed(1)} dB`;
+            : `${dbMax.toFixed(1)} dB · ${layout.count} ch`;
     }
 };
 
 window.startAnalyzerLoop = function() {
     if (window.analyzerFrameId) cancelAnimationFrame(window.analyzerFrameId);
 
+    window.buildAnalyzerMetersUI();
+
     const canvas = document.getElementById('spectrogram-canvas');
     if (canvas) {
         const wrap = canvas.parentElement;
         const cssW = wrap ? wrap.clientWidth : 300;
-        const cssH = wrap ? wrap.clientHeight : 96;
+        const cssH = wrap ? wrap.clientHeight : 112;
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
         canvas.width = Math.max(200, Math.floor(cssW * dpr));
         canvas.height = Math.max(80, Math.floor(cssH * dpr));
@@ -401,13 +545,10 @@ window.startAnalyzerLoop = function() {
         }
     }
 
-    window.loudnessPeakL = 0;
-    window.loudnessPeakR = 0;
-
     const tick = () => {
         if (!window.analyzersOpen) return;
         window.drawSpectrogramFrame();
-        window.drawLoudnessFrame();
+        window.drawChannelMetersFrame();
         window.analyzerFrameId = requestAnimationFrame(tick);
     };
     window.analyzerFrameId = requestAnimationFrame(tick);
@@ -436,6 +577,11 @@ window.collapsePlayerAnalyzers = function() {
     document.body.classList.remove('player-analyzers-open');
 };
 
+window.refreshAnalyzerMetersIfOpen = function() {
+    if (!window.analyzersOpen) return;
+    window.buildAnalyzerMetersUI();
+};
+
 window.togglePlayerAnalyzers = async function() {
     const panel = document.getElementById('player-analyzers');
     const card = document.getElementById('player-card');
@@ -458,9 +604,6 @@ window.togglePlayerAnalyzers = async function() {
         if (btn) btn.classList.add('active');
         if (icon) icon.className = 'fa-solid fa-chevron-down text-[12px] md:text-[13px] pointer-events-none';
         document.body.classList.add('player-analyzers-open');
-
-        const panSlider = document.getElementById('stereo-panner-slider');
-        if (panSlider) panSlider.disabled = !!window.isAmbisonicMode;
 
         window.startAnalyzerLoop();
     } else {

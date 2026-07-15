@@ -59,8 +59,10 @@ export function initGlobalState() {
     window.stereoPannerNode = null;
     window.analyserNode = null;
     window.channelSplitter = null;
-    window.analyserL = null;
-    window.analyserR = null;
+    window.channelAnalysers = [];
+    window.meterChannelCount = 2;
+    window.currentChannelLayout = null;
+    window.loudnessPeaks = [];
     window.omnitoneInitialized = false;
     window.isAmbisonicMode = false;
     window.analyzersOpen = false;
