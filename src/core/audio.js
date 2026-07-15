@@ -30,26 +30,112 @@ window.formatTime = function(s) {
     return `${m}:${sec < 10 ? '0' : ''}${sec}`; 
 }
 
-// --- Ambisonics ---
-window.initOmnitone = async function() {
-    if (window.omnitoneInitialized) return true;
+// --- Shared Web Audio graph ---
+window.ensureAudioGraph = async function() {
     try {
-        window.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        window.foaDecoder = Omnitone.createFOARenderer(window.audioContext, {
-            hrirPathUrl: 'https://cdn.jsdelivr.net/npm/omnitone@1.3.0/build/resources/'
-        });
-        await window.foaDecoder.initialize();
-                
+        if (!window.audioContext) {
+            window.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (window.audioContext.state === 'suspended') {
+            await window.audioContext.resume();
+        }
+
         if (window.audioElement) {
-            window.audioElement.crossOrigin = "anonymous";
+            window.audioElement.crossOrigin = 'anonymous';
             if (!window.audioElementSource) {
                 window.audioElementSource = window.audioContext.createMediaElementSource(window.audioElement);
             }
         }
-                
-        window.gainNode = window.audioContext.createGain();
-        if (window.audioElementSource) window.audioElementSource.connect(window.gainNode);
-        window.gainNode.connect(window.audioContext.destination);
+
+        if (!window.gainNode) {
+            window.gainNode = window.audioContext.createGain();
+            const slider = document.getElementById('volume-slider');
+            window.gainNode.gain.value = slider ? parseFloat(slider.value) : 1;
+        }
+
+        if (!window.stereoPannerNode) {
+            window.stereoPannerNode = window.audioContext.createStereoPanner();
+            window.stereoPannerNode.pan.value = window.currentStereoPan || 0;
+        }
+
+        if (!window.analyserNode) {
+            window.analyserNode = window.audioContext.createAnalyser();
+            window.analyserNode.fftSize = 2048;
+            window.analyserNode.smoothingTimeConstant = 0.65;
+            window.analyserNode.minDecibels = -90;
+            window.analyserNode.maxDecibels = -10;
+        }
+
+        if (!window.channelSplitter) {
+            window.channelSplitter = window.audioContext.createChannelSplitter(2);
+            window.analyserL = window.audioContext.createAnalyser();
+            window.analyserR = window.audioContext.createAnalyser();
+            window.analyserL.fftSize = 1024;
+            window.analyserR.fftSize = 1024;
+            window.analyserL.smoothingTimeConstant = 0.5;
+            window.analyserR.smoothingTimeConstant = 0.5;
+        }
+
+        if (!window.isAmbisonicMode && !window._normalAudioRouted) {
+            window.routeNormalAudio();
+        } else if (window.isAmbisonicMode && window.foaDecoder && !window._ambiAudioRouted) {
+            window.routeAmbisonics();
+        }
+
+        return true;
+    } catch (err) {
+        console.error('Web Audio graph error:', err);
+        return false;
+    }
+};
+
+window.disconnectAudioGraph = function() {
+    const nodes = [
+        window.audioElementSource,
+        window.stereoPannerNode,
+        window.gainNode,
+        window.analyserNode,
+        window.channelSplitter,
+        window.analyserL,
+        window.analyserR,
+        window.foaDecoder && window.foaDecoder.output
+    ];
+    nodes.forEach(node => {
+        if (!node) return;
+        try { node.disconnect(); } catch (e) {}
+    });
+};
+
+window.connectAnalyzerTaps = function(fromNode) {
+    if (!fromNode || !window.analyserNode || !window.channelSplitter) return;
+    try { fromNode.connect(window.analyserNode); } catch (e) {}
+    try { fromNode.connect(window.channelSplitter); } catch (e) {}
+    try { window.channelSplitter.connect(window.analyserL, 0); } catch (e) {}
+    try { window.channelSplitter.connect(window.analyserR, 1); } catch (e) {}
+};
+
+window.routeNormalAudio = function() {
+    if (!window.audioElementSource || !window.gainNode || !window.stereoPannerNode || !window.audioContext) return;
+    window.disconnectAudioGraph();
+    window.audioElementSource.connect(window.stereoPannerNode);
+    window.stereoPannerNode.connect(window.gainNode);
+    window.gainNode.connect(window.audioContext.destination);
+    window.connectAnalyzerTaps(window.stereoPannerNode);
+    window._normalAudioRouted = true;
+    window._ambiAudioRouted = false;
+};
+
+// --- Ambisonics ---
+window.initOmnitone = async function() {
+    if (window.omnitoneInitialized) return true;
+    try {
+        const ok = await window.ensureAudioGraph();
+        if (!ok) return false;
+
+        window.foaDecoder = Omnitone.createFOARenderer(window.audioContext, {
+            hrirPathUrl: 'https://cdn.jsdelivr.net/npm/omnitone@1.3.0/build/resources/'
+        });
+        await window.foaDecoder.initialize();
 
         window.omnitoneInitialized = true;
         return true;
@@ -61,11 +147,13 @@ window.initOmnitone = async function() {
 
 window.routeAmbisonics = function() {
     if (!window.audioContext || !window.foaDecoder || !window.audioElementSource) return;
-    try { window.audioElementSource.disconnect(); } catch(e){}
-    try { window.gainNode.disconnect(); } catch(e){}
+    window.disconnectAudioGraph();
     window.audioElementSource.connect(window.foaDecoder.input);
     window.foaDecoder.output.connect(window.audioContext.destination);
+    window.connectAnalyzerTaps(window.foaDecoder.output);
     window.foaDecoder.setRenderingMode('ambisonic');
+    window._ambiAudioRouted = true;
+    window._normalAudioRouted = false;
 }
 
 window.updateAmbisonicRotation = function(yawAngle, pitchAngle) {
@@ -132,14 +220,15 @@ window.enableAmbisonicMode = async function() {
         if(window.audioContext && window.audioContext.state === 'suspended') window.audioContext.resume();
         window.routeAmbisonics();
     }
+    const panSlider = document.getElementById('stereo-panner-slider');
+    if (panSlider) panSlider.disabled = true;
 }
 
 window.disableAmbisonicMode = function() {
-    if (!window.audioContext || !window.foaDecoder || !window.audioElementSource) return;
-    try { window.audioElementSource.disconnect(); } catch(e){}
-    try { window.foaDecoder.output.disconnect(); } catch(e){}
-    window.audioElementSource.connect(window.gainNode);
-    window.gainNode.connect(window.audioContext.destination);
+    if (!window.audioContext || !window.audioElementSource) return;
+    window.routeNormalAudio();
+    const panSlider = document.getElementById('stereo-panner-slider');
+    if (panSlider) panSlider.disabled = false;
 }
 
 window.toggleAmbisonics = function() {
@@ -164,6 +253,220 @@ window.toggleAmbisonics = function() {
         window.updateAmbisonicRotation(0, 0);
     }
 }
+
+// --- Analyzers panel ---
+window.setStereoPan = function(val) {
+    const pan = Math.max(-1, Math.min(1, parseFloat(val) || 0));
+    window.currentStereoPan = pan;
+    if (window.stereoPannerNode) window.stereoPannerNode.pan.value = pan;
+
+    const label = document.getElementById('panner-value');
+    if (!label) return;
+    if (Math.abs(pan) < 0.02) label.textContent = 'C';
+    else if (pan < 0) label.textContent = `L ${Math.round(Math.abs(pan) * 100)}%`;
+    else label.textContent = `R ${Math.round(pan * 100)}%`;
+};
+
+window.resetStereoPan = function() {
+    const slider = document.getElementById('stereo-panner-slider');
+    if (slider) {
+        slider.value = 0;
+        slider.disabled = !!window.isAmbisonicMode;
+    }
+    window.setStereoPan(0);
+};
+
+window.dbFromRms = function(rms) {
+    if (!rms || rms < 1e-5) return -Infinity;
+    return 20 * Math.log10(rms);
+};
+
+window.rmsFromAnalyser = function(analyser) {
+    if (!analyser) return 0;
+    if (typeof analyser.getFloatTimeDomainData === 'function') {
+        const buf = new Float32Array(analyser.fftSize);
+        analyser.getFloatTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+        return Math.sqrt(sum / buf.length);
+    }
+    const buf = new Uint8Array(analyser.fftSize);
+    analyser.getByteTimeDomainData(buf);
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) {
+        const v = (buf[i] - 128) / 128;
+        sum += v * v;
+    }
+    return Math.sqrt(sum / buf.length);
+};
+
+window.freqToColor = function(value) {
+    // value 0..1 → dark blue → cyan → yellow → white
+    const v = Math.max(0, Math.min(1, value));
+    if (v < 0.25) {
+        const t = v / 0.25;
+        return [0, Math.round(40 + t * 80), Math.round(80 + t * 100)];
+    }
+    if (v < 0.5) {
+        const t = (v - 0.25) / 0.25;
+        return [0, Math.round(120 + t * 100), Math.round(180 - t * 40)];
+    }
+    if (v < 0.75) {
+        const t = (v - 0.5) / 0.25;
+        return [Math.round(t * 240), Math.round(220 - t * 40), Math.round(40 - t * 40)];
+    }
+    const t = (v - 0.75) / 0.25;
+    return [Math.round(240 + t * 15), Math.round(180 + t * 75), Math.round(t * 255)];
+};
+
+window.drawSpectrogramFrame = function() {
+    const canvas = document.getElementById('spectrogram-canvas');
+    if (!canvas || !window.analyserNode) return;
+
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
+
+    const w = canvas.width;
+    const h = canvas.height;
+    const binCount = window.analyserNode.frequencyBinCount;
+    const data = new Uint8Array(binCount);
+    window.analyserNode.getByteFrequencyData(data);
+
+    // Scroll left by 1px
+    const imageData = ctx.getImageData(1, 0, w - 1, h);
+    ctx.putImageData(imageData, 0, 0);
+
+    const usefulBins = Math.floor(binCount * 0.55);
+    for (let y = 0; y < h; y++) {
+        const ratio = 1 - y / h;
+        const bin = Math.min(usefulBins - 1, Math.floor(Math.pow(ratio, 1.4) * usefulBins));
+        const mag = data[bin] / 255;
+        const [r, g, b] = window.freqToColor(mag);
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.fillRect(w - 1, y, 1, 1);
+    }
+};
+
+window.drawLoudnessFrame = function() {
+    const rmsL = window.rmsFromAnalyser(window.analyserL);
+    const rmsR = window.rmsFromAnalyser(window.analyserR);
+    const dbL = window.dbFromRms(rmsL);
+    const dbR = window.dbFromRms(rmsR);
+    const dbMax = Math.max(dbL === -Infinity ? -100 : dbL, dbR === -Infinity ? -100 : dbR);
+
+    const toPercent = (db) => {
+        if (!isFinite(db)) return 0;
+        // Map -60..0 dB to 0..100%
+        return Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
+    };
+
+    const pctL = toPercent(dbL);
+    const pctR = toPercent(dbR);
+
+    window.loudnessPeakL = Math.max((window.loudnessPeakL || 0) * 0.985, pctL);
+    window.loudnessPeakR = Math.max((window.loudnessPeakR || 0) * 0.985, pctR);
+
+    const barL = document.getElementById('loudness-bar-l');
+    const barR = document.getElementById('loudness-bar-r');
+    const peakL = document.getElementById('loudness-peak-l');
+    const peakR = document.getElementById('loudness-peak-r');
+    const label = document.getElementById('loudness-db-label');
+
+    if (barL) barL.style.width = `${pctL}%`;
+    if (barR) barR.style.width = `${pctR}%`;
+    if (peakL) peakL.style.left = `calc(${window.loudnessPeakL}% - 1px)`;
+    if (peakR) peakR.style.left = `calc(${window.loudnessPeakR}% - 1px)`;
+    if (label) {
+        label.textContent = !isFinite(dbMax) || dbMax <= -90
+            ? '−∞ dB'
+            : `${dbMax.toFixed(1)} dB`;
+    }
+};
+
+window.startAnalyzerLoop = function() {
+    if (window.analyzerFrameId) cancelAnimationFrame(window.analyzerFrameId);
+
+    const canvas = document.getElementById('spectrogram-canvas');
+    if (canvas) {
+        const wrap = canvas.parentElement;
+        const cssW = wrap ? wrap.clientWidth : 300;
+        const cssH = wrap ? wrap.clientHeight : 96;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.max(200, Math.floor(cssW * dpr));
+        canvas.height = Math.max(80, Math.floor(cssH * dpr));
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+    }
+
+    window.loudnessPeakL = 0;
+    window.loudnessPeakR = 0;
+
+    const tick = () => {
+        if (!window.analyzersOpen) return;
+        window.drawSpectrogramFrame();
+        window.drawLoudnessFrame();
+        window.analyzerFrameId = requestAnimationFrame(tick);
+    };
+    window.analyzerFrameId = requestAnimationFrame(tick);
+};
+
+window.stopAnalyzerLoop = function() {
+    if (window.analyzerFrameId) {
+        cancelAnimationFrame(window.analyzerFrameId);
+        window.analyzerFrameId = null;
+    }
+};
+
+window.collapsePlayerAnalyzers = function() {
+    window.analyzersOpen = false;
+    window.stopAnalyzerLoop();
+
+    const panel = document.getElementById('player-analyzers');
+    const card = document.getElementById('player-card');
+    const btn = document.getElementById('btn-analyzer-toggle');
+    const icon = document.getElementById('btn-analyzer-icon');
+
+    if (panel) panel.classList.add('hidden');
+    if (card) card.classList.remove('analyzers-expanded');
+    if (btn) btn.classList.remove('active');
+    if (icon) icon.className = 'fa-solid fa-chart-simple text-[12px] md:text-[13px] pointer-events-none';
+    document.body.classList.remove('player-analyzers-open');
+};
+
+window.togglePlayerAnalyzers = async function() {
+    const panel = document.getElementById('player-analyzers');
+    const card = document.getElementById('player-card');
+    const btn = document.getElementById('btn-analyzer-toggle');
+    const icon = document.getElementById('btn-analyzer-icon');
+    if (!panel || !card) return;
+
+    window.analyzersOpen = !window.analyzersOpen;
+
+    if (window.analyzersOpen) {
+        const ok = await window.ensureAudioGraph();
+        if (!ok) {
+            window.analyzersOpen = false;
+            window.showToast('Web Audio API недоступен в этом браузере');
+            return;
+        }
+
+        panel.classList.remove('hidden');
+        card.classList.add('analyzers-expanded');
+        if (btn) btn.classList.add('active');
+        if (icon) icon.className = 'fa-solid fa-chevron-down text-[12px] md:text-[13px] pointer-events-none';
+        document.body.classList.add('player-analyzers-open');
+
+        const panSlider = document.getElementById('stereo-panner-slider');
+        if (panSlider) panSlider.disabled = !!window.isAmbisonicMode;
+
+        window.startAnalyzerLoop();
+    } else {
+        window.collapsePlayerAnalyzers();
+    }
+};
 
 // --- Playback ---
 window.toggleMainPlay = function() {
@@ -345,11 +648,15 @@ window.closePlayerCard = function() {
         if (window.mockInterval) clearInterval(window.mockInterval);
     }
 
+    window.collapsePlayerAnalyzers();
+    window.resetStereoPan();
+
     if (card) card.classList.add('translate-y-[150%]', 'opacity-0');
     document.body.classList.remove('player-visible');
 
     const ambiControl = document.getElementById('ambisonics-control');
     if (ambiControl) ambiControl.classList.add('hidden');
+    window.isAmbisonicMode = false;
 
     window.currentPlayingId = null;
     window.clearMapRoutes();

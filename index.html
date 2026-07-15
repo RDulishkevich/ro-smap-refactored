@@ -135,7 +135,7 @@
 
         <!-- Плеер -->
         <div class="absolute bottom-0 left-0 right-0 w-full pointer-events-none flex justify-center pb-4 md:pb-6 z-40">
-            <div id="player-card" class="pointer-events-auto bg-white dark:bg-slate-800 rounded-[1.8rem] md:rounded-[2rem] shadow-[0_-8px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_50px_rgba(0,0,0,0.5)] p-4 md:p-5 w-[94%] max-w-md transform translate-y-[150%] opacity-0 border border-slate-50 dark:border-slate-700 relative transition-all duration-500">
+            <div id="player-card" class="pointer-events-auto bg-white dark:bg-slate-800 rounded-[1.8rem] md:rounded-[2rem] shadow-[0_-8px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_50px_rgba(0,0,0,0.5)] p-4 md:p-5 w-[94%] max-w-md transform translate-y-[150%] opacity-0 border border-slate-50 dark:border-slate-700 relative transition-all duration-500 max-h-[85vh] overflow-y-auto custom-scrollbar">
                 
                 <div onclick="window.closePlayerCard()" class="absolute top-0 left-0 right-0 h-6 md:h-8 flex justify-center items-center cursor-pointer z-50">
                     <div class="drag-handle mt-1"></div>
@@ -181,9 +181,68 @@
                             <button onclick="window.openDetailsModal()" class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-slate-700/80 dark:text-blue-400 dark:hover:bg-slate-600 flex items-center justify-center flex-shrink-0 transition-all shadow-sm active:scale-95 ml-1" title="Подробнее">
                                 <i class="fa-solid fa-info text-[13px] md:text-[15px] pointer-events-none"></i>
                             </button>
+                            <button id="btn-analyzer-toggle" onclick="window.togglePlayerAnalyzers()" class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-blue-50 hover:text-blue-600 dark:bg-slate-700/80 dark:text-slate-300 dark:hover:bg-slate-600 dark:hover:text-blue-400 flex items-center justify-center flex-shrink-0 transition-all shadow-sm active:scale-95" title="Анализаторы" data-lang-title="analyzers_title">
+                                <i id="btn-analyzer-icon" class="fa-solid fa-chart-simple text-[12px] md:text-[13px] pointer-events-none"></i>
+                            </button>
                         </div>
                         <div id="player-tags" class="flex flex-wrap gap-1.5 mb-1 mt-0.5"></div>
                         <p id="player-gear" class="text-[9px] text-slate-400 font-semibold truncate"><i class="fa-solid fa-walkie-talkie mr-1"></i>Recorder Name</p>
+                    </div>
+                </div>
+
+                <!-- Анализаторы Web Audio API -->
+                <div id="player-analyzers" class="hidden mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 pointer-events-auto space-y-4">
+                    <div class="flex items-center justify-between px-0.5">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider"><i class="fa-solid fa-wave-square mr-1 text-blue-500"></i><span data-lang="analyzers_title">Анализаторы</span></span>
+                        <span class="text-[9px] font-semibold text-slate-400">Web Audio API</span>
+                    </div>
+
+                    <!-- Stereo Panner -->
+                    <div class="analyzer-block">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider" data-lang="stereo_panner">Stereo Panner</span>
+                            <span id="panner-value" class="text-[10px] font-mono font-semibold text-blue-600 dark:text-blue-400">C</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[9px] font-bold text-slate-400 w-3 text-center">L</span>
+                            <input type="range" id="stereo-panner-slider" min="-1" max="1" step="0.01" value="0" class="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600" oninput="window.setStereoPan(this.value)">
+                            <span class="text-[9px] font-bold text-slate-400 w-3 text-center">R</span>
+                        </div>
+                    </div>
+
+                    <!-- Spectrogram -->
+                    <div class="analyzer-block">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider" data-lang="spectrogram">Spectrogram</span>
+                            <span class="text-[9px] font-semibold text-slate-400">Hz</span>
+                        </div>
+                        <div class="analyzer-canvas-wrap">
+                            <canvas id="spectrogram-canvas" width="600" height="120"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Loudness Meter -->
+                    <div class="analyzer-block">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider" data-lang="loudness_meter">Loudness Meter</span>
+                            <span id="loudness-db-label" class="text-[10px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">−∞ dB</span>
+                        </div>
+                        <div class="loudness-meter" aria-hidden="true">
+                            <div class="loudness-channel">
+                                <span class="loudness-ch-label">L</span>
+                                <div class="loudness-bar-track">
+                                    <div id="loudness-bar-l" class="loudness-bar-fill"></div>
+                                    <div id="loudness-peak-l" class="loudness-peak"></div>
+                                </div>
+                            </div>
+                            <div class="loudness-channel">
+                                <span class="loudness-ch-label">R</span>
+                                <div class="loudness-bar-track">
+                                    <div id="loudness-bar-r" class="loudness-bar-fill"></div>
+                                    <div id="loudness-peak-r" class="loudness-peak"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
