@@ -197,13 +197,15 @@
                         <span class="text-[9px] font-semibold text-slate-400">Web Audio API</span>
                     </div>
 
-                    <!-- Стереокартина / каналы -->
+                    <!-- Гониометр (Стереокартина / Lissajous) -->
                     <div class="analyzer-block">
                         <div class="flex justify-between items-center mb-2">
-                            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider" data-lang="stereo_image">Стереокартина</span>
-                            <span id="stereo-image-meta" class="text-[9px] font-mono font-semibold text-blue-600 dark:text-blue-400">2 ch</span>
+                            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider" data-lang="goniometer_title">Гониометр (Стереокартина)</span>
+                            <span id="goniometer-meta" class="text-[9px] font-mono font-semibold text-cyan-600 dark:text-cyan-400">L / R</span>
                         </div>
-                        <div id="stereo-image-meters" class="stereo-image-meters"></div>
+                        <div class="goniometer-canvas-wrap">
+                            <canvas id="goniometer-canvas" width="260" height="130"></canvas>
+                        </div>
                         <div id="stereo-panner-row" class="flex items-center gap-2 mt-3">
                             <span class="text-[9px] font-bold text-slate-400 w-3 text-center">L</span>
                             <input type="range" id="stereo-panner-slider" min="-1" max="1" step="0.01" value="0" class="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600" oninput="window.setStereoPan(this.value)">
@@ -212,18 +214,14 @@
                         </div>
                     </div>
 
-                    <!-- Spectrogram -->
+                    <!-- Частотный анализатор -->
                     <div class="analyzer-block">
                         <div class="flex justify-between items-center mb-2">
-                            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider" data-lang="spectrogram">Spectrogram</span>
-                            <span class="text-[9px] font-semibold text-slate-400">time →</span>
+                            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider" data-lang="frequency_analyzer_title">Частотный анализатор</span>
+                            <span class="text-[9px] font-semibold text-slate-400">Hz / dB</span>
                         </div>
-                        <div class="spectrogram-plot">
-                            <div id="spectrogram-hz-axis" class="spec-axis-y" aria-hidden="true"></div>
-                            <div class="analyzer-canvas-wrap">
-                                <canvas id="spectrogram-canvas" width="600" height="120"></canvas>
-                            </div>
-                            <div id="spectrogram-db-axis" class="spec-axis-db" aria-hidden="true"></div>
+                        <div class="spectrum-canvas-wrap">
+                            <canvas id="spectrum-canvas" width="600" height="130"></canvas>
                         </div>
                     </div>
 
@@ -233,7 +231,11 @@
                             <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider" data-lang="loudness_meter">Loudness Meter</span>
                             <span id="loudness-db-label" class="text-[10px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">−∞ dB</span>
                         </div>
-                        <div id="loudness-meter" class="loudness-meter" aria-hidden="true"></div>
+                        <div id="loudness-meter-v" class="loudness-meter-v" aria-hidden="true"></div>
+                        <div class="flex justify-between items-center mt-1.5 px-0.5">
+                            <span class="text-[8px] font-semibold text-slate-400">RMS · Peak hold</span>
+                            <span id="loudness-meter-meta" class="text-[8px] font-mono font-semibold text-slate-400">2 ch</span>
+                        </div>
                     </div>
                 </div>
 

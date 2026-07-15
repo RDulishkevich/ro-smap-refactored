@@ -29,7 +29,7 @@ export const translations = {
         success_publish: "Аудио успешно добавлено на карту!", audio_loaded: "Аудиофайл загружен", select_audio: "Пожалуйста, выберите аудиофайл",
         comments: "Комментарии", comment_placeholder: "Оставьте комментарий...", send: "Отправить", no_comments: "Пока нет комментариев. Будьте первым!",
         moderation_notice: "Данные сохраняются в Яндекс.Облако", meta_embedded: "Координаты {coords} успешно вшиты в метаданные файла.", soundwalk_notice: "Маршрут звуковой прогулки", ambisonics_pan: "Вращение 360°",
-        analyzers_title: "Анализаторы", stereo_image: "Стереокартина", spectrogram: "Spectrogram", loudness_meter: "Loudness Meter",
+        analyzers_title: "Анализаторы", goniometer_title: "Гониометр (Стереокартина)", frequency_analyzer_title: "Частотный анализатор", loudness_meter: "Loudness Meter",
         admin_login: "Вход для администратора", admin_panel: "Админ-панель", password_prompt: "Введите пароль администратора:", wrong_password: "Неверный пароль!", delete_confirm: "Вы уверены, что хотите удалить этот звук?",
         close_confirm: "Вы уверены, что хотите закрыть? Введенные данные не сохранятся.", edit_audio: "Редактировать аудио", save_changes: "Сохранить изменения",
         add_here_title: "Новая метка", add_here_msg: "Создать аудиометку по координатам", create: "Создать", cancel: "Отмена"
@@ -49,7 +49,7 @@ export const translations = {
         success_publish: "Sound added to map successfully!", audio_loaded: "Audio file loaded", select_audio: "Please select an audio file",
         comments: "Comments", comment_placeholder: "Leave a comment...", send: "Send", no_comments: "No comments yet. Be the first!",
         moderation_notice: "Data is saved to Yandex Cloud", meta_embedded: "Coordinates {coords} embedded successfully into file metadata.", soundwalk_notice: "Soundwalk Route", ambisonics_pan: "360° Rotation",
-        analyzers_title: "Analyzers", stereo_image: "Stereo Image", spectrogram: "Spectrogram", loudness_meter: "Loudness Meter",
+        analyzers_title: "Analyzers", goniometer_title: "Goniometer (Stereo Image)", frequency_analyzer_title: "Frequency Analyzer", loudness_meter: "Loudness Meter",
         admin_login: "Admin Login", admin_panel: "Admin Panel", password_prompt: "Enter admin password:", wrong_password: "Wrong password!", delete_confirm: "Are you sure you want to delete this sound?",
         close_confirm: "Are you sure you want to close? Data will be lost.", edit_audio: "Edit Audio", save_changes: "Save Changes",
         add_here_title: "New Marker", add_here_msg: "Create audio marker at coordinates", create: "Create", cancel: "Cancel"

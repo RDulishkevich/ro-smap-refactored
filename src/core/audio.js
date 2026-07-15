@@ -344,23 +344,33 @@ window.dbFromRms = function(rms) {
     return 20 * Math.log10(rms);
 };
 
-window.rmsFromAnalyser = function(analyser) {
-    if (!analyser) return 0;
+// Single-pass RMS + true peak measurement per channel analyser
+window.measureChannel = function(analyser) {
+    if (!analyser) return { rms: 0, peak: 0 };
+    const n = analyser.fftSize;
+
+    if (!window._measureBufs) window._measureBufs = new Map();
+    let arr = window._measureBufs.get(analyser);
+    if (!arr || arr.length !== n) { arr = new Float32Array(n); window._measureBufs.set(analyser, arr); }
+
     if (typeof analyser.getFloatTimeDomainData === 'function') {
-        const buf = new Float32Array(analyser.fftSize);
-        analyser.getFloatTimeDomainData(buf);
-        let sum = 0;
-        for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
-        return Math.sqrt(sum / buf.length);
+        analyser.getFloatTimeDomainData(arr);
+    } else {
+        if (!window._measureByteBufs) window._measureByteBufs = new Map();
+        let bytes = window._measureByteBufs.get(analyser);
+        if (!bytes || bytes.length !== n) { bytes = new Uint8Array(n); window._measureByteBufs.set(analyser, bytes); }
+        analyser.getByteTimeDomainData(bytes);
+        for (let i = 0; i < n; i++) arr[i] = (bytes[i] - 128) / 128;
     }
-    const buf = new Uint8Array(analyser.fftSize);
-    analyser.getByteTimeDomainData(buf);
-    let sum = 0;
-    for (let i = 0; i < buf.length; i++) {
-        const v = (buf[i] - 128) / 128;
-        sum += v * v;
+
+    let sumSq = 0, peak = 0;
+    for (let i = 0; i < n; i++) {
+        const v = arr[i];
+        sumSq += v * v;
+        const av = Math.abs(v);
+        if (av > peak) peak = av;
     }
-    return Math.sqrt(sum / buf.length);
+    return { rms: Math.sqrt(sumSq / n), peak };
 };
 
 window.dbToMeterPercent = function(db) {
@@ -374,75 +384,6 @@ window.formatHzLabel = function(hz) {
         return (k >= 10 ? Math.round(k) : Math.round(k * 10) / 10) + 'k';
     }
     return String(Math.round(hz));
-};
-
-window.renderSpectrogramAxes = function() {
-    const hzAxis = document.getElementById('spectrogram-hz-axis');
-    const dbAxis = document.getElementById('spectrogram-db-axis');
-    if (!hzAxis || !dbAxis) return;
-
-    const sampleRate = window.audioContext ? window.audioContext.sampleRate : 48000;
-    const maxFreq = (sampleRate / 2) * 0.55;
-    const freqAtRatio = (ratio) => Math.pow(ratio, 1.4) * maxFreq;
-    const hzTicks = [1, 0.72, 0.42, 0.18].map(r => window.formatHzLabel(freqAtRatio(r)));
-
-    hzAxis.innerHTML = hzTicks.map(t => `<span>${t}</span>`).join('') +
-        '<span class="spec-axis-unit">Hz</span>';
-
-    dbAxis.innerHTML = ['-10', '-30', '-50', '-70']
-        .map(t => `<span>${t}</span>`).join('') +
-        '<span class="spec-axis-unit">dB</span>';
-};
-
-window.buildAnalyzerMetersUI = function() {
-    const layout = window.getCurrentChannelLayout();
-    const rebuilt = window.setupChannelAnalysers(layout.count);
-
-    if (rebuilt) {
-        if (window.isAmbisonicMode && window.foaDecoder) {
-            window.routeAmbisonics();
-        } else if (window.audioElementSource && window.gainNode) {
-            window.routeNormalAudio();
-        }
-    }
-
-    const meta = document.getElementById('stereo-image-meta');
-    if (meta) meta.textContent = `${layout.count} ch · ${layout.kind}`;
-
-    const stereoWrap = document.getElementById('stereo-image-meters');
-    if (stereoWrap) {
-        stereoWrap.innerHTML = layout.labels.map((label, i) => `
-            <div class="stereo-image-col">
-                <div class="stereo-image-track">
-                    <div id="stereo-fill-${i}" class="stereo-image-fill"></div>
-                </div>
-                <span class="stereo-image-label">${label}</span>
-            </div>
-        `).join('');
-    }
-
-    const loudnessWrap = document.getElementById('loudness-meter');
-    if (loudnessWrap) {
-        loudnessWrap.innerHTML = layout.labels.map((label, i) => `
-            <div class="loudness-channel">
-                <span class="loudness-ch-label">${label}</span>
-                <div class="loudness-bar-track">
-                    <div id="loudness-bar-${i}" class="loudness-bar-fill"></div>
-                    <div id="loudness-peak-${i}" class="loudness-peak"></div>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    const panRow = document.getElementById('stereo-panner-row');
-    const panSlider = document.getElementById('stereo-panner-slider');
-    const canPan = layout.kind === 'stereo' || layout.kind === 'binaural';
-    if (panRow) panRow.classList.toggle('hidden', !canPan || !!window.isAmbisonicMode);
-    if (panSlider) panSlider.disabled = !canPan || !!window.isAmbisonicMode;
-
-    window.loudnessPeaks = new Array(layout.count).fill(0);
-    window.currentChannelLayout = layout;
-    window.renderSpectrogramAxes();
 };
 
 window.freqToColor = function(value) {
@@ -463,99 +404,288 @@ window.freqToColor = function(value) {
     return [Math.round(240 + t * 15), Math.round(180 + t * 75), Math.round(t * 255)];
 };
 
-window.drawSpectrogramFrame = function() {
-    const canvas = document.getElementById('spectrogram-canvas');
-    if (!canvas || !window.analyserNode) return;
+// Picks a channel pair for the Lissajous/vectorscope plot depending on layout
+window.getGoniometerPair = function() {
+    const analysers = window.channelAnalysers;
+    if (!analysers || !analysers.length) return null;
+    if (analysers.length === 1) return [analysers[0], analysers[0]];
+    if (analysers.length >= 4) return [analysers[1], analysers[2]]; // Ambisonics X/Y
+    return [analysers[0], analysers[1]];
+};
 
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+window.getGoniometerLabel = function(layout) {
+    if (!layout) return 'L / R';
+    if (layout.kind === 'mono') return 'M (mono)';
+    if (layout.kind === 'ambisonics') return 'X / Y (Ambisonics)';
+    return 'L / R';
+};
+
+window.resizeAnalyzerCanvas = function(canvas, minCssHeight) {
+    if (!canvas) return;
+    const wrap = canvas.parentElement;
+    const cssW = wrap ? wrap.clientWidth : 300;
+    const cssH = wrap ? wrap.clientHeight : minCssHeight;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.max(160, Math.floor(cssW * dpr));
+    canvas.height = Math.max(Math.floor(minCssHeight * dpr), Math.floor(cssH * dpr));
+};
+
+window.resizeAnalyzerCanvases = function() {
+    window.resizeAnalyzerCanvas(document.getElementById('goniometer-canvas'), 130);
+    window.resizeAnalyzerCanvas(document.getElementById('spectrum-canvas'), 130);
+};
+
+// --- Module 1: Goniometer / Vectorscope (Lissajous) ---
+window.drawGoniometerFrame = function() {
+    const canvas = document.getElementById('goniometer-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const w = canvas.width;
-    const h = canvas.height;
+    const w = canvas.width, h = canvas.height;
+    const cx = w / 2, cy = h / 2;
+    const scale = Math.min(w, h) / 2 * 0.82;
+
+    // Fade previous trail instead of clearing, for a smooth phosphor-like decay
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.24)';
+    ctx.fillRect(0, 0, w, h);
+
+    // Grid redrawn at full opacity every frame so it never fades out
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.28)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, scale, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx - scale, cy); ctx.lineTo(cx + scale, cy);
+    ctx.moveTo(cx, cy - scale); ctx.lineTo(cx, cy + scale);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.16)';
+    ctx.beginPath();
+    ctx.moveTo(cx - scale * 0.7, cy - scale * 0.7); ctx.lineTo(cx + scale * 0.7, cy + scale * 0.7);
+    ctx.moveTo(cx - scale * 0.7, cy + scale * 0.7); ctx.lineTo(cx + scale * 0.7, cy - scale * 0.7);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(203, 213, 225, 0.85)';
+    ctx.font = '600 10px ui-monospace, SFMono-Regular, Menlo, monospace';
+    ctx.fillText('M', cx - 4, cy - scale - 6);
+    ctx.fillText('L', cx - scale - 12, cy + 4);
+    ctx.fillText('R', cx + scale + 3, cy + 4);
+
+    const pair = window.getGoniometerPair();
+    if (!pair) return;
+    const [analyserA, analyserB] = pair;
+    const n = analyserA.fftSize;
+
+    if (!window._gonioBufA || window._gonioBufA.length !== n) window._gonioBufA = new Float32Array(n);
+    if (!window._gonioBufB || window._gonioBufB.length !== n) window._gonioBufB = new Float32Array(n);
+    analyserA.getFloatTimeDomainData(window._gonioBufA);
+    analyserB.getFloatTimeDomainData(window._gonioBufB);
+
+    ctx.strokeStyle = '#22d3ee';
+    ctx.lineWidth = 1.3;
+    ctx.shadowColor = 'rgba(34, 211, 238, 0.65)';
+    ctx.shadowBlur = 5;
+    ctx.beginPath();
+    const step = Math.max(1, Math.floor(n / 360));
+    for (let i = 0; i < n; i += step) {
+        const L = window._gonioBufA[i], R = window._gonioBufB[i];
+        // Classic 45° goniometer rotation: mono (L=R) collapses to the vertical axis
+        const x = cx + ((L - R) / Math.SQRT2) * scale;
+        const y = cy - ((L + R) / Math.SQRT2) * scale;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+};
+
+// --- Module 2: Frequency Analyzer (logarithmic spectrum) ---
+window.drawSpectrumFrame = function() {
+    const canvas = document.getElementById('spectrum-canvas');
+    if (!canvas || !window.analyserNode || !window.audioContext) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const w = canvas.width, h = canvas.height;
+    const padL = 30, padB = 14;
+    const plotW = w - padL, plotH = h - padB;
+
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, w, h);
+
     const binCount = window.analyserNode.frequencyBinCount;
-    const data = new Uint8Array(binCount);
-    window.analyserNode.getByteFrequencyData(data);
+    if (!window._spectrumData || window._spectrumData.length !== binCount) {
+        window._spectrumData = new Uint8Array(binCount);
+    }
+    window.analyserNode.getByteFrequencyData(window._spectrumData);
 
-    const imageData = ctx.getImageData(1, 0, w - 1, h);
-    ctx.putImageData(imageData, 0, 0);
+    const sampleRate = window.audioContext.sampleRate;
+    const nyquist = sampleRate / 2;
+    const minFreq = 20, maxFreq = Math.min(20000, nyquist);
+    const minLog = Math.log10(minFreq), maxLog = Math.log10(maxFreq);
 
-    const usefulBins = Math.floor(binCount * 0.55);
-    for (let y = 0; y < h; y++) {
-        const ratio = 1 - y / h;
-        const bin = Math.min(usefulBins - 1, Math.floor(Math.pow(ratio, 1.4) * usefulBins));
-        const mag = data[bin] / 255;
+    // dB grid + Y axis label
+    const minDb = window.analyserNode.minDecibels, maxDb = window.analyserNode.maxDecibels;
+    const dbTicks = [-10, -30, -50, -70, -90].filter(v => v >= minDb && v <= maxDb);
+    ctx.font = '8px ui-monospace, SFMono-Regular, Menlo, monospace';
+    ctx.textBaseline = 'middle';
+    dbTicks.forEach(db => {
+        const y = plotH - ((db - minDb) / (maxDb - minDb)) * plotH;
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)';
+        ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w, y); ctx.stroke();
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.75)';
+        ctx.fillText(`${db}`, 1, y);
+    });
+    ctx.textBaseline = 'alphabetic';
+    ctx.save();
+    ctx.translate(9, plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.55)';
+    ctx.textAlign = 'center';
+    ctx.fillText('dB', 0, 0);
+    ctx.restore();
+
+    // Frequency grid + X axis label (log scale, 20 Hz .. 20 kHz)
+    const freqTicks = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
+        .filter(f => f >= minFreq && f <= maxFreq);
+    ctx.textAlign = 'center';
+    freqTicks.forEach(f => {
+        const x = padL + ((Math.log10(f) - minLog) / (maxLog - minLog)) * plotW;
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.1)';
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, plotH); ctx.stroke();
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.7)';
+        ctx.fillText(window.formatHzLabel(f), x, h - 3);
+    });
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.55)';
+    ctx.fillText('Hz', w - 2, h - 3);
+    ctx.textAlign = 'left';
+
+    // Bars (log-spaced), colored by amplitude
+    const barCount = Math.max(24, Math.min(160, Math.floor(plotW / 3)));
+    for (let i = 0; i < barCount; i++) {
+        const t0 = i / barCount, t1 = (i + 1) / barCount;
+        const f0 = Math.pow(10, minLog + t0 * (maxLog - minLog));
+        const bin = Math.max(0, Math.min(binCount - 1, Math.round((f0 / nyquist) * binCount)));
+        const mag = window._spectrumData[bin] / 255;
+        const barH = mag * plotH;
+        const x = padL + t0 * plotW;
+        const barW = Math.max(1, (t1 - t0) * plotW - 1);
         const [r, g, b] = window.freqToColor(mag);
-        ctx.fillStyle = `rgb(${r},${g},${b})`;
-        ctx.fillRect(w - 1, y, 1, 1);
+
+        const grad = ctx.createLinearGradient(0, plotH, 0, plotH - barH);
+        grad.addColorStop(0, `rgba(${r},${g},${b},0.55)`);
+        grad.addColorStop(1, `rgb(${r},${g},${b})`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(x, plotH - barH, barW, barH);
     }
 };
 
-window.drawChannelMetersFrame = function() {
-    const analysers = window.channelAnalysers || [];
-    const layout = window.currentChannelLayout || window.getCurrentChannelLayout();
-    if (!analysers.length) return;
+// --- Module 3: Loudness Meter (RMS bar + Peak hold) ---
+window.buildAnalyzerMetersUI = function() {
+    const layout = window.getCurrentChannelLayout();
+    const rebuilt = window.setupChannelAnalysers(layout.count);
 
-    if (!window.loudnessPeaks || window.loudnessPeaks.length !== analysers.length) {
-        window.loudnessPeaks = new Array(analysers.length).fill(0);
+    if (rebuilt) {
+        if (window.isAmbisonicMode && window.foaDecoder) {
+            window.routeAmbisonics();
+        } else if (window.audioElementSource && window.gainNode) {
+            window.routeNormalAudio();
+        }
     }
+
+    const gonioMeta = document.getElementById('goniometer-meta');
+    if (gonioMeta) gonioMeta.textContent = window.getGoniometerLabel(layout);
+
+    const loudnessMeta = document.getElementById('loudness-meter-meta');
+    if (loudnessMeta) loudnessMeta.textContent = `${layout.count} ch · ${layout.kind}`;
+
+    const loudnessWrap = document.getElementById('loudness-meter-v');
+    if (loudnessWrap) {
+        loudnessWrap.innerHTML = layout.labels.map((label, i) => `
+            <div class="loudness-channel-v">
+                <div class="loudness-bar-track-v">
+                    <div id="loudness-peak-${i}" class="loudness-peak-v"></div>
+                    <div id="loudness-cover-${i}" class="loudness-cover-v"></div>
+                </div>
+                <span class="loudness-ch-label">${label}</span>
+                <span id="loudness-db-${i}" class="loudness-db-label-v">−∞</span>
+            </div>
+        `).join('');
+    }
+
+    const panRow = document.getElementById('stereo-panner-row');
+    const panSlider = document.getElementById('stereo-panner-slider');
+    const canPan = layout.kind === 'stereo' || layout.kind === 'binaural';
+    if (panRow) panRow.classList.toggle('hidden', !canPan || !!window.isAmbisonicMode);
+    if (panSlider) panSlider.disabled = !canPan || !!window.isAmbisonicMode;
+
+    window.loudnessPeaks = new Array(layout.count).fill(0);
+    window.loudnessPeakHold = new Array(layout.count).fill(0);
+    window.currentChannelLayout = layout;
+};
+
+// Peak-hold: jumps up instantly, holds briefly, then falls slowly
+window.updateLoudnessPeak = function(i, pct) {
+    if (!window.loudnessPeaks) window.loudnessPeaks = [];
+    if (!window.loudnessPeakHold) window.loudnessPeakHold = [];
+    const currentPeak = window.loudnessPeaks[i] || 0;
+
+    if (pct >= currentPeak) {
+        window.loudnessPeaks[i] = pct;
+        window.loudnessPeakHold[i] = 26; // ~0.4s hold at 60fps before falling
+    } else if ((window.loudnessPeakHold[i] || 0) > 0) {
+        window.loudnessPeakHold[i] -= 1;
+    } else {
+        window.loudnessPeaks[i] = Math.max(pct, currentPeak - 1.1);
+    }
+    return window.loudnessPeaks[i];
+};
+
+window.drawLoudnessFrame = function() {
+    const analysers = window.channelAnalysers || [];
+    if (!analysers.length) return;
 
     let dbMax = -Infinity;
 
     analysers.forEach((analyser, i) => {
-        const rms = window.rmsFromAnalyser(analyser);
-        const db = window.dbFromRms(rms);
-        const pct = window.dbToMeterPercent(db);
-        if (isFinite(db) && db > dbMax) dbMax = db;
+        const { rms, peak } = window.measureChannel(analyser);
+        const rmsDb = window.dbFromRms(rms);
+        const peakDb = window.dbFromRms(peak);
+        const rmsPct = window.dbToMeterPercent(rmsDb);
+        const peakPct = window.dbToMeterPercent(peakDb);
+        if (isFinite(rmsDb) && rmsDb > dbMax) dbMax = rmsDb;
 
-        window.loudnessPeaks[i] = Math.max((window.loudnessPeaks[i] || 0) * 0.985, pct);
+        const heldPeakPct = window.updateLoudnessPeak(i, peakPct);
 
-        const stereoFill = document.getElementById(`stereo-fill-${i}`);
-        const bar = document.getElementById(`loudness-bar-${i}`);
-        const peak = document.getElementById(`loudness-peak-${i}`);
-        if (stereoFill) stereoFill.style.height = `${pct}%`;
-        if (bar) bar.style.width = `${pct}%`;
-        if (peak) peak.style.left = `calc(${window.loudnessPeaks[i]}% - 1px)`;
+        const cover = document.getElementById(`loudness-cover-${i}`);
+        const peakEl = document.getElementById(`loudness-peak-${i}`);
+        const dbLabel = document.getElementById(`loudness-db-${i}`);
+
+        if (cover) cover.style.height = `${100 - rmsPct}%`;
+        if (peakEl) peakEl.style.top = `${100 - heldPeakPct}%`;
+        if (dbLabel) dbLabel.textContent = !isFinite(rmsDb) || rmsDb <= -90 ? '−∞' : rmsDb.toFixed(1);
     });
 
     const label = document.getElementById('loudness-db-label');
     if (label) {
-        label.textContent = !isFinite(dbMax) || dbMax <= -90
-            ? '−∞ dB'
-            : `${dbMax.toFixed(1)} dB · ${layout.count} ch`;
+        label.textContent = !isFinite(dbMax) || dbMax <= -90 ? '−∞ dB' : `${dbMax.toFixed(1)} dB`;
     }
 };
 
-window.startAnalyzerLoop = function() {
-    if (window.analyzerFrameId) cancelAnimationFrame(window.analyzerFrameId);
-
-    window.buildAnalyzerMetersUI();
-
-    const canvas = document.getElementById('spectrogram-canvas');
-    if (canvas) {
-        const wrap = canvas.parentElement;
-        const cssW = wrap ? wrap.clientWidth : 300;
-        const cssH = wrap ? wrap.clientHeight : 112;
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        canvas.width = Math.max(200, Math.floor(cssW * dpr));
-        canvas.height = Math.max(80, Math.floor(cssH * dpr));
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-            ctx.fillStyle = '#0f172a';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-        }
-    }
-
-    const tick = () => {
-        if (!window.analyzersOpen) return;
-        window.drawSpectrogramFrame();
-        window.drawChannelMetersFrame();
-        window.analyzerFrameId = requestAnimationFrame(tick);
-    };
-    window.analyzerFrameId = requestAnimationFrame(tick);
+// --- Animation loop: runs ONLY while the panel is open AND audio is playing ---
+window.analyzerTick = function() {
+    window.analyzerFrameId = null;
+    if (!window.analyzersOpen || !window.isPlaying) return;
+    window.drawGoniometerFrame();
+    window.drawSpectrumFrame();
+    window.drawLoudnessFrame();
+    window.analyzerFrameId = requestAnimationFrame(window.analyzerTick);
 };
 
-window.stopAnalyzerLoop = function() {
-    if (window.analyzerFrameId) {
+window.syncAnalyzerAnimation = function() {
+    const shouldRun = !!window.analyzersOpen && !!window.isPlaying;
+    if (shouldRun && !window.analyzerFrameId) {
+        window.analyzerFrameId = requestAnimationFrame(window.analyzerTick);
+    } else if (!shouldRun && window.analyzerFrameId) {
         cancelAnimationFrame(window.analyzerFrameId);
         window.analyzerFrameId = null;
     }
@@ -563,7 +693,7 @@ window.stopAnalyzerLoop = function() {
 
 window.collapsePlayerAnalyzers = function() {
     window.analyzersOpen = false;
-    window.stopAnalyzerLoop();
+    window.syncAnalyzerAnimation();
 
     const panel = document.getElementById('player-analyzers');
     const card = document.getElementById('player-card');
@@ -605,7 +735,13 @@ window.togglePlayerAnalyzers = async function() {
         if (icon) icon.className = 'fa-solid fa-chevron-down text-[12px] md:text-[13px] pointer-events-none';
         document.body.classList.add('player-analyzers-open');
 
-        window.startAnalyzerLoop();
+        window.buildAnalyzerMetersUI();
+        window.resizeAnalyzerCanvases();
+        window.drawGoniometerFrame();
+        window.drawSpectrumFrame();
+        window.drawLoudnessFrame();
+
+        window.syncAnalyzerAnimation();
     } else {
         window.collapsePlayerAnalyzers();
     }
@@ -675,6 +811,7 @@ window.updateUIState = function() {
         if (window.isPlaying) { p.classList.add('hidden'); l.classList.add('hidden'); s.classList.remove('hidden'); } 
         else { l.classList.add('hidden'); s.classList.add('hidden'); p.classList.remove('hidden'); }
     }
+    if (window.syncAnalyzerAnimation) window.syncAnalyzerAnimation();
     window.renderList();
 }
 

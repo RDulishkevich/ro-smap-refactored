@@ -63,6 +63,7 @@ export function initGlobalState() {
     window.meterChannelCount = 2;
     window.currentChannelLayout = null;
     window.loudnessPeaks = [];
+    window.loudnessPeakHold = [];
     window.omnitoneInitialized = false;
     window.isAmbisonicMode = false;
     window.analyzersOpen = false;

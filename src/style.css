@@ -144,160 +144,80 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
     background: #0f172a;
     border-color: #334155;
 }
-.analyzer-canvas-wrap {
-    flex: 1;
-    min-width: 0;
-    height: 112px;
+.goniometer-canvas-wrap,
+.spectrum-canvas-wrap {
+    width: 100%;
+    height: 130px;
     border-radius: 0.65rem;
     overflow: hidden;
     background: #0f172a;
     border: 1px solid #1e293b;
 }
-.analyzer-canvas-wrap canvas {
+.goniometer-canvas-wrap canvas,
+.spectrum-canvas-wrap canvas {
     display: block;
     width: 100%;
     height: 100%;
 }
-.spectrogram-plot {
-    display: flex;
-    align-items: stretch;
-    gap: 4px;
-}
-.spec-axis-y,
-.spec-axis-db {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    font-size: 8px;
-    font-weight: 700;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    color: #94a3b8;
-    line-height: 1;
-    padding: 2px 0;
-    user-select: none;
-}
-.spec-axis-y {
-    width: 28px;
-    text-align: right;
-    padding-right: 2px;
-}
-.spec-axis-db {
-    width: 28px;
-    text-align: left;
-    padding-left: 2px;
-    position: relative;
-}
-.spec-axis-db::before {
-    content: '';
-    position: absolute;
-    left: -2px;
-    top: 0;
-    bottom: 0;
-    width: 8px;
-    border-radius: 4px;
-    background: linear-gradient(to bottom, #f8fafc 0%, #eab308 35%, #22c55e 65%, #0ea5e9 85%, #0f172a 100%);
-    opacity: 0.9;
-}
-.spec-axis-db span {
-    position: relative;
-    z-index: 1;
-    padding-left: 8px;
-}
-.spec-axis-unit {
-    color: #64748b;
-    font-size: 7px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-.stereo-image-meters {
+.loudness-meter-v {
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    gap: 8px;
-    min-height: 84px;
-    padding: 8px 6px 4px;
+    gap: 14px;
+    padding: 10px 8px 6px;
     border-radius: 0.75rem;
     background: #0f172a;
     border: 1px solid #1e293b;
+    min-height: 150px;
 }
-.stereo-image-col {
+.loudness-channel-v {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    flex: 1;
-    max-width: 48px;
+    gap: 6px;
 }
-.stereo-image-track {
+.loudness-bar-track-v {
     position: relative;
-    width: 100%;
-    height: 64px;
+    width: 22px;
+    height: 120px;
     border-radius: 6px;
-    background: #1e293b;
     overflow: hidden;
+    background: linear-gradient(to top,
+        #22c55e 0%, #22c55e 80%,
+        #eab308 80%, #eab308 95%,
+        #ef4444 95%, #ef4444 100%);
 }
-.stereo-image-fill {
+.loudness-cover-v {
     position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 0%;
-    border-radius: 0 0 6px 6px;
-    background: linear-gradient(to top, #22c55e 0%, #eab308 70%, #ef4444 100%);
-    transition: height 40ms linear;
+    top: 0; left: 0; right: 0;
+    height: 100%;
+    background: #0f172a;
+    transition: height 60ms linear;
 }
-.stereo-image-label {
-    font-size: 9px;
-    font-weight: 800;
-    color: #94a3b8;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-.loudness-meter {
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-}
-.loudness-channel {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+.loudness-peak-v {
+    position: absolute;
+    left: 0; right: 0;
+    top: 0;
+    height: 2px;
+    background: #f8fafc;
+    box-shadow: 0 0 4px rgba(248, 250, 252, 0.85);
+    transition: top 60ms linear;
+    z-index: 2;
 }
 .loudness-ch-label {
-    width: 1.25rem;
     font-size: 9px;
     font-weight: 800;
     color: #94a3b8;
-    text-align: center;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
-.loudness-bar-track {
-    position: relative;
-    flex: 1;
-    height: 10px;
-    border-radius: 9999px;
-    background: #e2e8f0;
-    overflow: hidden;
+.loudness-db-label-v {
+    font-size: 9px;
+    font-weight: 700;
+    color: #5eead4;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    min-width: 34px;
+    text-align: center;
 }
-.dark .loudness-bar-track { background: #334155; }
-.loudness-bar-fill {
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: 0%;
-    border-radius: inherit;
-    background: linear-gradient(90deg, #22c55e 0%, #eab308 72%, #ef4444 100%);
-    transition: width 40ms linear;
-}
-.loudness-peak {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    left: 0%;
-    background: #f8fafc;
-    box-shadow: 0 0 4px rgba(15, 23, 42, 0.45);
-    transition: left 40ms linear;
-}
-.dark .loudness-peak { background: #f1f5f9; }
 #btn-analyzer-toggle.active {
     background: #dbeafe;
     color: #2563eb;
