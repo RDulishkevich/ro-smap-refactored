@@ -166,8 +166,10 @@ window.updateOnboardingStep = function() {
     document.getElementById('onboarding-prev').classList.toggle('invisible', window.__onboardingStep === 0);
     document.getElementById('onboarding-next').textContent = window.__onboardingStep === window.onboardingSteps.length - 1 ? 'Готово' : 'Далее';
 
+    card.style.cssText = '';
+    highlight.style.cssText = 'display:none';
+
     if (!step.target) {
-        highlight.style.cssText = 'display:none';
         card.style.left = '50%';
         card.style.top = '50%';
         card.style.transform = 'translate(-50%, -50%)';
@@ -175,10 +177,7 @@ window.updateOnboardingStep = function() {
     }
 
     const el = document.querySelector(step.target);
-    if (!el) {
-        highlight.style.display = 'none';
-        return;
-    }
+    if (!el) return;
 
     if (step.target === '#sidebar') {
         const sb = document.getElementById('sidebar');
@@ -186,24 +185,42 @@ window.updateOnboardingStep = function() {
     }
     if (step.target === '#player-card') {
         const pc = document.getElementById('player-card');
-        if (pc) pc.classList.remove('translate-y-[150%]', 'opacity-0');
+        if (pc) {
+            pc.classList.remove('translate-y-[150%]', 'opacity-0');
+            document.body.classList.add('player-visible');
+        }
     }
 
-    const rect = el.getBoundingClientRect();
-    const pad = 8;
-    highlight.style.display = 'block';
-    highlight.style.left = `${rect.left - pad}px`;
-    highlight.style.top = `${rect.top - pad}px`;
-    highlight.style.width = `${rect.width + pad * 2}px`;
-    highlight.style.height = `${rect.height + pad * 2}px`;
+    setTimeout(() => {
+        const rect = el.getBoundingClientRect();
+        const pad = 8;
+        highlight.style.display = 'block';
+        highlight.style.left = `${rect.left - pad}px`;
+        highlight.style.top = `${rect.top - pad}px`;
+        highlight.style.width = `${rect.width + pad * 2}px`;
+        highlight.style.height = `${rect.height + pad * 2}px`;
 
-    const cardRect = card.getBoundingClientRect();
-    let top = rect.bottom + 16;
-    if (top + cardRect.height > window.innerHeight - 16) top = rect.top - cardRect.height - 16;
-    let left = Math.min(Math.max(16, rect.left), window.innerWidth - cardRect.width - 16);
-    card.style.left = `${left}px`;
-    card.style.top = `${Math.max(16, top)}px`;
-    card.style.transform = 'none';
+        const cardRect = card.getBoundingClientRect();
+        let top = rect.bottom + 16;
+        let left = Math.min(Math.max(16, rect.left), window.innerWidth - cardRect.width - 16);
+        
+        if (top + cardRect.height > window.innerHeight - 16) {
+            top = rect.top - cardRect.height - 16;
+        }
+        
+        if (top < 16) {
+            top = (window.innerHeight - cardRect.height) / 2;
+            left = (window.innerWidth - cardRect.width) / 2;
+        }
+
+        if (window.innerWidth < 600) {
+            left = (window.innerWidth - cardRect.width) / 2;
+        }
+
+        card.style.left = `${left}px`;
+        card.style.top = `${Math.max(16, top)}px`;
+        card.style.transform = 'none';
+    }, 550);
 };
 
 window.nextOnboardingStep = function() {

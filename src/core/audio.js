@@ -321,44 +321,28 @@ window.setupAudioEvents = function() {
     window.audioElement.onprogress = () => { window.updateBufferProgress(); };
 }
 
-window.restorePlayerCard = function() {
-    const card = document.getElementById('player-card');
-    const mini = document.getElementById('mini-player');
-    if (card) {
-        card.classList.remove('translate-y-[150%]', 'opacity-0');
-        card.classList.add('translate-y-0');
-    }
-    if (mini) {
-        mini.classList.add('hidden');
-        mini.classList.remove('flex');
-    }
-    document.body.classList.add('player-visible');
-};
+    window.restorePlayerCard = function() {
+        const card = document.getElementById('player-card');
+        if (card) {
+            card.classList.remove('translate-y-[150%]', 'opacity-0');
+            card.classList.add('translate-y-0');
+        }
+        document.body.classList.add('player-visible');
+    };
 
 window.closePlayerCard = function() {
     const card = document.getElementById('player-card');
-    const mini = document.getElementById('mini-player');
-    const title = document.getElementById('mini-player-title');
-    const icon = document.getElementById('mini-player-icon');
 
-    if (title && window.currentPlayingId) {
-        const s = window.soundsData.find(x => x.id === window.currentPlayingId);
-        if (s) title.textContent = s.title;
-    }
-
-    if (mini) {
-        mini.classList.remove('hidden');
-        mini.classList.add('flex');
-    }
-
-    if (window.isPlaying) {
+    if (window.isPlaying || window.audioElement) {
         window.isPlaying = false;
-        if (window.audioElement) window.audioElement.pause();
+        if (window.audioElement) {
+            window.audioElement.pause();
+            window.audioElement.currentTime = 0;
+            window.audioElement.src = '';
+            window.audioElement.removeAttribute('src');
+        }
         if (window.animationFrameId) cancelAnimationFrame(window.animationFrameId);
         if (window.mockInterval) clearInterval(window.mockInterval);
-        if (icon) {
-            icon.className = 'fa-solid fa-play text-sm';
-        }
     }
 
     if (card) card.classList.add('translate-y-[150%]', 'opacity-0');
@@ -370,5 +354,6 @@ window.closePlayerCard = function() {
     window.currentPlayingId = null;
     window.clearMapRoutes();
     window.updateMapMarkers();
+    if (window.updateUIState) window.updateUIState();
     window.renderList();
 }
