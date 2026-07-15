@@ -970,8 +970,18 @@ window.initSwipeHandlers = function() {
         let playerTouchStartY = 0;
         let playerTouchActive = false;
 
+        // Swipe-to-navigate only makes sense while the card's own content fits on screen.
+        // Once the analyzers panel expands the card into a scrollable sheet, a vertical
+        // drag must scroll that content instead of closing the player or opening details.
+        const isSwipeNavBlocked = (e) => {
+            if (window.analyzersOpen) return true;
+            if (e.target.closest('#ambi-sphere-pad') || e.target.closest('#player-analyzers')) return true;
+            if (e.target.tagName.toLowerCase() === 'input') return true;
+            return false;
+        };
+
         playerCardEl.addEventListener('touchstart', e => {
-            if (e.target.closest('#ambi-sphere-pad') || e.target.tagName.toLowerCase() === 'input') return;
+            if (isSwipeNavBlocked(e)) { playerTouchActive = false; return; }
             playerTouchStartY = e.touches[0].screenY;
             playerTouchActive = true;
         }, { passive: true });
@@ -979,7 +989,7 @@ window.initSwipeHandlers = function() {
         playerCardEl.addEventListener('touchend', e => {
             if (!playerTouchActive) return;
             playerTouchActive = false;
-            if (e.target.closest('#ambi-sphere-pad') || e.target.tagName.toLowerCase() === 'input') return;
+            if (isSwipeNavBlocked(e)) return;
 
             const playerTouchEndY = e.changedTouches[0].screenY;
             const diffY = playerTouchEndY - playerTouchStartY;

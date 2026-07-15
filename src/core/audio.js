@@ -304,6 +304,8 @@ window.toggleAmbisonics = function() {
         control.classList.remove('hidden');
         btn.classList.remove('text-indigo-500'); btn.classList.add('text-green-500');
         window.showToast(translations[window.currentLang].ambisonics_pan + " ON");
+        window.resizeAmbiGoniometerCanvas();
+        window.syncAnalyzerAnimation();
     } else {
         window.disableAmbisonicMode(); 
         control.classList.add('hidden');
@@ -313,6 +315,8 @@ window.toggleAmbisonics = function() {
         const angleDisplay = document.getElementById('ambi-angle-val');
         if(angleDisplay) angleDisplay.textContent = `Y: 0° | P: 0°`;
         window.updateAmbisonicRotation(0, 0);
+        window.clearAmbiGoniometerCanvas();
+        window.syncAnalyzerAnimation();
     }
     if (window.refreshAnalyzerMetersIfOpen) window.refreshAnalyzerMetersIfOpen();
 }
@@ -461,6 +465,69 @@ window.resizeAnalyzerCanvases = function() {
     window.resizeAnalyzerCanvas(document.getElementById('spectrum-canvas'), 130);
     window.primeSpectrogramCanvas();
     window.renderSpectrogramAxis();
+};
+
+// --- Mini goniometer overlaid inside the Ambisonic sphere pad ---
+// Gives an at-a-glance hint of where the sound energy currently leans,
+// so the user knows which way to drag the point.
+window.resizeAmbiGoniometerCanvas = function() {
+    const canvas = document.getElementById('ambi-goniometer-canvas');
+    if (!canvas) return;
+    const wrap = canvas.parentElement;
+    // The pad is a perfect circle (width === height); keep the canvas backing store square too
+    const size = wrap ? Math.max(wrap.clientWidth, wrap.clientHeight, 100) : 120;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.floor(size * dpr);
+    canvas.height = Math.floor(size * dpr);
+};
+
+window.clearAmbiGoniometerCanvas = function() {
+    const canvas = document.getElementById('ambi-goniometer-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+};
+
+window.drawAmbiGoniometerFrame = function() {
+    const canvas = document.getElementById('ambi-goniometer-canvas');
+    const analysers = window.channelAnalysers;
+    if (!canvas || !analysers || analysers.length < 3) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const w = canvas.width, h = canvas.height;
+    const cx = w / 2, cy = h / 2;
+    const scale = Math.min(w, h) / 2 * 0.9;
+
+    // Soft phosphor fade, lighter than the main goniometer so the pad's own grid stays visible
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.12)';
+    ctx.fillRect(0, 0, w, h);
+
+    const analyserX = analysers[1]; // Ambisonic X: front(+) / back(-)
+    const analyserY = analysers[2]; // Ambisonic Y: left(+) / right(-)
+    const n = analyserX.fftSize;
+
+    if (!window._ambiGonioX || window._ambiGonioX.length !== n) window._ambiGonioX = new Float32Array(n);
+    if (!window._ambiGonioY || window._ambiGonioY.length !== n) window._ambiGonioY = new Float32Array(n);
+    analyserX.getFloatTimeDomainData(window._ambiGonioX);
+    analyserY.getFloatTimeDomainData(window._ambiGonioY);
+
+    ctx.strokeStyle = '#818cf8';
+    ctx.lineWidth = 1.4;
+    ctx.shadowColor = 'rgba(129, 140, 248, 0.6)';
+    ctx.shadowBlur = 4;
+    ctx.beginPath();
+    const step = Math.max(1, Math.floor(n / 220));
+    for (let i = 0; i < n; i += step) {
+        // Left/right on screen ← Y channel, up/down on screen ← X channel (up = front),
+        // matching the pad's own yaw/pitch axes so the trail leans toward the source.
+        const x = cx + window._ambiGonioY[i] * scale;
+        const y = cy - window._ambiGonioX[i] * scale;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
 };
 
 // --- Module 1: Goniometer / Vectorscope (Lissajous, phosphor trail) ---
@@ -652,18 +719,25 @@ window.drawLoudnessFrame = function() {
     }
 };
 
-// --- Animation loop: runs ONLY while the panel is open AND audio is playing ---
+// --- Animation loop: runs ONLY while something needs it AND audio is playing ---
 window.analyzerTick = function() {
     window.analyzerFrameId = null;
-    if (!window.analyzersOpen || !window.isPlaying) return;
-    window.drawGoniometerFrame();
-    window.drawSpectrumFrame();
-    window.drawLoudnessFrame();
-    window.analyzerFrameId = requestAnimationFrame(window.analyzerTick);
+    if (!window.isPlaying) return;
+    if (window.analyzersOpen) {
+        window.drawGoniometerFrame();
+        window.drawSpectrumFrame();
+        window.drawLoudnessFrame();
+    }
+    if (window.isAmbisonicMode) {
+        window.drawAmbiGoniometerFrame();
+    }
+    if (window.analyzersOpen || window.isAmbisonicMode) {
+        window.analyzerFrameId = requestAnimationFrame(window.analyzerTick);
+    }
 };
 
 window.syncAnalyzerAnimation = function() {
-    const shouldRun = !!window.analyzersOpen && !!window.isPlaying;
+    const shouldRun = !!window.isPlaying && (!!window.analyzersOpen || !!window.isAmbisonicMode);
     if (shouldRun && !window.analyzerFrameId) {
         window.analyzerFrameId = requestAnimationFrame(window.analyzerTick);
     } else if (!shouldRun && window.analyzerFrameId) {
