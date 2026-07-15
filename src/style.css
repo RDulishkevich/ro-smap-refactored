@@ -5,6 +5,7 @@ body {
     width: 100vw;
     background-color: #f0f4f8;
     transition: background-color 0.3s ease;
+    padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
 /* Тёмная тема */
@@ -55,6 +56,66 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
     transform: translateX(calc(-100% - 2rem)) !important;
     opacity: 0 !important;
     pointer-events: none;
+}
+#sidebar-backdrop.visible {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+/* Скелетон загрузки списка */
+.skeleton-line {
+    height: 14px;
+    border-radius: 8px;
+    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.2s ease-in-out infinite;
+}
+.dark .skeleton-line {
+    background: linear-gradient(90deg, #334155 25%, #475569 50%, #334155 75%);
+    background-size: 200% 100%;
+}
+@keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Статистика */
+.stat-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 10px 8px;
+}
+.dark .stat-card {
+    background: #1e293b;
+    border-color: #334155;
+}
+.stat-card .stat-value {
+    font-size: 1.25rem;
+    font-weight: 800;
+    line-height: 1.2;
+}
+.stat-card .stat-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+
+/* FAB и плеер — safe area на iPhone */
+#fab-add {
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0));
+}
+@media (min-width: 768px) {
+    #fab-add { bottom: calc(2rem + env(safe-area-inset-bottom, 0)); }
+}
+.player-visible #fab-add {
+    bottom: calc(7.5rem + env(safe-area-inset-bottom, 0));
+}
+@media (min-width: 768px) {
+    .player-visible #fab-add { bottom: calc(8.5rem + env(safe-area-inset-bottom, 0)); }
 }
 
 /* Анимация плеера */

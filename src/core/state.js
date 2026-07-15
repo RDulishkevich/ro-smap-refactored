@@ -17,6 +17,7 @@ export function initGlobalState() {
 
     // 3. Состояния плеера и приложения
     window.map = null;
+    window.markerClusterer = null;
     window.currentPlayingId = null;
     window.isPlaying = false;
     window.animationFrameId = null;

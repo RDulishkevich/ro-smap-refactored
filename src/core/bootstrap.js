@@ -1,9 +1,9 @@
 import { initGlobalState } from './state.js';
 import { initAuth } from './auth.js';
 
+import '../ui/ui.js';
 import './audio.js';
 import './map.js';
-import '../ui/ui.js';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;
@@ -22,6 +22,8 @@ export function bootstrapApp() {
         if (window.setupAmbisonicSphere) window.setupAmbisonicSphere();
         if (window.applyUserSettings) window.applyUserSettings();
         if (window.initSwipeHandlers) window.initSwipeHandlers();
+        if (window.setSoundsListLoading) window.setSoundsListLoading(true);
+        if (window.initOnboarding) window.initOnboarding();
 
         fetch(`${window.YANDEX_BUCKET_URL}/map_data.json?nocache=${Date.now()}`)
             .then(res => res.ok ? res.json() : [])
@@ -38,9 +40,12 @@ export function bootstrapApp() {
 
         const searchInput = document.getElementById('search-input');
         if (searchInput) {
+            let searchTimer = null;
             searchInput.addEventListener('input', () => {
-                if (window.updateMapMarkers) window.updateMapMarkers();
-                if (window.renderList) window.renderList();
+                if (searchTimer) clearTimeout(searchTimer);
+                searchTimer = setTimeout(() => {
+                    if (window.processFilterChange) window.processFilterChange(false);
+                }, 140);
             });
         }
 

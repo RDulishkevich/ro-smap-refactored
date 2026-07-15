@@ -84,11 +84,13 @@ export function initAuth() {
             return;
         }
 
+        const userKey = name.toLowerCase();
+
         if (window.authMode === 'register') {
-            if (usersDb[name.toLowerCase()]) {
+            if (usersDb[userKey]) {
                 return window.showToast('Логин уже занят!');
             }
-            usersDb[name.toLowerCase()] = { 
+            usersDb[userKey] = { 
                 password: pass, 
                 displayName: name,
                 settings: { theme: 'light', mapStyle: 'normal', lang: 'ru' } 
@@ -98,14 +100,15 @@ export function initAuth() {
         }
 
         // Режим входа
-        if (!usersDb[name.toLowerCase()] || usersDb[name.toLowerCase()].password !== pass) {
+        if (!usersDb[userKey] || usersDb[userKey].password !== pass) {
             return window.showToast('Неверный логин или пароль!');
         }
 
         window.currentUser = { 
-            username: usersDb[name.toLowerCase()].displayName, 
+            username: usersDb[userKey].displayName, 
+            loginName: userKey,
             role: 'user', 
-            settings: usersDb[name.toLowerCase()].settings 
+            settings: usersDb[userKey].settings 
         };
         
         localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser));
@@ -160,6 +163,32 @@ export function initAuth() {
         }
     };
 
+    window.refreshCabinetTabs = function() {
+        const adminTab = document.getElementById('cab-tab-admin');
+        const roleEl = document.getElementById('cabinet-user-role');
+        const isAdmin = String(window.currentUser?.role || '').toLowerCase() === 'admin' || String(window.currentUser?.username || '').toLowerCase() === 'admin';
+
+        if (adminTab) {
+            if (isAdmin) {
+                adminTab.classList.remove('hidden');
+                adminTab.classList.remove('pointer-events-none');
+            } else {
+                adminTab.classList.add('hidden');
+                adminTab.classList.add('pointer-events-none');
+            }
+        }
+
+        if (roleEl) {
+            if (isAdmin) {
+                roleEl.textContent = 'Администратор системы';
+                roleEl.className = 'text-[11px] font-bold text-red-500 uppercase tracking-wider';
+            } else {
+                roleEl.textContent = 'Рекордист';
+                roleEl.className = 'text-[11px] font-bold text-slate-400 uppercase tracking-wider';
+            }
+        }
+    };
+
     window.openCabinet = function() {
         const m = document.getElementById('cabinet-modal');
         if(m) {
@@ -167,9 +196,148 @@ export function initAuth() {
             void m.offsetWidth;
             m.classList.remove('opacity-0', 'pointer-events-none');
             m.firstElementChild.classList.remove('scale-95');
-            
+            window.refreshCabinetTabs();
             window.switchCabinetTab('sounds');
         }
+    };
+
+    window.openSettingsPanel = function() {
+        const m = document.getElementById('settings-modal');
+        if (!m) return;
+        if (window.closeCabinet) window.closeCabinet();
+        m.classList.remove('hidden');
+        void m.offsetWidth;
+        m.classList.remove('opacity-0', 'pointer-events-none');
+        m.firstElementChild.classList.remove('scale-95');
+        window.refreshSettingsUI();
+        if (window.renderRegionStats) window.renderRegionStats('region-stats-grid');
+    };
+
+    window.closeSettingsModal = function() {
+        const m = document.getElementById('settings-modal');
+        if (!m) return;
+        m.classList.add('opacity-0', 'pointer-events-none');
+        m.firstElementChild.classList.add('scale-95');
+        setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
+    };
+
+    window.refreshSettingsUI = function() {
+        const themeLightBtn = document.getElementById('theme-light-btn');
+        const themeDarkBtn = document.getElementById('theme-dark-btn');
+        const mapNormalBtn = document.getElementById('map-normal-btn');
+        const mapMonoBtn = document.getElementById('map-mono-btn');
+        const langSelect = document.getElementById('lang-select');
+        const scaleButtons = document.querySelectorAll('[data-scale]');
+
+        const activeClass = 'flex-1 py-2 text-xs font-bold bg-blue-600 text-white shadow-md rounded-lg transition-all';
+        const inactiveClass = 'flex-1 py-2 text-xs font-bold bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50 rounded-lg transition-all';
+
+        if (themeLightBtn && themeDarkBtn) {
+            const isDark = window.currentTheme === 'dark';
+            themeLightBtn.className = isDark ? inactiveClass : activeClass;
+            themeDarkBtn.className = isDark ? activeClass : inactiveClass;
+        }
+
+        if (mapNormalBtn && mapMonoBtn) {
+            const isMono = window.currentMapStyle === 'monochrome';
+            mapNormalBtn.className = isMono ? inactiveClass : activeClass;
+            mapMonoBtn.className = isMono ? activeClass : inactiveClass;
+        }
+
+        if (langSelect) {
+            langSelect.value = window.currentLang || 'ru';
+        }
+
+        scaleButtons.forEach(btn => {
+            const size = btn.getAttribute('data-scale');
+            const isActive = (window.currentGuiScale || 'medium') === size;
+            btn.className = isActive
+                ? 'p-2.5 text-xs font-bold bg-blue-600 text-white rounded-xl transition-all shadow-md'
+                : 'p-2.5 text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors';
+        });
+    };
+
+    window.openSupportModal = function() {
+        const m = document.getElementById('support-modal');
+        if (!m) return;
+        if (window.closeSettingsModal) window.closeSettingsModal();
+        if (window.closeCabinet) window.closeCabinet();
+        m.classList.remove('hidden');
+        void m.offsetWidth;
+        m.classList.remove('opacity-0', 'pointer-events-none');
+        m.firstElementChild.classList.remove('scale-95');
+    };
+
+    window.closeSupportModal = function() {
+        const m = document.getElementById('support-modal');
+        if (!m) return;
+        m.classList.add('opacity-0', 'pointer-events-none');
+        m.firstElementChild.classList.add('scale-95');
+        setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
+    };
+
+    window.uploadProfilePhoto = function(files) {
+        if (!files || !files[0]) return;
+        const file = files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const avatar = document.getElementById('cabinet-avatar');
+            const fallback = document.getElementById('cabinet-avatar-fallback');
+            if (avatar) {
+                avatar.src = e.target.result;
+                avatar.classList.remove('hidden');
+            }
+            if (fallback) fallback.classList.add('hidden');
+            window.currentUser = window.currentUser || {};
+            window.currentUser.avatar = e.target.result;
+            localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser));
+            window.showToast('Фото профиля обновлено');
+        };
+        reader.readAsDataURL(file);
+    };
+
+    window.changePassword = function() {
+        const currentPassword = document.getElementById('cab-current-password')?.value || '';
+        const newPassword = document.getElementById('cab-new-password')?.value || '';
+        const confirmPassword = document.getElementById('cab-confirm-password')?.value || '';
+
+        if (!newPassword || !confirmPassword) {
+            return window.showToast('Заполните поля нового пароля');
+        }
+
+        if (newPassword !== confirmPassword) {
+            return window.showToast('Новые пароли не совпадают');
+        }
+
+        if (!window.currentUser) {
+            return window.showToast('Сначала войдите в профиль');
+        }
+
+        const userKey = String(window.currentUser.loginName || window.currentUser.username || '').toLowerCase();
+        let usersDb = JSON.parse(localStorage.getItem('rosmap_users_db')) || {};
+
+        if (window.currentUser.role === 'admin' || userKey === 'admin') {
+            if (currentPassword && currentPassword !== 'Скай') {
+                return window.showToast('Текущий пароль неверен');
+            }
+        } else {
+            if (!usersDb[userKey] || usersDb[userKey].password !== currentPassword) {
+                return window.showToast('Текущий пароль неверен');
+            }
+        }
+
+        if (window.currentUser.role !== 'admin' && userKey !== 'admin') {
+            usersDb[userKey] = usersDb[userKey] || {};
+            usersDb[userKey].password = newPassword;
+            localStorage.setItem('rosmap_users_db', JSON.stringify(usersDb));
+        }
+
+        window.currentUser.password = newPassword;
+        localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser));
+        if (document.getElementById('cab-current-password')) document.getElementById('cab-current-password').value = '';
+        if (document.getElementById('cab-new-password')) document.getElementById('cab-new-password').value = '';
+        if (document.getElementById('cab-confirm-password')) document.getElementById('cab-confirm-password').value = '';
+        window.showToast('Пароль успешно обновлён');
     };
 
     window.closeCabinet = function() {
@@ -184,35 +352,52 @@ export function initAuth() {
     window.switchCabinetTab = function(tab) {
         const btnSounds = document.getElementById('cab-tab-sounds');
         const btnSettings = document.getElementById('cab-tab-settings');
+        const btnSecurity = document.getElementById('cab-tab-security');
+        const btnSupport = document.getElementById('cab-tab-support');
+        const btnFaq = document.getElementById('cab-tab-faq');
         const btnAdmin = document.getElementById('cab-tab-admin');
         
         const pnlSounds = document.getElementById('cab-panel-sounds');
         const pnlSettings = document.getElementById('cab-panel-settings');
+        const pnlSecurity = document.getElementById('cab-panel-security');
+        const pnlSupport = document.getElementById('cab-panel-support');
+        const pnlFaq = document.getElementById('cab-panel-faq');
         const pnlAdmin = document.getElementById('cab-panel-admin');
 
-        const activeClass = "py-3 px-4 text-[13px] font-bold text-blue-600 border-b-2 border-blue-600 transition-colors whitespace-nowrap";
-        const activeAdminClass = "py-3 px-4 text-[13px] font-bold text-red-600 border-b-2 border-red-600 transition-colors whitespace-nowrap";
-        const inactiveClass = "py-3 px-4 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap";
+        const activeClass = "py-3 px-3 text-[13px] font-bold text-blue-600 border-b-2 border-blue-600 transition-colors whitespace-nowrap";
+        const activeAdminClass = "py-3 px-3 text-[13px] font-bold text-red-600 border-b-2 border-red-600 transition-colors whitespace-nowrap";
+        const inactiveClass = "py-3 px-3 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap";
 
-        btnSounds.className = inactiveClass;
-        btnSettings.className = inactiveClass;
-        if(btnAdmin) btnAdmin.className = inactiveClass;
+        [btnSounds, btnSettings, btnSecurity, btnSupport, btnFaq, btnAdmin].forEach(btn => {
+            if (!btn || btn.classList.contains('hidden')) return;
+            btn.className = inactiveClass;
+        });
 
-        pnlSounds.classList.add('hidden');
-        pnlSettings.classList.add('hidden');
-        if(pnlAdmin) pnlAdmin.classList.add('hidden');
+        [pnlSounds, pnlSettings, pnlSecurity, pnlSupport, pnlFaq, pnlAdmin].forEach(panel => {
+            if (panel) panel.classList.add('hidden');
+        });
 
         if (tab === 'sounds') {
-            btnSounds.className = activeClass;
-            pnlSounds.classList.remove('hidden');
+            if (btnSounds) btnSounds.className = activeClass;
+            if (pnlSounds) pnlSounds.classList.remove('hidden');
             window.renderCabinet();
         } else if (tab === 'settings') {
-            btnSettings.className = activeClass;
-            pnlSettings.classList.remove('hidden');
+            if (btnSettings) btnSettings.className = activeClass;
+            if (pnlSettings) pnlSettings.classList.remove('hidden');
+        } else if (tab === 'security') {
+            if (btnSecurity) btnSecurity.className = activeClass;
+            if (pnlSecurity) pnlSecurity.classList.remove('hidden');
+        } else if (tab === 'support') {
+            if (btnSupport) btnSupport.className = activeClass;
+            if (pnlSupport) pnlSupport.classList.remove('hidden');
+        } else if (tab === 'faq') {
+            if (btnFaq) btnFaq.className = activeClass;
+            if (pnlFaq) pnlFaq.classList.remove('hidden');
         } else if (tab === 'admin') {
-            btnAdmin.className = activeAdminClass;
-            pnlAdmin.classList.remove('hidden');
+            if (btnAdmin && !btnAdmin.classList.contains('hidden')) btnAdmin.className = activeAdminClass;
+            if (pnlAdmin) pnlAdmin.classList.remove('hidden');
             window.renderAdminList();
+            if (window.renderRegionStats) window.renderRegionStats('admin-stats-grid');
         }
     };
 
@@ -237,19 +422,25 @@ export function initAuth() {
         if(!window.currentUser) return;
         
         document.getElementById('cabinet-user-name').textContent = window.currentUser.username;
-        
-        // Роль и показ админки
-        const roleEl = document.getElementById('cabinet-user-role');
-        const adminTab = document.getElementById('cab-tab-admin');
-        if (window.currentUser.role === 'admin') {
-            roleEl.textContent = 'Администратор системы';
-            roleEl.className = 'text-[11px] font-bold text-red-500 uppercase tracking-wider';
-            if (adminTab) adminTab.classList.remove('hidden');
+        const joinedEl = document.getElementById('cabinet-user-joined');
+        if (joinedEl) joinedEl.innerHTML = `<i class="fa-solid fa-calendar-days"></i>${new Date().toLocaleDateString('ru-RU')}`;
+        const statsEl = document.getElementById('cabinet-user-stats');
+        if (statsEl) statsEl.innerHTML = `<i class="fa-solid fa-microphone"></i>${window.soundsData.filter(s => s.recordist && s.recordist.toLowerCase() === window.currentUser.username.toLowerCase()).length} звуков`;
+
+        const avatar = document.getElementById('cabinet-avatar');
+        const fallback = document.getElementById('cabinet-avatar-fallback');
+        if (window.currentUser.avatar) {
+            if (avatar) {
+                avatar.src = window.currentUser.avatar;
+                avatar.classList.remove('hidden');
+            }
+            if (fallback) fallback.classList.add('hidden');
         } else {
-            roleEl.textContent = 'Рекордист';
-            roleEl.className = 'text-[11px] font-bold text-slate-400 uppercase tracking-wider';
-            if (adminTab) adminTab.classList.add('hidden');
+            if (avatar) avatar.classList.add('hidden');
+            if (fallback) fallback.classList.remove('hidden');
         }
+        
+        window.refreshCabinetTabs();
         
         const mySounds = window.soundsData.filter(s => s.recordist && s.recordist.toLowerCase() === window.currentUser.username.toLowerCase());
         

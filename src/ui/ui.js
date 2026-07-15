@@ -12,31 +12,321 @@ window.showToast = function(message) {
     }, 3000);
 }
 
+window.setSoundsListLoading = function(isLoading) {
+    const list = document.getElementById('sounds-list');
+    if (!list) return;
+    if (!isLoading) return;
+    list.innerHTML = Array.from({ length: 5 }).map(() => `
+        <div class="p-3 rounded-2xl border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full skeleton-line shrink-0"></div>
+            <div class="flex-grow space-y-2">
+                <div class="skeleton-line w-3/4"></div>
+                <div class="skeleton-line w-1/3 h-2"></div>
+            </div>
+        </div>
+    `).join('');
+};
+
+window.renderSoundTags = function(sound, containerId, clickable = false) {
+    const container = document.getElementById(containerId);
+    if (!container || !sound) return;
+    const tags = [];
+    if (sound.ecoCategory) {
+        const ecoLabel = window.translations[window.currentLang]?.[`filter_${sound.ecoCategory}`] || sound.ecoCategory;
+        tags.push({ label: ecoLabel, type: 'eco', value: sound.ecoCategory });
+    }
+    if (sound.typeTag) tags.push({ label: sound.typeTag, type: 'ucsSub', value: sound.typeTag });
+    if (sound.tagArray) sound.tagArray.forEach(t => tags.push({ label: t, type: 'gen', value: t }));
+
+    container.innerHTML = tags.map(tag => {
+        const clickAttr = clickable && tag.type === 'gen'
+            ? `onclick="window.toggleGenTag('${String(tag.value).replace(/'/g, "\\'")}')"`
+            : '';
+        const colors = tag.type === 'eco'
+            ? 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800'
+            : tag.type === 'ucsSub'
+                ? 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800'
+                : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600';
+        return `<span ${clickAttr} class="tag-pill ${colors} border">${tag.label}</span>`;
+    }).join('');
+};
+
+window.getRegionStats = function() {
+    const sounds = window.soundsData || [];
+    const byEco = { geophony: 0, biophony: 0, anthrophony: 0 };
+    const byUcs = {};
+    const recordists = new Set();
+    let totalSecs = 0;
+    let withAudio = 0;
+
+    sounds.forEach(s => {
+        if (s.ecoCategory && byEco[s.ecoCategory] !== undefined) byEco[s.ecoCategory]++;
+        if (s.ucsCat) byUcs[s.ucsCat] = (byUcs[s.ucsCat] || 0) + 1;
+        if (s.recordist) recordists.add(s.recordist);
+        totalSecs += window.parseDuration ? window.parseDuration(s.duration) : 0;
+        if (s.url && s.url.length > 10) withAudio++;
+    });
+
+    const topUcs = Object.entries(byUcs).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    return { total: sounds.length, byEco, topUcs, recordists: recordists.size, totalSecs, withAudio };
+};
+
+window.renderRegionStats = function(targetId = 'region-stats-grid') {
+    const grid = document.getElementById(targetId);
+    if (!grid || !window.parseDuration) return;
+    const stats = window.getRegionStats();
+    const cards = [
+        { value: stats.total, label: 'Записей', color: 'text-blue-600 dark:text-blue-400' },
+        { value: stats.withAudio, label: 'С аудио', color: 'text-emerald-600 dark:text-emerald-400' },
+        { value: stats.recordists, label: 'Авторов', color: 'text-indigo-600 dark:text-indigo-400' },
+        { value: window.formatTotalDuration(stats.totalSecs), label: 'Длительность', color: 'text-amber-600 dark:text-amber-400' },
+        { value: stats.byEco.geophony, label: 'Геофония', color: 'text-sky-600' },
+        { value: stats.byEco.biophony, label: 'Биофония', color: 'text-green-600' },
+        { value: stats.byEco.anthrophony, label: 'Антропофония', color: 'text-orange-600' },
+        { value: stats.topUcs[0] ? stats.topUcs[0][0] : '—', label: stats.topUcs[0] ? `Топ UCS (${stats.topUcs[0][1]})` : 'Топ UCS', color: 'text-violet-600 dark:text-violet-400' }
+    ];
+    grid.innerHTML = cards.map(c => `
+        <div class="stat-card">
+            <div class="stat-value ${c.color}">${c.value}</div>
+            <div class="stat-label">${c.label}</div>
+        </div>
+    `).join('');
+};
+
+window.exportSoundsData = function(format, allSounds = false) {
+    const sounds = allSounds ? (window.soundsData || []) : (window.getFilteredSounds ? window.getFilteredSounds() : []);
+    if (!sounds.length) return window.showToast('Нет данных для экспорта');
+
+    const stamp = new Date().toISOString().slice(0, 10);
+    const filename = `rosmap_${stamp}.${format === 'csv' ? 'csv' : 'geojson'}`;
+
+    if (format === 'csv') {
+        const headers = ['id', 'title', 'lat', 'lng', 'ecoCategory', 'ucsCat', 'typeTag', 'recordist', 'gear', 'channels', 'weather', 'date', 'duration', 'url'];
+        const escape = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+        const rows = sounds.map(s => headers.map(h => escape(s[h])).join(','));
+        const blob = new Blob(['\uFEFF' + [headers.join(','), ...rows].join('\n')], { type: 'text/csv;charset=utf-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(link.href);
+        window.showToast(`Экспортировано ${sounds.length} записей (CSV)`);
+        return;
+    }
+
+    const geojson = {
+        type: 'FeatureCollection',
+        features: sounds.map(s => ({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [s.lng, s.lat] },
+            properties: {
+                id: s.id, title: s.title, description: s.description,
+                ecoCategory: s.ecoCategory, ucsCat: s.ucsCat, typeTag: s.typeTag,
+                recordist: s.recordist, gear: s.gear, channels: s.channels,
+                weather: s.weather, date: s.date, duration: s.duration, url: s.url || '',
+                keywords: s.keywords || ''
+            }
+        }))
+    };
+    const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/geo+json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    window.showToast(`Экспортировано ${sounds.length} точек (GeoJSON)`);
+};
+
+window.onboardingSteps = [
+    { target: null, title: 'Добро пожаловать в Audio Map', text: 'Интерактивная карта звуков Ростовской области. Пройдите короткий тур — это займёт 30 секунд.' },
+    { target: '#sidebar', title: 'Библиотека звуков', text: 'Меню слева — поиск, фильтры по UCS и тегам, список всех записей региона.' },
+    { target: '#player-card', title: 'Аудиоплеер', text: 'Выберите звук на карте или в списке. Для ambisonics включите 360° и крутите звуковую сферу в наушниках.' },
+    { target: '#fab-add', title: 'Добавьте свой звук', text: 'Кнопка «+» — загрузка WAV с метаданными UCS. На телефоне удерживайте палец на карте, чтобы поставить метку.' }
+];
+
+window.startOnboarding = function(step = 0) {
+    const overlay = document.getElementById('onboarding-overlay');
+    if (!overlay) return;
+    window.__onboardingStep = step;
+    overlay.classList.remove('hidden');
+    overlay.classList.add('pointer-events-auto');
+    window.updateOnboardingStep();
+};
+
+window.updateOnboardingStep = function() {
+    const step = window.onboardingSteps[window.__onboardingStep || 0];
+    const overlay = document.getElementById('onboarding-overlay');
+    const highlight = document.getElementById('onboarding-highlight');
+    const card = document.getElementById('onboarding-card');
+    if (!step || !overlay || !highlight || !card) return;
+
+    document.getElementById('onboarding-step-label').textContent = `Шаг ${window.__onboardingStep + 1} / ${window.onboardingSteps.length}`;
+    document.getElementById('onboarding-title').textContent = step.title;
+    document.getElementById('onboarding-text').textContent = step.text;
+    document.getElementById('onboarding-prev').classList.toggle('invisible', window.__onboardingStep === 0);
+    document.getElementById('onboarding-next').textContent = window.__onboardingStep === window.onboardingSteps.length - 1 ? 'Готово' : 'Далее';
+
+    if (!step.target) {
+        highlight.style.cssText = 'display:none';
+        card.style.left = '50%';
+        card.style.top = '50%';
+        card.style.transform = 'translate(-50%, -50%)';
+        return;
+    }
+
+    const el = document.querySelector(step.target);
+    if (!el) {
+        highlight.style.display = 'none';
+        return;
+    }
+
+    if (step.target === '#sidebar') {
+        const sb = document.getElementById('sidebar');
+        if (sb && sb.classList.contains('sidebar-hidden')) window.toggleSidebar();
+    }
+    if (step.target === '#player-card') {
+        const pc = document.getElementById('player-card');
+        if (pc) pc.classList.remove('translate-y-[150%]', 'opacity-0');
+    }
+
+    const rect = el.getBoundingClientRect();
+    const pad = 8;
+    highlight.style.display = 'block';
+    highlight.style.left = `${rect.left - pad}px`;
+    highlight.style.top = `${rect.top - pad}px`;
+    highlight.style.width = `${rect.width + pad * 2}px`;
+    highlight.style.height = `${rect.height + pad * 2}px`;
+
+    const cardRect = card.getBoundingClientRect();
+    let top = rect.bottom + 16;
+    if (top + cardRect.height > window.innerHeight - 16) top = rect.top - cardRect.height - 16;
+    let left = Math.min(Math.max(16, rect.left), window.innerWidth - cardRect.width - 16);
+    card.style.left = `${left}px`;
+    card.style.top = `${Math.max(16, top)}px`;
+    card.style.transform = 'none';
+};
+
+window.nextOnboardingStep = function() {
+    if (window.__onboardingStep >= window.onboardingSteps.length - 1) {
+        window.dismissOnboarding();
+        return;
+    }
+    window.__onboardingStep++;
+    window.updateOnboardingStep();
+};
+
+window.prevOnboardingStep = function() {
+    if (window.__onboardingStep > 0) {
+        window.__onboardingStep--;
+        window.updateOnboardingStep();
+    }
+};
+
+window.dismissOnboarding = function() {
+    localStorage.setItem('rosmap_onboarding_done', '1');
+    const overlay = document.getElementById('onboarding-overlay');
+    if (overlay) {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('pointer-events-auto');
+    }
+};
+
+window.restartOnboarding = function() {
+    localStorage.removeItem('rosmap_onboarding_done');
+    if (window.closeSettingsModal) window.closeSettingsModal();
+    window.startOnboarding(0);
+};
+
+window.initOnboarding = function() {
+    if (localStorage.getItem('rosmap_onboarding_done')) return;
+    setTimeout(() => window.startOnboarding(0), 900);
+};
+
 // ДОБАВЛЕНО: Кастомные UI Окна (для правого клика и подтверждений)
-window.CustomUI = {
+window.CustomUI = window.CustomUI || {
     resolve: null,
     open: function(opts) {
-        document.getElementById('ui-modal-title').innerHTML = opts.title || 'Внимание';
-        document.getElementById('ui-modal-message').innerHTML = opts.message || '';
+        const titleEl = document.getElementById('ui-modal-title');
+        const messageEl = document.getElementById('ui-modal-message');
         const btn = document.getElementById('ui-modal-confirm');
-        btn.textContent = opts.confirmText || 'ОК';
-        if(opts.confirmClass) btn.className = opts.confirmClass;
-        
         const m = document.getElementById('ui-modal-overlay');
-        m.classList.remove('hidden');
-        void m.offsetWidth;
-        m.classList.remove('opacity-0');
-        m.firstElementChild.classList.remove('scale-95');
-        
+        const content = m ? m.firstElementChild : null;
+
+        if (titleEl) titleEl.innerHTML = opts.title || 'Внимание';
+        if (messageEl) messageEl.innerHTML = opts.message || '';
+        if (btn) {
+            btn.textContent = opts.confirmText || 'ОК';
+            if (opts.confirmClass) btn.className = opts.confirmClass;
+        }
+
+        if (m && content) {
+            m.classList.remove('hidden');
+            void m.offsetWidth;
+            m.classList.remove('opacity-0');
+            content.classList.remove('scale-95');
+        }
+
         return new Promise(res => { this.resolve = res; });
     },
     close: function(value) {
         const m = document.getElementById('ui-modal-overlay');
-        m.classList.add('opacity-0');
-        m.firstElementChild.classList.add('scale-95');
-        setTimeout(() => m.classList.add('hidden'), 300);
-        if(this.resolve) this.resolve(value);
+        const content = m ? m.firstElementChild : null;
+        if (m && content) {
+            m.classList.add('opacity-0');
+            content.classList.add('scale-95');
+            setTimeout(() => {
+                if (m.classList.contains('opacity-0')) m.classList.add('hidden');
+            }, 300);
+        }
+        if (this.resolve) {
+            const resolve = this.resolve;
+            this.resolve = null;
+            resolve(value);
+        }
     }
+};
+
+window.openLocationPickerModal = function() {
+    const modal = document.getElementById('location-picker-modal');
+    const content = document.getElementById('location-picker-modal-content');
+    if (!modal || !content) return;
+
+    modal.classList.remove('hidden');
+    void modal.offsetWidth;
+    modal.classList.remove('opacity-0', 'pointer-events-none');
+    content.classList.remove('scale-95');
+
+    if (window.initLocationPickerMap) window.initLocationPickerMap();
+};
+
+window.closeLocationPickerModal = function() {
+    const modal = document.getElementById('location-picker-modal');
+    const content = document.getElementById('location-picker-modal-content');
+    if (!modal || !content) return;
+
+    modal.classList.add('opacity-0', 'pointer-events-none');
+    content.classList.add('scale-95');
+    setTimeout(() => {
+        if (modal.classList.contains('opacity-0')) modal.classList.add('hidden');
+    }, 300);
+};
+
+window.applyPickedLocation = function() {
+    if (!window.tempAddCoords) {
+        window.showToast('Сначала выберите точку на карте');
+        return;
+    }
+
+    const coordsInput = document.getElementById('add-coords');
+    const locationInput = document.getElementById('add-loc');
+    if (coordsInput) {
+        coordsInput.value = `${Number(window.tempAddCoords[0]).toFixed(5)}, ${Number(window.tempAddCoords[1]).toFixed(5)}`;
+    }
+    if (locationInput) {
+        locationInput.value = locationInput.value.trim() || 'Точка выбрана на карте';
+    }
+
+    window.closeLocationPickerModal();
 };
 
 window.assignArchiveNumbers = function() {
@@ -86,6 +376,14 @@ window.mergeData = function(cloudData) {
     window.soundsData = Array.from(combinedMap.values()).reverse().map(window.formatSoundObject);
     window.assignArchiveNumbers();
     window.cloudDataCache = cloudData;
+    window.__filteredSoundsCache = null;
+    window.__filteredSoundsCacheKey = null;
+        window.markerCache = new Map();
+        window.markerLayoutCache = new Map();
+        if (window.markerClusterer && window.map) {
+            window.map.geoObjects.remove(window.markerClusterer);
+            window.markerClusterer = null;
+        }
 };
 
 window.syncCloudData = async function(newCloudData) {
@@ -156,21 +454,41 @@ window.renderFilterPanels = function() {
     const renderMetaSet = (set, containerId, toggleFn, icon, dataKey) => {
         const container = document.getElementById(containerId);
         if (!container) return;
-        container.innerHTML = Array.from(set).sort().map(val => {
-            let setName = toggleFn.replace('window.toggle', 'active');
-            // Исключения для правильного маппинга имен сетов
-            if(setName === 'activeEcoLayer' || setName === 'activeUcsCat' || setName === 'activeUcsSub') {
-                 // Оставляем как есть, логика ниже
-            } else {
-                 setName = toggleFn.replace('window.toggle', 'active');
-            }
-            
+
+        const values = Array.from(set || []).sort();
+        if (!values.length) {
+            container.innerHTML = '<div class="text-[10px] text-slate-400">Нет данных</div>';
+            return;
+        }
+
+        const counts = new Map();
+        window.soundsData.forEach(sound => {
+            const key = String(sound[dataKey] ?? '');
+            if (!key) return;
+            counts.set(key, (counts.get(key) || 0) + 1);
+        });
+
+        const setNameMap = {
+            'window.toggleEcoLayer': 'activeEcoLayer',
+            'window.toggleUcsCat': 'activeUcsCat',
+            'window.toggleUcsSub': 'activeUcsSub',
+            'window.togglePrinciple': 'activePrinciple',
+            'window.toggleGear': 'activeGear',
+            'window.toggleMic': 'activeMic',
+            'window.toggleChannels': 'activeChannels',
+            'window.toggleLicense': 'activeLicense',
+            'window.toggleRecordist': 'activeRecordist',
+            'window.toggleWeather': 'activeWeather',
+            'window.toggleDate': 'activeDate'
+        };
+
+        const setName = setNameMap[toggleFn] || 'activeFilters';
+        container.innerHTML = values.map(val => {
             const isActive = window[setName] && window[setName].has(val);
-            const count = window.soundsData.filter(s => s[dataKey] === val).length;
-            
-            // Если это слои (geophony и тд), переводим их
+            const count = counts.get(String(val)) || 0;
+
             let displayName = val;
-            if (dataKey === 'ecoCategory' && window.translations[window.currentLang][`filter_${val}`]) {
+            if (dataKey === 'ecoCategory' && window.translations[window.currentLang] && window.translations[window.currentLang][`filter_${val}`]) {
                 displayName = window.translations[window.currentLang][`filter_${val}`];
             }
 
@@ -180,12 +498,10 @@ window.renderFilterPanels = function() {
         }).join('');
     };
 
-    // Отрисовка UCS Категорий (ДОБАВЛЕНО)
     renderMetaSet(window.allExtractedEcoLayers, 'filter-eco-layer', 'window.toggleEcoLayer', 'fa-leaf', 'ecoCategory');
     renderMetaSet(window.allExtractedUcsCats, 'filter-ucs-categories', 'window.toggleUcsCat', 'fa-folder-tree', 'ucsCat');
     renderMetaSet(window.allExtractedSubcats, 'filter-ucs-subcategories', 'window.toggleUcsSub', 'fa-tag', 'typeTag');
 
-    // Отрисовка Метаданных
     renderMetaSet(window.allExtractedPrinciples, 'filter-meta-principle', 'window.togglePrinciple', 'fa-street-view', 'recPrinciple');
     renderMetaSet(window.allExtractedGears, 'filter-meta-gear', 'window.toggleGear', 'fa-walkie-talkie', 'gear');
     renderMetaSet(window.allExtractedMics, 'filter-meta-mic', 'window.toggleMic', 'fa-microphone-lines', 'micType');
@@ -225,11 +541,16 @@ window.renderActiveTags = function() {
     container.innerHTML = html;
 }
 
-window.getFilteredSounds = function() {
+window.getFilteredSounds = function(forceRefresh = false) {
     const queryEl = document.getElementById('search-input');
     const query = queryEl ? queryEl.value.trim().toLowerCase() : '';
+    const cacheKey = `${query}|${window.activeEcoLayer.size}|${Array.from(window.activeEcoLayer).sort().join(',')}|${window.activeUcsCat.size}|${Array.from(window.activeUcsCat).sort().join(',')}|${window.activeUcsSub.size}|${Array.from(window.activeUcsSub).sort().join(',')}|${window.activePrinciple.size}|${Array.from(window.activePrinciple).sort().join(',')}|${window.activeGear.size}|${Array.from(window.activeGear).sort().join(',')}|${window.activeMic.size}|${Array.from(window.activeMic).sort().join(',')}|${window.activeChannels.size}|${Array.from(window.activeChannels).sort().join(',')}|${window.activeLicense.size}|${Array.from(window.activeLicense).sort().join(',')}|${window.activeRecordist.size}|${Array.from(window.activeRecordist).sort().join(',')}|${window.activeWeather.size}|${Array.from(window.activeWeather).sort().join(',')}|${window.activeDate.size}|${Array.from(window.activeDate).sort().join(',')}`;
 
-    return window.soundsData.filter(s => {
+    if (!forceRefresh && window.__filteredSoundsCacheKey === cacheKey && window.__filteredSoundsCache) {
+        return window.__filteredSoundsCache;
+    }
+
+    const filtered = window.soundsData.filter(s => {
         const searchTarget = `${s.title} ${s.description} ${s.keywords} ${s.ecoCategory} ${s.ucsCat} ${s.typeTag} ${s.recPrinciple} ${s.gear} ${s.micType} ${s.recordist} ${s.weather} ${s.date} ${s.license} ${s.channels}`.toLowerCase();
         const searchMatch = !query || searchTarget.includes(query);
 
@@ -247,6 +568,10 @@ window.getFilteredSounds = function() {
 
         return searchMatch && ecoMatch && ucsCatMatch && ucsSubMatch && principleMatch && gearMatch && micMatch && channelMatch && licenseMatch && recordistMatch && weatherMatch && dateMatch;
     });
+
+    window.__filteredSoundsCache = filtered;
+    window.__filteredSoundsCacheKey = cacheKey;
+    return filtered;
 }
 
 window.renderList = function() {
@@ -288,7 +613,15 @@ window.toggleWeather = function(val) { if (window.activeWeather.has(val)) window
 window.toggleDate = function(val) { if (window.activeDate.has(val)) window.activeDate.delete(val); else window.activeDate.add(val); window.processFilterChange(false); }
 
 window.processFilterChange = function(forceOpenDesktopSidebar = false) {
-    window.renderFilterPanels(); window.updateMapMarkers(); window.renderList();
+    if (window.__filterRenderFrame) cancelAnimationFrame(window.__filterRenderFrame);
+    window.__filterRenderFrame = requestAnimationFrame(() => {
+        window.__filteredSoundsCache = null;
+        window.__filteredSoundsCacheKey = null;
+        window.renderFilterPanels();
+        window.updateMapMarkers();
+        window.renderList();
+        window.__filterRenderFrame = null;
+    });
 }
 
 window.switchFilterTab = function(tab) {
@@ -343,6 +676,7 @@ window.selectSound = function(id) {
     window.updateMapMarkers();
     const card = document.getElementById('player-card');
     if(card) card.classList.remove('translate-y-[150%]', 'opacity-0');
+    document.body.classList.add('player-visible');
 
     const titleEl = document.getElementById('player-title');
     const gearEl = document.getElementById('player-gear');
@@ -472,15 +806,16 @@ window.handleAudioFiles = function(files) {
 window.updateUcsSubcats = function() {
     const cat = document.getElementById('add-category');
     const subcatSelect = document.getElementById('add-subcat');
-    if(!cat || !subcatSelect || !window.ucsStructure) return;
-    
-    const selectedCat = cat.value;
-    if(window.ucsStructure[selectedCat]) {
-        subcatSelect.innerHTML = window.ucsStructure[selectedCat].map(sub => 
-            `<option value="${sub.id}">${sub.name}</option>`
-        ).join('');
+    if (!cat || !subcatSelect) return;
+
+    const selectedCat = cat.value || 'AMBIENCE';
+    const structure = window.ucsStructure || {};
+    const options = structure[selectedCat] || [];
+
+    subcatSelect.innerHTML = options.map(sub => `<option value="${sub.id}">${sub.name}</option>`).join('');
+    if (typeof window.generateUCSFileName === 'function') {
+        window.generateUCSFileName();
     }
-    window.generateUCSFileName();
 }
 
 window.generateUCSFileName = function() {
@@ -498,6 +833,12 @@ window.toggleAddModal = function(forceClose = false, coords = null) {
     const m = document.getElementById('add-modal');
     const c = document.getElementById('add-modal-content');
     const coordsInput = document.getElementById('add-coords');
+
+    if (!window.currentUser) {
+        window.showToast('Нужно войти в аккаунт, чтобы добавлять звук');
+        if (window.openAuthModal) window.openAuthModal();
+        return;
+    }
 
     if (m && m.classList.contains('hidden') && !forceClose) {
         if (coords && coordsInput) {
@@ -529,32 +870,43 @@ window.closeAddModalSafely = function() { window.toggleAddModal(true); }
 // UI System Callbacks
 window.setMapStyle = function(style, skipSave = false) {
     const mapContainer = document.getElementById('map');
+    window.currentMapStyle = style;
     if(!mapContainer) return;
     if (style === 'monochrome') mapContainer.classList.add('map-monochrome');
     else mapContainer.classList.remove('map-monochrome');
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('mapStyle', style);
+    if (window.refreshSettingsUI) window.refreshSettingsUI();
 }
 window.changeGUISize = function(size, skipSave = false) {
     const scales = { small: '14px', medium: '16px', large: '18px' };
+    window.currentGuiScale = size;
     document.documentElement.style.fontSize = scales[size];
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('guiScale', size);
+    if (window.refreshSettingsUI) window.refreshSettingsUI();
 }
 window.setLanguage = function(lang, skipSave = false) {
     window.currentLang = lang; window.renderList();
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('lang', lang);
+    if (window.refreshSettingsUI) window.refreshSettingsUI();
 }
 window.setTheme = function(theme, skipSave = false) {
     window.currentTheme = theme;
     if (theme === 'dark') document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark');
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('theme', theme);
+    if (window.refreshSettingsUI) window.refreshSettingsUI();
 }
 window.toggleSidebar = function() {
     const s = document.getElementById('sidebar');
     if(!s) return;
     s.classList.toggle('sidebar-hidden');
+    const isHidden = s.classList.contains('sidebar-hidden');
+
+    const backdrop = document.getElementById('sidebar-backdrop');
+    if (backdrop && window.innerWidth < 768) backdrop.classList.toggle('visible', !isHidden);
+
     if(window.innerWidth >= 768) {
         const playerCard = document.getElementById('player-card');
-        if(playerCard) { if (s.classList.contains('sidebar-hidden')) { playerCard.style.marginLeft = '0'; } else { playerCard.style.marginLeft = '25.5rem'; } }
+        if(playerCard) { if (isHidden) { playerCard.style.marginLeft = '0'; } else { playerCard.style.marginLeft = '25.5rem'; } }
     }
 }
 

@@ -38,6 +38,26 @@
     <!-- Карта -->
     <div id="map" class="absolute inset-0 z-0 transition-all duration-500"></div>
 
+    <!-- Затемнение при открытой боковой панели (мобильные) -->
+    <div id="sidebar-backdrop" onclick="window.toggleSidebar()" class="fixed inset-0 z-[55] bg-slate-900/40 backdrop-blur-[2px] opacity-0 pointer-events-none transition-opacity duration-300 md:hidden"></div>
+
+    <!-- Онбординг для новых пользователей -->
+    <div id="onboarding-overlay" class="fixed inset-0 z-[400] hidden pointer-events-none">
+        <div id="onboarding-highlight" class="absolute rounded-3xl border-2 border-blue-400 shadow-[0_0_0_9999px_rgba(15,23,42,0.72)] transition-all duration-500 pointer-events-none"></div>
+        <div id="onboarding-card" class="absolute bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 p-5 w-[min(92vw,22rem)] pointer-events-auto transition-all duration-500">
+            <div class="flex items-center justify-between mb-3">
+                <span id="onboarding-step-label" class="text-[10px] font-bold uppercase tracking-wider text-blue-600">Шаг 1 / 4</span>
+                <button onclick="window.dismissOnboarding()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-semibold">Пропустить</button>
+            </div>
+            <h3 id="onboarding-title" class="text-lg font-bold text-slate-800 dark:text-white mb-2">Добро пожаловать</h3>
+            <p id="onboarding-text" class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-4">Краткий тур по карте.</p>
+            <div class="flex items-center justify-between gap-3">
+                <button id="onboarding-prev" onclick="window.prevOnboardingStep()" class="px-4 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">Назад</button>
+                <button id="onboarding-next" onclick="window.nextOnboardingStep()" class="px-5 py-2.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md transition-colors">Далее</button>
+            </div>
+        </div>
+    </div>
+
     <!-- UI Слои -->
     <div class="absolute inset-0 pointer-events-none z-10 w-full h-full overflow-hidden">
         
@@ -48,6 +68,9 @@
 
         <!-- Кнопка Профиля (Вверху справа) -->
         <div class="absolute top-4 right-4 md:top-6 md:right-6 pointer-events-auto z-50 flex items-center gap-3">
+            <button onclick="window.openSettingsPanel()" id="settings-btn" class="w-12 h-12 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:scale-105 active:scale-95 transition-all" title="Настройки">
+                <i class="fa-solid fa-gear text-xl pointer-events-none"></i>
+            </button>
             <button onclick="window.toggleCabinet()" id="profile-btn" class="w-12 h-12 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-blue-600 dark:text-blue-400 hover:scale-105 active:scale-95 transition-all" title="Личный кабинет">
                 <i class="fa-solid fa-user-astronaut text-xl pointer-events-none"></i>
             </button>
@@ -112,6 +135,15 @@
 
         <!-- Плеер -->
         <div class="absolute bottom-0 left-0 right-0 w-full pointer-events-none flex justify-center pb-4 md:pb-6 z-40">
+            <div id="mini-player" class="hidden pointer-events-auto mb-3 w-[92%] max-w-md rounded-[1.4rem] border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-800/95 shadow-xl backdrop-blur-md px-4 py-3 items-center gap-3">
+                <button onclick="window.restorePlayerCard()" class="flex-1 min-w-0 text-left">
+                    <div class="text-[12px] font-bold text-slate-800 dark:text-white truncate" id="mini-player-title">Звук</div>
+                    <div class="text-[10px] text-slate-500 dark:text-slate-400">Нажмите, чтобы вернуться к плееру</div>
+                </button>
+                <button onclick="window.toggleMainPlay()" class="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md shrink-0">
+                    <i id="mini-player-icon" class="fa-solid fa-play text-sm"></i>
+                </button>
+            </div>
             <div id="player-card" class="pointer-events-auto bg-white dark:bg-slate-800 rounded-[1.8rem] md:rounded-[2rem] shadow-[0_-8px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_50px_rgba(0,0,0,0.5)] p-4 md:p-5 w-[94%] max-w-md transform translate-y-[150%] opacity-0 border border-slate-50 dark:border-slate-700 relative">
                 
                 <div onclick="window.closePlayerCard()" class="absolute top-0 left-0 right-0 h-6 md:h-8 flex justify-center items-center cursor-pointer z-50">
@@ -183,7 +215,7 @@
         </div>
 
         <!-- Кнопка Добавления звука -->
-        <div class="absolute bottom-4 right-4 md:bottom-8 md:right-8 pointer-events-auto z-50">
+        <div id="fab-add" class="absolute bottom-4 right-4 md:bottom-8 md:right-8 pointer-events-auto z-50">
             <button onclick="window.toggleAddModal()" class="w-14 h-14 bg-blue-600 text-white rounded-[1.25rem] flex items-center justify-center shadow-2xl border border-blue-500 transition-transform hover:scale-105 active:scale-95" title="Add Audio">
                 <i class="fa-solid fa-plus text-2xl pointer-events-none"></i>
             </button>
@@ -217,19 +249,116 @@
         </div>
     </div>
 
-    <!-- Модальное окно: ЛИЧНЫЙ КАБИНЕТ (С Настройками и Админкой) -->
+    <!-- Модальное окно: Поддержка -->
+    <div id="support-modal" onmousedown="if(event.target === this) window.closeSupportModal()" class="fixed inset-0 z-[260] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none">
+        <div class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-md flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
+            <div class="px-6 py-5 flex justify-between items-center border-b border-slate-100 dark:border-slate-700">
+                <h3 class="text-lg font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-circle-question mr-2 text-blue-500"></i>Поддержка</h3>
+                <button onclick="window.closeSupportModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none">
+                    <i class="fa-solid fa-xmark text-xl pointer-events-none"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 p-4 text-sm text-slate-600 dark:text-slate-300">
+                    Если у вас возникли вопросы по карте, добавлению звуков или настройкам — напишите нам.
+                </div>
+                <a href="mailto:help@rosmap.local" class="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
+                    <i class="fa-solid fa-envelope"></i>
+                    Написать в поддержку
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно: НАСТРОЙКИ -->
+    <div id="settings-modal" onmousedown="if(event.target === this) window.closeSettingsModal()" class="fixed inset-0 z-[250] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none">
+        <div class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto border border-slate-100 dark:border-slate-800">
+            <div class="px-6 py-5 flex justify-between items-center border-b border-slate-100 dark:border-slate-700">
+                <h3 class="text-lg font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-gear mr-2 text-blue-500"></i>Настройки</h3>
+                <button onclick="window.closeSettingsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none">
+                    <i class="fa-solid fa-xmark text-xl pointer-events-none"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto custom-scrollbar space-y-6">
+                <div>
+                    <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="gui_scale"><i class="fa-solid fa-text-height mr-1"></i> Масштаб интерфейса</label>
+                    <div class="grid grid-cols-3 gap-2" id="scale-buttons">
+                        <button data-scale="small" onclick="window.changeGUISize('small')" class="p-2.5 text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Small</button>
+                        <button data-scale="medium" onclick="window.changeGUISize('medium')" class="p-2.5 text-xs font-bold bg-blue-600 text-white rounded-xl transition-all shadow-md">Medium</button>
+                        <button data-scale="large" onclick="window.changeGUISize('large')" class="p-2.5 text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Large</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="theme"><i class="fa-solid fa-circle-half-stroke mr-1"></i> Тема оформления</label>
+                    <div class="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <button onclick="window.setTheme('light')" id="theme-light-btn" class="flex-1 py-2 text-xs font-bold bg-white text-slate-800 shadow-sm rounded-lg transition-all"><i class="fa-solid fa-sun mr-1 text-amber-500"></i>Light</button>
+                        <button onclick="window.setTheme('dark')" id="theme-dark-btn" class="flex-1 py-2 text-xs font-bold bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50 rounded-lg transition-all"><i class="fa-solid fa-moon mr-1 text-indigo-400"></i>Dark</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="map_style"><i class="fa-solid fa-map mr-1"></i> Стиль карты (Фильтр)</label>
+                    <div class="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <button onclick="window.setMapStyle('normal')" id="map-normal-btn" class="flex-1 py-2 text-xs font-bold bg-blue-600 text-white shadow-md rounded-lg transition-all" data-lang="map_normal">Стандарт</button>
+                        <button onclick="window.setMapStyle('monochrome')" id="map-mono-btn" class="flex-1 py-2 text-xs font-bold bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50 rounded-lg transition-all" data-lang="map_mono">Монохром</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="language"><i class="fa-solid fa-language mr-1"></i> Язык приложения</label>
+                    <div class="relative">
+                        <select onchange="window.setLanguage(this.value)" id="lang-select" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-semibold appearance-none cursor-pointer">
+                            <option value="ru">🇷🇺 Русский</option>
+                            <option value="en">🇬🇧 English</option>
+                        </select>
+                        <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                    </div>
+                </div>
+                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4 space-y-3">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider"><i class="fa-solid fa-chart-pie mr-1"></i> Статистика региона</p>
+                    <div id="region-stats-grid" class="grid grid-cols-2 gap-2 text-center"></div>
+                    <div class="flex gap-2">
+                        <button onclick="window.exportSoundsData('csv')" class="flex-1 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                            <i class="fa-solid fa-file-csv mr-1"></i>CSV
+                        </button>
+                        <button onclick="window.exportSoundsData('geojson')" class="flex-1 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                            <i class="fa-solid fa-map mr-1"></i>GeoJSON
+                        </button>
+                    </div>
+                </div>
+                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
+                    <button onclick="window.restartOnboarding()" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors mb-2">
+                        <i class="fa-solid fa-compass"></i>
+                        Показать тур по карте
+                    </button>
+                    <button onclick="window.openSupportModal()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
+                        <i class="fa-solid fa-circle-question"></i>
+                        Поддержка и помощь
+                    </button>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-2 text-center">Если что-то не работает, напишите нам и мы быстро поможем.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно: ЛИЧНЫЙ КАБИНЕТ -->
     <div id="cabinet-modal" onmousedown="if(event.target === this) window.closeCabinet()" class="fixed inset-0 z-[200] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none">
         <div class="bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto border border-slate-100 dark:border-slate-800">
-            
-            <!-- Шапка Кабинета -->
             <div class="px-6 py-5 flex justify-between items-center bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
-                <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 rounded-full bg-blue-100 dark:bg-slate-700 flex items-center justify-center text-blue-600 dark:text-blue-400 text-xl shadow-inner shrink-0">
-                        <i class="fa-solid fa-user-astronaut"></i>
-                    </div>
-                    <div>
-                        <h3 id="cabinet-user-name" class="text-lg font-bold text-slate-800 dark:text-white leading-tight">Имя Пользователя</h3>
+                <div class="flex items-center gap-4 min-w-0">
+                    <label class="relative cursor-pointer group shrink-0">
+                        <img id="cabinet-avatar" class="hidden w-14 h-14 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-sm" alt="avatar">
+                        <div id="cabinet-avatar-fallback" class="w-14 h-14 rounded-full bg-blue-100 dark:bg-slate-700 flex items-center justify-center text-blue-600 dark:text-blue-400 text-xl shadow-inner">
+                            <i class="fa-solid fa-user-astronaut"></i>
+                        </div>
+                        <input type="file" id="avatar-input" accept="image/*" class="hidden" onchange="window.uploadProfilePhoto(this.files)">
+                        <span class="absolute inset-0 rounded-full bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[10px] font-bold text-white">Фото</span>
+                    </label>
+                    <div class="min-w-0">
+                        <h3 id="cabinet-user-name" class="text-lg font-bold text-slate-800 dark:text-white leading-tight truncate">Имя Пользователя</h3>
                         <p id="cabinet-user-role" class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Рекордист</p>
+                        <div class="flex flex-wrap gap-2 mt-2 text-[10px] text-slate-500 dark:text-slate-400">
+                            <span id="cabinet-user-joined" class="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full"><i class="fa-solid fa-calendar-days"></i>Дата</span>
+                            <span id="cabinet-user-stats" class="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full"><i class="fa-solid fa-microphone"></i>0 звуков</span>
+                        </div>
                     </div>
                 </div>
                 <button onclick="window.closeCabinet()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors shrink-0 outline-none">
@@ -237,17 +366,16 @@
                 </button>
             </div>
 
-            <!-- Вкладки Кабинета -->
             <div class="flex bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 px-4 gap-2 overflow-x-auto custom-scrollbar">
-                <button onclick="window.switchCabinetTab('sounds')" id="cab-tab-sounds" class="py-3 px-4 text-[13px] font-bold text-blue-600 border-b-2 border-blue-600 transition-colors whitespace-nowrap"><i class="fa-solid fa-music mr-2"></i>Мои звуки</button>
-                <button onclick="window.switchCabinetTab('settings')" id="cab-tab-settings" class="py-3 px-4 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap"><i class="fa-solid fa-gear mr-2"></i>Настройки профиля</button>
-                <button onclick="window.switchCabinetTab('admin')" id="cab-tab-admin" class="hidden py-3 px-4 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap"><i class="fa-solid fa-shield-halved mr-2 text-red-500"></i>Админ-панель</button>
+                <button onclick="window.switchCabinetTab('sounds')" id="cab-tab-sounds" class="py-3 px-3 text-[13px] font-bold text-blue-600 border-b-2 border-blue-600 transition-colors whitespace-nowrap">Мои звуки</button>
+                <button onclick="window.switchCabinetTab('settings')" id="cab-tab-settings" class="py-3 px-3 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap">Настройки</button>
+                <button onclick="window.switchCabinetTab('security')" id="cab-tab-security" class="py-3 px-3 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap">Сменить пароль</button>
+                <button onclick="window.switchCabinetTab('support')" id="cab-tab-support" class="py-3 px-3 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap">Поддержка</button>
+                <button onclick="window.switchCabinetTab('faq')" id="cab-tab-faq" class="py-3 px-3 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap">FAQ</button>
+                <button onclick="window.switchCabinetTab('admin')" id="cab-tab-admin" class="hidden py-3 px-3 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap text-red-600">Админ-панель</button>
             </div>
 
-            <!-- Контент Кабинета -->
-            <div class="p-6 overflow-y-auto custom-scrollbar flex-1 relative">
-                
-                <!-- Вкладка: Мои Звуки -->
+            <div class="p-6 overflow-y-auto custom-scrollbar flex-1">
                 <div id="cab-panel-sounds" class="space-y-4">
                     <div class="grid grid-cols-2 gap-4 mb-4">
                         <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-center items-center text-center">
@@ -259,59 +387,131 @@
                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Общая длительность</span>
                         </div>
                     </div>
-                    <h4 class="text-sm font-bold text-slate-800 dark:text-white mb-2 ml-1">Список ваших записей:</h4>
-                    <div id="cabinet-sounds-list" class="space-y-3">
-                        <!-- Звуки рекордиста -->
+                    <h4 class="text-sm font-bold text-slate-800 dark:text-white mb-2">Список ваших записей:</h4>
+                    <div id="cabinet-sounds-list" class="space-y-3"></div>
+                </div>
+
+                <div id="cab-panel-settings" class="hidden space-y-4">
+                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
+                        <div>
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-1">Общие настройки</h4>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Тема, стиль карты, язык и масштаб интерфейса.</p>
+                        </div>
+                        <button onclick="window.openSettingsPanel()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
+                            <i class="fa-solid fa-gear"></i>Открыть настройки приложения
+                        </button>
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                            <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Тема</div>
+                                <div class="font-semibold text-slate-700 dark:text-slate-200">Светлая / тёмная</div>
+                            </div>
+                            <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
+                                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Карта</div>
+                                <div class="font-semibold text-slate-700 dark:text-slate-200">Стандарт / моно</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
+                        <div>
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-1">Профиль</h4>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Загрузите фото и обновите данные аккаунта.</p>
+                        </div>
+                        <button onclick="document.getElementById('avatar-input').click()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-700 hover:bg-slate-800 text-white font-semibold transition-colors shadow-sm">
+                            <i class="fa-solid fa-image"></i>Загрузить фото профиля
+                        </button>
                     </div>
                 </div>
 
-                <!-- Вкладка: Настройки (Перенесены из старого глобального окна) -->
-                <div id="cab-panel-settings" class="hidden space-y-6 bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700">
-                    <div>
-                        <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="gui_scale"><i class="fa-solid fa-text-height mr-1"></i> Масштаб интерфейса</label>
-                        <div class="grid grid-cols-3 gap-2" id="scale-buttons">
-                            <button data-scale="small" onclick="window.changeGUISize('small')" class="p-2.5 text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Small</button>
-                            <button data-scale="medium" onclick="window.changeGUISize('medium')" class="p-2.5 text-xs font-bold bg-blue-600 text-white rounded-xl transition-all shadow-md">Medium</button>
-                            <button data-scale="large" onclick="window.changeGUISize('large')" class="p-2.5 text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Large</button>
+                <div id="cab-panel-security" class="hidden space-y-4">
+                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
+                        <div>
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-1">Безопасность аккаунта</h4>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Смените пароль для входа в профиль.</p>
                         </div>
-                    </div>
-                    <div>
-                        <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="theme"><i class="fa-solid fa-circle-half-stroke mr-1"></i> Тема оформления</label>
-                        <div class="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
-                            <button onclick="window.setTheme('light')" id="theme-light-btn" class="flex-1 py-2 text-xs font-bold bg-white text-slate-800 shadow-sm rounded-lg transition-all"><i class="fa-solid fa-sun mr-1 text-amber-500"></i>Light</button>
-                            <button onclick="window.setTheme('dark')" id="theme-dark-btn" class="flex-1 py-2 text-xs font-bold bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50 rounded-lg transition-all"><i class="fa-solid fa-moon mr-1 text-indigo-400"></i>Dark</button>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="map_style"><i class="fa-solid fa-map mr-1"></i> Стиль карты (Фильтр)</label>
-                        <div class="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
-                            <button onclick="window.setMapStyle('normal')" id="map-normal-btn" class="flex-1 py-2 text-xs font-bold bg-blue-600 text-white shadow-md rounded-lg transition-all" data-lang="map_normal">Стандарт</button>
-                            <button onclick="window.setMapStyle('monochrome')" id="map-mono-btn" class="flex-1 py-2 text-xs font-bold bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50 rounded-lg transition-all" data-lang="map_mono">Монохром</button>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="language"><i class="fa-solid fa-language mr-1"></i> Язык приложения</label>
-                        <div class="relative">
-                            <select onchange="window.setLanguage(this.value)" id="lang-select" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-semibold appearance-none cursor-pointer">
-                                <option value="ru">🇷🇺 Русский</option>
-                                <option value="en">🇬🇧 English</option>
-                            </select>
-                            <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
-                        </div>
+                        <input id="cab-current-password" type="password" class="modal-input dark:bg-slate-900" placeholder="Текущий пароль">
+                        <input id="cab-new-password" type="password" class="modal-input dark:bg-slate-900" placeholder="Новый пароль">
+                        <input id="cab-confirm-password" type="password" class="modal-input dark:bg-slate-900" placeholder="Повторите новый пароль">
+                        <button onclick="window.changePassword()" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-colors shadow-sm">
+                            <i class="fa-solid fa-lock"></i>Сохранить новый пароль
+                        </button>
                     </div>
                 </div>
 
-                <!-- Вкладка: Админ-панель (Только для Админа) -->
+                <div id="cab-panel-support" class="hidden space-y-4">
+                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
+                        <h4 class="font-bold text-slate-800 dark:text-white mb-1">Поддержка и помощь</h4>
+                        <p class="text-sm text-slate-600 dark:text-slate-300">Если что-то не работает или нужна помощь с картой — откройте окно поддержки.</p>
+                        <button onclick="window.openSupportModal()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
+                            <i class="fa-solid fa-circle-question"></i>Открыть поддержку
+                        </button>
+                    </div>
+                </div>
+
+                <div id="cab-panel-faq" class="hidden space-y-4">
+                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
+                        <h4 class="font-bold text-slate-800 dark:text-white mb-2">Как добавить новый звук?</h4>
+                        <p class="text-sm text-slate-600 dark:text-slate-300">Нажмите на плюс внизу, войдите в аккаунт и заполните форму.</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
+                        <h4 class="font-bold text-slate-800 dark:text-white mb-2">Как фильтровать звуки?</h4>
+                        <p class="text-sm text-slate-600 dark:text-slate-300">Используйте вкладки «Библиотека», «Теги» и «Параметры» в боковой панели.</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
+                        <h4 class="font-bold text-slate-800 dark:text-white mb-2">Что делать, если звук не воспроизводится?</h4>
+                        <p class="text-sm text-slate-600 dark:text-slate-300">Проверьте подключение и попробуйте другой звук или браузер.</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
+                        <h4 class="font-bold text-slate-800 dark:text-white mb-2">Нужна ли регистрация?</h4>
+                        <p class="text-sm text-slate-600 dark:text-slate-300">Карту можно смотреть без входа, но добавление звуков доступно только авторизованным пользователям.</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
+                        <h4 class="font-bold text-slate-800 dark:text-white mb-2">Можно ли менять тему и стиль карты?</h4>
+                        <p class="text-sm text-slate-600 dark:text-slate-300">Да, это доступно в отдельном окне настроек.</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
+                        <h4 class="font-bold text-slate-800 dark:text-white mb-2">Где посмотреть описание записи?</h4>
+                        <p class="text-sm text-slate-600 dark:text-slate-300">Откройте карточку звука или нажмите на название в плеере.</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
+                        <h4 class="font-bold text-slate-800 dark:text-white mb-2">Поддерживается ли 360-звук?</h4>
+                        <p class="text-sm text-slate-600 dark:text-slate-300">Да, для некоторых записей доступен режим звуковой сферы.</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
+                        <h4 class="font-bold text-slate-800 dark:text-white mb-2">Можно ли пользоваться на телефоне?</h4>
+                        <p class="text-sm text-slate-600 dark:text-slate-300">Да, интерфейс адаптирован и под мобильные устройства.</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
+                        <h4 class="font-bold text-slate-800 dark:text-white mb-2">Куда отправить вопрос?</h4>
+                        <p class="text-sm text-slate-600 dark:text-slate-300">Используйте кнопку поддержки в профиле или окно помощи.</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
+                        <h4 class="font-bold text-slate-800 dark:text-white mb-2">Кто может видеть мои добавленные записи?</h4>
+                        <p class="text-sm text-slate-600 dark:text-slate-300">Записи видны всем пользователям карты, а администраторы могут управлять ими.</p>
+                    </div>
+                </div>
+
                 <div id="cab-panel-admin" class="hidden space-y-4">
-                    <div class="bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl border border-red-100 dark:border-red-900/50 flex flex-col justify-center items-center text-center mb-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-red-500">Администрирование</p>
+                        <button onclick="window.switchCabinetTab('sounds')" class="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors">
+                            <i class="fa-solid fa-arrow-left mr-1"></i>Назад
+                        </button>
+                    </div>
+                    <div class="bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl border border-red-100 dark:border-red-900/50 flex flex-col justify-center items-center text-center">
                         <i class="fa-solid fa-shield-halved text-3xl text-red-500 mb-2"></i>
                         <span class="text-sm font-bold text-red-700 dark:text-red-400">Панель управления всеми звуками на карте</span>
                     </div>
-                    <div id="admin-sounds-list" class="space-y-3">
-                        <!-- Звуки для админа генерируются тут -->
+                    <div id="admin-stats-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+                    <div class="flex gap-2">
+                        <button onclick="window.exportSoundsData('csv', true)" class="flex-1 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                            <i class="fa-solid fa-file-csv mr-1"></i>Экспорт CSV
+                        </button>
+                        <button onclick="window.exportSoundsData('geojson', true)" class="flex-1 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                            <i class="fa-solid fa-map mr-1"></i>Экспорт GeoJSON
+                        </button>
                     </div>
+                    <div id="admin-sounds-list" class="space-y-3"></div>
                 </div>
-
             </div>
 
             <div class="p-6 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700">
@@ -422,9 +622,21 @@
                 </div>
 
                 <!-- Блок 3: Location, Date, Time, Weather -->
-                <div class="flex flex-col sm:grid sm:grid-cols-[120px_1fr] gap-4 items-start">
-                    <div id="add-map-container" class="w-full h-40 sm:h-auto sm:aspect-square rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 relative cursor-crosshair shrink-0">
-                        <!-- Сюда будет загружена Яндекс.Карта для выбора точки -->
+                <div class="flex flex-col gap-4 items-start">
+                    <div class="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-bold text-slate-700 dark:text-slate-200">Выбор точки на карте</p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">Нажмите, чтобы открыть полноэкранный picker и выбрать координаты</p>
+                            </div>
+                            <button type="button" onclick="window.openLocationPickerModal()" class="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors shadow-sm">
+                                <i class="fa-solid fa-map-location-dot mr-2"></i>Выбрать точку
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                            <i class="fa-solid fa-circle-info"></i>
+                            <span>На компьютере — ПКМ по карте. На телефоне — удерживайте палец на карте ~0.5 сек</span>
+                        </div>
                     </div>
                     <div class="space-y-3 w-full">
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -642,6 +854,36 @@
         
         <img id="lightbox-img" src="" class="max-w-full max-h-[85vh] object-contain transition-transform duration-300 select-none pointer-events-none">
         <div id="lightbox-counter" class="absolute bottom-6 text-white text-sm font-bold tracking-widest bg-black/50 px-4 py-1.5 rounded-full">1 / 3</div>
+    </div>
+
+    <!-- Полноэкранный picker координат -->
+    <div id="location-picker-modal" class="fixed inset-0 z-[9998] bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-0 opacity-0 transition-opacity duration-300 pointer-events-none">
+        <div id="location-picker-modal-content" class="w-full h-full max-h-screen bg-slate-950 text-white transform scale-95 transition-all relative">
+            <div class="absolute top-0 left-0 right-0 z-[10] flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 bg-slate-950/80 backdrop-blur-md border-b border-slate-800">
+                <div>
+                    <h3 class="text-lg font-bold">Выбор координат</h3>
+                    <p class="text-sm text-slate-400">Нажмите на карту, чтобы выбрать точку</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="window.applyPickedLocation()" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-semibold transition-colors">Применить</button>
+                    <button type="button" onclick="window.closeLocationPickerModal()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-semibold transition-colors">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="location-picker-map" class="w-full h-full"></div>
+        </div>
+    </div>
+
+    <div id="map-context-menu" class="fixed z-[9997] hidden w-52 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-800/95 shadow-2xl backdrop-blur-sm overflow-hidden">
+        <div class="px-3 py-2 border-b border-slate-100 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/60">
+            <div class="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Создать метку</div>
+            <div id="map-context-menu-coords" class="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-1">0.000000, 0.000000</div>
+        </div>
+        <button type="button" onclick="window.createMapMarkerFromContext()" class="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left">
+            <i class="fa-solid fa-location-dot text-blue-500"></i>
+            <span>Создать метку</span>
+        </button>
     </div>
 
     <!-- Кастомные UI Модальные окна -->

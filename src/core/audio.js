@@ -321,14 +321,48 @@ window.setupAudioEvents = function() {
     window.audioElement.onprogress = () => { window.updateBufferProgress(); };
 }
 
-window.closePlayerCard = function() {
-    window.isPlaying = false;
-    if (window.audioElement) window.audioElement.pause();
-    if (window.animationFrameId) cancelAnimationFrame(window.animationFrameId);
-    if (window.mockInterval) clearInterval(window.mockInterval);
-
+window.restorePlayerCard = function() {
     const card = document.getElementById('player-card');
+    const mini = document.getElementById('mini-player');
+    if (card) {
+        card.classList.remove('translate-y-[150%]', 'opacity-0');
+        card.classList.add('translate-y-0');
+    }
+    if (mini) {
+        mini.classList.add('hidden');
+        mini.classList.remove('flex');
+    }
+    document.body.classList.add('player-visible');
+};
+
+window.closePlayerCard = function() {
+    const card = document.getElementById('player-card');
+    const mini = document.getElementById('mini-player');
+    const title = document.getElementById('mini-player-title');
+    const icon = document.getElementById('mini-player-icon');
+
+    if (title && window.currentPlayingId) {
+        const s = window.soundsData.find(x => x.id === window.currentPlayingId);
+        if (s) title.textContent = s.title;
+    }
+
+    if (mini) {
+        mini.classList.remove('hidden');
+        mini.classList.add('flex');
+    }
+
+    if (window.isPlaying) {
+        window.isPlaying = false;
+        if (window.audioElement) window.audioElement.pause();
+        if (window.animationFrameId) cancelAnimationFrame(window.animationFrameId);
+        if (window.mockInterval) clearInterval(window.mockInterval);
+        if (icon) {
+            icon.className = 'fa-solid fa-play text-sm';
+        }
+    }
+
     if (card) card.classList.add('translate-y-[150%]', 'opacity-0');
+    document.body.classList.remove('player-visible');
 
     const ambiControl = document.getElementById('ambisonics-control');
     if (ambiControl) ambiControl.classList.add('hidden');
