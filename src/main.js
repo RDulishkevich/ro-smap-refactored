@@ -1,0 +1,64 @@
+// 1. Импорт инициализаторов состояния и авторизации
+import { initGlobalState } from './core/state.js';
+import { initAuth } from './core/auth.js';
+
+// 2. Подключаем модули, чтобы они прописали свои функции в глобальный объект window
+import './core/audio.js';
+import './core/map.js';
+import './ui/ui.js';
+
+// Инициализируем переменные до загрузки интерфейса
+initGlobalState();
+initAuth();
+
+// 3. Точка входа: запуск приложения при загрузке DOM
+document.addEventListener('DOMContentLoaded', () => {
+    window.audioElement = document.getElementById('global-audio');
+    window.soundsData = window.rawSoundsData.map(window.formatSoundObject);
+    
+    // Базовая подготовка интерфейса
+    if(window.renderWaveform) window.renderWaveform();
+    if(window.setupAudioEvents) window.setupAudioEvents();
+    if(window.updateUcsSubcats) window.updateUcsSubcats(); 
+    if(window.setupAmbisonicSphere) window.setupAmbisonicSphere();
+    if(window.applyUserSettings) window.applyUserSettings();
+    if(window.initSwipeHandlers) window.initSwipeHandlers();
+
+    // Загрузка сохраненных данных из Яндекс Облака
+    fetch(`${window.YANDEX_BUCKET_URL}/map_data.json?nocache=${Date.now()}`)
+        .then(res => res.ok ? res.json() : [])
+        .then(cloudData => {
+            if (cloudData.length > 0 && window.mergeData) window.mergeData(cloudData);
+            if (window.initFiltersData) window.initFiltersData();
+            if (window.processFilterChange) window.processFilterChange(window.innerWidth >= 768);
+        })
+        .catch(err => {
+            console.warn("База данных недоступна или пуста:", err);
+            if (window.initFiltersData) window.initFiltersData();
+            if (window.processFilterChange) window.processFilterChange(window.innerWidth >= 768);
+        });
+            
+    // Слушатели событий для UI-элементов
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => { 
+            if(window.updateMapMarkers) window.updateMapMarkers(); 
+            if(window.renderList) window.renderList(); 
+        });
+    }
+            
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('audio-file-input');
+    if (dropZone && fileInput) {
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', e => { if(window.handleAudioFiles) window.handleAudioFiles(e.target.files); });
+        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('border-blue-500', 'bg-blue-50', 'dark:bg-slate-700'); });
+        dropZone.addEventListener('dragleave', e => { e.preventDefault(); dropZone.classList.remove('border-blue-500', 'bg-blue-50', 'dark:bg-slate-700'); });
+        dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('border-blue-500', 'bg-blue-50', 'dark:bg-slate-700'); if(window.handleAudioFiles) window.handleAudioFiles(e.dataTransfer.files); });
+    }
+
+    // Инициализация Яндекс Карт
+    if (typeof ymaps !== 'undefined' && window.initMap) {
+        ymaps.ready(window.initMap);
+    }
+});

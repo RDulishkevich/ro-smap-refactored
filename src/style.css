@@ -1,0 +1,104 @@
+body {
+    overflow: hidden;
+    height: 100vh;
+    height: 100dvh;
+    width: 100vw;
+    background-color: #f0f4f8;
+    transition: background-color 0.3s ease;
+}
+
+/* Тёмная тема */
+body.dark-mode { background-color: #0f172a; color: #f1f5f9; }
+body.dark-mode #sidebar, 
+body.dark-mode #player-card, 
+body.dark-mode #add-modal-content,
+body.dark-mode #details-modal-content,
+body.dark-mode #settings-modal-content,
+body.dark-mode #ui-modal-content { background-color: #1e293b; border-color: #334155; }
+body.dark-mode .text-slate-800 { color: #f1f5f9; }
+body.dark-mode .text-slate-600 { color: #cbd5e1; }
+body.dark-mode .bg-white { background-color: #1e293b; }
+body.dark-mode .bg-slate-100 { background-color: #334155; }
+body.dark-mode .bg-slate-50 { background-color: #0f172a; }
+body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; color: #f1f5f9; }
+
+/* Кастомный скроллбар */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+.dark ::-webkit-scrollbar-thumb { background: #475569; }
+
+[class*="gototech"] { display: none !important; }
+
+/* Маркеры: Увеличенные для телефонов */
+.custom-marker { border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: transform 0.2s; cursor: pointer; }
+.dark .custom-marker { border-color: #1e293b; }
+.custom-marker.selected { transform: scale(1.3); z-index: 1000 !important; border-color: #0f172a; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.4); }
+.dark .custom-marker.selected { border-color: #f8fafc; }
+
+/* Цвета слоев */
+.marker-geo { background-color: #38bdf8; } 
+.marker-bio { background-color: #4ade80; } 
+.marker-anthro { background-color: #f97316; } 
+
+/* Логика боковой панели */
+#sidebar {
+    position: absolute;
+    top: 1rem; left: 1rem; bottom: 1rem;
+    width: calc(100% - 2rem);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+}
+@media (min-width: 768px) {
+    #sidebar { top: 1.5rem; left: 1.5rem; bottom: 1.5rem; width: 24rem; }
+}
+.sidebar-hidden {
+    transform: translateX(calc(-100% - 2rem)) !important;
+    opacity: 0 !important;
+    pointer-events: none;
+}
+
+/* Анимация плеера */
+#player-card { transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease; will-change: transform; }
+.drag-handle { width: 36px; height: 4px; background-color: #e2e8f0; border-radius: 2px; }
+.tag-pill { padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 600; border-width: 1px; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: transform 0.1s, opacity 0.2s; }
+.tag-pill:hover { transform: scale(1.05); }
+.tag-pill:active { transform: scale(0.95); }
+.modal-input { width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; font-size: 14px; background: #fff; outline: none; transition: border-color 0.2s; }
+.modal-label { display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px; }
+
+/* Базовые тайлы карты */
+#map [class*="-ground-pane"], #map [class*="-copyrights-pane"] { transition: filter 0.5s ease; }
+.dark #map:not(.map-monochrome) [class*="-ground-pane"], .dark #map:not(.map-monochrome) [class*="-copyrights-pane"] { filter: invert(90%) hue-rotate(180deg) brightness(0.8) contrast(1.1); }
+#map.map-monochrome [class*="-ground-pane"], #map.map-monochrome [class*="-copyrights-pane"] { filter: grayscale(100%) contrast(1.1) brightness(1.05); }
+.dark #map.map-monochrome [class*="-ground-pane"], .dark #map.map-monochrome [class*="-copyrights-pane"] { filter: grayscale(100%) invert(90%) brightness(0.8) contrast(1.2); }
+
+.meta-group { display: flex; flex-direction: column; gap: 4px; }
+.meta-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; display: flex; align-items: center; }
+.meta-label i { margin-right: 6px; font-size: 0.75rem; opacity: 0.8; }
+.meta-value { font-size: 0.85rem; font-weight: 500; color: #334155; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; hyphens: auto; }
+.dark .meta-value { color: #cbd5e1; }
+
+/* Сетка для картинок */
+.image-preview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+.image-thumb { width: 100%; aspect-ratio: 1; border-radius: 8px; object-fit: cover; border: 1px solid #e2e8f0; }
+.dark .image-thumb { border-color: #334155; }
+
+/* Иконка человека (Soundwalker) */
+.walker-marker {
+    width: 24px; height: 24px; border-radius: 50%; border: 2px solid white;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;
+    transition: transform 0.1s linear; 
+}
+.walker-marker.walker-geo { background-color: #38bdf8; }
+.walker-marker.walker-bio { background-color: #4ade80; }
+.walker-marker.walker-anthro { background-color: #f97316; }
+.dark .walker-marker { border-color: #0f172a; }
+
+/* Ambisonic Sphere Pad */
+#ambi-sphere-pad {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    touch-action: none; 
+}
