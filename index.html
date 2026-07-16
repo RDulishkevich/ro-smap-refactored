@@ -24,9 +24,7 @@
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
     <script src="https://api-maps.yandex.ru/2.1/?apikey=ваш_api_ключ_яндекс&lang=ru_RU" type="text/javascript"></script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://cdn.jsdelivr.net/npm/omnitone@1.3.0/build/omnitone.min.js"></script>
     <!-- React (панель "Статистика региона" рисуется React-компонентом, см. src/widgets/analytics-widget.js) -->
     <script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js" crossorigin></script>
@@ -113,55 +111,63 @@
                     </button>
                 </div>
                 <p class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-5 flex items-center gap-2" data-lang="subtitle"><i class="fa-solid fa-map-location-dot"></i> Audio Map</p>
-                <div class="relative">
+                <div id="sidebar-search-wrap" class="relative">
                     <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
                     <input type="text" id="search-input" data-lang-placeholder="search_placeholder" placeholder="Поиск звуков..." class="w-full bg-slate-100 dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-white">
                 </div>
             </div>
 
-            <!-- Вкладки фильтров -->
+            <!-- Главные вкладки боковой панели -->
             <div class="flex border-b border-slate-100 dark:border-slate-700/50 flex-shrink-0">
-                <button onclick="window.switchFilterTab('ucs')" id="tab-ucs" class="flex-1 py-3 text-[12px] md:text-[13px] font-bold text-blue-600 border-b-2 border-blue-600 transition-colors" data-lang="filter_tab_ucs"><i class="fa-solid fa-layer-group mr-1"></i>Библиотека</button>
-                <button onclick="window.switchFilterTab('tags')" id="tab-tags" class="flex-1 py-3 text-[12px] md:text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors" data-lang="filter_tab_tags"><i class="fa-solid fa-hashtag mr-1"></i>Теги</button>
-                <button onclick="window.switchFilterTab('meta')" id="tab-meta" class="flex-1 py-3 text-[12px] md:text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors" data-lang="filter_tab_meta"><i class="fa-solid fa-sliders mr-1"></i>Параметры</button>
-                <button onclick="window.switchFilterTab('expeditions')" id="tab-expeditions" class="flex-1 py-3 text-[12px] md:text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors"><i class="fa-solid fa-route mr-1"></i>Экспедиции</button>
+                <button onclick="window.switchSidebarTab('library')" id="tab-library" class="flex-1 py-3 text-[11px] md:text-[12px] font-bold text-blue-600 border-b-2 border-blue-600 transition-colors" data-lang="sidebar_tab_library"><i class="fa-solid fa-layer-group mr-1"></i>Библиотека</button>
+                <button onclick="window.switchSidebarTab('feed')" id="tab-feed" class="flex-1 py-3 text-[11px] md:text-[12px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors" data-lang="sidebar_tab_feed"><i class="fa-solid fa-newspaper mr-1"></i>Лента</button>
+                <button onclick="window.switchSidebarTab('expeditions')" id="tab-expeditions" class="flex-1 py-3 text-[11px] md:text-[12px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors" data-lang="sidebar_tab_expeditions"><i class="fa-solid fa-route mr-1"></i>Экспедиции</button>
             </div>
 
-            <div id="active-tags-container" class="px-6 py-2.5 flex flex-wrap gap-2 empty:hidden bg-slate-50/80 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700/50 flex-shrink-0"></div>
+            <!-- Библиотека: фильтры + список звуков -->
+            <div id="sidebar-library" class="flex flex-col flex-1 min-h-0">
+                <div class="flex border-b border-slate-100 dark:border-slate-700/50 flex-shrink-0 bg-slate-50/70 dark:bg-slate-900/40">
+                    <button onclick="window.switchFilterTab('ucs')" id="tab-ucs" class="flex-1 py-2.5 text-[11px] md:text-[12px] font-bold text-blue-600 border-b-2 border-blue-600 transition-colors" data-lang="filter_tab_ucs"><i class="fa-solid fa-wave-square mr-1"></i>Слои</button>
+                    <button onclick="window.switchFilterTab('tags')" id="tab-tags" class="flex-1 py-2.5 text-[11px] md:text-[12px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors" data-lang="filter_tab_tags"><i class="fa-solid fa-hashtag mr-1"></i>Теги</button>
+                    <button onclick="window.switchFilterTab('meta')" id="tab-meta" class="flex-1 py-2.5 text-[11px] md:text-[12px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors" data-lang="filter_tab_meta"><i class="fa-solid fa-sliders mr-1"></i>Параметры</button>
+                </div>
 
-            <!-- Панель Акустической экологии и UCS -->
-            <div id="panel-ucs" class="px-5 py-4 border-b border-slate-100 dark:border-slate-700/50 overflow-y-auto max-h-56 custom-scrollbar flex flex-col gap-3 flex-shrink-0">
-                <div>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="ucs_layer">Слои аудиоландшафта</p>
-                    <div class="flex flex-wrap gap-1.5" id="filter-eco-layer"></div>
+                <div id="active-tags-container" class="px-6 py-2.5 flex flex-wrap gap-2 empty:hidden bg-slate-50/80 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700/50 flex-shrink-0"></div>
+
+                <div id="panel-ucs" class="px-5 py-4 border-b border-slate-100 dark:border-slate-700/50 overflow-y-auto max-h-56 custom-scrollbar flex flex-col gap-3 flex-shrink-0">
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="ucs_layer">Слои аудиоландшафта</p>
+                        <div class="flex flex-wrap gap-1.5" id="filter-eco-layer"></div>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="ucs_category">Категория (UCS)</p>
+                        <div class="flex flex-wrap gap-1.5" id="filter-ucs-categories"></div>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="ucs_sub">Субкатегория (CatID)</p>
+                        <div class="flex flex-wrap gap-1.5" id="filter-ucs-subcategories"></div>
+                    </div>
                 </div>
-                <div>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="ucs_category">Категория (UCS)</p>
-                    <div class="flex flex-wrap gap-1.5" id="filter-ucs-categories"></div>
+
+                <div id="panel-tags" class="hidden px-5 py-4 border-b border-slate-100 dark:border-slate-700/50 overflow-y-auto max-h-56 custom-scrollbar flex flex-wrap gap-1.5 flex-shrink-0"></div>
+
+                <div id="panel-meta" class="hidden px-5 py-4 border-b border-slate-100 dark:border-slate-700/50 overflow-y-auto max-h-56 custom-scrollbar flex flex-col gap-4 flex-shrink-0">
+                    <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_principle">Принцип записи</p><div class="flex flex-wrap gap-1.5" id="filter-meta-principle"></div></div>
+                    <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_gear">Рекордер</p><div class="flex flex-wrap gap-1.5" id="filter-meta-gear"></div></div>
+                    <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="mic_type">Микрофон</p><div class="flex flex-wrap gap-1.5" id="filter-meta-mic"></div></div>
+                    <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_channels">Система / Каналы</p><div class="flex flex-wrap gap-1.5" id="filter-meta-channels"></div></div>
+                    <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_recordist">Автор</p><div class="flex flex-wrap gap-1.5" id="filter-meta-recordist"></div></div>
+                    <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_weather">Погода</p><div class="flex flex-wrap gap-1.5" id="filter-meta-weather"></div></div>
                 </div>
-                <div>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="ucs_sub">Субкатегория (CatID)</p>
-                    <div class="flex flex-wrap gap-1.5" id="filter-ucs-subcategories"></div>
-                </div>
+
+                <div id="sounds-list" class="flex-1 overflow-y-auto p-4 flex flex-col gap-2 min-h-0"></div>
             </div>
 
-            <!-- Панель Общих тегов -->
-            <div id="panel-tags" class="hidden px-5 py-4 border-b border-slate-100 dark:border-slate-700/50 overflow-y-auto max-h-56 custom-scrollbar flex flex-wrap gap-1.5 flex-shrink-0"></div>
+            <!-- Лента -->
+            <div id="sidebar-feed" class="hidden flex-1 overflow-y-auto custom-scrollbar p-4 flex flex-col gap-3 min-h-0"></div>
 
-            <!-- Панель Метаданных -->
-            <div id="panel-meta" class="hidden px-5 py-4 border-b border-slate-100 dark:border-slate-700/50 overflow-y-auto max-h-56 custom-scrollbar flex flex-col gap-4 flex-shrink-0">
-                <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_principle">Принцип записи</p><div class="flex flex-wrap gap-1.5" id="filter-meta-principle"></div></div>
-                <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_gear">Рекордер</p><div class="flex flex-wrap gap-1.5" id="filter-meta-gear"></div></div>
-                <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="mic_type">Микрофон</p><div class="flex flex-wrap gap-1.5" id="filter-meta-mic"></div></div>
-                <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_channels">Система / Каналы</p><div class="flex flex-wrap gap-1.5" id="filter-meta-channels"></div></div>
-                <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_recordist">Автор</p><div class="flex flex-wrap gap-1.5" id="filter-meta-recordist"></div></div>
-                <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_weather">Погода</p><div class="flex flex-wrap gap-1.5" id="filter-meta-weather"></div></div>
-            </div>
-
-            <!-- Панель Экспедиций: свои сессии из Кабинета, быстрый фильтр списка звуков по выезду -->
-            <div id="panel-expeditions" class="hidden px-4 py-4 border-b border-slate-100 dark:border-slate-700/50 overflow-y-auto max-h-56 custom-scrollbar flex flex-col gap-2 flex-shrink-0"></div>
-
-            <div id="sounds-list" class="flex-1 overflow-y-auto p-4 flex flex-col gap-2"></div>
+            <!-- Экспедиции -->
+            <div id="panel-expeditions" class="hidden flex-1 overflow-y-auto custom-scrollbar px-4 py-4 flex flex-col gap-2 min-h-0"></div>
         </div>
 
         <!-- Плеер -->
@@ -370,19 +376,6 @@
                     <div class="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
                         <button onclick="window.setTheme('light')" id="theme-light-btn" class="flex-1 py-2 text-xs font-bold bg-white text-slate-800 shadow-sm rounded-lg transition-all"><i class="fa-solid fa-sun mr-1 text-amber-500"></i>Light</button>
                         <button onclick="window.setTheme('dark')" id="theme-dark-btn" class="flex-1 py-2 text-xs font-bold bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50 rounded-lg transition-all"><i class="fa-solid fa-moon mr-1 text-indigo-400"></i>Dark</button>
-                    </div>
-                </div>
-                <div>
-                    <label class="modal-label text-slate-500 dark:text-slate-400"><i class="fa-solid fa-layer-group mr-1"></i> API карты</label>
-                    <div class="flex flex-col gap-2 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
-                        <button onclick="window.setMapProvider('yandex')" id="map-provider-yandex-btn" class="w-full py-2.5 px-3 text-xs font-bold bg-blue-600 text-white shadow-md rounded-lg transition-all text-left">
-                            <i class="fa-solid fa-location-dot mr-1"></i>Яндекс.Карты
-                            <span class="block text-[10px] font-semibold opacity-80 mt-0.5">Полная карта · стандартный провайдер</span>
-                        </button>
-                        <button onclick="window.setMapProvider('osm')" id="map-provider-osm-btn" class="w-full py-2.5 px-3 text-xs font-bold bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50 rounded-lg transition-all text-left">
-                            <i class="fa-solid fa-globe mr-1"></i>OpenStreetMap · только Ростовская область
-                            <span class="block text-[10px] font-semibold opacity-80 mt-0.5">Бесплатно · всё за пределами региона скрыто</span>
-                        </button>
                     </div>
                 </div>
                 <div>
@@ -630,7 +623,7 @@
                     </div>
                     <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
                         <h4 class="font-bold text-slate-800 dark:text-white mb-2">Как фильтровать звуки?</h4>
-                        <p class="text-sm text-slate-600 dark:text-slate-300">Используйте вкладки «Библиотека», «Теги» и «Параметры» в боковой панели.</p>
+                        <p class="text-sm text-slate-600 dark:text-slate-300">Откройте боковую панель → «Библиотека»: внутри есть фильтры «Слои», «Теги» и «Параметры».</p>
                     </div>
                     <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
                         <h4 class="font-bold text-slate-800 dark:text-white mb-2">Что делать, если звук не воспроизводится?</h4>
@@ -1304,6 +1297,18 @@
                 </div>
             </div>
             <div id="location-picker-map" class="w-full h-full"></div>
+        </div>
+    </div>
+
+    <div id="marker-hover-card" class="marker-hover-card" aria-hidden="true" hidden>
+        <div class="marker-hover-card__photo-wrap">
+            <img id="marker-hover-photo" class="marker-hover-card__photo" alt="" decoding="async">
+        </div>
+        <div class="marker-hover-card__body">
+            <div id="marker-hover-eco" class="marker-hover-card__eco"></div>
+            <div id="marker-hover-title" class="marker-hover-card__title"></div>
+            <div id="marker-hover-meta" class="marker-hover-card__meta"></div>
+            <div id="marker-hover-desc" class="marker-hover-card__desc"></div>
         </div>
     </div>
 

@@ -16,7 +16,8 @@ export const sourceIdMap = {
 export const translations = {
     ru: {
         title: "Ростовская область", subtitle: "Аудиокарта", search_placeholder: "Поиск звуков...",
-        filter_tab_ucs: "Библиотека", filter_tab_tags: "Теги", filter_tab_meta: "Параметры", 
+        filter_tab_ucs: "Слои", filter_tab_tags: "Теги", filter_tab_meta: "Параметры",
+        sidebar_tab_library: "Библиотека", sidebar_tab_feed: "Лента", sidebar_tab_expeditions: "Экспедиции", 
         ucs_category: "Категория (UCS)", ucs_sub: "Субкатегория (CatID)", ucs_layer: "Слои аудиоландшафта", ucs_block_title: "Классификация по стандарту UCS",
         meta_gear: "Рекордер", meta_channels: "Система / Каналы", meta_license: "Лицензия", meta_recordist: "Автор", meta_weather: "Погода", meta_date: "Дата", mic_type: "Микрофон", meta_principle: "Принцип записи",
         filter_geophony: "Геофония", filter_biophony: "Биофония", filter_anthrophony: "Антропофония",
@@ -36,7 +37,8 @@ export const translations = {
     },
     en: {
         title: "Rostov Region", subtitle: "Audio Map", search_placeholder: "Search sounds...",
-        filter_tab_ucs: "Library", filter_tab_tags: "Tags", filter_tab_meta: "Params",
+        filter_tab_ucs: "Layers", filter_tab_tags: "Tags", filter_tab_meta: "Params",
+        sidebar_tab_library: "Library", sidebar_tab_feed: "Feed", sidebar_tab_expeditions: "Expeditions",
         ucs_category: "Category (UCS)", ucs_sub: "Subcategory (CatID)", ucs_layer: "Soundscape Layers", ucs_block_title: "UCS Classification",
         meta_gear: "Recorder", meta_channels: "System / Channels", meta_license: "License", meta_recordist: "Recordist", meta_weather: "Weather", meta_date: "Date", mic_type: "Microphone", meta_principle: "Recording Principle",
         filter_geophony: "Geophony", filter_biophony: "Biophony", filter_anthrophony: "Anthrophony",

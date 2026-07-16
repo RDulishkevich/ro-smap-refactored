@@ -537,9 +537,11 @@ export function initAuth() {
 
     window.setSidebarSessionFilter = function(sessionId) {
         window.activeSessionId = sessionId || null;
+        if (sessionId && window.switchSidebarTab) window.switchSidebarTab('library');
         if (window.renderList) window.renderList();
         if (window.updateMapMarkers) window.updateMapMarkers();
         if (window.renderSidebarExpeditions) window.renderSidebarExpeditions();
+        if (sessionId) window.showToast('Фильтр: звуки выбранной экспедиции');
     };
 
     // --- Полноценная форма экспедиции: дата, цели, маршрут, участники (свои+гости), медиа, ссылки ---
@@ -707,11 +709,6 @@ export function initAuth() {
         if(s.mapStyle) window.setMapStyle(s.mapStyle, true);
         if(s.lang) window.setLanguage(s.lang, true);
         if(s.guiScale) window.changeGUISize(s.guiScale, true);
-        if (s.mapProvider === 'osm' || s.mapProvider === 'yandex') {
-            window.mapProvider = s.mapProvider;
-            localStorage.setItem('rosmap_map_provider', s.mapProvider);
-            if (window.map && window.setMapProvider) window.setMapProvider(s.mapProvider, true);
-        }
     };
 
     // Сохранение настроек в базу
@@ -817,16 +814,6 @@ export function initAuth() {
             const isMono = window.currentMapStyle === 'monochrome';
             mapNormalBtn.className = isMono ? inactiveClass : activeClass;
             mapMonoBtn.className = isMono ? activeClass : inactiveClass;
-        }
-
-        const mapYandexBtn = document.getElementById('map-provider-yandex-btn');
-        const mapOsmBtn = document.getElementById('map-provider-osm-btn');
-        if (mapYandexBtn && mapOsmBtn) {
-            const providerActive = 'w-full py-2.5 px-3 text-xs font-bold bg-blue-600 text-white shadow-md rounded-lg transition-all text-left';
-            const providerInactive = 'w-full py-2.5 px-3 text-xs font-bold bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50 rounded-lg transition-all text-left';
-            const isOsm = (window.mapProvider || 'yandex') === 'osm';
-            mapYandexBtn.className = isOsm ? providerInactive : providerActive;
-            mapOsmBtn.className = isOsm ? providerActive : providerInactive;
         }
 
         if (langSelect) {
@@ -1632,8 +1619,10 @@ export function initAuth() {
             }
         } else if (n.fromId && (n.type === 'message' || n.type === 'reaction')) {
             window.openMessagesModal(n.fromId);
-        } else if (n.type === 'expedition' && window.switchFilterTab) {
-            window.switchFilterTab('expeditions');
+        } else if (n.type === 'expedition' && window.switchSidebarTab) {
+            window.switchSidebarTab('expeditions');
+            const sb = document.getElementById('sidebar');
+            if (sb && sb.classList.contains('sidebar-hidden') && window.toggleSidebar) window.toggleSidebar();
         }
     };
 
@@ -1797,13 +1786,16 @@ export function initAuth() {
                 ? `<img src="${profile.avatar}" class="w-9 h-9 rounded-full object-cover" alt="">`
                 : `<span class="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-sm"><i class="fa-solid fa-user"></i></span>`;
             const preview = last.deleted ? 'Сообщение удалено' : (last.image && !last.text ? '📷 Фото' : (last.text || ''));
+            const ticks = last._outgoingHint
+                ? `<span class="msg-ticks msg-ticks--list ${last.read ? 'is-read' : 'is-delivered'}" title="${last.read ? 'Просмотрено' : 'Доставлено'}"><i class="fa-solid ${last.read ? 'fa-check-double' : 'fa-check'}"></i></span>`
+                : '';
             return `
             <button onclick="window.openMessageThread('${peer}')" class="notif-item ${unread ? 'unread' : ''} w-full text-left">
                 <div class="relative shrink-0">${avatar}<span class="msg-online-dot ${online ? 'on' : ''}"></span></div>
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center justify-between gap-2">
                         <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${window.escMsgHtml(name)}</p>
-                        ${unread ? `<span class="text-[10px] font-bold text-blue-600">${unread}</span>` : ''}
+                        ${unread ? `<span class="text-[10px] font-bold text-blue-600">${unread}</span>` : ticks}
                     </div>
                     <p class="text-[11px] text-slate-500 truncate mt-0.5">${window.escMsgHtml(preview)}</p>
                 </div>
@@ -1841,11 +1833,20 @@ export function initAuth() {
         window.openPublicProfile(peer, profile?.displayName || peer);
     };
 
+    window.renderMessageTicks = function(m) {
+        if (!m._mine || m.deleted) return '';
+        const read = !!m.read;
+        const title = read ? 'Просмотрено' : 'Доставлено';
+        const cls = read ? 'msg-ticks is-read' : 'msg-ticks is-delivered';
+        const icon = read ? 'fa-check-double' : 'fa-check';
+        return `<span class="${cls}" title="${title}"><i class="fa-solid ${icon}"></i></span>`;
+    };
+
     window.renderMessageBubble = function(m) {
         if (m.deleted) {
             return `<div class="msg-bubble deleted ${m._mine ? 'mine' : ''}" onclick="window.openMessageMenu('${m.id}')">
                 <p class="text-[13px] leading-snug">Сообщение удалено</p>
-                <p class="text-[9px] opacity-60 mt-1">${m.date ? new Date(m.date).toLocaleString('ru-RU') : ''}</p>
+                <p class="msg-bubble-foot"><span>${m.date ? new Date(m.date).toLocaleString('ru-RU') : ''}</span>${window.renderMessageTicks(m)}</p>
             </div>`;
         }
         const reply = m.replyTo
@@ -1864,7 +1865,7 @@ export function initAuth() {
             ${reply}${img}
             ${m.text ? `<p class="text-[13px] leading-snug">${window.escMsgHtml(m.text)}</p>` : ''}
             ${reactions}
-            <p class="text-[9px] opacity-60 mt-1">${m.date ? new Date(m.date).toLocaleString('ru-RU') : ''}${edited}</p>
+            <p class="msg-bubble-foot"><span>${m.date ? new Date(m.date).toLocaleString('ru-RU') : ''}${edited}</span>${window.renderMessageTicks(m)}</p>
         </div>`;
     };
 
@@ -1904,7 +1905,10 @@ export function initAuth() {
         if (idx >= 0) {
             let changed = false;
             const inbox = (updated[idx].inbox || []).map(m => {
-                if (m.fromId === peerLogin && !m.read) { changed = true; return { ...m, read: true }; }
+                if (m.fromId === peerLogin && !m.read) {
+                    changed = true;
+                    return { ...m, read: true, readAt: new Date().toISOString() };
+                }
                 return m;
             });
             if (changed) {

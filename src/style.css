@@ -37,6 +37,95 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
 .custom-marker.selected { transform: scale(1.3); z-index: 1000 !important; border-color: #0f172a; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.4); }
 .dark .custom-marker.selected { border-color: #f8fafc; }
 
+/* Превью метки при наведении */
+.marker-hover-card {
+    position: fixed;
+    z-index: 9996;
+    width: 196px;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    border-radius: 14px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.97);
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+}
+.marker-hover-card.is-visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+.dark .marker-hover-card {
+    background: rgba(30, 41, 59, 0.97);
+    border-color: #334155;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+.marker-hover-card__photo-wrap {
+    height: 96px;
+    background: #e2e8f0;
+    overflow: hidden;
+}
+.dark .marker-hover-card__photo-wrap { background: #0f172a; }
+.marker-hover-card__photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.marker-hover-card__body { padding: 8px 10px 10px; }
+.marker-hover-card__eco {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 2px;
+}
+.dark .marker-hover-card__eco { color: #94a3b8; }
+.marker-hover-card__eco.is-geo { color: #0284c7; }
+.marker-hover-card__eco.is-bio { color: #16a34a; }
+.marker-hover-card__eco.is-anthro { color: #ea580c; }
+.dark .marker-hover-card__eco.is-geo { color: #38bdf8; }
+.dark .marker-hover-card__eco.is-bio { color: #4ade80; }
+.dark .marker-hover-card__eco.is-anthro { color: #fb923c; }
+.marker-hover-card__title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.dark .marker-hover-card__title { color: #f8fafc; }
+.marker-hover-card__meta {
+    margin-top: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #64748b;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.dark .marker-hover-card__meta { color: #94a3b8; }
+.marker-hover-card__meta span { display: inline-flex; align-items: center; gap: 3px; }
+.marker-hover-card__desc {
+    margin-top: 5px;
+    font-size: 10px;
+    line-height: 1.35;
+    color: #475569;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.dark .marker-hover-card__desc { color: #cbd5e1; }
+@media (hover: none) {
+    .marker-hover-card { display: none !important; }
+}
+
 /* Цвета слоев */
 .marker-geo { background-color: #38bdf8; } 
 .marker-bio { background-color: #4ade80; } 
@@ -395,19 +484,11 @@ html.dark,
 .modal-input { width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; font-size: 14px; background: #fff; outline: none; transition: border-color 0.2s; }
 .modal-label { display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px; }
 
-/* Базовые тайлы карты (Яндекс) */
+/* Базовые тайлы карты */
 #map [class*="-ground-pane"], #map [class*="-copyrights-pane"] { transition: filter 0.5s ease; }
 .dark #map:not(.map-monochrome) [class*="-ground-pane"], .dark #map:not(.map-monochrome) [class*="-copyrights-pane"] { filter: invert(90%) hue-rotate(180deg) brightness(0.8) contrast(1.1); }
 #map.map-monochrome [class*="-ground-pane"], #map.map-monochrome [class*="-copyrights-pane"] { filter: grayscale(100%) contrast(1.1) brightness(1.05); }
 .dark #map.map-monochrome [class*="-ground-pane"], .dark #map.map-monochrome [class*="-copyrights-pane"] { filter: grayscale(100%) invert(90%) brightness(0.8) contrast(1.2); }
-
-/* OpenStreetMap / Leaflet */
-#map.leaflet-container { width: 100%; height: 100%; background: #e2e8f0; }
-.dark #map.leaflet-container { background: #0b1220; }
-#map.leaflet-container .leaflet-div-icon { background: transparent; border: none; }
-#map.map-monochrome.leaflet-container .leaflet-tile-pane { filter: grayscale(100%) contrast(1.1) brightness(1.05); }
-.dark #map.map-monochrome.leaflet-container .leaflet-tile-pane { filter: grayscale(100%) brightness(0.85) contrast(1.15); }
-#map.leaflet-container .leaflet-control-attribution { font-size: 10px; max-width: 55%; }
 
 .meta-group { display: flex; flex-direction: column; gap: 4px; }
 .meta-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; display: flex; align-items: center; }
@@ -838,6 +919,63 @@ html.dark,
 .dark .pp-expedition-card { background: #1e293b; border-color: #334155; }
 .pp-expedition-card:hover { border-color: #2563eb; transform: translateY(-1px); }
 
+.feed-card {
+    border-radius: 1rem;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    padding: 0.85rem 0.95rem;
+    transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+.dark .feed-card {
+    border-color: #334155;
+    background: #0f172a;
+}
+.feed-card--sound:hover,
+.feed-card:hover {
+    border-color: #93c5fd;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+}
+.dark .feed-card--sound:hover,
+.dark .feed-card:hover {
+    border-color: #1d4ed8;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+}
+.feed-card--info:hover { transform: none; box-shadow: none; border-color: #e2e8f0; }
+.dark .feed-card--info:hover { border-color: #334155; }
+.feed-card__badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #0284c7;
+    margin-bottom: 4px;
+}
+.feed-card__badge--exp { color: #7c3aed; }
+.feed-card__badge--info { color: #2563eb; }
+.feed-card__badge--tip { color: #059669; }
+.feed-card__title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.3;
+}
+.dark .feed-card__title { color: #f8fafc; }
+.feed-card__meta {
+    margin-top: 3px;
+    font-size: 11px;
+    color: #64748b;
+}
+.dark .feed-card__meta { color: #94a3b8; }
+.feed-card__text {
+    margin-top: 4px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: #475569;
+}
+.dark .feed-card__text { color: #cbd5e1; }
+
 .msg-bubble {
     max-width: 85%;
     padding: 0.55rem 0.75rem;
@@ -856,6 +994,28 @@ html.dark,
     margin-left: auto;
 }
 .msg-bubble.deleted { opacity: 0.65; font-style: italic; }
+.msg-bubble-foot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 9px;
+    opacity: 0.7;
+}
+.msg-ticks {
+    display: inline-flex;
+    align-items: center;
+    font-size: 11px;
+    line-height: 1;
+    opacity: 0.85;
+}
+.msg-ticks.is-delivered { color: rgba(255, 255, 255, 0.85); }
+.msg-ticks.is-read { color: #93c5fd; }
+.msg-ticks--list { font-size: 10px; opacity: 1; }
+.msg-ticks--list.is-delivered { color: #94a3b8; }
+.msg-ticks--list.is-read { color: #2563eb; }
+.dark .msg-ticks--list.is-read { color: #60a5fa; }
 .msg-bubble-reply {
     font-size: 10px;
     opacity: 0.75;

@@ -31,7 +31,6 @@ export function initGlobalState() {
     window.currentLang = 'ru';
     window.currentTheme = 'light';
     window.currentMapStyle = 'normal';
-    window.mapProvider = localStorage.getItem('rosmap_map_provider') || 'yandex';
     window.mockInterval = null;
     window.simulatedTime = 0;
     window.simulatedDuration = 120;
@@ -40,7 +39,7 @@ export function initGlobalState() {
     window.activeEcoLayer = new Set(); window.activeUcsCat = new Set(); window.activeUcsSub = new Set(); window.activeGenTags = new Set();
     window.activeGear = new Set(); window.activeChannels = new Set(); window.activeLicense = new Set(); window.activeRecordist = new Set();
     window.activeWeather = new Set(); window.activeDate = new Set(); window.activeMic = new Set(); window.activePrinciple = new Set(); 
-    // Фильтр по экспедиции из вкладки "Экспедиции" левой панели (см. auth.js renderSidebarExpeditions).
+    window.__sidebarTab = 'library';
     window.activeSessionId = null;
 
     window.allExtractedEcoLayers = new Set(); window.allExtractedUcsCats = new Set(); window.allExtractedTags = new Set();

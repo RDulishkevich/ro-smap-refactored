@@ -154,7 +154,7 @@ window.exportSoundsData = function(format, allSounds = false) {
 
 window.onboardingSteps = [
     { target: null, title: 'Добро пожаловать в Audio Map', text: 'Интерактивная карта звуков Ростовской области. Пройдите короткий тур — это займёт 30 секунд.' },
-    { target: '#burger-btn', title: 'Библиотека звуков', text: 'Кнопка меню слева открывает поиск, фильтры по UCS и тегам, а также список всех записей.' },
+    { target: '#burger-btn', title: 'Библиотека звуков', text: 'Кнопка меню слева открывает три раздела: Библиотека (поиск и фильтры), Лента с новостями и Экспедиции.' },
     { target: null, title: 'Аудиоплеер', text: 'Нажмите на любую метку на карте, чтобы открыть плеер. Для ambisonics записей доступно вращение на 360°.' },
     { target: '#fab-add', title: 'Добавьте свой звук', text: 'Кнопка «+» — загрузка WAV с метаданными. На телефоне удерживайте палец на карте, чтобы быстро поставить метку.' }
 ];
@@ -1025,7 +1025,7 @@ window.openPublicProfile = function(login, displayName) {
             expEl.innerHTML = sessions.map(s => {
                 const dateStr = s.date ? new Date(s.date).toLocaleDateString('ru-RU') : '';
                 return `
-                <div class="pp-expedition-card" onclick="window.closePublicProfileModal(); window.setSidebarSessionFilter('${s.id}'); window.switchFilterTab('expeditions'); const sb=document.getElementById('sidebar'); if(sb&&sb.classList.contains('sidebar-hidden')&&window.toggleSidebar) window.toggleSidebar();">
+                <div class="pp-expedition-card" onclick="window.closePublicProfileModal(); window.setSidebarSessionFilter('${s.id}'); window.switchSidebarTab('expeditions'); const sb=document.getElementById('sidebar'); if(sb&&sb.classList.contains('sidebar-hidden')&&window.toggleSidebar) window.toggleSidebar();">
                     <div class="flex items-center justify-between gap-2">
                         <h5 class="text-xs font-bold text-slate-800 dark:text-white truncate">${s.title}</h5>
                         <span class="pub-status-pill ${s.roleLabel === 'Организатор' ? 'pub-status-published' : 'pub-status-pending'}">${s.roleLabel}</span>
@@ -1336,23 +1336,128 @@ window.processFilterChange = function(forceOpenDesktopSidebar = false) {
     });
 }
 
-window.switchFilterTab = function(tab) {
-    const btnUcs = document.getElementById('tab-ucs'), btnTags = document.getElementById('tab-tags'), btnMeta = document.getElementById('tab-meta'), btnExp = document.getElementById('tab-expeditions');
-    const panelUcs = document.getElementById('panel-ucs'), panelTags = document.getElementById('panel-tags'), panelMeta = document.getElementById('panel-meta'), panelExp = document.getElementById('panel-expeditions');
-    if (!btnUcs || !btnTags || !btnMeta) return;
-    const activeClass = "flex-1 py-3 text-[12px] md:text-[13px] font-bold text-blue-600 border-b-2 border-blue-600 transition-colors";
-    const inactiveClass = "flex-1 py-3 text-[12px] md:text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors";
+window.switchSidebarTab = function(tab) {
+    const next = ['library', 'feed', 'expeditions'].includes(tab) ? tab : 'library';
+    window.__sidebarTab = next;
 
-    btnUcs.className = inactiveClass; btnTags.className = inactiveClass; btnMeta.className = inactiveClass; if (btnExp) btnExp.className = inactiveClass;
-    if(panelUcs) panelUcs.classList.add('hidden'); if(panelTags) panelTags.classList.add('hidden'); if(panelMeta) panelMeta.classList.add('hidden'); if(panelExp) panelExp.classList.add('hidden');
-    if (tab === 'ucs') { btnUcs.className = activeClass; if(panelUcs) panelUcs.classList.remove('hidden'); }
-    else if (tab === 'tags') { btnTags.className = activeClass; if(panelTags) panelTags.classList.remove('hidden'); }
-    else if (tab === 'expeditions') {
+    const btnLib = document.getElementById('tab-library');
+    const btnFeed = document.getElementById('tab-feed');
+    const btnExp = document.getElementById('tab-expeditions');
+    const panelLib = document.getElementById('sidebar-library');
+    const panelFeed = document.getElementById('sidebar-feed');
+    const panelExp = document.getElementById('panel-expeditions');
+    const searchWrap = document.getElementById('sidebar-search-wrap');
+
+    const activeClass = 'flex-1 py-3 text-[11px] md:text-[12px] font-bold text-blue-600 border-b-2 border-blue-600 transition-colors';
+    const inactiveClass = 'flex-1 py-3 text-[11px] md:text-[12px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors';
+
+    if (btnLib) btnLib.className = inactiveClass;
+    if (btnFeed) btnFeed.className = inactiveClass;
+    if (btnExp) btnExp.className = inactiveClass;
+    if (panelLib) panelLib.classList.add('hidden');
+    if (panelFeed) panelFeed.classList.add('hidden');
+    if (panelExp) panelExp.classList.add('hidden');
+
+    if (next === 'feed') {
+        if (btnFeed) btnFeed.className = activeClass;
+        if (panelFeed) panelFeed.classList.remove('hidden');
+        if (searchWrap) searchWrap.classList.add('hidden');
+        if (window.renderSidebarFeed) window.renderSidebarFeed();
+    } else if (next === 'expeditions') {
         if (btnExp) btnExp.className = activeClass;
         if (panelExp) panelExp.classList.remove('hidden');
+        if (searchWrap) searchWrap.classList.add('hidden');
         if (window.renderSidebarExpeditions) window.renderSidebarExpeditions();
+    } else {
+        if (btnLib) btnLib.className = activeClass;
+        if (panelLib) panelLib.classList.remove('hidden');
+        if (searchWrap) searchWrap.classList.remove('hidden');
     }
-    else { btnMeta.className = activeClass; if(panelMeta) panelMeta.classList.remove('hidden'); }
+};
+
+window.renderSidebarFeed = function() {
+    const container = document.getElementById('sidebar-feed');
+    if (!container) return;
+
+    const published = (window.soundsData || []).filter(s => !s.status || s.status === 'published');
+    const recent = [...published]
+        .sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''), 'ru'))
+        .slice(0, 6);
+    const sessions = (window.currentUser?.sessions || []).slice(0, 3);
+    const ecoLabels = { geophony: 'Геофония', biophony: 'Биофония', anthrophony: 'Антропофония' };
+
+    const recentHtml = recent.length
+        ? recent.map(s => `
+            <button type="button" onclick="window.selectSound('${s.id}')" class="feed-card feed-card--sound w-full text-left">
+                <div class="feed-card__badge">${ecoLabels[s.ecoCategory] || 'Звук'}</div>
+                <p class="feed-card__title">${String(s.title || 'Без названия').replace(/</g, '&lt;')}</p>
+                <p class="feed-card__meta">${[s.recordist, s.duration, s.date].filter(Boolean).join(' · ')}</p>
+            </button>`).join('')
+        : `<p class="text-xs text-slate-400 text-center py-4">Пока нет опубликованных записей</p>`;
+
+    const sessionsHtml = sessions.length
+        ? sessions.map(s => `
+            <button type="button" onclick="window.openExpeditionViewModal('${s.id}')" class="feed-card w-full text-left">
+                <div class="feed-card__badge feed-card__badge--exp">Экспедиция</div>
+                <p class="feed-card__title">${String(s.title || 'Без названия').replace(/</g, '&lt;')}</p>
+                <p class="feed-card__meta">${s.route || s.purpose || 'Полевой выезд'}</p>
+            </button>`).join('')
+        : '';
+
+    container.innerHTML = `
+        <div class="feed-card feed-card--info">
+            <div class="feed-card__badge feed-card__badge--info">О проекте</div>
+            <p class="feed-card__title">Аудиокарта Ростовской области</p>
+            <p class="feed-card__text">Коллекция полевых звукозаписей: геофония, биофония и антропофония региона. Слушайте на карте, фильтруйте в библиотеке и присоединяйтесь к экспедициям.</p>
+        </div>
+        <div class="feed-card feed-card--info">
+            <div class="feed-card__badge feed-card__badge--tip">Подсказка</div>
+            <p class="feed-card__title">Как пользоваться</p>
+            <p class="feed-card__text">«Библиотека» — поиск и фильтры. «Экспедиции» — полевые выезды. Наведите на метку карты, чтобы увидеть превью записи.</p>
+        </div>
+        <div>
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-0.5">Недавние записи</p>
+            <div class="flex flex-col gap-2">${recentHtml}</div>
+        </div>
+        ${sessionsHtml ? `<div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-0.5">Ваши экспедиции</p><div class="flex flex-col gap-2">${sessionsHtml}</div></div>` : ''}
+    `;
+};
+
+window.switchFilterTab = function(tab) {
+    if (tab === 'expeditions') {
+        window.switchSidebarTab('expeditions');
+        return;
+    }
+    if (window.__sidebarTab !== 'library') window.switchSidebarTab('library');
+
+    const btnUcs = document.getElementById('tab-ucs');
+    const btnTags = document.getElementById('tab-tags');
+    const btnMeta = document.getElementById('tab-meta');
+    const panelUcs = document.getElementById('panel-ucs');
+    const panelTags = document.getElementById('panel-tags');
+    const panelMeta = document.getElementById('panel-meta');
+    if (!btnUcs || !btnTags || !btnMeta) return;
+
+    const activeClass = 'flex-1 py-2.5 text-[11px] md:text-[12px] font-bold text-blue-600 border-b-2 border-blue-600 transition-colors';
+    const inactiveClass = 'flex-1 py-2.5 text-[11px] md:text-[12px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors';
+
+    btnUcs.className = inactiveClass;
+    btnTags.className = inactiveClass;
+    btnMeta.className = inactiveClass;
+    if (panelUcs) panelUcs.classList.add('hidden');
+    if (panelTags) panelTags.classList.add('hidden');
+    if (panelMeta) panelMeta.classList.add('hidden');
+
+    if (tab === 'tags') {
+        btnTags.className = activeClass;
+        if (panelTags) panelTags.classList.remove('hidden');
+    } else if (tab === 'meta') {
+        btnMeta.className = activeClass;
+        if (panelMeta) panelMeta.classList.remove('hidden');
+    } else {
+        btnUcs.className = activeClass;
+        if (panelUcs) panelUcs.classList.remove('hidden');
+    }
 }
 
 // --- Player, UI and Details ---
@@ -1466,7 +1571,7 @@ window.openDetailsModal = function() {
     if (expEl) {
         const session = s.sessionId && window.findSessionById ? window.findSessionById(s.sessionId) : null;
         if (session) {
-            expEl.innerHTML = `<span class="cursor-pointer text-blue-600 dark:text-blue-400 hover:underline" onclick="window.closeDetailsModal(); window.setSidebarSessionFilter('${session.id}'); window.switchFilterTab('expeditions'); const sb=document.getElementById('sidebar'); if(sb&&sb.classList.contains('sidebar-hidden')&&window.toggleSidebar) window.toggleSidebar();">${session.title}</span>`;
+            expEl.innerHTML = `<span class="cursor-pointer text-blue-600 dark:text-blue-400 hover:underline" onclick="window.closeDetailsModal(); window.setSidebarSessionFilter('${session.id}'); window.switchSidebarTab('expeditions'); const sb=document.getElementById('sidebar'); if(sb&&sb.classList.contains('sidebar-hidden')&&window.toggleSidebar) window.toggleSidebar();">${session.title}</span>`;
             expEl.title = session.ownerName ? `Организатор: ${session.ownerName}` : '';
         } else {
             expEl.textContent = '—';
@@ -2244,7 +2349,6 @@ window.setTheme = function(theme, skipSave = false) {
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('theme', theme);
     if (window.refreshSettingsUI) window.refreshSettingsUI();
     if (window.refreshAnalyzersTheme) window.refreshAnalyzersTheme();
-    if (window.refreshOsmTilesAndMask) window.refreshOsmTilesAndMask();
 }
 window.toggleSidebar = function() {
     const s = document.getElementById('sidebar');
