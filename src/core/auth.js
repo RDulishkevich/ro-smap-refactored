@@ -190,6 +190,7 @@ export function initAuth() {
 
         if (window.refreshNotificationsUI) window.refreshNotificationsUI();
         if (window.refreshMessagesUI) window.refreshMessagesUI();
+        if (window.__sidebarTab === 'feed' && window.renderSidebarFeed) window.renderSidebarFeed();
     };
 
     // Единая точка сохранения профиля: патчит currentUser переданными полями и апсертит
@@ -487,11 +488,22 @@ export function initAuth() {
         const count = (window.soundsData || []).filter(s =>
             s.sessionId === session.id && (!s.status || s.status === 'published')
         ).length;
-        const participants = (session.participants || []).map(login => {
+        const guestChips = (session.guests || []).map(g =>
+            `<span class="exp-participant-chip exp-participant-chip--guest">${window.escMsgHtml ? window.escMsgHtml(g) : g} <span class="opacity-60">(гость)</span></span>`
+        );
+        const participantChips = (session.participants || []).map(login => {
             const p = window.getProfileByLogin ? window.getProfileByLogin(login) : null;
-            return p?.displayName || login;
+            const name = p?.displayName || login;
+            const safeLogin = String(login).replace(/'/g, "\\'");
+            const safeName = String(name).replace(/'/g, "\\'");
+            return `<button type="button" class="exp-participant-chip" onclick="window.closeExpeditionViewModal(); window.openPublicProfile('${safeLogin}', '${safeName}')">${window.escMsgHtml ? window.escMsgHtml(name) : name}</button>`;
         });
-        const guests = session.guests || [];
+        const ownerLogin = session.ownerId || '';
+        const ownerSafe = String(ownerLogin).replace(/'/g, "\\'");
+        const ownerNameSafe = String(session.ownerName || ownerLogin).replace(/'/g, "\\'");
+        const ownerHtml = ownerLogin
+            ? `<button type="button" class="font-semibold text-blue-600 dark:text-blue-400 hover:underline truncate text-left" onclick="window.closeExpeditionViewModal(); window.openPublicProfile('${ownerSafe}', '${ownerNameSafe}')">${window.escMsgHtml ? window.escMsgHtml(session.ownerName || ownerLogin) : (session.ownerName || ownerLogin)}</button>`
+            : `<p class="font-semibold text-slate-700 dark:text-slate-200 truncate">${session.ownerName || '—'}</p>`;
         const photos = session.photos || [];
         const links = [...(session.links || []), ...(session.videoLinks || [])];
 
@@ -499,13 +511,13 @@ export function initAuth() {
             body.innerHTML = `
                 ${photos.length ? `<div class="flex gap-2 overflow-x-auto pb-1">${photos.map((src, i) => `<img src="${src}" class="h-28 w-40 object-cover rounded-xl border border-slate-100 dark:border-slate-700 shrink-0 cursor-pointer" onclick="window.openLightbox((window.findSessionById('${session.id}')||{}).photos||[], ${i})" alt="">`).join('')}</div>` : ''}
                 <div class="grid grid-cols-2 gap-2 text-xs">
-                    <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60"><p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Организатор</p><p class="font-semibold text-slate-700 dark:text-slate-200 truncate">${session.ownerName}</p></div>
+                    <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60"><p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Организатор</p>${ownerHtml}</div>
                     <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60"><p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Дата</p><p class="font-semibold text-slate-700 dark:text-slate-200">${dateStr}</p></div>
                     <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60"><p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Звуков</p><p class="font-semibold text-slate-700 dark:text-slate-200">${count}</p></div>
                     <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60"><p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Маршрут</p><p class="font-semibold text-slate-700 dark:text-slate-200 truncate">${session.route || '—'}</p></div>
                 </div>
                 ${session.purpose ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Цель</p><p class="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">${session.purpose}</p></div>` : ''}
-                ${participants.length || guests.length ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Участники</p><p class="text-sm text-slate-700 dark:text-slate-200">${[...participants, ...guests.map(g => g + ' (гость)')].join(', ') || '—'}</p></div>` : ''}
+                ${participantChips.length || guestChips.length ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1.5">Участники</p><div class="flex flex-wrap gap-1.5">${participantChips.join('')}${guestChips.join('')}</div></div>` : ''}
                 ${links.length ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Ссылки</p><ul class="space-y-1">${links.map(l => `<li><a href="${l}" target="_blank" rel="noopener" class="text-sm text-blue-600 hover:underline break-all">${l}</a></li>`).join('')}</ul></div>` : ''}
             `;
         }

@@ -21,6 +21,8 @@ export function initGlobalState() {
     window.cloudDataCache = [];
     // Публичные профили рекордистов (visitka + гир-лист + бейджи), общий файл в том же бакете.
     window.profilesData = [];
+    window.feedPosts = [];
+    window.__lastFeedPollKey = '';
 
     // 3. Состояния плеера и приложения
     window.map = null;

@@ -43,10 +43,15 @@ export function bootstrapApp() {
                 .catch(err => { console.warn('База данных недоступна или пуста:', err); return []; }),
             fetch(`${window.YANDEX_BUCKET_URL}/profiles.json?nocache=${Date.now()}`)
                 .then(res => res.ok ? res.json() : [])
-                .catch(err => { console.warn('Профили пользователей недоступны:', err); return []; })
-        ]).then(([cloudData, profiles]) => {
+                .catch(err => { console.warn('Профили пользователей недоступны:', err); return []; }),
+            fetch(`${window.YANDEX_BUCKET_URL}/feed.json?nocache=${Date.now()}`)
+                .then(res => res.ok ? res.json() : [])
+                .catch(() => [])
+        ]).then(([cloudData, profiles, feed]) => {
             window.profilesData = Array.isArray(profiles) ? profiles : [];
             window.__lastProfilesPollKey = JSON.stringify(window.profilesData);
+            window.feedPosts = Array.isArray(feed) ? feed.filter(p => !p.deleted) : [];
+            window.__lastFeedPollKey = JSON.stringify(window.feedPosts);
             if (cloudData.length > 0 && window.mergeData) {
                 window.mergeData(cloudData);
                 window.__lastCloudPollKey = JSON.stringify(cloudData);

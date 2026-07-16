@@ -1078,6 +1078,81 @@
         </div>
     </div>
 
+    <!-- Редактор поста ленты (админ) -->
+    <div id="feed-post-modal" onmousedown="if(event.target === this) window.closeFeedPostModal()" class="fixed inset-0 z-[218] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 opacity-0 transition-opacity duration-300 pointer-events-none">
+        <div id="feed-post-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
+            <div class="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
+                <h3 id="feed-post-modal-title" class="text-lg font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-pen-to-square mr-2 text-blue-500"></i>Новый пост</h3>
+                <button onclick="window.closeFeedPostModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="p-4 sm:p-5 overflow-y-auto custom-scrollbar flex-1 space-y-4">
+                <div>
+                    <label class="modal-label text-slate-400">Тип поста</label>
+                    <div class="flex gap-2">
+                        <label class="flex-1 flex items-center gap-2 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/40">
+                            <input type="radio" name="feed-post-type" value="notice" checked onchange="window.updateFeedPostTypeUI()">
+                            <span class="text-xs font-bold text-slate-700 dark:text-slate-200">Уведомление</span>
+                        </label>
+                        <label class="flex-1 flex items-center gap-2 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/40">
+                            <input type="radio" name="feed-post-type" value="article" onchange="window.updateFeedPostTypeUI()">
+                            <span class="text-xs font-bold text-slate-700 dark:text-slate-200">Статья</span>
+                        </label>
+                    </div>
+                </div>
+                <div>
+                    <label class="modal-label text-slate-400">Заголовок</label>
+                    <div class="flex gap-2 mb-2">
+                        <select id="feed-post-title-font" onchange="window.applyFeedTitlePreview()" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-xs py-2">
+                            <option value="sans">Шрифт: обычный</option>
+                            <option value="serif">Шрифт: serif</option>
+                        </select>
+                        <select id="feed-post-title-size" onchange="window.applyFeedTitlePreview()" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-xs py-2">
+                            <option value="sm">Размер S</option>
+                            <option value="md" selected>Размер M</option>
+                            <option value="lg">Размер L</option>
+                            <option value="xl">Размер XL</option>
+                        </select>
+                    </div>
+                    <input id="feed-post-title" type="text" placeholder="Заголовок поста" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-bold" oninput="window.applyFeedTitlePreview()">
+                </div>
+                <div id="feed-post-notice-fields">
+                    <label class="modal-label text-slate-400">Текст уведомления</label>
+                    <textarea id="feed-post-body" rows="4" maxlength="400" placeholder="Короткое сообщение для ленты..." class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 resize-none"></textarea>
+                </div>
+                <div id="feed-post-article-fields" class="hidden">
+                    <label class="modal-label text-slate-400">Текст статьи</label>
+                    <div class="feed-editor-toolbar">
+                        <button type="button" onclick="window.execFeedEditor('bold')" title="Жирный"><i class="fa-solid fa-bold"></i></button>
+                        <button type="button" onclick="window.execFeedEditor('italic')" title="Курсив"><i class="fa-solid fa-italic"></i></button>
+                        <button type="button" onclick="window.execFeedEditor('insertUnorderedList')" title="Список"><i class="fa-solid fa-list-ul"></i></button>
+                        <button type="button" onclick="document.getElementById('feed-post-image-input').click()" title="Фото"><i class="fa-solid fa-image"></i></button>
+                        <input id="feed-post-image-input" type="file" accept="image/*" class="hidden" onchange="window.insertFeedEditorImage(this.files)">
+                    </div>
+                    <div id="feed-post-editor" class="feed-editor" contenteditable="true" data-placeholder="Напишите статью… Вставьте фото курсором в нужное место."></div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-100 dark:border-slate-700 shrink-0 flex gap-2">
+                <button onclick="window.closeFeedPostModal()" class="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 text-sm font-bold">Отмена</button>
+                <button onclick="window.saveFeedPost()" class="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold">Опубликовать</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Просмотр статьи ленты -->
+    <div id="feed-article-modal" onmousedown="if(event.target === this) window.closeFeedArticleModal()" class="fixed inset-0 z-[219] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 opacity-0 transition-opacity duration-300 pointer-events-none">
+        <div id="feed-article-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl w-full max-w-xl max-h-[92vh] flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
+            <div class="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-700 flex items-start justify-between gap-3 shrink-0">
+                <div class="min-w-0">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-violet-600 mb-1">Статья</p>
+                    <h3 id="feed-article-title" class="text-xl font-bold text-slate-800 dark:text-white leading-snug"></h3>
+                    <p id="feed-article-meta" class="text-[11px] text-slate-400 mt-1"></p>
+                </div>
+                <button onclick="window.closeFeedArticleModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div id="feed-article-body" class="p-4 sm:p-5 overflow-y-auto custom-scrollbar flex-1 feed-article-body"></div>
+        </div>
+    </div>
+
     <!-- Сводка действий пользователя (админ) -->
     <div id="user-activity-modal" onmousedown="if(event.target === this) window.closeUserActivityModal()" class="fixed inset-0 z-[220] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none">
         <div id="user-activity-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">

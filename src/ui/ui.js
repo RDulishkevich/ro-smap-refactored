@@ -729,6 +729,19 @@ window.mergeMapDataArrays = function(fresh = [], proposed = []) {
     return Array.from(map.values());
 };
 
+window.mergeFeedPostsArrays = function(fresh = [], proposed = []) {
+    const map = new Map();
+    const stamp = (p) => new Date(p?.updatedAt || p?.createdAt || 0).getTime();
+    (fresh || []).forEach(p => { if (p?.id != null && !p.deleted) map.set(p.id, p); });
+    (proposed || []).forEach(p => {
+        if (p?.id == null) return;
+        if (p.deleted) { map.delete(p.id); return; }
+        const cloud = map.get(p.id);
+        if (!cloud || stamp(p) >= stamp(cloud)) map.set(p.id, p);
+    });
+    return Array.from(map.values()).sort((a, b) => stamp(b) - stamp(a));
+};
+
 // fileName выбирает JSON-файл в том же бакете: "map_data.json" для звуков (по умолчанию,
 // обратная совместимость со всеми существующими вызовами) или "profiles.json" для публичных
 // профилей рекордистов (см. window.syncProfilesData ниже).
@@ -752,9 +765,9 @@ window.syncCloudData = async function(newCloudData, fileName = "map_data.json") 
 
             let merged = proposed;
             if (Array.isArray(fresh)) {
-                merged = fileName === "profiles.json"
-                    ? window.mergeProfilesArrays(fresh, proposed)
-                    : window.mergeMapDataArrays(fresh, proposed);
+                if (fileName === "profiles.json") merged = window.mergeProfilesArrays(fresh, proposed);
+                else if (fileName === "feed.json") merged = window.mergeFeedPostsArrays(fresh, proposed);
+                else merged = window.mergeMapDataArrays(fresh, proposed);
             }
 
             await window.__putCloudJson(fileName, merged);
@@ -768,6 +781,10 @@ window.syncCloudData = async function(newCloudData, fileName = "map_data.json") 
                 if (document.getElementById('cabinet-modal') && !document.getElementById('cabinet-modal').classList.contains('hidden')) {
                     window.renderCabinet();
                 }
+            } else if (fileName === "feed.json") {
+                window.feedPosts = merged.filter(p => !p.deleted);
+                window.__lastFeedPollKey = JSON.stringify(window.feedPosts);
+                if (window.__sidebarTab === 'feed' && window.renderSidebarFeed) window.renderSidebarFeed();
             }
             return true;
         } catch (e) {
@@ -796,6 +813,26 @@ window.syncProfilesData = async function(newProfiles) {
     return success;
 };
 
+window.syncFeedPosts = async function(posts) {
+    const success = await window.syncCloudData(posts, "feed.json");
+    if (success) {
+        const merged = (window.__lastMergedUpload && window.__lastMergedUpload.fileName === "feed.json")
+            ? window.__lastMergedUpload.data
+            : posts;
+        window.feedPosts = (merged || []).filter(p => !p.deleted);
+        window.__lastFeedPollKey = JSON.stringify(window.feedPosts);
+        if (window.renderSidebarFeed) window.renderSidebarFeed();
+    }
+    return success;
+};
+
+window.isCurrentUserAdmin = function() {
+    if (!window.currentUser) return false;
+    return String(window.currentUser.role || '').toLowerCase() === 'admin'
+        || String(window.currentUser.username || '').toLowerCase() === 'admin'
+        || String(window.currentUser.loginName || '').toLowerCase() === 'admin';
+};
+
 // Фоновый опрос облака: новые звуки, уведомления, сообщения — без перезагрузки страницы.
 window.pollLiveCloudData = async function() {
     if (window.__pollingInFlight || document.hidden) return;
@@ -803,11 +840,14 @@ window.pollLiveCloudData = async function() {
     if (window.__cloudWriteDepth > 0) return;
     window.__pollingInFlight = true;
     try {
-        const [cloudData, profiles] = await Promise.all([
+        const [cloudData, profiles, feed] = await Promise.all([
             fetch(`${window.YANDEX_BUCKET_URL}/map_data.json?nocache=${Date.now()}`)
                 .then(res => res.ok ? res.json() : null)
                 .catch(() => null),
             fetch(`${window.YANDEX_BUCKET_URL}/profiles.json?nocache=${Date.now()}`)
+                .then(res => res.ok ? res.json() : null)
+                .catch(() => null),
+            fetch(`${window.YANDEX_BUCKET_URL}/feed.json?nocache=${Date.now()}`)
                 .then(res => res.ok ? res.json() : null)
                 .catch(() => null)
         ]);
@@ -855,6 +895,15 @@ window.pollLiveCloudData = async function() {
                         window.openMessageThread(window.__activeMessagePeer, { quiet: true });
                     }
                 }
+            }
+        }
+
+        if (Array.isArray(feed)) {
+            const key = JSON.stringify(feed);
+            if (key !== window.__lastFeedPollKey) {
+                window.__lastFeedPollKey = key;
+                window.feedPosts = feed.filter(p => !p.deleted);
+                if (window.__sidebarTab === 'feed' && window.renderSidebarFeed) window.renderSidebarFeed();
             }
         }
     } finally {
@@ -1379,48 +1428,264 @@ window.renderSidebarFeed = function() {
     const container = document.getElementById('sidebar-feed');
     if (!container) return;
 
+    const isAdmin = window.isCurrentUserAdmin && window.isCurrentUserAdmin();
+    const posts = (window.feedPosts || []).filter(p => !p.deleted)
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
     const published = (window.soundsData || []).filter(s => !s.status || s.status === 'published');
     const recent = [...published]
         .sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''), 'ru'))
-        .slice(0, 6);
-    const sessions = (window.currentUser?.sessions || []).slice(0, 3);
+        .slice(0, 4);
     const ecoLabels = { geophony: 'Геофония', biophony: 'Биофония', anthrophony: 'Антропофония' };
+    const esc = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    const adminBar = isAdmin
+        ? `<button type="button" onclick="window.openFeedPostEditor()" class="feed-admin-create"><i class="fa-solid fa-plus mr-1.5"></i>Создать пост</button>`
+        : '';
+
+    const postsHtml = posts.length
+        ? posts.map(p => {
+            const dateStr = p.createdAt ? new Date(p.createdAt).toLocaleDateString('ru-RU') : '';
+            const titleStyle = `font-family:${p.titleFont === 'serif' ? 'Georgia, serif' : 'inherit'};font-size:${({ sm: '13px', md: '14px', lg: '16px', xl: '18px' })[p.titleSize] || '14px'}`;
+            const adminActions = isAdmin
+                ? `<div class="flex gap-1 mt-2" onclick="event.stopPropagation()">
+                    <button type="button" onclick="window.openFeedPostEditor('${p.id}')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"><i class="fa-solid fa-pen mr-1"></i>Изменить</button>
+                    <button type="button" onclick="window.deleteFeedPost('${p.id}')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-red-50 dark:bg-red-900/30 text-red-600"><i class="fa-solid fa-trash mr-1"></i>Удалить</button>
+                   </div>`
+                : '';
+            if (p.type === 'article') {
+                return `<button type="button" onclick="window.openFeedArticle('${p.id}')" class="feed-card feed-card--post w-full text-left">
+                    <div class="feed-card__badge feed-card__badge--article">Статья</div>
+                    <p class="feed-card__title" style="${titleStyle}">${esc(p.title)}</p>
+                    <p class="feed-card__meta">${esc(p.authorName || 'Админ')}${dateStr ? ' · ' + dateStr : ''} · Читать</p>
+                    ${adminActions}
+                </button>`;
+            }
+            return `<div class="feed-card feed-card--notice">
+                <div class="feed-card__badge feed-card__badge--notice">Уведомление</div>
+                <p class="feed-card__title" style="${titleStyle}">${esc(p.title)}</p>
+                ${p.body ? `<p class="feed-card__text">${esc(p.body)}</p>` : ''}
+                <p class="feed-card__meta mt-1">${esc(p.authorName || 'Админ')}${dateStr ? ' · ' + dateStr : ''}</p>
+                ${adminActions}
+            </div>`;
+        }).join('')
+        : `<p class="text-xs text-slate-400 text-center py-3">Пока нет постов в ленте</p>`;
 
     const recentHtml = recent.length
         ? recent.map(s => `
             <button type="button" onclick="window.selectSound('${s.id}')" class="feed-card feed-card--sound w-full text-left">
                 <div class="feed-card__badge">${ecoLabels[s.ecoCategory] || 'Звук'}</div>
-                <p class="feed-card__title">${String(s.title || 'Без названия').replace(/</g, '&lt;')}</p>
+                <p class="feed-card__title">${esc(s.title || 'Без названия')}</p>
                 <p class="feed-card__meta">${[s.recordist, s.duration, s.date].filter(Boolean).join(' · ')}</p>
-            </button>`).join('')
-        : `<p class="text-xs text-slate-400 text-center py-4">Пока нет опубликованных записей</p>`;
-
-    const sessionsHtml = sessions.length
-        ? sessions.map(s => `
-            <button type="button" onclick="window.openExpeditionViewModal('${s.id}')" class="feed-card w-full text-left">
-                <div class="feed-card__badge feed-card__badge--exp">Экспедиция</div>
-                <p class="feed-card__title">${String(s.title || 'Без названия').replace(/</g, '&lt;')}</p>
-                <p class="feed-card__meta">${s.route || s.purpose || 'Полевой выезд'}</p>
             </button>`).join('')
         : '';
 
     container.innerHTML = `
+        ${adminBar}
         <div class="feed-card feed-card--info">
             <div class="feed-card__badge feed-card__badge--info">О проекте</div>
             <p class="feed-card__title">Аудиокарта Ростовской области</p>
-            <p class="feed-card__text">Коллекция полевых звукозаписей: геофония, биофония и антропофония региона. Слушайте на карте, фильтруйте в библиотеке и присоединяйтесь к экспедициям.</p>
-        </div>
-        <div class="feed-card feed-card--info">
-            <div class="feed-card__badge feed-card__badge--tip">Подсказка</div>
-            <p class="feed-card__title">Как пользоваться</p>
-            <p class="feed-card__text">«Библиотека» — поиск и фильтры. «Экспедиции» — полевые выезды. Наведите на метку карты, чтобы увидеть превью записи.</p>
+            <p class="feed-card__text">Коллекция полевых звукозаписей: геофония, биофония и антропофония региона.</p>
         </div>
         <div>
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-0.5">Недавние записи</p>
-            <div class="flex flex-col gap-2">${recentHtml}</div>
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-0.5">Лента</p>
+            <div class="flex flex-col gap-2">${postsHtml}</div>
         </div>
-        ${sessionsHtml ? `<div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-0.5">Ваши экспедиции</p><div class="flex flex-col gap-2">${sessionsHtml}</div></div>` : ''}
+        ${recentHtml ? `<div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-0.5">Недавние записи</p><div class="flex flex-col gap-2">${recentHtml}</div></div>` : ''}
     `;
+};
+
+window.__editingFeedPostId = null;
+
+window.updateFeedPostTypeUI = function() {
+    const type = document.querySelector('input[name="feed-post-type"]:checked')?.value || 'notice';
+    const noticeBox = document.getElementById('feed-post-notice-fields');
+    const articleBox = document.getElementById('feed-post-article-fields');
+    if (noticeBox) noticeBox.classList.toggle('hidden', type !== 'notice');
+    if (articleBox) articleBox.classList.toggle('hidden', type !== 'article');
+};
+
+window.openFeedPostEditor = function(postId = null) {
+    if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) {
+        window.showToast('Только администратор может создавать посты');
+        return;
+    }
+    window.__editingFeedPostId = postId;
+    const post = postId ? (window.feedPosts || []).find(p => p.id === postId) : null;
+    const titleEl = document.getElementById('feed-post-title');
+    const bodyEl = document.getElementById('feed-post-body');
+    const editor = document.getElementById('feed-post-editor');
+    const fontEl = document.getElementById('feed-post-title-font');
+    const sizeEl = document.getElementById('feed-post-title-size');
+    const header = document.getElementById('feed-post-modal-title');
+
+    if (titleEl) titleEl.value = post?.title || '';
+    if (bodyEl) bodyEl.value = post?.body || '';
+    if (editor) editor.innerHTML = post?.html || '';
+    if (fontEl) fontEl.value = post?.titleFont || 'sans';
+    if (sizeEl) sizeEl.value = post?.titleSize || 'md';
+    document.querySelectorAll('input[name="feed-post-type"]').forEach(r => {
+        r.checked = (r.value === (post?.type || 'notice'));
+    });
+    if (header) header.innerHTML = `<i class="fa-solid fa-pen-to-square mr-2 text-blue-500"></i>${post ? 'Редактировать пост' : 'Новый пост'}`;
+    window.updateFeedPostTypeUI();
+    window.applyFeedTitlePreview();
+
+    const m = document.getElementById('feed-post-modal');
+    const c = document.getElementById('feed-post-modal-content');
+    if (!m || !c) return;
+    m.classList.remove('hidden');
+    void m.offsetWidth;
+    m.classList.remove('opacity-0', 'pointer-events-none');
+    c.classList.remove('scale-95');
+};
+
+window.closeFeedPostModal = function() {
+    const m = document.getElementById('feed-post-modal');
+    const c = document.getElementById('feed-post-modal-content');
+    if (!m || !c) return;
+    m.classList.add('opacity-0', 'pointer-events-none');
+    c.classList.add('scale-95');
+    setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
+    window.__editingFeedPostId = null;
+};
+
+window.applyFeedTitlePreview = function() {
+    const titleEl = document.getElementById('feed-post-title');
+    const fontEl = document.getElementById('feed-post-title-font');
+    const sizeEl = document.getElementById('feed-post-title-size');
+    if (!titleEl) return;
+    const sizes = { sm: '14px', md: '16px', lg: '20px', xl: '24px' };
+    titleEl.style.fontFamily = fontEl?.value === 'serif' ? 'Georgia, "Times New Roman", serif' : 'inherit';
+    titleEl.style.fontSize = sizes[sizeEl?.value] || '16px';
+};
+
+window.execFeedEditor = function(cmd) {
+    const editor = document.getElementById('feed-post-editor');
+    if (!editor) return;
+    editor.focus();
+    document.execCommand(cmd, false, null);
+};
+
+window.insertFeedEditorImage = function(files) {
+    const file = files && files[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const editor = document.getElementById('feed-post-editor');
+        if (!editor) return;
+        editor.focus();
+        document.execCommand('insertHTML', false, `<img src="${e.target.result}" alt="" class="feed-inline-img">`);
+    };
+    reader.readAsDataURL(file);
+    const input = document.getElementById('feed-post-image-input');
+    if (input) input.value = '';
+};
+
+window.sanitizeFeedHtml = function(html) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html || '';
+    tmp.querySelectorAll('script,style,iframe,object,embed,link').forEach(el => el.remove());
+    tmp.querySelectorAll('*').forEach(el => {
+        [...el.attributes].forEach(attr => {
+            const name = attr.name.toLowerCase();
+            if (name.startsWith('on') || name === 'srcdoc') el.removeAttribute(attr.name);
+            if ((name === 'href' || name === 'src') && /^\s*javascript:/i.test(attr.value)) el.removeAttribute(attr.name);
+        });
+    });
+    return tmp.innerHTML;
+};
+
+window.saveFeedPost = async function() {
+    if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) return;
+    const type = document.querySelector('input[name="feed-post-type"]:checked')?.value || 'notice';
+    const title = (document.getElementById('feed-post-title')?.value || '').trim();
+    if (!title) { window.showToast('Укажите заголовок'); return; }
+
+    const body = (document.getElementById('feed-post-body')?.value || '').trim();
+    const html = window.sanitizeFeedHtml(document.getElementById('feed-post-editor')?.innerHTML || '');
+    if (type === 'notice' && !body) { window.showToast('Добавьте текст уведомления'); return; }
+    if (type === 'article' && !html.replace(/<[^>]+>/g, '').trim() && !html.includes('<img')) {
+        window.showToast('Добавьте текст или фото в статью');
+        return;
+    }
+
+    const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+    const now = new Date().toISOString();
+    const existingId = window.__editingFeedPostId;
+    const post = {
+        id: existingId || ('fp' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
+        type,
+        title,
+        body: type === 'notice' ? body.slice(0, 400) : '',
+        html: type === 'article' ? html : '',
+        titleFont: document.getElementById('feed-post-title-font')?.value || 'sans',
+        titleSize: document.getElementById('feed-post-title-size')?.value || 'md',
+        authorId: login,
+        authorName: window.currentUser.username || 'Админ',
+        createdAt: existingId
+            ? ((window.feedPosts || []).find(p => p.id === existingId)?.createdAt || now)
+            : now,
+        updatedAt: now
+    };
+
+    const next = [...(window.feedPosts || []).filter(p => p.id !== post.id), post];
+    const ok = await window.syncFeedPosts(next);
+    if (ok) {
+        window.closeFeedPostModal();
+        window.showToast(existingId ? 'Пост обновлён' : 'Пост опубликован');
+        if (window.switchSidebarTab) window.switchSidebarTab('feed');
+    }
+};
+
+window.deleteFeedPost = async function(postId) {
+    if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) return;
+    const okConfirm = await window.CustomUI.open({
+        title: 'Удалить пост?',
+        message: 'Пост исчезнет из ленты для всех пользователей.',
+        confirmText: 'Удалить',
+        confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
+    });
+    if (!okConfirm) return;
+    const next = (window.feedPosts || []).map(p => p.id === postId ? { ...p, deleted: true, updatedAt: new Date().toISOString() } : p);
+    const ok = await window.syncFeedPosts(next);
+    if (ok) window.showToast('Пост удалён');
+};
+
+window.openFeedArticle = function(postId) {
+    const post = (window.feedPosts || []).find(p => p.id === postId && p.type === 'article' && !p.deleted);
+    if (!post) return;
+    const titleEl = document.getElementById('feed-article-title');
+    const metaEl = document.getElementById('feed-article-meta');
+    const bodyEl = document.getElementById('feed-article-body');
+    const sizes = { sm: '1.05rem', md: '1.25rem', lg: '1.5rem', xl: '1.75rem' };
+    if (titleEl) {
+        titleEl.textContent = post.title || '';
+        titleEl.style.fontFamily = post.titleFont === 'serif' ? 'Georgia, "Times New Roman", serif' : 'inherit';
+        titleEl.style.fontSize = sizes[post.titleSize] || '1.25rem';
+    }
+    if (metaEl) {
+        const dateStr = post.createdAt ? new Date(post.createdAt).toLocaleString('ru-RU') : '';
+        metaEl.textContent = [post.authorName || 'Админ', dateStr].filter(Boolean).join(' · ');
+    }
+    if (bodyEl) bodyEl.innerHTML = window.sanitizeFeedHtml(post.html || '');
+
+    const m = document.getElementById('feed-article-modal');
+    const c = document.getElementById('feed-article-modal-content');
+    if (!m || !c) return;
+    m.classList.remove('hidden');
+    void m.offsetWidth;
+    m.classList.remove('opacity-0', 'pointer-events-none');
+    c.classList.remove('scale-95');
+};
+
+window.closeFeedArticleModal = function() {
+    const m = document.getElementById('feed-article-modal');
+    const c = document.getElementById('feed-article-modal-content');
+    if (!m || !c) return;
+    m.classList.add('opacity-0', 'pointer-events-none');
+    c.classList.add('scale-95');
+    setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
 };
 
 window.switchFilterTab = function(tab) {
@@ -1571,8 +1836,8 @@ window.openDetailsModal = function() {
     if (expEl) {
         const session = s.sessionId && window.findSessionById ? window.findSessionById(s.sessionId) : null;
         if (session) {
-            expEl.innerHTML = `<span class="cursor-pointer text-blue-600 dark:text-blue-400 hover:underline" onclick="window.closeDetailsModal(); window.setSidebarSessionFilter('${session.id}'); window.switchSidebarTab('expeditions'); const sb=document.getElementById('sidebar'); if(sb&&sb.classList.contains('sidebar-hidden')&&window.toggleSidebar) window.toggleSidebar();">${session.title}</span>`;
-            expEl.title = session.ownerName ? `Организатор: ${session.ownerName}` : '';
+            expEl.innerHTML = `<span class="cursor-pointer text-blue-600 dark:text-blue-400 hover:underline" onclick="window.openExpeditionViewModal('${session.id}')">${session.title}</span>`;
+            expEl.title = 'Открыть описание экспедиции';
         } else {
             expEl.textContent = '—';
             expEl.title = '';
