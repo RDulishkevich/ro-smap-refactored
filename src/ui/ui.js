@@ -2246,7 +2246,14 @@ window.setLanguage = function(lang, skipSave = false) {
 }
 window.setTheme = function(theme, skipSave = false) {
     window.currentTheme = theme;
-    if (theme === 'dark') document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark');
+    const root = document.documentElement;
+    if (theme === 'dark') {
+        root.classList.add('dark');
+        root.classList.remove('light');
+    } else {
+        root.classList.remove('dark');
+        root.classList.add('light');
+    }
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('theme', theme);
     if (window.refreshSettingsUI) window.refreshSettingsUI();
     if (window.refreshAnalyzersTheme) window.refreshAnalyzersTheme();

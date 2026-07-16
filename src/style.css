@@ -141,23 +141,18 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
     border-bottom-color: #f87171;
 }
 
-/* FAB и плеер — safe area на iPhone. На телефоне FAB закреплён сверху под кнопкой профиля
-   (см. index.html: top-20 right-4) и не зависит от плеера — там ему ничего не мешает.
-   На ПК кнопка остаётся в правом нижнем углу и уступает место открытому плееру/анализаторам. */
+/* FAB: на телефоне — под профилем (классы в HTML). На ПК — всегда правый нижний угол,
+   без прыжков при открытии плеера/анализаторов. */
 @media (min-width: 768px) {
     #fab-add {
-        bottom: calc(2rem + env(safe-area-inset-bottom, 0));
-        transition: bottom 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        top: auto !important;
+        right: 2rem !important;
+        bottom: calc(2rem + env(safe-area-inset-bottom, 0)) !important;
+        transition: none;
     }
-    .player-visible #fab-add {
-        bottom: calc(8.5rem + env(safe-area-inset-bottom, 0));
-    }
-    /* #player-card is capped at max-h-[85vh] when the analyzers panel is open, and that content
-       easily exceeds any fixed rem guess (goniometer + spectrogram + loudness meter + optional
-       Ambisonic sphere stack up to ~900px). Tie the FAB offset to the same 85vh so it always
-       clears the card's actual rendered top edge on any viewport. */
+    .player-visible #fab-add,
     .player-visible.player-analyzers-open #fab-add {
-        bottom: calc(85vh + 1.5rem + env(safe-area-inset-bottom, 0));
+        bottom: calc(2rem + env(safe-area-inset-bottom, 0)) !important;
     }
 }
 
@@ -171,6 +166,42 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
 }
 
 /* Анализаторы Web Audio: панель и «экран» прибора следуют теме приложения */
+:root {
+    --analyzer-screen-bg: #f8fafc;
+    --analyzer-screen-border: #e2e8f0;
+    --analyzer-fade: rgba(248, 250, 252, 0.42);
+    --analyzer-fade-ambi: rgba(255, 255, 255, 0.22);
+    --analyzer-grid: rgba(100, 116, 139, 0.4);
+    --analyzer-grid-soft: rgba(100, 116, 139, 0.22);
+    --analyzer-label: rgba(51, 65, 85, 0.92);
+    --analyzer-stroke: #0284c7;
+    --analyzer-stroke-glow: rgba(2, 132, 199, 0.4);
+    --analyzer-ambi-stroke: #6366f1;
+    --analyzer-ambi-glow: rgba(99, 102, 241, 0.4);
+    --analyzer-loudness-cover: #f8fafc;
+    --analyzer-loudness-peak: #0f172a;
+    --analyzer-axis: rgba(51, 65, 85, 0.9);
+    --analyzer-axis-shadow: 0 0 3px rgba(255, 255, 255, 0.95);
+}
+html.dark,
+.dark {
+    --analyzer-screen-bg: #0f172a;
+    --analyzer-screen-border: #1e293b;
+    --analyzer-fade: rgba(15, 23, 42, 0.22);
+    --analyzer-fade-ambi: rgba(15, 23, 42, 0.14);
+    --analyzer-grid: rgba(148, 163, 184, 0.28);
+    --analyzer-grid-soft: rgba(148, 163, 184, 0.16);
+    --analyzer-label: rgba(203, 213, 225, 0.85);
+    --analyzer-stroke: #38bdf8;
+    --analyzer-stroke-glow: rgba(56, 189, 248, 0.55);
+    --analyzer-ambi-stroke: #818cf8;
+    --analyzer-ambi-glow: rgba(129, 140, 248, 0.6);
+    --analyzer-loudness-cover: #0f172a;
+    --analyzer-loudness-peak: #f8fafc;
+    --analyzer-axis: rgba(226, 232, 240, 0.9);
+    --analyzer-axis-shadow: 0 0 3px rgba(0, 0, 0, 0.95);
+}
+
 .analyzer-panel {
     border-radius: 1rem;
     border-width: 2px;
@@ -196,14 +227,9 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
     height: 130px;
     border-radius: 0.65rem;
     overflow: hidden;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: var(--analyzer-screen-bg);
+    border: 1px solid var(--analyzer-screen-border);
     position: relative;
-}
-.dark .goniometer-canvas-wrap,
-.dark .spectrum-canvas-wrap {
-    background: #0f172a;
-    border-color: #1e293b;
 }
 .goniometer-canvas-wrap canvas,
 .spectrum-canvas-wrap canvas {
@@ -224,12 +250,8 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
     font-size: 8px;
     font-weight: 700;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    color: rgba(51, 65, 85, 0.9);
-    text-shadow: 0 0 3px rgba(255, 255, 255, 0.95), 0 0 1px rgba(255, 255, 255, 1);
-}
-.dark .spectrum-freq-axis span {
-    color: rgba(226, 232, 240, 0.9);
-    text-shadow: 0 0 3px rgba(0, 0, 0, 0.95), 0 0 1px rgba(0, 0, 0, 1);
+    color: var(--analyzer-axis);
+    text-shadow: var(--analyzer-axis-shadow);
 }
 .loudness-meter-v {
     display: flex;
@@ -238,13 +260,9 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
     gap: 14px;
     padding: 10px 8px 6px;
     border-radius: 0.75rem;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: var(--analyzer-screen-bg);
+    border: 1px solid var(--analyzer-screen-border);
     min-height: 150px;
-}
-.dark .loudness-meter-v {
-    background: #0f172a;
-    border-color: #1e293b;
 }
 .loudness-channel-v {
     display: flex;
@@ -258,7 +276,6 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
     height: 120px;
     border-radius: 6px;
     overflow: hidden;
-    /* Smooth bottom-up gradient: green -> yellow starting around -18dB -> red above -3dB */
     background: linear-gradient(to top,
         #22c55e 0%, #22c55e 55%,
         #eab308 70%, #f97316 85%,
@@ -268,23 +285,18 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 100%;
-    background: #f8fafc;
+    background: var(--analyzer-loudness-cover);
     transition: height 60ms linear;
 }
-.dark .loudness-cover-v { background: #0f172a; }
 .loudness-peak-v {
     position: absolute;
     left: 0; right: 0;
     top: 0;
     height: 2px;
-    background: #0f172a;
-    box-shadow: 0 0 4px rgba(15, 23, 42, 0.45);
+    background: var(--analyzer-loudness-peak);
+    box-shadow: 0 0 4px color-mix(in srgb, var(--analyzer-loudness-peak) 55%, transparent);
     transition: top 60ms linear;
     z-index: 2;
-}
-.dark .loudness-peak-v {
-    background: #f8fafc;
-    box-shadow: 0 0 4px rgba(248, 250, 252, 0.85);
 }
 .loudness-ch-label {
     font-size: 9px;

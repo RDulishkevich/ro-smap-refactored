@@ -412,33 +412,30 @@ window.izotopeColorStopsLight = [
 window.izotopeColorStops = window.izotopeColorStopsDark;
 
 window.isAnalyzerLightTheme = function() {
+    if (window.currentTheme === 'dark') return false;
+    if (window.currentTheme === 'light') return true;
     return !document.documentElement.classList.contains('dark');
 };
 
 window.getAnalyzerPalette = function() {
-    if (window.isAnalyzerLightTheme()) {
-        return {
-            fade: 'rgba(248, 250, 252, 0.28)',
-            fadeAmbi: 'rgba(255, 255, 255, 0.18)',
-            grid: 'rgba(100, 116, 139, 0.35)',
-            gridSoft: 'rgba(100, 116, 139, 0.2)',
-            label: 'rgba(51, 65, 85, 0.9)',
-            stroke: '#0284c7',
-            strokeGlow: 'rgba(2, 132, 199, 0.45)',
-            ambiStroke: '#6366f1',
-            ambiGlow: 'rgba(99, 102, 241, 0.45)'
-        };
-    }
+    const root = document.documentElement;
+    const css = getComputedStyle(root);
+    const read = (name, fallback) => {
+        const v = css.getPropertyValue(name).trim();
+        return v || fallback;
+    };
+    // CSS-переменные — единый источник правды со style.css (и для class=dark, и для html.dark)
     return {
-        fade: 'rgba(15, 23, 42, 0.2)',
-        fadeAmbi: 'rgba(15, 23, 42, 0.12)',
-        grid: 'rgba(148, 163, 184, 0.28)',
-        gridSoft: 'rgba(148, 163, 184, 0.16)',
-        label: 'rgba(203, 213, 225, 0.85)',
-        stroke: '#38bdf8',
-        strokeGlow: 'rgba(56, 189, 248, 0.55)',
-        ambiStroke: '#818cf8',
-        ambiGlow: 'rgba(129, 140, 248, 0.6)'
+        screenBg: read('--analyzer-screen-bg', window.isAnalyzerLightTheme() ? '#f8fafc' : '#0f172a'),
+        fade: read('--analyzer-fade', window.isAnalyzerLightTheme() ? 'rgba(248, 250, 252, 0.42)' : 'rgba(15, 23, 42, 0.22)'),
+        fadeAmbi: read('--analyzer-fade-ambi', window.isAnalyzerLightTheme() ? 'rgba(255, 255, 255, 0.22)' : 'rgba(15, 23, 42, 0.14)'),
+        grid: read('--analyzer-grid', 'rgba(100, 116, 139, 0.4)'),
+        gridSoft: read('--analyzer-grid-soft', 'rgba(100, 116, 139, 0.22)'),
+        label: read('--analyzer-label', 'rgba(51, 65, 85, 0.92)'),
+        stroke: read('--analyzer-stroke', '#0284c7'),
+        strokeGlow: read('--analyzer-stroke-glow', 'rgba(2, 132, 199, 0.4)'),
+        ambiStroke: read('--analyzer-ambi-stroke', '#6366f1'),
+        ambiGlow: read('--analyzer-ambi-glow', 'rgba(99, 102, 241, 0.4)')
     };
 };
 
@@ -462,11 +459,12 @@ window.izotopeColor = function(value) {
 };
 
 window.refreshAnalyzersTheme = function() {
+    const pal = window.getAnalyzerPalette();
     const gonio = document.getElementById('goniometer-canvas');
     if (gonio) {
         const ctx = gonio.getContext('2d');
         if (ctx) {
-            ctx.fillStyle = window.isAnalyzerLightTheme() ? '#f8fafc' : '#0f172a';
+            ctx.fillStyle = pal.screenBg;
             ctx.fillRect(0, 0, gonio.width || 260, gonio.height || 130);
         }
     }
@@ -505,7 +503,9 @@ window.primeSpectrogramCanvas = function() {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.fillStyle = window.izotopeColor(0);
+    const pal = window.getAnalyzerPalette();
+    // Светлая/тёмная «тишина» — из CSS-переменных темы, не из тёмной iZotope-палитры
+    ctx.fillStyle = pal.screenBg;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 };
 
@@ -858,7 +858,8 @@ window.togglePlayerAnalyzers = async function() {
         document.body.classList.add('player-analyzers-open');
 
         window.buildAnalyzerMetersUI();
-        window.resizeAnalyzerCanvases();
+        if (window.refreshAnalyzersTheme) window.refreshAnalyzersTheme();
+        else window.resizeAnalyzerCanvases();
         window.drawGoniometerFrame();
         window.drawSpectrumFrame();
         window.drawLoudnessFrame();
