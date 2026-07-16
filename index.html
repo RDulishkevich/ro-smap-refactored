@@ -449,19 +449,19 @@
                 <i class="fa-solid fa-id-badge"></i>Публичный профиль
             </button>
 
-            <div class="flex bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 px-4 gap-2 overflow-x-auto custom-scrollbar">
-                <button onclick="window.switchCabinetTab('sounds')" id="cab-tab-sounds" class="py-3 px-3 text-[13px] font-bold text-blue-600 border-b-2 border-blue-600 transition-colors whitespace-nowrap">Мои звуки</button>
-                <button onclick="window.switchCabinetTab('sessions')" id="cab-tab-sessions" class="py-3 px-3 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap">Экспедиции</button>
-                <button onclick="window.switchCabinetTab('analytics')" id="cab-tab-analytics" class="py-3 px-3 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap">Аналитика</button>
-                <button onclick="window.switchCabinetTab('settings')" id="cab-tab-settings" class="py-3 px-3 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap">Настройки</button>
-                <button onclick="window.switchCabinetTab('security')" id="cab-tab-security" class="py-3 px-3 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap">Сменить пароль</button>
-                <button onclick="window.switchCabinetTab('support')" id="cab-tab-support" class="py-3 px-3 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap">Поддержка</button>
-                <button onclick="window.switchCabinetTab('faq')" id="cab-tab-faq" class="py-3 px-3 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap">FAQ</button>
-                <button onclick="window.switchCabinetTab('admin')" id="cab-tab-admin" class="hidden py-3 px-3 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap text-red-600">Админ-панель</button>
+            <div id="cabinet-tabs" class="cabinet-tabs flex flex-nowrap bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 px-2 gap-1 overflow-x-auto shrink-0">
+                <button type="button" onclick="window.switchCabinetTab('sounds')" id="cab-tab-sounds" data-cab-tab="sounds" class="cab-tab active">Мои звуки</button>
+                <button type="button" onclick="window.switchCabinetTab('sessions')" id="cab-tab-sessions" data-cab-tab="sessions" class="cab-tab">Экспедиции</button>
+                <button type="button" onclick="window.switchCabinetTab('analytics')" id="cab-tab-analytics" data-cab-tab="analytics" class="cab-tab">Аналитика</button>
+                <button type="button" onclick="window.switchCabinetTab('settings')" id="cab-tab-settings" data-cab-tab="settings" class="cab-tab">Настройки</button>
+                <button type="button" onclick="window.switchCabinetTab('security')" id="cab-tab-security" data-cab-tab="security" class="cab-tab">Сменить пароль</button>
+                <button type="button" onclick="window.switchCabinetTab('support')" id="cab-tab-support" data-cab-tab="support" class="cab-tab">Поддержка</button>
+                <button type="button" onclick="window.switchCabinetTab('faq')" id="cab-tab-faq" data-cab-tab="faq" class="cab-tab">FAQ</button>
+                <button type="button" onclick="window.switchCabinetTab('admin')" id="cab-tab-admin" data-cab-tab="admin" class="cab-tab cab-tab-admin hidden">Админ-панель</button>
             </div>
 
-            <div class="p-6 overflow-y-auto custom-scrollbar flex-1">
-                <div id="cab-panel-sounds" class="space-y-4">
+            <div class="p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0">
+                <div id="cab-panel-sounds" data-cab-panel="sounds" class="space-y-4">
                     <div class="grid grid-cols-2 gap-4 mb-4">
                         <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-center items-center text-center">
                             <span class="text-3xl font-black text-blue-600 dark:text-blue-400 mb-1" id="cabinet-stat-count">0</span>
@@ -476,7 +476,7 @@
                     <div id="cabinet-sounds-list" class="space-y-3"></div>
                 </div>
 
-                <div id="cab-panel-sessions" class="hidden space-y-4">
+                <div id="cab-panel-sessions" data-cab-panel="sessions" class="hidden space-y-4">
                     <div class="flex items-start justify-between gap-3">
                         <div>
                             <h4 class="font-bold text-slate-800 dark:text-white mb-1"><i class="fa-solid fa-route mr-1.5 text-blue-500"></i>Экспедиции</h4>
@@ -489,7 +489,7 @@
                     <div id="cab-sessions-list" class="space-y-3"></div>
                 </div>
 
-                <div id="cab-panel-analytics" class="hidden space-y-4">
+                <div id="cab-panel-analytics" data-cab-panel="analytics" class="hidden space-y-4">
                     <div>
                         <h4 class="font-bold text-slate-800 dark:text-white mb-1"><i class="fa-solid fa-chart-line mr-1.5 text-blue-500"></i>Профессиональная аналитика</h4>
                         <p class="text-sm text-slate-600 dark:text-slate-300">Какие ваши записи и акустические ниши пользуются наибольшим спросом у аудитории платформы.</p>
@@ -497,7 +497,7 @@
                     <div id="cab-analytics-content" class="space-y-4"></div>
                 </div>
 
-                <div id="cab-panel-settings" class="hidden space-y-4">
+                <div id="cab-panel-settings" data-cab-panel="settings" class="hidden space-y-4">
                     <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
                         <div>
                             <h4 class="font-bold text-slate-800 dark:text-white mb-1">Общие настройки</h4>
@@ -577,7 +577,7 @@
                     </div>
                 </div>
 
-                <div id="cab-panel-security" class="hidden space-y-4">
+                <div id="cab-panel-security" data-cab-panel="security" class="hidden space-y-4">
                     <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
                         <div>
                             <h4 class="font-bold text-slate-800 dark:text-white mb-1">Безопасность аккаунта</h4>
@@ -592,7 +592,7 @@
                     </div>
                 </div>
 
-                <div id="cab-panel-support" class="hidden space-y-4">
+                <div id="cab-panel-support" data-cab-panel="support" class="hidden space-y-4">
                     <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
                         <h4 class="font-bold text-slate-800 dark:text-white mb-1">Поддержка и помощь</h4>
                         <p class="text-sm text-slate-600 dark:text-slate-300">Если что-то не работает или нужна помощь с картой — откройте окно поддержки.</p>
@@ -602,7 +602,7 @@
                     </div>
                 </div>
 
-                <div id="cab-panel-faq" class="hidden space-y-4">
+                <div id="cab-panel-faq" data-cab-panel="faq" class="hidden space-y-4">
                     <div class="flex items-center justify-between mb-2">
                         <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Помощь и FAQ</p>
                         <button onclick="window.switchCabinetTab('sounds')" class="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors">
@@ -651,7 +651,7 @@
                     </div>
                 </div>
 
-                <div id="cab-panel-admin" class="hidden space-y-4">
+                <div id="cab-panel-admin" data-cab-panel="admin" class="hidden space-y-4">
                     <div class="flex items-center justify-between mb-2">
                         <p class="text-[11px] font-bold uppercase tracking-wider text-red-500">Администрирование</p>
                         <button onclick="window.switchCabinetTab('sounds')" class="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors">

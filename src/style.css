@@ -98,12 +98,47 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
 }
 .dark .stat-card .stat-value { color: #f1f5f9; }
 .stat-card .stat-label {
-    font-size: 9px;
+    font-size: 0.65rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: #94a3b8;
-    margin-top: 2px;
+}
+
+/* Вкладки личного кабинета — горизонтальный bar без сжатия кнопок */
+.cabinet-tabs {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+.cabinet-tabs::-webkit-scrollbar { height: 4px; }
+.cab-tab {
+    flex: 0 0 auto;
+    padding: 0.75rem 0.85rem;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    color: #64748b;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s ease, border-color 0.15s ease;
+    background: transparent;
+}
+.dark .cab-tab { color: #94a3b8; }
+.cab-tab:hover { color: #1e293b; }
+.dark .cab-tab:hover { color: #e2e8f0; }
+.cab-tab.active {
+    color: #2563eb;
+    border-bottom-color: #2563eb;
+}
+.dark .cab-tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
+.cab-tab.cab-tab-admin { color: #dc2626; }
+.dark .cab-tab.cab-tab-admin { color: #f87171; }
+.cab-tab.cab-tab-admin.active {
+    color: #dc2626;
+    border-bottom-color: #dc2626;
+}
+.dark .cab-tab.cab-tab-admin.active {
+    color: #f87171;
+    border-bottom-color: #f87171;
 }
 
 /* FAB и плеер — safe area на iPhone. На телефоне FAB закреплён сверху под кнопкой профиля

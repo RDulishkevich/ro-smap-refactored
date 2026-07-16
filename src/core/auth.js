@@ -920,65 +920,37 @@ export function initAuth() {
     };
 
     window.switchCabinetTab = function(tab) {
-        const btnSounds = document.getElementById('cab-tab-sounds');
-        const btnSessions = document.getElementById('cab-tab-sessions');
-        const btnAnalytics = document.getElementById('cab-tab-analytics');
-        const btnSettings = document.getElementById('cab-tab-settings');
-        const btnSecurity = document.getElementById('cab-tab-security');
-        const btnSupport = document.getElementById('cab-tab-support');
-        const btnFaq = document.getElementById('cab-tab-faq');
-        const btnAdmin = document.getElementById('cab-tab-admin');
-        
-        const pnlSounds = document.getElementById('cab-panel-sounds');
-        const pnlSessions = document.getElementById('cab-panel-sessions');
-        const pnlAnalytics = document.getElementById('cab-panel-analytics');
-        const pnlSettings = document.getElementById('cab-panel-settings');
-        const pnlSecurity = document.getElementById('cab-panel-security');
-        const pnlSupport = document.getElementById('cab-panel-support');
-        const pnlFaq = document.getElementById('cab-panel-faq');
-        const pnlAdmin = document.getElementById('cab-panel-admin');
+        const tabs = document.querySelectorAll('#cabinet-tabs [data-cab-tab]');
+        const panels = document.querySelectorAll('[data-cab-panel]');
+        if (!tabs.length) return;
 
-        const activeClass = "py-3 px-3 text-[13px] font-bold text-blue-600 border-b-2 border-blue-600 transition-colors whitespace-nowrap";
-        const activeAdminClass = "py-3 px-3 text-[13px] font-bold text-red-600 border-b-2 border-red-600 transition-colors whitespace-nowrap";
-        const inactiveClass = "py-3 px-3 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap";
-
-        [btnSounds, btnSessions, btnAnalytics, btnSettings, btnSecurity, btnSupport, btnFaq, btnAdmin].forEach(btn => {
-            if (!btn || btn.classList.contains('hidden')) return;
-            btn.className = inactiveClass;
+        tabs.forEach(btn => {
+            const on = btn.dataset.cabTab === tab;
+            btn.classList.toggle('active', on);
+            if (on && !btn.classList.contains('hidden')) {
+                // Прокрутить активную вкладку в видимую область (мобильный bar)
+                try { btn.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' }); } catch (_) {}
+            }
         });
 
-        [pnlSounds, pnlSessions, pnlAnalytics, pnlSettings, pnlSecurity, pnlSupport, pnlFaq, pnlAdmin].forEach(panel => {
-            if (panel) panel.classList.add('hidden');
+        panels.forEach(panel => {
+            panel.classList.toggle('hidden', panel.dataset.cabPanel !== tab);
         });
 
         if (tab === 'sounds') {
-            if (btnSounds) btnSounds.className = activeClass;
-            if (pnlSounds) pnlSounds.classList.remove('hidden');
             window.renderCabinet();
         } else if (tab === 'sessions') {
-            if (btnSessions) btnSessions.className = activeClass;
-            if (pnlSessions) pnlSessions.classList.remove('hidden');
             if (window.renderSessionsPanel) window.renderSessionsPanel();
         } else if (tab === 'analytics') {
-            if (btnAnalytics) btnAnalytics.className = activeClass;
-            if (pnlAnalytics) pnlAnalytics.classList.remove('hidden');
             if (window.renderMyAnalytics) window.renderMyAnalytics();
         } else if (tab === 'settings') {
-            if (btnSettings) btnSettings.className = activeClass;
-            if (pnlSettings) pnlSettings.classList.remove('hidden');
-            window.fillProfileSettingsForm();
-        } else if (tab === 'security') {
-            if (btnSecurity) btnSecurity.className = activeClass;
-            if (pnlSecurity) pnlSecurity.classList.remove('hidden');
-        } else if (tab === 'support') {
-            if (btnSupport) btnSupport.className = activeClass;
-            if (pnlSupport) pnlSupport.classList.remove('hidden');
-        } else if (tab === 'faq') {
-            if (btnFaq) btnFaq.className = activeClass;
-            if (pnlFaq) pnlFaq.classList.remove('hidden');
+            if (window.fillProfileSettingsForm) window.fillProfileSettingsForm();
         } else if (tab === 'admin') {
-            if (btnAdmin && !btnAdmin.classList.contains('hidden')) btnAdmin.className = activeAdminClass;
-            if (pnlAdmin) pnlAdmin.classList.remove('hidden');
+            const adminBtn = document.getElementById('cab-tab-admin');
+            if (adminBtn && adminBtn.classList.contains('hidden')) {
+                window.switchCabinetTab('sounds');
+                return;
+            }
             window.renderAdminList();
             window.renderAdminUsersList();
             window.renderReportsList();
