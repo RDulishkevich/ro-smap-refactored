@@ -1382,25 +1382,12 @@ window.selectSound = function(id) {
     }
 
     if (s.route && s.route.length > 1 && window.map) {
-        window.activePolyline = new ymaps.Polyline(s.route, {}, { strokeColor: '#38bdf8', strokeWidth: 4, strokeOpacity: 0.8, strokeStyle: 'shortdash' });
-        window.map.geoObjects.add(window.activePolyline);
-        window.map.setBounds(window.activePolyline.geometry.getBounds(), {checkZoomRange: true, duration: 800, zoomMargin: 40});
-
-        // Маркер «прогуливающегося» — двигается вдоль маршрута во время воспроизведения
-        // (см. updatePlayerVisuals / getPointAlongRoute). Без него Soundwalk выглядел «сломанным».
         const colorClass = s.ecoCategory === 'geophony' ? 'walker-geo'
             : s.ecoCategory === 'biophony' ? 'walker-bio' : 'walker-anthro';
-        if (window.walkerLayout) {
-            window.walkerMarker = new ymaps.Placemark(s.route[0], { colorClass }, {
-                iconLayout: window.walkerLayout,
-                iconOffset: [-14, -14],
-                iconShape: { type: 'Circle', coordinates: [0, 0], radius: 14 },
-                zIndex: 1000
-            });
-            window.map.geoObjects.add(window.walkerMarker);
-        }
+        if (window.mapAddRouteOverlay) window.mapAddRouteOverlay(s.route, colorClass);
     } else if (window.map) {
-        window.map.setCenter([s.lat, s.lng], 15, { duration: 800 });
+        if (window.mapSetView) window.mapSetView(s.lat, s.lng, 15);
+        else if (window.map.setCenter) window.map.setCenter([s.lat, s.lng], 15, { duration: 800 });
     }
 
     window.currentPlayingId = id;
@@ -2257,6 +2244,7 @@ window.setTheme = function(theme, skipSave = false) {
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('theme', theme);
     if (window.refreshSettingsUI) window.refreshSettingsUI();
     if (window.refreshAnalyzersTheme) window.refreshAnalyzersTheme();
+    if (window.refreshOsmTilesAndMask) window.refreshOsmTilesAndMask();
 }
 window.toggleSidebar = function() {
     const s = document.getElementById('sidebar');

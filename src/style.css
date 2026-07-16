@@ -395,11 +395,19 @@ html.dark,
 .modal-input { width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; font-size: 14px; background: #fff; outline: none; transition: border-color 0.2s; }
 .modal-label { display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px; }
 
-/* Базовые тайлы карты */
+/* Базовые тайлы карты (Яндекс) */
 #map [class*="-ground-pane"], #map [class*="-copyrights-pane"] { transition: filter 0.5s ease; }
 .dark #map:not(.map-monochrome) [class*="-ground-pane"], .dark #map:not(.map-monochrome) [class*="-copyrights-pane"] { filter: invert(90%) hue-rotate(180deg) brightness(0.8) contrast(1.1); }
 #map.map-monochrome [class*="-ground-pane"], #map.map-monochrome [class*="-copyrights-pane"] { filter: grayscale(100%) contrast(1.1) brightness(1.05); }
 .dark #map.map-monochrome [class*="-ground-pane"], .dark #map.map-monochrome [class*="-copyrights-pane"] { filter: grayscale(100%) invert(90%) brightness(0.8) contrast(1.2); }
+
+/* OpenStreetMap / Leaflet */
+#map.leaflet-container { width: 100%; height: 100%; background: #e2e8f0; }
+.dark #map.leaflet-container { background: #0b1220; }
+#map.leaflet-container .leaflet-div-icon { background: transparent; border: none; }
+#map.map-monochrome.leaflet-container .leaflet-tile-pane { filter: grayscale(100%) contrast(1.1) brightness(1.05); }
+.dark #map.map-monochrome.leaflet-container .leaflet-tile-pane { filter: grayscale(100%) brightness(0.85) contrast(1.15); }
+#map.leaflet-container .leaflet-control-attribution { font-size: 10px; max-width: 55%; }
 
 .meta-group { display: flex; flex-direction: column; gap: 4px; }
 .meta-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; display: flex; align-items: center; }

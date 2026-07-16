@@ -990,7 +990,10 @@ window.updatePlayerVisuals = function(current, total) {
         const s = window.soundsData.find(x => x.id === window.currentPlayingId);
         if (s && s.route) {
             const newPos = window.getPointAlongRoute(s.route, r);
-            if (newPos && window.walkerMarker.geometry) window.walkerMarker.geometry.setCoordinates(newPos);
+            if (newPos) {
+                if (window.setWalkerPosition) window.setWalkerPosition(newPos);
+                else if (window.walkerMarker.geometry) window.walkerMarker.geometry.setCoordinates(newPos);
+            }
         }
     }
 }

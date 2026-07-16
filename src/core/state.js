@@ -30,6 +30,8 @@ export function initGlobalState() {
     window.animationFrameId = null;
     window.currentLang = 'ru';
     window.currentTheme = 'light';
+    window.currentMapStyle = 'normal';
+    window.mapProvider = localStorage.getItem('rosmap_map_provider') || 'yandex';
     window.mockInterval = null;
     window.simulatedTime = 0;
     window.simulatedDuration = 120;

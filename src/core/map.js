@@ -62,7 +62,87 @@ window.createMapMarkerFromContext = function() {
     if (window.toggleAddModal) window.toggleAddModal(false, window.tempAddCoords);
 };
 
+window.isOsmMap = function() {
+    return (window.mapProvider || 'yandex') === 'osm';
+};
+
+window.destroyCurrentMap = function() {
+    if (window.clearMapRoutes) window.clearMapRoutes();
+    if (window.markerCache) {
+        window.markerCache.clear();
+    }
+    window.markerLayoutCache = new Map();
+
+    if (window.map) {
+        try {
+            const isLeaflet = typeof L !== 'undefined' && window.map instanceof L.Map;
+            if (isLeaflet) window.map.remove();
+            else if (typeof window.map.destroy === 'function') window.map.destroy();
+        } catch (e) {
+            console.warn('destroyCurrentMap:', e);
+        }
+    }
+    window.map = null;
+    window.leafletTileLayer = null;
+    window.rostovMaskLayer = null;
+    window.rostovBorderLayer = null;
+    window.walkerLayout = null;
+
+    const container = document.getElementById('map');
+    if (container) {
+        container.innerHTML = '';
+        container.classList.remove('leaflet-container', 'leaflet-touch', 'leaflet-fade-anim', 'leaflet-grab', 'leaflet-touch-drag', 'leaflet-touch-zoom');
+        container.__longPressBound = false;
+    }
+};
+
+window.setMapProvider = async function(provider, skipSave = false) {
+    const next = provider === 'osm' ? 'osm' : 'yandex';
+    if (next === 'osm' && typeof L === 'undefined') {
+        window.showToast('Leaflet не загрузился — OpenStreetMap недоступен');
+        return;
+    }
+    if (next === 'yandex' && typeof ymaps === 'undefined') {
+        window.showToast('Яндекс.Карты не загрузились');
+        return;
+    }
+    if (next === window.mapProvider && window.map) {
+        if (window.refreshSettingsUI) window.refreshSettingsUI();
+        return;
+    }
+
+    const playingId = window.currentPlayingId;
+    window.destroyCurrentMap();
+    window.mapProvider = next;
+    localStorage.setItem('rosmap_map_provider', next);
+    if (!skipSave && window.saveUserSettings) window.saveUserSettings('mapProvider', next);
+
+    if (next === 'osm') {
+        await window.initLeafletMap();
+    } else {
+        await new Promise(resolve => {
+            if (typeof ymaps !== 'undefined' && ymaps.ready) ymaps.ready(() => { window.initYandexMap(); resolve(); });
+            else { window.initYandexMap(); resolve(); }
+        });
+    }
+
+    if (window.setMapStyle) window.setMapStyle(window.currentMapStyle || 'normal', true);
+    if (window.refreshSettingsUI) window.refreshSettingsUI();
+    if (playingId && window.selectSound) window.selectSound(playingId);
+    if (!skipSave) {
+        window.showToast(next === 'osm' ? 'Карта: OpenStreetMap (Ростовская область)' : 'Карта: Яндекс.Карты');
+    }
+};
+
 window.initMap = function() {
+    const provider = window.mapProvider || localStorage.getItem('rosmap_map_provider') || 'yandex';
+    window.mapProvider = provider === 'osm' ? 'osm' : 'yandex';
+    if (window.mapProvider === 'osm') window.initLeafletMap();
+    else window.initYandexMap();
+};
+
+window.initYandexMap = function() {
+    if (typeof ymaps === 'undefined') return;
     window.map = new ymaps.Map('map', { center: [47.23371, 39.74427], zoom: 15, controls: ['zoomControl'] });
     window.walkerLayout = ymaps.templateLayoutFactory.createClass(
         '<div class="walker-marker $[properties.colorClass]"><i class="fa-solid fa-person-walking"></i></div>'
@@ -75,8 +155,6 @@ window.initMap = function() {
         const mapPosition = e.get('position');
         if (domEvent && typeof domEvent.preventDefault === 'function') domEvent.preventDefault();
 
-        // DomEvent Яндекс.Карт — обёртка: clientX/pageX часто undefined на самом объекте,
-        // значения нужно брать через .get() или originalEvent.
         const original = (domEvent && domEvent.originalEvent) || null;
         const read = (key) => {
             if (original && typeof original[key] === 'number') return original[key];
@@ -115,7 +193,174 @@ window.initMap = function() {
     });
 
     window.initMapLongPress();
-}
+};
+
+window.getOsmTileUrl = function() {
+    const dark = document.documentElement.classList.contains('dark');
+    if (dark) return {
+        url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+        attr: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    };
+    return {
+        url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        attr: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    };
+};
+
+window.refreshOsmTilesAndMask = function() {
+    if (!window.isOsmMap() || !window.map || typeof L === 'undefined') return;
+    const tile = window.getOsmTileUrl();
+    if (window.leafletTileLayer) {
+        window.map.removeLayer(window.leafletTileLayer);
+    }
+    window.leafletTileLayer = L.tileLayer(tile.url, {
+        maxZoom: 19,
+        attribution: tile.attr
+    }).addTo(window.map);
+
+    if (window.rostovMaskLayer) {
+        const fill = document.documentElement.classList.contains('dark') ? '#0b1220' : '#e2e8f0';
+        const stroke = document.documentElement.classList.contains('dark') ? '#475569' : '#64748b';
+        window.rostovMaskLayer.setStyle({ fillColor: fill, color: stroke });
+        try { window.rostovMaskLayer.bringToFront(); } catch (_) {}
+    }
+    if (window.rostovBorderLayer) {
+        try { window.rostovBorderLayer.bringToFront(); } catch (_) {}
+    }
+};
+
+window.initLeafletMap = async function() {
+    if (typeof L === 'undefined') {
+        window.showToast('Leaflet не загружен');
+        return;
+    }
+    const container = document.getElementById('map');
+    if (!container) return;
+
+    window.map = L.map('map', {
+        center: [47.23371, 39.74427],
+        zoom: 8,
+        zoomControl: true,
+        attributionControl: true
+    });
+
+    window.refreshOsmTilesAndMask();
+
+    try {
+        const res = await fetch('./src/data/rostov-oblast.geojson');
+        const geo = await res.json();
+        const ringLngLat = geo.features?.[0]?.geometry?.coordinates?.[0] || [];
+        const hole = ringLngLat.map(([lng, lat]) => [lat, lng]);
+        if (hole.length > 2) {
+            const world = [[-85, -180], [-85, 180], [85, 180], [85, -180]];
+            const fill = document.documentElement.classList.contains('dark') ? '#0b1220' : '#e2e8f0';
+            const stroke = document.documentElement.classList.contains('dark') ? '#475569' : '#64748b';
+            window.rostovMaskLayer = L.polygon([world, hole], {
+                stroke: true,
+                color: stroke,
+                weight: 1,
+                fillColor: fill,
+                fillOpacity: 1,
+                interactive: false
+            }).addTo(window.map);
+
+            window.rostovBorderLayer = L.geoJSON(geo, {
+                style: {
+                    color: '#2563eb',
+                    weight: 2.5,
+                    fillOpacity: 0,
+                    opacity: 0.95
+                },
+                interactive: false
+            }).addTo(window.map);
+
+            const bounds = L.latLngBounds(hole);
+            window.rostovBounds = bounds;
+            window.map.setMaxBounds(bounds.pad(0.2));
+            window.map.options.minZoom = 6;
+            window.map.fitBounds(bounds.pad(0.04));
+        }
+    } catch (e) {
+        console.warn('Не удалось загрузить границу Ростовской области:', e);
+        window.showToast('Граница региона не загрузилась — показана обычная OSM-карта');
+    }
+
+    window.map.on('contextmenu', (e) => {
+        if (e.originalEvent) e.originalEvent.preventDefault();
+        window.showMapContextMenu(
+            [e.latlng.lat, e.latlng.lng],
+            {
+                clientX: e.originalEvent?.clientX,
+                clientY: e.originalEvent?.clientY,
+                pageX: e.originalEvent?.pageX,
+                pageY: e.originalEvent?.pageY
+            }
+        );
+    });
+    window.map.on('click', () => window.hideMapContextMenu());
+
+    window.updateMapMarkers();
+    window.initMapLongPress();
+    setTimeout(() => { try { window.map.invalidateSize(); } catch (_) {} }, 200);
+};
+
+window.mapSetView = function(lat, lng, zoom = 15) {
+    if (!window.map) return;
+    if (window.isOsmMap()) window.map.setView([lat, lng], zoom, { animate: true });
+    else window.map.setCenter([lat, lng], zoom, { duration: 800 });
+};
+
+window.mapFitRoute = function(route) {
+    if (!window.map || !route || route.length < 2) return;
+    if (window.isOsmMap()) {
+        window.map.fitBounds(L.latLngBounds(route.map(p => L.latLng(p[0], p[1]))), { padding: [40, 40], maxZoom: 15 });
+    } else if (window.activePolyline) {
+        window.map.setBounds(window.activePolyline.geometry.getBounds(), { checkZoomRange: true, duration: 800, zoomMargin: 40 });
+    }
+};
+
+window.mapAddRouteOverlay = function(route, colorClass) {
+    window.clearMapRoutes();
+    if (!window.map || !route || route.length < 2) return;
+
+    if (window.isOsmMap()) {
+        window.activePolyline = L.polyline(route.map(p => [p[0], p[1]]), {
+            color: '#38bdf8',
+            weight: 4,
+            opacity: 0.85,
+            dashArray: '8 10'
+        }).addTo(window.map);
+        window.mapFitRoute(route);
+        window.walkerMarker = L.marker(route[0], {
+            icon: L.divIcon({
+                className: '',
+                html: `<div class="walker-marker ${colorClass}"><i class="fa-solid fa-person-walking"></i></div>`,
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
+            }),
+            zIndexOffset: 1000
+        }).addTo(window.map);
+    } else if (typeof ymaps !== 'undefined') {
+        window.activePolyline = new ymaps.Polyline(route, {}, { strokeColor: '#38bdf8', strokeWidth: 4, strokeOpacity: 0.8, strokeStyle: 'shortdash' });
+        window.map.geoObjects.add(window.activePolyline);
+        window.map.setBounds(window.activePolyline.geometry.getBounds(), { checkZoomRange: true, duration: 800, zoomMargin: 40 });
+        if (window.walkerLayout) {
+            window.walkerMarker = new ymaps.Placemark(route[0], { colorClass }, {
+                iconLayout: window.walkerLayout,
+                iconOffset: [-14, -14],
+                iconShape: { type: 'Circle', coordinates: [0, 0], radius: 14 },
+                zIndex: 1000
+            });
+            window.map.geoObjects.add(window.walkerMarker);
+        }
+    }
+};
+
+window.setWalkerPosition = function(coords) {
+    if (!window.walkerMarker || !coords) return;
+    if (window.isOsmMap()) window.walkerMarker.setLatLng(coords);
+    else if (window.walkerMarker.geometry) window.walkerMarker.geometry.setCoordinates(coords);
+};
 
 // Долгое нажатие на карте (мобильные устройства) — открывает то же меню, что и ПКМ на десктопе
 window.initMapLongPress = function() {
@@ -141,9 +386,18 @@ window.initMapLongPress = function() {
         timer = setTimeout(() => {
             timer = null;
             if (moved || !window.map) return;
-            const projection = window.map.options.get('projection');
-            const globalPixels = window.map.converter.pageToGlobal([start.pageX, start.pageY]);
-            const coords = projection.fromGlobalPixels(globalPixels, window.map.getZoom());
+            let coords = null;
+            if (window.isOsmMap()) {
+                const rect = container.getBoundingClientRect();
+                const latlng = window.map.containerPointToLatLng([start.x - rect.left, start.y - rect.top]);
+                coords = [latlng.lat, latlng.lng];
+            } else {
+                try {
+                    const projection = window.map.options.get('projection');
+                    const globalPixels = window.map.converter.pageToGlobal([start.pageX, start.pageY]);
+                    coords = projection.fromGlobalPixels(globalPixels, window.map.getZoom());
+                } catch (_) { return; }
+            }
             if (navigator.vibrate) navigator.vibrate(15);
             window.showMapContextMenu(coords, { clientX: start.x, clientY: start.y, pageX: start.pageX, pageY: start.pageY });
         }, LONG_PRESS_MS);
@@ -317,19 +571,25 @@ window.updateMapMarkers = function() {
 
     window.markerCache.forEach((placemark, id) => {
         if (!visibleIds.has(id)) {
-            window.map.geoObjects.remove(placemark);
+            if (window.isOsmMap()) {
+                try { window.map.removeLayer(placemark); } catch (_) {}
+            } else {
+                window.map.geoObjects.remove(placemark);
+            }
             window.markerCache.delete(id);
         }
     });
 
+    const markerHtml = (colorClass, isSoundwalk, isAmbisonic, isSelected) =>
+        `<div class="w-6 h-6 md:w-7 md:h-7 custom-marker ${colorClass} ${isSelected ? 'selected' : ''} flex items-center justify-center text-white shadow-lg transition-transform hover:scale-110">
+            ${isSoundwalk ? '<i class="fa-solid fa-route text-[11px] md:text-[13px] opacity-90"></i>' : (isAmbisonic ? '<i class="fa-solid fa-cube text-[10px] md:text-[12px] opacity-90"></i>' : '')}
+        </div>`;
+
     const createMarkerLayout = (colorClass, id, isSoundwalk, isAmbisonic, isSelected) => {
         const layoutKey = `${colorClass}|${isSelected ? 'selected' : 'normal'}|${isSoundwalk ? 'sw' : 'n'}|${isAmbisonic ? 'amb' : 'na'}`;
         if (window.markerLayoutCache.has(layoutKey)) return window.markerLayoutCache.get(layoutKey);
-
         const layout = ymaps.templateLayoutFactory.createClass(
-            `<div id="marker-${id}" class="w-6 h-6 md:w-7 md:h-7 custom-marker ${colorClass} ${isSelected ? 'selected' : ''} flex items-center justify-center text-white shadow-lg transition-transform hover:scale-110">
-                ${isSoundwalk ? '<i class="fa-solid fa-route text-[11px] md:text-[13px] opacity-90"></i>' : (isAmbisonic ? '<i class="fa-solid fa-cube text-[10px] md:text-[12px] opacity-90"></i>' : '')}
-            </div>`
+            markerHtml(colorClass, isSoundwalk, isAmbisonic, isSelected).replace('class="', `id="marker-${id}" class="`)
         );
         window.markerLayoutCache.set(layoutKey, layout);
         return layout;
@@ -341,6 +601,26 @@ window.updateMapMarkers = function() {
         const isAmbisonic = sound.channels && sound.channels.toLowerCase().includes('ambisonics');
         const isSelected = currentActiveId === sound.id;
         const hitRadius = isSelected ? 40 : 28;
+
+        if (window.isOsmMap()) {
+            let marker = window.markerCache.get(sound.id);
+            const icon = L.divIcon({
+                className: '',
+                html: markerHtml(colorClass, isSoundwalk, isAmbisonic, isSelected),
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
+            });
+            if (!marker) {
+                marker = L.marker([sound.lat, sound.lng], { icon, riseOnHover: true });
+                marker.on('click', () => window.selectSound(sound.id));
+                marker.addTo(window.map);
+                window.markerCache.set(sound.id, marker);
+            } else {
+                marker.setLatLng([sound.lat, sound.lng]);
+                marker.setIcon(icon);
+            }
+            return;
+        }
 
         let placemark = window.markerCache.get(sound.id);
         if (!placemark) {
@@ -397,6 +677,18 @@ window.getPointAlongRoute = function(route, ratio) {
 }
 
 window.clearMapRoutes = function() {
-    if (window.activePolyline && window.map) { window.map.geoObjects.remove(window.activePolyline); window.activePolyline = null; }
-    if (window.walkerMarker && window.map) { window.map.geoObjects.remove(window.walkerMarker); window.walkerMarker = null; }
+    if (!window.map) {
+        window.activePolyline = null;
+        window.walkerMarker = null;
+        return;
+    }
+    if (window.isOsmMap() || (typeof L !== 'undefined' && window.map instanceof L.Map)) {
+        if (window.activePolyline) { try { window.map.removeLayer(window.activePolyline); } catch (_) {} }
+        if (window.walkerMarker) { try { window.map.removeLayer(window.walkerMarker); } catch (_) {} }
+    } else {
+        if (window.activePolyline) { try { window.map.geoObjects.remove(window.activePolyline); } catch (_) {} }
+        if (window.walkerMarker) { try { window.map.geoObjects.remove(window.walkerMarker); } catch (_) {} }
+    }
+    window.activePolyline = null;
+    window.walkerMarker = null;
 }

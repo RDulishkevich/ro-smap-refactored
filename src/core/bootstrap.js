@@ -99,8 +99,17 @@ export function bootstrapApp() {
             });
         }
 
-        if (typeof ymaps !== 'undefined' && window.initMap) {
-            ymaps.ready(window.initMap);
+        if (typeof window.initMap === 'function') {
+            // Яндекс — через ymaps.ready; OSM/Leaflet можно инициализировать сразу, если выбран этот провайдер
+            const provider = window.mapProvider || localStorage.getItem('rosmap_map_provider') || 'yandex';
+            if (provider === 'osm' && typeof L !== 'undefined') {
+                window.initMap();
+            } else if (typeof ymaps !== 'undefined') {
+                ymaps.ready(window.initMap);
+            } else if (typeof L !== 'undefined') {
+                window.mapProvider = 'osm';
+                window.initMap();
+            }
         }
     });
 }

@@ -707,6 +707,11 @@ export function initAuth() {
         if(s.mapStyle) window.setMapStyle(s.mapStyle, true);
         if(s.lang) window.setLanguage(s.lang, true);
         if(s.guiScale) window.changeGUISize(s.guiScale, true);
+        if (s.mapProvider === 'osm' || s.mapProvider === 'yandex') {
+            window.mapProvider = s.mapProvider;
+            localStorage.setItem('rosmap_map_provider', s.mapProvider);
+            if (window.map && window.setMapProvider) window.setMapProvider(s.mapProvider, true);
+        }
     };
 
     // Сохранение настроек в базу
@@ -812,6 +817,16 @@ export function initAuth() {
             const isMono = window.currentMapStyle === 'monochrome';
             mapNormalBtn.className = isMono ? inactiveClass : activeClass;
             mapMonoBtn.className = isMono ? activeClass : inactiveClass;
+        }
+
+        const mapYandexBtn = document.getElementById('map-provider-yandex-btn');
+        const mapOsmBtn = document.getElementById('map-provider-osm-btn');
+        if (mapYandexBtn && mapOsmBtn) {
+            const providerActive = 'w-full py-2.5 px-3 text-xs font-bold bg-blue-600 text-white shadow-md rounded-lg transition-all text-left';
+            const providerInactive = 'w-full py-2.5 px-3 text-xs font-bold bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50 rounded-lg transition-all text-left';
+            const isOsm = (window.mapProvider || 'yandex') === 'osm';
+            mapYandexBtn.className = isOsm ? providerInactive : providerActive;
+            mapOsmBtn.className = isOsm ? providerActive : providerInactive;
         }
 
         if (langSelect) {
