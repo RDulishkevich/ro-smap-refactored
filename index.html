@@ -614,11 +614,8 @@
                 </div>
 
                 <div id="cab-panel-faq" data-cab-panel="faq" class="hidden space-y-4">
-                    <div class="flex items-center justify-between mb-2">
+                    <div class="mb-2">
                         <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Помощь и FAQ</p>
-                        <button onclick="window.switchCabinetTab('sounds')" class="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors">
-                            <i class="fa-solid fa-arrow-left mr-1"></i>Назад
-                        </button>
                     </div>
                     <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
                         <h4 class="font-bold text-slate-800 dark:text-white mb-2">Как добавить новый звук?</h4>
@@ -959,7 +956,7 @@
 
     <!-- Модальное окно: ПУБЛИЧНЫЙ ПРОФИЛЬ РЕКОРДИСТА -->
     <div id="public-profile-modal" onmousedown="if(event.target === this) window.closePublicProfileModal()" class="fixed inset-0 z-[240] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="public-profile-modal-content" class="bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-3xl app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto border border-slate-100 dark:border-slate-800">
+        <div id="public-profile-modal-content" class="bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-3xl app-modal-panel flex flex-col overflow-hidden min-h-0 transform scale-95 transition-all pointer-events-auto border border-slate-100 dark:border-slate-800">
 
             <div class="px-6 py-5 flex justify-between items-start gap-4 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
                 <div class="flex items-start gap-4 min-w-0">
@@ -990,7 +987,7 @@
                 </button>
             </div>
 
-            <div class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
+            <div class="p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0 space-y-6">
 
                 <div class="grid grid-cols-3 gap-3">
                     <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-center items-center text-center">

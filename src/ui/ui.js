@@ -330,7 +330,20 @@ window.handleOnboardingBackdrop = function(e) {
     // Клик по затемнению / highlight или «мимо» карточки — скрыть демо-плеер на шаге 3
     const card = document.getElementById('onboarding-card');
     if (card && card.contains(e.target)) return;
-    if (window.__onboardingDemoPlayer) window.cleanupOnboardingPlayer();
+    if (window.__onboardingDemoPlayer) {
+        window.cleanupOnboardingPlayer();
+        const highlight = document.getElementById('onboarding-highlight');
+        if (highlight) {
+            highlight.style.opacity = '0';
+            highlight.style.width = '0';
+            highlight.style.height = '0';
+        }
+        if (card) {
+            card.style.left = '50%';
+            card.style.top = '50%';
+            card.style.transform = 'translate(-50%, -50%)';
+        }
+    }
 };
 
 window.bindSwipeReplyRows = function(container, onReply) {

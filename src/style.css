@@ -30,12 +30,16 @@ body {
 #player-card {
     max-height: min(85vh, calc(100dvh - 1rem - env(safe-area-inset-bottom, 0px))) !important;
 }
-body.player-analyzers-open #map-top-right-controls,
-body.player-analyzers-open #fab-add {
-    opacity: 0;
-    pointer-events: none;
-    visibility: hidden;
-    transition: opacity 0.2s ease, visibility 0.2s ease;
+/* На телефоне при анализаторах прячем FAB (Guessr / добавить звук) и верхние кнопки —
+   на десктопе они остаются, плеер не расширяется. */
+@media (max-width: 767px) {
+    body.player-analyzers-open #map-top-right-controls,
+    body.player-analyzers-open #fab-add {
+        opacity: 0;
+        pointer-events: none;
+        visibility: hidden;
+        transition: opacity 0.2s ease, visibility 0.2s ease;
+    }
 }
 #map-top-right-controls,
 #fab-add {
@@ -190,6 +194,43 @@ body.dark-mode .bg-slate-50 { background-color: #0f172a; }
 body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; color: #f1f5f9; }
 
 /* Кастомный скроллбар */
+.custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #94a3b8 transparent;
+}
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 4px 0;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+.dark .custom-scrollbar {
+    scrollbar-color: #64748b transparent;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #64748b;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -405,20 +446,14 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
         bottom: calc(2rem + env(safe-area-inset-bottom, 0)) !important;
         transition: none;
     }
-    .player-visible #fab-add,
-    .player-visible.player-analyzers-open #fab-add {
+    .player-visible #fab-add {
         bottom: calc(2rem + env(safe-area-inset-bottom, 0)) !important;
     }
 }
 
 /* Анимация плеера */
-#player-card { transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease, max-width 0.35s ease; will-change: transform; }
-#player-card.analyzers-expanded {
-    max-width: 28rem;
-}
-@media (min-width: 768px) {
-    #player-card.analyzers-expanded { max-width: 32rem; }
-}
+#player-card { transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease; will-change: transform; }
+/* Ширина плеера не меняется при открытии анализаторов */
 
 /* Анализаторы Web Audio: панель и «экран» прибора следуют теме приложения */
 :root {
@@ -653,8 +688,11 @@ html.dark,
 /* Базовые тайлы карты */
 #map [class*="-ground-pane"], #map [class*="-copyrights-pane"] { transition: filter 0.5s ease; }
 .dark #map:not(.map-monochrome) [class*="-ground-pane"], .dark #map:not(.map-monochrome) [class*="-copyrights-pane"] { filter: invert(90%) hue-rotate(180deg) brightness(0.8) contrast(1.1); }
-#map.map-monochrome [class*="-ground-pane"], #map.map-monochrome [class*="-copyrights-pane"] { filter: grayscale(100%) contrast(1.1) brightness(1.05); }
-.dark #map.map-monochrome [class*="-ground-pane"], .dark #map.map-monochrome [class*="-copyrights-pane"] { filter: grayscale(100%) invert(90%) brightness(0.8) contrast(1.2); }
+#map.map-monochrome [class*="-ground-pane"], #map.map-monochrome [class*="-copyrights-pane"],
+#location-picker-map.map-monochrome [class*="-ground-pane"], #location-picker-map.map-monochrome [class*="-copyrights-pane"] { filter: grayscale(100%) contrast(1.1) brightness(1.05); }
+.dark #map.map-monochrome [class*="-ground-pane"], .dark #map.map-monochrome [class*="-copyrights-pane"],
+.dark #location-picker-map.map-monochrome [class*="-ground-pane"], .dark #location-picker-map.map-monochrome [class*="-copyrights-pane"] { filter: grayscale(100%) invert(90%) brightness(0.8) contrast(1.2); }
+.dark #location-picker-map:not(.map-monochrome) [class*="-ground-pane"], .dark #location-picker-map:not(.map-monochrome) [class*="-copyrights-pane"] { filter: invert(90%) hue-rotate(180deg) brightness(0.8) contrast(1.1); }
 
 .meta-group { display: flex; flex-direction: column; gap: 4px; }
 .meta-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; display: flex; align-items: center; }
@@ -909,6 +947,8 @@ html.dark,
 .dark .action-sheet-item--primary:hover { background: rgba(30, 58, 138, 0.3) !important; }
 .action-sheet-item--danger { color: #dc2626 !important; }
 .dark .action-sheet-item--danger { color: #f87171 !important; }
+.action-sheet-item--danger:hover { background: #fef2f2 !important; }
+.dark .action-sheet-item--danger:hover { background: rgba(127, 29, 29, 0.3) !important; }
 
 .swipe-reply-hint {
     position: absolute;
