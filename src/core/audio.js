@@ -999,3 +999,28 @@ window.closePlayerCard = function() {
     if (window.updateUIState) window.updateUIState();
     window.renderList();
 }
+
+// Canvas backing stores are sized from their CSS box on open; keep them in sync with the
+// actual box when the viewport changes (desktop window resize, phone rotation, DevTools
+// docking, etc.) so the analyzers never render stretched/blurry on either device class.
+let _analyzerResizeRaf = null;
+window.addEventListener('resize', () => {
+    if (_analyzerResizeRaf) cancelAnimationFrame(_analyzerResizeRaf);
+    _analyzerResizeRaf = requestAnimationFrame(() => {
+        _analyzerResizeRaf = null;
+        if (window.analyzersOpen) {
+            window.resizeAnalyzerCanvases();
+            window.drawGoniometerFrame();
+            window.drawSpectrumFrame();
+        }
+        if (window.isAmbisonicMode) {
+            window.resizeAmbiGoniometerCanvas();
+        }
+    });
+});
+window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+        if (window.analyzersOpen) window.resizeAnalyzerCanvases();
+        if (window.isAmbisonicMode) window.resizeAmbiGoniometerCanvas();
+    }, 150);
+});

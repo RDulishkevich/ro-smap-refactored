@@ -107,6 +107,7 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
 /* FAB и плеер — safe area на iPhone */
 #fab-add {
     bottom: calc(1rem + env(safe-area-inset-bottom, 0));
+    transition: bottom 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 @media (min-width: 768px) {
     #fab-add { bottom: calc(2rem + env(safe-area-inset-bottom, 0)); }
@@ -117,11 +118,12 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
 @media (min-width: 768px) {
     .player-visible #fab-add { bottom: calc(8.5rem + env(safe-area-inset-bottom, 0)); }
 }
+/* #player-card is capped at max-h-[85vh] when the analyzers panel is open, and that content
+   easily exceeds any fixed rem guess (goniometer + spectrogram + loudness meter + optional
+   Ambisonic sphere stack up to ~900px). Tie the FAB offset to the same 85vh so it always clears
+   the card's actual rendered top edge on any viewport, phone or desktop alike. */
 .player-visible.player-analyzers-open #fab-add {
-    bottom: calc(18rem + env(safe-area-inset-bottom, 0));
-}
-@media (min-width: 768px) {
-    .player-visible.player-analyzers-open #fab-add { bottom: calc(20rem + env(safe-area-inset-bottom, 0)); }
+    bottom: calc(85vh + 1.5rem + env(safe-area-inset-bottom, 0));
 }
 
 /* Анимация плеера */
