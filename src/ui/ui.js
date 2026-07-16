@@ -295,13 +295,14 @@ window.initOnboarding = function() {
     setTimeout(() => window.startOnboarding(0), 500);
 };
 
-// ДОБАВЛЕНО: Кастомные UI Окна (для правого клика и подтверждений)
+// ДОБАВЛЕНО: Кастомные UI Окна (для правого клика, подтверждений и текстовых промптов)
 window.CustomUI = window.CustomUI || {
     resolve: null,
     open: function(opts) {
         const titleEl = document.getElementById('ui-modal-title');
         const messageEl = document.getElementById('ui-modal-message');
         const btn = document.getElementById('ui-modal-confirm');
+        const inputEl = document.getElementById('ui-modal-input');
         const m = document.getElementById('ui-modal-overlay');
         const content = m ? m.firstElementChild : null;
 
@@ -309,7 +310,21 @@ window.CustomUI = window.CustomUI || {
         if (messageEl) messageEl.innerHTML = opts.message || '';
         if (btn) {
             btn.textContent = opts.confirmText || 'ОК';
-            if (opts.confirmClass) btn.className = opts.confirmClass;
+            btn.className = opts.confirmClass || 'px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-md';
+        }
+
+        // showInput=true превращает диалог в текстовый промпт (см. createSession/причина отклонения):
+        // подтверждение вернёт значение поля, а не true/false.
+        if (inputEl) {
+            if (opts.showInput) {
+                inputEl.classList.remove('hidden');
+                inputEl.value = opts.inputValue || '';
+                inputEl.placeholder = opts.inputPlaceholder || '';
+                setTimeout(() => inputEl.focus(), 50);
+            } else {
+                inputEl.classList.add('hidden');
+                inputEl.value = '';
+            }
         }
 
         if (m && content) {
@@ -324,11 +339,20 @@ window.CustomUI = window.CustomUI || {
     close: function(value) {
         const m = document.getElementById('ui-modal-overlay');
         const content = m ? m.firstElementChild : null;
+        const inputEl = document.getElementById('ui-modal-input');
+
+        // Если диалог был текстовым промптом и пользователь подтвердил (не отменил) — резолвим
+        // значением поля ввода, а не булевым true.
+        if (value === true && inputEl && !inputEl.classList.contains('hidden')) {
+            value = inputEl.value.trim();
+        }
+
         if (m && content) {
             m.classList.add('opacity-0');
             content.classList.add('scale-95');
             setTimeout(() => {
                 if (m.classList.contains('opacity-0')) m.classList.add('hidden');
+                if (inputEl) { inputEl.classList.add('hidden'); inputEl.value = ''; }
             }, 300);
         }
         if (this.resolve) {
@@ -439,11 +463,14 @@ window.mergeData = function(cloudData) {
         }
 };
 
-window.syncCloudData = async function(newCloudData) {
+// fileName выбирает JSON-файл в том же бакете: "map_data.json" для звуков (по умолчанию,
+// обратная совместимость со всеми существующими вызовами) или "profiles.json" для публичных
+// профилей рекордистов (см. window.syncProfilesData ниже).
+window.syncCloudData = async function(newCloudData, fileName = "map_data.json") {
     try {
         const presignRes = await fetch(window.YANDEX_FUNCTION_URL, {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ fileName: "map_data.json", contentType: "application/json" })
+            body: JSON.stringify({ fileName, contentType: "application/json" })
         });
         if (!presignRes.ok) throw new Error("Ошибка получения ссылки для JSON");
         const presignData = await presignRes.json();
@@ -452,10 +479,21 @@ window.syncCloudData = async function(newCloudData) {
             method: "PUT", headers: { "Content-Type": "application/json" },
             body: JSON.stringify(newCloudData)
         });
-        window.mergeData(newCloudData); window.initFiltersData(); window.processFilterChange(false);
-        if(document.getElementById('cabinet-modal') && !document.getElementById('cabinet-modal').classList.contains('hidden')) { window.renderCabinet(); }
+
+        if (fileName === "map_data.json") {
+            window.mergeData(newCloudData); window.initFiltersData(); window.processFilterChange(false);
+            if(document.getElementById('cabinet-modal') && !document.getElementById('cabinet-modal').classList.contains('hidden')) { window.renderCabinet(); }
+        }
         return true;
     } catch(e) { console.error(e); window.showToast("Синхронизация с облаком не удалась."); return false; }
+};
+
+// Профили рекордистов синхронизируются тем же presign+PUT механизмом, но в отдельный файл,
+// чтобы не смешивать "визитки" пользователей с данными звуков.
+window.syncProfilesData = async function(newProfiles) {
+    const success = await window.syncCloudData(newProfiles, "profiles.json");
+    if (success) window.profilesData = newProfiles;
+    return success;
 };
 
 window.deleteSoundFromCloud = async function(id) {
@@ -478,6 +516,203 @@ window.deleteSoundFromCloud = async function(id) {
     }
     const success = await window.syncCloudData(updatedCloud);
     if(success) window.showToast("Звук успешно удален!");
+};
+
+// --- Привязка звука к автору и видимость по статусу модерации ---
+// Новые/отредактированные звуки хранят надёжный recordistId (= login), а старые/сид-данные
+// сопоставляются по текстовому имени recordist — оставляем оба пути для совместимости.
+window.matchesRecordist = function(sound, login, displayName) {
+    if (!sound) return false;
+    if (login && sound.recordistId && sound.recordistId === login) return true;
+    if (displayName && sound.recordist && sound.recordist.toLowerCase() === String(displayName).toLowerCase()) return true;
+    return false;
+};
+
+window.getUserSounds = function(login, displayName, { includeAllStatuses = false } = {}) {
+    return (window.soundsData || []).filter(s => {
+        if (!window.matchesRecordist(s, login, displayName)) return false;
+        if (includeAllStatuses) return true;
+        return !s.status || s.status === 'published';
+    });
+};
+
+// Публично (главная карта/список/чужие портфолио) видны только status === 'published';
+// автор и админ видят свои pending/rejected записи везде, где идёт прямая работа с ними.
+window.isSoundStatusVisible = function(s) {
+    if (!s || !s.status || s.status === 'published') return true;
+    if (!window.currentUser) return false;
+    const isAdmin = String(window.currentUser.role || '').toLowerCase() === 'admin' || String(window.currentUser.username || '').toLowerCase() === 'admin';
+    if (isAdmin) return true;
+    const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+    return window.matchesRecordist(s, login, window.currentUser.username);
+};
+
+// --- Публичные профили рекордистов (общее облачное хранилище profiles.json) ---
+window.getProfileByLogin = function(login) {
+    if (!login) return null;
+    return (window.profilesData || []).find(p => p.loginName === String(login).toLowerCase()) || null;
+};
+window.getProfileByDisplayName = function(name) {
+    if (!name) return null;
+    return (window.profilesData || []).find(p => p.displayName && p.displayName.toLowerCase() === String(name).toLowerCase()) || null;
+};
+
+// Небольшой каталог бейджей доверия — назначаются вручную из админ-панели (см. auth.js toggleUserBadge).
+window.BADGE_CATALOG = {
+    verified: { label: 'Проверенный автор', icon: 'fa-shield-halved', cls: 'badge-chip-verified' },
+    geophony_expert: { label: 'Эксперт геофонии', icon: 'fa-water', cls: 'badge-chip-geo' },
+    biophony_expert: { label: 'Эксперт биофонии', icon: 'fa-leaf', cls: 'badge-chip-bio' },
+    anthrophony_expert: { label: 'Эксперт антропофонии', icon: 'fa-city', cls: 'badge-chip-anthro' }
+};
+
+window.openPublicProfile = function(login, displayName) {
+    const profile = (login && window.getProfileByLogin(login)) || window.getProfileByDisplayName(displayName) || null;
+    const finalLogin = login || (profile ? profile.loginName : null);
+    const finalName = (profile && profile.displayName) || displayName || 'Рекордист';
+    const isOwn = !!window.currentUser && (
+        (finalLogin && (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase()) === finalLogin) ||
+        (!finalLogin && window.currentUser.username && window.currentUser.username.toLowerCase() === finalName.toLowerCase())
+    );
+
+    window.__publicProfileCtx = { login: finalLogin, displayName: finalName };
+
+    const nameEl = document.getElementById('pp-name');
+    if (nameEl) nameEl.textContent = finalName;
+
+    const bioEl = document.getElementById('pp-bio');
+    if (bioEl) {
+        bioEl.textContent = (profile && profile.bio) || '';
+        bioEl.classList.toggle('hidden', !(profile && profile.bio));
+    }
+
+    const joinedEl = document.getElementById('pp-joined');
+    if (joinedEl) {
+        const joinedDate = profile && profile.joinedAt ? new Date(profile.joinedAt) : null;
+        joinedEl.innerHTML = joinedDate && !isNaN(joinedDate)
+            ? `<i class="fa-solid fa-calendar-days"></i>${joinedDate.toLocaleDateString('ru-RU')}`
+            : `<i class="fa-solid fa-calendar-days"></i>—`;
+    }
+
+    const avatarEl = document.getElementById('pp-avatar');
+    const avatarFallback = document.getElementById('pp-avatar-fallback');
+    const avatarSrc = (profile && profile.avatar) || (isOwn && window.currentUser ? window.currentUser.avatar : '');
+    if (avatarSrc) {
+        if (avatarEl) { avatarEl.src = avatarSrc; avatarEl.classList.remove('hidden'); }
+        if (avatarFallback) avatarFallback.classList.add('hidden');
+    } else {
+        if (avatarEl) avatarEl.classList.add('hidden');
+        if (avatarFallback) avatarFallback.classList.remove('hidden');
+    }
+
+    const badgesEl = document.getElementById('pp-badges');
+    if (badgesEl) {
+        const badges = (profile && profile.badges) || [];
+        badgesEl.innerHTML = badges.map(key => {
+            const b = window.BADGE_CATALOG[key];
+            if (!b) return '';
+            return `<span class="badge-chip ${b.cls}"><i class="fa-solid ${b.icon}"></i>${b.label}</span>`;
+        }).join('');
+        badgesEl.classList.toggle('hidden', badges.length === 0);
+    }
+
+    const gearEl = document.getElementById('pp-gear');
+    if (gearEl) {
+        const gear = (profile && profile.gear) || [];
+        gearEl.innerHTML = gear.length
+            ? gear.map(g => `<span class="gear-chip"><i class="fa-solid fa-walkie-talkie"></i>${g}</span>`).join('')
+            : `<span class="text-xs text-slate-400">Список оборудования пока не заполнен</span>`;
+    }
+
+    const linksEl = document.getElementById('pp-links');
+    if (linksEl) {
+        const links = (profile && profile.links) || [];
+        linksEl.innerHTML = links.map(url => {
+            let host = url;
+            try { host = new URL(url).hostname.replace(/^www\./, ''); } catch (e) { /* оставляем как есть, если не полный URL */ }
+            return `<a href="${url}" target="_blank" rel="noopener" class="profile-link-chip"><i class="fa-solid fa-arrow-up-right-from-square"></i>${host}</a>`;
+        }).join('');
+        linksEl.classList.toggle('hidden', links.length === 0);
+    }
+
+    const previewBtn = document.getElementById('pp-view-own-note');
+    if (previewBtn) previewBtn.classList.toggle('hidden', !isOwn);
+
+    const sounds = window.getUserSounds(finalLogin, finalName, { includeAllStatuses: isOwn });
+    window.__publicProfileSounds = sounds;
+    window.renderPublicProfileStats(sounds);
+    window.setPublicProfileFilter('all');
+
+    const m = document.getElementById('public-profile-modal');
+    const c = document.getElementById('public-profile-modal-content');
+    if (m && c) {
+        m.classList.remove('hidden');
+        void m.offsetWidth;
+        m.classList.remove('opacity-0', 'pointer-events-none');
+        c.classList.remove('scale-95');
+    }
+
+    // Рендерим карту после снятия display:none — иначе ymaps инициализируется в контейнере
+    // нулевой ширины/высоты и рисует пустое/битое полотно.
+    if (window.renderProfileMiniMap) window.renderProfileMiniMap('profile-mini-map', sounds.filter(s => !s.status || s.status === 'published'));
+};
+
+window.closePublicProfileModal = function() {
+    const m = document.getElementById('public-profile-modal');
+    const c = document.getElementById('public-profile-modal-content');
+    if (m && c) {
+        m.classList.add('opacity-0', 'pointer-events-none');
+        c.classList.add('scale-95');
+        setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
+    }
+};
+
+window.setPublicProfileFilter = function(eco) {
+    window.__publicProfileFilter = eco;
+    const all = window.__publicProfileSounds || [];
+    const filtered = eco === 'all' ? all : all.filter(s => s.ecoCategory === eco);
+    window.renderPortfolioGrid(filtered, 'pp-portfolio-grid');
+
+    ['all', 'geophony', 'biophony', 'anthrophony'].forEach(key => {
+        const btn = document.getElementById(`pp-filter-${key}`);
+        if (btn) btn.classList.toggle('active', key === eco);
+    });
+};
+
+window.renderPortfolioGrid = function(sounds, containerId) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    if (!sounds || !sounds.length) {
+        el.innerHTML = `<p class="analytics-empty">Пока нет записей в этой категории</p>`;
+        return;
+    }
+    el.innerHTML = sounds.map(s => {
+        const ecoLabel = window.translations[window.currentLang]?.[`filter_${s.ecoCategory}`] || s.ecoCategory;
+        const statusPill = s.status && s.status !== 'published'
+            ? `<span class="pub-status-pill pub-status-${s.status}">${s.status === 'pending' ? 'На модерации' : 'Отклонено'}</span>`
+            : '';
+        return `
+        <div class="portfolio-card" onclick="window.closePublicProfileModal(); window.selectSound('${s.id}');">
+            <div class="portfolio-card-top">
+                <span class="portfolio-card-eco eco-${s.ecoCategory}">${ecoLabel}</span>
+                ${statusPill}
+            </div>
+            <h4 class="portfolio-card-title">${s.title}</h4>
+            <div class="portfolio-card-meta"><i class="fa-regular fa-clock"></i> ${s.duration || '0:00'}</div>
+        </div>`;
+    }).join('');
+};
+
+window.renderPublicProfileStats = function(sounds) {
+    const published = (sounds || []).filter(s => !s.status || s.status === 'published');
+    let totalSecs = 0, totalDownloads = 0;
+    published.forEach(s => {
+        totalSecs += window.parseDuration ? window.parseDuration(s.duration) : 0;
+        totalDownloads += s.downloads || 0;
+    });
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    set('pp-stat-count', published.length);
+    set('pp-stat-duration', window.formatTotalDuration ? window.formatTotalDuration(totalSecs) : '0:00');
+    set('pp-stat-downloads', totalDownloads);
 };
 
 // --- Filters Logic ---
@@ -618,8 +853,9 @@ window.getFilteredSounds = function(forceRefresh = false) {
         const recordistMatch = window.activeRecordist.size === 0 || window.activeRecordist.has(s.recordist);
         const weatherMatch = window.activeWeather.size === 0 || window.activeWeather.has(s.weather);
         const dateMatch = window.activeDate.size === 0 || window.activeDate.has(s.date);
+        const statusMatch = window.isSoundStatusVisible(s);
 
-        return searchMatch && ecoMatch && ucsCatMatch && ucsSubMatch && principleMatch && gearMatch && micMatch && channelMatch && licenseMatch && recordistMatch && weatherMatch && dateMatch;
+        return searchMatch && ecoMatch && ucsCatMatch && ucsSubMatch && principleMatch && gearMatch && micMatch && channelMatch && licenseMatch && recordistMatch && weatherMatch && dateMatch && statusMatch;
     });
 
     window.__filteredSoundsCache = filtered;
@@ -664,6 +900,15 @@ window.toggleLicense = function(val) { if (window.activeLicense.has(val)) window
 window.toggleRecordist = function(val) { if (window.activeRecordist.has(val)) window.activeRecordist.delete(val); else window.activeRecordist.add(val); window.processFilterChange(false); }
 window.toggleWeather = function(val) { if (window.activeWeather.has(val)) window.activeWeather.delete(val); else window.activeWeather.add(val); window.processFilterChange(false); }
 window.toggleDate = function(val) { if (window.activeDate.has(val)) window.activeDate.delete(val); else window.activeDate.add(val); window.processFilterChange(false); }
+
+// Видимость pending/rejected звуков зависит от currentUser (см. isSoundStatusVisible), а логин/
+// логаут не проходит через mergeData/syncCloudData — сбрасываем кэш фильтра вручную, чтобы карта
+// и список сразу отразили звуки, которые стали видимыми/скрытыми после смены пользователя.
+window.bustFilteredSoundsCache = function() {
+    window.__filteredSoundsCache = null;
+    window.__filteredSoundsCacheKey = null;
+    if (window.processFilterChange) window.processFilterChange(false);
+};
 
 window.processFilterChange = function(forceOpenDesktopSidebar = false) {
     if (window.__filterRenderFrame) cancelAnimationFrame(window.__filterRenderFrame);
@@ -726,6 +971,7 @@ window.selectSound = function(id) {
     }
 
     window.currentPlayingId = id;
+    window.trackSoundPlay(id);
     window.updateMapMarkers();
     const card = document.getElementById('player-card');
     if(card) card.classList.remove('translate-y-[150%]', 'opacity-0');
@@ -787,6 +1033,15 @@ window.openDetailsModal = function() {
 
     safeText('det-location', s.location || 'Ростовская область');
     safeText('det-coords', `${Number(s.lat).toFixed(4)}, ${Number(s.lng).toFixed(4)}`);
+
+    const recordistEl = document.getElementById('det-recordist');
+    if (recordistEl) {
+        recordistEl.textContent = s.recordist || 'Автор';
+        recordistEl.classList.add('cursor-pointer', 'text-blue-600', 'dark:text-blue-400', 'hover:underline');
+        recordistEl.title = 'Открыть публичный профиль';
+        recordistEl.onclick = () => window.openPublicProfile(s.recordistId, s.recordist);
+    }
+
     window.renderComments(s);
 
     const m = document.getElementById('details-modal');
@@ -814,9 +1069,41 @@ window.closeDetailsModal = function() {
 window.downloadSound = function(format) {
     const s = window.soundsData.find(x => x.id === window.currentPlayingId);
     if(!s) return;
-    if (s.url && s.url.length > 10 && !s.url.startsWith('blob:')) window.open(s.url, '_blank');
+    if (s.url && s.url.length > 10 && !s.url.startsWith('blob:')) {
+        window.open(s.url, '_blank');
+        window.incrementDownloadCount(s.id);
+    }
     else window.showToast("Файл недоступен для скачивания.");
 }
+
+// Счётчик скачиваний питает блок доверия в публичном профиле ("статистика скачиваний
+// коллегами"). Fire-and-forget синхронизация с облаком — не блокируем сам файл-даунлоад.
+window.incrementDownloadCount = function(id) {
+    const s = window.soundsData.find(x => x.id === id);
+    if (!s) return;
+    s.downloads = (s.downloads || 0) + 1;
+    const updatedCloud = [...window.cloudDataCache];
+    const idx = updatedCloud.findIndex(x => x.id === id);
+    if (idx >= 0) updatedCloud[idx] = { ...updatedCloud[idx], downloads: s.downloads };
+    else updatedCloud.push(s);
+    window.syncCloudData(updatedCloud);
+};
+
+// Счётчик прослушиваний питает вкладку "Аналитика" (спрос по нишам/трекам). Дедуплицируем
+// по браузерной сессии, чтобы повторные клики по одному маркеру не спамили облако запросами.
+window.__playedSoundIds = window.__playedSoundIds || new Set();
+window.trackSoundPlay = function(id) {
+    if (window.__playedSoundIds.has(id)) return;
+    window.__playedSoundIds.add(id);
+    const s = window.soundsData.find(x => x.id === id);
+    if (!s) return;
+    s.plays = (s.plays || 0) + 1;
+    const updatedCloud = [...window.cloudDataCache];
+    const idx = updatedCloud.findIndex(x => x.id === id);
+    if (idx >= 0) updatedCloud[idx] = { ...updatedCloud[idx], plays: s.plays };
+    else updatedCloud.push(s);
+    window.syncCloudData(updatedCloud);
+};
 
 window.renderComments = function(sound) {
     const container = document.getElementById('comments-list');
@@ -879,12 +1166,229 @@ window.generateUCSFileName = function() {
     const rec = window.transliterate(document.getElementById('add-recordist').value || 'Anon').replace(/\s+/g, '');
     if (document.getElementById('add-file-name')) document.getElementById('add-file-name').value = `${subcat}_${userDef}_${rec}_ST.wav`;
 }
-window.publishSound = async function() {
-    window.showToast("Функция загрузки встроена в API. (См. полную версию).");
-}
+// Фото прикладываются как base64 (как и images у сид-данных) — без отдельного аплоада в бакет,
+// max 3 шт., превью рисуется в тот же .image-preview-grid, что уже был в вёрстке.
+window.handleImageFilesWrapper = function(files) {
+    if (!files || !files.length) return;
+    window.pendingImages = window.pendingImages || [];
+    const remaining = Math.max(0, 3 - window.pendingImages.length);
+    if (remaining === 0) { window.showToast('Можно прикрепить максимум 3 фото'); return; }
 
-// ИЗМЕНЕНО: Принимаем координаты при клике ПКМ
-window.toggleAddModal = function(forceClose = false, coords = null) {
+    const toProcess = Array.from(files).slice(0, remaining);
+    let loaded = 0;
+    toProcess.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = e => {
+            window.pendingImages.push(e.target.result);
+            loaded++;
+            if (loaded === toProcess.length) window.renderPendingImagesPreview();
+        };
+        reader.readAsDataURL(file);
+    });
+};
+
+window.renderPendingImagesPreview = function() {
+    const container = document.getElementById('image-preview-container');
+    if (!container) return;
+    const images = window.pendingImages || [];
+    if (!images.length) { container.innerHTML = ''; container.classList.add('hidden'); return; }
+    container.classList.remove('hidden');
+    container.innerHTML = images.map((src, i) => `
+        <div class="relative">
+            <img src="${src}" class="image-thumb">
+            <button type="button" onclick="event.stopPropagation(); window.removePendingImage(${i})" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] shadow-md">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+    `).join('');
+};
+
+window.removePendingImage = function(index) {
+    if (!window.pendingImages) return;
+    window.pendingImages.splice(index, 1);
+    window.renderPendingImagesPreview();
+};
+
+// targetStatus: 'pending' (кнопка "Опубликовать") или 'draft' (кнопка "Черновик").
+// Логика перехода статусов при редактировании — см. комментарий у поля status ниже.
+window.publishSound = async function(targetStatus = 'pending') {
+    if (!window.currentUser) { window.showToast('Войдите, чтобы опубликовать звук'); return; }
+
+    const val = elId => (document.getElementById(elId)?.value || '').trim();
+    const coords = window.tempAddCoords || window.parseCoordinateString(val('add-coords'));
+    if (!coords) { window.showToast('Выберите точку на карте перед публикацией'); return; }
+    const title = val('add-display-title') || val('add-user-defined') || 'Новая запись';
+
+    const isEdit = !!window.editingSoundId;
+    const existing = isEdit ? window.soundsData.find(x => x.id === window.editingSoundId) : null;
+    if (isEdit && !existing) { window.showToast('Редактируемый звук не найден'); return; }
+
+    const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+    const btn = document.getElementById('publish-btn');
+    const draftBtn = document.getElementById('draft-btn');
+    if (btn) btn.disabled = true;
+    if (draftBtn) draftBtn.disabled = true;
+    window.showToast(targetStatus === 'draft' ? 'Сохранение черновика...' : (isEdit ? 'Сохранение изменений...' : 'Публикация...'));
+
+    const soundObj = {
+        id: existing ? existing.id : ('u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)),
+        title,
+        ecoCategory: val('add-eco') || 'anthrophony',
+        ucsCat: val('add-category') || 'AMBIENCE',
+        typeTag: val('add-subcat'),
+        lat: coords[0], lng: coords[1],
+        duration: existing?.duration || '0:00',
+        url: window.currentUploadedFileUrl || existing?.url || '',
+        semanticTag: existing?.semanticTag || '',
+        gear: val('add-recorder'),
+        date: val('add-date'),
+        time: val('add-time'),
+        description: val('add-desc'),
+        comments: existing?.comments || [],
+        keywords: val('add-tags'),
+        micType: val('add-mic'),
+        recPrinciple: val('add-principle'),
+        format: val('add-format'),
+        channels: val('add-channels'),
+        weather: val('add-weather'),
+        location: val('add-loc'),
+        recordist: window.currentUser.username,
+        recordistId: login,
+        license: val('add-license'),
+        fileName: val('add-file-name'),
+        images: (window.pendingImages && window.pendingImages.length) ? [...window.pendingImages] : (existing?.images || []),
+        route: existing?.route,
+        sessionId: val('add-session') || null,
+        // Черновик остаётся черновиком до явной публикации; уже прошедшую модерацию запись
+        // редактирование метаданных не трогает (кнопка "Опубликовать" тут работает как "Сохранить").
+        // Только переход draft -> pending образует настоящую отправку на модерацию.
+        status: targetStatus === 'draft'
+            ? 'draft'
+            : (isEdit ? (existing.status === 'draft' ? 'pending' : (existing.status || 'published')) : 'pending'),
+        downloads: existing?.downloads || 0,
+        plays: existing?.plays || 0,
+        rejectionReason: existing && existing.status === 'draft' ? '' : (existing?.rejectionReason || ''),
+        seenByAuthor: true
+    };
+
+    let updatedCloud = [...window.cloudDataCache];
+    const idx = updatedCloud.findIndex(x => x.id === soundObj.id);
+    if (idx >= 0) updatedCloud[idx] = soundObj; else updatedCloud.push(soundObj);
+
+    const success = await window.syncCloudData(updatedCloud);
+    if (btn) btn.disabled = false;
+    if (draftBtn) draftBtn.disabled = false;
+
+    if (success) {
+        const msg = soundObj.status === 'draft' ? 'Черновик сохранён!' : (isEdit ? 'Изменения сохранены!' : 'Звук отправлен на модерацию!');
+        window.showToast(msg);
+        window.toggleAddModal(true);
+    }
+};
+
+// Заполняет выпадающий список сессий в модалке добавления. selectedId (если передан) выбирается
+// сразу — используется после создания новой сессии прямо из модалки.
+window.populateSessionSelect = function(selectedId = '') {
+    const select = document.getElementById('add-session');
+    if (!select) return;
+    const sessions = window.getMySessions ? window.getMySessions() : [];
+    select.innerHTML = '<option value="">Без сессии</option>' +
+        sessions.map(s => `<option value="${s.id}">${s.title}</option>`).join('');
+    select.value = selectedId || '';
+};
+
+// Открывает модалку "Добавить аудио" в режиме редактирования существующей записи —
+// поля заполняются текущими данными звука, а publishSound() ниже патчит, а не создаёт новую.
+window.editSound = function(id) {
+    const s = window.soundsData.find(x => x.id === id);
+    if (!s) { window.showToast('Звук не найден'); return; }
+
+    window.editingSoundId = id;
+    window.pendingImages = Array.isArray(s.images) ? [...s.images] : [];
+    window.currentUploadedFile = null;
+    window.currentUploadedFileUrl = s.url || '';
+    window.tempAddCoords = [s.lat, s.lng];
+
+    const setVal = (elId, v) => { const el = document.getElementById(elId); if (el) el.value = v ?? ''; };
+
+    setVal('add-user-defined', s.title || '');
+    setVal('add-display-title', s.title || '');
+    setVal('add-desc', s.description || '');
+    setVal('add-eco', s.ecoCategory || 'anthrophony');
+    setVal('add-category', s.ucsCat || 'AMBIENCE');
+    window.updateUcsSubcats();
+    setVal('add-subcat', s.typeTag || '');
+    setVal('add-tags', s.keywords || '');
+    setVal('add-loc', s.location || '');
+    setVal('add-coords', `${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`);
+    setVal('add-date', s.date || '');
+    setVal('add-time', s.time || '');
+    setVal('add-weather', s.weather || 'Ясно (Clear)');
+    setVal('add-principle', s.recPrinciple || 'Направленная фиксация (Spot)');
+    setVal('add-recorder', s.gear || '');
+    setVal('add-mic', s.micType || '');
+    setVal('add-format', s.format || '');
+    setVal('add-channels', s.channels || 'Stereo XY');
+    setVal('add-recordist', s.recordist || (window.currentUser ? window.currentUser.username : ''));
+    setVal('add-license', s.license || 'CC BY 4.0');
+    setVal('add-file-name', s.fileName || '');
+
+    window.populateSessionSelect(s.sessionId || '');
+    const draftBtnEl = document.getElementById('draft-btn');
+    // Кнопка "Черновик" уместна только пока запись сама остаётся черновиком —
+    // для уже отправленных/опубликованных/отклонённых записей повторный черновик не имеет смысла.
+    if (draftBtnEl) draftBtnEl.classList.toggle('hidden', s.status !== 'draft');
+
+    window.renderPendingImagesPreview();
+
+    const dropContent = document.getElementById('drop-zone-content');
+    if (dropContent) dropContent.innerHTML = s.url
+        ? `<i class="fa-solid fa-file-waveform text-4xl text-blue-400 mb-3"></i><span class="text-sm font-bold text-slate-500 dark:text-slate-400">Аудиофайл уже сохранён. Выберите новый, чтобы заменить.</span>`
+        : `<i class="fa-solid fa-cloud-arrow-up text-4xl text-slate-300 dark:text-slate-500 mb-3"></i><span class="text-sm font-bold text-slate-500 dark:text-slate-400">Нажмите или перетащите аудиофайл (.wav)</span>`;
+
+    const headerTitle = document.getElementById('add-modal-header-title');
+    if (headerTitle) headerTitle.innerHTML = `<i class="fa-solid fa-pen mr-2 text-blue-600"></i>Редактировать запись`;
+    const publishText = document.getElementById('publish-btn-text');
+    if (publishText) publishText.textContent = 'Сохранить изменения';
+
+    window.toggleAddModal(false, null, true);
+};
+
+window.resetAddModalToCreateMode = function() {
+    window.editingSoundId = null;
+    window.pendingImages = [];
+    window.currentUploadedFile = null;
+    window.currentUploadedFileUrl = '';
+    window.tempAddCoords = null;
+
+    const headerTitle = document.getElementById('add-modal-header-title');
+    if (headerTitle) headerTitle.innerHTML = `<i class="fa-solid fa-file-audio mr-2 text-blue-600"></i><span data-lang="add_audio_title">Добавить аудио</span>`;
+    const publishText = document.getElementById('publish-btn-text');
+    if (publishText) publishText.textContent = 'Опубликовать звук';
+
+    const dropContent = document.getElementById('drop-zone-content');
+    if (dropContent) dropContent.innerHTML = `<i class="fa-solid fa-cloud-arrow-up text-4xl text-slate-300 dark:text-slate-500 mb-3"></i><div class="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400 mb-2"><span class="text-sm font-bold" data-lang="drag_drop">Нажмите или перетащите аудиофайл (.wav)</span></div>`;
+
+    const imgContainer = document.getElementById('image-preview-container');
+    if (imgContainer) { imgContainer.innerHTML = ''; imgContainer.classList.add('hidden'); }
+
+    ['add-user-defined', 'add-display-title', 'add-desc', 'add-tags', 'add-loc', 'add-coords', 'add-date', 'add-time'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    const fileNameEl = document.getElementById('add-file-name');
+    if (fileNameEl) fileNameEl.value = 'AMB_Loc_Tag_Anon.wav';
+    const recEl = document.getElementById('add-recordist');
+    if (recEl) recEl.value = window.currentUser ? window.currentUser.username : '';
+
+    window.populateSessionSelect();
+    const draftBtnEl = document.getElementById('draft-btn');
+    if (draftBtnEl) draftBtnEl.classList.remove('hidden');
+};
+
+// ИЗМЕНЕНО: Принимаем координаты при клике ПКМ; isEdit=true пропускает сброс в режим "создания",
+// чтобы editSound() выше мог открыть модалку, уже предзаполненную данными редактируемого звука.
+window.toggleAddModal = function(forceClose = false, coords = null, isEdit = false) {
     const m = document.getElementById('add-modal');
     const c = document.getElementById('add-modal-content');
     const coordsInput = document.getElementById('add-coords');
@@ -896,6 +1400,8 @@ window.toggleAddModal = function(forceClose = false, coords = null) {
     }
 
     if (m && m.classList.contains('hidden') && !forceClose) {
+        if (!isEdit) window.resetAddModalToCreateMode();
+
         if (coords && coordsInput) {
             coordsInput.value = `${Number(coords[0]).toFixed(5)}, ${Number(coords[1]).toFixed(5)}`;
             window.tempAddCoords = coords;
@@ -919,6 +1425,7 @@ window.toggleAddModal = function(forceClose = false, coords = null) {
             if (m.classList.contains('opacity-0')) m.classList.add('hidden');
         }, 300);
     }
+    window.resetAddModalToCreateMode();
 }
 window.closeAddModalSafely = function() { window.toggleAddModal(true); }
 

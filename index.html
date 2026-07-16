@@ -409,13 +409,23 @@
                         </div>
                     </div>
                 </div>
-                <button onclick="window.closeCabinet()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors shrink-0 outline-none">
-                    <i class="fa-solid fa-xmark text-xl pointer-events-none"></i>
-                </button>
+                <div class="flex items-center gap-2 shrink-0">
+                    <button onclick="window.openOwnPublicProfile()" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors" title="Смотреть публичный профиль">
+                        <i class="fa-solid fa-id-badge"></i>Публичный профиль
+                    </button>
+                    <button onclick="window.closeCabinet()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors outline-none">
+                        <i class="fa-solid fa-xmark text-xl pointer-events-none"></i>
+                    </button>
+                </div>
             </div>
+            <button onclick="window.openOwnPublicProfile()" class="sm:hidden mx-6 -mt-2 mb-3 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors">
+                <i class="fa-solid fa-id-badge"></i>Публичный профиль
+            </button>
 
             <div class="flex bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 px-4 gap-2 overflow-x-auto custom-scrollbar">
                 <button onclick="window.switchCabinetTab('sounds')" id="cab-tab-sounds" class="py-3 px-3 text-[13px] font-bold text-blue-600 border-b-2 border-blue-600 transition-colors whitespace-nowrap">Мои звуки</button>
+                <button onclick="window.switchCabinetTab('sessions')" id="cab-tab-sessions" class="py-3 px-3 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap">Экспедиции</button>
+                <button onclick="window.switchCabinetTab('analytics')" id="cab-tab-analytics" class="py-3 px-3 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap">Аналитика</button>
                 <button onclick="window.switchCabinetTab('settings')" id="cab-tab-settings" class="py-3 px-3 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap">Настройки</button>
                 <button onclick="window.switchCabinetTab('security')" id="cab-tab-security" class="py-3 px-3 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap">Сменить пароль</button>
                 <button onclick="window.switchCabinetTab('support')" id="cab-tab-support" class="py-3 px-3 text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors whitespace-nowrap">Поддержка</button>
@@ -437,6 +447,27 @@
                     </div>
                     <h4 class="text-sm font-bold text-slate-800 dark:text-white mb-2">Список ваших записей:</h4>
                     <div id="cabinet-sounds-list" class="space-y-3"></div>
+                </div>
+
+                <div id="cab-panel-sessions" class="hidden space-y-4">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-1"><i class="fa-solid fa-route mr-1.5 text-blue-500"></i>Экспедиции</h4>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Группируйте записи одного выезда в черновики и публикуйте их пачкой, когда материал готов.</p>
+                        </div>
+                        <button onclick="window.promptCreateSessionFromModal()" class="shrink-0 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-sm whitespace-nowrap">
+                            <i class="fa-solid fa-plus mr-1"></i>Новая
+                        </button>
+                    </div>
+                    <div id="cab-sessions-list" class="space-y-3"></div>
+                </div>
+
+                <div id="cab-panel-analytics" class="hidden space-y-4">
+                    <div>
+                        <h4 class="font-bold text-slate-800 dark:text-white mb-1"><i class="fa-solid fa-chart-line mr-1.5 text-blue-500"></i>Профессиональная аналитика</h4>
+                        <p class="text-sm text-slate-600 dark:text-slate-300">Какие ваши записи и акустические ниши пользуются наибольшим спросом у аудитории платформы.</p>
+                    </div>
+                    <div id="cab-analytics-content" class="space-y-4"></div>
                 </div>
 
                 <div id="cab-panel-settings" class="hidden space-y-4">
@@ -466,6 +497,27 @@
                         </div>
                         <button onclick="document.getElementById('avatar-input').click()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-700 hover:bg-slate-800 text-white font-semibold transition-colors shadow-sm">
                             <i class="fa-solid fa-image"></i>Загрузить фото профиля
+                        </button>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
+                        <div>
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-1"><i class="fa-solid fa-id-badge mr-1.5 text-blue-500"></i>Публичная визитка</h4>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Эти данные видны всем в вашем публичном профиле — вместе с личной картой и портфолио звуков.</p>
+                        </div>
+                        <div>
+                            <label class="modal-label text-slate-400">Краткая биография</label>
+                            <textarea id="profile-bio" rows="3" placeholder="Например: полевой звукозаписывающий, специализация — геофония юга России" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 h-20 resize-none leading-relaxed text-sm"></textarea>
+                        </div>
+                        <div>
+                            <label class="modal-label text-slate-400">Оборудование (через запятую)</label>
+                            <input id="profile-gear" type="text" placeholder="Zoom H6, Sennheiser MKH416, Hydrophone JrF" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs">
+                        </div>
+                        <div>
+                            <label class="modal-label text-slate-400">Ссылки на профессиональные ресурсы (через запятую)</label>
+                            <input id="profile-links" type="text" placeholder="https://soundcloud.com/..., https://instagram.com/..." class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs">
+                        </div>
+                        <button onclick="window.saveMyProfileFromSettingsForm()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
+                            <i class="fa-solid fa-floppy-disk"></i>Сохранить публичный профиль
                         </button>
                     </div>
                 </div>
@@ -564,7 +616,16 @@
                             <i class="fa-solid fa-map mr-1"></i>Экспорт GeoJSON
                         </button>
                     </div>
+                    <div class="flex gap-2" id="admin-filter-toggle">
+                        <button onclick="window.setAdminListFilter('all')" id="admin-filter-btn-all" class="admin-filter-btn active">Все записи</button>
+                        <button onclick="window.setAdminListFilter('pending')" id="admin-filter-btn-pending" class="admin-filter-btn">На модерации <span id="admin-filter-pending-count" class="admin-filter-count">0</span></button>
+                    </div>
                     <div id="admin-sounds-list" class="space-y-3"></div>
+
+                    <div class="flex items-center justify-between mt-6 mb-1">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"><i class="fa-solid fa-shield-halved mr-1 text-blue-500"></i>Пользователи и бейджи доверия</p>
+                    </div>
+                    <div id="admin-users-grid" class="space-y-2"></div>
                 </div>
             </div>
 
@@ -784,6 +845,18 @@
                             </select>
                         </div>
                     </div>
+
+                    <div class="mt-4">
+                        <label class="modal-label text-slate-400"><i class="fa-solid fa-route mr-1"></i>Экспедиция/сессия (опционально)</label>
+                        <div class="flex gap-2">
+                            <select id="add-session" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white appearance-none text-xs font-semibold flex-1">
+                                <option value="">Без сессии</option>
+                            </select>
+                            <button type="button" onclick="window.promptCreateSessionFromModal()" title="Создать новую экспедицию" class="shrink-0 w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
                 
             </div>
@@ -792,9 +865,85 @@
                 <p class="text-xs text-slate-500 dark:text-slate-400 text-center mb-3 flex items-center justify-center gap-1.5" data-lang="moderation_notice">
                     <i class="fa-solid fa-cloud"></i> Точки сохраняются в базу Яндекс.Облака
                 </p>
-                <button id="publish-btn" onclick="window.publishSound()" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-md active:scale-[0.98]">
-                    <i class="fa-solid fa-cloud-arrow-up mr-2"></i><span id="publish-btn-text" data-lang="publish">Опубликовать звук</span>
+                <div class="flex gap-3">
+                    <button id="draft-btn" onclick="window.publishSound('draft')" class="flex-1 py-3.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-all active:scale-[0.98]">
+                        <i class="fa-solid fa-box-archive mr-2"></i>Черновик
+                    </button>
+                    <button id="publish-btn" onclick="window.publishSound('pending')" class="flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-md active:scale-[0.98]">
+                        <i class="fa-solid fa-cloud-arrow-up mr-2"></i><span id="publish-btn-text" data-lang="publish">Опубликовать звук</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно: ПУБЛИЧНЫЙ ПРОФИЛЬ РЕКОРДИСТА -->
+    <div id="public-profile-modal" onmousedown="if(event.target === this) window.closePublicProfileModal()" class="fixed inset-0 z-[210] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none">
+        <div id="public-profile-modal-content" class="bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto border border-slate-100 dark:border-slate-800">
+
+            <div class="px-6 py-5 flex justify-between items-start gap-4 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
+                <div class="flex items-start gap-4 min-w-0">
+                    <img id="pp-avatar" class="hidden w-16 h-16 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-sm shrink-0" alt="avatar">
+                    <div id="pp-avatar-fallback" class="w-16 h-16 rounded-full bg-blue-100 dark:bg-slate-700 flex items-center justify-center text-blue-600 dark:text-blue-400 text-2xl shadow-inner shrink-0">
+                        <i class="fa-solid fa-user-astronaut"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h3 id="pp-name" class="text-lg font-bold text-slate-800 dark:text-white leading-tight truncate">Рекордист</h3>
+                        <span id="pp-joined" class="inline-flex items-center gap-1 mt-1 text-[10px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full"><i class="fa-solid fa-calendar-days"></i>—</span>
+                        <p id="pp-bio" class="hidden text-sm text-slate-600 dark:text-slate-300 mt-2 leading-relaxed max-w-md"></p>
+                        <div id="pp-badges" class="hidden flex flex-wrap gap-1.5 mt-2"></div>
+                        <p id="pp-view-own-note" class="hidden text-[11px] text-blue-600 dark:text-blue-400 font-semibold mt-2"><i class="fa-solid fa-eye mr-1"></i>Так ваш профиль видят другие пользователи</p>
+                    </div>
+                </div>
+                <button onclick="window.closePublicProfileModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors shrink-0 outline-none">
+                    <i class="fa-solid fa-xmark text-xl pointer-events-none"></i>
                 </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
+
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-center items-center text-center">
+                        <span class="text-2xl font-black text-blue-600 dark:text-blue-400 mb-1" id="pp-stat-count">0</span>
+                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Звуков</span>
+                    </div>
+                    <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-center items-center text-center">
+                        <span class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mb-1" id="pp-stat-duration">0:00</span>
+                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Длительность</span>
+                    </div>
+                    <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-center items-center text-center">
+                        <span class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mb-1" id="pp-stat-downloads">0</span>
+                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Скачиваний</span>
+                    </div>
+                </div>
+
+                <div id="pp-links" class="hidden flex flex-wrap gap-2"></div>
+
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2"><i class="fa-solid fa-walkie-talkie mr-1"></i>Оборудование</p>
+                    <div id="pp-gear" class="flex flex-wrap gap-1.5"></div>
+                </div>
+
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2"><i class="fa-solid fa-map-location-dot mr-1"></i>Личная акустическая карта</p>
+                    <div class="profile-mini-map-wrap">
+                        <div id="profile-mini-map"></div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider"><i class="fa-solid fa-record-vinyl mr-1"></i>Портфолио ландшафтов</p>
+                    </div>
+                    <div class="flex gap-2 mb-3 overflow-x-auto custom-scrollbar pb-1">
+                        <button id="pp-filter-all" onclick="window.setPublicProfileFilter('all')" class="pp-filter-btn active">Все</button>
+                        <button id="pp-filter-geophony" onclick="window.setPublicProfileFilter('geophony')" class="pp-filter-btn">Геофония</button>
+                        <button id="pp-filter-biophony" onclick="window.setPublicProfileFilter('biophony')" class="pp-filter-btn">Биофония</button>
+                        <button id="pp-filter-anthrophony" onclick="window.setPublicProfileFilter('anthrophony')" class="pp-filter-btn">Антропофония</button>
+                    </div>
+                    <div id="pp-portfolio-grid" class="portfolio-grid"></div>
+                </div>
+
             </div>
         </div>
     </div>

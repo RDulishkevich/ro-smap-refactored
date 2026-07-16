@@ -180,6 +180,42 @@ window.initLocationPickerMap = function() {
     window.placeLocationPickerMarker(initialCoords);
 }
 
+// Облегчённая карта для публичного профиля — только точки конкретного автора, без кластеризации
+// и фильтров основной карты. Инициализируется лениво при первом открытии профиля и переиспользуется
+// (как window.locationPickerMap) — очищается и перерисовывается при каждом новом открытии.
+window.renderProfileMiniMap = function(containerId, sounds) {
+    const container = document.getElementById(containerId);
+    if (!container || typeof ymaps === 'undefined') return;
+
+    if (!window.profileMiniMap) {
+        window.profileMiniMap = new ymaps.Map(containerId, {
+            center: [47.23371, 39.74427],
+            zoom: 9,
+            controls: []
+        });
+    } else {
+        window.profileMiniMap.geoObjects.removeAll();
+    }
+
+    const pts = (sounds || []).filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lng));
+    if (!pts.length) return;
+
+    pts.forEach(s => {
+        const preset = s.ecoCategory === 'geophony' ? 'islands#lightBlueCircleIcon'
+            : s.ecoCategory === 'biophony' ? 'islands#greenCircleIcon'
+            : 'islands#orangeCircleIcon';
+        const mark = new ymaps.Placemark([s.lat, s.lng], {}, { preset });
+        mark.events.add('click', () => { if (window.closePublicProfileModal) window.closePublicProfileModal(); window.selectSound(s.id); });
+        window.profileMiniMap.geoObjects.add(mark);
+    });
+
+    if (pts.length === 1) {
+        window.profileMiniMap.setCenter([pts[0].lat, pts[0].lng], 12);
+    } else {
+        window.profileMiniMap.setBounds(window.profileMiniMap.geoObjects.getBounds(), { checkZoomRange: true, zoomMargin: 24 });
+    }
+};
+
 window.placeLocationPickerMarker = function(coords) {
     if (!window.locationPickerMap) return;
     if (window.locationPickerPlacemark) {

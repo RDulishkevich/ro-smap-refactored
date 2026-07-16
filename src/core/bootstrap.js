@@ -26,18 +26,20 @@ export function bootstrapApp() {
         if (window.setSoundsListLoading) window.setSoundsListLoading(true);
         if (window.initOnboarding) window.initOnboarding();
 
-        fetch(`${window.YANDEX_BUCKET_URL}/map_data.json?nocache=${Date.now()}`)
-            .then(res => res.ok ? res.json() : [])
-            .then(cloudData => {
-                if (cloudData.length > 0 && window.mergeData) window.mergeData(cloudData);
-                if (window.initFiltersData) window.initFiltersData();
-                if (window.processFilterChange) window.processFilterChange(window.innerWidth >= 768);
-            })
-            .catch(err => {
-                console.warn('База данных недоступна или пуста:', err);
-                if (window.initFiltersData) window.initFiltersData();
-                if (window.processFilterChange) window.processFilterChange(window.innerWidth >= 768);
-            });
+        Promise.all([
+            fetch(`${window.YANDEX_BUCKET_URL}/map_data.json?nocache=${Date.now()}`)
+                .then(res => res.ok ? res.json() : [])
+                .catch(err => { console.warn('База данных недоступна или пуста:', err); return []; }),
+            fetch(`${window.YANDEX_BUCKET_URL}/profiles.json?nocache=${Date.now()}`)
+                .then(res => res.ok ? res.json() : [])
+                .catch(err => { console.warn('Профили пользователей недоступны:', err); return []; })
+        ]).then(([cloudData, profiles]) => {
+            window.profilesData = Array.isArray(profiles) ? profiles : [];
+            if (cloudData.length > 0 && window.mergeData) window.mergeData(cloudData);
+            if (window.initFiltersData) window.initFiltersData();
+            if (window.processFilterChange) window.processFilterChange(window.innerWidth >= 768);
+            if (window.applyProfileToCurrentUser) window.applyProfileToCurrentUser();
+        });
 
         const searchInput = document.getElementById('search-input');
         if (searchInput) {

@@ -50,10 +50,24 @@ export const formatSoundObject = function(s) {
         channels: s.channels || 'Stereo XY',
         fileName: s.fileName || `${s.typeTag}_${cleanTitle}_${cleanRecordist}_${mappedSourceID}.wav`,
         recordist: s.recordist || 'Автор',
+        recordistId: s.recordistId || null,
         license: s.license || 'CC BY 4.0',
         keywords: keywordsStr,
         tagArray: tagsList,
         comments: s.comments || [],
-        images: s.images || [] 
+        images: s.images || [],
+        // Публикации без статуса (весь вшитый демо-контент) считаются опубликованными —
+        // обратная совместимость. Новые загрузки получают 'pending' (или 'draft' — см. publishSound).
+        status: s.status || 'published',
+        downloads: s.downloads || 0,
+        // Счётчик прослушиваний/выбора на карте — питает вкладку "Аналитика" (спрос по нишам).
+        plays: s.plays || 0,
+        // Привязка к сессии/экспедиции (см. Кабинет -> "Экспедиции"); не влияет на публичную видимость.
+        sessionId: s.sessionId || null,
+        // Причина отклонения модератором — видна автору в приватном кабинете.
+        rejectionReason: s.rejectionReason || '',
+        // false сразу после смены статуса админом — гасит уведомление автору при следующем
+        // открытии кабинета (см. auth.js renderCabinet). У старых/демо-записей всегда true.
+        seenByAuthor: s.seenByAuthor === undefined ? true : s.seenByAuthor
     };
 };
