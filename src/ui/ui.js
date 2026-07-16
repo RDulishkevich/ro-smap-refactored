@@ -152,14 +152,25 @@ window.exportSoundsData = function(format, allSounds = false) {
     window.showToast(`Экспортировано ${sounds.length} точек (GeoJSON)`);
 };
 
-window.onboardingSteps = [
+window.onboardingStepsRu = [
     { target: null, title: 'Добро пожаловать в Audio Map', text: 'Интерактивная карта звуков Ростовской области. Пройдите короткий тур — это займёт меньше минуты.' },
     { target: '#burger-btn', title: 'Библиотека звуков', text: 'Кнопка меню слева открывает три раздела: Библиотека (поиск и фильтры), Лента с новостями и Экспедиции.' },
     { target: '#player-card', title: 'Аудиоплеер', text: 'При выборе метки открывается плеер. Здесь можно слушать запись, открыть анализаторы и подробности. Для ambisonics доступно вращение 360°.', showPlayer: true },
     { target: '#fab-add-sound', title: 'Добавьте свой звук', text: 'Синяя кнопка «+» — загрузка WAV с метаданными. На телефоне удерживайте палец на карте, чтобы быстро поставить метку.' },
     { target: '#fab-guessr', title: 'Audio Guessr', text: 'Зелёная кнопка с наушниками запускает мини-игру: слушайте звук и угадайте место на карте Ростовской области.' },
-    { target: '#map-top-right-controls', title: 'Сообщения и профиль', text: 'Справа сверху: сообщения, уведомления, настройки и личный кабинет. Там же поддержка и админ-панель.' }
+    { target: '#map-top-right-controls', title: 'Сообщения и профиль', text: 'Справа сверху: сообщения, уведомления, настройки и личный кабинет.' }
 ];
+window.onboardingStepsEn = [
+    { target: null, title: 'Welcome to Audio Map', text: 'An interactive sound map of the Rostov Region. Take a short tour — it takes less than a minute.' },
+    { target: '#burger-btn', title: 'Sound library', text: 'The menu button on the left opens three sections: Library (search and filters), Feed with news, and Expeditions.' },
+    { target: '#player-card', title: 'Audio player', text: 'Selecting a marker opens the player. Listen to the recording, open analyzers and details. Ambisonics supports 360° rotation.', showPlayer: true },
+    { target: '#fab-add-sound', title: 'Add your sound', text: 'The blue “+” button uploads a WAV with metadata. On mobile, long-press the map to place a marker quickly.' },
+    { target: '#fab-guessr', title: 'Audio Guessr', text: 'The green headphones button starts a mini-game: listen to a sound and guess its place on the Rostov Region map.' },
+    { target: '#map-top-right-controls', title: 'Messages and profile', text: 'Top right: messages, notifications, settings, and your profile.' }
+];
+Object.defineProperty(window, 'onboardingSteps', {
+    get() { return window.currentLang === 'en' ? window.onboardingStepsEn : window.onboardingStepsRu; }
+});
 
 window.startOnboarding = function(step = 0) {
     const overlay = document.getElementById('onboarding-overlay');
@@ -189,7 +200,7 @@ window.updateOnboardingStep = function() {
     const card = document.getElementById('onboarding-card');
     if (!step || !overlay || !highlight || !card) return;
 
-    document.getElementById('onboarding-step-label').textContent = `Шаг ${window.__onboardingStep + 1} / ${window.onboardingSteps.length}`;
+    document.getElementById('onboarding-step-label').textContent = `${window.t('tour_step')} ${window.__onboardingStep + 1} / ${window.onboardingSteps.length}`;
     document.getElementById('onboarding-title').textContent = step.title;
     document.getElementById('onboarding-text').textContent = step.text;
 
@@ -197,7 +208,7 @@ window.updateOnboardingStep = function() {
     if (prevBtn) prevBtn.style.visibility = window.__onboardingStep === 0 ? 'hidden' : 'visible';
 
     const nextBtn = document.getElementById('onboarding-next');
-    if (nextBtn) nextBtn.textContent = window.__onboardingStep === window.onboardingSteps.length - 1 ? 'Готово' : 'Далее';
+    if (nextBtn) nextBtn.textContent = window.__onboardingStep === window.onboardingSteps.length - 1 ? window.t('tour_done') : window.t('tour_next');
 
     if (step.showPlayer) {
         const demo = (window.soundsData || []).find(s => !s.status || s.status === 'published') || (window.soundsData || [])[0];
@@ -352,24 +363,23 @@ window.bindSwipeReplyRows = function(container, onReply) {
         if (row.dataset.swipeBound === '1') return;
         row.dataset.swipeBound = '1';
         let startX = 0, startY = 0, dx = 0, active = false;
-        const threshold = 64;
+        const threshold = 56;
         const reset = () => {
             row.style.transform = '';
             row.classList.remove('is-swiping');
             active = false;
             dx = 0;
         };
-        row.addEventListener('touchstart', (e) => {
-            if (!e.touches[0]) return;
-            startX = e.touches[0].clientX;
-            startY = e.touches[0].clientY;
+        const onStart = (clientX, clientY) => {
+            startX = clientX;
+            startY = clientY;
             active = true;
             dx = 0;
-        }, { passive: true });
-        row.addEventListener('touchmove', (e) => {
-            if (!active || !e.touches[0]) return;
-            const mx = e.touches[0].clientX - startX;
-            const my = e.touches[0].clientY - startY;
+        };
+        const onMove = (clientX, clientY) => {
+            if (!active) return;
+            const mx = clientX - startX;
+            const my = clientY - startY;
             if (Math.abs(my) > Math.abs(mx) && Math.abs(my) > 12) {
                 reset();
                 return;
@@ -379,8 +389,8 @@ window.bindSwipeReplyRows = function(container, onReply) {
                 row.style.transform = `translateX(${dx}px)`;
                 row.classList.add('is-swiping');
             }
-        }, { passive: true });
-        row.addEventListener('touchend', (e) => {
+        };
+        const onEnd = () => {
             if (!active) return;
             const id = row.dataset.msgId || row.dataset.commentId || row.dataset.replyId;
             const triggered = dx <= -threshold;
@@ -390,14 +400,42 @@ window.bindSwipeReplyRows = function(container, onReply) {
                 setTimeout(() => { delete row.dataset.swipeJustFired; }, 350);
                 onReply(id, row);
             }
+        };
+
+        row.addEventListener('touchstart', (e) => {
+            if (!e.touches[0]) return;
+            onStart(e.touches[0].clientX, e.touches[0].clientY);
         }, { passive: true });
+        row.addEventListener('touchmove', (e) => {
+            if (!e.touches[0]) return;
+            onMove(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: true });
+        row.addEventListener('touchend', onEnd, { passive: true });
+        row.addEventListener('touchcancel', reset, { passive: true });
+
+        // Desktop / trackpad
+        row.addEventListener('pointerdown', (e) => {
+            if (e.pointerType === 'touch') return;
+            if (e.button !== 0) return;
+            onStart(e.clientX, e.clientY);
+            row.setPointerCapture?.(e.pointerId);
+        });
+        row.addEventListener('pointermove', (e) => {
+            if (e.pointerType === 'touch') return;
+            onMove(e.clientX, e.clientY);
+        });
+        row.addEventListener('pointerup', (e) => {
+            if (e.pointerType === 'touch') return;
+            onEnd();
+        });
+        row.addEventListener('pointercancel', reset);
+
         row.addEventListener('click', (e) => {
             if (row.dataset.swipeJustFired === '1') {
                 e.preventDefault();
                 e.stopPropagation();
             }
         }, true);
-        row.addEventListener('touchcancel', reset, { passive: true });
     });
 };
 
@@ -1211,7 +1249,7 @@ window.renderPublicFollowUI = function(profileLogin, isOwn) {
     }
     btn.classList.remove('hidden');
     const on = window.isFollowingUser(profileLogin);
-    btn.textContent = on ? 'Отписаться' : 'Подписаться';
+    btn.textContent = on ? window.t('unfollow') : window.t('follow');
     btn.className = on
         ? 'mt-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold transition-colors'
         : 'mt-2 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold transition-colors';
@@ -3189,10 +3227,100 @@ window.changeGUISize = function(size, skipSave = false) {
     if (window.refreshSettingsUI) window.refreshSettingsUI();
 }
 window.setLanguage = function(lang, skipSave = false) {
-    window.currentLang = lang; window.renderList();
-    if (!skipSave && window.saveUserSettings) window.saveUserSettings('lang', lang);
+    window.currentLang = lang === 'en' ? 'en' : 'ru';
+    if (window.applyUILanguage) window.applyUILanguage();
+    if (window.renderList) window.renderList();
+    if (window.renderFeed) window.renderFeed();
+    if (window.renderSidebarExpeditions) window.renderSidebarExpeditions();
     if (window.refreshSettingsUI) window.refreshSettingsUI();
-}
+    const langSelect = document.getElementById('lang-select');
+    if (langSelect) langSelect.value = window.currentLang;
+    if (!window.__activeMessagePeer && document.getElementById('messages-modal') && !document.getElementById('messages-modal').classList.contains('hidden')) {
+        if (window.showMessagesConversations) window.showMessagesConversations();
+    } else if (window.__activeMessagePeer && window.openMessageThread) {
+        window.openMessageThread(window.__activeMessagePeer, { quiet: true });
+    }
+    if (!skipSave) {
+        try { localStorage.setItem('rosmap_lang', window.currentLang); } catch (_) {}
+        if (window.saveUserSettings) window.saveUserSettings('lang', window.currentLang);
+    }
+};
+
+window.t = function(key, fallback = '') {
+    const dict = (window.translations && window.translations[window.currentLang || 'ru']) || {};
+    if (dict[key] != null) return dict[key];
+    const ru = (window.translations && window.translations.ru) || {};
+    if (ru[key] != null) return ru[key];
+    return fallback || key;
+};
+
+window.applyUILanguage = function() {
+    const lang = window.currentLang || 'ru';
+    document.documentElement.lang = lang === 'en' ? 'en' : 'ru';
+
+    document.querySelectorAll('[data-lang]').forEach(el => {
+        const key = el.getAttribute('data-lang');
+        const text = window.t(key);
+        if (!text || text === key) return;
+        if (el.tagName === 'OPTION') {
+            el.textContent = text;
+            return;
+        }
+        // Сохраняем иконки: обновляем текстовые узлы или весь текст, если детей нет
+        const icon = el.querySelector(':scope > i.fa-solid, :scope > i.fa-regular, :scope > i.fa-brands');
+        if (icon && el.children.length <= 2) {
+            const span = el.querySelector(':scope > span:not([class*="fa"])');
+            if (span && !span.querySelector('i')) {
+                span.textContent = text;
+            } else {
+                let replaced = false;
+                el.childNodes.forEach(node => {
+                    if (node.nodeType === 3 && node.textContent.trim()) {
+                        node.textContent = (node.textContent.match(/^\s*/) || [''])[0] + text;
+                        replaced = true;
+                    }
+                });
+                if (!replaced) {
+                    const tn = document.createTextNode(' ' + text);
+                    el.appendChild(tn);
+                }
+            }
+        } else if (el.children.length === 0) {
+            el.textContent = text;
+        } else {
+            const span = el.querySelector('[data-lang-text]') || el.querySelector('span:not(.fa-solid):not(.fa-regular)');
+            if (span && span.children.length === 0) span.textContent = text;
+            else {
+                el.childNodes.forEach(node => {
+                    if (node.nodeType === 3 && node.textContent.trim()) {
+                        node.textContent = (node.textContent.match(/^\s*/) || [''])[0] + text;
+                    }
+                });
+            }
+        }
+    });
+
+    document.querySelectorAll('[data-lang-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-lang-placeholder');
+        const text = window.t(key);
+        if (text && text !== key) el.setAttribute('placeholder', text);
+    });
+
+    document.querySelectorAll('[data-lang-title]').forEach(el => {
+        const key = el.getAttribute('data-lang-title');
+        const text = window.t(key);
+        if (text && text !== key) el.setAttribute('title', text);
+    });
+
+    // Кнопки тура
+    const skip = document.querySelector('#onboarding-card button[onclick*="dismissOnboarding"]');
+    if (skip) skip.textContent = window.t('tour_skip');
+    const prev = document.getElementById('onboarding-prev');
+    if (prev) prev.textContent = window.t('tour_back');
+    if (typeof window.__onboardingStep === 'number' && document.getElementById('onboarding-overlay') && !document.getElementById('onboarding-overlay').classList.contains('hidden')) {
+        window.updateOnboardingStep();
+    }
+};
 window.setTheme = function(theme, skipSave = false) {
     window.currentTheme = theme;
     const root = document.documentElement;

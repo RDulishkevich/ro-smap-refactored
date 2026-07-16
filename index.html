@@ -75,19 +75,19 @@
         <!-- Кнопка Профиля (Вверху справа) -->
         <div id="map-top-right-controls" class="absolute top-4 right-4 md:top-6 md:right-6 pointer-events-auto z-50 flex items-center gap-2 sm:gap-3">
             <div class="relative" id="msg-wrap">
-                <button onclick="window.toggleMessagesPanel()" id="msg-btn" class="hidden relative w-12 h-12 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:scale-105 active:scale-95 transition-all" title="Сообщения">
+                <button onclick="window.toggleMessagesPanel()" id="msg-btn" class="hidden relative w-12 h-12 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:scale-105 active:scale-95 transition-all" title="Сообщения" data-lang-title="messages_title">
                     <i class="fa-solid fa-envelope text-xl pointer-events-none"></i>
                     <span id="msg-badge" class="hidden absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center shadow">0</span>
                 </button>
             </div>
             <div class="relative" id="notif-wrap">
-                <button onclick="window.toggleNotificationsPanel()" id="notif-btn" class="hidden relative w-12 h-12 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:scale-105 active:scale-95 transition-all" title="Уведомления">
+                <button onclick="window.toggleNotificationsPanel()" id="notif-btn" class="hidden relative w-12 h-12 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:scale-105 active:scale-95 transition-all" title="Уведомления" data-lang-title="notifications_title">
                     <i class="fa-solid fa-bell text-xl pointer-events-none"></i>
                     <span id="notif-badge" class="hidden absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow">0</span>
                 </button>
                 <div id="notif-panel" class="hidden absolute right-0 top-14 w-[min(calc(100vw-2rem),22rem)] max-w-[calc(100vw-1.5rem)] max-h-[min(70vh,28rem)] overflow-hidden bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 flex flex-col z-[80]">
                     <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
-                        <h4 class="text-sm font-bold text-slate-800 dark:text-white">Уведомления</h4>
+                        <h4 class="text-sm font-bold text-slate-800 dark:text-white" data-lang="notifications_title">Уведомления</h4>
                         <button onclick="window.markAllNotificationsRead()" class="text-[11px] font-semibold text-blue-600 hover:text-blue-700 shrink-0 ml-2">Прочитать все</button>
                     </div>
                     <div id="notif-list" class="overflow-y-auto custom-scrollbar flex-1 p-2 space-y-1 min-h-0"></div>
@@ -96,7 +96,7 @@
             <button onclick="window.openSettingsPanel()" id="settings-btn" class="w-12 h-12 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:scale-105 active:scale-95 transition-all" title="Настройки">
                 <i class="fa-solid fa-gear text-xl pointer-events-none"></i>
             </button>
-            <button onclick="window.toggleCabinet()" id="profile-btn" class="w-12 h-12 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-blue-600 dark:text-blue-400 hover:scale-105 active:scale-95 transition-all" title="Личный кабинет">
+            <button onclick="window.toggleCabinet()" id="profile-btn" class="w-12 h-12 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-blue-600 dark:text-blue-400 hover:scale-105 active:scale-95 transition-all" title="Личный кабинет" data-lang-title="profile_title">
                 <i class="fa-solid fa-user-astronaut text-xl pointer-events-none"></i>
             </button>
         </div>
@@ -350,7 +350,7 @@
                 </div>
                 <button type="button" onclick="window.contactSupport()" class="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
                     <i class="fa-solid fa-headset"></i>
-                    Открыть поддержку
+                    <span data-lang="support_open">Открыть поддержку</span>
                 </button>
             </div>
         </div>
@@ -360,7 +360,7 @@
     <div id="settings-modal" onmousedown="if(event.target === this) window.closeSettingsModal()" class="fixed inset-0 z-[250] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
         <div class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto border border-slate-100 dark:border-slate-800">
             <div class="px-6 py-5 flex justify-between items-center border-b border-slate-100 dark:border-slate-700">
-                <h3 class="text-lg font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-gear mr-2 text-blue-500"></i>Настройки</h3>
+                <h3 class="text-lg font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-gear mr-2 text-blue-500"></i><span data-lang="settings_title">Настройки</span></h3>
                 <button onclick="window.closeSettingsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none">
                     <i class="fa-solid fa-xmark text-xl pointer-events-none"></i>
                 </button>
@@ -389,7 +389,7 @@
                     </div>
                 </div>
                 <div>
-                    <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="language"><i class="fa-solid fa-language mr-1"></i> Язык приложения</label>
+                    <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="lang_app"><i class="fa-solid fa-language mr-1"></i> Язык приложения</label>
                     <div class="relative">
                         <select onchange="window.setLanguage(this.value)" id="lang-select" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-semibold appearance-none cursor-pointer">
                             <option value="ru">🇷🇺 Русский</option>
@@ -449,7 +449,7 @@
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
                     <button onclick="window.openOwnPublicProfile()" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors" title="Смотреть публичный профиль">
-                        <i class="fa-solid fa-id-badge"></i>Публичный профиль
+                        <i class="fa-solid fa-id-badge"></i><span data-lang="public_profile">Публичный профиль</span>
                     </button>
                     <button onclick="window.closeCabinet()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors outline-none">
                         <i class="fa-solid fa-xmark text-xl pointer-events-none"></i>
@@ -457,18 +457,18 @@
                 </div>
             </div>
             <button onclick="window.openOwnPublicProfile()" class="sm:hidden mx-6 -mt-2 mb-3 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors">
-                <i class="fa-solid fa-id-badge"></i>Публичный профиль
+                <i class="fa-solid fa-id-badge"></i><span data-lang="public_profile">Публичный профиль</span>
             </button>
 
             <div id="cabinet-tabs" class="cabinet-tabs flex flex-nowrap bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 px-2 gap-1 overflow-x-auto shrink-0">
-                <button type="button" onclick="window.switchCabinetTab('sounds')" id="cab-tab-sounds" data-cab-tab="sounds" class="cab-tab active">Мои звуки</button>
-                <button type="button" onclick="window.switchCabinetTab('sessions')" id="cab-tab-sessions" data-cab-tab="sessions" class="cab-tab">Экспедиции</button>
-                <button type="button" onclick="window.switchCabinetTab('analytics')" id="cab-tab-analytics" data-cab-tab="analytics" class="cab-tab">Аналитика</button>
-                <button type="button" onclick="window.switchCabinetTab('settings')" id="cab-tab-settings" data-cab-tab="settings" class="cab-tab">Настройки</button>
-                <button type="button" onclick="window.switchCabinetTab('security')" id="cab-tab-security" data-cab-tab="security" class="cab-tab">Сменить пароль</button>
-                <button type="button" onclick="window.switchCabinetTab('support')" id="cab-tab-support" data-cab-tab="support" class="cab-tab">Поддержка</button>
-                <button type="button" onclick="window.switchCabinetTab('faq')" id="cab-tab-faq" data-cab-tab="faq" class="cab-tab">FAQ</button>
-                <button type="button" onclick="window.switchCabinetTab('admin')" id="cab-tab-admin" data-cab-tab="admin" class="cab-tab cab-tab-admin hidden">Админ-панель</button>
+                <button type="button" onclick="window.switchCabinetTab('sounds')" id="cab-tab-sounds" data-cab-tab="sounds" class="cab-tab active" data-lang="cab_tab_sounds">Мои звуки</button>
+                <button type="button" onclick="window.switchCabinetTab('sessions')" id="cab-tab-sessions" data-cab-tab="sessions" class="cab-tab" data-lang="cab_tab_sessions">Экспедиции</button>
+                <button type="button" onclick="window.switchCabinetTab('analytics')" id="cab-tab-analytics" data-cab-tab="analytics" class="cab-tab" data-lang="cab_tab_analytics">Аналитика</button>
+                <button type="button" onclick="window.switchCabinetTab('settings')" id="cab-tab-settings" data-cab-tab="settings" class="cab-tab" data-lang="cab_tab_settings">Настройки</button>
+                <button type="button" onclick="window.switchCabinetTab('security')" id="cab-tab-security" data-cab-tab="security" class="cab-tab" data-lang="cab_tab_security">Сменить пароль</button>
+                <button type="button" onclick="window.switchCabinetTab('support')" id="cab-tab-support" data-cab-tab="support" class="cab-tab" data-lang="cab_tab_support">Поддержка</button>
+                <button type="button" onclick="window.switchCabinetTab('faq')" id="cab-tab-faq" data-cab-tab="faq" class="cab-tab" data-lang="cab_tab_faq">FAQ</button>
+                <button type="button" onclick="window.switchCabinetTab('admin')" id="cab-tab-admin" data-cab-tab="admin" class="cab-tab cab-tab-admin hidden" data-lang="cab_tab_admin">Админ-панель</button>
             </div>
 
             <div class="p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0">
@@ -476,14 +476,14 @@
                     <div class="grid grid-cols-2 gap-4 mb-4">
                         <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-center items-center text-center">
                             <span class="text-3xl font-black text-blue-600 dark:text-blue-400 mb-1" id="cabinet-stat-count">0</span>
-                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Загружено звуков</span>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider" data-lang="loaded_sounds">Загружено звуков</span>
                         </div>
                         <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-center items-center text-center">
                             <span class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mb-1" id="cabinet-stat-duration">0:00</span>
-                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Общая длительность</span>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider" data-lang="total_duration">Общая длительность</span>
                         </div>
                     </div>
-                    <h4 class="text-sm font-bold text-slate-800 dark:text-white mb-2">Список ваших записей:</h4>
+                    <h4 class="text-sm font-bold text-slate-800 dark:text-white mb-2" data-lang="your_recordings">Список ваших записей:</h4>
                     <div id="cabinet-sounds-list" class="space-y-3"></div>
                 </div>
 
@@ -615,7 +615,7 @@
 
                 <div id="cab-panel-faq" data-cab-panel="faq" class="hidden space-y-4">
                     <div class="mb-2">
-                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Помощь и FAQ</p>
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500" data-lang="faq_title">Помощь и FAQ</p>
                     </div>
                     <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
                         <h4 class="font-bold text-slate-800 dark:text-white mb-2">Как добавить новый звук?</h4>
@@ -970,14 +970,14 @@
                         <p id="pp-bio" class="hidden text-sm text-slate-600 dark:text-slate-300 mt-2 leading-relaxed max-w-md"></p>
                         <div id="pp-badges" class="hidden flex flex-wrap gap-1.5 mt-2"></div>
                         <div id="pp-follow-stats" class="pp-follow-stats">
-                            <button type="button" id="pp-followers-btn" class="pp-follow-stat" onclick="window.openFollowList('followers')"><strong id="pp-followers-count">0</strong> подписчиков</button>
-                            <button type="button" id="pp-following-btn" class="pp-follow-stat" onclick="window.openFollowList('following')"><strong id="pp-following-count">0</strong> подписок</button>
+                            <button type="button" id="pp-followers-btn" class="pp-follow-stat" onclick="window.openFollowList('followers')"><strong id="pp-followers-count">0</strong> <span data-lang="followers">подписчиков</span></button>
+                            <button type="button" id="pp-following-btn" class="pp-follow-stat" onclick="window.openFollowList('following')"><strong id="pp-following-count">0</strong> <span data-lang="following">подписок</span></button>
                         </div>
                         <button id="pp-follow-btn" onclick="window.toggleFollowFromProfile()" class="hidden mt-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold transition-colors">
                             Подписаться
                         </button>
                         <button id="pp-message-btn" onclick="window.openComposeMessageFromProfile()" class="hidden mt-2 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold transition-colors shadow-sm">
-                            <i class="fa-solid fa-envelope mr-1"></i>Написать сообщение
+                            <i class="fa-solid fa-envelope mr-1"></i><span data-lang="write_message">Написать сообщение</span>
                         </button>
                         <p id="pp-view-own-note" class="hidden text-[11px] text-blue-600 dark:text-blue-400 font-semibold mt-2"><i class="fa-solid fa-eye mr-1"></i>Так ваш профиль видят другие пользователи</p>
                     </div>
@@ -1042,9 +1042,9 @@
 
     <!-- Модальное окно сообщений -->
     <div id="messages-modal" onmousedown="if(event.target === this) window.requestCloseMessagesModal()" class="fixed inset-0 z-[225] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="messages-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
+        <div id="messages-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel h-[min(92dvh,640px)] flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
             <div class="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
-                <h3 id="messages-modal-title" class="text-lg font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-envelope mr-2 text-blue-500"></i>Сообщения</h3>
+                <h3 id="messages-modal-title" class="text-lg font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-envelope mr-2 text-blue-500"></i><span data-lang="messages_title">Сообщения</span></h3>
                 <button onclick="window.requestCloseMessagesModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div id="messages-conversations" class="overflow-y-auto custom-scrollbar flex-1 p-3 space-y-1 min-h-0"></div>
@@ -1063,7 +1063,7 @@
                         </div>
                     </button>
                 </div>
-                <div id="messages-thread-list" class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2 min-h-0"></div>
+                <div id="messages-thread-list" class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2 min-h-0 flex flex-col"></div>
                 <div id="messages-reply-banner" class="hidden px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-[11px] font-semibold items-center justify-between gap-2 border-t border-blue-100 dark:border-blue-900/40">
                     <span class="truncate">Ответ: <span id="messages-reply-preview"></span></span>
                     <button onclick="window.cancelMessageReply()" class="shrink-0"><i class="fa-solid fa-xmark"></i></button>
@@ -1073,7 +1073,7 @@
                     <button type="button" onclick="window.toggleEmojiPicker()" class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-500 flex items-center justify-center shrink-0" title="Смайлики"><i class="fa-regular fa-face-smile"></i></button>
                     <button type="button" onclick="document.getElementById('messages-photo-input').click()" class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-500 flex items-center justify-center shrink-0" title="Фото"><i class="fa-solid fa-image"></i></button>
                     <input id="messages-photo-input" type="file" accept="image/*" class="hidden" onchange="window.sendMessagePhoto(this.files)">
-                    <input id="messages-compose-input" type="text" placeholder="Написать сообщение..." class="modal-input flex-1 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-sm min-w-0" onkeydown="if(event.key==='Enter') window.sendMessageInThread()">
+                    <input id="messages-compose-input" type="text" placeholder="Написать сообщение..." data-lang-placeholder="msg_write_placeholder" class="modal-input flex-1 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-sm min-w-0" onkeydown="if(event.key==='Enter') window.sendMessageInThread()">
                     <button onclick="window.sendMessageInThread()" class="px-3.5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shrink-0"><i class="fa-solid fa-paper-plane"></i></button>
                 </div>
             </div>

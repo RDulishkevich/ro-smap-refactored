@@ -2127,9 +2127,23 @@ export function initAuth() {
         m.classList.remove('opacity-0', 'pointer-events-none');
         c.classList.remove('scale-95');
         window.touchMyPresence(true);
+
+        // Сразу рисуем список — иначе flex-1 даёт пустую область до завершения async
+        if (peerLogin) window.openMessageThread(peerLogin);
+        else window.showMessagesConversations();
+
         window.ensureSupportWelcome().then(() => {
-            if (peerLogin) window.openMessageThread(peerLogin);
-            else window.showMessagesConversations();
+            if (peerLogin) {
+                if (window.__activeMessagePeer === peerLogin) window.openMessageThread(peerLogin, { quiet: true });
+            } else if (!window.__activeMessagePeer) {
+                window.showMessagesConversations();
+            }
+        });
+
+        requestAnimationFrame(() => {
+            void c.offsetHeight;
+            const conv = document.getElementById('messages-conversations');
+            if (conv) void conv.offsetHeight;
         });
     };
 
@@ -2226,7 +2240,7 @@ export function initAuth() {
             byPeer.set(window.SUPPORT_LOGIN, {
                 fromId: window.SUPPORT_LOGIN,
                 fromName: window.SUPPORT_NAME,
-                text: 'Напишите в поддержку',
+                text: window.t ? window.t('write_support') : 'Напишите в поддержку',
                 date: new Date(0).toISOString(),
                 _supportPinned: true
             });
@@ -2234,7 +2248,7 @@ export function initAuth() {
 
         if (!conv) return;
         if (!byPeer.size) {
-            conv.innerHTML = `<p class="text-xs text-slate-400 text-center py-10">Пока нет переписок.</p>`;
+            conv.innerHTML = `<p class="text-xs text-slate-400 text-center py-10">${window.t ? window.t('no_conversations') : 'Пока нет переписок.'}</p>`;
             return;
         }
 
@@ -2255,8 +2269,10 @@ export function initAuth() {
                     ? `<img src="${profile.avatar}" class="w-9 h-9 rounded-full object-cover" alt="">`
                     : `<span class="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-sm"><i class="fa-solid fa-user"></i></span>`);
             const preview = last._supportPinned
-                ? 'Напишите в поддержку'
-                : (last.deleted ? 'Сообщение удалено' : (last.image && !last.text ? '📷 Фото' : (last.text || '')));
+                ? (window.t ? window.t('write_support') : 'Напишите в поддержку')
+                : (last.deleted
+                    ? (window.t ? window.t('msg_deleted') : 'Сообщение удалено')
+                    : (last.image && !last.text ? `📷 ${window.t ? window.t('photo_label') : 'Фото'}` : (last.text || '')));
             const ticks = last._outgoingHint
                 ? `<span class="msg-ticks msg-ticks--list ${last.read ? 'is-read' : 'is-delivered'}" title="${last.read ? 'Просмотрено' : 'Доставлено'}"><i class="fa-solid ${last.read ? 'fa-check-double' : 'fa-check'}"></i></span>`
                 : '';
@@ -2289,7 +2305,9 @@ export function initAuth() {
         const online = isSupport ? true : window.isUserOnline(profile);
 
         if (nameEl) nameEl.textContent = name;
-        if (statusEl) statusEl.textContent = isSupport ? 'обычно отвечает в течение дня' : (online ? 'в сети' : 'не в сети');
+        if (statusEl) statusEl.textContent = isSupport
+            ? (window.t ? window.t('support_status') : 'обычно отвечает в течение дня')
+            : (online ? (window.t ? window.t('online') : 'в сети') : (window.t ? window.t('offline') : 'не в сети'));
         if (onlineDot) onlineDot.classList.toggle('hidden', !online);
 
         if (isSupport) {
@@ -2354,12 +2372,12 @@ export function initAuth() {
                 users?.length ? `<span class="msg-reaction-chip">${emoji} ${users.length}</span>` : ''
             ).join('')}</div>`
             : '';
-        return `<div class="msg-bubble ${m._mine ? 'mine' : ''} swipe-reply-row" data-msg-id="${m.id}" onclick="window.openMessageMenu('${m.id}')">
-            <span class="swipe-reply-hint"><i class="fa-solid fa-reply"></i></span>
+        return `<div class="msg-bubble ${m._mine ? 'mine' : ''} ${m._mine ? '' : 'swipe-reply-row'}" data-msg-id="${m.id}" onclick="window.openMessageMenu('${m.id}')">
+            ${m._mine ? '' : '<span class="swipe-reply-hint"><i class="fa-solid fa-reply"></i></span>'}
             ${reply}${img}
             ${m.text ? `<p class="text-[13px] leading-snug">${window.escMsgHtml(m.text)}</p>` : ''}
             ${reactions}
-            <p class="msg-bubble-foot"><span>${m.date ? new Date(m.date).toLocaleString('ru-RU') : ''}${edited}</span>${window.renderMessageTicks(m)}</p>
+            <p class="msg-bubble-foot"><span>${m.date ? new Date(m.date).toLocaleString(window.currentLang === 'en' ? 'en-US' : 'ru-RU') : ''}${edited}</span>${window.renderMessageTicks(m)}</p>
         </div>`;
     };
 
@@ -2468,6 +2486,12 @@ export function initAuth() {
         const found = window.findInboxMessage(msgId);
         if (!found || found.msg.deleted) return;
         const m = found.msg;
+        // Ответ по свайпу — на сообщение собеседника (не своё)
+        const myLogin = window.currentUser
+            ? (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase())
+            : '';
+        if (m.fromId === myLogin) return;
+
         window.__messageReplyTo = {
             id: m.id,
             text: m.text || '',
@@ -2476,7 +2500,7 @@ export function initAuth() {
         };
         const banner = document.getElementById('messages-reply-banner');
         const preview = document.getElementById('messages-reply-preview');
-        if (preview) preview.textContent = m.text || (m.image ? '📷 Фото' : '');
+        if (preview) preview.textContent = m.text || (m.image ? '📷 Photo' : '');
         if (banner) {
             banner.classList.remove('hidden');
             banner.classList.add('flex');

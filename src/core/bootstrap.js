@@ -23,6 +23,11 @@ export function bootstrapApp() {
         if (window.updateUcsSubcats) window.updateUcsSubcats();
         if (window.setupAmbisonicSphere) window.setupAmbisonicSphere();
         if (window.applyUserSettings) window.applyUserSettings();
+        try {
+            const savedLang = localStorage.getItem('rosmap_lang');
+            if (savedLang && !(window.currentUser?.settings?.lang)) window.setLanguage(savedLang, true);
+        } catch (_) {}
+        if (window.applyUILanguage) window.applyUILanguage();
         if (window.initSwipeHandlers) window.initSwipeHandlers();
         if (window.setSoundsListLoading) window.setSoundsListLoading(true);
         if (window.initOnboarding) window.initOnboarding();

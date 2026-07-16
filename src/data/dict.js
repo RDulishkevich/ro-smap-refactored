@@ -9,7 +9,7 @@ export const ucsStructure = {
 };
 
 export const sourceIdMap = {
-    'Mono': 'MONO', 'Stereo XY': 'XY', 'Stereo ORTF': 'ORTF', 'Stereo AB': 'AB', 
+    'Mono': 'MONO', 'Stereo XY': 'XY', 'Stereo ORTF': 'ORTF', 'Stereo AB': 'AB',
     'Stereo M/S': 'MS', 'Ambisonics': 'AMBI', 'Binaural': 'BINA'
 };
 
@@ -17,7 +17,7 @@ export const translations = {
     ru: {
         title: "Ростовская область", subtitle: "Аудиокарта", search_placeholder: "Поиск звуков...",
         filter_tab_ucs: "Слои", filter_tab_tags: "Теги", filter_tab_meta: "Параметры",
-        sidebar_tab_library: "Библиотека", sidebar_tab_feed: "Лента", sidebar_tab_expeditions: "Экспедиции", 
+        sidebar_tab_library: "Библиотека", sidebar_tab_feed: "Лента", sidebar_tab_expeditions: "Экспедиции",
         ucs_category: "Категория (UCS)", ucs_sub: "Субкатегория (CatID)", ucs_layer: "Слои аудиоландшафта", ucs_block_title: "Классификация по стандарту UCS",
         meta_gear: "Рекордер", meta_channels: "Система / Каналы", meta_license: "Лицензия", meta_recordist: "Автор", meta_weather: "Погода", meta_date: "Дата", mic_type: "Микрофон", meta_principle: "Принцип записи",
         filter_geophony: "Геофония", filter_biophony: "Биофония", filter_anthrophony: "Антропофония",
@@ -33,7 +33,22 @@ export const translations = {
         analyzers_title: "Анализаторы", goniometer_title: "Гониометр (Стереокартина)", frequency_analyzer_title: "Частотный анализатор", loudness_meter: "Loudness Meter",
         admin_login: "Вход для администратора", admin_panel: "Админ-панель", password_prompt: "Введите пароль администратора:", wrong_password: "Неверный пароль!", delete_confirm: "Вы уверены, что хотите удалить этот звук?",
         close_confirm: "Вы уверены, что хотите закрыть? Введенные данные не сохранятся.", edit_audio: "Редактировать аудио", save_changes: "Сохранить изменения",
-        add_here_title: "Новая метка", add_here_msg: "Создать аудиометку по координатам", create: "Создать", cancel: "Отмена"
+        add_here_title: "Новая метка", add_here_msg: "Создать аудиометку по координатам", create: "Создать", cancel: "Отмена",
+        messages_title: "Сообщения", notifications_title: "Уведомления", profile_title: "Личный кабинет",
+        cab_tab_sounds: "Мои звуки", cab_tab_sessions: "Экспедиции", cab_tab_analytics: "Аналитика",
+        cab_tab_settings: "Настройки", cab_tab_security: "Сменить пароль", cab_tab_support: "Поддержка",
+        cab_tab_faq: "FAQ", cab_tab_admin: "Админ-панель",
+        public_profile: "Публичный профиль", support_open: "Открыть поддержку",
+        followers: "подписчиков", following: "подписок", follow: "Подписаться", unfollow: "Отписаться",
+        write_message: "Написать сообщение", msg_write_placeholder: "Написать сообщение...",
+        online: "в сети", offline: "не в сети", support_status: "обычно отвечает в течение дня",
+        no_conversations: "Пока нет переписок.", write_support: "Напишите в поддержку",
+        msg_deleted: "Сообщение удалено", photo_label: "Фото",
+        tour_next: "Далее", tour_done: "Готово", tour_skip: "Пропустить", tour_back: "Назад",
+        tour_step: "Шаг", loaded_sounds: "Загружено звуков", total_duration: "Общая длительность",
+        your_recordings: "Список ваших записей:", faq_title: "Помощь и FAQ",
+        details_title: "Подробности", save_draft: "Черновик",
+        lang_app: "Язык приложения"
     },
     en: {
         title: "Rostov Region", subtitle: "Audio Map", search_placeholder: "Search sounds...",
@@ -54,6 +69,21 @@ export const translations = {
         analyzers_title: "Analyzers", goniometer_title: "Goniometer (Stereo Image)", frequency_analyzer_title: "Frequency Analyzer", loudness_meter: "Loudness Meter",
         admin_login: "Admin Login", admin_panel: "Admin Panel", password_prompt: "Enter admin password:", wrong_password: "Wrong password!", delete_confirm: "Are you sure you want to delete this sound?",
         close_confirm: "Are you sure you want to close? Data will be lost.", edit_audio: "Edit Audio", save_changes: "Save Changes",
-        add_here_title: "New Marker", add_here_msg: "Create audio marker at coordinates", create: "Create", cancel: "Cancel"
+        add_here_title: "New Marker", add_here_msg: "Create audio marker at coordinates", create: "Create", cancel: "Cancel",
+        messages_title: "Messages", notifications_title: "Notifications", profile_title: "Profile",
+        cab_tab_sounds: "My sounds", cab_tab_sessions: "Expeditions", cab_tab_analytics: "Analytics",
+        cab_tab_settings: "Settings", cab_tab_security: "Change password", cab_tab_support: "Support",
+        cab_tab_faq: "FAQ", cab_tab_admin: "Admin panel",
+        public_profile: "Public profile", support_open: "Open support",
+        followers: "followers", following: "following", follow: "Follow", unfollow: "Unfollow",
+        write_message: "Send message", msg_write_placeholder: "Write a message...",
+        online: "online", offline: "offline", support_status: "usually replies within a day",
+        no_conversations: "No conversations yet.", write_support: "Message support",
+        msg_deleted: "Message deleted", photo_label: "Photo",
+        tour_next: "Next", tour_done: "Done", tour_skip: "Skip", tour_back: "Back",
+        tour_step: "Step", loaded_sounds: "Uploaded sounds", total_duration: "Total duration",
+        your_recordings: "Your recordings:", faq_title: "Help & FAQ",
+        details_title: "Details", save_draft: "Draft",
+        lang_app: "App language"
     }
 };
