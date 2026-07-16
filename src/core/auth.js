@@ -519,6 +519,7 @@ export function initAuth() {
                     <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60"><p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Звуков</p><p class="font-semibold text-slate-700 dark:text-slate-200">${count}</p></div>
                     <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60"><p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Маршрут</p><p class="font-semibold text-slate-700 dark:text-slate-200 truncate">${session.route || '—'}</p></div>
                 </div>
+                ${(session.routeStops || []).length ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1.5">Точки маршрута</p><div class="space-y-1.5">${session.routeStops.map((st, i) => `<button type="button" class="session-route-stop w-full text-left" onclick="window.closeExpeditionViewModal(); window.selectSound('${st.soundId}')"><span class="session-route-stop__num">${i + 1}</span><span class="truncate flex-1 font-semibold text-slate-700 dark:text-slate-200">${st.title || 'Точка'}</span></button>`).join('')}</div>${session.routeStops.length > 1 ? `<button type="button" onclick="window.showExpeditionRouteOnMap('${session.id}')" class="mt-2 w-full py-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 text-xs font-bold"><i class="fa-solid fa-map-location-dot mr-1"></i>Показать маршрут на карте</button>` : ''}</div>` : ''}
                 ${session.purpose ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Цель</p><p class="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">${session.purpose}</p></div>` : ''}
                 ${participantChips.length || guestChips.length ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1.5">Участники</p><div class="flex flex-wrap gap-1.5">${participantChips.join('')}${guestChips.join('')}</div></div>` : ''}
                 ${links.length ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Ссылки</p><ul class="space-y-1">${links.map(l => `<li><a href="${l}" target="_blank" rel="noopener" class="text-sm text-blue-600 hover:underline break-all">${l}</a></li>`).join('')}</ul></div>` : ''}
@@ -544,6 +545,17 @@ export function initAuth() {
         window.__viewingExpeditionId = null;
     };
 
+    window.showExpeditionRouteOnMap = function(sessionId) {
+        const session = window.findSessionById ? window.findSessionById(sessionId) : null;
+        const stops = session?.routeStops || [];
+        if (stops.length < 2) { window.showToast('Нужно минимум 2 точки'); return; }
+        window.closeExpeditionViewModal();
+        const coords = stops.map(s => [s.lat, s.lng]);
+        if (window.clearMapRoutes) window.clearMapRoutes();
+        if (window.mapAddRouteOverlay) window.mapAddRouteOverlay(coords, 'blue');
+        window.showToast('Маршрут экспедиции на карте');
+    };
+
     window.applyExpeditionViewFilter = function() {
         const id = window.__viewingExpeditionId;
         window.closeExpeditionViewModal();
@@ -562,6 +574,7 @@ export function initAuth() {
     // --- Полноценная форма экспедиции: дата, цели, маршрут, участники (свои+гости), медиа, ссылки ---
     window.__editingSessionId = null;
     window.__sessionFormPhotos = [];
+    window.__sessionRouteStops = [];
 
     window.openSessionModal = function(sessionId = null) {
         if (!window.currentUser) { window.showToast('Войдите, чтобы создать экспедицию'); if (window.openAuthModal) window.openAuthModal(); return; }
@@ -577,8 +590,11 @@ export function initAuth() {
         setVal('session-form-videos', (session?.videoLinks || []).join(', '));
         setVal('session-form-links', (session?.links || []).join(', '));
         window.__sessionFormPhotos = session?.photos ? [...session.photos] : [];
+        window.__sessionRouteStops = (session?.routeStops || []).map(s => ({ ...s }));
         window.renderSessionPhotosPreview();
         window.renderSessionParticipantsPicker(session?.participants || []);
+        window.renderSessionRoutePicker();
+        window.renderSessionRouteStops();
 
         const titleEl = document.getElementById('session-modal-title');
         const saveTextEl = document.getElementById('session-form-save-text');
@@ -603,6 +619,100 @@ export function initAuth() {
             c.classList.add('scale-95');
             setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
         }
+        window.__sessionRouteStops = [];
+    };
+
+    window.getSessionRouteCandidateSounds = function() {
+        return (window.soundsData || []).filter(s =>
+            Number.isFinite(s.lat) && Number.isFinite(s.lng)
+            && (!s.status || s.status === 'published' || s.status === 'pending')
+        ).sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'ru'));
+    };
+
+    window.renderSessionRoutePicker = function() {
+        const sel = document.getElementById('session-route-sound-picker');
+        if (!sel) return;
+        const used = new Set((window.__sessionRouteStops || []).map(s => s.soundId));
+        const sounds = window.getSessionRouteCandidateSounds().filter(s => !used.has(s.id));
+        sel.innerHTML = sounds.length
+            ? `<option value="">Выберите запись…</option>` + sounds.map(s =>
+                `<option value="${s.id}">${(s.title || 'Без названия').replace(/</g, '&lt;')}</option>`
+            ).join('')
+            : `<option value="">Нет доступных точек</option>`;
+    };
+
+    window.renderSessionRouteStops = function() {
+        const box = document.getElementById('session-route-stops');
+        if (!box) return;
+        const stops = window.__sessionRouteStops || [];
+        if (!stops.length) {
+            box.innerHTML = `<p class="text-[11px] text-slate-400 px-1">Пока нет точек маршрута</p>`;
+            return;
+        }
+        box.innerHTML = stops.map((stop, i) => `
+            <div class="session-route-stop">
+                <span class="session-route-stop__num">${i + 1}</span>
+                <span class="truncate flex-1 font-semibold text-slate-700 dark:text-slate-200">${stop.title || 'Точка'}</span>
+                <button type="button" onclick="window.moveSessionRouteStop(${i}, -1)" class="text-slate-400 hover:text-blue-500 px-1" title="Выше"><i class="fa-solid fa-arrow-up text-[10px]"></i></button>
+                <button type="button" onclick="window.moveSessionRouteStop(${i}, 1)" class="text-slate-400 hover:text-blue-500 px-1" title="Ниже"><i class="fa-solid fa-arrow-down text-[10px]"></i></button>
+                <button type="button" onclick="window.removeSessionRouteStop(${i})" class="text-red-400 hover:text-red-500 px-1"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        `).join('');
+        window.syncSessionRouteTextFromStops();
+    };
+
+    window.syncSessionRouteTextFromStops = function() {
+        const stops = window.__sessionRouteStops || [];
+        if (stops.length < 2) return;
+        const routeInput = document.getElementById('session-form-route');
+        if (!routeInput) return;
+        const auto = stops.map(s => s.title || 'Точка').join(' → ');
+        if (!routeInput.value.trim() || routeInput.dataset.autoRoute === '1') {
+            routeInput.value = auto;
+            routeInput.dataset.autoRoute = '1';
+        }
+    };
+
+    window.addSessionRouteStop = function() {
+        const sel = document.getElementById('session-route-sound-picker');
+        const id = sel?.value;
+        if (!id) { window.showToast('Выберите запись'); return; }
+        const sound = (window.soundsData || []).find(s => s.id === id);
+        if (!sound) return;
+        if ((window.__sessionRouteStops || []).some(s => s.soundId === id)) {
+            window.showToast('Эта точка уже в маршруте');
+            return;
+        }
+        window.__sessionRouteStops.push({
+            soundId: sound.id,
+            title: sound.title || 'Без названия',
+            lat: sound.lat,
+            lng: sound.lng
+        });
+        const routeInput = document.getElementById('session-form-route');
+        if (routeInput) routeInput.dataset.autoRoute = '1';
+        window.renderSessionRouteStops();
+        window.renderSessionRoutePicker();
+    };
+
+    window.removeSessionRouteStop = function(index) {
+        window.__sessionRouteStops.splice(index, 1);
+        const routeInput = document.getElementById('session-form-route');
+        if (routeInput) routeInput.dataset.autoRoute = '1';
+        window.renderSessionRouteStops();
+        window.renderSessionRoutePicker();
+    };
+
+    window.moveSessionRouteStop = function(index, dir) {
+        const next = index + dir;
+        const arr = window.__sessionRouteStops || [];
+        if (next < 0 || next >= arr.length) return;
+        const tmp = arr[index];
+        arr[index] = arr[next];
+        arr[next] = tmp;
+        const routeInput = document.getElementById('session-form-route');
+        if (routeInput) routeInput.dataset.autoRoute = '1';
+        window.renderSessionRouteStops();
     };
 
     // Список участников — чипы-чекбоксы по всем ЗАРЕГИСТРИРОВАННЫМ пользователям (кроме себя);
@@ -664,6 +774,7 @@ export function initAuth() {
         const links = (document.getElementById('session-form-links')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
         const participants = Array.from(document.querySelectorAll('#session-form-participants input:checked')).map(el => el.value);
         const photos = [...(window.__sessionFormPhotos || [])];
+        const routeStops = [...(window.__sessionRouteStops || [])];
 
         const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
         const updated = [...(window.profilesData || [])];
@@ -679,11 +790,11 @@ export function initAuth() {
         if (isEdit) {
             sessionObj = existingSessions.find(s => s.id === window.__editingSessionId);
             if (!sessionObj) { window.showToast('Экспедиция не найдена'); return; }
-            Object.assign(sessionObj, { title, date, route, purpose, guests, videoLinks, links, participants, photos, updatedAt: new Date().toISOString() });
+            Object.assign(sessionObj, { title, date, route, purpose, guests, videoLinks, links, participants, photos, routeStops, updatedAt: new Date().toISOString() });
         } else {
             sessionObj = {
                 id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-                title, date, route, purpose, guests, videoLinks, links, participants, photos,
+                title, date, route, purpose, guests, videoLinks, links, participants, photos, routeStops,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
@@ -968,10 +1079,13 @@ export function initAuth() {
                 window.switchCabinetTab('sounds');
                 return;
             }
-            window.renderAdminList();
-            window.renderAdminUsersList();
-            window.renderReportsList();
-            if (window.renderRegionStats) window.renderRegionStats('admin-stats-grid');
+            if (window.switchAdminSection) window.switchAdminSection(window.__adminSection || 'sounds');
+            else {
+                window.renderAdminList();
+                window.renderAdminUsersList();
+                window.renderReportsList();
+                if (window.renderRegionStats) window.renderRegionStats('admin-stats-grid');
+            }
         }
     };
 
@@ -1211,6 +1325,24 @@ export function initAuth() {
     };
 
     // --- Жалобы (на записи и на комментарии) — очередь модерации в админ-панели ---
+    window.__adminSection = 'sounds';
+
+    window.switchAdminSection = function(section) {
+        window.__adminSection = section || 'sounds';
+        ['sounds', 'reports', 'users'].forEach(key => {
+            const panel = document.getElementById(`admin-section-${key}`);
+            const btn = document.getElementById(`admin-tab-btn-${key}`);
+            if (panel) panel.classList.toggle('hidden', key !== window.__adminSection);
+            if (btn) btn.classList.toggle('active', key === window.__adminSection);
+        });
+        if (window.__adminSection === 'reports') window.renderReportsList();
+        if (window.__adminSection === 'users') window.renderAdminUsersList();
+        if (window.__adminSection === 'sounds') {
+            if (window.renderAdminList) window.renderAdminList();
+            if (window.renderRegionStats) window.renderRegionStats('admin-stats-grid');
+        }
+    };
+
     window.getAllReports = function() {
         const list = [];
         (window.soundsData || []).forEach(s => {
@@ -1222,11 +1354,13 @@ export function initAuth() {
     window.renderReportsList = function() {
         const container = document.getElementById('admin-reports-list');
         const countEl = document.getElementById('admin-reports-count');
+        const tabCount = document.getElementById('admin-tab-reports-count');
         if (!container) return;
 
         const reports = window.getAllReports();
         const pendingCount = reports.filter(r => r.status !== 'resolved').length;
         if (countEl) countEl.textContent = pendingCount ? `(${pendingCount})` : '';
+        if (tabCount) tabCount.textContent = pendingCount ? `(${pendingCount})` : '';
 
         if (!reports.length) {
             container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">Жалоб пока нет.</p>`;
@@ -1304,9 +1438,10 @@ export function initAuth() {
         el.innerHTML = profiles.map(p => {
             const isAdmin = p.role === 'admin' || p.loginName === 'admin';
             const isBlocked = !!p.blocked;
+            const badgeCount = (p.badges || []).length;
             return `
             <div class="admin-user-row ${isBlocked ? 'blocked' : ''}">
-                <div class="flex items-start justify-between gap-2 mb-2">
+                <div class="flex items-start justify-between gap-2 w-full">
                     <div class="min-w-0">
                         <div class="admin-user-row-name flex items-center gap-2">
                             ${p.avatar ? `<img src="${p.avatar}" class="w-7 h-7 rounded-full object-cover border border-slate-200 dark:border-slate-600" alt="">` : `<i class="fa-solid fa-user-astronaut opacity-60"></i>`}
@@ -1314,9 +1449,10 @@ export function initAuth() {
                             ${isAdmin ? `<span class="pub-status-pill pub-status-pending">Админ</span>` : ''}
                             ${isBlocked ? `<span class="pub-status-pill pub-status-rejected">Блок</span>` : ''}
                         </div>
-                        <p class="text-[10px] text-slate-400 mt-0.5">@${p.loginName}${p.joinedAt ? ' · рег. ' + new Date(p.joinedAt).toLocaleString('ru-RU') : ''}</p>
+                        <p class="text-[10px] text-slate-400 mt-0.5">@${p.loginName}${p.joinedAt ? ' · рег. ' + new Date(p.joinedAt).toLocaleString('ru-RU') : ''}${badgeCount ? ` · ${badgeCount} зван.` : ''}</p>
                     </div>
                     <div class="flex flex-wrap gap-1 justify-end shrink-0">
+                        <button onclick="window.openBadgeAssignModal('${p.loginName}')" class="text-amber-600 hover:text-white bg-amber-50 hover:bg-amber-500 dark:bg-amber-900/30 dark:hover:bg-amber-600 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors"><i class="fa-solid fa-medal mr-0.5"></i>Звания</button>
                         <button onclick="window.openUserActivityModal('${p.loginName}')" class="text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-500 dark:bg-blue-900/30 dark:hover:bg-blue-600 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors">Сводка</button>
                         ${p.loginName !== 'admin' ? `
                         <button onclick="window.setUserAdminRole('${p.loginName}', ${!isAdmin})" class="text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-500 dark:bg-indigo-900/30 dark:hover:bg-indigo-600 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors">${isAdmin ? 'Снять админа' : 'Сделать админом'}</button>
@@ -1324,16 +1460,46 @@ export function initAuth() {
                         ` : ''}
                     </div>
                 </div>
-                <div class="admin-user-row-badges">
-                    ${Object.entries(window.BADGE_CATALOG || {}).map(([key, b]) => `
-                        <label class="badge-toggle-chip ${(p.badges || []).includes(key) ? 'active' : ''}">
-                            <input type="checkbox" class="hidden" ${(p.badges || []).includes(key) ? 'checked' : ''} onchange="window.toggleUserBadge('${p.loginName}', '${key}', this.checked)">
-                            <i class="fa-solid ${b.icon}"></i>${b.label}
-                        </label>
-                    `).join('')}
-                </div>
             </div>`;
         }).join('');
+    };
+
+    window.__badgeAssignLogin = null;
+
+    window.openBadgeAssignModal = function(login) {
+        window.__badgeAssignLogin = login;
+        const profile = window.getProfileByLogin ? window.getProfileByLogin(login) : null;
+        const userEl = document.getElementById('badge-assign-user');
+        const list = document.getElementById('badge-assign-list');
+        if (userEl) userEl.textContent = `@${login}${profile?.displayName ? ' · ' + profile.displayName : ''}`;
+        if (list) {
+            const badges = new Set(profile?.badges || []);
+            list.innerHTML = Object.entries(window.BADGE_CATALOG || {}).map(([key, b]) => `
+                <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/40 ${badges.has(key) ? 'ring-2 ring-amber-400/60' : ''}">
+                    <input type="checkbox" class="accent-amber-500" ${badges.has(key) ? 'checked' : ''} onchange="window.toggleUserBadge('${login}', '${key}', this.checked)">
+                    <span class="w-8 h-8 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 flex items-center justify-center shrink-0"><i class="fa-solid ${b.icon}"></i></span>
+                    <span class="text-sm font-bold text-slate-700 dark:text-slate-200">${b.label}</span>
+                </label>
+            `).join('');
+        }
+        const m = document.getElementById('badge-assign-modal');
+        const c = document.getElementById('badge-assign-modal-content');
+        if (!m || !c) return;
+        m.classList.remove('hidden');
+        void m.offsetWidth;
+        m.classList.remove('opacity-0', 'pointer-events-none');
+        c.classList.remove('scale-95');
+    };
+
+    window.closeBadgeAssignModal = function() {
+        const m = document.getElementById('badge-assign-modal');
+        const c = document.getElementById('badge-assign-modal-content');
+        if (!m || !c) return;
+        m.classList.add('opacity-0', 'pointer-events-none');
+        c.classList.add('scale-95');
+        setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
+        window.__badgeAssignLogin = null;
+        if (window.renderAdminUsersList) window.renderAdminUsersList();
     };
 
     window.toggleUserBadge = async function(login, badgeKey, checked) {
@@ -1350,7 +1516,22 @@ export function initAuth() {
         const success = await window.syncProfilesData(updated);
         if (success) {
             window.showToast('Бейджи обновлены');
-            window.renderAdminUsersList();
+            if (window.__badgeAssignLogin === login) {
+                const profile = window.getProfileByLogin ? window.getProfileByLogin(login) : null;
+                const list = document.getElementById('badge-assign-list');
+                if (list) {
+                    const badges = new Set(profile?.badges || []);
+                    list.innerHTML = Object.entries(window.BADGE_CATALOG || {}).map(([key, b]) => `
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/40 ${badges.has(key) ? 'ring-2 ring-amber-400/60' : ''}">
+                            <input type="checkbox" class="accent-amber-500" ${badges.has(key) ? 'checked' : ''} onchange="window.toggleUserBadge('${login}', '${key}', this.checked)">
+                            <span class="w-8 h-8 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 flex items-center justify-center shrink-0"><i class="fa-solid ${b.icon}"></i></span>
+                            <span class="text-sm font-bold text-slate-700 dark:text-slate-200">${b.label}</span>
+                        </label>
+                    `).join('');
+                }
+            } else if (window.renderAdminUsersList) {
+                window.renderAdminUsersList();
+            }
             if (checked && window.pushNotifications) {
                 const badgeMeta = (window.BADGE_CATALOG && window.BADGE_CATALOG[badgeKey]) || { label: badgeKey };
                 const adminLogin = window.currentUser?.loginName || 'admin';

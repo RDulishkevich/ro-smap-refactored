@@ -847,7 +847,7 @@ window.togglePlayerAnalyzers = async function() {
         const ok = await window.ensureAudioGraph();
         if (!ok) {
             window.analyzersOpen = false;
-            window.showToast('Web Audio API недоступен в этом браузере');
+            window.showToast('Анализаторы недоступны в этом браузере');
             return;
         }
 

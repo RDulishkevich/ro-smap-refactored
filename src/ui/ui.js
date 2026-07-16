@@ -490,6 +490,7 @@ window.openLightbox = function(images, index) {
     window.updateLightboxView();
     const lb = document.getElementById('lightbox-overlay');
     lb.classList.remove('hidden'); lb.classList.add('flex'); void lb.offsetWidth; lb.classList.remove('opacity-0');
+    window.bindLightboxSwipe();
 }
 window.openLightboxForSound = function(id, index) {
     const s = window.soundsData.find(x => x.id === id);
@@ -515,7 +516,32 @@ window.prevLightbox = function(e) {
 window.updateLightboxView = function() {
     document.getElementById('lightbox-img').src = window.currentLightboxImages[window.currentLightboxIndex];
     document.getElementById('lightbox-counter').textContent = `${window.currentLightboxIndex + 1} / ${window.currentLightboxImages.length}`;
+    const dots = document.getElementById('lightbox-dots');
+    if (dots) {
+        const n = window.currentLightboxImages.length;
+        dots.innerHTML = n > 1
+            ? window.currentLightboxImages.map((_, i) => `<button type="button" class="lightbox-dot ${i === window.currentLightboxIndex ? 'active' : ''}" onclick="event.stopPropagation(); window.currentLightboxIndex=${i}; window.updateLightboxView()"></button>`).join('')
+            : '';
+    }
 }
+
+window.bindLightboxSwipe = function() {
+    const img = document.getElementById('lightbox-img');
+    if (!img || img.__swipeBound) return;
+    img.__swipeBound = true;
+    let startX = 0;
+    img.addEventListener('touchstart', (e) => {
+        if (e.touches[0]) startX = e.touches[0].clientX;
+    }, { passive: true });
+    img.addEventListener('touchend', (e) => {
+        const endX = e.changedTouches?.[0]?.clientX;
+        if (endX == null) return;
+        const dx = endX - startX;
+        if (Math.abs(dx) < 40) return;
+        if (dx < 0) window.nextLightbox();
+        else window.prevLightbox();
+    }, { passive: true });
+};
 
 // Data Merging & Sync
 window.mergeData = function(cloudData) {
@@ -1711,6 +1737,14 @@ window.openFeedPostEditor = function(postId = null) {
     if (header) header.innerHTML = `<i class="fa-solid fa-pen-to-square mr-2 text-blue-500"></i>${post ? 'Редактировать пост' : 'Новый пост'}`;
     window.updateFeedPostTypeUI();
     window.applyFeedTitlePreview();
+    window.__feedPostSnapshot = {
+        type: post?.type || 'notice',
+        title: post?.title || '',
+        body: post?.body || '',
+        html: post?.html || '',
+        image: post?.image || '',
+        width: String(post?.imageWidth || 100)
+    };
 
     const m = document.getElementById('feed-post-modal');
     const c = document.getElementById('feed-post-modal-content');
@@ -1730,6 +1764,74 @@ window.closeFeedPostModal = function() {
     setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
     window.__editingFeedPostId = null;
     window.__noticeFeedImage = null;
+    window.__feedPostSnapshot = null;
+};
+
+window.isFeedPostDirty = function() {
+    const snap = window.__feedPostSnapshot;
+    if (!snap) return false;
+    const type = document.querySelector('input[name="feed-post-type"]:checked')?.value || 'notice';
+    const title = (document.getElementById('feed-post-title')?.value || '').trim();
+    const body = (document.getElementById('feed-post-body')?.value || '').trim();
+    const html = document.getElementById('feed-post-editor')?.innerHTML || '';
+    const image = window.__noticeFeedImage || '';
+    const width = String(document.getElementById('feed-notice-image-width')?.value || '100');
+    return type !== snap.type
+        || title !== snap.title
+        || body !== snap.body
+        || html !== snap.html
+        || image !== snap.image
+        || width !== snap.width;
+};
+
+window.requestCloseFeedPostModal = async function() {
+    if (window.isFeedPostDirty()) {
+        const ok = await window.CustomUI.open({
+            title: '<i class="fa-solid fa-triangle-exclamation mr-2 text-amber-500"></i>Закрыть черновик?',
+            message: 'Несохранённые изменения будут потеряны.',
+            confirmText: 'Закрыть',
+            confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
+        });
+        if (!ok) return;
+    }
+    window.closeFeedPostModal();
+};
+
+window.renderDetailsGallery = function() {
+    const images = window.__detailsGalleryImages || [];
+    const idx = Math.max(0, Math.min(window.__detailsGalleryIndex || 0, images.length - 1));
+    window.__detailsGalleryIndex = idx;
+    const detImg = document.getElementById('details-image');
+    const thumbs = document.getElementById('details-extra-images');
+    const counter = document.getElementById('details-gallery-counter');
+    if (detImg) {
+        detImg.src = images[idx] || '';
+        detImg.onclick = () => window.openLightbox(images, idx);
+    }
+    if (counter) {
+        if (images.length > 1) {
+            counter.classList.remove('hidden');
+            counter.textContent = `${idx + 1} / ${images.length}`;
+        } else {
+            counter.classList.add('hidden');
+        }
+    }
+    if (thumbs) {
+        if (images.length > 1) {
+            thumbs.classList.remove('hidden');
+            thumbs.innerHTML = images.map((src, i) =>
+                `<img src="${src}" class="details-gallery__thumb ${i === idx ? 'active' : ''}" alt="" onclick="event.stopPropagation(); window.setDetailsGalleryIndex(${i})">`
+            ).join('');
+        } else {
+            thumbs.classList.add('hidden');
+            thumbs.innerHTML = '';
+        }
+    }
+};
+
+window.setDetailsGalleryIndex = function(i) {
+    window.__detailsGalleryIndex = i;
+    window.renderDetailsGallery();
 };
 
 window.applyFeedTitlePreview = function() {
@@ -1970,18 +2072,12 @@ window.openDetailsModal = function() {
     const s = window.soundsData.find(x => x.id === window.currentPlayingId);
     if (!s) return;
 
-    const detImg = document.getElementById('details-image');
-    if (s.images && s.images.length > 0) {
-        if (detImg) {
-            detImg.src = s.images[0];
-            detImg.onclick = () => window.openLightboxForSound(s.id, 0);
-        }
-    } else {
-        if (detImg) {
-            detImg.src = `https://picsum.photos/seed/${s.id}/800/500`;
-            detImg.onclick = () => window.openLightbox([`https://picsum.photos/seed/${s.id}/800/500`], 0);
-        }
-    }
+    const images = (s.images && s.images.length)
+        ? s.images
+        : [`https://picsum.photos/seed/${s.id}/800/500`];
+    window.__detailsGalleryImages = images;
+    window.__detailsGalleryIndex = 0;
+    window.renderDetailsGallery();
 
     const titleEl = document.getElementById('details-title');
     const fileEl = document.getElementById('details-filename');
