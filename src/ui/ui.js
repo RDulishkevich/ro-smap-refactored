@@ -75,6 +75,21 @@ window.renderRegionStats = function(targetId = 'region-stats-grid') {
     const grid = document.getElementById(targetId);
     if (!grid || !window.parseDuration) return;
     const stats = window.getRegionStats();
+
+    // The main "Статистика региона" panel is rendered by the React + Motion widget
+    // (src/widgets/analytics-widget.js); other targets (e.g. the admin grid) keep the plain cards.
+    if (targetId === 'region-stats-grid' && window.AnalyticsWidget && typeof window.AnalyticsWidget.mount === 'function') {
+        window.AnalyticsWidget.mount(grid, {
+            total: stats.total,
+            withAudio: stats.withAudio,
+            recordists: stats.recordists,
+            totalMinutes: stats.totalSecs / 60,
+            byEco: stats.byEco,
+            topUcsList: stats.topUcs.map(([label, value]) => ({ label, value }))
+        });
+        return;
+    }
+
     const cards = [
         { value: stats.total, label: 'Записей', color: 'text-blue-600 dark:text-blue-400' },
         { value: stats.withAudio, label: 'С аудио', color: 'text-emerald-600 dark:text-emerald-400' },

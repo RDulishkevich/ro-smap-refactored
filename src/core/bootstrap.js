@@ -4,6 +4,7 @@ import { initAuth } from './auth.js';
 import '../ui/ui.js';
 import './audio.js';
 import './map.js';
+import '../widgets/analytics-widget.js';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;
