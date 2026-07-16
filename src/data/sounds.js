@@ -34,6 +34,28 @@ export const rawSoundsData = [
     { id: 'r5', title: 'Улица Пушкинская', ecoCategory: 'anthrophony', ucsCat: 'AMBIENCE', lat: 47.2260, lng: 39.7180, duration: '1:30', url: '', typeTag: 'AMBCity', semanticTag: 'Urban Life', gear: 'Binaural Mic', date: '02 окт. 2023 г.', description: 'Прогулка по пешеходной зоне.', keywords: 'Steps, Street, Leaves, Walk', micType: 'Soundman OKM II', recPrinciple: 'Звуковая прогулка (Soundwalk)', channels: 'Ambisonics', weather: 'Ветер (Wind)', route: [[47.2260, 39.7180], [47.2265, 39.7200], [47.2270, 39.7220], [47.2275, 39.7240]] }
 ];
 
+const randomId = prefix => prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+// Старые комментарии (вшитые демо-данные) хранились как {author, text, date} без id/автора-ссылки —
+// достраиваем недостающие поля, чтобы меню "..." (профиль/ответить/реакция/жалоба) работало всюду.
+const normalizeReply = r => ({
+    id: r.id || randomId('cr'),
+    author: r.author || 'Гость',
+    authorId: r.authorId || null,
+    text: r.text || '',
+    date: r.date || ''
+});
+const normalizeComment = c => ({
+    id: c.id || randomId('c'),
+    author: c.author || 'Гость',
+    authorId: c.authorId || null,
+    text: c.text || '',
+    date: c.date || '',
+    replies: Array.isArray(c.replies) ? c.replies.map(normalizeReply) : [],
+    // Простая тумблер-реакция (♥) — набор логинов, которые её поставили.
+    reactedBy: Array.isArray(c.reactedBy) ? c.reactedBy : []
+});
+
 export const formatSoundObject = function(s) {
     const keywordsStr = s.keywords || `soundscape, rostov`;
     const tagsList = keywordsStr.split(',').map(t => t.trim()).filter(Boolean);
@@ -54,7 +76,7 @@ export const formatSoundObject = function(s) {
         license: s.license || 'CC BY 4.0',
         keywords: keywordsStr,
         tagArray: tagsList,
-        comments: s.comments || [],
+        comments: (s.comments || []).map(normalizeComment),
         images: s.images || [],
         // Публикации без статуса (весь вшитый демо-контент) считаются опубликованными —
         // обратная совместимость. Новые загрузки получают 'pending' (или 'draft' — см. publishSound).
@@ -68,6 +90,12 @@ export const formatSoundObject = function(s) {
         rejectionReason: s.rejectionReason || '',
         // false сразу после смены статуса админом — гасит уведомление автору при следующем
         // открытии кабинета (см. auth.js renderCabinet). У старых/демо-записей всегда true.
-        seenByAuthor: s.seenByAuthor === undefined ? true : s.seenByAuthor
+        seenByAuthor: s.seenByAuthor === undefined ? true : s.seenByAuthor,
+        // Лайк/дизлайк метки (набор логинов на каждую реакцию — тумблер, взаимоисключающий).
+        likedBy: Array.isArray(s.likedBy) ? s.likedBy : [],
+        dislikedBy: Array.isArray(s.dislikedBy) ? s.dislikedBy : [],
+        // Жалобы на саму метку либо на конкретный комментарий (commentId задан только для второго случая).
+        // Разбираются в админ-панели, вкладка "Жалобы" (см. auth.js renderReportsList).
+        reports: Array.isArray(s.reports) ? s.reports : []
     };
 };

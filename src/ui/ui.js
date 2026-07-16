@@ -363,6 +363,45 @@ window.CustomUI = window.CustomUI || {
     }
 };
 
+// Мини-"шторка" со списком действий — переиспользуемая замена контекстного меню по «...»
+// (профиль автора / ответить / реакция / пожаловаться у комментариев, см. openCommentMenu).
+window.ActionSheet = {
+    _actions: [],
+    open: function(items) {
+        this._actions = items.map(i => i.onClick);
+        const container = document.getElementById('action-sheet-items');
+        const overlay = document.getElementById('action-sheet-overlay');
+        const content = document.getElementById('action-sheet-content');
+        if (!container || !overlay || !content) return;
+
+        container.innerHTML = items.map((item, i) => `
+            <button onclick="window.ActionSheet.trigger(${i})" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors text-left ${item.danger ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'}">
+                <i class="fa-solid ${item.icon} w-4 text-center opacity-70"></i>${item.label}
+            </button>
+        `).join('');
+
+        overlay.classList.remove('hidden');
+        void overlay.offsetWidth;
+        overlay.classList.remove('opacity-0');
+        content.classList.remove('translate-y-full', 'sm:scale-95');
+    },
+    trigger: function(i) {
+        const fn = this._actions[i];
+        this.close();
+        // Ждём завершения анимации закрытия шторки, прежде чем открывать следующий модал/промпт —
+        // иначе они визуально конфликтуют (пересекаются переходы opacity/scale).
+        if (fn) setTimeout(fn, 280);
+    },
+    close: function() {
+        const overlay = document.getElementById('action-sheet-overlay');
+        const content = document.getElementById('action-sheet-content');
+        if (!overlay || !content) return;
+        overlay.classList.add('opacity-0');
+        content.classList.add('translate-y-full', 'sm:scale-95');
+        setTimeout(() => { if (overlay.classList.contains('opacity-0')) overlay.classList.add('hidden'); }, 300);
+    }
+};
+
 window.openLocationPickerModal = function() {
     const modal = document.getElementById('location-picker-modal');
     const content = document.getElementById('location-picker-modal-content');
@@ -687,17 +726,22 @@ window.renderPortfolioGrid = function(sounds, containerId) {
     }
     el.innerHTML = sounds.map(s => {
         const ecoLabel = window.translations[window.currentLang]?.[`filter_${s.ecoCategory}`] || s.ecoCategory;
-        const statusPill = s.status && s.status !== 'published'
-            ? `<span class="pub-status-pill pub-status-${s.status}">${s.status === 'pending' ? 'На модерации' : 'Отклонено'}</span>`
-            : '';
+        const st = window.STATUS_LABELS && window.STATUS_LABELS[s.status];
+        const statusPill = st && s.status !== 'published' ? `<span class="pub-status-pill ${st.cls}">${st.label}</span>` : '';
+        const thumb = (s.images && s.images[0]) || `https://picsum.photos/seed/${s.id}/80/80`;
         return `
         <div class="portfolio-card" onclick="window.closePublicProfileModal(); window.selectSound('${s.id}');">
             <div class="portfolio-card-top">
                 <span class="portfolio-card-eco eco-${s.ecoCategory}">${ecoLabel}</span>
                 ${statusPill}
             </div>
-            <h4 class="portfolio-card-title">${s.title}</h4>
-            <div class="portfolio-card-meta"><i class="fa-regular fa-clock"></i> ${s.duration || '0:00'}</div>
+            <div class="portfolio-card-body">
+                <img src="${thumb}" alt="" class="portfolio-card-thumb" loading="lazy">
+                <div class="min-w-0 flex-1">
+                    <h4 class="portfolio-card-title">${s.title}</h4>
+                    <div class="portfolio-card-meta"><i class="fa-regular fa-calendar"></i> ${s.date || '—'}</div>
+                </div>
+            </div>
         </div>`;
     }).join('');
 };
@@ -832,7 +876,7 @@ window.renderActiveTags = function() {
 window.getFilteredSounds = function(forceRefresh = false) {
     const queryEl = document.getElementById('search-input');
     const query = queryEl ? queryEl.value.trim().toLowerCase() : '';
-    const cacheKey = `${query}|${window.activeEcoLayer.size}|${Array.from(window.activeEcoLayer).sort().join(',')}|${window.activeUcsCat.size}|${Array.from(window.activeUcsCat).sort().join(',')}|${window.activeUcsSub.size}|${Array.from(window.activeUcsSub).sort().join(',')}|${window.activePrinciple.size}|${Array.from(window.activePrinciple).sort().join(',')}|${window.activeGear.size}|${Array.from(window.activeGear).sort().join(',')}|${window.activeMic.size}|${Array.from(window.activeMic).sort().join(',')}|${window.activeChannels.size}|${Array.from(window.activeChannels).sort().join(',')}|${window.activeLicense.size}|${Array.from(window.activeLicense).sort().join(',')}|${window.activeRecordist.size}|${Array.from(window.activeRecordist).sort().join(',')}|${window.activeWeather.size}|${Array.from(window.activeWeather).sort().join(',')}|${window.activeDate.size}|${Array.from(window.activeDate).sort().join(',')}`;
+    const cacheKey = `${query}|${window.activeEcoLayer.size}|${Array.from(window.activeEcoLayer).sort().join(',')}|${window.activeUcsCat.size}|${Array.from(window.activeUcsCat).sort().join(',')}|${window.activeUcsSub.size}|${Array.from(window.activeUcsSub).sort().join(',')}|${window.activePrinciple.size}|${Array.from(window.activePrinciple).sort().join(',')}|${window.activeGear.size}|${Array.from(window.activeGear).sort().join(',')}|${window.activeMic.size}|${Array.from(window.activeMic).sort().join(',')}|${window.activeChannels.size}|${Array.from(window.activeChannels).sort().join(',')}|${window.activeLicense.size}|${Array.from(window.activeLicense).sort().join(',')}|${window.activeRecordist.size}|${Array.from(window.activeRecordist).sort().join(',')}|${window.activeWeather.size}|${Array.from(window.activeWeather).sort().join(',')}|${window.activeDate.size}|${Array.from(window.activeDate).sort().join(',')}|session:${window.activeSessionId || ''}`;
 
     if (!forceRefresh && window.__filteredSoundsCacheKey === cacheKey && window.__filteredSoundsCache) {
         return window.__filteredSoundsCache;
@@ -854,8 +898,9 @@ window.getFilteredSounds = function(forceRefresh = false) {
         const weatherMatch = window.activeWeather.size === 0 || window.activeWeather.has(s.weather);
         const dateMatch = window.activeDate.size === 0 || window.activeDate.has(s.date);
         const statusMatch = window.isSoundStatusVisible(s);
+        const sessionMatch = !window.activeSessionId || s.sessionId === window.activeSessionId;
 
-        return searchMatch && ecoMatch && ucsCatMatch && ucsSubMatch && principleMatch && gearMatch && micMatch && channelMatch && licenseMatch && recordistMatch && weatherMatch && dateMatch && statusMatch;
+        return searchMatch && ecoMatch && ucsCatMatch && ucsSubMatch && principleMatch && gearMatch && micMatch && channelMatch && licenseMatch && recordistMatch && weatherMatch && dateMatch && statusMatch && sessionMatch;
     });
 
     window.__filteredSoundsCache = filtered;
@@ -923,16 +968,21 @@ window.processFilterChange = function(forceOpenDesktopSidebar = false) {
 }
 
 window.switchFilterTab = function(tab) {
-    const btnUcs = document.getElementById('tab-ucs'), btnTags = document.getElementById('tab-tags'), btnMeta = document.getElementById('tab-meta');
-    const panelUcs = document.getElementById('panel-ucs'), panelTags = document.getElementById('panel-tags'), panelMeta = document.getElementById('panel-meta');
+    const btnUcs = document.getElementById('tab-ucs'), btnTags = document.getElementById('tab-tags'), btnMeta = document.getElementById('tab-meta'), btnExp = document.getElementById('tab-expeditions');
+    const panelUcs = document.getElementById('panel-ucs'), panelTags = document.getElementById('panel-tags'), panelMeta = document.getElementById('panel-meta'), panelExp = document.getElementById('panel-expeditions');
     if (!btnUcs || !btnTags || !btnMeta) return;
     const activeClass = "flex-1 py-3 text-[12px] md:text-[13px] font-bold text-blue-600 border-b-2 border-blue-600 transition-colors";
     const inactiveClass = "flex-1 py-3 text-[12px] md:text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors";
 
-    btnUcs.className = inactiveClass; btnTags.className = inactiveClass; btnMeta.className = inactiveClass;
-    if(panelUcs) panelUcs.classList.add('hidden'); if(panelTags) panelTags.classList.add('hidden'); if(panelMeta) panelMeta.classList.add('hidden');
+    btnUcs.className = inactiveClass; btnTags.className = inactiveClass; btnMeta.className = inactiveClass; if (btnExp) btnExp.className = inactiveClass;
+    if(panelUcs) panelUcs.classList.add('hidden'); if(panelTags) panelTags.classList.add('hidden'); if(panelMeta) panelMeta.classList.add('hidden'); if(panelExp) panelExp.classList.add('hidden');
     if (tab === 'ucs') { btnUcs.className = activeClass; if(panelUcs) panelUcs.classList.remove('hidden'); }
     else if (tab === 'tags') { btnTags.className = activeClass; if(panelTags) panelTags.classList.remove('hidden'); }
+    else if (tab === 'expeditions') {
+        if (btnExp) btnExp.className = activeClass;
+        if (panelExp) panelExp.classList.remove('hidden');
+        if (window.renderSidebarExpeditions) window.renderSidebarExpeditions();
+    }
     else { btnMeta.className = activeClass; if(panelMeta) panelMeta.classList.remove('hidden'); }
 }
 
@@ -1042,6 +1092,13 @@ window.openDetailsModal = function() {
         recordistEl.onclick = () => window.openPublicProfile(s.recordistId, s.recordist);
     }
 
+    const playsEl = document.getElementById('det-stat-plays');
+    const downloadsEl = document.getElementById('det-stat-downloads');
+    if (playsEl) playsEl.textContent = s.plays || 0;
+    if (downloadsEl) downloadsEl.textContent = s.downloads || 0;
+    window.renderDetailsReactions(s);
+    window.cancelReplyToComment();
+
     window.renderComments(s);
 
     const m = document.getElementById('details-modal');
@@ -1109,14 +1166,66 @@ window.renderComments = function(sound) {
     const container = document.getElementById('comments-list');
     if(!container) return;
     if(!sound.comments || sound.comments.length === 0) { container.innerHTML = `<p class="text-sm text-slate-400 italic px-2">Нет комментариев</p>`; return; }
-    container.innerHTML = sound.comments.map(c => `
-        <div class="bg-slate-100/60 dark:bg-slate-900/60 p-3.5 rounded-2xl border border-slate-200/50">
-            <div class="flex justify-between mb-1.5"><span class="text-[13px] font-bold text-slate-700">${c.author}</span><span class="text-[10px] text-slate-400">${c.date}</span></div>
-            <p class="text-[13px] text-slate-600">${c.text}</p>
-        </div>
-    `).join('');
+
+    const login = window.currentUser ? (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase()) : null;
+    const esc = s => String(s == null ? '' : s).replace(/'/g, "\\'");
+
+    // Имя автора кликабельно и ведёт на публичный профиль только для зарегистрированных
+    // пользователей (authorId задан) — у гостевых комментариев профиля нет.
+    const renderAuthor = (author, authorId) => authorId
+        ? `<span class="comment-author-link" onclick="window.openPublicProfile('${authorId}', '${esc(author)}')">${author}</span>`
+        : `<span class="font-bold text-slate-700 dark:text-slate-200">${author}</span>`;
+
+    const renderReply = r => `
+        <div class="comment-reply">
+            <div class="flex justify-between items-start gap-2 mb-1">
+                <span class="text-[12px]">${renderAuthor(r.author, r.authorId)}</span>
+                <span class="text-[9px] text-slate-400 shrink-0">${r.date}</span>
+            </div>
+            <p class="text-[12px] text-slate-600 dark:text-slate-300">${r.text}</p>
+        </div>`;
+
+    container.innerHTML = sound.comments.map(c => {
+        const reactedByMe = !!login && (c.reactedBy || []).includes(login);
+        const reactionCount = (c.reactedBy || []).length;
+        return `
+        <div class="bg-slate-100/60 dark:bg-slate-900/60 p-3.5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+            <div class="flex justify-between items-start mb-1.5 gap-2">
+                <span class="text-[13px]">${renderAuthor(c.author, c.authorId)}</span>
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <span class="text-[10px] text-slate-400">${c.date}</span>
+                    <button onclick="window.openCommentMenu('${sound.id}', '${c.id}')" class="comment-menu-btn" title="Действия">
+                        <i class="fa-solid fa-ellipsis"></i>
+                    </button>
+                </div>
+            </div>
+            <p class="text-[13px] text-slate-600 dark:text-slate-300 mb-1.5">${c.text}</p>
+            <button onclick="window.toggleCommentReaction('${sound.id}', '${c.id}')" class="comment-reaction-btn ${reactedByMe ? 'active' : ''}">
+                <i class="fa-solid fa-heart"></i>${reactionCount > 0 ? reactionCount : ''}
+            </button>
+            ${(c.replies && c.replies.length) ? `<div class="comment-replies">${c.replies.map(renderReply).join('')}</div>` : ''}
+        </div>`;
+    }).join('');
     container.scrollTop = container.scrollHeight;
 }
+
+// Контекст активного ответа: если задан, addComment() уходит в replies родителя, а не в
+// корневой список комментариев. Сбрасывается после отправки или явной отмены (крестик баннера).
+window.__replyContext = null;
+window.startReplyToComment = function(soundId, commentId, authorName) {
+    window.__replyContext = { soundId, commentId };
+    const banner = document.getElementById('comment-reply-banner');
+    const label = document.getElementById('comment-reply-target');
+    const input = document.getElementById('new-comment-input');
+    if (label) label.textContent = authorName;
+    if (banner) { banner.classList.remove('hidden'); banner.classList.add('flex'); }
+    if (input) input.focus();
+};
+window.cancelReplyToComment = function() {
+    window.__replyContext = null;
+    const banner = document.getElementById('comment-reply-banner');
+    if (banner) { banner.classList.add('hidden'); banner.classList.remove('flex'); }
+};
 
 window.addComment = async function() {
     const input = document.getElementById('new-comment-input');
@@ -1124,8 +1233,23 @@ window.addComment = async function() {
     const s = window.soundsData.find(x => x.id === window.currentPlayingId);
     if(s) {
         const dateStr = new Date().toLocaleDateString(window.currentLang === 'ru' ? 'ru-RU' : 'en-US');
-        let authorName = window.currentUser ? window.currentUser.username : (window.currentLang === 'ru' ? 'Гость' : 'Guest');
-        s.comments.push({ author: authorName, text: input.value.trim(), date: dateStr });
+        const authorName = window.currentUser ? window.currentUser.username : (window.currentLang === 'ru' ? 'Гость' : 'Guest');
+        const authorId = window.currentUser ? (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase()) : null;
+        const text = input.value.trim();
+        const idBase = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+        const replyCtx = (window.__replyContext && window.__replyContext.soundId === s.id) ? window.__replyContext : null;
+        if (replyCtx) {
+            const parent = (s.comments || []).find(c => c.id === replyCtx.commentId);
+            if (parent) {
+                parent.replies = parent.replies || [];
+                parent.replies.push({ id: 'cr' + idBase, author: authorName, authorId, text, date: dateStr });
+            }
+            window.cancelReplyToComment();
+        } else {
+            s.comments.push({ id: 'c' + idBase, author: authorName, authorId, text, date: dateStr, replies: [], reactedBy: [] });
+        }
+
         input.value = ''; window.renderComments(s);
         let updatedCloud = [...window.cloudDataCache];
         let idx = updatedCloud.findIndex(x => x.id === s.id);
@@ -1133,6 +1257,110 @@ window.addComment = async function() {
         await window.syncCloudData(updatedCloud);
     }
 }
+
+// Меню «...» у комментария — профиль автора / ответить / реакция / пожаловаться.
+window.openCommentMenu = function(soundId, commentId) {
+    const s = window.soundsData.find(x => x.id === soundId);
+    if (!s) return;
+    const c = (s.comments || []).find(x => x.id === commentId);
+    if (!c) return;
+    const login = window.currentUser ? (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase()) : null;
+    const reacted = !!login && (c.reactedBy || []).includes(login);
+
+    const items = [];
+    if (c.authorId) items.push({ icon: 'fa-id-badge', label: 'Профиль автора', onClick: () => window.openPublicProfile(c.authorId, c.author) });
+    items.push({ icon: 'fa-reply', label: 'Ответить', onClick: () => window.startReplyToComment(soundId, commentId, c.author) });
+    items.push({ icon: 'fa-heart', label: reacted ? 'Убрать реакцию' : 'Поставить реакцию', onClick: () => window.toggleCommentReaction(soundId, commentId) });
+    items.push({ icon: 'fa-flag', label: 'Пожаловаться', danger: true, onClick: () => window.openReportModal('comment', soundId, commentId) });
+    window.ActionSheet.open(items);
+};
+
+window.toggleCommentReaction = async function(soundId, commentId) {
+    if (!window.currentUser) { window.showToast('Войдите, чтобы поставить реакцию'); if (window.openAuthModal) window.openAuthModal(); return; }
+    const s = window.soundsData.find(x => x.id === soundId);
+    if (!s) return;
+    const c = (s.comments || []).find(x => x.id === commentId);
+    if (!c) return;
+    const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+    c.reactedBy = c.reactedBy || [];
+    const idx = c.reactedBy.indexOf(login);
+    if (idx >= 0) c.reactedBy.splice(idx, 1); else c.reactedBy.push(login);
+    window.renderComments(s);
+
+    const updatedCloud = [...window.cloudDataCache];
+    const cIdx = updatedCloud.findIndex(x => x.id === soundId);
+    if (cIdx >= 0) updatedCloud[cIdx] = s; else updatedCloud.push(s);
+    await window.syncCloudData(updatedCloud);
+};
+
+// Жалоба на метку или на конкретный комментарий — попадает в очередь модерации
+// (Кабинет -> Админ-панель -> Жалобы, см. auth.js renderReportsList).
+window.openReportModal = async function(type, soundId, commentId = null) {
+    if (!window.currentUser) { window.showToast('Войдите, чтобы отправить жалобу'); if (window.openAuthModal) window.openAuthModal(); return; }
+    if (!soundId) return;
+
+    const reason = await window.CustomUI.open({
+        title: '<i class="fa-solid fa-flag mr-2 text-red-500"></i>Пожаловаться',
+        message: type === 'comment' ? 'Опишите, что не так с этим комментарием — жалобу рассмотрят модераторы.' : 'Опишите, что не так с этой записью — жалобу рассмотрят модераторы.',
+        confirmText: 'Отправить жалобу',
+        confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md',
+        showInput: true,
+        inputPlaceholder: 'Причина жалобы'
+    });
+    if (reason === false || !reason) return;
+
+    const s = window.soundsData.find(x => x.id === soundId);
+    if (!s) return;
+    const report = {
+        id: 'rep' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        type,
+        commentId: commentId || null,
+        reason,
+        reporterId: window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase(),
+        reporterName: window.currentUser.username,
+        date: new Date().toISOString(),
+        status: 'pending'
+    };
+    s.reports = [...(s.reports || []), report];
+
+    const updatedCloud = [...window.cloudDataCache];
+    const idx = updatedCloud.findIndex(x => x.id === soundId);
+    if (idx >= 0) updatedCloud[idx] = s; else updatedCloud.push(s);
+    const success = await window.syncCloudData(updatedCloud);
+    window.showToast(success ? 'Жалоба отправлена модераторам' : 'Не удалось отправить жалобу');
+};
+
+// Лайк/дизлайк метки — взаимоисключающий тумблер (голос за один автоматически снимает другой).
+window.toggleSoundReaction = async function(kind) {
+    if (!window.currentUser) { window.showToast('Войдите, чтобы оценить запись'); if (window.openAuthModal) window.openAuthModal(); return; }
+    const s = window.soundsData.find(x => x.id === window.currentPlayingId);
+    if (!s) return;
+    const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+    s.likedBy = s.likedBy || []; s.dislikedBy = s.dislikedBy || [];
+    const other = kind === 'like' ? s.dislikedBy : s.likedBy;
+    const target = kind === 'like' ? s.likedBy : s.dislikedBy;
+    const oi = other.indexOf(login); if (oi >= 0) other.splice(oi, 1);
+    const ti = target.indexOf(login);
+    if (ti >= 0) target.splice(ti, 1); else target.push(login);
+    window.renderDetailsReactions(s);
+
+    const updatedCloud = [...window.cloudDataCache];
+    const idx = updatedCloud.findIndex(x => x.id === s.id);
+    if (idx >= 0) updatedCloud[idx] = s; else updatedCloud.push(s);
+    await window.syncCloudData(updatedCloud);
+};
+
+window.renderDetailsReactions = function(s) {
+    const login = window.currentUser ? (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase()) : null;
+    const likeBtn = document.getElementById('det-like-btn');
+    const dislikeBtn = document.getElementById('det-dislike-btn');
+    const likeCount = document.getElementById('det-like-count');
+    const dislikeCount = document.getElementById('det-dislike-count');
+    if (likeCount) likeCount.textContent = (s.likedBy || []).length;
+    if (dislikeCount) dislikeCount.textContent = (s.dislikedBy || []).length;
+    if (likeBtn) likeBtn.classList.toggle('active', !!login && (s.likedBy || []).includes(login));
+    if (dislikeBtn) dislikeBtn.classList.toggle('active', !!login && (s.dislikedBy || []).includes(login));
+};
 
 // Добавление Аудио
 window.handleAudioFiles = function(files) {

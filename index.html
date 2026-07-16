@@ -41,9 +41,6 @@
     <!-- Карта -->
     <div id="map" class="absolute inset-0 z-0 transition-all duration-500"></div>
 
-    <!-- Затемнение при открытой боковой панели (мобильные) -->
-    <div id="sidebar-backdrop" onclick="window.toggleSidebar()" class="fixed inset-0 z-[55] bg-slate-900/40 backdrop-blur-[2px] opacity-0 pointer-events-none transition-opacity duration-300 md:hidden"></div>
-
     <!-- Онбординг для новых пользователей -->
     <div id="onboarding-overlay" class="fixed inset-0 z-[400] hidden pointer-events-none">
         <div id="onboarding-highlight" class="absolute rounded-3xl border-2 border-blue-400 shadow-[0_0_0_9999px_rgba(15,23,42,0.72)] transition-all duration-500 pointer-events-none"></div>
@@ -63,7 +60,13 @@
 
     <!-- UI Слои -->
     <div class="absolute inset-0 pointer-events-none z-10 w-full h-full overflow-hidden">
-        
+
+        <!-- Затемнение при открытой боковой панели (мобильные). Должно жить в том же
+             стекинг-контексте, что и #sidebar (z-60), иначе его z-[55] будет сравниваться
+             не с сайдбаром, а со всей обёрткой "UI Слои" (z-10) и перекроет её целиком —
+             из-за этого панель "открывается размытой" и закрывается по любому клику. -->
+        <div id="sidebar-backdrop" onclick="window.toggleSidebar()" class="fixed inset-0 z-[55] bg-slate-900/40 backdrop-blur-[2px] opacity-0 pointer-events-none transition-opacity duration-300 md:hidden"></div>
+
         <!-- Кнопка бургер-меню (Слева) -->
         <button id="burger-btn" onclick="window.toggleSidebar()" class="absolute top-4 left-4 md:top-6 md:left-6 z-20 w-12 h-12 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-800 dark:text-slate-100 hover:scale-105 active:scale-95 transition-all cursor-pointer pointer-events-auto">
             <i class="fa-solid fa-bars text-xl pointer-events-none"></i>
@@ -100,6 +103,7 @@
                 <button onclick="window.switchFilterTab('ucs')" id="tab-ucs" class="flex-1 py-3 text-[12px] md:text-[13px] font-bold text-blue-600 border-b-2 border-blue-600 transition-colors" data-lang="filter_tab_ucs"><i class="fa-solid fa-layer-group mr-1"></i>Библиотека</button>
                 <button onclick="window.switchFilterTab('tags')" id="tab-tags" class="flex-1 py-3 text-[12px] md:text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors" data-lang="filter_tab_tags"><i class="fa-solid fa-hashtag mr-1"></i>Теги</button>
                 <button onclick="window.switchFilterTab('meta')" id="tab-meta" class="flex-1 py-3 text-[12px] md:text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors" data-lang="filter_tab_meta"><i class="fa-solid fa-sliders mr-1"></i>Параметры</button>
+                <button onclick="window.switchFilterTab('expeditions')" id="tab-expeditions" class="flex-1 py-3 text-[12px] md:text-[13px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors"><i class="fa-solid fa-route mr-1"></i>Экспедиции</button>
             </div>
 
             <div id="active-tags-container" class="px-6 py-2.5 flex flex-wrap gap-2 empty:hidden bg-slate-50/80 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700/50 flex-shrink-0"></div>
@@ -132,6 +136,9 @@
                 <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_recordist">Автор</p><div class="flex flex-wrap gap-1.5" id="filter-meta-recordist"></div></div>
                 <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_weather">Погода</p><div class="flex flex-wrap gap-1.5" id="filter-meta-weather"></div></div>
             </div>
+
+            <!-- Панель Экспедиций: свои сессии из Кабинета, быстрый фильтр списка звуков по выезду -->
+            <div id="panel-expeditions" class="hidden px-4 py-4 border-b border-slate-100 dark:border-slate-700/50 overflow-y-auto max-h-56 custom-scrollbar flex flex-col gap-2 flex-shrink-0"></div>
 
             <div id="sounds-list" class="flex-1 overflow-y-auto p-4 flex flex-col gap-2"></div>
         </div>
@@ -262,8 +269,9 @@
             </div>
         </div>
 
-        <!-- Кнопка Добавления звука -->
-        <div id="fab-add" class="absolute bottom-4 right-4 md:bottom-8 md:right-8 pointer-events-auto z-50">
+        <!-- Кнопка Добавления звука: на телефоне — сразу под кнопкой профиля (верх/справа),
+             на ПК — привычное место в правом нижнем углу. -->
+        <div id="fab-add" class="absolute top-20 right-4 md:top-auto md:bottom-8 md:right-8 pointer-events-auto z-40">
             <button onclick="window.toggleAddModal()" class="w-14 h-14 bg-blue-600 text-white rounded-[1.25rem] flex items-center justify-center shadow-2xl border border-blue-500 transition-transform hover:scale-105 active:scale-95" title="Add Audio">
                 <i class="fa-solid fa-plus text-2xl pointer-events-none"></i>
             </button>
@@ -455,7 +463,7 @@
                             <h4 class="font-bold text-slate-800 dark:text-white mb-1"><i class="fa-solid fa-route mr-1.5 text-blue-500"></i>Экспедиции</h4>
                             <p class="text-sm text-slate-600 dark:text-slate-300">Группируйте записи одного выезда в черновики и публикуйте их пачкой, когда материал готов.</p>
                         </div>
-                        <button onclick="window.promptCreateSessionFromModal()" class="shrink-0 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-sm whitespace-nowrap">
+                        <button onclick="window.openSessionModal()" class="shrink-0 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-sm whitespace-nowrap">
                             <i class="fa-solid fa-plus mr-1"></i>Новая
                         </button>
                     </div>
@@ -500,6 +508,34 @@
                         </button>
                     </div>
                     <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
+                        <div class="flex items-center justify-between gap-2">
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-1"><i class="fa-solid fa-envelope-circle-check mr-1.5 text-blue-500"></i>Почта</h4>
+                            <span id="email-verified-badge" class="pub-status-pill pub-status-rejected">Не подтверждена</span>
+                        </div>
+                        <p class="text-sm text-slate-600 dark:text-slate-300">Привяжите email, чтобы восстанавливать доступ к аккаунту и получать важные уведомления.</p>
+                        <div>
+                            <label class="modal-label text-slate-400">Email</label>
+                            <input id="profile-email" type="email" placeholder="you@example.com" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm">
+                        </div>
+                        <button id="email-send-code-btn" onclick="window.startEmailVerification()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-700 hover:bg-slate-800 text-white font-semibold transition-colors shadow-sm">
+                            <i class="fa-solid fa-paper-plane"></i>Отправить код подтверждения
+                        </button>
+                        <div id="email-code-block" class="hidden space-y-2">
+                            <div>
+                                <label class="modal-label text-slate-400">Код из письма (6 цифр)</label>
+                                <input id="email-code-input" type="text" inputmode="numeric" maxlength="6" placeholder="000000" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-center tracking-[0.3em] font-mono">
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="window.confirmEmailCode()" class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm text-sm">
+                                    <i class="fa-solid fa-check"></i>Подтвердить
+                                </button>
+                                <button onclick="window.startEmailVerification()" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-500 dark:text-slate-300 font-semibold transition-colors text-sm">
+                                    Ещё раз
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
                         <div>
                             <h4 class="font-bold text-slate-800 dark:text-white mb-1"><i class="fa-solid fa-id-badge mr-1.5 text-blue-500"></i>Публичная визитка</h4>
                             <p class="text-sm text-slate-600 dark:text-slate-300">Эти данные видны всем в вашем публичном профиле — вместе с личной картой и портфолио звуков.</p>
@@ -514,7 +550,7 @@
                         </div>
                         <div>
                             <label class="modal-label text-slate-400">Ссылки на профессиональные ресурсы (через запятую)</label>
-                            <input id="profile-links" type="text" placeholder="https://soundcloud.com/..., https://instagram.com/..." class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs">
+                            <input id="profile-links" type="text" placeholder="https://soundcloud.com/..., https://vk.com/..." class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs">
                         </div>
                         <button onclick="window.saveMyProfileFromSettingsForm()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
                             <i class="fa-solid fa-floppy-disk"></i>Сохранить публичный профиль
@@ -621,6 +657,11 @@
                         <button onclick="window.setAdminListFilter('pending')" id="admin-filter-btn-pending" class="admin-filter-btn">На модерации <span id="admin-filter-pending-count" class="admin-filter-count">0</span></button>
                     </div>
                     <div id="admin-sounds-list" class="space-y-3"></div>
+
+                    <div class="flex items-center justify-between mt-6 mb-1">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"><i class="fa-solid fa-flag mr-1 text-red-500"></i>Жалобы <span id="admin-reports-count" class="admin-filter-count"></span></p>
+                    </div>
+                    <div id="admin-reports-list" class="space-y-2"></div>
 
                     <div class="flex items-center justify-between mt-6 mb-1">
                         <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"><i class="fa-solid fa-shield-halved mr-1 text-blue-500"></i>Пользователи и бейджи доверия</p>
@@ -852,7 +893,7 @@
                             <select id="add-session" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white appearance-none text-xs font-semibold flex-1">
                                 <option value="">Без сессии</option>
                             </select>
-                            <button type="button" onclick="window.promptCreateSessionFromModal()" title="Создать новую экспедицию" class="shrink-0 w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors">
+                            <button type="button" onclick="window.openSessionModal()" title="Создать новую экспедицию" class="shrink-0 w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors">
                                 <i class="fa-solid fa-plus"></i>
                             </button>
                         </div>
@@ -948,6 +989,64 @@
         </div>
     </div>
 
+    <!-- Модальное окно: ПОЛНАЯ ФОРМА ЭКСПЕДИЦИИ (дата, цели, маршрут, участники, медиа, ссылки) -->
+    <div id="session-modal" onmousedown="if(event.target === this) window.closeSessionModal()" class="fixed inset-0 z-[215] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none">
+        <div id="session-modal-content" class="bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden transform scale-95 transition-all border border-slate-100 dark:border-slate-800 pointer-events-auto">
+            <div class="p-6 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 shrink-0">
+                <h3 id="session-modal-title" class="text-xl font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-route mr-2 text-blue-600"></i>Новая экспедиция</h3>
+                <button onclick="window.closeSessionModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-4">
+                <div>
+                    <label class="modal-label text-slate-400">Название *</label>
+                    <input id="session-form-title" type="text" placeholder="Например: Экспедиция в займище" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="modal-label text-slate-400">Дата</label>
+                        <input id="session-form-date" type="date" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white">
+                    </div>
+                    <div>
+                        <label class="modal-label text-slate-400">Основной маршрут</label>
+                        <input id="session-form-route" type="text" placeholder="Ростов → займище → ..." class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white">
+                    </div>
+                </div>
+                <div>
+                    <label class="modal-label text-slate-400">Цели экспедиции</label>
+                    <textarea id="session-form-purpose" rows="2" placeholder="Что планируете записать, какие задачи" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 resize-none"></textarea>
+                </div>
+                <div>
+                    <label class="modal-label text-slate-400">Участники — зарегистрированные пользователи</label>
+                    <div id="session-form-participants" class="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto custom-scrollbar p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"></div>
+                </div>
+                <div>
+                    <label class="modal-label text-slate-400">Другие участники (не зарегистрированы, через запятую)</label>
+                    <input id="session-form-guests" type="text" placeholder="Иван Петров, Мария Сидорова" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-xs">
+                </div>
+                <div>
+                    <label class="modal-label text-slate-400">Фотографии</label>
+                    <input id="session-form-photos" type="file" accept="image/*" multiple onchange="window.handleSessionPhotos(this.files)" class="text-xs text-slate-500 dark:text-slate-400">
+                    <div id="session-form-photos-preview" class="image-preview-grid"></div>
+                </div>
+                <div>
+                    <label class="modal-label text-slate-400">Ссылки на видео (через запятую)</label>
+                    <input id="session-form-videos" type="text" placeholder="https://youtube.com/..., https://vk.com/video..." class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-xs">
+                </div>
+                <div>
+                    <label class="modal-label text-slate-400">Ссылки на ресурсы</label>
+                    <input id="session-form-links" type="text" placeholder="https://drive.google.com/..." class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-xs">
+                </div>
+            </div>
+            <div class="p-6 border-t border-slate-100 dark:border-slate-800 shrink-0">
+                <button onclick="window.saveSessionForm()" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-md active:scale-[0.98]">
+                    <i class="fa-solid fa-floppy-disk mr-2"></i><span id="session-form-save-text">Создать экспедицию</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Модальное окно Деталей звука -->
     <div id="details-modal" onmousedown="if(event.target === this) window.closeDetailsModal()" class="fixed inset-0 z-[200] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-md hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none">
         <div id="details-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
@@ -981,7 +1080,22 @@
                 </div>
                 
                 <p id="details-description" class="text-slate-600 dark:text-slate-300 leading-relaxed text-sm md:text-base border-l-4 border-blue-500 pl-4 py-1"></p>
-                
+
+                <!-- Статистика, лайк/дизлайк и жалоба -->
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="details-stat-chip" title="Прослушиваний"><i class="fa-solid fa-headphones"></i><span id="det-stat-plays">0</span></span>
+                    <span class="details-stat-chip" title="Скачиваний"><i class="fa-solid fa-download"></i><span id="det-stat-downloads">0</span></span>
+                    <button id="det-like-btn" onclick="window.toggleSoundReaction('like')" class="details-reaction-btn" title="Нравится">
+                        <i class="fa-solid fa-thumbs-up"></i><span id="det-like-count">0</span>
+                    </button>
+                    <button id="det-dislike-btn" onclick="window.toggleSoundReaction('dislike')" class="details-reaction-btn" title="Не нравится">
+                        <i class="fa-solid fa-thumbs-down"></i><span id="det-dislike-count">0</span>
+                    </button>
+                    <button onclick="window.openReportModal('sound', window.currentPlayingId)" class="details-report-btn ml-auto" title="Пожаловаться на запись">
+                        <i class="fa-solid fa-flag"></i><span class="hidden sm:inline">Пожаловаться</span>
+                    </button>
+                </div>
+
                 <!-- Сетка метаданных -->
                 <div class="grid grid-cols-2 md:grid-cols-3 gap-y-5 gap-x-4 bg-slate-50 dark:bg-slate-900/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-700/50">
                     <div class="meta-group">
@@ -1038,6 +1152,10 @@
                 <div class="mt-2 border-t border-slate-100 dark:border-slate-700/50 pt-6">
                     <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-4" data-lang="comments"><i class="fa-regular fa-comments mr-2 opacity-70"></i>Комментарии</h3>
                     <div id="comments-list" class="space-y-3 mb-4 max-h-40 overflow-y-auto custom-scrollbar pr-2"></div>
+                    <div id="comment-reply-banner" class="hidden items-center justify-between bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs font-semibold px-3 py-2 rounded-xl mb-2">
+                        <span>Ответ для <span id="comment-reply-target"></span></span>
+                        <button onclick="window.cancelReplyToComment()" class="text-blue-400 hover:text-blue-600 dark:hover:text-blue-200"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
                     <div class="flex gap-2">
                         <input type="text" id="new-comment-input" data-lang-placeholder="comment_placeholder" placeholder="Оставьте комментарий..." class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-sm flex-1" onkeydown="if(event.key === 'Enter') window.addComment()">
                         <button onclick="window.addComment()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-md active:scale-95" data-lang="send">
@@ -1105,6 +1223,17 @@
             <div class="px-6 py-4 border-t border-slate-100 dark:border-slate-700 flex justify-end gap-3 bg-slate-50 dark:bg-slate-800/50">
                 <button id="ui-modal-cancel" onclick="window.CustomUI.close(false)" class="px-5 py-2.5 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors">Отмена</button>
                 <button id="ui-modal-confirm" onclick="window.CustomUI.close(true)" class="px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-md">ОК</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Контекстное меню-«шторка» (список действий), вызывается по «...» — например, у комментариев:
+         профиль автора / ответить / реакция / пожаловаться. См. window.ActionSheet в ui.js. -->
+    <div id="action-sheet-overlay" onmousedown="if(event.target === this) window.ActionSheet.close()" class="fixed inset-0 z-[9998] bg-slate-900/50 backdrop-blur-sm hidden flex items-end sm:items-center justify-center opacity-0 transition-opacity duration-300">
+        <div id="action-sheet-content" class="bg-white dark:bg-slate-800 rounded-t-[1.75rem] sm:rounded-[1.75rem] shadow-2xl w-full sm:max-w-xs overflow-hidden transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all mb-0 sm:mb-0">
+            <div id="action-sheet-items" class="p-2"></div>
+            <div class="p-2 border-t border-slate-100 dark:border-slate-700">
+                <button onclick="window.ActionSheet.close()" class="w-full py-3 rounded-xl text-sm font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">Отмена</button>
             </div>
         </div>
     </div>

@@ -134,7 +134,9 @@ export function initAuth() {
         // Сброс интерфейса на дефолт
         window.setTheme('light');
         window.setMapStyle('normal');
+        window.activeSessionId = null;
         window.bustFilteredSoundsCache();
+        if (window.renderSidebarExpeditions) window.renderSidebarExpeditions();
     };
 
     // Подмешивает публичные данные профиля (био/ссылки/гир-лист/бейджи/дата регистрации) из
@@ -151,6 +153,8 @@ export function initAuth() {
         window.currentUser.gear = profile.gear || [];
         window.currentUser.badges = profile.badges || [];
         window.currentUser.joinedAt = profile.joinedAt || window.currentUser.joinedAt;
+        window.currentUser.email = profile.email || window.currentUser.email || '';
+        window.currentUser.emailVerified = !!profile.emailVerified;
         if (profile.avatar && !window.currentUser.avatar) window.currentUser.avatar = profile.avatar;
     };
 
@@ -170,6 +174,8 @@ export function initAuth() {
             links: window.currentUser.links || [],
             gear: window.currentUser.gear || [],
             badges: window.currentUser.badges || [],
+            email: window.currentUser.email || '',
+            emailVerified: !!window.currentUser.emailVerified,
             joinedAt: window.currentUser.joinedAt || new Date().toISOString()
         };
 
@@ -187,28 +193,6 @@ export function initAuth() {
         const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
         const profile = window.getProfileByLogin ? window.getProfileByLogin(login) : null;
         return (profile && profile.sessions) || [];
-    };
-
-    window.createSession = async function(title, description = '') {
-        if (!window.currentUser || !title || !title.trim()) return null;
-        const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
-        const session = {
-            id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-            title: title.trim(),
-            description: (description || '').trim(),
-            createdAt: new Date().toISOString()
-        };
-
-        const updated = [...(window.profilesData || [])];
-        const idx = updated.findIndex(p => p.loginName === login);
-        if (idx >= 0) {
-            updated[idx] = { ...updated[idx], sessions: [...(updated[idx].sessions || []), session] };
-        } else {
-            updated.push({ loginName: login, displayName: window.currentUser.username, sessions: [session] });
-        }
-
-        const success = await window.syncProfilesData(updated);
-        return success ? session : null;
     };
 
     // Удаляет саму сессию и отвязывает от неё звуки (они остаются, просто теряют sessionId).
@@ -283,19 +267,45 @@ export function initAuth() {
         container.innerHTML = sessions.map(session => {
             const soundsInSession = mySounds.filter(s => s.sessionId === session.id);
             const draftCount = soundsInSession.filter(s => s.status === 'draft').length;
-            const createdDate = session.createdAt ? new Date(session.createdAt).toLocaleDateString('ru-RU') : '';
+            const createdDate = session.date
+                ? new Date(session.date).toLocaleDateString('ru-RU')
+                : (session.createdAt ? new Date(session.createdAt).toLocaleDateString('ru-RU') : '');
+
+            const participantNames = [
+                ...((session.participants || []).map(login => {
+                    const p = window.getProfileByLogin ? window.getProfileByLogin(login) : null;
+                    return p ? (p.displayName || p.loginName) : login;
+                })),
+                ...(session.guests || [])
+            ];
 
             return `
             <div class="session-card">
                 <div class="flex items-start justify-between gap-2">
                     <div class="min-w-0">
                         <h5 class="font-bold text-slate-800 dark:text-white text-sm truncate">${session.title}</h5>
-                        <p class="text-[11px] text-slate-400 mt-0.5">${createdDate ? `Создана ${createdDate} · ` : ''}${soundsInSession.length} ${soundsInSession.length === 1 ? 'запись' : 'записей'}</p>
-                        ${session.description ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">${session.description}</p>` : ''}
+                        <p class="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1 flex-wrap">
+                            ${createdDate ? `<span><i class="fa-regular fa-calendar mr-1"></i>${createdDate}</span> · ` : ''}
+                            <span>${soundsInSession.length} ${soundsInSession.length === 1 ? 'запись' : 'записей'}</span>
+                        </p>
+                        ${session.route ? `<p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1"><i class="fa-solid fa-route mr-1 opacity-60"></i>${session.route}</p>` : ''}
+                        ${session.purpose ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">${session.purpose}</p>` : ''}
+                        ${participantNames.length ? `<p class="text-[11px] text-slate-400 mt-1"><i class="fa-solid fa-user-group mr-1 opacity-60"></i>${participantNames.join(', ')}</p>` : ''}
+                        ${(session.photos && session.photos.length) ? `<div class="flex gap-1.5 mt-2">${session.photos.slice(0, 4).map(src => `<img src="${src}" class="w-9 h-9 rounded-lg object-cover border border-slate-200 dark:border-slate-700">`).join('')}</div>` : ''}
+                        ${(session.videoLinks && session.videoLinks.length) || (session.links && session.links.length) ? `
+                        <div class="flex flex-wrap gap-1.5 mt-2">
+                            ${(session.videoLinks || []).map(url => `<a href="${url}" target="_blank" rel="noopener" class="profile-link-chip"><i class="fa-solid fa-film"></i>Видео</a>`).join('')}
+                            ${(session.links || []).map(url => `<a href="${url}" target="_blank" rel="noopener" class="profile-link-chip"><i class="fa-solid fa-link"></i>Ресурс</a>`).join('')}
+                        </div>` : ''}
                     </div>
-                    <button onclick="window.deleteSession('${session.id}').then(() => window.renderSessionsPanel())" class="shrink-0 w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-500 flex items-center justify-center transition-colors" title="Удалить экспедицию">
-                        <i class="fa-solid fa-trash-can text-xs"></i>
-                    </button>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <button onclick="window.openSessionModal('${session.id}')" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-500 dark:text-slate-300 flex items-center justify-center transition-colors" title="Редактировать экспедицию">
+                            <i class="fa-solid fa-pen text-xs"></i>
+                        </button>
+                        <button onclick="window.deleteSession('${session.id}').then(() => window.renderSessionsPanel())" class="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-500 flex items-center justify-center transition-colors" title="Удалить экспедицию">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                    </div>
                 </div>
                 ${soundsInSession.length ? `
                 <div class="session-sound-list">
@@ -316,22 +326,204 @@ export function initAuth() {
         }).join('');
     };
 
-    window.promptCreateSessionFromModal = async function() {
-        const title = await window.CustomUI.open({
-            title: '<i class="fa-solid fa-route mr-2 text-blue-500"></i>Новая экспедиция',
-            message: 'Название поездки/выезда для группировки звуков перед публикацией',
-            confirmText: 'Создать',
-            showInput: true,
-            inputPlaceholder: 'Например: Экспедиция в займище, июль 2026'
+    // --- Вкладка "Экспедиции" в левой панели звуков: быстрый доступ к своим сессиям прямо
+    // с карты, без захода в приватный кабинет. Клик по карточке фильтрует #sounds-list. ---
+    window.renderSidebarExpeditions = function() {
+        const container = document.getElementById('panel-expeditions');
+        if (!container) return;
+
+        if (!window.currentUser) {
+            container.innerHTML = `
+                <div class="text-center py-6 text-slate-400 dark:text-slate-500">
+                    <i class="fa-solid fa-route text-3xl mb-2 opacity-30 block"></i>
+                    <p class="text-xs font-medium">Войдите, чтобы вести свои экспедиции и группировать звуки по выездам.</p>
+                    <button onclick="window.openAuthModal()" class="mt-3 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-sm">Войти</button>
+                </div>`;
+            return;
+        }
+
+        const sessions = window.getMySessions();
+        const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const mySounds = window.getUserSounds(login, window.currentUser.username, { includeAllStatuses: true });
+
+        const resetChip = `
+            <button onclick="window.setSidebarSessionFilter(null)" class="sidebar-expedition-reset ${!window.activeSessionId ? 'active' : ''}">
+                <i class="fa-solid fa-layer-group"></i>Все звуки
+            </button>`;
+
+        if (!sessions.length) {
+            container.innerHTML = `
+                ${resetChip}
+                <div class="text-center py-6 text-slate-400 dark:text-slate-500">
+                    <i class="fa-solid fa-route text-3xl mb-2 opacity-30 block"></i>
+                    <p class="text-xs font-medium">У вас пока нет экспедиций.</p>
+                    <button onclick="window.openSessionModal()" class="mt-3 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-sm"><i class="fa-solid fa-plus mr-1"></i>Создать</button>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = resetChip + sessions.map(session => {
+            const count = mySounds.filter(s => s.sessionId === session.id).length;
+            const dateStr = session.date ? new Date(session.date).toLocaleDateString('ru-RU') : '';
+            const active = window.activeSessionId === session.id;
+            return `
+            <div class="sidebar-expedition-card ${active ? 'active' : ''}" onclick="window.setSidebarSessionFilter('${session.id}')">
+                <div class="flex items-center justify-between gap-2">
+                    <h5 class="font-bold text-slate-800 dark:text-white text-xs truncate">${session.title}</h5>
+                    <span class="sidebar-expedition-count">${count}</span>
+                </div>
+                ${dateStr || session.route ? `<p class="text-[10px] text-slate-400 mt-0.5 truncate">${dateStr ? `<i class="fa-regular fa-calendar mr-1"></i>${dateStr}` : ''}${dateStr && session.route ? ' · ' : ''}${session.route ? `<i class="fa-solid fa-route mr-1"></i>${session.route}` : ''}</p>` : ''}
+            </div>`;
+        }).join('') + `
+            <button onclick="window.openSessionModal()" class="sidebar-expedition-add"><i class="fa-solid fa-plus mr-1.5"></i>Новая экспедиция</button>`;
+    };
+
+    window.setSidebarSessionFilter = function(sessionId) {
+        window.activeSessionId = sessionId || null;
+        if (window.renderList) window.renderList();
+        if (window.renderSidebarExpeditions) window.renderSidebarExpeditions();
+    };
+
+    // --- Полноценная форма экспедиции: дата, цели, маршрут, участники (свои+гости), медиа, ссылки ---
+    window.__editingSessionId = null;
+    window.__sessionFormPhotos = [];
+
+    window.openSessionModal = function(sessionId = null) {
+        if (!window.currentUser) { window.showToast('Войдите, чтобы создать экспедицию'); if (window.openAuthModal) window.openAuthModal(); return; }
+        window.__editingSessionId = sessionId;
+
+        const session = sessionId ? window.getMySessions().find(s => s.id === sessionId) : null;
+        const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+        setVal('session-form-title', session?.title);
+        setVal('session-form-date', session?.date);
+        setVal('session-form-route', session?.route);
+        setVal('session-form-purpose', session?.purpose);
+        setVal('session-form-guests', (session?.guests || []).join(', '));
+        setVal('session-form-videos', (session?.videoLinks || []).join(', '));
+        setVal('session-form-links', (session?.links || []).join(', '));
+        window.__sessionFormPhotos = session?.photos ? [...session.photos] : [];
+        window.renderSessionPhotosPreview();
+        window.renderSessionParticipantsPicker(session?.participants || []);
+
+        const titleEl = document.getElementById('session-modal-title');
+        const saveTextEl = document.getElementById('session-form-save-text');
+        if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-route mr-2 text-blue-600"></i>${session ? 'Редактировать экспедицию' : 'Новая экспедиция'}`;
+        if (saveTextEl) saveTextEl.textContent = session ? 'Сохранить изменения' : 'Создать экспедицию';
+
+        const m = document.getElementById('session-modal');
+        const c = document.getElementById('session-modal-content');
+        if (m && c) {
+            m.classList.remove('hidden');
+            void m.offsetWidth;
+            m.classList.remove('opacity-0', 'pointer-events-none');
+            c.classList.remove('scale-95');
+        }
+    };
+
+    window.closeSessionModal = function() {
+        const m = document.getElementById('session-modal');
+        const c = document.getElementById('session-modal-content');
+        if (m && c) {
+            m.classList.add('opacity-0', 'pointer-events-none');
+            c.classList.add('scale-95');
+            setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
+        }
+    };
+
+    // Список участников — чипы-чекбоксы по всем ЗАРЕГИСТРИРОВАННЫМ пользователям (кроме себя);
+    // незарегистрированных вписывают отдельным текстовым полем (session-form-guests).
+    window.renderSessionParticipantsPicker = function(selectedLogins) {
+        const container = document.getElementById('session-form-participants');
+        if (!container || !window.currentUser) return;
+        const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const profiles = (window.profilesData || []).filter(p => p.loginName !== myLogin);
+        if (!profiles.length) {
+            container.innerHTML = `<span class="text-xs text-slate-400">Других зарегистрированных пользователей пока нет.</span>`;
+            return;
+        }
+        container.innerHTML = profiles.map(p => `
+            <label class="badge-toggle-chip ${selectedLogins.includes(p.loginName) ? 'active' : ''}">
+                <input type="checkbox" class="hidden" value="${p.loginName}" ${selectedLogins.includes(p.loginName) ? 'checked' : ''} onchange="this.closest('label').classList.toggle('active', this.checked)">
+                <i class="fa-solid fa-user"></i>${p.displayName || p.loginName}
+            </label>
+        `).join('');
+    };
+
+    window.handleSessionPhotos = function(files) {
+        if (!files || !files.length) return;
+        Array.from(files).forEach(file => {
+            if (!file.type.startsWith('image/')) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                window.__sessionFormPhotos.push(e.target.result);
+                window.renderSessionPhotosPreview();
+            };
+            reader.readAsDataURL(file);
         });
-        if (!title) return;
-        const session = await window.createSession(title);
-        if (session) {
-            window.showToast('Экспедиция создана');
-            if (window.populateSessionSelect) window.populateSessionSelect(session.id);
-            if (window.renderSessionsPanel) window.renderSessionsPanel();
+    };
+
+    window.renderSessionPhotosPreview = function() {
+        const container = document.getElementById('session-form-photos-preview');
+        if (!container) return;
+        container.innerHTML = (window.__sessionFormPhotos || []).map((src, i) => `
+            <div class="relative">
+                <img src="${src}" class="image-thumb">
+                <button type="button" onclick="window.removeSessionPhoto(${i})" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] shadow-md"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        `).join('');
+    };
+    window.removeSessionPhoto = function(i) {
+        window.__sessionFormPhotos.splice(i, 1);
+        window.renderSessionPhotosPreview();
+    };
+
+    window.saveSessionForm = async function() {
+        const title = (document.getElementById('session-form-title')?.value || '').trim();
+        if (!title) { window.showToast('Укажите название экспедиции'); return; }
+
+        const date = document.getElementById('session-form-date')?.value || '';
+        const route = (document.getElementById('session-form-route')?.value || '').trim();
+        const purpose = (document.getElementById('session-form-purpose')?.value || '').trim();
+        const guests = (document.getElementById('session-form-guests')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+        const videoLinks = (document.getElementById('session-form-videos')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+        const links = (document.getElementById('session-form-links')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+        const participants = Array.from(document.querySelectorAll('#session-form-participants input:checked')).map(el => el.value);
+        const photos = [...(window.__sessionFormPhotos || [])];
+
+        const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const updated = [...(window.profilesData || [])];
+        const idx = updated.findIndex(p => p.loginName === login);
+
+        const isEdit = !!window.__editingSessionId;
+        const existingSessions = idx >= 0 ? [...(updated[idx].sessions || [])] : [];
+
+        let sessionObj;
+        if (isEdit) {
+            sessionObj = existingSessions.find(s => s.id === window.__editingSessionId);
+            if (!sessionObj) { window.showToast('Экспедиция не найдена'); return; }
+            Object.assign(sessionObj, { title, date, route, purpose, guests, videoLinks, links, participants, photos });
         } else {
-            window.showToast('Не удалось создать экспедицию');
+            sessionObj = {
+                id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+                title, date, route, purpose, guests, videoLinks, links, participants, photos,
+                createdAt: new Date().toISOString()
+            };
+            existingSessions.push(sessionObj);
+        }
+
+        if (idx >= 0) updated[idx] = { ...updated[idx], sessions: existingSessions };
+        else updated.push({ loginName: login, displayName: window.currentUser.username, sessions: existingSessions });
+
+        window.showToast('Сохранение экспедиции...');
+        const success = await window.syncProfilesData(updated);
+        if (success) {
+            window.showToast(isEdit ? 'Экспедиция обновлена' : 'Экспедиция создана');
+            window.closeSessionModal();
+            if (window.populateSessionSelect) window.populateSessionSelect(sessionObj.id);
+            if (window.renderSessionsPanel) window.renderSessionsPanel();
+            if (window.renderSidebarExpeditions) window.renderSidebarExpeditions();
+        } else {
+            window.showToast('Не удалось сохранить экспедицию');
         }
     };
 
@@ -617,6 +809,7 @@ export function initAuth() {
             if (pnlAdmin) pnlAdmin.classList.remove('hidden');
             window.renderAdminList();
             window.renderAdminUsersList();
+            window.renderReportsList();
             if (window.renderRegionStats) window.renderRegionStats('admin-stats-grid');
         }
     };
@@ -831,6 +1024,88 @@ export function initAuth() {
         if (success) { window.showToast('Статус обновлён'); window.renderAdminList(); }
     };
 
+    // --- Жалобы (на записи и на комментарии) — очередь модерации в админ-панели ---
+    window.getAllReports = function() {
+        const list = [];
+        (window.soundsData || []).forEach(s => {
+            (s.reports || []).forEach(r => list.push({ ...r, soundId: s.id, soundTitle: s.title }));
+        });
+        return list.sort((a, b) => new Date(b.date) - new Date(a.date));
+    };
+
+    window.renderReportsList = function() {
+        const container = document.getElementById('admin-reports-list');
+        const countEl = document.getElementById('admin-reports-count');
+        if (!container) return;
+
+        const reports = window.getAllReports();
+        const pendingCount = reports.filter(r => r.status !== 'resolved').length;
+        if (countEl) countEl.textContent = pendingCount ? `(${pendingCount})` : '';
+
+        if (!reports.length) {
+            container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">Жалоб пока нет.</p>`;
+            return;
+        }
+
+        container.innerHTML = reports.map(r => {
+            const s = window.soundsData.find(x => x.id === r.soundId);
+            let targetText = '';
+            if (r.type === 'comment') {
+                const c = s ? (s.comments || []).find(x => x.id === r.commentId) : null;
+                targetText = c ? `Комментарий: «${c.text}»` : 'Комментарий уже удалён';
+            }
+            const dateStr = r.date ? new Date(r.date).toLocaleDateString('ru-RU') : '';
+            return `
+            <div class="admin-report-row ${r.status === 'resolved' ? 'resolved' : ''}">
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${r.type === 'comment' ? 'Жалоба на комментарий' : 'Жалоба на запись'} <span class="text-slate-400 font-normal">· ${r.soundTitle || ''}</span></p>
+                    ${targetText ? `<p class="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">${targetText}</p>` : ''}
+                    <p class="text-[11px] text-red-500 dark:text-red-400 mt-0.5 truncate"><i class="fa-solid fa-quote-left mr-1 opacity-60"></i>${r.reason}</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">От ${r.reporterName || 'аноним'} · ${dateStr}</p>
+                </div>
+                <div class="flex items-center gap-1.5 flex-wrap justify-end shrink-0">
+                    <button onclick="window.openedFromAdmin=true; window.closeCabinet(); window.selectSound('${r.soundId}'); window.openDetailsModal();" class="text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-500 dark:bg-blue-900/30 dark:hover:bg-blue-600 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors">Просмотреть</button>
+                    ${r.type === 'comment' && s && (s.comments || []).some(c => c.id === r.commentId) ? `<button onclick="window.deleteReportedComment('${r.soundId}', '${r.commentId}', '${r.id}')" class="text-red-600 hover:text-white bg-red-50 hover:bg-red-500 dark:bg-red-900/30 dark:hover:bg-red-600 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors">Удалить коммент.</button>` : ''}
+                    ${r.status !== 'resolved' ? `<button onclick="window.resolveReport('${r.soundId}', '${r.id}')" class="text-emerald-600 hover:text-white bg-emerald-50 hover:bg-emerald-500 dark:bg-emerald-900/30 dark:hover:bg-emerald-600 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors">Решено</button>` : `<span class="pub-status-pill pub-status-published">Решено</span>`}
+                </div>
+            </div>`;
+        }).join('');
+    };
+
+    window.resolveReport = async function(soundId, reportId) {
+        const s = window.soundsData.find(x => x.id === soundId);
+        if (!s) return;
+        const r = (s.reports || []).find(x => x.id === reportId);
+        if (!r) return;
+        r.status = 'resolved';
+        const updatedCloud = [...window.cloudDataCache];
+        const idx = updatedCloud.findIndex(x => x.id === soundId);
+        if (idx >= 0) updatedCloud[idx] = s; else updatedCloud.push(s);
+        const success = await window.syncCloudData(updatedCloud);
+        if (success) { window.showToast('Жалоба отмечена решённой'); window.renderReportsList(); }
+    };
+
+    window.deleteReportedComment = async function(soundId, commentId, reportId) {
+        const s = window.soundsData.find(x => x.id === soundId);
+        if (!s) return;
+        const confirmed = await window.CustomUI.open({
+            title: '<i class="fa-solid fa-trash-can mr-2 text-red-500"></i>Удалить комментарий?',
+            message: 'Комментарий и все ответы к нему будут удалены без возможности восстановления.',
+            confirmText: 'Удалить',
+            confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
+        });
+        if (!confirmed) return;
+
+        s.comments = (s.comments || []).filter(c => c.id !== commentId);
+        (s.reports || []).forEach(r => { if (r.id === reportId) r.status = 'resolved'; });
+
+        const updatedCloud = [...window.cloudDataCache];
+        const idx = updatedCloud.findIndex(x => x.id === soundId);
+        if (idx >= 0) updatedCloud[idx] = s; else updatedCloud.push(s);
+        const success = await window.syncCloudData(updatedCloud);
+        if (success) { window.showToast('Комментарий удалён'); window.renderReportsList(); if (window.renderComments) window.renderComments(s); }
+    };
+
     // --- Профили пользователей внутри админ-панели: назначение бейджей доверия ---
     window.renderAdminUsersList = function() {
         const el = document.getElementById('admin-users-grid');
@@ -875,6 +1150,10 @@ export function initAuth() {
         if (bioEl) bioEl.value = window.currentUser.bio || '';
         if (gearEl) gearEl.value = (window.currentUser.gear || []).join(', ');
         if (linksEl) linksEl.value = (window.currentUser.links || []).join(', ');
+
+        const emailEl = document.getElementById('profile-email');
+        if (emailEl) emailEl.value = window.currentUser.email || '';
+        window.refreshEmailVerificationUI();
     };
 
     window.saveMyProfileFromSettingsForm = async function() {
@@ -885,6 +1164,79 @@ export function initAuth() {
         window.showToast('Сохранение профиля...');
         const ok = await window.saveMyProfile({ bio, gear, links });
         window.showToast(ok ? 'Профиль обновлён' : 'Не удалось сохранить профиль');
+    };
+
+    // --- Привязка email с кодом подтверждения ---
+    // Код и адрес живут только в памяти (window.__pendingEmailVerification), в облако/профиль
+    // попадают только после успешного подтверждения — так жалоба "ввёл email и забыл" не
+    // оставляет висящих неподтверждённых кодов в общем profiles.json.
+    window.__pendingEmailVerification = null;
+
+    window.refreshEmailVerificationUI = function() {
+        const badge = document.getElementById('email-verified-badge');
+        if (!badge) return;
+        const verified = !!(window.currentUser && window.currentUser.email && window.currentUser.emailVerified);
+        badge.textContent = verified ? 'Подтверждена' : 'Не подтверждена';
+        badge.className = `pub-status-pill ${verified ? 'pub-status-published' : 'pub-status-rejected'}`;
+    };
+
+    // Точка интеграции с реальной отправкой писем — см. window.YANDEX_EMAIL_FUNCTION_URL
+    // в state.js. Пока URL не задан, работаем в демо-режиме: код показывается прямо в тосте,
+    // поскольку у клиентского приложения нет собственного почтового сервера.
+    window.sendVerificationEmail = async function(email, code) {
+        if (window.YANDEX_EMAIL_FUNCTION_URL) {
+            try {
+                const res = await fetch(window.YANDEX_EMAIL_FUNCTION_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, code })
+                });
+                if (res.ok) return true;
+            } catch (e) { /* падаем в демо-режим ниже */ }
+        }
+        window.showToast(`Демо-режим: код подтверждения — ${code}`);
+        console.info(`[demo email] Код подтверждения для ${email}: ${code}`);
+        return true;
+    };
+
+    window.startEmailVerification = async function() {
+        if (!window.currentUser) return;
+        const email = (document.getElementById('profile-email')?.value || '').trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { window.showToast('Введите корректный email'); return; }
+
+        const code = String(Math.floor(100000 + Math.random() * 900000));
+        window.__pendingEmailVerification = { email, code, expiresAt: Date.now() + 10 * 60 * 1000 };
+
+        const btn = document.getElementById('email-send-code-btn');
+        if (btn) btn.disabled = true;
+        await window.sendVerificationEmail(email, code);
+        if (btn) btn.disabled = false;
+
+        const block = document.getElementById('email-code-block');
+        if (block) { block.classList.remove('hidden'); block.classList.add('space-y-2'); }
+        const codeInput = document.getElementById('email-code-input');
+        if (codeInput) { codeInput.value = ''; codeInput.focus(); }
+    };
+
+    window.confirmEmailCode = async function() {
+        const pending = window.__pendingEmailVerification;
+        if (!pending) { window.showToast('Сначала запросите код'); return; }
+        if (Date.now() > pending.expiresAt) { window.showToast('Код истёк, запросите новый'); window.__pendingEmailVerification = null; return; }
+
+        const entered = (document.getElementById('email-code-input')?.value || '').trim();
+        if (entered !== pending.code) { window.showToast('Неверный код'); return; }
+
+        window.showToast('Подтверждение почты...');
+        const ok = await window.saveMyProfile({ email: pending.email, emailVerified: true });
+        if (ok) {
+            window.__pendingEmailVerification = null;
+            const block = document.getElementById('email-code-block');
+            if (block) block.classList.add('hidden');
+            window.refreshEmailVerificationUI();
+            window.showToast('Почта подтверждена');
+        } else {
+            window.showToast('Не удалось сохранить подтверждение');
+        }
     };
 
     // --- Профессиональная аналитика: спрос по трекам/акустическим нишам (только опубликованные) ---

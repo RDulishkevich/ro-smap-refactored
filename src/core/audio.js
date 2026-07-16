@@ -519,11 +519,15 @@ window.drawAmbiGoniometerFrame = function() {
     ctx.shadowBlur = 4;
     ctx.beginPath();
     const step = Math.max(1, Math.floor(n / 220));
+    // Повышенная чувствительность: большинство B-format материала сидит намного тише полной
+    // шкалы, поэтому применяем усиление с мягким ограничением (tanh), чтобы даже тихий сигнал
+    // давал заметный узор, а громкие пики просто плавно подходили к краю, а не обрезались.
+    const AMBI_GONIO_GAIN = 2.6;
     for (let i = 0; i < n; i += step) {
         // Left/right on screen ← Y channel, up/down on screen ← X channel (up = front),
         // matching the pad's own yaw/pitch axes so the trail leans toward the source.
-        const x = cx + window._ambiGonioY[i] * scale;
-        const y = cy - window._ambiGonioX[i] * scale;
+        const x = cx + Math.tanh(window._ambiGonioY[i] * AMBI_GONIO_GAIN) * scale;
+        const y = cy - Math.tanh(window._ambiGonioX[i] * AMBI_GONIO_GAIN) * scale;
         if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.stroke();
@@ -582,11 +586,15 @@ window.drawGoniometerFrame = function() {
     ctx.shadowBlur = 4;
     ctx.beginPath();
     const step = Math.max(1, Math.floor(n / 360));
+    // Повышенная чувствительность: типичный полевой материал редко подходит к 0 dBFS, так что
+    // сырые L/R сильно занижали бы узор. Усиливаем сигнал и мягко ограничиваем его tanh'ом —
+    // тихие записи дают читаемую фигуру, а пики просто подходят к краю круга без обрезки.
+    const GONIO_GAIN = 2.2;
     for (let i = 0; i < n; i += step) {
         const L = window._gonioBufA[i], R = window._gonioBufB[i];
         // Classic 45° goniometer rotation: mono (L=R) collapses to the vertical axis
-        const x = cx + ((L - R) / Math.SQRT2) * scale;
-        const y = cy - ((L + R) / Math.SQRT2) * scale;
+        const x = cx + Math.tanh(((L - R) / Math.SQRT2) * GONIO_GAIN) * scale;
+        const y = cy - Math.tanh(((L + R) / Math.SQRT2) * GONIO_GAIN) * scale;
         if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.stroke();
