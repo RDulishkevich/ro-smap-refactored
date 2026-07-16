@@ -221,7 +221,9 @@ export function initAuth() {
             notifications: fields.notifications !== undefined ? fields.notifications : (prev.notifications || []),
             inbox: fields.inbox !== undefined ? fields.inbox : (prev.inbox || []),
             role: fields.role !== undefined ? fields.role : (prev.role || (window.currentUser.role === 'admin' ? 'admin' : 'user')),
-            blocked: fields.blocked !== undefined ? !!fields.blocked : !!prev.blocked
+            blocked: fields.blocked !== undefined ? !!fields.blocked : !!prev.blocked,
+            profileUpdatedAt: new Date().toISOString(),
+            lastSeen: new Date().toISOString()
         };
 
         if (idx >= 0) updated[idx] = record; else updated.push(record);
@@ -279,7 +281,11 @@ export function initAuth() {
         const updated = [...(window.profilesData || [])];
         const idx = updated.findIndex(p => p.loginName === login);
         if (idx < 0) return false;
-        updated[idx] = { ...updated[idx], sessions: (updated[idx].sessions || []).filter(s => s.id !== sessionId) };
+        updated[idx] = {
+            ...updated[idx],
+            sessions: (updated[idx].sessions || []).filter(s => s.id !== sessionId),
+            profileUpdatedAt: new Date().toISOString()
+        };
 
         const updatedCloud = [...window.cloudDataCache];
         let changed = false;
@@ -656,18 +662,19 @@ export function initAuth() {
         if (isEdit) {
             sessionObj = existingSessions.find(s => s.id === window.__editingSessionId);
             if (!sessionObj) { window.showToast('Экспедиция не найдена'); return; }
-            Object.assign(sessionObj, { title, date, route, purpose, guests, videoLinks, links, participants, photos });
+            Object.assign(sessionObj, { title, date, route, purpose, guests, videoLinks, links, participants, photos, updatedAt: new Date().toISOString() });
         } else {
             sessionObj = {
                 id: 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
                 title, date, route, purpose, guests, videoLinks, links, participants, photos,
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
             };
             existingSessions.push(sessionObj);
         }
 
-        if (idx >= 0) updated[idx] = { ...updated[idx], sessions: existingSessions };
-        else updated.push({ loginName: login, displayName: window.currentUser.username, sessions: existingSessions });
+        if (idx >= 0) updated[idx] = { ...updated[idx], sessions: existingSessions, profileUpdatedAt: new Date().toISOString() };
+        else updated.push({ loginName: login, displayName: window.currentUser.username, sessions: existingSessions, profileUpdatedAt: new Date().toISOString() });
 
         window.showToast('Сохранение экспедиции...');
         const success = await window.syncProfilesData(updated);
@@ -1346,7 +1353,11 @@ export function initAuth() {
         if (idx < 0) return;
         const badges = new Set(updated[idx].badges || []);
         if (checked) badges.add(badgeKey); else badges.delete(badgeKey);
-        updated[idx] = { ...updated[idx], badges: Array.from(badges) };
+        updated[idx] = {
+            ...updated[idx],
+            badges: Array.from(badges),
+            profileUpdatedAt: new Date().toISOString()
+        };
         const success = await window.syncProfilesData(updated);
         if (success) {
             window.showToast('Бейджи обновлены');
@@ -1378,7 +1389,7 @@ export function initAuth() {
                 : 'px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-md'
         });
         if (!confirmed) return;
-        updated[idx] = { ...updated[idx], blocked: !!blocked };
+        updated[idx] = { ...updated[idx], blocked: !!blocked, profileUpdatedAt: new Date().toISOString() };
         const success = await window.syncProfilesData(updated);
         if (success) { window.showToast(blocked ? 'Пользователь заблокирован' : 'Пользователь разблокирован'); window.renderAdminUsersList(); }
     };
@@ -1397,7 +1408,7 @@ export function initAuth() {
             confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors shadow-md'
         });
         if (!confirmed) return;
-        updated[idx] = { ...updated[idx], role: makeAdmin ? 'admin' : 'user' };
+        updated[idx] = { ...updated[idx], role: makeAdmin ? 'admin' : 'user', profileUpdatedAt: new Date().toISOString() };
         const success = await window.syncProfilesData(updated);
         if (success) {
             window.showToast(makeAdmin ? 'Права администратора выданы' : 'Права администратора сняты');
@@ -1678,7 +1689,8 @@ export function initAuth() {
     window.touchMyPresence = async function(force = false) {
         if (!window.currentUser) return;
         const now = Date.now();
-        if (!force && window.__lastPresenceTouch && (now - window.__lastPresenceTouch) < 45000) return;
+        // Редко обновляем lastSeen: частые full-file записи раньше затирали чужие сообщения.
+        if (!force && window.__lastPresenceTouch && (now - window.__lastPresenceTouch) < 120000) return;
         window.__lastPresenceTouch = now;
         const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
         const updated = [...(window.profilesData || [])];

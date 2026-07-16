@@ -53,12 +53,17 @@ export function bootstrapApp() {
             } else {
                 window.__lastCloudPollKey = JSON.stringify([]);
             }
+            window.__cloudDataReady = true;
             if (window.initFiltersData) window.initFiltersData();
             if (window.processFilterChange) window.processFilterChange(window.innerWidth >= 768);
             if (window.applyProfileToCurrentUser) window.applyProfileToCurrentUser();
             if (window.refreshNotificationsUI) window.refreshNotificationsUI();
             if (window.refreshMessagesUI) window.refreshMessagesUI();
             if (window.startLiveCloudPolling) window.startLiveCloudPolling(12000);
+            if (window.touchMyPresence) window.touchMyPresence(true);
+        }).catch(err => {
+            console.warn('Не удалось загрузить облачные данные:', err);
+            window.__cloudDataReady = true;
         });
 
         const searchInput = document.getElementById('search-input');

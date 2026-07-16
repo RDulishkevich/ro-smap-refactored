@@ -541,30 +541,243 @@ window.mergeData = function(cloudData) {
         }
 };
 
+// --- Устойчивая синхронизация: очередь + GET→merge→PUT ---
+// Раньше каждый клиент делал слепой PUT всего файла из устаревшего кэша (last-write-wins),
+// из‑за чего сообщения/уведомления/экспедиции периодически затирались.
+window.__cloudWriteChains = window.__cloudWriteChains || {};
+window.__cloudDataReady = window.__cloudDataReady || false;
+window.__cloudWriteDepth = 0;
+
+window.__enqueueCloudWrite = function(fileName, task) {
+    const prev = window.__cloudWriteChains[fileName] || Promise.resolve();
+    const next = prev.catch(() => {}).then(task);
+    window.__cloudWriteChains[fileName] = next.catch(() => {});
+    return next;
+};
+
+window.__waitCloudReady = async function() {
+    if (window.__cloudDataReady) return;
+    const started = Date.now();
+    while (!window.__cloudDataReady && Date.now() - started < 15000) {
+        await new Promise(r => setTimeout(r, 50));
+    }
+};
+
+window.fetchCloudJson = async function(fileName) {
+    const res = await fetch(`${window.YANDEX_BUCKET_URL}/${fileName}?nocache=${Date.now()}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return Array.isArray(data) ? data : null;
+};
+
+window.__putCloudJson = async function(fileName, data) {
+    const presignRes = await fetch(window.YANDEX_FUNCTION_URL, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName, contentType: "application/json" })
+    });
+    if (!presignRes.ok) throw new Error("Ошибка получения ссылки для JSON");
+    const presignData = await presignRes.json();
+    const putRes = await fetch(presignData.uploadUrl, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+    });
+    if (!putRes.ok) throw new Error("Ошибка загрузки JSON в облако");
+    return true;
+};
+
+window.__recordTime = function(item) {
+    if (!item) return 0;
+    const raw = item.editedAt || item.date || item.createdAt || item.profileUpdatedAt || 0;
+    const t = new Date(raw).getTime();
+    return Number.isFinite(t) ? t : 0;
+};
+
+window.__laterIso = function(a, b) {
+    const ta = a ? new Date(a).getTime() : 0;
+    const tb = b ? new Date(b).getTime() : 0;
+    if (tb > ta) return b || a || '';
+    return a || b || '';
+};
+
+window.__mergeReactions = function(a = {}, b = {}) {
+    const out = { ...a };
+    Object.keys(b || {}).forEach(emoji => {
+        const set = new Set([...(out[emoji] || []), ...(b[emoji] || [])]);
+        if (set.size) out[emoji] = Array.from(set);
+        else delete out[emoji];
+    });
+    return out;
+};
+
+window.__mergeKeyedArrays = function(a = [], b = [], idKey = 'id') {
+    const map = new Map();
+    const upsert = (item) => {
+        if (!item || item[idKey] == null) return;
+        const prev = map.get(item[idKey]);
+        if (!prev) { map.set(item[idKey], item); return; }
+        const prevT = window.__recordTime(prev);
+        const nextT = window.__recordTime(item);
+        const newer = nextT >= prevT ? item : prev;
+        const older = nextT >= prevT ? prev : item;
+        const deleted = !!(newer.deleted || (older.deleted && nextT <= prevT));
+        map.set(item[idKey], {
+            ...older,
+            ...newer,
+            deleted: deleted || undefined,
+            reactions: window.__mergeReactions(older.reactions, newer.reactions),
+            reports: window.__mergeKeyedArrays(older.reports || [], newer.reports || [])
+        });
+    };
+    (a || []).forEach(upsert);
+    (b || []).forEach(upsert);
+    return Array.from(map.values());
+};
+
+window.__profileScalarRev = function(p) {
+    if (!p?.profileUpdatedAt) return 0;
+    const t = new Date(p.profileUpdatedAt).getTime();
+    return Number.isFinite(t) ? t : 0;
+};
+
+window.mergeProfilesArrays = function(fresh = [], proposed = []) {
+    const out = new Map();
+    (fresh || []).forEach(p => {
+        if (p?.loginName) out.set(p.loginName, { ...p });
+    });
+    (proposed || []).forEach(p => {
+        if (!p?.loginName) return;
+        const cloud = out.get(p.loginName);
+        if (!cloud) {
+            out.set(p.loginName, { ...p });
+            return;
+        }
+        // Скаляры (bio, avatar, badges…) — только если локальная правка новее по profileUpdatedAt.
+        // lastSeen / inbox / notifications / sessions всегда сливаются отдельно, чтобы presence
+        // и сообщения не затирали чужие поля.
+        const preferProposedScalars = window.__profileScalarRev(p) > window.__profileScalarRev(cloud);
+        const merged = preferProposedScalars ? { ...cloud, ...p } : { ...p, ...cloud };
+        merged.loginName = p.loginName;
+        merged.lastSeen = window.__laterIso(cloud.lastSeen, p.lastSeen);
+        merged.profileUpdatedAt = window.__laterIso(cloud.profileUpdatedAt, p.profileUpdatedAt);
+        merged.inbox = window.__mergeKeyedArrays(cloud.inbox || [], p.inbox || []);
+        merged.notifications = window.__mergeKeyedArrays(cloud.notifications || [], p.notifications || []);
+        // Сессии: при явной правке профиля (profileUpdatedAt) берём список целиком,
+        // иначе удаление экспедиции снова «воскреснет» из облака при merge по id.
+        merged.sessions = preferProposedScalars
+            ? (p.sessions || [])
+            : window.__mergeKeyedArrays(cloud.sessions || [], p.sessions || []);
+        if (!preferProposedScalars) {
+            merged.badges = cloud.badges || [];
+            merged.bio = cloud.bio;
+            merged.avatar = cloud.avatar;
+            merged.links = cloud.links;
+            merged.gear = cloud.gear;
+            merged.email = cloud.email;
+            merged.emailVerified = cloud.emailVerified;
+            merged.role = cloud.role;
+            merged.blocked = cloud.blocked;
+            merged.displayName = cloud.displayName || p.displayName;
+        }
+        out.set(p.loginName, merged);
+    });
+    return Array.from(out.values());
+};
+
+window.__mergeCommentLists = function(a = [], b = []) {
+    const map = new Map();
+    const upsert = (c) => {
+        if (!c?.id) return;
+        const prev = map.get(c.id);
+        if (!prev) { map.set(c.id, { ...c, replies: [...(c.replies || [])], reactedBy: [...(c.reactedBy || [])] }); return; }
+        const prevT = window.__recordTime(prev);
+        const nextT = window.__recordTime(c);
+        const newer = nextT >= prevT ? c : prev;
+        const older = nextT >= prevT ? prev : c;
+        map.set(c.id, {
+            ...older,
+            ...newer,
+            replies: window.__mergeKeyedArrays(older.replies || [], newer.replies || []),
+            reactedBy: Array.from(new Set([...(older.reactedBy || []), ...(newer.reactedBy || [])]))
+        });
+    };
+    (a || []).forEach(upsert);
+    (b || []).forEach(upsert);
+    return Array.from(map.values());
+};
+
+window.mergeMapDataArrays = function(fresh = [], proposed = []) {
+    const map = new Map();
+    (fresh || []).forEach(s => { if (s?.id != null) map.set(s.id, s); });
+    (proposed || []).forEach(s => {
+        if (s?.id == null) return;
+        const cloud = map.get(s.id);
+        if (!cloud) { map.set(s.id, s); return; }
+        if (s.deleted) { map.set(s.id, s); return; }
+        if (cloud.deleted && !s.deleted) { map.set(s.id, s); return; }
+        map.set(s.id, {
+            ...cloud,
+            ...s,
+            comments: window.__mergeCommentLists(cloud.comments || [], s.comments || []),
+            reports: window.__mergeKeyedArrays(cloud.reports || [], s.reports || []),
+            likedBy: Array.isArray(s.likedBy) ? s.likedBy : (cloud.likedBy || []),
+            dislikedBy: Array.isArray(s.dislikedBy) ? s.dislikedBy : (cloud.dislikedBy || []),
+            plays: Math.max(cloud.plays || 0, s.plays || 0),
+            downloads: Math.max(cloud.downloads || 0, s.downloads || 0),
+            route: (s.route && s.route.length > 1) ? s.route : (cloud.route || s.route)
+        });
+    });
+    return Array.from(map.values());
+};
+
 // fileName выбирает JSON-файл в том же бакете: "map_data.json" для звуков (по умолчанию,
 // обратная совместимость со всеми существующими вызовами) или "profiles.json" для публичных
 // профилей рекордистов (см. window.syncProfilesData ниже).
 window.syncCloudData = async function(newCloudData, fileName = "map_data.json") {
-    try {
-        const presignRes = await fetch(window.YANDEX_FUNCTION_URL, {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ fileName, contentType: "application/json" })
-        });
-        if (!presignRes.ok) throw new Error("Ошибка получения ссылки для JSON");
-        const presignData = await presignRes.json();
+    return window.__enqueueCloudWrite(fileName, async () => {
+        window.__cloudWriteDepth++;
+        try {
+            await window.__waitCloudReady();
+            const fresh = await window.fetchCloudJson(fileName);
+            const proposed = Array.isArray(newCloudData) ? newCloudData : [];
 
-        await fetch(presignData.uploadUrl, {
-            method: "PUT", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(newCloudData)
-        });
+            // Защита от затирания облака пустым массивом до/вместо загрузки
+            if (!proposed.length && Array.isArray(fresh) && fresh.length) {
+                console.warn(`[sync] Skip empty overwrite for ${fileName}`);
+                if (fileName === "map_data.json") {
+                    window.mergeData(fresh);
+                    window.__lastCloudPollKey = JSON.stringify(fresh);
+                }
+                return false;
+            }
 
-        if (fileName === "map_data.json") {
-            window.mergeData(newCloudData); window.initFiltersData(); window.processFilterChange(false);
-            window.__lastCloudPollKey = JSON.stringify(newCloudData);
-            if(document.getElementById('cabinet-modal') && !document.getElementById('cabinet-modal').classList.contains('hidden')) { window.renderCabinet(); }
+            let merged = proposed;
+            if (Array.isArray(fresh)) {
+                merged = fileName === "profiles.json"
+                    ? window.mergeProfilesArrays(fresh, proposed)
+                    : window.mergeMapDataArrays(fresh, proposed);
+            }
+
+            await window.__putCloudJson(fileName, merged);
+            window.__lastMergedUpload = { fileName, data: merged };
+
+            if (fileName === "map_data.json") {
+                window.mergeData(merged);
+                window.initFiltersData();
+                window.processFilterChange(false);
+                window.__lastCloudPollKey = JSON.stringify(merged);
+                if (document.getElementById('cabinet-modal') && !document.getElementById('cabinet-modal').classList.contains('hidden')) {
+                    window.renderCabinet();
+                }
+            }
+            return true;
+        } catch (e) {
+            console.error(e);
+            window.showToast("Синхронизация с облаком не удалась.");
+            return false;
+        } finally {
+            window.__cloudWriteDepth = Math.max(0, window.__cloudWriteDepth - 1);
         }
-        return true;
-    } catch(e) { console.error(e); window.showToast("Синхронизация с облаком не удалась."); return false; }
+    });
 };
 
 // Профили рекордистов синхронизируются тем же presign+PUT механизмом, но в отдельный файл,
@@ -572,8 +785,11 @@ window.syncCloudData = async function(newCloudData, fileName = "map_data.json") 
 window.syncProfilesData = async function(newProfiles) {
     const success = await window.syncCloudData(newProfiles, "profiles.json");
     if (success) {
-        window.profilesData = newProfiles;
-        window.__lastProfilesPollKey = JSON.stringify(newProfiles);
+        const merged = (window.__lastMergedUpload && window.__lastMergedUpload.fileName === "profiles.json")
+            ? window.__lastMergedUpload.data
+            : newProfiles;
+        window.profilesData = merged;
+        window.__lastProfilesPollKey = JSON.stringify(merged);
         if (window.refreshNotificationsUI) window.refreshNotificationsUI();
         if (window.refreshMessagesUI) window.refreshMessagesUI();
     }
@@ -583,6 +799,8 @@ window.syncProfilesData = async function(newProfiles) {
 // Фоновый опрос облака: новые звуки, уведомления, сообщения — без перезагрузки страницы.
 window.pollLiveCloudData = async function() {
     if (window.__pollingInFlight || document.hidden) return;
+    // Не затираем локальный кэш, пока идёт запись — иначе UI мигает устаревшим снимком.
+    if (window.__cloudWriteDepth > 0) return;
     window.__pollingInFlight = true;
     try {
         const [cloudData, profiles] = await Promise.all([
@@ -637,7 +855,6 @@ window.pollLiveCloudData = async function() {
                         window.openMessageThread(window.__activeMessagePeer, { quiet: true });
                     }
                 }
-                if (window.touchMyPresence) window.touchMyPresence();
             }
         }
     } finally {
