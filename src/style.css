@@ -748,6 +748,34 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
 .admin-user-row.blocked { opacity: 0.72; border-color: #fecaca; }
 .dark .admin-user-row.blocked { border-color: rgba(220, 38, 38, 0.35); }
 
+.pp-expedition-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.85rem;
+    padding: 0.6rem 0.75rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.dark .pp-expedition-card { background: #1e293b; border-color: #334155; }
+.pp-expedition-card:hover { border-color: #2563eb; transform: translateY(-1px); }
+
+.msg-bubble {
+    max-width: 85%;
+    padding: 0.55rem 0.75rem;
+    border-radius: 1rem;
+    background: #f1f5f9;
+    color: #1e293b;
+    align-self: flex-start;
+}
+.dark .msg-bubble { background: #1e293b; color: #e2e8f0; }
+.msg-bubble.mine {
+    background: #2563eb;
+    color: #fff;
+    align-self: flex-end;
+    margin-left: auto;
+}
+#messages-thread-list { display: flex; flex-direction: column; }
+
 /* --- Вкладка "Экспедиции" в левой панели звуков --- */
 .sidebar-expedition-reset {
     display: flex; align-items: center; gap: 6px;

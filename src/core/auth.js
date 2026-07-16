@@ -132,6 +132,7 @@ export function initAuth() {
         if (isNewRegistration && window.saveMyProfile) window.saveMyProfile({ joinedAt: new Date().toISOString() });
         window.bustFilteredSoundsCache();
         if (window.refreshNotificationsUI) window.refreshNotificationsUI();
+        if (window.refreshMessagesUI) window.refreshMessagesUI();
         window.openCabinet();
     };
 
@@ -148,6 +149,7 @@ export function initAuth() {
         window.bustFilteredSoundsCache();
         if (window.renderSidebarExpeditions) window.renderSidebarExpeditions();
         if (window.refreshNotificationsUI) window.refreshNotificationsUI();
+        if (window.refreshMessagesUI) window.refreshMessagesUI();
         const panel = document.getElementById('notif-panel');
         if (panel) panel.classList.add('hidden');
     };
@@ -162,6 +164,7 @@ export function initAuth() {
         const profile = window.getProfileByLogin ? window.getProfileByLogin(login) : null;
         if (!profile) {
             if (window.refreshNotificationsUI) window.refreshNotificationsUI();
+            if (window.refreshMessagesUI) window.refreshMessagesUI();
             return;
         }
         window.currentUser.bio = profile.bio || '';
@@ -184,6 +187,7 @@ export function initAuth() {
         }
 
         if (window.refreshNotificationsUI) window.refreshNotificationsUI();
+        if (window.refreshMessagesUI) window.refreshMessagesUI();
     };
 
     // Единая точка сохранения профиля: патчит currentUser переданными полями и апсертит
@@ -213,6 +217,7 @@ export function initAuth() {
             joinedAt: window.currentUser.joinedAt || prev.joinedAt || new Date().toISOString(),
             sessions: prev.sessions || [],
             notifications: fields.notifications !== undefined ? fields.notifications : (prev.notifications || []),
+            inbox: fields.inbox !== undefined ? fields.inbox : (prev.inbox || []),
             role: fields.role !== undefined ? fields.role : (prev.role || (window.currentUser.role === 'admin' ? 'admin' : 'user')),
             blocked: fields.blocked !== undefined ? !!fields.blocked : !!prev.blocked
         };
@@ -228,6 +233,41 @@ export function initAuth() {
         const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
         const profile = window.getProfileByLogin ? window.getProfileByLogin(login) : null;
         return (profile && profile.sessions) || [];
+    };
+
+    // Каталог всех экспедиций всех пользователей (для левой панели и карточек деталей/профиля).
+    window.getAllSessions = function() {
+        const list = [];
+        (window.profilesData || []).forEach(p => {
+            (p.sessions || []).forEach(s => {
+                list.push({
+                    ...s,
+                    ownerId: p.loginName,
+                    ownerName: p.displayName || p.loginName
+                });
+            });
+        });
+        return list.sort((a, b) => {
+            const da = a.date || a.createdAt || '';
+            const db = b.date || b.createdAt || '';
+            return String(db).localeCompare(String(da));
+        });
+    };
+
+    window.findSessionById = function(sessionId) {
+        if (!sessionId) return null;
+        return window.getAllSessions().find(s => s.id === sessionId) || null;
+    };
+
+    // Экспедиции, связанные с пользователем: свои (организатор) + те, где он в participants.
+    window.getSessionsForUser = function(login) {
+        if (!login) return [];
+        return window.getAllSessions().map(s => {
+            const isOwner = s.ownerId === login;
+            const isParticipant = !isOwner && Array.isArray(s.participants) && s.participants.includes(login);
+            if (!isOwner && !isParticipant) return null;
+            return { ...s, roleLabel: isOwner ? 'Организатор' : 'Участник' };
+        }).filter(Boolean);
     };
 
     // Удаляет саму сессию и отвязывает от неё звуки (они остаются, просто теряют sessionId).
@@ -361,25 +401,16 @@ export function initAuth() {
         }).join('');
     };
 
-    // --- Вкладка "Экспедиции" в левой панели звуков: быстрый доступ к своим сессиям прямо
-    // с карты, без захода в приватный кабинет. Клик по карточке фильтрует #sounds-list. ---
+    // --- Вкладка "Экспедиции" в левой панели: публичный каталог всех экспедиций пользователей.
+    // Клик фильтрует список звуков по sessionId. ---
     window.renderSidebarExpeditions = function() {
         const container = document.getElementById('panel-expeditions');
         if (!container) return;
 
-        if (!window.currentUser) {
-            container.innerHTML = `
-                <div class="text-center py-6 text-slate-400 dark:text-slate-500">
-                    <i class="fa-solid fa-route text-3xl mb-2 opacity-30 block"></i>
-                    <p class="text-xs font-medium">Войдите, чтобы вести свои экспедиции и группировать звуки по выездам.</p>
-                    <button onclick="window.openAuthModal()" class="mt-3 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-sm">Войти</button>
-                </div>`;
-            return;
-        }
-
-        const sessions = window.getMySessions();
-        const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
-        const mySounds = window.getUserSounds(login, window.currentUser.username, { includeAllStatuses: true });
+        const sessions = window.getAllSessions();
+        const myLogin = window.currentUser
+            ? (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase())
+            : null;
 
         const resetChip = `
             <button onclick="window.setSidebarSessionFilter(null)" class="sidebar-expedition-reset ${!window.activeSessionId ? 'active' : ''}">
@@ -391,31 +422,41 @@ export function initAuth() {
                 ${resetChip}
                 <div class="text-center py-6 text-slate-400 dark:text-slate-500">
                     <i class="fa-solid fa-route text-3xl mb-2 opacity-30 block"></i>
-                    <p class="text-xs font-medium">У вас пока нет экспедиций.</p>
-                    <button onclick="window.openSessionModal()" class="mt-3 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-sm"><i class="fa-solid fa-plus mr-1"></i>Создать</button>
+                    <p class="text-xs font-medium">Пока никто не создал экспедиций.</p>
+                    ${myLogin ? `<button onclick="window.openSessionModal()" class="mt-3 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-sm"><i class="fa-solid fa-plus mr-1"></i>Создать</button>` : ''}
                 </div>`;
             return;
         }
 
         container.innerHTML = resetChip + sessions.map(session => {
-            const count = mySounds.filter(s => s.sessionId === session.id).length;
+            const count = (window.soundsData || []).filter(s =>
+                s.sessionId === session.id && (!s.status || s.status === 'published')
+            ).length;
             const dateStr = session.date ? new Date(session.date).toLocaleDateString('ru-RU') : '';
             const active = window.activeSessionId === session.id;
+            const mine = myLogin && session.ownerId === myLogin;
+            const joined = myLogin && !mine && Array.isArray(session.participants) && session.participants.includes(myLogin);
             return `
             <div class="sidebar-expedition-card ${active ? 'active' : ''}" onclick="window.setSidebarSessionFilter('${session.id}')">
                 <div class="flex items-center justify-between gap-2">
                     <h5 class="font-bold text-slate-800 dark:text-white text-xs truncate">${session.title}</h5>
                     <span class="sidebar-expedition-count">${count}</span>
                 </div>
+                <p class="text-[10px] text-slate-400 mt-0.5 truncate">
+                    <i class="fa-solid fa-user-astronaut mr-1 opacity-60"></i>${session.ownerName}
+                    ${mine ? ' · ваша' : (joined ? ' · вы участник' : '')}
+                </p>
                 ${dateStr || session.route ? `<p class="text-[10px] text-slate-400 mt-0.5 truncate">${dateStr ? `<i class="fa-regular fa-calendar mr-1"></i>${dateStr}` : ''}${dateStr && session.route ? ' · ' : ''}${session.route ? `<i class="fa-solid fa-route mr-1"></i>${session.route}` : ''}</p>` : ''}
             </div>`;
-        }).join('') + `
-            <button onclick="window.openSessionModal()" class="sidebar-expedition-add"><i class="fa-solid fa-plus mr-1.5"></i>Новая экспедиция</button>`;
+        }).join('') + (myLogin
+            ? `<button onclick="window.openSessionModal()" class="sidebar-expedition-add"><i class="fa-solid fa-plus mr-1.5"></i>Новая экспедиция</button>`
+            : '');
     };
 
     window.setSidebarSessionFilter = function(sessionId) {
         window.activeSessionId = sessionId || null;
         if (window.renderList) window.renderList();
+        if (window.updateMapMarkers) window.updateMapMarkers();
         if (window.renderSidebarExpeditions) window.renderSidebarExpeditions();
     };
 
@@ -1411,7 +1452,8 @@ export function initAuth() {
             reply: 'fa-reply',
             like: 'fa-thumbs-up',
             reaction: 'fa-heart',
-            report: 'fa-flag'
+            report: 'fa-flag',
+            message: 'fa-envelope'
         };
         list.innerHTML = items.map(n => `
             <button onclick="window.openNotification('${n.id}')" class="notif-item ${n.read ? '' : 'unread'} w-full text-left">
@@ -1445,6 +1487,8 @@ export function initAuth() {
             if (n.type === 'comment' || n.type === 'reply' || n.type === 'report' || n.type === 'reaction') {
                 setTimeout(() => window.openDetailsModal(), 200);
             }
+        } else if (n.type === 'message' && n.fromId) {
+            window.openMessagesModal(n.fromId);
         }
     };
 
@@ -1458,6 +1502,218 @@ export function initAuth() {
         updated[idx] = { ...updated[idx], notifications: notifs };
         await window.syncProfilesData(updated);
         window.refreshNotificationsUI();
+    };
+
+    // --- Личные сообщения между пользователями (inbox в profiles.json) ---
+    window.__activeMessagePeer = null;
+
+    window.getMyInbox = function() {
+        if (!window.currentUser) return [];
+        const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const profile = window.getProfileByLogin ? window.getProfileByLogin(login) : null;
+        return (profile && profile.inbox) || [];
+    };
+
+    window.refreshMessagesUI = function() {
+        const btn = document.getElementById('msg-btn');
+        const badge = document.getElementById('msg-badge');
+        if (!btn) return;
+        if (!window.currentUser) {
+            btn.classList.add('hidden');
+            return;
+        }
+        btn.classList.remove('hidden');
+        const unread = window.getMyInbox().filter(m => !m.read).length;
+        if (badge) {
+            badge.textContent = unread > 99 ? '99+' : String(unread);
+            badge.classList.toggle('hidden', unread === 0);
+        }
+    };
+
+    window.toggleMessagesPanel = function() {
+        if (!window.currentUser) { if (window.openAuthModal) window.openAuthModal(); return; }
+        window.openMessagesModal();
+    };
+
+    window.openMessagesModal = function(peerLogin = null) {
+        const m = document.getElementById('messages-modal');
+        const c = document.getElementById('messages-modal-content');
+        if (!m || !c) return;
+        m.classList.remove('hidden');
+        void m.offsetWidth;
+        m.classList.remove('opacity-0', 'pointer-events-none');
+        c.classList.remove('scale-95');
+        if (peerLogin) window.openMessageThread(peerLogin);
+        else window.showMessagesConversations();
+    };
+
+    window.closeMessagesModal = function() {
+        const m = document.getElementById('messages-modal');
+        const c = document.getElementById('messages-modal-content');
+        if (!m || !c) return;
+        m.classList.add('opacity-0', 'pointer-events-none');
+        c.classList.add('scale-95');
+        setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
+        window.__activeMessagePeer = null;
+    };
+
+    window.showMessagesConversations = function() {
+        window.__activeMessagePeer = null;
+        const conv = document.getElementById('messages-conversations');
+        const thread = document.getElementById('messages-thread');
+        if (conv) conv.classList.remove('hidden');
+        if (thread) thread.classList.add('hidden');
+
+        const inbox = window.getMyInbox();
+        const byPeer = new Map();
+        inbox.forEach(msg => {
+            const peer = msg.fromId;
+            if (!peer) return;
+            const prev = byPeer.get(peer);
+            if (!prev || new Date(msg.date) > new Date(prev.date)) byPeer.set(peer, msg);
+        });
+
+        // Также показываем людей, которым мы писали (их ответы лежат у нас; исходящие — у них).
+        // Для исходящих ищем себя в их inbox.
+        const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        (window.profilesData || []).forEach(p => {
+            (p.inbox || []).forEach(msg => {
+                if (msg.fromId === myLogin) {
+                    const peer = p.loginName;
+                    const synthetic = { ...msg, fromId: peer, fromName: p.displayName || peer, _outgoingHint: true };
+                    const prev = byPeer.get(peer);
+                    if (!prev || new Date(msg.date) > new Date(prev.date)) byPeer.set(peer, synthetic);
+                }
+            });
+        });
+
+        if (!conv) return;
+        if (!byPeer.size) {
+            conv.innerHTML = `<p class="text-xs text-slate-400 text-center py-10">Пока нет переписок. Напишите кому-нибудь из публичного профиля.</p>`;
+            return;
+        }
+
+        const rows = [...byPeer.entries()].sort((a, b) => new Date(b[1].date) - new Date(a[1].date));
+        conv.innerHTML = rows.map(([peer, last]) => {
+            const unread = inbox.filter(m => m.fromId === peer && !m.read).length;
+            const profile = window.getProfileByLogin ? window.getProfileByLogin(peer) : null;
+            const name = profile?.displayName || last.fromName || peer;
+            return `
+            <button onclick="window.openMessageThread('${peer}')" class="notif-item ${unread ? 'unread' : ''} w-full text-left">
+                <i class="fa-solid fa-user notif-item-icon"></i>
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center justify-between gap-2">
+                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${name}</p>
+                        ${unread ? `<span class="text-[10px] font-bold text-blue-600">${unread}</span>` : ''}
+                    </div>
+                    <p class="text-[11px] text-slate-500 truncate mt-0.5">${last.text}</p>
+                </div>
+            </button>`;
+        }).join('');
+    };
+
+    window.openMessageThread = async function(peerLogin) {
+        window.__activeMessagePeer = peerLogin;
+        const conv = document.getElementById('messages-conversations');
+        const thread = document.getElementById('messages-thread');
+        const nameEl = document.getElementById('messages-thread-name');
+        const list = document.getElementById('messages-thread-list');
+        if (conv) conv.classList.add('hidden');
+        if (thread) thread.classList.remove('hidden');
+
+        const profile = window.getProfileByLogin ? window.getProfileByLogin(peerLogin) : null;
+        if (nameEl) nameEl.textContent = profile?.displayName || peerLogin;
+
+        const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const incoming = window.getMyInbox().filter(m => m.fromId === peerLogin);
+        const peerProfile = profile || {};
+        const outgoing = (peerProfile.inbox || []).filter(m => m.fromId === myLogin).map(m => ({ ...m, _mine: true }));
+
+        const all = [...incoming.map(m => ({ ...m, _mine: false })), ...outgoing]
+            .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        if (list) {
+            list.innerHTML = all.length ? all.map(m => `
+                <div class="msg-bubble ${m._mine ? 'mine' : ''}">
+                    <p class="text-[13px] leading-snug">${m.text}</p>
+                    <p class="text-[9px] opacity-60 mt-1">${m.date ? new Date(m.date).toLocaleString('ru-RU') : ''}</p>
+                </div>
+            `).join('') : `<p class="text-xs text-slate-400 text-center py-6">Начните переписку</p>`;
+            list.scrollTop = list.scrollHeight;
+        }
+
+        // Помечаем входящие от этого пира как прочитанные
+        const updated = [...(window.profilesData || [])];
+        const idx = updated.findIndex(p => p.loginName === myLogin);
+        if (idx >= 0) {
+            let changed = false;
+            const inbox = (updated[idx].inbox || []).map(m => {
+                if (m.fromId === peerLogin && !m.read) { changed = true; return { ...m, read: true }; }
+                return m;
+            });
+            if (changed) {
+                updated[idx] = { ...updated[idx], inbox };
+                await window.syncProfilesData(updated);
+                window.refreshMessagesUI();
+            }
+        }
+    };
+
+    window.sendMessageInThread = async function() {
+        const peer = window.__activeMessagePeer;
+        if (!peer || !window.currentUser) return;
+        const input = document.getElementById('messages-compose-input');
+        const text = (input?.value || '').trim();
+        if (!text) return;
+
+        const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const updated = [...(window.profilesData || [])];
+        let idx = updated.findIndex(p => p.loginName === peer);
+        if (idx < 0) {
+            updated.push({ loginName: peer, displayName: peer, inbox: [] });
+            idx = updated.length - 1;
+        }
+        const msg = {
+            id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+            fromId: myLogin,
+            fromName: window.currentUser.username,
+            text,
+            date: new Date().toISOString(),
+            read: false
+        };
+        updated[idx] = { ...updated[idx], inbox: [msg, ...(updated[idx].inbox || [])].slice(0, 200) };
+
+        // Уведомление получателю
+        const notifs = [...(updated[idx].notifications || [])];
+        notifs.unshift({
+            id: 'n' + Date.now().toString(36),
+            type: 'message',
+            text: `${window.currentUser.username} написал(а) вам сообщение`,
+            fromId: myLogin,
+            fromName: window.currentUser.username,
+            date: new Date().toISOString(),
+            read: false
+        });
+        updated[idx] = { ...updated[idx], notifications: notifs.slice(0, 60) };
+
+        if (input) input.value = '';
+        const ok = await window.syncProfilesData(updated);
+        if (ok) {
+            window.openMessageThread(peer);
+            window.showToast('Сообщение отправлено');
+        } else {
+            window.showToast('Не удалось отправить');
+        }
+    };
+
+    window.openComposeMessageFromProfile = function() {
+        const ctx = window.__publicProfileCtx;
+        if (!ctx?.login) return;
+        if (!window.currentUser) { window.showToast('Войдите, чтобы писать сообщения'); if (window.openAuthModal) window.openAuthModal(); return; }
+        const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        if (ctx.login === myLogin) { window.showToast('Это ваш профиль'); return; }
+        window.closePublicProfileModal();
+        window.openMessagesModal(ctx.login);
     };
 
     // --- Настройки профиля (вкладка "Настройки" кабинета) ---

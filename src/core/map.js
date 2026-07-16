@@ -15,39 +15,33 @@ window.showMapContextMenu = function(coords, position) {
     window.tempAddCoords = [coords[0], coords[1]];
     coordsLabel.textContent = `${Number(coords[0]).toFixed(5)}, ${Number(coords[1]).toFixed(5)}`;
 
-    let x = 0;
-    let y = 0;
-    let source = null;
+    // position: fixed — координаты в системе viewport (clientX/clientY), без scrollX/scrollY.
+    let x = 12;
+    let y = 12;
 
     if (position && typeof position === 'object' && !Array.isArray(position)) {
-        if (typeof position.clientX === 'number' || typeof position.pageX === 'number') {
-            x = position.clientX ?? position.pageX ?? 0;
-            y = position.clientY ?? position.pageY ?? 0;
-            source = 'dom';
-        } else if (typeof position.x === 'number' || typeof position.y === 'number') {
-            x = position.x ?? 0;
-            y = position.y ?? 0;
-            source = 'map';
+        if (typeof position.clientX === 'number' && !Number.isNaN(position.clientX)) {
+            x = position.clientX;
+            y = typeof position.clientY === 'number' ? position.clientY : y;
+        } else if (typeof position.pageX === 'number' && !Number.isNaN(position.pageX)) {
+            x = position.pageX - (window.scrollX || 0);
+            y = (typeof position.pageY === 'number' ? position.pageY : y) - (window.scrollY || 0);
+        } else if (typeof position.x === 'number') {
+            // Координаты относительно контейнера карты (ymaps position)
+            const mapContainer = window.map?.container?.getElement?.();
+            const mapRect = mapContainer?.getBoundingClientRect?.();
+            if (mapRect) {
+                x = mapRect.left + (position.x || 0);
+                y = mapRect.top + (position.y || 0);
+            }
         }
-    }
-
-    if (position && Array.isArray(position)) {
-        x = position[0] ?? 0;
-        y = position[1] ?? 0;
-        source = 'map-array';
-    }
-
-    const mapContainer = window.map?.container?.getElement?.();
-    const mapRect = mapContainer?.getBoundingClientRect ? mapContainer.getBoundingClientRect() : null;
-
-    if (source === 'map' || source === 'map-array') {
+    } else if (Array.isArray(position)) {
+        const mapContainer = window.map?.container?.getElement?.();
+        const mapRect = mapContainer?.getBoundingClientRect?.();
         if (mapRect) {
-            x = mapRect.left + x;
-            y = mapRect.top + y;
+            x = mapRect.left + (position[0] || 0);
+            y = mapRect.top + (position[1] || 0);
         }
-    } else if (source === 'dom') {
-        x = x + (window.scrollX || 0);
-        y = y + (window.scrollY || 0);
     }
 
     const menuWidth = 208;
@@ -81,12 +75,37 @@ window.initMap = function() {
         const mapPosition = e.get('position');
         if (domEvent && typeof domEvent.preventDefault === 'function') domEvent.preventDefault();
 
-        const position = domEvent ? {
-            clientX: domEvent.clientX ?? domEvent.pageX ?? 0,
-            clientY: domEvent.clientY ?? domEvent.pageY ?? 0,
-            pageX: domEvent.pageX ?? domEvent.clientX ?? 0,
-            pageY: domEvent.pageY ?? domEvent.clientY ?? 0
-        } : (Array.isArray(mapPosition) ? mapPosition : (mapPosition ? { x: mapPosition[0], y: mapPosition[1] } : null));
+        // DomEvent Яндекс.Карт — обёртка: clientX/pageX часто undefined на самом объекте,
+        // значения нужно брать через .get() или originalEvent.
+        const original = (domEvent && domEvent.originalEvent) || null;
+        const read = (key) => {
+            if (original && typeof original[key] === 'number') return original[key];
+            if (domEvent && typeof domEvent.get === 'function') {
+                const v = domEvent.get(key);
+                if (typeof v === 'number') return v;
+            }
+            if (domEvent && typeof domEvent[key] === 'number') return domEvent[key];
+            return null;
+        };
+
+        const clientX = read('clientX');
+        const clientY = read('clientY');
+        const pageX = read('pageX');
+        const pageY = read('pageY');
+
+        let position = null;
+        if (clientX != null || pageX != null) {
+            position = {
+                clientX: clientX ?? (pageX != null ? pageX - (window.scrollX || 0) : 0),
+                clientY: clientY ?? (pageY != null ? pageY - (window.scrollY || 0) : 0),
+                pageX: pageX ?? clientX,
+                pageY: pageY ?? clientY
+            };
+        } else if (Array.isArray(mapPosition)) {
+            position = mapPosition;
+        } else if (mapPosition) {
+            position = { x: mapPosition[0] ?? mapPosition.x, y: mapPosition[1] ?? mapPosition.y };
+        }
 
         window.showMapContextMenu(coords, position);
     });

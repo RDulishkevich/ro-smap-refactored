@@ -568,6 +568,7 @@ window.syncCloudData = async function(newCloudData, fileName = "map_data.json") 
 
         if (fileName === "map_data.json") {
             window.mergeData(newCloudData); window.initFiltersData(); window.processFilterChange(false);
+            window.__lastCloudPollKey = JSON.stringify(newCloudData);
             if(document.getElementById('cabinet-modal') && !document.getElementById('cabinet-modal').classList.contains('hidden')) { window.renderCabinet(); }
         }
         return true;
@@ -578,8 +579,86 @@ window.syncCloudData = async function(newCloudData, fileName = "map_data.json") 
 // чтобы не смешивать "визитки" пользователей с данными звуков.
 window.syncProfilesData = async function(newProfiles) {
     const success = await window.syncCloudData(newProfiles, "profiles.json");
-    if (success) window.profilesData = newProfiles;
+    if (success) {
+        window.profilesData = newProfiles;
+        window.__lastProfilesPollKey = JSON.stringify(newProfiles);
+        if (window.refreshNotificationsUI) window.refreshNotificationsUI();
+        if (window.refreshMessagesUI) window.refreshMessagesUI();
+    }
     return success;
+};
+
+// Фоновый опрос облака: новые звуки, уведомления, сообщения — без перезагрузки страницы.
+window.pollLiveCloudData = async function() {
+    if (window.__pollingInFlight || document.hidden) return;
+    window.__pollingInFlight = true;
+    try {
+        const [cloudData, profiles] = await Promise.all([
+            fetch(`${window.YANDEX_BUCKET_URL}/map_data.json?nocache=${Date.now()}`)
+                .then(res => res.ok ? res.json() : null)
+                .catch(() => null),
+            fetch(`${window.YANDEX_BUCKET_URL}/profiles.json?nocache=${Date.now()}`)
+                .then(res => res.ok ? res.json() : null)
+                .catch(() => null)
+        ]);
+
+        if (Array.isArray(cloudData)) {
+            const key = JSON.stringify(cloudData);
+            if (key !== window.__lastCloudPollKey) {
+                window.__lastCloudPollKey = key;
+                const playingId = window.currentPlayingId;
+                const detailsOpen = (() => {
+                    const m = document.getElementById('details-modal');
+                    return m && !m.classList.contains('hidden') && !m.classList.contains('opacity-0');
+                })();
+                window.mergeData(cloudData);
+                if (window.initFiltersData) window.initFiltersData();
+                if (window.processFilterChange) window.processFilterChange(false);
+                if (playingId && detailsOpen) {
+                    const s = window.soundsData.find(x => x.id === playingId);
+                    if (s && window.renderComments) window.renderComments(s);
+                    if (s && window.renderDetailsReactions) window.renderDetailsReactions(s);
+                }
+                if (window.renderSidebarExpeditions) {
+                    const panel = document.getElementById('panel-expeditions');
+                    if (panel && !panel.classList.contains('hidden')) window.renderSidebarExpeditions();
+                }
+            }
+        }
+
+        if (Array.isArray(profiles)) {
+            const key = JSON.stringify(profiles);
+            if (key !== window.__lastProfilesPollKey) {
+                window.__lastProfilesPollKey = key;
+                window.profilesData = profiles;
+                if (window.applyProfileToCurrentUser) window.applyProfileToCurrentUser();
+                if (window.refreshNotificationsUI) window.refreshNotificationsUI();
+                if (window.refreshMessagesUI) window.refreshMessagesUI();
+                if (window.renderSidebarExpeditions) {
+                    const panel = document.getElementById('panel-expeditions');
+                    if (panel && !panel.classList.contains('hidden')) window.renderSidebarExpeditions();
+                }
+                // Обновить открытый чат, если идёт переписка
+                if (window.__activeMessagePeer && window.openMessageThread) {
+                    const thread = document.getElementById('messages-thread');
+                    if (thread && !thread.classList.contains('hidden')) {
+                        window.openMessageThread(window.__activeMessagePeer);
+                    }
+                }
+            }
+        }
+    } finally {
+        window.__pollingInFlight = false;
+    }
+};
+
+window.startLiveCloudPolling = function(intervalMs = 12000) {
+    if (window.__livePollTimer) return;
+    window.__livePollTimer = setInterval(() => window.pollLiveCloudData(), intervalMs);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) window.pollLiveCloudData();
+    });
+    window.addEventListener('focus', () => window.pollLiveCloudData());
 };
 
 window.deleteSoundFromCloud = async function(id) {
@@ -723,6 +802,31 @@ window.openPublicProfile = function(login, displayName) {
     const previewBtn = document.getElementById('pp-view-own-note');
     if (previewBtn) previewBtn.classList.toggle('hidden', !isOwn);
 
+    const msgBtn = document.getElementById('pp-message-btn');
+    if (msgBtn) msgBtn.classList.toggle('hidden', isOwn || !finalLogin);
+
+    // Экспедиции: организатор + участник
+    const expEl = document.getElementById('pp-expeditions');
+    if (expEl) {
+        const sessions = window.getSessionsForUser ? window.getSessionsForUser(finalLogin) : [];
+        if (!sessions.length) {
+            expEl.innerHTML = `<p class="text-xs text-slate-400">Экспедиций пока нет</p>`;
+        } else {
+            expEl.innerHTML = sessions.map(s => {
+                const dateStr = s.date ? new Date(s.date).toLocaleDateString('ru-RU') : '';
+                return `
+                <div class="pp-expedition-card" onclick="window.closePublicProfileModal(); window.setSidebarSessionFilter('${s.id}'); window.switchFilterTab('expeditions'); const sb=document.getElementById('sidebar'); if(sb&&sb.classList.contains('sidebar-hidden')&&window.toggleSidebar) window.toggleSidebar();">
+                    <div class="flex items-center justify-between gap-2">
+                        <h5 class="text-xs font-bold text-slate-800 dark:text-white truncate">${s.title}</h5>
+                        <span class="pub-status-pill ${s.roleLabel === 'Организатор' ? 'pub-status-published' : 'pub-status-pending'}">${s.roleLabel}</span>
+                    </div>
+                    ${dateStr || s.route ? `<p class="text-[10px] text-slate-400 mt-0.5 truncate">${dateStr || ''}${dateStr && s.route ? ' · ' : ''}${s.route || ''}</p>` : ''}
+                    ${s.ownerId !== finalLogin ? `<p class="text-[10px] text-slate-400 mt-0.5">Орг.: ${s.ownerName}</p>` : ''}
+                </div>`;
+            }).join('');
+        }
+    }
+
     const sounds = window.getUserSounds(finalLogin, finalName, { includeAllStatuses: isOwn });
     window.__publicProfileSounds = sounds;
     window.renderPublicProfileStats(sounds);
@@ -740,6 +844,12 @@ window.openPublicProfile = function(login, displayName) {
     // Рендерим карту после снятия display:none — иначе ymaps инициализируется в контейнере
     // нулевой ширины/высоты и рисует пустое/битое полотно.
     if (window.renderProfileMiniMap) window.renderProfileMiniMap('profile-mini-map', sounds.filter(s => !s.status || s.status === 'published'));
+};
+
+window.openProfileAvatarLightbox = function() {
+    const avatarEl = document.getElementById('pp-avatar');
+    if (!avatarEl || avatarEl.classList.contains('hidden') || !avatarEl.src) return;
+    if (window.openLightbox) window.openLightbox([avatarEl.src], 0);
 };
 
 window.closePublicProfileModal = function() {
@@ -1153,6 +1263,18 @@ window.openDetailsModal = function() {
         recordistEl.onclick = () => window.openPublicProfile(s.recordistId, s.recordist);
     }
 
+    const expEl = document.getElementById('det-expedition');
+    if (expEl) {
+        const session = s.sessionId && window.findSessionById ? window.findSessionById(s.sessionId) : null;
+        if (session) {
+            expEl.innerHTML = `<span class="cursor-pointer text-blue-600 dark:text-blue-400 hover:underline" onclick="window.closeDetailsModal(); window.setSidebarSessionFilter('${session.id}'); window.switchFilterTab('expeditions'); const sb=document.getElementById('sidebar'); if(sb&&sb.classList.contains('sidebar-hidden')&&window.toggleSidebar) window.toggleSidebar();">${session.title}</span>`;
+            expEl.title = session.ownerName ? `Организатор: ${session.ownerName}` : '';
+        } else {
+            expEl.textContent = '—';
+            expEl.title = '';
+        }
+    }
+
     const playsEl = document.getElementById('det-stat-plays');
     const downloadsEl = document.getElementById('det-stat-downloads');
     if (playsEl) playsEl.textContent = s.plays || 0;
@@ -1247,7 +1369,12 @@ window.renderComments = function(sound) {
         <div class="comment-reply">
             <div class="flex justify-between items-start gap-2 mb-1">
                 <span class="text-[12px]">${renderAuthor(r.author, r.authorId)}</span>
-                <span class="text-[9px] text-slate-400 shrink-0">${r.date}</span>
+                <div class="flex items-center gap-1 shrink-0">
+                    <span class="text-[9px] text-slate-400">${r.date}</span>
+                    <button onclick="window.openReplyMenu('${sound.id}', '${r.id}')" class="comment-menu-btn" title="Действия">
+                        <i class="fa-solid fa-ellipsis"></i>
+                    </button>
+                </div>
             </div>
             <p class="text-[12px] text-slate-600 dark:text-slate-300">${r.text}</p>
         </div>`;
@@ -1276,17 +1403,26 @@ window.renderComments = function(sound) {
     container.scrollTop = container.scrollHeight;
 }
 
-// Контекст активного ответа: если задан, addComment() уходит в replies родителя, а не в
-// корневой список комментариев. Сбрасывается после отправки или явной отмены (крестик баннера).
+// Контекст активного ответа: parentCommentId — корневой комментарий, replyToId/author —
+// конкретный человек, которому отвечаем (может быть автор корня или вложенного ответа).
 window.__replyContext = null;
-window.startReplyToComment = function(soundId, commentId, authorName) {
-    window.__replyContext = { soundId, commentId };
+window.startReplyToComment = function(soundId, commentId, authorName, parentCommentId = null, replyToAuthorId = null) {
+    window.__replyContext = {
+        soundId,
+        parentCommentId: parentCommentId || commentId,
+        replyToId: commentId,
+        replyToAuthor: authorName,
+        replyToAuthorId
+    };
     const banner = document.getElementById('comment-reply-banner');
     const label = document.getElementById('comment-reply-target');
     const input = document.getElementById('new-comment-input');
     if (label) label.textContent = authorName;
     if (banner) { banner.classList.remove('hidden'); banner.classList.add('flex'); }
-    if (input) input.focus();
+    if (input) {
+        input.focus();
+        if (!input.value.startsWith('@') && authorName) input.value = `@${authorName} `;
+    }
 };
 window.cancelReplyToComment = function() {
     window.__replyContext = null;
@@ -1313,13 +1449,22 @@ window.addComment = async function() {
         let notifText = '';
 
         if (replyCtx) {
-            const parent = (s.comments || []).find(c => c.id === replyCtx.commentId);
+            const parent = (s.comments || []).find(c => c.id === replyCtx.parentCommentId);
             if (parent) {
                 parent.replies = parent.replies || [];
-                parent.replies.push({ id: 'cr' + idBase, author: authorName, authorId, text, date: dateStr, createdAt });
-                notifyTarget = parent.authorId;
+                parent.replies.push({
+                    id: 'cr' + idBase,
+                    author: authorName,
+                    authorId,
+                    text,
+                    date: dateStr,
+                    createdAt,
+                    replyToId: replyCtx.replyToId,
+                    replyToAuthor: replyCtx.replyToAuthor
+                });
+                notifyTarget = replyCtx.replyToAuthorId || parent.authorId;
                 notifType = 'reply';
-                notifText = `${authorName} ответил(а) на ваш комментарий к «${s.title}»`;
+                notifText = `${authorName} ответил(а) вам в «${s.title}»`;
             }
             window.cancelReplyToComment();
         } else {
@@ -1356,11 +1501,45 @@ window.openCommentMenu = function(soundId, commentId) {
 
     const items = [];
     if (c.authorId) items.push({ icon: 'fa-id-badge', label: 'Профиль автора', onClick: () => window.openPublicProfile(c.authorId, c.author) });
-    items.push({ icon: 'fa-reply', label: 'Ответить', onClick: () => window.startReplyToComment(soundId, commentId, c.author) });
+    items.push({ icon: 'fa-reply', label: 'Ответить', onClick: () => window.startReplyToComment(soundId, commentId, c.author, commentId, c.authorId) });
     items.push({ icon: 'fa-heart', label: reacted ? 'Убрать реакцию' : 'Поставить реакцию', onClick: () => window.toggleCommentReaction(soundId, commentId) });
     items.push({ icon: 'fa-flag', label: 'Пожаловаться', danger: true, onClick: () => window.openReportModal('comment', soundId, commentId) });
     if (isAdmin) {
         items.push({ icon: 'fa-trash-can', label: 'Удалить комментарий', danger: true, onClick: () => window.adminDeleteComment(soundId, commentId) });
+    }
+    window.ActionSheet.open(items);
+};
+
+// Меню у вложенного ответа — чтобы можно было ответить тому, кто ответил вам.
+window.openReplyMenu = function(soundId, replyId) {
+    const s = window.soundsData.find(x => x.id === soundId);
+    if (!s) return;
+    let parent = null;
+    let reply = null;
+    for (const c of (s.comments || [])) {
+        const found = (c.replies || []).find(r => r.id === replyId);
+        if (found) { parent = c; reply = found; break; }
+    }
+    if (!parent || !reply) return;
+    const login = window.currentUser ? (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase()) : null;
+    const isAdmin = !!window.currentUser && (String(window.currentUser.role || '').toLowerCase() === 'admin' || login === 'admin');
+
+    const items = [];
+    if (reply.authorId) items.push({ icon: 'fa-id-badge', label: 'Профиль автора', onClick: () => window.openPublicProfile(reply.authorId, reply.author) });
+    items.push({ icon: 'fa-reply', label: 'Ответить', onClick: () => window.startReplyToComment(soundId, replyId, reply.author, parent.id, reply.authorId) });
+    items.push({ icon: 'fa-flag', label: 'Пожаловаться', danger: true, onClick: () => window.openReportModal('comment', soundId, parent.id) });
+    if (isAdmin) {
+        items.push({
+            icon: 'fa-trash-can', label: 'Удалить ответ', danger: true,
+            onClick: async () => {
+                parent.replies = (parent.replies || []).filter(r => r.id !== replyId);
+                const updatedCloud = [...window.cloudDataCache];
+                const idx = updatedCloud.findIndex(x => x.id === soundId);
+                if (idx >= 0) updatedCloud[idx] = s; else updatedCloud.push(s);
+                const ok = await window.syncCloudData(updatedCloud);
+                if (ok) { window.showToast('Ответ удалён'); window.renderComments(s); }
+            }
+        });
     }
     window.ActionSheet.open(items);
 };

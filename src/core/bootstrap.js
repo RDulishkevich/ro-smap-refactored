@@ -35,6 +35,8 @@ export function bootstrapApp() {
             }
         });
 
+        if (window.refreshMessagesUI) window.refreshMessagesUI();
+
         Promise.all([
             fetch(`${window.YANDEX_BUCKET_URL}/map_data.json?nocache=${Date.now()}`)
                 .then(res => res.ok ? res.json() : [])
@@ -44,11 +46,19 @@ export function bootstrapApp() {
                 .catch(err => { console.warn('Профили пользователей недоступны:', err); return []; })
         ]).then(([cloudData, profiles]) => {
             window.profilesData = Array.isArray(profiles) ? profiles : [];
-            if (cloudData.length > 0 && window.mergeData) window.mergeData(cloudData);
+            window.__lastProfilesPollKey = JSON.stringify(window.profilesData);
+            if (cloudData.length > 0 && window.mergeData) {
+                window.mergeData(cloudData);
+                window.__lastCloudPollKey = JSON.stringify(cloudData);
+            } else {
+                window.__lastCloudPollKey = JSON.stringify([]);
+            }
             if (window.initFiltersData) window.initFiltersData();
             if (window.processFilterChange) window.processFilterChange(window.innerWidth >= 768);
             if (window.applyProfileToCurrentUser) window.applyProfileToCurrentUser();
             if (window.refreshNotificationsUI) window.refreshNotificationsUI();
+            if (window.refreshMessagesUI) window.refreshMessagesUI();
+            if (window.startLiveCloudPolling) window.startLiveCloudPolling(12000);
         });
 
         const searchInput = document.getElementById('search-input');
