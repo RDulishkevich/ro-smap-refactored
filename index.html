@@ -298,7 +298,10 @@
 
         <!-- Кнопка Добавления звука: на телефоне — сразу под кнопкой профиля (верх/справа),
              на ПК — привычное место в правом нижнем углу. -->
-        <div id="fab-add" class="absolute top-20 right-4 md:top-auto md:bottom-8 md:right-8 pointer-events-auto z-40">
+        <div id="fab-add" class="absolute top-20 right-4 md:top-auto md:bottom-8 md:right-8 pointer-events-auto z-40 flex flex-col gap-3 items-end">
+            <button onclick="window.openAudioGuessr()" class="w-12 h-12 md:w-14 md:h-14 bg-emerald-600 text-white rounded-[1.1rem] md:rounded-[1.25rem] flex items-center justify-center shadow-2xl border border-emerald-500 transition-transform hover:scale-105 active:scale-95" title="Audio Guessr">
+                <i class="fa-solid fa-headphones text-lg md:text-xl pointer-events-none"></i>
+            </button>
             <button onclick="window.toggleAddModal()" class="w-14 h-14 bg-blue-600 text-white rounded-[1.25rem] flex items-center justify-center shadow-2xl border border-blue-500 transition-transform hover:scale-105 active:scale-95" title="Add Audio">
                 <i class="fa-solid fa-plus text-2xl pointer-events-none"></i>
             </button>
@@ -1117,7 +1120,21 @@
                 </div>
                 <div id="feed-post-notice-fields">
                     <label class="modal-label text-slate-400">Текст уведомления</label>
-                    <textarea id="feed-post-body" rows="4" maxlength="400" placeholder="Короткое сообщение для ленты..." class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 resize-none"></textarea>
+                    <textarea id="feed-post-body" rows="3" maxlength="400" placeholder="Короткое сообщение для ленты..." class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 resize-none"></textarea>
+                    <div class="mt-3">
+                        <label class="modal-label text-slate-400">Фото (опционально)</label>
+                        <div id="feed-notice-image-preview" class="hidden mb-2">
+                            <img id="feed-notice-image-el" alt="" class="feed-notice-preview-img rounded-xl border border-slate-200 dark:border-slate-700 object-cover">
+                            <div class="flex items-center gap-2 mt-2">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase shrink-0">Ширина</label>
+                                <input id="feed-notice-image-width" type="range" min="40" max="100" value="100" class="flex-1" oninput="window.updateNoticeImageWidthPreview()">
+                                <span id="feed-notice-image-width-label" class="text-[11px] font-bold text-slate-500 w-10">100%</span>
+                            </div>
+                            <button type="button" onclick="window.clearNoticeFeedImage()" class="mt-2 text-[11px] font-bold text-red-500">Убрать фото</button>
+                        </div>
+                        <button type="button" onclick="document.getElementById('feed-notice-image-input').click()" class="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 text-xs font-bold"><i class="fa-solid fa-image mr-1"></i>Добавить / кадрировать фото</button>
+                        <input id="feed-notice-image-input" type="file" accept="image/*" class="hidden" onchange="window.pickNoticeFeedImage(this.files)">
+                    </div>
                 </div>
                 <div id="feed-post-article-fields" class="hidden">
                     <label class="modal-label text-slate-400">Текст статьи</label>
@@ -1125,10 +1142,10 @@
                         <button type="button" onclick="window.execFeedEditor('bold')" title="Жирный"><i class="fa-solid fa-bold"></i></button>
                         <button type="button" onclick="window.execFeedEditor('italic')" title="Курсив"><i class="fa-solid fa-italic"></i></button>
                         <button type="button" onclick="window.execFeedEditor('insertUnorderedList')" title="Список"><i class="fa-solid fa-list-ul"></i></button>
-                        <button type="button" onclick="document.getElementById('feed-post-image-input').click()" title="Фото"><i class="fa-solid fa-image"></i></button>
-                        <input id="feed-post-image-input" type="file" accept="image/*" class="hidden" onchange="window.insertFeedEditorImage(this.files)">
+                        <button type="button" onclick="document.getElementById('feed-post-image-input').click()" title="Фото с кадрированием"><i class="fa-solid fa-image"></i></button>
+                        <input id="feed-post-image-input" type="file" accept="image/*" class="hidden" onchange="window.pickArticleFeedImage(this.files)">
                     </div>
-                    <div id="feed-post-editor" class="feed-editor" contenteditable="true" data-placeholder="Напишите статью… Вставьте фото курсором в нужное место."></div>
+                    <div id="feed-post-editor" class="feed-editor" contenteditable="true" data-placeholder="Напишите статью… Фото можно вставить через кнопку и кадрировать."></div>
                 </div>
             </div>
             <div class="p-4 border-t border-slate-100 dark:border-slate-700 shrink-0 flex gap-2">
@@ -1150,6 +1167,52 @@
                 <button onclick="window.closeFeedArticleModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div id="feed-article-body" class="p-4 sm:p-5 overflow-y-auto custom-scrollbar flex-1 feed-article-body"></div>
+        </div>
+    </div>
+
+    <!-- Кадрирование фото -->
+    <div id="image-crop-modal" onmousedown="if(event.target === this) window.closeImageCropModal()" class="fixed inset-0 z-[260] bg-slate-900/70 backdrop-blur-sm hidden flex items-center justify-center p-3 opacity-0 transition-opacity duration-300 pointer-events-none">
+        <div id="image-crop-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.5rem] shadow-2xl w-full max-w-md max-h-[92vh] flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
+            <div class="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
+                <h3 class="text-base font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-crop mr-2 text-blue-500"></i>Кадрирование</h3>
+                <button onclick="window.closeImageCropModal()" class="text-slate-400"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="p-4 flex-1 overflow-y-auto custom-scrollbar space-y-3">
+                <div id="image-crop-stage" class="image-crop-stage">
+                    <img id="image-crop-source" alt="" draggable="false">
+                    <div id="image-crop-frame" class="image-crop-frame"></div>
+                </div>
+                <div>
+                    <label class="modal-label text-slate-400">Масштаб</label>
+                    <input id="image-crop-zoom" type="range" min="100" max="300" value="100" class="w-full" oninput="window.updateImageCropTransform()">
+                </div>
+                <p class="text-[11px] text-slate-400">Перетащите фото внутри рамки. Рамка — область, которая попадёт в пост.</p>
+            </div>
+            <div class="p-4 border-t border-slate-100 dark:border-slate-700 flex gap-2 shrink-0">
+                <button onclick="window.closeImageCropModal()" class="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-sm font-bold text-slate-600 dark:text-slate-200">Отмена</button>
+                <button onclick="window.applyImageCrop()" class="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-bold">Применить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio Guessr -->
+    <div id="guessr-modal" onmousedown="if(event.target === this) window.closeAudioGuessr()" class="fixed inset-0 z-[230] bg-slate-900/70 dark:bg-slate-900/85 backdrop-blur-sm hidden flex items-center justify-center p-2 sm:p-4 opacity-0 transition-opacity duration-300 pointer-events-none">
+        <div id="guessr-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl w-full max-w-3xl h-[min(92vh,720px)] flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
+            <div class="p-3 sm:p-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between gap-2 shrink-0">
+                <div class="min-w-0">
+                    <h3 class="text-base sm:text-lg font-bold text-slate-800 dark:text-white truncate"><i class="fa-solid fa-headphones mr-2 text-emerald-500"></i>Audio Guessr</h3>
+                    <p class="text-[11px] text-slate-400"><span id="guessr-round">Раунд 1</span> · <span id="guessr-score">Очки: 0</span></p>
+                </div>
+                <button onclick="window.closeAudioGuessr()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <p id="guessr-hint" class="px-4 pt-2 text-[12px] text-slate-500 dark:text-slate-400 shrink-0">Слушайте запись и отметьте место на карте</p>
+            <div id="guessr-map" class="flex-1 min-h-0 mx-3 mt-2 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900"></div>
+            <div id="guessr-result" class="hidden mx-3 mt-2 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200 text-sm"></div>
+            <div class="p-3 sm:p-4 flex flex-wrap gap-2 shrink-0">
+                <button id="guessr-play" onclick="window.toggleGuessrAudio()" class="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold"><i class="fa-solid fa-play mr-1"></i>Слушать</button>
+                <button id="guessr-submit" onclick="window.submitGuessrGuess()" disabled class="flex-1 min-w-[8rem] py-2.5 rounded-xl bg-emerald-600 disabled:opacity-40 text-white text-sm font-bold">Угадать</button>
+                <button id="guessr-next" onclick="window.startGuessrRound()" class="hidden flex-1 min-w-[8rem] py-2.5 rounded-xl bg-blue-600 text-white text-sm font-bold">Следующий раунд</button>
+            </div>
         </div>
     </div>
 

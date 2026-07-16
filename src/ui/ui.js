@@ -892,7 +892,10 @@ window.pollLiveCloudData = async function() {
                 if (window.__activeMessagePeer && window.openMessageThread) {
                     const thread = document.getElementById('messages-thread');
                     if (thread && !thread.classList.contains('hidden')) {
-                        window.openMessageThread(window.__activeMessagePeer, { quiet: true });
+                        window.openMessageThread(window.__activeMessagePeer, {
+                            quiet: true,
+                            asSupport: !!window.__messagingAsSupport
+                        });
                     }
                 }
             }
@@ -1454,16 +1457,20 @@ window.renderSidebarFeed = function() {
                    </div>`
                 : '';
             if (p.type === 'article') {
+                const cover = p.coverImage || (p.html && (p.html.match(/<img[^>]+src="([^"]+)"/) || [])[1]) || '';
                 return `<button type="button" onclick="window.openFeedArticle('${p.id}')" class="feed-card feed-card--post w-full text-left">
                     <div class="feed-card__badge feed-card__badge--article">Статья</div>
                     <p class="feed-card__title" style="${titleStyle}">${esc(p.title)}</p>
-                    <p class="feed-card__meta">${esc(p.authorName || 'Админ')}${dateStr ? ' · ' + dateStr : ''} · Читать</p>
+                    ${cover ? `<div class="feed-card__cover"><img src="${cover}" alt=""></div>` : ''}
+                    <p class="feed-card__meta">${esc(p.authorName || 'Админ')}${dateStr ? ' · ' + dateStr : ''} · Читать полностью</p>
                     ${adminActions}
                 </button>`;
             }
+            const noticeW = Math.min(100, Math.max(40, Number(p.imageWidth) || 100));
             return `<div class="feed-card feed-card--notice">
                 <div class="feed-card__badge feed-card__badge--notice">Уведомление</div>
                 <p class="feed-card__title" style="${titleStyle}">${esc(p.title)}</p>
+                ${p.image ? `<img src="${p.image}" alt="" class="feed-notice-img" style="width:${noticeW}%">` : ''}
                 ${p.body ? `<p class="feed-card__text">${esc(p.body)}</p>` : ''}
                 <p class="feed-card__meta mt-1">${esc(p.authorName || 'Админ')}${dateStr ? ' · ' + dateStr : ''}</p>
                 ${adminActions}
@@ -1496,6 +1503,9 @@ window.renderSidebarFeed = function() {
 };
 
 window.__editingFeedPostId = null;
+window.__noticeFeedImage = null;
+window.__cropState = null;
+window.__cropCallback = null;
 
 window.updateFeedPostTypeUI = function() {
     const type = document.querySelector('input[name="feed-post-type"]:checked')?.value || 'notice';
@@ -1503,6 +1513,173 @@ window.updateFeedPostTypeUI = function() {
     const articleBox = document.getElementById('feed-post-article-fields');
     if (noticeBox) noticeBox.classList.toggle('hidden', type !== 'notice');
     if (articleBox) articleBox.classList.toggle('hidden', type !== 'article');
+};
+
+window.renderNoticeImagePreview = function() {
+    const wrap = document.getElementById('feed-notice-image-preview');
+    const img = document.getElementById('feed-notice-image-el');
+    const widthInput = document.getElementById('feed-notice-image-width');
+    if (!wrap || !img) return;
+    if (!window.__noticeFeedImage) {
+        wrap.classList.add('hidden');
+        return;
+    }
+    wrap.classList.remove('hidden');
+    img.src = window.__noticeFeedImage;
+    const w = widthInput ? Number(widthInput.value) || 100 : 100;
+    img.style.width = `${w}%`;
+    window.updateNoticeImageWidthPreview();
+};
+
+window.updateNoticeImageWidthPreview = function() {
+    const widthInput = document.getElementById('feed-notice-image-width');
+    const label = document.getElementById('feed-notice-image-width-label');
+    const img = document.getElementById('feed-notice-image-el');
+    const w = widthInput ? Number(widthInput.value) || 100 : 100;
+    if (label) label.textContent = `${w}%`;
+    if (img) img.style.width = `${w}%`;
+};
+
+window.clearNoticeFeedImage = function() {
+    window.__noticeFeedImage = null;
+    window.renderNoticeImagePreview();
+};
+
+window.pickNoticeFeedImage = function(files) {
+    const file = files && files[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        window.openImageCropModal(e.target.result, (cropped) => {
+            window.__noticeFeedImage = cropped;
+            window.renderNoticeImagePreview();
+        });
+    };
+    reader.readAsDataURL(file);
+    const input = document.getElementById('feed-notice-image-input');
+    if (input) input.value = '';
+};
+
+window.pickArticleFeedImage = function(files) {
+    const file = files && files[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        window.openImageCropModal(e.target.result, (cropped) => {
+            const editor = document.getElementById('feed-post-editor');
+            if (!editor) return;
+            editor.focus();
+            document.execCommand('insertHTML', false, `<img src="${cropped}" alt="" class="feed-inline-img">`);
+        });
+    };
+    reader.readAsDataURL(file);
+    const input = document.getElementById('feed-post-image-input');
+    if (input) input.value = '';
+};
+
+window.openImageCropModal = function(dataUrl, onDone) {
+    window.__cropCallback = onDone;
+    const img = document.getElementById('image-crop-source');
+    const zoom = document.getElementById('image-crop-zoom');
+    if (img) {
+        img.onload = () => {
+            window.__cropState = { x: 0, y: 0, scale: 1, dragging: false, startX: 0, startY: 0, origX: 0, origY: 0 };
+            if (zoom) zoom.value = 100;
+            window.updateImageCropTransform();
+            window.bindImageCropDrag();
+        };
+        img.src = dataUrl;
+    }
+    const m = document.getElementById('image-crop-modal');
+    const c = document.getElementById('image-crop-modal-content');
+    if (!m || !c) return;
+    m.classList.remove('hidden');
+    void m.offsetWidth;
+    m.classList.remove('opacity-0', 'pointer-events-none');
+    c.classList.remove('scale-95');
+};
+
+window.closeImageCropModal = function() {
+    const m = document.getElementById('image-crop-modal');
+    const c = document.getElementById('image-crop-modal-content');
+    if (!m || !c) return;
+    m.classList.add('opacity-0', 'pointer-events-none');
+    c.classList.add('scale-95');
+    setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
+    window.__cropCallback = null;
+};
+
+window.updateImageCropTransform = function() {
+    const img = document.getElementById('image-crop-source');
+    const zoom = document.getElementById('image-crop-zoom');
+    if (!img || !window.__cropState) return;
+    const scale = (Number(zoom?.value) || 100) / 100;
+    window.__cropState.scale = scale;
+    img.style.transform = `translate(calc(-50% + ${window.__cropState.x}px), calc(-50% + ${window.__cropState.y}px)) scale(${scale})`;
+};
+
+window.bindImageCropDrag = function() {
+    const stage = document.getElementById('image-crop-stage');
+    if (!stage || stage.__cropBound) return;
+    stage.__cropBound = true;
+    const onDown = (clientX, clientY) => {
+        if (!window.__cropState) return;
+        window.__cropState.dragging = true;
+        window.__cropState.startX = clientX;
+        window.__cropState.startY = clientY;
+        window.__cropState.origX = window.__cropState.x;
+        window.__cropState.origY = window.__cropState.y;
+    };
+    const onMove = (clientX, clientY) => {
+        if (!window.__cropState?.dragging) return;
+        window.__cropState.x = window.__cropState.origX + (clientX - window.__cropState.startX);
+        window.__cropState.y = window.__cropState.origY + (clientY - window.__cropState.startY);
+        window.updateImageCropTransform();
+    };
+    const onUp = () => { if (window.__cropState) window.__cropState.dragging = false; };
+    stage.addEventListener('mousedown', (e) => { e.preventDefault(); onDown(e.clientX, e.clientY); });
+    window.addEventListener('mousemove', (e) => onMove(e.clientX, e.clientY));
+    window.addEventListener('mouseup', onUp);
+    stage.addEventListener('touchstart', (e) => {
+        if (e.touches[0]) onDown(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    window.addEventListener('touchmove', (e) => {
+        if (e.touches[0]) onMove(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    window.addEventListener('touchend', onUp);
+};
+
+window.applyImageCrop = function() {
+    const frame = document.getElementById('image-crop-frame');
+    const img = document.getElementById('image-crop-source');
+    if (!frame || !img || !img.naturalWidth) return;
+
+    const imgRect = img.getBoundingClientRect();
+    const frameRect = frame.getBoundingClientRect();
+    const scaleX = img.naturalWidth / imgRect.width;
+    const scaleY = img.naturalHeight / imgRect.height;
+    const sx = Math.max(0, (frameRect.left - imgRect.left) * scaleX);
+    const sy = Math.max(0, (frameRect.top - imgRect.top) * scaleY);
+    const sw = Math.min(img.naturalWidth - sx, frameRect.width * scaleX);
+    const sh = Math.min(img.naturalHeight - sy, frameRect.height * scaleY);
+
+    const outSize = 900;
+    const canvas = document.createElement('canvas');
+    canvas.width = outSize;
+    canvas.height = outSize;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#111';
+    ctx.fillRect(0, 0, outSize, outSize);
+    try {
+        ctx.drawImage(img, sx, sy, Math.max(1, sw), Math.max(1, sh), 0, 0, outSize, outSize);
+    } catch (e) {
+        window.showToast('Не удалось кадрировать изображение');
+        return;
+    }
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.86);
+    const cb = window.__cropCallback;
+    window.closeImageCropModal();
+    if (cb) cb(dataUrl);
 };
 
 window.openFeedPostEditor = function(postId = null) {
@@ -1518,12 +1695,16 @@ window.openFeedPostEditor = function(postId = null) {
     const fontEl = document.getElementById('feed-post-title-font');
     const sizeEl = document.getElementById('feed-post-title-size');
     const header = document.getElementById('feed-post-modal-title');
+    const widthInput = document.getElementById('feed-notice-image-width');
 
     if (titleEl) titleEl.value = post?.title || '';
     if (bodyEl) bodyEl.value = post?.body || '';
     if (editor) editor.innerHTML = post?.html || '';
     if (fontEl) fontEl.value = post?.titleFont || 'sans';
     if (sizeEl) sizeEl.value = post?.titleSize || 'md';
+    window.__noticeFeedImage = post?.image || null;
+    if (widthInput) widthInput.value = String(post?.imageWidth || 100);
+    window.renderNoticeImagePreview();
     document.querySelectorAll('input[name="feed-post-type"]').forEach(r => {
         r.checked = (r.value === (post?.type || 'notice'));
     });
@@ -1548,6 +1729,7 @@ window.closeFeedPostModal = function() {
     c.classList.add('scale-95');
     setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
     window.__editingFeedPostId = null;
+    window.__noticeFeedImage = null;
 };
 
 window.applyFeedTitlePreview = function() {
@@ -1565,21 +1747,6 @@ window.execFeedEditor = function(cmd) {
     if (!editor) return;
     editor.focus();
     document.execCommand(cmd, false, null);
-};
-
-window.insertFeedEditorImage = function(files) {
-    const file = files && files[0];
-    if (!file || !file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const editor = document.getElementById('feed-post-editor');
-        if (!editor) return;
-        editor.focus();
-        document.execCommand('insertHTML', false, `<img src="${e.target.result}" alt="" class="feed-inline-img">`);
-    };
-    reader.readAsDataURL(file);
-    const input = document.getElementById('feed-post-image-input');
-    if (input) input.value = '';
 };
 
 window.sanitizeFeedHtml = function(html) {
@@ -1604,11 +1771,16 @@ window.saveFeedPost = async function() {
 
     const body = (document.getElementById('feed-post-body')?.value || '').trim();
     const html = window.sanitizeFeedHtml(document.getElementById('feed-post-editor')?.innerHTML || '');
-    if (type === 'notice' && !body) { window.showToast('Добавьте текст уведомления'); return; }
+    const noticeImage = window.__noticeFeedImage || null;
+    const imageWidth = Number(document.getElementById('feed-notice-image-width')?.value) || 100;
+    if (type === 'notice' && !body && !noticeImage) { window.showToast('Добавьте текст или фото уведомления'); return; }
     if (type === 'article' && !html.replace(/<[^>]+>/g, '').trim() && !html.includes('<img')) {
         window.showToast('Добавьте текст или фото в статью');
         return;
     }
+
+    const coverMatch = html.match(/<img[^>]+src="([^"]+)"/);
+    const coverImage = type === 'article' && coverMatch ? coverMatch[1] : '';
 
     const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
     const now = new Date().toISOString();
@@ -1619,6 +1791,9 @@ window.saveFeedPost = async function() {
         title,
         body: type === 'notice' ? body.slice(0, 400) : '',
         html: type === 'article' ? html : '',
+        image: type === 'notice' ? noticeImage : undefined,
+        imageWidth: type === 'notice' && noticeImage ? imageWidth : undefined,
+        coverImage: coverImage || undefined,
         titleFont: document.getElementById('feed-post-title-font')?.value || 'sans',
         titleSize: document.getElementById('feed-post-title-size')?.value || 'md',
         authorId: login,

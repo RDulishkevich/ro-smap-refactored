@@ -83,6 +83,8 @@ export function initAuth() {
             if (window.applyProfileToCurrentUser) window.applyProfileToCurrentUser();
             window.bustFilteredSoundsCache();
             if (window.refreshNotificationsUI) window.refreshNotificationsUI();
+            if (window.refreshMessagesUI) window.refreshMessagesUI();
+            if (window.ensureSupportWelcome) window.ensureSupportWelcome();
             if (window.touchMyPresence) window.touchMyPresence(true);
             window.openCabinet();
             return;
@@ -134,6 +136,7 @@ export function initAuth() {
         window.bustFilteredSoundsCache();
         if (window.refreshNotificationsUI) window.refreshNotificationsUI();
         if (window.refreshMessagesUI) window.refreshMessagesUI();
+        if (window.ensureSupportWelcome) window.ensureSupportWelcome();
         if (window.touchMyPresence) window.touchMyPresence(true);
         window.openCabinet();
     };
@@ -1657,6 +1660,55 @@ export function initAuth() {
     window.MSG_EMOJI_LIST = ['😀','😂','😍','👍','👎','❤️','🔥','👏','😮','😢','🎉','🎵','📸','🙏','✨','💯'];
     window.MSG_REACT_EMOJI = ['👍','❤️','😂','😮','😢','🔥'];
     window.ONLINE_THRESHOLD_MS = 2 * 60 * 1000;
+    window.SUPPORT_LOGIN = 'support';
+    window.SUPPORT_NAME = 'Поддержка RO·SMap';
+
+    window.ensureSupportProfile = async function() {
+        const login = window.SUPPORT_LOGIN;
+        const updated = [...(window.profilesData || [])];
+        let idx = updated.findIndex(p => p.loginName === login);
+        if (idx < 0) {
+            updated.push({
+                loginName: login,
+                displayName: window.SUPPORT_NAME,
+                role: 'support',
+                bio: 'Служба поддержки аудиокарты Ростовской области',
+                inbox: [],
+                notifications: [],
+                lastSeen: new Date().toISOString()
+            });
+            await window.syncProfilesData(updated);
+            return;
+        }
+        if (updated[idx].displayName !== window.SUPPORT_NAME || updated[idx].role !== 'support') {
+            updated[idx] = { ...updated[idx], displayName: window.SUPPORT_NAME, role: 'support' };
+            await window.syncProfilesData(updated);
+        }
+    };
+
+    window.ensureSupportWelcome = async function() {
+        if (!window.currentUser) return;
+        const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        if (myLogin === window.SUPPORT_LOGIN) return;
+        await window.ensureSupportProfile();
+        const updated = [...(window.profilesData || [])];
+        const idx = updated.findIndex(p => p.loginName === myLogin);
+        if (idx < 0) return;
+        const inbox = updated[idx].inbox || [];
+        const hasSupport = inbox.some(m => m.fromId === window.SUPPORT_LOGIN || m._supportThread);
+        if (hasSupport) return;
+        const welcome = {
+            id: 'msup' + Date.now().toString(36),
+            fromId: window.SUPPORT_LOGIN,
+            fromName: window.SUPPORT_NAME,
+            text: 'Здравствуйте! Это чат поддержки RO·SMap. Напишите сюда, если нужна помощь с картой, публикацией или аккаунтом.',
+            date: new Date().toISOString(),
+            read: false,
+            _supportThread: true
+        };
+        updated[idx] = { ...updated[idx], inbox: [welcome, ...inbox].slice(0, 200) };
+        await window.syncProfilesData(updated);
+    };
 
     window.escMsgHtml = function(str) {
         return String(str || '')
@@ -1736,8 +1788,10 @@ export function initAuth() {
         m.classList.remove('opacity-0', 'pointer-events-none');
         c.classList.remove('scale-95');
         window.touchMyPresence(true);
-        if (peerLogin) window.openMessageThread(peerLogin);
-        else window.showMessagesConversations();
+        window.ensureSupportWelcome().then(() => {
+            if (peerLogin) window.openMessageThread(peerLogin);
+            else window.showMessagesConversations();
+        });
     };
 
     window.closeMessagesModal = function() {
@@ -1771,6 +1825,8 @@ export function initAuth() {
         });
 
         const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const isAdmin = window.isCurrentUserAdmin && window.isCurrentUserAdmin();
+
         (window.profilesData || []).forEach(p => {
             (p.inbox || []).forEach(msg => {
                 if (msg.fromId === myLogin) {
@@ -1782,31 +1838,66 @@ export function initAuth() {
             });
         });
 
+        // Админ видит обращения в поддержку (сообщения в inbox профиля support)
+        if (isAdmin) {
+            const supportProfile = window.getProfileByLogin ? window.getProfileByLogin(window.SUPPORT_LOGIN) : null;
+            (supportProfile?.inbox || []).forEach(msg => {
+                if (!msg.fromId || msg.fromId === window.SUPPORT_LOGIN) return;
+                const peer = msg.fromId;
+                const synthetic = { ...msg, _supportTicket: true };
+                const prev = byPeer.get(peer);
+                if (!prev || new Date(msg.date) > new Date(prev.date)) byPeer.set(peer, synthetic);
+            });
+        }
+
+        // У каждого пользователя всегда есть закреплённый чат с поддержкой
+        if (myLogin !== window.SUPPORT_LOGIN && !byPeer.has(window.SUPPORT_LOGIN)) {
+            byPeer.set(window.SUPPORT_LOGIN, {
+                fromId: window.SUPPORT_LOGIN,
+                fromName: window.SUPPORT_NAME,
+                text: 'Напишите в поддержку',
+                date: new Date(0).toISOString(),
+                _supportPinned: true
+            });
+        }
+
         if (!conv) return;
         if (!byPeer.size) {
-            conv.innerHTML = `<p class="text-xs text-slate-400 text-center py-10">Пока нет переписок. Напишите кому-нибудь из публичного профиля.</p>`;
+            conv.innerHTML = `<p class="text-xs text-slate-400 text-center py-10">Пока нет переписок.</p>`;
             return;
         }
 
-        const rows = [...byPeer.entries()].sort((a, b) => new Date(b[1].date) - new Date(a[1].date));
+        const rows = [...byPeer.entries()].sort((a, b) => {
+            if (a[0] === window.SUPPORT_LOGIN) return -1;
+            if (b[0] === window.SUPPORT_LOGIN) return 1;
+            return new Date(b[1].date) - new Date(a[1].date);
+        });
         conv.innerHTML = rows.map(([peer, last]) => {
             const unread = inbox.filter(m => m.fromId === peer && !m.read && !m.deleted).length;
+            const isSupport = peer === window.SUPPORT_LOGIN;
             const profile = window.getProfileByLogin ? window.getProfileByLogin(peer) : null;
-            const name = profile?.displayName || last.fromName || peer;
-            const online = window.isUserOnline(profile);
-            const avatar = profile?.avatar
-                ? `<img src="${profile.avatar}" class="w-9 h-9 rounded-full object-cover" alt="">`
-                : `<span class="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-sm"><i class="fa-solid fa-user"></i></span>`;
-            const preview = last.deleted ? 'Сообщение удалено' : (last.image && !last.text ? '📷 Фото' : (last.text || ''));
+            const name = isSupport ? window.SUPPORT_NAME : (profile?.displayName || last.fromName || peer);
+            const online = isSupport ? true : window.isUserOnline(profile);
+            const avatar = isSupport
+                ? `<span class="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 flex items-center justify-center text-sm"><i class="fa-solid fa-headset"></i></span>`
+                : (profile?.avatar
+                    ? `<img src="${profile.avatar}" class="w-9 h-9 rounded-full object-cover" alt="">`
+                    : `<span class="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-sm"><i class="fa-solid fa-user"></i></span>`);
+            const preview = last._supportPinned
+                ? 'Напишите в поддержку'
+                : (last.deleted ? 'Сообщение удалено' : (last.image && !last.text ? '📷 Фото' : (last.text || '')));
             const ticks = last._outgoingHint
                 ? `<span class="msg-ticks msg-ticks--list ${last.read ? 'is-read' : 'is-delivered'}" title="${last.read ? 'Просмотрено' : 'Доставлено'}"><i class="fa-solid ${last.read ? 'fa-check-double' : 'fa-check'}"></i></span>`
                 : '';
+            const openFn = (isAdmin && last._supportTicket)
+                ? `window.openSupportTicket('${peer}')`
+                : `window.openMessageThread('${peer}')`;
             return `
-            <button onclick="window.openMessageThread('${peer}')" class="notif-item ${unread ? 'unread' : ''} w-full text-left">
+            <button onclick="${openFn}" class="notif-item ${unread ? 'unread' : ''} ${isSupport ? 'msg-support-row' : ''} w-full text-left">
                 <div class="relative shrink-0">${avatar}<span class="msg-online-dot ${online ? 'on' : ''}"></span></div>
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center justify-between gap-2">
-                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${window.escMsgHtml(name)}</p>
+                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${window.escMsgHtml(name)}${isSupport ? ' <span class="text-[9px] text-blue-500 font-bold">PIN</span>' : ''}</p>
                         ${unread ? `<span class="text-[10px] font-bold text-blue-600">${unread}</span>` : ticks}
                     </div>
                     <p class="text-[11px] text-slate-500 truncate mt-0.5">${window.escMsgHtml(preview)}</p>
@@ -1816,33 +1907,52 @@ export function initAuth() {
     };
 
     window.updateThreadPeerHeader = function(peerLogin) {
+        const isSupport = peerLogin === window.SUPPORT_LOGIN;
         const profile = window.getProfileByLogin ? window.getProfileByLogin(peerLogin) : null;
-        const name = profile?.displayName || peerLogin;
+        const name = isSupport ? window.SUPPORT_NAME : (profile?.displayName || peerLogin);
         const nameEl = document.getElementById('messages-thread-name');
         const statusEl = document.getElementById('messages-thread-status');
         const avatar = document.getElementById('messages-thread-avatar');
         const fallback = document.getElementById('messages-thread-avatar-fallback');
         const onlineDot = document.getElementById('messages-thread-online');
-        const online = window.isUserOnline(profile);
+        const online = isSupport ? true : window.isUserOnline(profile);
 
         if (nameEl) nameEl.textContent = name;
-        if (statusEl) statusEl.textContent = online ? 'в сети' : 'не в сети';
+        if (statusEl) statusEl.textContent = isSupport ? 'обычно отвечает в течение дня' : (online ? 'в сети' : 'не в сети');
         if (onlineDot) onlineDot.classList.toggle('hidden', !online);
 
-        if (profile?.avatar) {
+        if (isSupport) {
+            if (avatar) avatar.classList.add('hidden');
+            if (fallback) {
+                fallback.classList.remove('hidden');
+                fallback.innerHTML = '<i class="fa-solid fa-headset"></i>';
+            }
+        } else if (profile?.avatar) {
             if (avatar) { avatar.src = profile.avatar; avatar.classList.remove('hidden'); }
             if (fallback) fallback.classList.add('hidden');
         } else {
             if (avatar) avatar.classList.add('hidden');
-            if (fallback) fallback.classList.remove('hidden');
+            if (fallback) {
+                fallback.classList.remove('hidden');
+                fallback.innerHTML = '<i class="fa-solid fa-user"></i>';
+            }
         }
     };
 
     window.openPeerProfileFromChat = function() {
         const peer = window.__activeMessagePeer;
-        if (!peer) return;
+        if (!peer || peer === window.SUPPORT_LOGIN) {
+            window.showToast('Это служебный чат поддержки');
+            return;
+        }
         const profile = window.getProfileByLogin ? window.getProfileByLogin(peer) : null;
         window.openPublicProfile(peer, profile?.displayName || peer);
+    };
+
+    window.openSupportTicket = function(userLogin) {
+        // Админ отвечает пользователю от имени поддержки
+        window.__supportTicketUser = userLogin;
+        window.openMessageThread(userLogin, { asSupport: true });
     };
 
     window.renderMessageTicks = function(m) {
@@ -1886,23 +1996,47 @@ export function initAuth() {
         if (found?.msg?.image && window.openLightbox) window.openLightbox([found.msg.image], 0);
     };
 
-    window.openMessageThread = async function(peerLogin, { quiet = false } = {}) {
+    window.openMessageThread = async function(peerLogin, { quiet = false, asSupport = false } = {}) {
         window.__activeMessagePeer = peerLogin;
+        window.__messagingAsSupport = !!asSupport;
+        if (!asSupport) window.__supportTicketUser = null;
+
         const conv = document.getElementById('messages-conversations');
         const thread = document.getElementById('messages-thread');
         const list = document.getElementById('messages-thread-list');
         if (conv) conv.classList.add('hidden');
         if (thread) thread.classList.remove('hidden');
 
-        window.updateThreadPeerHeader(peerLogin);
+        window.updateThreadPeerHeader(asSupport ? peerLogin : peerLogin);
+        if (asSupport) {
+            const nameEl = document.getElementById('messages-thread-name');
+            const statusEl = document.getElementById('messages-thread-status');
+            const profile = window.getProfileByLogin ? window.getProfileByLogin(peerLogin) : null;
+            if (nameEl) nameEl.textContent = `Тикет: ${profile?.displayName || peerLogin}`;
+            if (statusEl) statusEl.textContent = 'ответ от имени поддержки';
+        }
 
         const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
-        const incoming = window.getMyInbox().filter(m => m.fromId === peerLogin);
-        const peerProfile = (window.getProfileByLogin ? window.getProfileByLogin(peerLogin) : null) || {};
-        const outgoing = (peerProfile.inbox || []).filter(m => m.fromId === myLogin).map(m => ({ ...m, _mine: true }));
+        let all = [];
 
-        const all = [...incoming.map(m => ({ ...m, _mine: false })), ...outgoing]
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
+        if (asSupport) {
+            // Админ смотрит переписку пользователя с поддержкой
+            const supportProfile = (window.getProfileByLogin ? window.getProfileByLogin(window.SUPPORT_LOGIN) : null) || {};
+            const fromUser = (supportProfile.inbox || []).filter(m => m.fromId === peerLogin).map(m => ({ ...m, _mine: false }));
+            const userProfile = (window.getProfileByLogin ? window.getProfileByLogin(peerLogin) : null) || {};
+            const fromSupport = (userProfile.inbox || []).filter(m => m.fromId === window.SUPPORT_LOGIN).map(m => ({ ...m, _mine: true }));
+            all = [...fromUser, ...fromSupport].sort((a, b) => new Date(a.date) - new Date(b.date));
+        } else if (peerLogin === window.SUPPORT_LOGIN) {
+            const supportProfile = (window.getProfileByLogin ? window.getProfileByLogin(window.SUPPORT_LOGIN) : null) || {};
+            const outgoing = (supportProfile.inbox || []).filter(m => m.fromId === myLogin).map(m => ({ ...m, _mine: true }));
+            const incoming = window.getMyInbox().filter(m => m.fromId === window.SUPPORT_LOGIN);
+            all = [...incoming.map(m => ({ ...m, _mine: false })), ...outgoing].sort((a, b) => new Date(a.date) - new Date(b.date));
+        } else {
+            const incoming = window.getMyInbox().filter(m => m.fromId === peerLogin);
+            const peerProfile = (window.getProfileByLogin ? window.getProfileByLogin(peerLogin) : null) || {};
+            const outgoing = (peerProfile.inbox || []).filter(m => m.fromId === myLogin).map(m => ({ ...m, _mine: true }));
+            all = [...incoming.map(m => ({ ...m, _mine: false })), ...outgoing].sort((a, b) => new Date(a.date) - new Date(b.date));
+        }
 
         if (list) {
             const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
@@ -1912,9 +2046,10 @@ export function initAuth() {
             if (!quiet || nearBottom) list.scrollTop = list.scrollHeight;
         }
 
+        // Пометить прочитанными входящие в мой inbox
         const updated = [...(window.profilesData || [])];
         const idx = updated.findIndex(p => p.loginName === myLogin);
-        if (idx >= 0) {
+        if (idx >= 0 && !asSupport) {
             let changed = false;
             const inbox = (updated[idx].inbox || []).map(m => {
                 if (m.fromId === peerLogin && !m.read) {
@@ -1927,6 +2062,25 @@ export function initAuth() {
                 updated[idx] = { ...updated[idx], inbox };
                 await window.syncProfilesData(updated);
                 window.refreshMessagesUI();
+            }
+        }
+        // Админ читает обращения в support inbox
+        if (asSupport) {
+            const sIdx = updated.findIndex(p => p.loginName === window.SUPPORT_LOGIN);
+            if (sIdx >= 0) {
+                let changed = false;
+                const inbox = (updated[sIdx].inbox || []).map(m => {
+                    if (m.fromId === peerLogin && !m.read) {
+                        changed = true;
+                        return { ...m, read: true, readAt: new Date().toISOString() };
+                    }
+                    return m;
+                });
+                if (changed) {
+                    updated[sIdx] = { ...updated[sIdx], inbox };
+                    await window.syncProfilesData(updated);
+                    window.refreshMessagesUI();
+                }
             }
         }
     };
@@ -2007,16 +2161,34 @@ export function initAuth() {
         if (!text && !image) return;
 
         const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const asSupport = !!window.__messagingAsSupport;
         const updated = [...(window.profilesData || [])];
-        let idx = updated.findIndex(p => p.loginName === peer);
+
+        // Куда кладём сообщение и от чьего имени
+        let targetLogin = peer;
+        let fromId = myLogin;
+        let fromName = window.currentUser.username;
+        if (asSupport) {
+            // Админ → inbox пользователя от имени support
+            targetLogin = peer;
+            fromId = window.SUPPORT_LOGIN;
+            fromName = window.SUPPORT_NAME;
+            await window.ensureSupportProfile();
+        } else if (peer === window.SUPPORT_LOGIN) {
+            // Пользователь → inbox поддержки
+            targetLogin = window.SUPPORT_LOGIN;
+            await window.ensureSupportProfile();
+        }
+
+        let idx = updated.findIndex(p => p.loginName === targetLogin);
         if (idx < 0) {
-            updated.push({ loginName: peer, displayName: peer, inbox: [] });
+            updated.push({ loginName: targetLogin, displayName: targetLogin === window.SUPPORT_LOGIN ? window.SUPPORT_NAME : targetLogin, inbox: [] });
             idx = updated.length - 1;
         }
         const msg = {
             id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-            fromId: myLogin,
-            fromName: window.currentUser.username,
+            fromId,
+            fromName,
             text,
             image: image || undefined,
             replyTo: window.__messageReplyTo || undefined,
@@ -2026,22 +2198,26 @@ export function initAuth() {
         };
         updated[idx] = { ...updated[idx], inbox: [msg, ...(updated[idx].inbox || [])].slice(0, 200) };
 
-        const isReply = !!window.__messageReplyTo;
-        const notifs = [...(updated[idx].notifications || [])];
-        notifs.unshift({
-            id: 'n' + Date.now().toString(36),
-            type: 'message',
-            text: isReply
-                ? `${window.currentUser.username} ответил(а) на ваше сообщение`
-                : (image && !text
-                    ? `${window.currentUser.username} отправил(а) вам фото`
-                    : `${window.currentUser.username} написал(а) вам сообщение`),
-            fromId: myLogin,
-            fromName: window.currentUser.username,
-            date: new Date().toISOString(),
-            read: false
-        });
-        updated[idx] = { ...updated[idx], notifications: notifs.slice(0, 60) };
+        if (targetLogin !== window.SUPPORT_LOGIN) {
+            const isReply = !!window.__messageReplyTo;
+            const notifs = [...(updated[idx].notifications || [])];
+            notifs.unshift({
+                id: 'n' + Date.now().toString(36),
+                type: 'message',
+                text: asSupport
+                    ? (image && !text ? 'Поддержка отправила вам фото' : 'Поддержка ответила на ваше обращение')
+                    : (isReply
+                        ? `${window.currentUser.username} ответил(а) на ваше сообщение`
+                        : (image && !text
+                            ? `${window.currentUser.username} отправил(а) вам фото`
+                            : `${window.currentUser.username} написал(а) вам сообщение`)),
+                fromId,
+                fromName,
+                date: new Date().toISOString(),
+                read: false
+            });
+            updated[idx] = { ...updated[idx], notifications: notifs.slice(0, 60) };
+        }
 
         if (input) input.value = '';
         window.__messagePendingImage = null;
@@ -2050,7 +2226,8 @@ export function initAuth() {
 
         const ok = await window.syncProfilesData(updated);
         if (ok) {
-            window.openMessageThread(peer);
+            if (asSupport) window.openMessageThread(peer, { asSupport: true });
+            else window.openMessageThread(peer);
             window.showToast('Сообщение отправлено');
             window.touchMyPresence();
         } else {

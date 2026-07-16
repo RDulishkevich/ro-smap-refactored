@@ -4,6 +4,7 @@ import { initAuth } from './auth.js';
 import '../ui/ui.js';
 import './audio.js';
 import './map.js';
+import './guessr.js';
 import '../widgets/analytics-widget.js';
 
 export function bootstrapApp() {
@@ -64,6 +65,9 @@ export function bootstrapApp() {
             if (window.applyProfileToCurrentUser) window.applyProfileToCurrentUser();
             if (window.refreshNotificationsUI) window.refreshNotificationsUI();
             if (window.refreshMessagesUI) window.refreshMessagesUI();
+            if (window.ensureSupportWelcome) window.ensureSupportWelcome().then(() => {
+                if (window.refreshMessagesUI) window.refreshMessagesUI();
+            });
             if (window.startLiveCloudPolling) window.startLiveCloudPolling(12000);
             if (window.touchMyPresence) window.touchMyPresence(true);
         }).catch(err => {
