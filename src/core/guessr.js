@@ -69,12 +69,25 @@
         window.__guessr.line = null;
         window.__guessr.sound = null;
         window.__guessr.guess = null;
+        window.__guessr.round = 0;
+        window.__guessr.totalScore = 0;
+        window.__guessr.revealed = false;
         const m = document.getElementById('guessr-modal');
         const c = document.getElementById('guessr-modal-content');
         if (!m || !c) return;
         m.classList.add('opacity-0', 'pointer-events-none');
         c.classList.add('scale-95');
         setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
+    };
+
+    window.requestCloseAudioGuessr = async function() {
+        if ((window.__guessr?.round || 0) > 0 || (window.__guessr?.totalScore || 0) > 0) {
+            const ok = await (window.confirmDiscardDraft
+                ? window.confirmDiscardDraft('Текущая партия Audio Guessr будет сброшена.')
+                : true);
+            if (!ok) return;
+        }
+        window.closeAudioGuessr();
     };
 
     window.initGuessrMap = function() {

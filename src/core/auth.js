@@ -622,6 +622,26 @@ export function initAuth() {
         window.__sessionRouteStops = [];
     };
 
+    window.isSessionFormDirty = function() {
+        const title = (document.getElementById('session-form-title')?.value || '').trim();
+        const route = (document.getElementById('session-form-route')?.value || '').trim();
+        const purpose = (document.getElementById('session-form-purpose')?.value || '').trim();
+        return !!(title || route || purpose
+            || (window.__sessionRouteStops || []).length
+            || (window.__sessionFormPhotos || []).length
+            || window.__editingSessionId);
+    };
+
+    window.requestCloseSessionModal = async function() {
+        if (window.isSessionFormDirty()) {
+            const ok = await (window.confirmDiscardDraft
+                ? window.confirmDiscardDraft('Форма экспедиции не сохранена.')
+                : true);
+            if (!ok) return;
+        }
+        window.closeSessionModal();
+    };
+
     window.getSessionRouteCandidateSounds = function() {
         return (window.soundsData || []).filter(s =>
             Number.isFinite(s.lat) && Number.isFinite(s.lng)
@@ -956,14 +976,38 @@ export function initAuth() {
     };
 
     window.openSupportModal = function() {
-        const m = document.getElementById('support-modal');
-        if (!m) return;
+        window.contactSupport();
+    };
+
+    window.contactSupport = function() {
         if (window.closeSettingsModal) window.closeSettingsModal();
         if (window.closeCabinet) window.closeCabinet();
-        m.classList.remove('hidden');
-        void m.offsetWidth;
-        m.classList.remove('opacity-0', 'pointer-events-none');
-        m.firstElementChild.classList.remove('scale-95');
+        if (window.closeSupportModal) window.closeSupportModal();
+        const items = [];
+        if (window.currentUser) {
+            items.push({
+                icon: 'fa-comments',
+                label: 'Написать в сообщениях',
+                onClick: () => {
+                    if (window.openMessagesModal) window.openMessagesModal(window.SUPPORT_LOGIN || 'support');
+                }
+            });
+        } else {
+            items.push({
+                icon: 'fa-right-to-bracket',
+                label: 'Войти и открыть чат поддержки',
+                onClick: () => { if (window.openAuthModal) window.openAuthModal(); }
+            });
+        }
+        items.push({
+            icon: 'fa-envelope',
+            label: 'Написать на почту',
+            onClick: () => {
+                window.location.href = 'mailto:help@rosmap.local?subject=' + encodeURIComponent('Поддержка RO·SMap');
+            }
+        });
+        if (window.ActionSheet) window.ActionSheet.open(items);
+        else window.location.href = 'mailto:help@rosmap.local';
     };
 
     window.closeSupportModal = function() {
@@ -1226,6 +1270,7 @@ export function initAuth() {
         const pendingCount = window.soundsData.filter(s => s.status === 'pending').length;
         const countEl = document.getElementById('admin-filter-pending-count');
         if (countEl) countEl.textContent = pendingCount;
+        if (window.assignArchiveNumbers) window.assignArchiveNumbers();
 
         const filterMode = window.__adminListFilter || 'all';
         const sounds = filterMode === 'pending' ? window.soundsData.filter(s => s.status === 'pending') : window.soundsData;
@@ -1239,31 +1284,40 @@ export function initAuth() {
             const isHardcoded = rawIds.includes(s.id);
             const status = s.status || 'published';
             const isPending = status === 'pending';
+            const num = s.archiveNum || '—';
+            const statusLabel = ({ published: 'Опубликовано', pending: 'На модерации', rejected: 'Отклонено', draft: 'Черновик' })[status] || status;
             return `
-                <div class="flex items-center justify-between p-3 border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer bg-white dark:bg-slate-800 rounded-xl" onclick="window.openedFromAdmin=true; window.closeCabinet(); window.selectSound('${s.id}'); window.openDetailsModal();">
-                    <div class="flex-1 min-w-0 pr-4">
-                        <p class="text-sm font-bold text-slate-800 dark:text-white truncate">${s.title}</p>
-                        <p class="text-xs text-slate-500 truncate">${s.archiveNum}_${s.fileName} · <span class="font-semibold">${s.recordist || 'Автор'}</span></p>
-                        ${status === 'rejected' && s.rejectionReason ? `<p class="text-[11px] text-red-500 truncate mt-0.5"><i class="fa-solid fa-circle-exclamation mr-1"></i>${s.rejectionReason}</p>` : ''}
-                    </div>
-                    <div class="flex items-center gap-2 flex-wrap justify-end" onclick="event.stopPropagation()">
-                        ${isHardcoded ? `<span class="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">Вшито</span>` : ''}
-                        ${isPending ? `
-                            <button onclick="window.setSoundStatus('${s.id}', 'published')" class="text-emerald-600 hover:text-white bg-emerald-50 hover:bg-emerald-500 dark:bg-emerald-900/30 dark:hover:bg-emerald-600 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm"><i class="fa-solid fa-check mr-1"></i>Одобрить</button>
-                            <button onclick="window.setSoundStatus('${s.id}', 'rejected')" class="text-red-600 hover:text-white bg-red-50 hover:bg-red-500 dark:bg-red-900/30 dark:hover:bg-red-600 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm"><i class="fa-solid fa-xmark mr-1"></i>Отклонить</button>
-                        ` : `
-                            <select onchange="window.setSoundStatus('${s.id}', this.value)" class="text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 px-2 py-1.5">
-                                <option value="published" ${status === 'published' ? 'selected' : ''}>Опубликовано</option>
-                                <option value="pending" ${status === 'pending' ? 'selected' : ''}>На модерации</option>
-                                <option value="rejected" ${status === 'rejected' ? 'selected' : ''}>Отклонено</option>
-                            </select>
-                        `}
-                        <button onclick="window.openedFromAdmin=true; window.editSound('${s.id}'); window.closeCabinet();" class="text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-500 dark:bg-blue-900/30 dark:hover:bg-blue-600 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm">Изменить</button>
-                        <button onclick="window.deleteSoundFromCloud('${s.id}')" class="text-red-600 hover:text-white bg-red-50 hover:bg-red-500 dark:bg-red-900/30 dark:hover:bg-red-600 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm">Удалить</button>
-                    </div>
+                <div class="admin-entity-row">
+                    <button type="button" class="admin-entity-main min-w-0 flex-1 text-left" onclick="window.openedFromAdmin=true; window.closeCabinet(); window.selectSound('${s.id}'); window.openDetailsModal();">
+                        <p class="admin-entity-num">№ ${num}${isHardcoded ? ' · вшито' : ''}</p>
+                        <p class="admin-entity-title">${s.title || 'Без названия'}</p>
+                        <p class="admin-entity-meta">${s.fileName || ''} · ${s.recordist || 'Автор'} · ${statusLabel}</p>
+                        ${status === 'rejected' && s.rejectionReason ? `<p class="text-[11px] text-red-500 mt-0.5 line-clamp-2"><i class="fa-solid fa-circle-exclamation mr-1"></i>${s.rejectionReason}</p>` : ''}
+                    </button>
+                    <button type="button" onclick="event.stopPropagation(); window.openAdminSoundActions('${s.id}')" class="admin-actions-btn shrink-0"><i class="fa-solid fa-ellipsis"></i> Действия</button>
                 </div>
             `;
         }).join('');
+    };
+
+    window.openAdminSoundActions = function(soundId) {
+        const s = window.soundsData.find(x => x.id === soundId);
+        if (!s) return;
+        const status = s.status || 'published';
+        const items = [
+            { icon: 'fa-eye', label: 'Просмотреть', onClick: () => { window.openedFromAdmin = true; window.closeCabinet(); window.selectSound(soundId); window.openDetailsModal(); } },
+            { icon: 'fa-pen', label: 'Изменить', onClick: () => { window.openedFromAdmin = true; window.editSound(soundId); window.closeCabinet(); } }
+        ];
+        if (status === 'pending') {
+            items.push({ icon: 'fa-check', label: 'Одобрить', onClick: () => window.setSoundStatus(soundId, 'published') });
+            items.push({ icon: 'fa-xmark', label: 'Отклонить', danger: true, onClick: () => window.setSoundStatus(soundId, 'rejected') });
+        } else {
+            if (status !== 'published') items.push({ icon: 'fa-check', label: 'Опубликовать', onClick: () => window.setSoundStatus(soundId, 'published') });
+            if (status !== 'pending') items.push({ icon: 'fa-clock', label: 'На модерацию', onClick: () => window.setSoundStatus(soundId, 'pending') });
+            if (status !== 'rejected') items.push({ icon: 'fa-ban', label: 'Отклонить', danger: true, onClick: () => window.setSoundStatus(soundId, 'rejected') });
+        }
+        items.push({ icon: 'fa-trash', label: 'Удалить', danger: true, onClick: () => window.deleteSoundFromCloud(soundId) });
+        window.ActionSheet.open(items);
     };
 
     // Смена статуса модерации прямо из списка админки (без открытия полной формы редактирования).
@@ -1346,9 +1400,39 @@ export function initAuth() {
     window.getAllReports = function() {
         const list = [];
         (window.soundsData || []).forEach(s => {
-            (s.reports || []).forEach(r => list.push({ ...r, soundId: s.id, soundTitle: s.title }));
+            (s.reports || []).forEach(r => list.push({ ...r, soundId: s.id, soundTitle: s.title, number: r.number }));
         });
         return list.sort((a, b) => new Date(b.date) - new Date(a.date));
+    };
+
+    window.getNextReportNumber = function() {
+        let max = 0;
+        (window.soundsData || []).forEach(s => {
+            (s.reports || []).forEach(r => {
+                const n = Number(r.number) || 0;
+                if (n > max) max = n;
+            });
+        });
+        return max + 1;
+    };
+
+    window.assignMissingReportNumbers = function() {
+        const items = [];
+        (window.soundsData || []).forEach(s => {
+            (s.reports || []).forEach(r => items.push(r));
+        });
+        items.sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+        let max = 0;
+        items.forEach(r => {
+            const n = Number(r.number) || 0;
+            if (n > max) max = n;
+        });
+        items.forEach(r => {
+            if (!r.number) {
+                max += 1;
+                r.number = max;
+            }
+        });
     };
 
     window.renderReportsList = function() {
@@ -1357,6 +1441,7 @@ export function initAuth() {
         const tabCount = document.getElementById('admin-tab-reports-count');
         if (!container) return;
 
+        window.assignMissingReportNumbers();
         const reports = window.getAllReports();
         const pendingCount = reports.filter(r => r.status !== 'resolved').length;
         if (countEl) countEl.textContent = pendingCount ? `(${pendingCount})` : '';
@@ -1368,28 +1453,92 @@ export function initAuth() {
         }
 
         container.innerHTML = reports.map(r => {
-            const s = window.soundsData.find(x => x.id === r.soundId);
-            let targetText = '';
-            if (r.type === 'comment') {
-                const c = s ? (s.comments || []).find(x => x.id === r.commentId) : null;
-                targetText = c ? `Комментарий: «${c.text}»` : 'Комментарий уже удалён';
-            }
+            const reasonShort = String(r.reason || '').length > 90
+                ? String(r.reason).slice(0, 90) + '…'
+                : (r.reason || '');
             const dateStr = r.date ? new Date(r.date).toLocaleDateString('ru-RU') : '';
+            const num = r.number || '—';
             return `
-            <div class="admin-report-row ${r.status === 'resolved' ? 'resolved' : ''}">
-                <div class="flex-1 min-w-0">
-                    <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${r.type === 'comment' ? 'Жалоба на комментарий' : 'Жалоба на запись'} <span class="text-slate-400 font-normal">· ${r.soundTitle || ''}</span></p>
-                    ${targetText ? `<p class="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">${targetText}</p>` : ''}
-                    <p class="text-[11px] text-red-500 dark:text-red-400 mt-0.5 truncate"><i class="fa-solid fa-quote-left mr-1 opacity-60"></i>${r.reason}</p>
-                    <p class="text-[10px] text-slate-400 mt-0.5">От ${r.reporterName || 'аноним'} · ${dateStr}</p>
-                </div>
-                <div class="flex items-center gap-1.5 flex-wrap justify-end shrink-0">
-                    <button onclick="window.openedFromAdmin=true; window.closeCabinet(); window.selectSound('${r.soundId}'); window.openDetailsModal();" class="text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-500 dark:bg-blue-900/30 dark:hover:bg-blue-600 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors">Просмотреть</button>
-                    ${r.type === 'comment' && s && (s.comments || []).some(c => c.id === r.commentId) ? `<button onclick="window.deleteReportedComment('${r.soundId}', '${r.commentId}', '${r.id}')" class="text-red-600 hover:text-white bg-red-50 hover:bg-red-500 dark:bg-red-900/30 dark:hover:bg-red-600 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors">Удалить коммент.</button>` : ''}
-                    ${r.status !== 'resolved' ? `<button onclick="window.resolveReport('${r.soundId}', '${r.id}')" class="text-emerald-600 hover:text-white bg-emerald-50 hover:bg-emerald-500 dark:bg-emerald-900/30 dark:hover:bg-emerald-600 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors">Решено</button>` : `<span class="pub-status-pill pub-status-published">Решено</span>`}
-                </div>
+            <div class="admin-entity-row ${r.status === 'resolved' ? 'is-muted' : ''}">
+                <button type="button" class="admin-entity-main min-w-0 flex-1 text-left" onclick="window.openReportDetail('${r.soundId}', '${r.id}')">
+                    <p class="admin-entity-num">Жалоба № ${num}${r.status === 'resolved' ? ' · решено' : ''}</p>
+                    <p class="admin-entity-title">${r.type === 'comment' ? 'На комментарий' : 'На запись'} · ${r.soundTitle || ''}</p>
+                    <p class="admin-entity-meta">От ${r.reporterName || 'аноним'} · ${dateStr}</p>
+                    <p class="text-[11px] text-red-500 dark:text-red-400 mt-1 line-clamp-2"><i class="fa-solid fa-quote-left mr-1 opacity-60"></i>${reasonShort}</p>
+                </button>
+                <button type="button" onclick="event.stopPropagation(); window.openAdminReportActions('${r.soundId}', '${r.id}')" class="admin-actions-btn shrink-0"><i class="fa-solid fa-ellipsis"></i> Действия</button>
             </div>`;
         }).join('');
+    };
+
+    window.openReportDetail = function(soundId, reportId) {
+        const s = window.soundsData.find(x => x.id === soundId);
+        const r = s ? (s.reports || []).find(x => x.id === reportId) : null;
+        if (!r) return;
+        window.__activeReport = { soundId, reportId };
+        const title = document.getElementById('report-detail-title');
+        const body = document.getElementById('report-detail-body');
+        if (title) title.innerHTML = `<i class="fa-solid fa-flag mr-2 text-red-500"></i>Жалоба № ${r.number || '—'}`;
+        let targetText = '';
+        if (r.type === 'comment') {
+            const c = s ? (s.comments || []).find(x => x.id === r.commentId) : null;
+            targetText = c ? `Комментарий: «${c.text}»` : 'Комментарий уже удалён';
+        }
+        if (body) {
+            body.innerHTML = `
+                <div class="space-y-3 text-sm">
+                    <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50">
+                        <p class="text-[10px] font-bold uppercase text-slate-400 mb-1">Объект</p>
+                        <p class="font-semibold text-slate-800 dark:text-slate-100">${r.type === 'comment' ? 'Комментарий к записи' : 'Запись'} «${s?.title || r.soundTitle || ''}»</p>
+                        ${targetText ? `<p class="text-xs text-slate-500 mt-1">${targetText}</p>` : ''}
+                    </div>
+                    <div class="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/40">
+                        <p class="text-[10px] font-bold uppercase text-red-400 mb-1">Текст жалобы</p>
+                        <p class="text-slate-800 dark:text-slate-100 whitespace-pre-wrap leading-relaxed">${r.reason || '—'}</p>
+                    </div>
+                    <p class="text-[11px] text-slate-400">От ${r.reporterName || 'аноним'} · ${r.date ? new Date(r.date).toLocaleString('ru-RU') : ''} · ${r.status === 'resolved' ? 'Решено' : 'Открыта'}</p>
+                </div>`;
+        }
+        const m = document.getElementById('report-detail-modal');
+        const c = document.getElementById('report-detail-modal-content');
+        if (!m || !c) return;
+        m.classList.remove('hidden');
+        void m.offsetWidth;
+        m.classList.remove('opacity-0', 'pointer-events-none');
+        c.classList.remove('scale-95');
+    };
+
+    window.closeReportDetailModal = function() {
+        const m = document.getElementById('report-detail-modal');
+        const c = document.getElementById('report-detail-modal-content');
+        if (!m || !c) return;
+        m.classList.add('opacity-0', 'pointer-events-none');
+        c.classList.add('scale-95');
+        setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
+        window.__activeReport = null;
+    };
+
+    window.openAdminReportActions = function(soundId, reportId) {
+        const s = window.soundsData.find(x => x.id === soundId);
+        const r = s ? (s.reports || []).find(x => x.id === reportId) : null;
+        if (!r) return;
+        const items = [
+            { icon: 'fa-eye', label: 'Открыть текст жалобы', onClick: () => window.openReportDetail(soundId, reportId) },
+            { icon: 'fa-music', label: 'Просмотреть запись', onClick: () => { window.closeReportDetailModal(); window.openedFromAdmin = true; window.closeCabinet(); window.selectSound(soundId); window.openDetailsModal(); } }
+        ];
+        if (r.type === 'comment' && s && (s.comments || []).some(c => c.id === r.commentId)) {
+            items.push({ icon: 'fa-trash', label: 'Удалить комментарий', danger: true, onClick: () => window.deleteReportedComment(soundId, r.commentId, reportId) });
+        }
+        if (r.status !== 'resolved') {
+            items.push({ icon: 'fa-check', label: 'Отметить решённой', onClick: () => window.resolveReport(soundId, reportId) });
+        }
+        window.ActionSheet.open(items);
+    };
+
+    window.openReportDetailActions = function() {
+        const ctx = window.__activeReport;
+        if (!ctx) return;
+        window.openAdminReportActions(ctx.soundId, ctx.reportId);
     };
 
     window.resolveReport = async function(soundId, reportId) {
@@ -1402,7 +1551,7 @@ export function initAuth() {
         const idx = updatedCloud.findIndex(x => x.id === soundId);
         if (idx >= 0) updatedCloud[idx] = s; else updatedCloud.push(s);
         const success = await window.syncCloudData(updatedCloud);
-        if (success) { window.showToast('Жалоба отмечена решённой'); window.renderReportsList(); }
+        if (success) { window.showToast('Жалоба отмечена решённой'); window.renderReportsList(); window.closeReportDetailModal(); }
     };
 
     window.deleteReportedComment = async function(soundId, commentId, reportId) {
@@ -1423,7 +1572,7 @@ export function initAuth() {
         const idx = updatedCloud.findIndex(x => x.id === soundId);
         if (idx >= 0) updatedCloud[idx] = s; else updatedCloud.push(s);
         const success = await window.syncCloudData(updatedCloud);
-        if (success) { window.showToast('Комментарий удалён'); window.renderReportsList(); if (window.renderComments) window.renderComments(s); }
+        if (success) { window.showToast('Комментарий удалён'); window.renderReportsList(); window.closeReportDetailModal(); if (window.renderComments) window.renderComments(s); }
     };
 
     // --- Профили пользователей внутри админ-панели: бейджи, роли, блокировки, сводка ---
@@ -1440,28 +1589,35 @@ export function initAuth() {
             const isBlocked = !!p.blocked;
             const badgeCount = (p.badges || []).length;
             return `
-            <div class="admin-user-row ${isBlocked ? 'blocked' : ''}">
-                <div class="flex items-start justify-between gap-2 w-full">
-                    <div class="min-w-0">
-                        <div class="admin-user-row-name flex items-center gap-2">
-                            ${p.avatar ? `<img src="${p.avatar}" class="w-7 h-7 rounded-full object-cover border border-slate-200 dark:border-slate-600" alt="">` : `<i class="fa-solid fa-user-astronaut opacity-60"></i>`}
-                            <span class="truncate">${p.displayName || p.loginName}</span>
-                            ${isAdmin ? `<span class="pub-status-pill pub-status-pending">Админ</span>` : ''}
-                            ${isBlocked ? `<span class="pub-status-pill pub-status-rejected">Блок</span>` : ''}
-                        </div>
-                        <p class="text-[10px] text-slate-400 mt-0.5">@${p.loginName}${p.joinedAt ? ' · рег. ' + new Date(p.joinedAt).toLocaleString('ru-RU') : ''}${badgeCount ? ` · ${badgeCount} зван.` : ''}</p>
+            <div class="admin-entity-row ${isBlocked ? 'is-muted' : ''}">
+                <div class="admin-entity-main min-w-0 flex-1">
+                    <div class="admin-user-row-name flex items-center gap-2">
+                        ${p.avatar ? `<img src="${p.avatar}" class="w-7 h-7 rounded-full object-cover border border-slate-200 dark:border-slate-600" alt="">` : `<i class="fa-solid fa-user-astronaut opacity-60"></i>`}
+                        <span class="truncate">${p.displayName || p.loginName}</span>
+                        ${isAdmin ? `<span class="pub-status-pill pub-status-pending">Админ</span>` : ''}
+                        ${isBlocked ? `<span class="pub-status-pill pub-status-rejected">Блок</span>` : ''}
                     </div>
-                    <div class="flex flex-wrap gap-1 justify-end shrink-0">
-                        <button onclick="window.openBadgeAssignModal('${p.loginName}')" class="text-amber-600 hover:text-white bg-amber-50 hover:bg-amber-500 dark:bg-amber-900/30 dark:hover:bg-amber-600 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors"><i class="fa-solid fa-medal mr-0.5"></i>Звания</button>
-                        <button onclick="window.openUserActivityModal('${p.loginName}')" class="text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-500 dark:bg-blue-900/30 dark:hover:bg-blue-600 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors">Сводка</button>
-                        ${p.loginName !== 'admin' ? `
-                        <button onclick="window.setUserAdminRole('${p.loginName}', ${!isAdmin})" class="text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-500 dark:bg-indigo-900/30 dark:hover:bg-indigo-600 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors">${isAdmin ? 'Снять админа' : 'Сделать админом'}</button>
-                        <button onclick="window.setUserBlocked('${p.loginName}', ${!isBlocked})" class="text-red-600 hover:text-white bg-red-50 hover:bg-red-500 dark:bg-red-900/30 dark:hover:bg-red-600 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors">${isBlocked ? 'Разблокировать' : 'Заблокировать'}</button>
-                        ` : ''}
-                    </div>
+                    <p class="admin-entity-meta mt-0.5">@${p.loginName}${p.joinedAt ? ' · рег. ' + new Date(p.joinedAt).toLocaleDateString('ru-RU') : ''}${badgeCount ? ` · ${badgeCount} зван.` : ''}</p>
                 </div>
+                <button type="button" onclick="window.openAdminUserActions('${p.loginName}')" class="admin-actions-btn shrink-0"><i class="fa-solid fa-ellipsis"></i> Действия</button>
             </div>`;
         }).join('');
+    };
+
+    window.openAdminUserActions = function(login) {
+        const p = window.getProfileByLogin ? window.getProfileByLogin(login) : null;
+        if (!p) return;
+        const isAdmin = p.role === 'admin' || p.loginName === 'admin';
+        const isBlocked = !!p.blocked;
+        const items = [
+            { icon: 'fa-medal', label: 'Звания', onClick: () => window.openBadgeAssignModal(login) },
+            { icon: 'fa-chart-simple', label: 'Сводка', onClick: () => window.openUserActivityModal(login) }
+        ];
+        if (login !== 'admin') {
+            items.push({ icon: 'fa-user-shield', label: isAdmin ? 'Снять админа' : 'Сделать админом', onClick: () => window.setUserAdminRole(login, !isAdmin) });
+            items.push({ icon: 'fa-ban', label: isBlocked ? 'Разблокировать' : 'Заблокировать', danger: !isBlocked, onClick: () => window.setUserBlocked(login, !isBlocked) });
+        }
+        window.ActionSheet.open(items);
     };
 
     window.__badgeAssignLogin = null;
@@ -1985,6 +2141,38 @@ export function initAuth() {
         window.__activeMessagePeer = null;
         window.cancelMessageReply();
         window.hideEmojiPicker();
+        const input = document.getElementById('messages-compose-input');
+        if (input) input.value = '';
+        window.__messagePendingImage = null;
+    };
+
+    window.isMessageComposeDirty = function() {
+        const text = (document.getElementById('messages-compose-input')?.value || '').trim();
+        return !!(text || window.__messagePendingImage || window.__messageReplyTo);
+    };
+
+    window.requestCloseMessagesModal = async function() {
+        if (window.isMessageComposeDirty()) {
+            const ok = await (window.confirmDiscardDraft
+                ? window.confirmDiscardDraft('Черновик сообщения не отправлен.')
+                : true);
+            if (!ok) return;
+        }
+        window.closeMessagesModal();
+    };
+
+    window.requestShowMessagesConversations = async function() {
+        if (window.isMessageComposeDirty && window.isMessageComposeDirty()) {
+            const ok = await (window.confirmDiscardDraft
+                ? window.confirmDiscardDraft('Черновик сообщения не отправлен.')
+                : true);
+            if (!ok) return;
+            const input = document.getElementById('messages-compose-input');
+            if (input) input.value = '';
+            window.__messagePendingImage = null;
+            if (window.cancelMessageReply) window.cancelMessageReply();
+        }
+        window.showMessagesConversations();
     };
 
     window.showMessagesConversations = function() {
@@ -2753,12 +2941,51 @@ export function initAuth() {
         }
 
         const maxDemand = Math.max(...Object.values(data.byCategory).map(c => c.demand), 1);
+        const ecoTotal = Object.values(data.byCategory).reduce((sum, c) => sum + c.count, 0) || 1;
+        const ecoColors = { geophony: '#0284c7', biophony: '#16a34a', anthrophony: '#ea580c' };
+        let ecoOffset = 0;
+        const ecoSlices = Object.entries(data.byCategory).map(([key, c]) => {
+            const frac = c.count / ecoTotal;
+            const dash = frac * 100;
+            const slice = { key, ...c, color: ecoColors[key], dash, offset: ecoOffset };
+            ecoOffset += dash;
+            return slice;
+        });
 
         container.innerHTML = `
             <div class="analytics-cards-row">
                 <div class="analytics-stat-card"><div class="analytics-stat-icon"><i class="fa-solid fa-headphones text-blue-500"></i></div><div class="analytics-stat-value">${data.totalPlays}</div><div class="analytics-stat-label">Прослушиваний</div></div>
                 <div class="analytics-stat-card"><div class="analytics-stat-icon"><i class="fa-solid fa-download text-emerald-500"></i></div><div class="analytics-stat-value">${data.totalDownloads}</div><div class="analytics-stat-label">Скачиваний</div></div>
                 <div class="analytics-stat-card"><div class="analytics-stat-icon"><i class="fa-solid fa-file-audio text-indigo-500"></i></div><div class="analytics-stat-value">${data.totalPublished}</div><div class="analytics-stat-label">Опубликовано</div></div>
+            </div>
+
+            <div class="analytics-chart-card">
+                <div class="analytics-chart-title">Состав коллекции (круговая)</div>
+                <div class="flex flex-col sm:flex-row items-center gap-4">
+                    <div class="analytics-donut-wrap shrink-0">
+                        <svg width="128" height="128" viewBox="0 0 42 42">
+                            <circle cx="21" cy="21" r="15.9" fill="transparent" stroke="currentColor" class="analytics-donut-track" stroke-width="4"></circle>
+                            ${ecoSlices.map(sl => `
+                                <circle cx="21" cy="21" r="15.9" fill="transparent" stroke="${sl.color}" stroke-width="4"
+                                    stroke-dasharray="${sl.dash} ${100 - sl.dash}" stroke-dashoffset="${25 - sl.offset}"
+                                    transform="rotate(-90 21 21)"></circle>
+                            `).join('')}
+                        </svg>
+                        <div class="analytics-donut-center">
+                            <div class="analytics-donut-total">${data.totalPublished}</div>
+                            <div class="analytics-donut-total-label">записей</div>
+                        </div>
+                    </div>
+                    <div class="analytics-legend flex-1 w-full">
+                        ${ecoSlices.map(sl => `
+                            <div class="analytics-legend-item">
+                                <span class="analytics-legend-dot" style="background:${sl.color}"></span>
+                                <span>${ECO_LABELS[sl.key]}</span>
+                                <span class="analytics-legend-value">${sl.count}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
             </div>
 
             <div class="analytics-chart-card">

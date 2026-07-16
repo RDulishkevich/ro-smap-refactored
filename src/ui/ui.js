@@ -357,6 +357,26 @@ window.CustomUI = window.CustomUI || {
 
 // Мини-"шторка" со списком действий — переиспользуемая замена контекстного меню по «...»
 // (профиль автора / ответить / реакция / пожаловаться у комментариев, см. openCommentMenu).
+window.confirmDiscardDraft = async function(message) {
+    return window.CustomUI.open({
+        title: '<i class="fa-solid fa-triangle-exclamation mr-2 text-amber-500"></i>Закрыть без сохранения?',
+        message: message || 'Несохранённые изменения будут потеряны.',
+        confirmText: 'Закрыть',
+        confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
+    });
+};
+
+window.isAddSoundDirty = function() {
+    if (window.editingSoundId) return true;
+    if (window.currentUploadedFile || window.currentUploadedFileUrl) return true;
+    if ((window.pendingImages || []).length) return true;
+    if ((window.addModalRoute || []).length) return true;
+    const title = (document.getElementById('add-display-title')?.value || '').trim();
+    const desc = (document.getElementById('add-desc')?.value || '').trim();
+    const userDef = (document.getElementById('add-user-defined')?.value || '').trim();
+    return !!(title || desc || userDef);
+};
+
 window.ActionSheet = {
     _actions: [],
     open: function(items) {
@@ -1786,12 +1806,7 @@ window.isFeedPostDirty = function() {
 
 window.requestCloseFeedPostModal = async function() {
     if (window.isFeedPostDirty()) {
-        const ok = await window.CustomUI.open({
-            title: '<i class="fa-solid fa-triangle-exclamation mr-2 text-amber-500"></i>Закрыть черновик?',
-            message: 'Несохранённые изменения будут потеряны.',
-            confirmText: 'Закрыть',
-            confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
-        });
+        const ok = await window.confirmDiscardDraft('Черновик поста не сохранён.');
         if (!ok) return;
     }
     window.closeFeedPostModal();
@@ -2452,6 +2467,7 @@ window.openReportModal = async function(type, soundId, commentId = null) {
     if (!s) return;
     const report = {
         id: 'rep' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+        number: window.getNextReportNumber ? window.getNextReportNumber() : undefined,
         type,
         commentId: commentId || null,
         reason,
@@ -2848,7 +2864,13 @@ window.toggleAddModal = function(forceClose = false, coords = null, isEdit = fal
     }
     window.resetAddModalToCreateMode();
 }
-window.closeAddModalSafely = function() { window.toggleAddModal(true); }
+window.closeAddModalSafely = async function() {
+    if (window.isAddSoundDirty && window.isAddSoundDirty()) {
+        const ok = await window.confirmDiscardDraft('Форма добавления / изменения звука не сохранена.');
+        if (!ok) return;
+    }
+    window.toggleAddModal(true);
+};
 
 // UI System Callbacks
 window.setMapStyle = function(style, skipSave = false) {

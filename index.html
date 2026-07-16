@@ -346,12 +346,12 @@
             </div>
             <div class="p-6 space-y-4">
                 <div class="rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 p-4 text-sm text-slate-600 dark:text-slate-300">
-                    Если у вас возникли вопросы по карте, добавлению звуков или настройкам — напишите нам.
+                    Если у вас возникли вопросы по карте, добавлению звуков или настройкам — напишите в чат поддержки или на почту.
                 </div>
-                <a href="mailto:help@rosmap.local" class="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
-                    <i class="fa-solid fa-envelope"></i>
-                    Написать в поддержку
-                </a>
+                <button type="button" onclick="window.contactSupport()" class="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
+                    <i class="fa-solid fa-headset"></i>
+                    Открыть поддержку
+                </button>
             </div>
         </div>
     </div>
@@ -415,7 +415,7 @@
                         <i class="fa-solid fa-compass"></i>
                         Показать тур по карте
                     </button>
-                    <button onclick="window.openSupportModal()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
+                    <button onclick="window.contactSupport()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
                         <i class="fa-solid fa-circle-question"></i>
                         Поддержка и помощь
                     </button>
@@ -607,7 +607,7 @@
                     <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
                         <h4 class="font-bold text-slate-800 dark:text-white mb-1">Поддержка и помощь</h4>
                         <p class="text-sm text-slate-600 dark:text-slate-300">Если что-то не работает или нужна помощь с картой — откройте окно поддержки.</p>
-                        <button onclick="window.openSupportModal()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
+                        <button onclick="window.contactSupport()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
                             <i class="fa-solid fa-circle-question"></i>Открыть поддержку
                         </button>
                     </div>
@@ -1040,16 +1040,16 @@
     </div>
 
     <!-- Модальное окно сообщений -->
-    <div id="messages-modal" onmousedown="if(event.target === this) window.closeMessagesModal()" class="fixed inset-0 z-[225] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
+    <div id="messages-modal" onmousedown="if(event.target === this) window.requestCloseMessagesModal()" class="fixed inset-0 z-[225] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
         <div id="messages-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
             <div class="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
                 <h3 id="messages-modal-title" class="text-lg font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-envelope mr-2 text-blue-500"></i>Сообщения</h3>
-                <button onclick="window.closeMessagesModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button onclick="window.requestCloseMessagesModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div id="messages-conversations" class="overflow-y-auto custom-scrollbar flex-1 p-3 space-y-1 min-h-0"></div>
             <div id="messages-thread" class="hidden flex-1 flex flex-col min-h-0">
                 <div class="px-3 sm:px-4 py-2.5 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2 shrink-0">
-                    <button onclick="window.showMessagesConversations()" class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-500 flex items-center justify-center shrink-0"><i class="fa-solid fa-arrow-left text-sm"></i></button>
+                    <button onclick="window.requestShowMessagesConversations()" class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-500 flex items-center justify-center shrink-0"><i class="fa-solid fa-arrow-left text-sm"></i></button>
                     <button onclick="window.openPeerProfileFromChat()" id="messages-thread-peer" class="flex items-center gap-2 min-w-0 flex-1 text-left hover:opacity-80 transition-opacity">
                         <div class="relative shrink-0">
                             <img id="messages-thread-avatar" class="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-slate-600 hidden" alt="">
@@ -1208,14 +1208,14 @@
     </div>
 
     <!-- Audio Guessr -->
-    <div id="guessr-modal" onmousedown="if(event.target === this) window.closeAudioGuessr()" class="fixed inset-0 z-[230] bg-slate-900/70 dark:bg-slate-900/85 backdrop-blur-sm hidden flex items-center justify-center p-2 sm:p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
+    <div id="guessr-modal" onmousedown="if(event.target === this) window.requestCloseAudioGuessr()" class="fixed inset-0 z-[230] bg-slate-900/70 dark:bg-slate-900/85 backdrop-blur-sm hidden flex items-center justify-center p-2 sm:p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
         <div id="guessr-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl w-full max-w-3xl app-modal-panel h-[min(92dvh,720px)] flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
             <div class="p-3 sm:p-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between gap-2 shrink-0">
                 <div class="min-w-0">
                     <h3 class="text-base sm:text-lg font-bold text-slate-800 dark:text-white truncate"><i class="fa-solid fa-headphones mr-2 text-emerald-500"></i>Audio Guessr</h3>
                     <p class="text-[11px] text-slate-400"><span id="guessr-round">Раунд 1</span> · <span id="guessr-score">Очки: 0</span></p>
                 </div>
-                <button onclick="window.closeAudioGuessr()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button onclick="window.requestCloseAudioGuessr()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <p id="guessr-hint" class="px-4 pt-2 text-[12px] text-slate-500 dark:text-slate-400 shrink-0">Слушайте запись и отметьте место на карте</p>
             <div id="guessr-map" class="flex-1 min-h-0 mx-3 mt-2 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900"></div>
@@ -1240,11 +1240,11 @@
     </div>
 
     <!-- Модальное окно: ПОЛНАЯ ФОРМА ЭКСПЕДИЦИИ (дата, цели, маршрут, участники, медиа, ссылки) -->
-    <div id="session-modal" onmousedown="if(event.target === this) window.closeSessionModal()" class="fixed inset-0 z-[215] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
+    <div id="session-modal" onmousedown="if(event.target === this) window.requestCloseSessionModal()" class="fixed inset-0 z-[215] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
         <div id="session-modal-content" class="bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all border border-slate-100 dark:border-slate-800 pointer-events-auto">
             <div class="p-6 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 shrink-0">
                 <h3 id="session-modal-title" class="text-xl font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-route mr-2 text-blue-600"></i>Новая экспедиция</h3>
-                <button onclick="window.closeSessionModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none">
+                <button onclick="window.requestCloseSessionModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
@@ -1455,6 +1455,21 @@
             <div id="badge-assign-list" class="p-4 space-y-2 overflow-y-auto custom-scrollbar flex-1"></div>
             <div class="p-3 border-t border-slate-100 dark:border-slate-700">
                 <button onclick="window.closeBadgeAssignModal()" class="w-full py-2.5 rounded-xl bg-blue-600 text-white text-sm font-bold">Готово</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Детали жалобы -->
+    <div id="report-detail-modal" onmousedown="if(event.target === this) window.closeReportDetailModal()" class="fixed inset-0 z-[235] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
+        <div id="report-detail-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.75rem] shadow-2xl w-full max-w-md app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
+            <div class="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
+                <h3 id="report-detail-title" class="text-base font-bold text-slate-800 dark:text-white truncate pr-2">Жалоба</h3>
+                <button onclick="window.closeReportDetailModal()" class="text-slate-400 shrink-0"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div id="report-detail-body" class="p-4 overflow-y-auto custom-scrollbar flex-1"></div>
+            <div class="p-3 border-t border-slate-100 dark:border-slate-700 flex gap-2">
+                <button onclick="window.closeReportDetailModal()" class="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 text-sm font-bold">Закрыть</button>
+                <button onclick="window.openReportDetailActions()" class="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-bold"><i class="fa-solid fa-ellipsis mr-1"></i>Действия</button>
             </div>
         </div>
     </div>
