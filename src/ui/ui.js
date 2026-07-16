@@ -153,25 +153,33 @@ window.exportSoundsData = function(format, allSounds = false) {
 };
 
 window.onboardingSteps = [
-    { target: null, title: 'Добро пожаловать в Audio Map', text: 'Интерактивная карта звуков Ростовской области. Пройдите короткий тур — это займёт 30 секунд.' },
+    { target: null, title: 'Добро пожаловать в Audio Map', text: 'Интерактивная карта звуков Ростовской области. Пройдите короткий тур — это займёт меньше минуты.' },
     { target: '#burger-btn', title: 'Библиотека звуков', text: 'Кнопка меню слева открывает три раздела: Библиотека (поиск и фильтры), Лента с новостями и Экспедиции.' },
-    { target: null, title: 'Аудиоплеер', text: 'Нажмите на любую метку на карте, чтобы открыть плеер. Для ambisonics записей доступно вращение на 360°.' },
-    { target: '#fab-add', title: 'Добавьте свой звук', text: 'Кнопка «+» — загрузка WAV с метаданными. На телефоне удерживайте палец на карте, чтобы быстро поставить метку.' }
+    { target: '#player-card', title: 'Аудиоплеер', text: 'При выборе метки открывается плеер. Здесь можно слушать запись, открыть анализаторы и подробности. Для ambisonics доступно вращение 360°.', showPlayer: true },
+    { target: '#fab-add-sound', title: 'Добавьте свой звук', text: 'Синяя кнопка «+» — загрузка WAV с метаданными. На телефоне удерживайте палец на карте, чтобы быстро поставить метку.' },
+    { target: '#fab-guessr', title: 'Audio Guessr', text: 'Зелёная кнопка с наушниками запускает мини-игру: слушайте звук и угадайте место на карте Ростовской области.' },
+    { target: '#map-top-right-controls', title: 'Сообщения и профиль', text: 'Справа сверху: сообщения, уведомления, настройки и личный кабинет. Там же поддержка и админ-панель.' }
 ];
 
 window.startOnboarding = function(step = 0) {
     const overlay = document.getElementById('onboarding-overlay');
     if (!overlay) return;
-    
-    // Закрываем всё лишнее, чтобы тур был поверх чистой карты
+
     const sb = document.getElementById('sidebar');
     if (sb && !sb.classList.contains('sidebar-hidden')) window.toggleSidebar();
     if (window.closePlayerCard) window.closePlayerCard();
+    window.__onboardingDemoPlayer = false;
 
     window.__onboardingStep = step;
     overlay.classList.remove('hidden');
     overlay.classList.add('pointer-events-auto');
     window.updateOnboardingStep();
+};
+
+window.cleanupOnboardingPlayer = function() {
+    if (!window.__onboardingDemoPlayer) return;
+    window.__onboardingDemoPlayer = false;
+    if (window.closePlayerCard) window.closePlayerCard();
 };
 
 window.updateOnboardingStep = function() {
@@ -190,6 +198,46 @@ window.updateOnboardingStep = function() {
 
     const nextBtn = document.getElementById('onboarding-next');
     if (nextBtn) nextBtn.textContent = window.__onboardingStep === window.onboardingSteps.length - 1 ? 'Готово' : 'Далее';
+
+    if (step.showPlayer) {
+        const demo = (window.soundsData || []).find(s => !s.status || s.status === 'published') || (window.soundsData || [])[0];
+        if (demo && window.selectSound) {
+            window.__onboardingDemoPlayer = true;
+            window.selectSound(demo.id);
+            setTimeout(() => {
+                if (!window.__onboardingDemoPlayer) return;
+                const el = document.querySelector('#player-card');
+                if (!el) return;
+                const rect = el.getBoundingClientRect();
+                if (rect.height < 40) return;
+                const pad = 8;
+                highlight.style.opacity = '1';
+                highlight.style.display = 'block';
+                highlight.style.pointerEvents = 'none';
+                highlight.style.left = `${rect.left - pad}px`;
+                highlight.style.top = `${rect.top - pad}px`;
+                highlight.style.width = `${rect.width + pad * 2}px`;
+                highlight.style.height = `${rect.height + pad * 2}px`;
+
+                const cardRect = card.getBoundingClientRect();
+                const cardWidth = cardRect.width || 320;
+                const cardHeight = cardRect.height || 180;
+                let top = rect.top - cardHeight - 16;
+                if (top < 16) top = rect.bottom + 16;
+                let left = (window.innerWidth - cardWidth) / 2;
+                card.style.left = `${left}px`;
+                card.style.top = `${Math.min(top, window.innerHeight - cardHeight - 16)}px`;
+                card.style.transform = 'none';
+            }, 450);
+        }
+        highlight.style.opacity = '0';
+        card.style.left = '50%';
+        card.style.top = '50%';
+        card.style.transform = 'translate(-50%, -50%)';
+        return;
+    }
+
+    window.cleanupOnboardingPlayer();
 
     const placeCardCentered = () => {
         highlight.style.opacity = '0';
@@ -251,6 +299,7 @@ window.updateOnboardingStep = function() {
 };
 
 window.nextOnboardingStep = function() {
+    window.cleanupOnboardingPlayer();
     if (window.__onboardingStep >= window.onboardingSteps.length - 1) {
         window.dismissOnboarding();
         return;
@@ -260,6 +309,7 @@ window.nextOnboardingStep = function() {
 };
 
 window.prevOnboardingStep = function() {
+    window.cleanupOnboardingPlayer();
     if (window.__onboardingStep > 0) {
         window.__onboardingStep--;
         window.updateOnboardingStep();
@@ -267,12 +317,75 @@ window.prevOnboardingStep = function() {
 };
 
 window.dismissOnboarding = function() {
+    window.cleanupOnboardingPlayer();
     localStorage.setItem('rosmap_onboarding_done', '1');
     const overlay = document.getElementById('onboarding-overlay');
     if (overlay) {
         overlay.classList.add('hidden');
         overlay.classList.remove('pointer-events-auto');
     }
+};
+
+window.handleOnboardingBackdrop = function(e) {
+    // Клик по затемнению / highlight или «мимо» карточки — скрыть демо-плеер на шаге 3
+    const card = document.getElementById('onboarding-card');
+    if (card && card.contains(e.target)) return;
+    if (window.__onboardingDemoPlayer) window.cleanupOnboardingPlayer();
+};
+
+window.bindSwipeReplyRows = function(container, onReply) {
+    if (!container || typeof onReply !== 'function') return;
+    container.querySelectorAll('.swipe-reply-row').forEach(row => {
+        if (row.dataset.swipeBound === '1') return;
+        row.dataset.swipeBound = '1';
+        let startX = 0, startY = 0, dx = 0, active = false;
+        const threshold = 64;
+        const reset = () => {
+            row.style.transform = '';
+            row.classList.remove('is-swiping');
+            active = false;
+            dx = 0;
+        };
+        row.addEventListener('touchstart', (e) => {
+            if (!e.touches[0]) return;
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            active = true;
+            dx = 0;
+        }, { passive: true });
+        row.addEventListener('touchmove', (e) => {
+            if (!active || !e.touches[0]) return;
+            const mx = e.touches[0].clientX - startX;
+            const my = e.touches[0].clientY - startY;
+            if (Math.abs(my) > Math.abs(mx) && Math.abs(my) > 12) {
+                reset();
+                return;
+            }
+            if (mx < 0) {
+                dx = Math.max(mx, -96);
+                row.style.transform = `translateX(${dx}px)`;
+                row.classList.add('is-swiping');
+            }
+        }, { passive: true });
+        row.addEventListener('touchend', (e) => {
+            if (!active) return;
+            const id = row.dataset.msgId || row.dataset.commentId || row.dataset.replyId;
+            const triggered = dx <= -threshold;
+            reset();
+            if (triggered && id) {
+                row.dataset.swipeJustFired = '1';
+                setTimeout(() => { delete row.dataset.swipeJustFired; }, 350);
+                onReply(id, row);
+            }
+        }, { passive: true });
+        row.addEventListener('click', (e) => {
+            if (row.dataset.swipeJustFired === '1') {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }, true);
+        row.addEventListener('touchcancel', reset, { passive: true });
+    });
 };
 
 window.restartOnboarding = function() {
@@ -386,11 +499,14 @@ window.ActionSheet = {
         const content = document.getElementById('action-sheet-content');
         if (!container || !overlay || !content) return;
 
-        container.innerHTML = items.map((item, i) => `
-            <button onclick="window.ActionSheet.trigger(${i})" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors text-left ${item.danger ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'}">
+        container.innerHTML = items.map((item, i) => {
+            const tone = item.tone || (item.danger ? 'danger' : '');
+            const toneCls = tone ? `action-sheet-item--${tone}` : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700';
+            return `
+            <button onclick="window.ActionSheet.trigger(${i})" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors text-left ${toneCls}">
                 <i class="fa-solid ${item.icon} w-4 text-center opacity-70"></i>${item.label}
-            </button>
-        `).join('');
+            </button>`;
+        }).join('');
 
         overlay.classList.remove('hidden');
         void overlay.offsetWidth;
@@ -400,8 +516,6 @@ window.ActionSheet = {
     trigger: function(i) {
         const fn = this._actions[i];
         this.close();
-        // Ждём завершения анимации закрытия шторки, прежде чем открывать следующий модал/промпт —
-        // иначе они визуально конфликтуют (пересекаются переходы opacity/scale).
         if (fn) setTimeout(fn, 280);
     },
     close: function() {
@@ -437,9 +551,21 @@ window.closeLocationPickerModal = function() {
     setTimeout(() => {
         if (modal.classList.contains('opacity-0')) modal.classList.add('hidden');
     }, 300);
+    window.__sessionRoutePicking = false;
 };
 
 window.applyPickedLocation = function() {
+    if (window.__sessionRoutePicking) {
+        if (!window.__sessionRouteStops || window.__sessionRouteStops.length < 2) {
+            window.showToast('Нужно минимум 2 точки маршрута экспедиции');
+            return;
+        }
+        window.__sessionRoutePicking = false;
+        window.renderSessionRouteStops();
+        window.closeLocationPickerModal();
+        window.showToast(`Маршрут: ${window.__sessionRouteStops.length} точек`);
+        return;
+    }
     if (window.isSoundwalkPrinciple()) {
         if (!window.addModalRoute || window.addModalRoute.length < 2) {
             window.showToast('Для звуковой прогулки нужно минимум 2 точки маршрута');
@@ -1038,6 +1164,113 @@ window.BADGE_CATALOG = {
     anthrophony_expert: { label: 'Эксперт антропофонии', icon: 'fa-city', cls: 'badge-chip-anthro' }
 };
 
+window.getMyFollowing = function() {
+    if (!window.currentUser) return [];
+    const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+    const me = window.getProfileByLogin(login);
+    return [...(me?.following || [])];
+};
+
+window.getFollowersOf = function(login) {
+    if (!login) return [];
+    return (window.profilesData || [])
+        .filter(p => (p.following || []).includes(login))
+        .map(p => p.loginName);
+};
+
+window.isFollowingUser = function(login) {
+    return window.getMyFollowing().includes(login);
+};
+
+window.renderPublicFollowUI = function(profileLogin, isOwn) {
+    const followers = window.getFollowersOf(profileLogin);
+    const following = (window.getProfileByLogin(profileLogin)?.following) || [];
+    const fc = document.getElementById('pp-followers-count');
+    const fg = document.getElementById('pp-following-count');
+    if (fc) fc.textContent = String(followers.length);
+    if (fg) fg.textContent = String(following.length);
+
+    const btn = document.getElementById('pp-follow-btn');
+    if (!btn) return;
+    if (!profileLogin || isOwn || !window.currentUser) {
+        btn.classList.add('hidden');
+        return;
+    }
+    btn.classList.remove('hidden');
+    const on = window.isFollowingUser(profileLogin);
+    btn.textContent = on ? 'Отписаться' : 'Подписаться';
+    btn.className = on
+        ? 'mt-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold transition-colors'
+        : 'mt-2 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold transition-colors';
+};
+
+window.toggleFollowFromProfile = async function() {
+    if (!window.currentUser) { if (window.openAuthModal) window.openAuthModal(); return; }
+    const target = window.__publicProfileCtx?.login;
+    if (!target) return;
+    const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+    if (target === myLogin) return;
+
+    const updated = [...(window.profilesData || [])];
+    let idx = updated.findIndex(p => p.loginName === myLogin);
+    if (idx < 0) {
+        updated.push({ loginName: myLogin, displayName: window.currentUser.username, following: [] });
+        idx = updated.length - 1;
+    }
+    const following = new Set(updated[idx].following || []);
+    const was = following.has(target);
+    if (was) following.delete(target); else following.add(target);
+    updated[idx] = { ...updated[idx], following: Array.from(following), profileUpdatedAt: new Date().toISOString() };
+    const ok = await window.syncProfilesData(updated);
+    if (ok) {
+        window.showToast(was ? 'Вы отписались' : 'Подписка оформлена');
+        window.renderPublicFollowUI(target, false);
+        if (!was && window.pushNotifications) {
+            window.pushNotifications([target], {
+                type: 'follow',
+                text: `${window.currentUser.username} подписался(ась) на вас`,
+                fromId: myLogin,
+                fromName: window.currentUser.username
+            });
+        }
+    }
+};
+
+window.openFollowList = function(kind) {
+    const login = window.__publicProfileCtx?.login;
+    if (!login) return;
+    const list = kind === 'followers'
+        ? window.getFollowersOf(login)
+        : ((window.getProfileByLogin(login)?.following) || []);
+    if (!list.length) {
+        window.showToast(kind === 'followers' ? 'Пока нет подписчиков' : 'Пока нет подписок');
+        return;
+    }
+    window.ActionSheet.open(list.map(l => {
+        const p = window.getProfileByLogin(l);
+        return {
+            icon: 'fa-user',
+            label: p?.displayName || l,
+            tone: 'primary',
+            onClick: () => window.openPublicProfile(l, p?.displayName || l)
+        };
+    }));
+};
+
+window.notifyFollowersAboutNewSound = function(sound) {
+    if (!sound || !sound.recordistId || sound.status !== 'published') return;
+    const followers = window.getFollowersOf(sound.recordistId);
+    if (!followers.length || !window.pushNotifications) return;
+    window.pushNotifications(followers, {
+        type: 'new_sound',
+        text: `${sound.recordist || 'Автор'} опубликовал(а) новую запись «${sound.title}»`,
+        fromId: sound.recordistId,
+        fromName: sound.recordist,
+        soundId: sound.id,
+        soundTitle: sound.title
+    });
+};
+
 window.openPublicProfile = function(login, displayName) {
     const profile = (login && window.getProfileByLogin(login)) || window.getProfileByDisplayName(displayName) || null;
     const finalLogin = login || (profile ? profile.loginName : null);
@@ -1087,6 +1320,8 @@ window.openPublicProfile = function(login, displayName) {
         }).join('');
         badgesEl.classList.toggle('hidden', badges.length === 0);
     }
+
+    window.renderPublicFollowUI(finalLogin, isOwn);
 
     const gearEl = document.getElementById('pp-gear');
     if (gearEl) {
@@ -2139,6 +2374,13 @@ window.openDetailsModal = function() {
 
     window.renderComments(s);
 
+    const adminBtn = document.getElementById('details-admin-actions-btn');
+    if (adminBtn) {
+        const isAdmin = window.isCurrentUserAdmin && window.isCurrentUserAdmin();
+        adminBtn.classList.toggle('hidden', !isAdmin);
+        adminBtn.classList.toggle('flex', !!isAdmin);
+    }
+
     const m = document.getElementById('details-modal');
     const c = document.getElementById('details-modal-content');
     if (m && c) {
@@ -2221,7 +2463,8 @@ window.renderComments = function(sound) {
     };
 
     const renderReply = r => `
-        <div class="comment-reply">
+        <div class="comment-reply swipe-reply-row" data-reply-id="${r.id}" data-reply-author="${esc(r.author)}" data-reply-author-id="${esc(r.authorId || '')}">
+            <span class="swipe-reply-hint"><i class="fa-solid fa-reply"></i></span>
             <div class="flex justify-between items-start gap-2 mb-1">
                 <span class="text-[12px]">${renderAuthor(r.author, r.authorId)}</span>
                 <div class="flex items-center gap-1 shrink-0">
@@ -2238,7 +2481,8 @@ window.renderComments = function(sound) {
         const reactedByMe = !!login && (c.reactedBy || []).includes(login);
         const reactionCount = (c.reactedBy || []).length;
         return `
-        <div class="bg-slate-100/60 dark:bg-slate-900/60 p-3.5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+        <div class="bg-slate-100/60 dark:bg-slate-900/60 p-3.5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 swipe-reply-row" data-comment-id="${c.id}" data-comment-author="${esc(c.author)}" data-comment-author-id="${esc(c.authorId || '')}">
+            <span class="swipe-reply-hint"><i class="fa-solid fa-reply"></i></span>
             <div class="flex justify-between items-start mb-1.5 gap-2">
                 <span class="text-[13px]">${renderAuthor(c.author, c.authorId)}</span>
                 <div class="flex items-center gap-1.5 shrink-0">
@@ -2256,6 +2500,17 @@ window.renderComments = function(sound) {
         </div>`;
     }).join('');
     container.scrollTop = container.scrollHeight;
+    if (window.bindSwipeReplyRows) {
+        window.bindSwipeReplyRows(container, (id, row) => {
+            if (row.dataset.replyId) {
+                const parent = (sound.comments || []).find(c => (c.replies || []).some(r => r.id === id));
+                if (!parent) return;
+                window.startReplyToComment(sound.id, id, row.dataset.replyAuthor || '', parent.id, row.dataset.replyAuthorId || null);
+            } else {
+                window.startReplyToComment(sound.id, id, row.dataset.commentAuthor || '', id, row.dataset.commentAuthorId || null);
+            }
+        });
+    }
 }
 
 // Контекст активного ответа: parentCommentId — корневой комментарий, replyToId/author —
@@ -2355,12 +2610,23 @@ window.openCommentMenu = function(soundId, commentId) {
     const reacted = !!login && (c.reactedBy || []).includes(login);
 
     const items = [];
-    if (c.authorId) items.push({ icon: 'fa-id-badge', label: 'Профиль автора', onClick: () => window.openPublicProfile(c.authorId, c.author) });
-    items.push({ icon: 'fa-reply', label: 'Ответить', onClick: () => window.startReplyToComment(soundId, commentId, c.author, commentId, c.authorId) });
+    if (c.authorId) items.push({ icon: 'fa-id-badge', label: 'Профиль автора', tone: 'primary', onClick: () => window.openPublicProfile(c.authorId, c.author) });
+    items.push({ icon: 'fa-reply', label: 'Ответить', tone: 'primary', onClick: () => window.startReplyToComment(soundId, commentId, c.author, commentId, c.authorId) });
     items.push({ icon: 'fa-heart', label: reacted ? 'Убрать реакцию' : 'Поставить реакцию', onClick: () => window.toggleCommentReaction(soundId, commentId) });
-    items.push({ icon: 'fa-flag', label: 'Пожаловаться', danger: true, onClick: () => window.openReportModal('comment', soundId, commentId) });
+    items.push({ icon: 'fa-flag', label: 'Пожаловаться', tone: 'warning', onClick: () => window.openReportModal('comment', soundId, commentId) });
     if (isAdmin) {
-        items.push({ icon: 'fa-trash-can', label: 'Удалить комментарий', danger: true, onClick: () => window.adminDeleteComment(soundId, commentId) });
+        items.push({ icon: 'fa-trash-can', label: 'Удалить', tone: 'danger', onClick: () => window.adminDeleteComment(soundId, commentId) });
+        if (c.authorId && c.authorId !== 'admin') {
+            items.push({
+                icon: 'fa-user-slash',
+                label: 'Удалить и заблокировать',
+                tone: 'danger',
+                onClick: async () => {
+                    await window.adminDeleteComment(soundId, commentId);
+                    if (window.setUserBlocked) window.setUserBlocked(c.authorId, true);
+                }
+            });
+        }
     }
     window.ActionSheet.open(items);
 };
@@ -2380,12 +2646,12 @@ window.openReplyMenu = function(soundId, replyId) {
     const isAdmin = !!window.currentUser && (String(window.currentUser.role || '').toLowerCase() === 'admin' || login === 'admin');
 
     const items = [];
-    if (reply.authorId) items.push({ icon: 'fa-id-badge', label: 'Профиль автора', onClick: () => window.openPublicProfile(reply.authorId, reply.author) });
-    items.push({ icon: 'fa-reply', label: 'Ответить', onClick: () => window.startReplyToComment(soundId, replyId, reply.author, parent.id, reply.authorId) });
-    items.push({ icon: 'fa-flag', label: 'Пожаловаться', danger: true, onClick: () => window.openReportModal('comment', soundId, parent.id) });
+    if (reply.authorId) items.push({ icon: 'fa-id-badge', label: 'Профиль автора', tone: 'primary', onClick: () => window.openPublicProfile(reply.authorId, reply.author) });
+    items.push({ icon: 'fa-reply', label: 'Ответить', tone: 'primary', onClick: () => window.startReplyToComment(soundId, replyId, reply.author, parent.id, reply.authorId) });
+    items.push({ icon: 'fa-flag', label: 'Пожаловаться', tone: 'warning', onClick: () => window.openReportModal('comment', soundId, parent.id) });
     if (isAdmin) {
         items.push({
-            icon: 'fa-trash-can', label: 'Удалить ответ', danger: true,
+            icon: 'fa-trash-can', label: 'Удалить', tone: 'danger',
             onClick: async () => {
                 parent.replies = (parent.replies || []).filter(r => r.id !== replyId);
                 const updatedCloud = [...window.cloudDataCache];
@@ -2395,6 +2661,20 @@ window.openReplyMenu = function(soundId, replyId) {
                 if (ok) { window.showToast('Ответ удалён'); window.renderComments(s); }
             }
         });
+        if (reply.authorId && reply.authorId !== 'admin') {
+            items.push({
+                icon: 'fa-user-slash', label: 'Удалить и заблокировать', tone: 'danger',
+                onClick: async () => {
+                    parent.replies = (parent.replies || []).filter(r => r.id !== replyId);
+                    const updatedCloud = [...window.cloudDataCache];
+                    const idx = updatedCloud.findIndex(x => x.id === soundId);
+                    if (idx >= 0) updatedCloud[idx] = s; else updatedCloud.push(s);
+                    await window.syncCloudData(updatedCloud);
+                    window.renderComments(s);
+                    if (window.setUserBlocked) window.setUserBlocked(reply.authorId, true);
+                }
+            });
+        }
     }
     window.ActionSheet.open(items);
 };
@@ -2712,6 +2992,9 @@ window.publishSound = async function(targetStatus = 'pending') {
     if (success) {
         const msg = soundObj.status === 'draft' ? 'Черновик сохранён!' : (isEdit ? 'Изменения сохранены!' : 'Звук отправлен на модерацию!');
         window.showToast(msg);
+        if (soundObj.status === 'published' && window.notifyFollowersAboutNewSound) {
+            window.notifyFollowersAboutNewSound(soundObj);
+        }
         window.toggleAddModal(true);
     }
 };
@@ -2870,6 +3153,9 @@ window.closeAddModalSafely = async function() {
         if (!ok) return;
     }
     window.toggleAddModal(true);
+};
+window.goBackFromAdd = function() {
+    return window.closeAddModalSafely();
 };
 
 // UI System Callbacks

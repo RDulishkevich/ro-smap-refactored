@@ -327,10 +327,14 @@ window.initLocationPickerMap = function() {
     const initialCoords = window.tempAddCoords || window.parseCoordinateString(document.getElementById('add-coords')?.value) || [47.222, 39.718];
     const hint = document.getElementById('location-picker-hint');
     if (hint) {
-        hint.textContent = window.isSoundwalkPrinciple()
-            ? 'Режим прогулки: кликайте по карте, чтобы добавить точки маршрута'
+        hint.textContent = window.isSoundwalkPrinciple() || window.__sessionRoutePicking
+            ? 'Кликайте по карте, чтобы добавить точки. Удалить точку можно в списке сверху.'
             : 'Нажмите на карту, чтобы выбрать точку';
     }
+
+    // Тема карты как у основной (монохром / стандарт)
+    if (window.currentMapStyle === 'monochrome') container.classList.add('map-monochrome');
+    else container.classList.remove('map-monochrome');
 
     if (!window.locationPickerMap) {
         window.locationPickerMap = new ymaps.Map('location-picker-map', {
@@ -343,11 +347,21 @@ window.initLocationPickerMap = function() {
             const coords = e.get('coords');
             const point = [coords[0], coords[1]];
 
+            if (window.__sessionRoutePicking) {
+                window.__sessionRouteStops = window.__sessionRouteStops || [];
+                window.__sessionRouteStops.push({ lat: point[0], lng: point[1], title: `Точка ${window.__sessionRouteStops.length + 1}` });
+                window.redrawSessionRouteOnPicker();
+                window.renderLocationPickerRouteChips();
+                window.showToast(`Точка маршрута ${window.__sessionRouteStops.length}`);
+                return;
+            }
+
             if (window.isSoundwalkPrinciple()) {
                 window.addModalRoute = window.addModalRoute || [];
                 window.addModalRoute.push(point);
                 window.tempAddCoords = window.addModalRoute[0];
                 window.redrawAddModalRouteOnPicker();
+                window.renderLocationPickerRouteChips();
                 window.showToast(`Точка маршрута ${window.addModalRoute.length}`);
             } else {
                 window.tempAddCoords = point;
@@ -364,12 +378,81 @@ window.initLocationPickerMap = function() {
     }
 
     window.locationPickerMap.setCenter(initialCoords, 12);
-    if (window.isSoundwalkPrinciple() && window.addModalRoute && window.addModalRoute.length) {
+    if (window.__sessionRoutePicking) {
+        window.redrawSessionRouteOnPicker();
+        window.renderLocationPickerRouteChips();
+    } else if (window.isSoundwalkPrinciple() && window.addModalRoute && window.addModalRoute.length) {
         window.redrawAddModalRouteOnPicker();
+        window.renderLocationPickerRouteChips();
     } else {
         window.placeLocationPickerMarker(initialCoords);
+        window.renderLocationPickerRouteChips();
     }
-}
+};
+
+window.renderLocationPickerRouteChips = function() {
+    const box = document.getElementById('location-picker-route-points');
+    if (!box) return;
+    if (window.__sessionRoutePicking) {
+        const stops = window.__sessionRouteStops || [];
+        if (!stops.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+        box.classList.remove('hidden');
+        box.innerHTML = stops.map((st, i) => `
+            <span class="picker-route-chip">${i + 1}. ${Number(st.lat).toFixed(3)}, ${Number(st.lng).toFixed(3)}
+                <button type="button" onclick="window.removeSessionRoutePointAt(${i})" title="Удалить"><i class="fa-solid fa-xmark"></i></button>
+            </span>`).join('');
+        return;
+    }
+    if (!window.isSoundwalkPrinciple()) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+    const route = window.addModalRoute || [];
+    if (!route.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+    box.classList.remove('hidden');
+    box.innerHTML = route.map((pt, i) => `
+        <span class="picker-route-chip">${i + 1}. ${Number(pt[0]).toFixed(3)}, ${Number(pt[1]).toFixed(3)}
+            <button type="button" onclick="window.removeAddModalRoutePoint(${i})" title="Удалить"><i class="fa-solid fa-xmark"></i></button>
+        </span>`).join('');
+};
+
+window.removeAddModalRoutePoint = function(index) {
+    if (!window.addModalRoute || index < 0 || index >= window.addModalRoute.length) return;
+    window.addModalRoute.splice(index, 1);
+    window.tempAddCoords = window.addModalRoute[0] || null;
+    window.redrawAddModalRouteOnPicker();
+    window.renderLocationPickerRouteChips();
+    window.updateSoundwalkRouteUI && window.updateSoundwalkRouteUI();
+};
+
+window.removeSessionRoutePointAt = function(index) {
+    if (!window.__sessionRouteStops || index < 0 || index >= window.__sessionRouteStops.length) return;
+    window.__sessionRouteStops.splice(index, 1);
+    window.__sessionRouteStops.forEach((st, i) => { st.title = `Точка ${i + 1}`; });
+    window.redrawSessionRouteOnPicker();
+    window.renderLocationPickerRouteChips();
+};
+
+window.redrawSessionRouteOnPicker = function() {
+    if (!window.locationPickerMap) return;
+    window.locationPickerMap.geoObjects.removeAll();
+    window.locationPickerPlacemark = null;
+    window.addModalPolyline = null;
+    const stops = window.__sessionRouteStops || [];
+    const route = stops.map(s => [s.lat, s.lng]);
+    if (!route.length) return;
+    route.forEach((pt, i) => {
+        const mark = new ymaps.Placemark(pt, {}, {
+            preset: i === 0 ? 'islands#blueDotIcon' : 'islands#lightBlueCircleIcon'
+        });
+        window.locationPickerMap.geoObjects.add(mark);
+        if (i === 0) window.locationPickerPlacemark = mark;
+    });
+    if (route.length > 1) {
+        window.addModalPolyline = new ymaps.Polyline(route, {}, {
+            strokeColor: '#38bdf8', strokeWidth: 4, strokeOpacity: 0.85, strokeStyle: 'shortdash'
+        });
+        window.locationPickerMap.geoObjects.add(window.addModalPolyline);
+        window.locationPickerMap.setBounds(window.addModalPolyline.geometry.getBounds(), { checkZoomRange: true, zoomMargin: 40 });
+    }
+};
 
 window.redrawAddModalRouteOnPicker = function() {
     if (!window.locationPickerMap) return;
@@ -381,6 +464,11 @@ window.redrawAddModalRouteOnPicker = function() {
         window.locationPickerMap.geoObjects.remove(window.addModalPolyline);
         window.addModalPolyline = null;
     }
+    // clear previous route marks (keep map instance)
+    const toRemove = [];
+    window.locationPickerMap.geoObjects.each((obj) => toRemove.push(obj));
+    toRemove.forEach(obj => window.locationPickerMap.geoObjects.remove(obj));
+
     const route = window.addModalRoute || [];
     if (!route.length) return;
     route.forEach((pt, i) => {

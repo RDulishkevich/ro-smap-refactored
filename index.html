@@ -42,7 +42,7 @@
     <div id="map" class="absolute inset-0 z-0 transition-all duration-500"></div>
 
     <!-- Онбординг для новых пользователей -->
-    <div id="onboarding-overlay" class="fixed inset-0 z-[400] hidden pointer-events-none">
+    <div id="onboarding-overlay" onclick="window.handleOnboardingBackdrop(event)" class="fixed inset-0 z-[400] hidden pointer-events-none">
         <div id="onboarding-highlight" class="absolute rounded-3xl border-2 border-blue-400 shadow-[0_0_0_9999px_rgba(15,23,42,0.72)] pointer-events-none opacity-0" style="left:0;top:0;width:0;height:0;"></div>
         <div id="onboarding-card" class="absolute bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 p-5 w-[min(92vw,22rem)] pointer-events-auto" style="left:50%;top:50%;transform:translate(-50%,-50%);">
             <div class="flex items-center justify-between mb-3">
@@ -299,10 +299,10 @@
         <!-- Кнопка Добавления звука: на телефоне — сразу под кнопкой профиля (верх/справа),
              на ПК — привычное место в правом нижнем углу. -->
         <div id="fab-add" class="absolute top-20 right-4 md:top-auto md:bottom-8 md:right-8 pointer-events-auto z-40 flex flex-col gap-3 items-end">
-            <button onclick="window.openAudioGuessr()" class="w-12 h-12 md:w-14 md:h-14 bg-emerald-600 text-white rounded-[1.1rem] md:rounded-[1.25rem] flex items-center justify-center shadow-2xl border border-emerald-500 transition-transform hover:scale-105 active:scale-95" title="Audio Guessr">
+            <button id="fab-guessr" onclick="window.openAudioGuessr()" class="w-12 h-12 md:w-14 md:h-14 bg-emerald-600 text-white rounded-[1.1rem] md:rounded-[1.25rem] flex items-center justify-center shadow-2xl border border-emerald-500 transition-transform hover:scale-105 active:scale-95" title="Audio Guessr">
                 <i class="fa-solid fa-headphones text-lg md:text-xl pointer-events-none"></i>
             </button>
-            <button onclick="window.toggleAddModal()" class="w-14 h-14 bg-blue-600 text-white rounded-[1.25rem] flex items-center justify-center shadow-2xl border border-blue-500 transition-transform hover:scale-105 active:scale-95" title="Add Audio">
+            <button id="fab-add-sound" onclick="window.toggleAddModal()" class="w-14 h-14 bg-blue-600 text-white rounded-[1.25rem] flex items-center justify-center shadow-2xl border border-blue-500 transition-transform hover:scale-105 active:scale-95" title="Add Audio">
                 <i class="fa-solid fa-plus text-2xl pointer-events-none"></i>
             </button>
         </div>
@@ -663,11 +663,8 @@
                 </div>
 
                 <div id="cab-panel-admin" data-cab-panel="admin" class="hidden space-y-4">
-                    <div class="flex items-center justify-between mb-2">
+                    <div class="mb-2">
                         <p class="text-[11px] font-bold uppercase tracking-wider text-red-500">Администрирование</p>
-                        <button onclick="window.switchCabinetTab('sounds')" class="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors">
-                            <i class="fa-solid fa-arrow-left mr-1"></i>Назад
-                        </button>
                     </div>
                     <div class="bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl border border-red-100 dark:border-red-900/50 flex flex-col justify-center items-center text-center">
                         <i class="fa-solid fa-shield-halved text-3xl text-red-500 mb-2"></i>
@@ -961,7 +958,7 @@
     </div>
 
     <!-- Модальное окно: ПУБЛИЧНЫЙ ПРОФИЛЬ РЕКОРДИСТА -->
-    <div id="public-profile-modal" onmousedown="if(event.target === this) window.closePublicProfileModal()" class="fixed inset-0 z-[210] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
+    <div id="public-profile-modal" onmousedown="if(event.target === this) window.closePublicProfileModal()" class="fixed inset-0 z-[240] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
         <div id="public-profile-modal-content" class="bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-3xl app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto border border-slate-100 dark:border-slate-800">
 
             <div class="px-6 py-5 flex justify-between items-start gap-4 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
@@ -975,6 +972,13 @@
                         <span id="pp-joined" class="inline-flex items-center gap-1 mt-1 text-[10px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full"><i class="fa-solid fa-calendar-days"></i>—</span>
                         <p id="pp-bio" class="hidden text-sm text-slate-600 dark:text-slate-300 mt-2 leading-relaxed max-w-md"></p>
                         <div id="pp-badges" class="hidden flex flex-wrap gap-1.5 mt-2"></div>
+                        <div id="pp-follow-stats" class="pp-follow-stats">
+                            <button type="button" id="pp-followers-btn" class="pp-follow-stat" onclick="window.openFollowList('followers')"><strong id="pp-followers-count">0</strong> подписчиков</button>
+                            <button type="button" id="pp-following-btn" class="pp-follow-stat" onclick="window.openFollowList('following')"><strong id="pp-following-count">0</strong> подписок</button>
+                        </div>
+                        <button id="pp-follow-btn" onclick="window.toggleFollowFromProfile()" class="hidden mt-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold transition-colors">
+                            Подписаться
+                        </button>
                         <button id="pp-message-btn" onclick="window.openComposeMessageFromProfile()" class="hidden mt-2 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold transition-colors shadow-sm">
                             <i class="fa-solid fa-envelope mr-1"></i>Написать сообщение
                         </button>
@@ -1264,12 +1268,11 @@
                     </div>
                 </div>
                 <div>
-                    <label class="modal-label text-slate-400">Маршрут от записи к записи</label>
-                    <p class="text-[11px] text-slate-400 mb-2">Добавьте точки с карты по порядку — маршрут построится автоматически.</p>
-                    <div class="flex gap-2">
-                        <select id="session-route-sound-picker" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-xs flex-1"></select>
-                        <button type="button" onclick="window.addSessionRouteStop()" class="px-3 rounded-xl bg-blue-600 text-white text-xs font-bold shrink-0"><i class="fa-solid fa-plus"></i></button>
-                    </div>
+                    <label class="modal-label text-slate-400">Маршрут экспедиции (точки движения)</label>
+                    <p class="text-[11px] text-slate-400 mb-2">Сначала отметьте путь на карте. Звуковые метки можно привязать к экспедиции позже.</p>
+                    <button type="button" onclick="window.openSessionRoutePicker()" class="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold">
+                        <i class="fa-solid fa-map-location-dot mr-1"></i>Отметить точки маршрута
+                    </button>
                     <div id="session-route-stops" class="mt-2 space-y-1.5 max-h-36 overflow-y-auto custom-scrollbar"></div>
                 </div>
                 <div>
@@ -1333,6 +1336,9 @@
                     </div>
                     
                     <div id="details-download-group" class="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+                        <button id="details-admin-actions-btn" onclick="window.openDetailsAdminActions()" class="hidden bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md hover:bg-amber-600 transition-all active:scale-95 items-center justify-center gap-2">
+                            <i class="fa-solid fa-ellipsis"></i> Действия
+                        </button>
                         <button onclick="window.downloadSound('wav')" class="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2">
                             <i class="fa-solid fa-file-waveform text-sm"></i> WAV
                         </button>
@@ -1477,17 +1483,20 @@
     <!-- Полноэкранный picker координат -->
     <div id="location-picker-modal" class="fixed inset-0 z-[9998] bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-0 opacity-0 transition-opacity duration-300 pointer-events-none">
         <div id="location-picker-modal-content" class="w-full h-full max-h-screen bg-slate-950 text-white transform scale-95 transition-all relative">
-            <div class="absolute top-0 left-0 right-0 z-[10] flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 bg-slate-950/80 backdrop-blur-md border-b border-slate-800">
-                <div>
-                    <h3 class="text-lg font-bold">Выбор координат</h3>
-                    <p id="location-picker-hint" class="text-sm text-slate-400">Нажмите на карту, чтобы выбрать точку</p>
+            <div class="absolute top-0 left-0 right-0 z-[10] flex flex-col gap-2 px-4 py-3 sm:px-6 sm:py-4 bg-slate-950/80 backdrop-blur-md border-b border-slate-800">
+                <div class="flex items-center justify-between gap-2">
+                    <div class="min-w-0">
+                        <h3 class="text-lg font-bold">Выбор координат</h3>
+                        <p id="location-picker-hint" class="text-sm text-slate-400">Нажмите на карту, чтобы выбрать точку</p>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <button type="button" onclick="window.applyPickedLocation()" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-semibold transition-colors">Применить</button>
+                        <button type="button" onclick="window.closeLocationPickerModal()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-semibold transition-colors">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
                 </div>
-                <div class="flex items-center gap-2">
-                    <button type="button" onclick="window.applyPickedLocation()" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-semibold transition-colors">Применить</button>
-                    <button type="button" onclick="window.closeLocationPickerModal()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-semibold transition-colors">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
+                <div id="location-picker-route-points" class="picker-route-points hidden"></div>
             </div>
             <div id="location-picker-map" class="w-full h-full"></div>
         </div>

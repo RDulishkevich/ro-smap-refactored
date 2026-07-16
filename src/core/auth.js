@@ -519,7 +519,13 @@ export function initAuth() {
                     <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60"><p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Звуков</p><p class="font-semibold text-slate-700 dark:text-slate-200">${count}</p></div>
                     <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60"><p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Маршрут</p><p class="font-semibold text-slate-700 dark:text-slate-200 truncate">${session.route || '—'}</p></div>
                 </div>
-                ${(session.routeStops || []).length ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1.5">Точки маршрута</p><div class="space-y-1.5">${session.routeStops.map((st, i) => `<button type="button" class="session-route-stop w-full text-left" onclick="window.closeExpeditionViewModal(); window.selectSound('${st.soundId}')"><span class="session-route-stop__num">${i + 1}</span><span class="truncate flex-1 font-semibold text-slate-700 dark:text-slate-200">${st.title || 'Точка'}</span></button>`).join('')}</div>${session.routeStops.length > 1 ? `<button type="button" onclick="window.showExpeditionRouteOnMap('${session.id}')" class="mt-2 w-full py-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 text-xs font-bold"><i class="fa-solid fa-map-location-dot mr-1"></i>Показать маршрут на карте</button>` : ''}</div>` : ''}
+                ${(session.routeStops || []).length ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1.5">Точки маршрута</p><div class="space-y-1.5">${session.routeStops.map((st, i) => {
+                    const title = st.title || `Точка ${i + 1}`;
+                    const click = st.soundId
+                        ? `window.closeExpeditionViewModal(); window.selectSound('${st.soundId}')`
+                        : `window.closeExpeditionViewModal(); if(window.map){window.map.setCenter([${Number(st.lat)},${Number(st.lng)}], 14);}`;
+                    return `<button type="button" class="session-route-stop w-full text-left" onclick="${click}"><span class="session-route-stop__num">${i + 1}</span><span class="truncate flex-1 font-semibold text-slate-700 dark:text-slate-200">${title}${st.lat != null ? ` · ${Number(st.lat).toFixed(4)}, ${Number(st.lng).toFixed(4)}` : ''}</span></button>`;
+                }).join('')}</div>${session.routeStops.length > 1 ? `<button type="button" onclick="window.showExpeditionRouteOnMap('${session.id}')" class="mt-2 w-full py-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 text-xs font-bold"><i class="fa-solid fa-map-location-dot mr-1"></i>Показать маршрут на карте</button>` : ''}</div>` : ''}
                 ${session.purpose ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Цель</p><p class="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">${session.purpose}</p></div>` : ''}
                 ${participantChips.length || guestChips.length ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1.5">Участники</p><div class="flex flex-wrap gap-1.5">${participantChips.join('')}${guestChips.join('')}</div></div>` : ''}
                 ${links.length ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Ссылки</p><ul class="space-y-1">${links.map(l => `<li><a href="${l}" target="_blank" rel="noopener" class="text-sm text-blue-600 hover:underline break-all">${l}</a></li>`).join('')}</ul></div>` : ''}
@@ -590,10 +596,12 @@ export function initAuth() {
         setVal('session-form-videos', (session?.videoLinks || []).join(', '));
         setVal('session-form-links', (session?.links || []).join(', '));
         window.__sessionFormPhotos = session?.photos ? [...session.photos] : [];
-        window.__sessionRouteStops = (session?.routeStops || []).map(s => ({ ...s }));
+        window.__sessionRouteStops = (session?.routeStops || session?.routePoints || []).map(s => {
+            if (Array.isArray(s)) return { lat: s[0], lng: s[1], title: 'Точка' };
+            return { ...s };
+        });
         window.renderSessionPhotosPreview();
         window.renderSessionParticipantsPicker(session?.participants || []);
-        window.renderSessionRoutePicker();
         window.renderSessionRouteStops();
 
         const titleEl = document.getElementById('session-modal-title');
@@ -642,37 +650,28 @@ export function initAuth() {
         window.closeSessionModal();
     };
 
-    window.getSessionRouteCandidateSounds = function() {
-        return (window.soundsData || []).filter(s =>
-            Number.isFinite(s.lat) && Number.isFinite(s.lng)
-            && (!s.status || s.status === 'published' || s.status === 'pending')
-        ).sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'ru'));
+    window.getSessionRouteCandidateSounds = function() { return []; };
+
+    window.openSessionRoutePicker = function() {
+        window.__sessionRoutePicking = true;
+        window.__sessionRouteStops = window.__sessionRouteStops || [];
+        if (window.openLocationPickerModal) window.openLocationPickerModal();
     };
 
-    window.renderSessionRoutePicker = function() {
-        const sel = document.getElementById('session-route-sound-picker');
-        if (!sel) return;
-        const used = new Set((window.__sessionRouteStops || []).map(s => s.soundId));
-        const sounds = window.getSessionRouteCandidateSounds().filter(s => !used.has(s.id));
-        sel.innerHTML = sounds.length
-            ? `<option value="">Выберите запись…</option>` + sounds.map(s =>
-                `<option value="${s.id}">${(s.title || 'Без названия').replace(/</g, '&lt;')}</option>`
-            ).join('')
-            : `<option value="">Нет доступных точек</option>`;
-    };
+    window.renderSessionRoutePicker = function() {};
 
     window.renderSessionRouteStops = function() {
         const box = document.getElementById('session-route-stops');
         if (!box) return;
         const stops = window.__sessionRouteStops || [];
         if (!stops.length) {
-            box.innerHTML = `<p class="text-[11px] text-slate-400 px-1">Пока нет точек маршрута</p>`;
+            box.innerHTML = `<p class="text-[11px] text-slate-400 px-1">Пока нет точек движения</p>`;
             return;
         }
         box.innerHTML = stops.map((stop, i) => `
             <div class="session-route-stop">
                 <span class="session-route-stop__num">${i + 1}</span>
-                <span class="truncate flex-1 font-semibold text-slate-700 dark:text-slate-200">${stop.title || 'Точка'}</span>
+                <span class="truncate flex-1 font-semibold text-slate-700 dark:text-slate-200">${stop.title || `Точка ${i + 1}`} · ${Number(stop.lat).toFixed(4)}, ${Number(stop.lng).toFixed(4)}</span>
                 <button type="button" onclick="window.moveSessionRouteStop(${i}, -1)" class="text-slate-400 hover:text-blue-500 px-1" title="Выше"><i class="fa-solid fa-arrow-up text-[10px]"></i></button>
                 <button type="button" onclick="window.moveSessionRouteStop(${i}, 1)" class="text-slate-400 hover:text-blue-500 px-1" title="Ниже"><i class="fa-solid fa-arrow-down text-[10px]"></i></button>
                 <button type="button" onclick="window.removeSessionRouteStop(${i})" class="text-red-400 hover:text-red-500 px-1"><i class="fa-solid fa-xmark"></i></button>
@@ -686,7 +685,7 @@ export function initAuth() {
         if (stops.length < 2) return;
         const routeInput = document.getElementById('session-form-route');
         if (!routeInput) return;
-        const auto = stops.map(s => s.title || 'Точка').join(' → ');
+        const auto = stops.map((s, i) => s.title || `Точка ${i + 1}`).join(' → ');
         if (!routeInput.value.trim() || routeInput.dataset.autoRoute === '1') {
             routeInput.value = auto;
             routeInput.dataset.autoRoute = '1';
@@ -694,33 +693,15 @@ export function initAuth() {
     };
 
     window.addSessionRouteStop = function() {
-        const sel = document.getElementById('session-route-sound-picker');
-        const id = sel?.value;
-        if (!id) { window.showToast('Выберите запись'); return; }
-        const sound = (window.soundsData || []).find(s => s.id === id);
-        if (!sound) return;
-        if ((window.__sessionRouteStops || []).some(s => s.soundId === id)) {
-            window.showToast('Эта точка уже в маршруте');
-            return;
-        }
-        window.__sessionRouteStops.push({
-            soundId: sound.id,
-            title: sound.title || 'Без названия',
-            lat: sound.lat,
-            lng: sound.lng
-        });
-        const routeInput = document.getElementById('session-form-route');
-        if (routeInput) routeInput.dataset.autoRoute = '1';
-        window.renderSessionRouteStops();
-        window.renderSessionRoutePicker();
+        window.openSessionRoutePicker();
     };
 
     window.removeSessionRouteStop = function(index) {
         window.__sessionRouteStops.splice(index, 1);
+        window.__sessionRouteStops.forEach((st, i) => { if (!st.soundId) st.title = `Точка ${i + 1}`; });
         const routeInput = document.getElementById('session-form-route');
         if (routeInput) routeInput.dataset.autoRoute = '1';
         window.renderSessionRouteStops();
-        window.renderSessionRoutePicker();
     };
 
     window.moveSessionRouteStop = function(index, dir) {
@@ -1305,18 +1286,38 @@ export function initAuth() {
         if (!s) return;
         const status = s.status || 'published';
         const items = [
-            { icon: 'fa-eye', label: 'Просмотреть', onClick: () => { window.openedFromAdmin = true; window.closeCabinet(); window.selectSound(soundId); window.openDetailsModal(); } },
-            { icon: 'fa-pen', label: 'Изменить', onClick: () => { window.openedFromAdmin = true; window.editSound(soundId); window.closeCabinet(); } }
+            { icon: 'fa-eye', label: 'Просмотреть', tone: 'primary', onClick: () => { window.openedFromAdmin = true; window.closeCabinet(); window.selectSound(soundId); window.openDetailsModal(); } },
+            { icon: 'fa-pen', label: 'Изменить', tone: 'primary', onClick: () => { window.openedFromAdmin = true; window.editSound(soundId); window.closeCabinet(); } }
         ];
         if (status === 'pending') {
-            items.push({ icon: 'fa-check', label: 'Одобрить', onClick: () => window.setSoundStatus(soundId, 'published') });
-            items.push({ icon: 'fa-xmark', label: 'Отклонить', danger: true, onClick: () => window.setSoundStatus(soundId, 'rejected') });
+            items.push({ icon: 'fa-check', label: 'Одобрить', tone: 'success', onClick: () => window.setSoundStatus(soundId, 'published') });
+            items.push({ icon: 'fa-xmark', label: 'Отклонить', tone: 'danger', onClick: () => window.setSoundStatus(soundId, 'rejected') });
         } else {
-            if (status !== 'published') items.push({ icon: 'fa-check', label: 'Опубликовать', onClick: () => window.setSoundStatus(soundId, 'published') });
-            if (status !== 'pending') items.push({ icon: 'fa-clock', label: 'На модерацию', onClick: () => window.setSoundStatus(soundId, 'pending') });
-            if (status !== 'rejected') items.push({ icon: 'fa-ban', label: 'Отклонить', danger: true, onClick: () => window.setSoundStatus(soundId, 'rejected') });
+            if (status !== 'published') items.push({ icon: 'fa-check', label: 'Опубликовать', tone: 'success', onClick: () => window.setSoundStatus(soundId, 'published') });
+            if (status !== 'pending') items.push({ icon: 'fa-clock', label: 'На модерацию', tone: 'warning', onClick: () => window.setSoundStatus(soundId, 'pending') });
+            if (status !== 'rejected') items.push({ icon: 'fa-ban', label: 'Отклонить', tone: 'danger', onClick: () => window.setSoundStatus(soundId, 'rejected') });
         }
-        items.push({ icon: 'fa-trash', label: 'Удалить', danger: true, onClick: () => window.deleteSoundFromCloud(soundId) });
+        items.push({ icon: 'fa-trash', label: 'Удалить', tone: 'danger', onClick: () => window.deleteSoundFromCloud(soundId) });
+        window.ActionSheet.open(items);
+    };
+
+    window.openDetailsAdminActions = function() {
+        const id = window.currentPlayingId;
+        if (!id) return;
+        const s = window.soundsData.find(x => x.id === id);
+        if (!s) return;
+        const status = s.status || 'published';
+        const items = [
+            { icon: 'fa-pen', label: 'Изменить', tone: 'primary', onClick: () => { window.closeDetailsModal(); window.editSound(id); } },
+            { icon: 'fa-clock', label: 'Вернуть на модерацию', tone: 'warning', onClick: () => window.setSoundStatus(id, 'pending') },
+            { icon: 'fa-trash', label: 'Удалить', tone: 'danger', onClick: () => window.deleteSoundFromCloud(id) }
+        ];
+        if (status === 'pending') {
+            items.splice(1, 1,
+                { icon: 'fa-check', label: 'Одобрить', tone: 'success', onClick: () => window.setSoundStatus(id, 'published') },
+                { icon: 'fa-xmark', label: 'Отклонить', tone: 'danger', onClick: () => window.setSoundStatus(id, 'rejected') }
+            );
+        }
         window.ActionSheet.open(items);
     };
 
@@ -1364,6 +1365,7 @@ export function initAuth() {
                         soundId: s.id,
                         soundTitle: s.title
                     });
+                    if (window.notifyFollowersAboutNewSound) window.notifyFollowersAboutNewSound(s);
                 } else if (status === 'rejected') {
                     window.pushNotifications([s.recordistId], {
                         type: 'moderation',
@@ -1523,14 +1525,14 @@ export function initAuth() {
         const r = s ? (s.reports || []).find(x => x.id === reportId) : null;
         if (!r) return;
         const items = [
-            { icon: 'fa-eye', label: 'Открыть текст жалобы', onClick: () => window.openReportDetail(soundId, reportId) },
-            { icon: 'fa-music', label: 'Просмотреть запись', onClick: () => { window.closeReportDetailModal(); window.openedFromAdmin = true; window.closeCabinet(); window.selectSound(soundId); window.openDetailsModal(); } }
+            { icon: 'fa-eye', label: 'Открыть текст жалобы', tone: 'primary', onClick: () => window.openReportDetail(soundId, reportId) },
+            { icon: 'fa-music', label: 'Просмотреть запись', tone: 'primary', onClick: () => { window.closeReportDetailModal(); window.openedFromAdmin = true; window.closeCabinet(); window.selectSound(soundId); window.openDetailsModal(); } }
         ];
         if (r.type === 'comment' && s && (s.comments || []).some(c => c.id === r.commentId)) {
-            items.push({ icon: 'fa-trash', label: 'Удалить комментарий', danger: true, onClick: () => window.deleteReportedComment(soundId, r.commentId, reportId) });
+            items.push({ icon: 'fa-trash', label: 'Удалить комментарий', tone: 'danger', onClick: () => window.deleteReportedComment(soundId, r.commentId, reportId) });
         }
         if (r.status !== 'resolved') {
-            items.push({ icon: 'fa-check', label: 'Отметить решённой', onClick: () => window.resolveReport(soundId, reportId) });
+            items.push({ icon: 'fa-check', label: 'Отметить решённой', tone: 'success', onClick: () => window.resolveReport(soundId, reportId) });
         }
         window.ActionSheet.open(items);
     };
@@ -1610,12 +1612,12 @@ export function initAuth() {
         const isAdmin = p.role === 'admin' || p.loginName === 'admin';
         const isBlocked = !!p.blocked;
         const items = [
-            { icon: 'fa-medal', label: 'Звания', onClick: () => window.openBadgeAssignModal(login) },
-            { icon: 'fa-chart-simple', label: 'Сводка', onClick: () => window.openUserActivityModal(login) }
+            { icon: 'fa-medal', label: 'Звания', tone: 'warning', onClick: () => window.openBadgeAssignModal(login) },
+            { icon: 'fa-chart-simple', label: 'Сводка', tone: 'primary', onClick: () => window.openUserActivityModal(login) }
         ];
         if (login !== 'admin') {
-            items.push({ icon: 'fa-user-shield', label: isAdmin ? 'Снять админа' : 'Сделать админом', onClick: () => window.setUserAdminRole(login, !isAdmin) });
-            items.push({ icon: 'fa-ban', label: isBlocked ? 'Разблокировать' : 'Заблокировать', danger: !isBlocked, onClick: () => window.setUserBlocked(login, !isBlocked) });
+            items.push({ icon: 'fa-user-shield', label: isAdmin ? 'Снять админа' : 'Сделать админом', tone: 'primary', onClick: () => window.setUserAdminRole(login, !isAdmin) });
+            items.push({ icon: 'fa-ban', label: isBlocked ? 'Разблокировать' : 'Заблокировать', tone: isBlocked ? 'success' : 'danger', onClick: () => window.setUserBlocked(login, !isBlocked) });
         }
         window.ActionSheet.open(items);
     };
@@ -2352,7 +2354,8 @@ export function initAuth() {
                 users?.length ? `<span class="msg-reaction-chip">${emoji} ${users.length}</span>` : ''
             ).join('')}</div>`
             : '';
-        return `<div class="msg-bubble ${m._mine ? 'mine' : ''}" onclick="window.openMessageMenu('${m.id}')">
+        return `<div class="msg-bubble ${m._mine ? 'mine' : ''} swipe-reply-row" data-msg-id="${m.id}" onclick="window.openMessageMenu('${m.id}')">
+            <span class="swipe-reply-hint"><i class="fa-solid fa-reply"></i></span>
             ${reply}${img}
             ${m.text ? `<p class="text-[13px] leading-snug">${window.escMsgHtml(m.text)}</p>` : ''}
             ${reactions}
@@ -2413,6 +2416,7 @@ export function initAuth() {
                 ? all.map(m => window.renderMessageBubble(m)).join('')
                 : `<p class="text-xs text-slate-400 text-center py-6">Начните переписку</p>`;
             if (!quiet || nearBottom) list.scrollTop = list.scrollHeight;
+            if (window.bindSwipeReplyRows) window.bindSwipeReplyRows(list, (id) => window.startMessageReply(id));
         }
 
         // Пометить прочитанными входящие в мой inbox
@@ -2941,16 +2945,39 @@ export function initAuth() {
         }
 
         const maxDemand = Math.max(...Object.values(data.byCategory).map(c => c.demand), 1);
-        const ecoTotal = Object.values(data.byCategory).reduce((sum, c) => sum + c.count, 0) || 1;
-        const ecoColors = { geophony: '#0284c7', biophony: '#16a34a', anthrophony: '#ea580c' };
-        let ecoOffset = 0;
-        const ecoSlices = Object.entries(data.byCategory).map(([key, c]) => {
-            const frac = c.count / ecoTotal;
-            const dash = frac * 100;
-            const slice = { key, ...c, color: ecoColors[key], dash, offset: ecoOffset };
-            ecoOffset += dash;
-            return slice;
+
+        // Линейный график активности по датам публикаций (последние 14 дней)
+        const days = [];
+        const now = new Date();
+        for (let i = 13; i >= 0; i--) {
+            const d = new Date(now);
+            d.setHours(0, 0, 0, 0);
+            d.setDate(d.getDate() - i);
+            days.push({ key: d.toISOString().slice(0, 10), label: `${d.getDate()}.${d.getMonth() + 1}`, value: 0 });
+        }
+        const myLogin = window.currentUser?.loginName || String(window.currentUser?.username || '').toLowerCase();
+        (window.soundsData || []).forEach(s => {
+            if (!window.matchesRecordist || !window.matchesRecordist(s, myLogin, window.currentUser?.username)) return;
+            const dayKey = (s.date || s.createdAt || '').slice(0, 10);
+            const bucket = days.find(d => d.key === dayKey);
+            if (bucket) bucket.value += 1;
+            else if (s.plays) {
+                // если даты нет — учтём активность через plays в последний день
+            }
         });
+        // Добавим «вес» прослушиваний/скачиваний как активность на сегодня для наглядности
+        const today = days[days.length - 1];
+        if (today) today.value += Math.min(20, Math.round((data.totalPlays || 0) / Math.max(1, data.totalPublished || 1)));
+
+        const maxAct = Math.max(...days.map(d => d.value), 1);
+        const w = 280, h = 120, pad = 12;
+        const pts = days.map((d, i) => {
+            const x = pad + (i / (days.length - 1)) * (w - pad * 2);
+            const y = h - pad - (d.value / maxAct) * (h - pad * 2);
+            return `${x},${y}`;
+        });
+        const linePath = `M ${pts.join(' L ')}`;
+        const areaPath = `${linePath} L ${w - pad},${h - pad} L ${pad},${h - pad} Z`;
 
         container.innerHTML = `
             <div class="analytics-cards-row">
@@ -2960,31 +2987,15 @@ export function initAuth() {
             </div>
 
             <div class="analytics-chart-card">
-                <div class="analytics-chart-title">Состав коллекции (круговая)</div>
-                <div class="flex flex-col sm:flex-row items-center gap-4">
-                    <div class="analytics-donut-wrap shrink-0">
-                        <svg width="128" height="128" viewBox="0 0 42 42">
-                            <circle cx="21" cy="21" r="15.9" fill="transparent" stroke="currentColor" class="analytics-donut-track" stroke-width="4"></circle>
-                            ${ecoSlices.map(sl => `
-                                <circle cx="21" cy="21" r="15.9" fill="transparent" stroke="${sl.color}" stroke-width="4"
-                                    stroke-dasharray="${sl.dash} ${100 - sl.dash}" stroke-dashoffset="${25 - sl.offset}"
-                                    transform="rotate(-90 21 21)"></circle>
-                            `).join('')}
-                        </svg>
-                        <div class="analytics-donut-center">
-                            <div class="analytics-donut-total">${data.totalPublished}</div>
-                            <div class="analytics-donut-total-label">записей</div>
-                        </div>
-                    </div>
-                    <div class="analytics-legend flex-1 w-full">
-                        ${ecoSlices.map(sl => `
-                            <div class="analytics-legend-item">
-                                <span class="analytics-legend-dot" style="background:${sl.color}"></span>
-                                <span>${ECO_LABELS[sl.key]}</span>
-                                <span class="analytics-legend-value">${sl.count}</span>
-                            </div>
-                        `).join('')}
-                    </div>
+                <div class="analytics-chart-title">Активность (14 дней)</div>
+                <svg class="analytics-line-chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+                    <path class="area" d="${areaPath}"></path>
+                    <path class="line" d="${linePath}"></path>
+                </svg>
+                <div class="flex justify-between text-[9px] text-slate-400 mt-1 px-0.5">
+                    <span>${days[0].label}</span>
+                    <span>${days[Math.floor(days.length / 2)].label}</span>
+                    <span>${days[days.length - 1].label}</span>
                 </div>
             </div>
 
