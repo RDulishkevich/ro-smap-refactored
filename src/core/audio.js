@@ -390,8 +390,8 @@ window.formatHzLabel = function(hz) {
     return String(Math.round(hz));
 };
 
-// iZotope RX-style heatmap colormap: near-black/navy → magenta → red/orange → yellow/white
-window.izotopeColorStops = [
+// iZotope RX-style heatmap: dark floor for dark theme, light floor for light theme
+window.izotopeColorStopsDark = [
     { t: 0.00, c: [10, 10, 30] },
     { t: 0.14, c: [30, 12, 55] },
     { t: 0.34, c: [138, 43, 226] },
@@ -400,10 +400,53 @@ window.izotopeColorStops = [
     { t: 0.90, c: [255, 255, 0] },
     { t: 1.00, c: [255, 255, 255] }
 ];
+window.izotopeColorStopsLight = [
+    { t: 0.00, c: [248, 250, 252] },
+    { t: 0.14, c: [226, 232, 240] },
+    { t: 0.34, c: [167, 139, 250] },
+    { t: 0.56, c: [249, 115, 22] },
+    { t: 0.74, c: [234, 179, 8] },
+    { t: 0.90, c: [220, 38, 38] },
+    { t: 1.00, c: [127, 29, 29] }
+];
+window.izotopeColorStops = window.izotopeColorStopsDark;
+
+window.isAnalyzerLightTheme = function() {
+    return !document.documentElement.classList.contains('dark');
+};
+
+window.getAnalyzerPalette = function() {
+    if (window.isAnalyzerLightTheme()) {
+        return {
+            fade: 'rgba(248, 250, 252, 0.28)',
+            fadeAmbi: 'rgba(255, 255, 255, 0.18)',
+            grid: 'rgba(100, 116, 139, 0.35)',
+            gridSoft: 'rgba(100, 116, 139, 0.2)',
+            label: 'rgba(51, 65, 85, 0.9)',
+            stroke: '#0284c7',
+            strokeGlow: 'rgba(2, 132, 199, 0.45)',
+            ambiStroke: '#6366f1',
+            ambiGlow: 'rgba(99, 102, 241, 0.45)'
+        };
+    }
+    return {
+        fade: 'rgba(15, 23, 42, 0.2)',
+        fadeAmbi: 'rgba(15, 23, 42, 0.12)',
+        grid: 'rgba(148, 163, 184, 0.28)',
+        gridSoft: 'rgba(148, 163, 184, 0.16)',
+        label: 'rgba(203, 213, 225, 0.85)',
+        stroke: '#38bdf8',
+        strokeGlow: 'rgba(56, 189, 248, 0.55)',
+        ambiStroke: '#818cf8',
+        ambiGlow: 'rgba(129, 140, 248, 0.6)'
+    };
+};
 
 window.izotopeColor = function(value) {
     const v = Math.max(0, Math.min(1, value));
-    const stops = window.izotopeColorStops;
+    const stops = window.isAnalyzerLightTheme()
+        ? window.izotopeColorStopsLight
+        : window.izotopeColorStopsDark;
     for (let i = 0; i < stops.length - 1; i++) {
         const a = stops[i], b = stops[i + 1];
         if (v >= a.t && v <= b.t) {
@@ -416,6 +459,19 @@ window.izotopeColor = function(value) {
     }
     const last = stops[stops.length - 1].c;
     return `rgb(${last[0]},${last[1]},${last[2]})`;
+};
+
+window.refreshAnalyzersTheme = function() {
+    const gonio = document.getElementById('goniometer-canvas');
+    if (gonio) {
+        const ctx = gonio.getContext('2d');
+        if (ctx) {
+            ctx.fillStyle = window.isAnalyzerLightTheme() ? '#f8fafc' : '#0f172a';
+            ctx.fillRect(0, 0, gonio.width || 260, gonio.height || 130);
+        }
+    }
+    if (window.clearAmbiGoniometerCanvas) window.clearAmbiGoniometerCanvas();
+    if (window.resizeAnalyzerCanvases) window.resizeAnalyzerCanvases();
 };
 
 // Picks a channel pair for the Lissajous/vectorscope plot depending on layout
@@ -500,8 +556,9 @@ window.drawAmbiGoniometerFrame = function() {
     const cx = w / 2, cy = h / 2;
     const scale = Math.min(w, h) / 2 * 0.9;
 
-    // Soft phosphor fade, lighter than the main goniometer so the pad's own grid stays visible
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.12)';
+    // Soft phosphor fade — цвет зависит от темы
+    const pal = window.getAnalyzerPalette();
+    ctx.fillStyle = pal.fadeAmbi;
     ctx.fillRect(0, 0, w, h);
 
     const analyserX = analysers[1]; // Ambisonic X: front(+) / back(-)
@@ -513,9 +570,9 @@ window.drawAmbiGoniometerFrame = function() {
     analyserX.getFloatTimeDomainData(window._ambiGonioX);
     analyserY.getFloatTimeDomainData(window._ambiGonioY);
 
-    ctx.strokeStyle = '#818cf8';
+    ctx.strokeStyle = pal.ambiStroke;
     ctx.lineWidth = 1.4;
-    ctx.shadowColor = 'rgba(129, 140, 248, 0.6)';
+    ctx.shadowColor = pal.ambiGlow;
     ctx.shadowBlur = 4;
     ctx.beginPath();
     const step = Math.max(1, Math.floor(n / 220));
@@ -545,25 +602,27 @@ window.drawGoniometerFrame = function() {
     const cx = w / 2, cy = h / 2;
     const scale = Math.min(w, h) / 2 * 0.82;
 
+    const pal = window.getAnalyzerPalette();
+
     // Fade previous trail instead of clearing, for a smooth phosphor-like decay
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.2)';
+    ctx.fillStyle = pal.fade;
     ctx.fillRect(0, 0, w, h);
 
     // Grid redrawn at full opacity every frame so it never fades out
-    ctx.strokeStyle = 'rgba(148, 163, 184, 0.28)';
+    ctx.strokeStyle = pal.grid;
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.arc(cx, cy, scale, 0, Math.PI * 2); ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(cx - scale, cy); ctx.lineTo(cx + scale, cy);
     ctx.moveTo(cx, cy - scale); ctx.lineTo(cx, cy + scale);
     ctx.stroke();
-    ctx.strokeStyle = 'rgba(148, 163, 184, 0.16)';
+    ctx.strokeStyle = pal.gridSoft;
     ctx.beginPath();
     ctx.moveTo(cx - scale * 0.7, cy - scale * 0.7); ctx.lineTo(cx + scale * 0.7, cy + scale * 0.7);
     ctx.moveTo(cx - scale * 0.7, cy + scale * 0.7); ctx.lineTo(cx + scale * 0.7, cy - scale * 0.7);
     ctx.stroke();
 
-    ctx.fillStyle = 'rgba(203, 213, 225, 0.85)';
+    ctx.fillStyle = pal.label;
     ctx.font = '600 10px ui-monospace, SFMono-Regular, Menlo, monospace';
     ctx.fillText('M', cx - 4, cy - scale - 6);
     ctx.fillText('L', cx - scale - 12, cy + 4);
@@ -580,9 +639,9 @@ window.drawGoniometerFrame = function() {
     analyserB.getFloatTimeDomainData(window._gonioBufB);
 
     // Neon teal/cyan stroke with a soft glow — kept light to protect frame rate
-    ctx.strokeStyle = '#38bdf8';
+    ctx.strokeStyle = pal.stroke;
     ctx.lineWidth = 1.5;
-    ctx.shadowColor = 'rgba(56, 189, 248, 0.55)';
+    ctx.shadowColor = pal.strokeGlow;
     ctx.shadowBlur = 4;
     ctx.beginPath();
     const step = Math.max(1, Math.floor(n / 360));

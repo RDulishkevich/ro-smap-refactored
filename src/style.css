@@ -170,8 +170,7 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
     #player-card.analyzers-expanded { max-width: 32rem; }
 }
 
-/* Анализаторы Web Audio: контейнер повторяет стиль окна Ambisonic (градиент + акцентная рамка),
-   меняется вместе с общей темой карты; сама "сцена" анализатора внутри остаётся тёмной как экран прибора */
+/* Анализаторы Web Audio: панель и «экран» прибора следуют теме приложения */
 .analyzer-panel {
     border-radius: 1rem;
     border-width: 2px;
@@ -197,9 +196,14 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
     height: 130px;
     border-radius: 0.65rem;
     overflow: hidden;
-    background: #0f172a;
-    border: 1px solid #1e293b;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
     position: relative;
+}
+.dark .goniometer-canvas-wrap,
+.dark .spectrum-canvas-wrap {
+    background: #0f172a;
+    border-color: #1e293b;
 }
 .goniometer-canvas-wrap canvas,
 .spectrum-canvas-wrap canvas {
@@ -220,6 +224,10 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
     font-size: 8px;
     font-weight: 700;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: rgba(51, 65, 85, 0.9);
+    text-shadow: 0 0 3px rgba(255, 255, 255, 0.95), 0 0 1px rgba(255, 255, 255, 1);
+}
+.dark .spectrum-freq-axis span {
     color: rgba(226, 232, 240, 0.9);
     text-shadow: 0 0 3px rgba(0, 0, 0, 0.95), 0 0 1px rgba(0, 0, 0, 1);
 }
@@ -230,9 +238,13 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
     gap: 14px;
     padding: 10px 8px 6px;
     border-radius: 0.75rem;
-    background: #0f172a;
-    border: 1px solid #1e293b;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
     min-height: 150px;
+}
+.dark .loudness-meter-v {
+    background: #0f172a;
+    border-color: #1e293b;
 }
 .loudness-channel-v {
     display: flex;
@@ -256,33 +268,40 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 100%;
-    background: #0f172a;
+    background: #f8fafc;
     transition: height 60ms linear;
 }
+.dark .loudness-cover-v { background: #0f172a; }
 .loudness-peak-v {
     position: absolute;
     left: 0; right: 0;
     top: 0;
     height: 2px;
-    background: #f8fafc;
-    box-shadow: 0 0 4px rgba(248, 250, 252, 0.85);
+    background: #0f172a;
+    box-shadow: 0 0 4px rgba(15, 23, 42, 0.45);
     transition: top 60ms linear;
     z-index: 2;
+}
+.dark .loudness-peak-v {
+    background: #f8fafc;
+    box-shadow: 0 0 4px rgba(248, 250, 252, 0.85);
 }
 .loudness-ch-label {
     font-size: 9px;
     font-weight: 800;
-    color: #94a3b8;
+    color: #64748b;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
+.dark .loudness-ch-label { color: #94a3b8; }
 .loudness-db-label-v {
     font-size: 9px;
     font-weight: 700;
-    color: #5eead4;
+    color: #0f766e;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     min-width: 34px;
     text-align: center;
 }
+.dark .loudness-db-label-v { color: #5eead4; }
 #btn-analyzer-toggle.active {
     background: #dbeafe;
     color: #2563eb;

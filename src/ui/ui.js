@@ -2249,6 +2249,7 @@ window.setTheme = function(theme, skipSave = false) {
     if (theme === 'dark') document.documentElement.classList.add('dark'); else document.documentElement.classList.remove('dark');
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('theme', theme);
     if (window.refreshSettingsUI) window.refreshSettingsUI();
+    if (window.refreshAnalyzersTheme) window.refreshAnalyzersTheme();
 }
 window.toggleSidebar = function() {
     const s = document.getElementById('sidebar');
