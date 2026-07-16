@@ -25,6 +25,15 @@ export function bootstrapApp() {
         if (window.initSwipeHandlers) window.initSwipeHandlers();
         if (window.setSoundsListLoading) window.setSoundsListLoading(true);
         if (window.initOnboarding) window.initOnboarding();
+        if (window.refreshNotificationsUI) window.refreshNotificationsUI();
+
+        document.addEventListener('click', (e) => {
+            const wrap = document.getElementById('notif-wrap');
+            const panel = document.getElementById('notif-panel');
+            if (wrap && panel && !wrap.contains(e.target) && !panel.classList.contains('hidden')) {
+                panel.classList.add('hidden');
+            }
+        });
 
         Promise.all([
             fetch(`${window.YANDEX_BUCKET_URL}/map_data.json?nocache=${Date.now()}`)
@@ -39,6 +48,7 @@ export function bootstrapApp() {
             if (window.initFiltersData) window.initFiltersData();
             if (window.processFilterChange) window.processFilterChange(window.innerWidth >= 768);
             if (window.applyProfileToCurrentUser) window.applyProfileToCurrentUser();
+            if (window.refreshNotificationsUI) window.refreshNotificationsUI();
         });
 
         const searchInput = document.getElementById('search-input');

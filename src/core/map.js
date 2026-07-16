@@ -152,11 +152,22 @@ window.parseCoordinateString = function(value) {
     return null;
 }
 
+window.isSoundwalkPrinciple = function(value) {
+    const v = value || document.getElementById('add-principle')?.value || '';
+    return String(v).includes('Soundwalk');
+};
+
 window.initLocationPickerMap = function() {
     const container = document.getElementById('location-picker-map');
     if (!container || typeof ymaps === 'undefined') return;
 
     const initialCoords = window.tempAddCoords || window.parseCoordinateString(document.getElementById('add-coords')?.value) || [47.222, 39.718];
+    const hint = document.getElementById('location-picker-hint');
+    if (hint) {
+        hint.textContent = window.isSoundwalkPrinciple()
+            ? 'Режим прогулки: кликайте по карте, чтобы добавить точки маршрута'
+            : 'Нажмите на карту, чтобы выбрать точку';
+    }
 
     if (!window.locationPickerMap) {
         window.locationPickerMap = new ymaps.Map('location-picker-map', {
@@ -167,18 +178,63 @@ window.initLocationPickerMap = function() {
 
         window.locationPickerMap.events.add('click', function (e) {
             const coords = e.get('coords');
-            window.tempAddCoords = [coords[0], coords[1]];
-            window.placeLocationPickerMarker(window.tempAddCoords);
+            const point = [coords[0], coords[1]];
+
+            if (window.isSoundwalkPrinciple()) {
+                window.addModalRoute = window.addModalRoute || [];
+                window.addModalRoute.push(point);
+                window.tempAddCoords = window.addModalRoute[0];
+                window.redrawAddModalRouteOnPicker();
+                window.showToast(`Точка маршрута ${window.addModalRoute.length}`);
+            } else {
+                window.tempAddCoords = point;
+                window.placeLocationPickerMarker(window.tempAddCoords);
+            }
+
             const coordsInput = document.getElementById('add-coords');
-            if (coordsInput) coordsInput.value = `${Number(coords[0]).toFixed(5)}, ${Number(coords[1]).toFixed(5)}`;
+            if (coordsInput && window.tempAddCoords) {
+                coordsInput.value = `${Number(window.tempAddCoords[0]).toFixed(5)}, ${Number(window.tempAddCoords[1]).toFixed(5)}`;
+            }
             const locationInput = document.getElementById('add-loc');
             if (locationInput && !locationInput.value.trim()) locationInput.value = 'Точка выбрана на карте';
         });
     }
 
     window.locationPickerMap.setCenter(initialCoords, 12);
-    window.placeLocationPickerMarker(initialCoords);
+    if (window.isSoundwalkPrinciple() && window.addModalRoute && window.addModalRoute.length) {
+        window.redrawAddModalRouteOnPicker();
+    } else {
+        window.placeLocationPickerMarker(initialCoords);
+    }
 }
+
+window.redrawAddModalRouteOnPicker = function() {
+    if (!window.locationPickerMap) return;
+    if (window.locationPickerPlacemark) {
+        window.locationPickerMap.geoObjects.remove(window.locationPickerPlacemark);
+        window.locationPickerPlacemark = null;
+    }
+    if (window.addModalPolyline) {
+        window.locationPickerMap.geoObjects.remove(window.addModalPolyline);
+        window.addModalPolyline = null;
+    }
+    const route = window.addModalRoute || [];
+    if (!route.length) return;
+    route.forEach((pt, i) => {
+        const mark = new ymaps.Placemark(pt, {}, {
+            preset: i === 0 ? 'islands#blueDotIcon' : 'islands#lightBlueCircleIcon'
+        });
+        window.locationPickerMap.geoObjects.add(mark);
+        if (i === 0) window.locationPickerPlacemark = mark;
+    });
+    if (route.length > 1) {
+        window.addModalPolyline = new ymaps.Polyline(route, {}, {
+            strokeColor: '#38bdf8', strokeWidth: 4, strokeOpacity: 0.85, strokeStyle: 'shortdash'
+        });
+        window.locationPickerMap.geoObjects.add(window.addModalPolyline);
+        window.locationPickerMap.setBounds(window.addModalPolyline.geometry.getBounds(), { checkZoomRange: true, zoomMargin: 40 });
+    }
+};
 
 // Облегчённая карта для публичного профиля — только точки конкретного автора, без кластеризации
 // и фильтров основной карты. Инициализируется лениво при первом открытии профиля и переиспользуется

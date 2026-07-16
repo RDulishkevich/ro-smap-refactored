@@ -82,6 +82,7 @@ export function initAuth() {
             window.applyUserSettings();
             if (window.applyProfileToCurrentUser) window.applyProfileToCurrentUser();
             window.bustFilteredSoundsCache();
+            if (window.refreshNotificationsUI) window.refreshNotificationsUI();
             window.openCabinet();
             return;
         }
@@ -117,11 +118,20 @@ export function initAuth() {
         
         localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser));
         window.closeAuthModal();
+        if (window.applyProfileToCurrentUser) window.applyProfileToCurrentUser();
+
+        if (window.currentUser.blocked) {
+            window.currentUser = null;
+            localStorage.removeItem('rosmap_user');
+            if (window.refreshNotificationsUI) window.refreshNotificationsUI();
+            return window.showToast('Аккаунт заблокирован администратором');
+        }
+
         window.showToast('Успешный вход: ' + window.currentUser.username);
         window.applyUserSettings();
-        if (window.applyProfileToCurrentUser) window.applyProfileToCurrentUser();
         if (isNewRegistration && window.saveMyProfile) window.saveMyProfile({ joinedAt: new Date().toISOString() });
         window.bustFilteredSoundsCache();
+        if (window.refreshNotificationsUI) window.refreshNotificationsUI();
         window.openCabinet();
     };
 
@@ -137,6 +147,9 @@ export function initAuth() {
         window.activeSessionId = null;
         window.bustFilteredSoundsCache();
         if (window.renderSidebarExpeditions) window.renderSidebarExpeditions();
+        if (window.refreshNotificationsUI) window.refreshNotificationsUI();
+        const panel = document.getElementById('notif-panel');
+        if (panel) panel.classList.add('hidden');
     };
 
     // Подмешивает публичные данные профиля (био/ссылки/гир-лист/бейджи/дата регистрации) из
@@ -147,7 +160,10 @@ export function initAuth() {
         if (!window.currentUser) return;
         const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
         const profile = window.getProfileByLogin ? window.getProfileByLogin(login) : null;
-        if (!profile) return;
+        if (!profile) {
+            if (window.refreshNotificationsUI) window.refreshNotificationsUI();
+            return;
+        }
         window.currentUser.bio = profile.bio || '';
         window.currentUser.links = profile.links || [];
         window.currentUser.gear = profile.gear || [];
@@ -155,34 +171,53 @@ export function initAuth() {
         window.currentUser.joinedAt = profile.joinedAt || window.currentUser.joinedAt;
         window.currentUser.email = profile.email || window.currentUser.email || '';
         window.currentUser.emailVerified = !!profile.emailVerified;
+        window.currentUser.blocked = !!profile.blocked;
+        if (login !== 'admin') {
+            window.currentUser.role = profile.role === 'admin' ? 'admin' : 'user';
+        }
         if (profile.avatar && !window.currentUser.avatar) window.currentUser.avatar = profile.avatar;
+
+        if (window.currentUser.blocked && login !== 'admin') {
+            window.currentUser = null;
+            localStorage.removeItem('rosmap_user');
+            window.showToast('Аккаунт заблокирован администратором');
+        }
+
+        if (window.refreshNotificationsUI) window.refreshNotificationsUI();
     };
 
     // Единая точка сохранения профиля: патчит currentUser переданными полями и апсертит
-    // соответствующую запись в общем profiles.json (облако), синхронно с сессией в localStorage.
+    // соответствующую запись в общем profiles.json. sessions/notifications/role/blocked
+    // сохраняются, если не переданы явно в fields.
     window.saveMyProfile = async function(fields = {}) {
         if (!window.currentUser) return false;
         Object.assign(window.currentUser, fields);
         localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser));
 
         const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const updated = [...(window.profilesData || [])];
+        const idx = updated.findIndex(p => p.loginName === login);
+        const prev = idx >= 0 ? updated[idx] : {};
+
         const record = {
+            ...prev,
             loginName: login,
             displayName: window.currentUser.username,
-            avatar: window.currentUser.avatar || '',
+            avatar: window.currentUser.avatar || prev.avatar || '',
             bio: window.currentUser.bio || '',
             links: window.currentUser.links || [],
             gear: window.currentUser.gear || [],
             badges: window.currentUser.badges || [],
             email: window.currentUser.email || '',
             emailVerified: !!window.currentUser.emailVerified,
-            joinedAt: window.currentUser.joinedAt || new Date().toISOString()
+            joinedAt: window.currentUser.joinedAt || prev.joinedAt || new Date().toISOString(),
+            sessions: prev.sessions || [],
+            notifications: fields.notifications !== undefined ? fields.notifications : (prev.notifications || []),
+            role: fields.role !== undefined ? fields.role : (prev.role || (window.currentUser.role === 'admin' ? 'admin' : 'user')),
+            blocked: fields.blocked !== undefined ? !!fields.blocked : !!prev.blocked
         };
 
-        const updated = [...(window.profilesData || [])];
-        const idx = updated.findIndex(p => p.loginName === login);
-        if (idx >= 0) updated[idx] = { ...updated[idx], ...record }; else updated.push(record);
-
+        if (idx >= 0) updated[idx] = record; else updated.push(record);
         return await window.syncProfilesData(updated);
     };
 
@@ -1106,7 +1141,7 @@ export function initAuth() {
         if (success) { window.showToast('Комментарий удалён'); window.renderReportsList(); if (window.renderComments) window.renderComments(s); }
     };
 
-    // --- Профили пользователей внутри админ-панели: назначение бейджей доверия ---
+    // --- Профили пользователей внутри админ-панели: бейджи, роли, блокировки, сводка ---
     window.renderAdminUsersList = function() {
         const el = document.getElementById('admin-users-grid');
         if (!el) return;
@@ -1115,9 +1150,29 @@ export function initAuth() {
             el.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">Пока нет зарегистрированных профилей.</p>`;
             return;
         }
-        el.innerHTML = profiles.map(p => `
-            <div class="admin-user-row">
-                <div class="admin-user-row-name"><i class="fa-solid fa-user-astronaut mr-1.5 opacity-60"></i>${p.displayName || p.loginName}</div>
+        el.innerHTML = profiles.map(p => {
+            const isAdmin = p.role === 'admin' || p.loginName === 'admin';
+            const isBlocked = !!p.blocked;
+            return `
+            <div class="admin-user-row ${isBlocked ? 'blocked' : ''}">
+                <div class="flex items-start justify-between gap-2 mb-2">
+                    <div class="min-w-0">
+                        <div class="admin-user-row-name flex items-center gap-2">
+                            ${p.avatar ? `<img src="${p.avatar}" class="w-7 h-7 rounded-full object-cover border border-slate-200 dark:border-slate-600" alt="">` : `<i class="fa-solid fa-user-astronaut opacity-60"></i>`}
+                            <span class="truncate">${p.displayName || p.loginName}</span>
+                            ${isAdmin ? `<span class="pub-status-pill pub-status-pending">Админ</span>` : ''}
+                            ${isBlocked ? `<span class="pub-status-pill pub-status-rejected">Блок</span>` : ''}
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-0.5">@${p.loginName}${p.joinedAt ? ' · рег. ' + new Date(p.joinedAt).toLocaleString('ru-RU') : ''}</p>
+                    </div>
+                    <div class="flex flex-wrap gap-1 justify-end shrink-0">
+                        <button onclick="window.openUserActivityModal('${p.loginName}')" class="text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-500 dark:bg-blue-900/30 dark:hover:bg-blue-600 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors">Сводка</button>
+                        ${p.loginName !== 'admin' ? `
+                        <button onclick="window.setUserAdminRole('${p.loginName}', ${!isAdmin})" class="text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-500 dark:bg-indigo-900/30 dark:hover:bg-indigo-600 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors">${isAdmin ? 'Снять админа' : 'Сделать админом'}</button>
+                        <button onclick="window.setUserBlocked('${p.loginName}', ${!isBlocked})" class="text-red-600 hover:text-white bg-red-50 hover:bg-red-500 dark:bg-red-900/30 dark:hover:bg-red-600 px-2 py-1 rounded-lg text-[10px] font-bold transition-colors">${isBlocked ? 'Разблокировать' : 'Заблокировать'}</button>
+                        ` : ''}
+                    </div>
+                </div>
                 <div class="admin-user-row-badges">
                     ${Object.entries(window.BADGE_CATALOG || {}).map(([key, b]) => `
                         <label class="badge-toggle-chip ${(p.badges || []).includes(key) ? 'active' : ''}">
@@ -1126,8 +1181,8 @@ export function initAuth() {
                         </label>
                     `).join('')}
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
     };
 
     window.toggleUserBadge = async function(login, badgeKey, checked) {
@@ -1139,6 +1194,270 @@ export function initAuth() {
         updated[idx] = { ...updated[idx], badges: Array.from(badges) };
         const success = await window.syncProfilesData(updated);
         if (success) { window.showToast('Бейджи обновлены'); window.renderAdminUsersList(); }
+    };
+
+    window.setUserBlocked = async function(login, blocked) {
+        if (login === 'admin') return;
+        const updated = [...(window.profilesData || [])];
+        const idx = updated.findIndex(p => p.loginName === login);
+        if (idx < 0) return;
+        const confirmed = await window.CustomUI.open({
+            title: blocked ? '<i class="fa-solid fa-ban mr-2 text-red-500"></i>Заблокировать?' : 'Разблокировать?',
+            message: blocked ? `Пользователь @${login} не сможет войти в аккаунт.` : `Пользователь @${login} снова сможет войти.`,
+            confirmText: blocked ? 'Заблокировать' : 'Разблокировать',
+            confirmClass: blocked
+                ? 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
+                : 'px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-md'
+        });
+        if (!confirmed) return;
+        updated[idx] = { ...updated[idx], blocked: !!blocked };
+        const success = await window.syncProfilesData(updated);
+        if (success) { window.showToast(blocked ? 'Пользователь заблокирован' : 'Пользователь разблокирован'); window.renderAdminUsersList(); }
+    };
+
+    window.setUserAdminRole = async function(login, makeAdmin) {
+        if (login === 'admin') return;
+        const updated = [...(window.profilesData || [])];
+        const idx = updated.findIndex(p => p.loginName === login);
+        if (idx < 0) return;
+        const confirmed = await window.CustomUI.open({
+            title: makeAdmin ? '<i class="fa-solid fa-user-shield mr-2 text-indigo-500"></i>Назначить администратором?' : 'Снять права администратора?',
+            message: makeAdmin
+                ? `@${login} получит доступ к модерации, жалобам и управлению пользователями.`
+                : `@${login} потеряет права администратора.`,
+            confirmText: makeAdmin ? 'Назначить' : 'Снять',
+            confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors shadow-md'
+        });
+        if (!confirmed) return;
+        updated[idx] = { ...updated[idx], role: makeAdmin ? 'admin' : 'user' };
+        const success = await window.syncProfilesData(updated);
+        if (success) { window.showToast(makeAdmin ? 'Права администратора выданы' : 'Права администратора сняты'); window.renderAdminUsersList(); }
+    };
+
+    // Сводка всех действий пользователя для админа: регистрация, метки, комментарии.
+    window.getUserActivity = function(login) {
+        const profile = window.getProfileByLogin ? window.getProfileByLogin(login) : null;
+        const sounds = (window.soundsData || []).filter(s => window.matchesRecordist(s, login, profile?.displayName));
+        const comments = [];
+        (window.soundsData || []).forEach(s => {
+            (s.comments || []).forEach(c => {
+                if (c.authorId === login) {
+                    comments.push({ id: c.id, text: c.text, date: c.date, createdAt: c.createdAt, soundId: s.id, soundTitle: s.title, kind: 'comment' });
+                }
+                (c.replies || []).forEach(r => {
+                    if (r.authorId === login) {
+                        comments.push({ id: r.id, text: r.text, date: r.date, createdAt: r.createdAt, soundId: s.id, soundTitle: s.title, kind: 'reply' });
+                    }
+                });
+            });
+        });
+        comments.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        return { profile, sounds, comments };
+    };
+
+    window.openUserActivityModal = function(login) {
+        const data = window.getUserActivity(login);
+        const title = document.getElementById('user-activity-title');
+        const body = document.getElementById('user-activity-body');
+        const modal = document.getElementById('user-activity-modal');
+        const content = document.getElementById('user-activity-modal-content');
+        if (!body || !modal || !content) return;
+
+        const p = data.profile;
+        if (title) title.textContent = `Сводка: ${p?.displayName || login}`;
+
+        const fmt = iso => {
+            if (!iso) return '—';
+            try { return new Date(iso).toLocaleString('ru-RU'); } catch (e) { return String(iso); }
+        };
+
+        body.innerHTML = `
+            <div class="rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-4 space-y-1.5">
+                <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Логин:</span> @${login}</p>
+                <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Регистрация:</span> ${fmt(p?.joinedAt)}</p>
+                <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Роль:</span> ${p?.role === 'admin' || login === 'admin' ? 'Администратор' : 'Пользователь'}</p>
+                <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Статус:</span> ${p?.blocked ? 'Заблокирован' : 'Активен'}</p>
+                <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Email:</span> ${p?.email ? (p.emailVerified ? p.email + ' ✓' : p.email) : 'не привязан'}</p>
+            </div>
+            <div>
+                <h5 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Метки (${data.sounds.length})</h5>
+                ${data.sounds.length ? data.sounds.map(s => `
+                    <div class="activity-row" onclick="window.closeUserActivityModal(); window.closeCabinet(); window.selectSound('${s.id}');">
+                        <div class="min-w-0 flex-1">
+                            <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${s.title}</p>
+                            <p class="text-[10px] text-slate-400">${fmt(s.createdAt) !== '—' ? fmt(s.createdAt) : (s.date || '—')} · ${s.status || 'published'}</p>
+                        </div>
+                    </div>
+                `).join('') : `<p class="text-xs text-slate-400">Меток пока нет</p>`}
+            </div>
+            <div>
+                <h5 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Комментарии и ответы (${data.comments.length})</h5>
+                ${data.comments.length ? data.comments.map(c => `
+                    <div class="activity-row" onclick="window.closeUserActivityModal(); window.closeCabinet(); window.selectSound('${c.soundId}'); window.openDetailsModal();">
+                        <div class="min-w-0 flex-1">
+                            <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${c.kind === 'reply' ? 'Ответ' : 'Комментарий'} · ${c.soundTitle}</p>
+                            <p class="text-[11px] text-slate-500 truncate">«${c.text}»</p>
+                            <p class="text-[10px] text-slate-400">${fmt(c.createdAt) !== '—' ? fmt(c.createdAt) : (c.date || '—')}</p>
+                        </div>
+                    </div>
+                `).join('') : `<p class="text-xs text-slate-400">Комментариев пока нет</p>`}
+            </div>
+        `;
+
+        modal.classList.remove('hidden');
+        void modal.offsetWidth;
+        modal.classList.remove('opacity-0', 'pointer-events-none');
+        content.classList.remove('scale-95');
+    };
+
+    window.closeUserActivityModal = function() {
+        const modal = document.getElementById('user-activity-modal');
+        const content = document.getElementById('user-activity-modal-content');
+        if (!modal || !content) return;
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        content.classList.add('scale-95');
+        setTimeout(() => { if (modal.classList.contains('opacity-0')) modal.classList.add('hidden'); }, 300);
+    };
+
+    // --- Уведомления: лайки, ответы, комментарии; админам — жалобы ---
+    // Хранятся в profiles.json у получателя (profile.notifications[]).
+    window.pushNotifications = async function(targetLogins, payload) {
+        const fromId = payload.fromId || null;
+        const targets = [...new Set((targetLogins || []).filter(Boolean).filter(l => l !== fromId))];
+        if (!targets.length) return false;
+
+        const updated = [...(window.profilesData || [])];
+        const notifBase = {
+            id: 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+            type: payload.type,
+            text: payload.text,
+            fromId,
+            fromName: payload.fromName || '',
+            soundId: payload.soundId || null,
+            soundTitle: payload.soundTitle || '',
+            date: new Date().toISOString(),
+            read: false
+        };
+
+        targets.forEach(login => {
+            let idx = updated.findIndex(p => p.loginName === login);
+            if (idx < 0) {
+                updated.push({ loginName: login, displayName: login, notifications: [] });
+                idx = updated.length - 1;
+            }
+            const list = [...(updated[idx].notifications || [])];
+            list.unshift({ ...notifBase, id: notifBase.id + Math.random().toString(36).slice(2, 4) });
+            updated[idx] = { ...updated[idx], notifications: list.slice(0, 60) };
+        });
+
+        const ok = await window.syncProfilesData(updated);
+        if (ok && window.refreshNotificationsUI) window.refreshNotificationsUI();
+        return ok;
+    };
+
+    window.notifyAdmins = async function(payload) {
+        const adminLogins = new Set(['admin']);
+        (window.profilesData || []).forEach(p => { if (p.role === 'admin') adminLogins.add(p.loginName); });
+        return window.pushNotifications([...adminLogins], payload);
+    };
+
+    window.getMyNotifications = function() {
+        if (!window.currentUser) return [];
+        const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const profile = window.getProfileByLogin ? window.getProfileByLogin(login) : null;
+        return (profile && profile.notifications) || [];
+    };
+
+    window.refreshNotificationsUI = function() {
+        const btn = document.getElementById('notif-btn');
+        const badge = document.getElementById('notif-badge');
+        if (!btn) return;
+        if (!window.currentUser) {
+            btn.classList.add('hidden');
+            const panel = document.getElementById('notif-panel');
+            if (panel) panel.classList.add('hidden');
+            return;
+        }
+        btn.classList.remove('hidden');
+        const unread = window.getMyNotifications().filter(n => !n.read).length;
+        if (badge) {
+            badge.textContent = unread > 99 ? '99+' : String(unread);
+            badge.classList.toggle('hidden', unread === 0);
+        }
+        if (document.getElementById('notif-panel') && !document.getElementById('notif-panel').classList.contains('hidden')) {
+            window.renderNotificationsList();
+        }
+    };
+
+    window.toggleNotificationsPanel = function() {
+        if (!window.currentUser) return;
+        const panel = document.getElementById('notif-panel');
+        if (!panel) return;
+        const opening = panel.classList.contains('hidden');
+        panel.classList.toggle('hidden', !opening);
+        if (opening) window.renderNotificationsList();
+    };
+
+    window.renderNotificationsList = function() {
+        const list = document.getElementById('notif-list');
+        if (!list) return;
+        const items = window.getMyNotifications();
+        if (!items.length) {
+            list.innerHTML = `<p class="text-xs text-slate-400 text-center py-8">Пока нет уведомлений</p>`;
+            return;
+        }
+        const icons = {
+            comment: 'fa-comment',
+            reply: 'fa-reply',
+            like: 'fa-thumbs-up',
+            reaction: 'fa-heart',
+            report: 'fa-flag'
+        };
+        list.innerHTML = items.map(n => `
+            <button onclick="window.openNotification('${n.id}')" class="notif-item ${n.read ? '' : 'unread'} w-full text-left">
+                <i class="fa-solid ${icons[n.type] || 'fa-bell'} notif-item-icon"></i>
+                <div class="min-w-0 flex-1">
+                    <p class="text-xs font-semibold text-slate-700 dark:text-slate-200 leading-snug">${n.text}</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">${n.date ? new Date(n.date).toLocaleString('ru-RU') : ''}</p>
+                </div>
+            </button>
+        `).join('');
+    };
+
+    window.openNotification = async function(notifId) {
+        const login = window.currentUser?.loginName || String(window.currentUser?.username || '').toLowerCase();
+        const updated = [...(window.profilesData || [])];
+        const idx = updated.findIndex(p => p.loginName === login);
+        if (idx < 0) return;
+        const notifs = [...(updated[idx].notifications || [])];
+        const n = notifs.find(x => x.id === notifId);
+        if (!n) return;
+        n.read = true;
+        updated[idx] = { ...updated[idx], notifications: notifs };
+        await window.syncProfilesData(updated);
+        window.refreshNotificationsUI();
+
+        const panel = document.getElementById('notif-panel');
+        if (panel) panel.classList.add('hidden');
+
+        if (n.soundId) {
+            window.selectSound(n.soundId);
+            if (n.type === 'comment' || n.type === 'reply' || n.type === 'report' || n.type === 'reaction') {
+                setTimeout(() => window.openDetailsModal(), 200);
+            }
+        }
+    };
+
+    window.markAllNotificationsRead = async function() {
+        if (!window.currentUser) return;
+        const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const updated = [...(window.profilesData || [])];
+        const idx = updated.findIndex(p => p.loginName === login);
+        if (idx < 0) return;
+        const notifs = (updated[idx].notifications || []).map(n => ({ ...n, read: true }));
+        updated[idx] = { ...updated[idx], notifications: notifs };
+        await window.syncProfilesData(updated);
+        window.refreshNotificationsUI();
     };
 
     // --- Настройки профиля (вкладка "Настройки" кабинета) ---

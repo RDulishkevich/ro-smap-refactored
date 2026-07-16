@@ -428,21 +428,62 @@ window.closeLocationPickerModal = function() {
 };
 
 window.applyPickedLocation = function() {
-    if (!window.tempAddCoords) {
+    if (window.isSoundwalkPrinciple()) {
+        if (!window.addModalRoute || window.addModalRoute.length < 2) {
+            window.showToast('Для звуковой прогулки нужно минимум 2 точки маршрута');
+            return;
+        }
+        window.tempAddCoords = window.addModalRoute[0];
+    } else if (!window.tempAddCoords) {
         window.showToast('Сначала выберите точку на карте');
         return;
     }
 
     const coordsInput = document.getElementById('add-coords');
     const locationInput = document.getElementById('add-loc');
-    if (coordsInput) {
+    if (coordsInput && window.tempAddCoords) {
         coordsInput.value = `${Number(window.tempAddCoords[0]).toFixed(5)}, ${Number(window.tempAddCoords[1]).toFixed(5)}`;
     }
     if (locationInput) {
-        locationInput.value = locationInput.value.trim() || 'Точка выбрана на карте';
+        locationInput.value = locationInput.value.trim() || (window.isSoundwalkPrinciple() ? 'Маршрут звуковой прогулки' : 'Точка выбрана на карте');
     }
 
+    window.updateSoundwalkRouteUI();
     window.closeLocationPickerModal();
+};
+
+window.handlePrincipleChange = function(value) {
+    window.updateSoundwalkRouteUI();
+    if (!window.isSoundwalkPrinciple(value)) {
+        // При смене принципа на Spot/Drop rig маршрут больше не нужен
+        window.addModalRoute = [];
+        if (window.addModalPolyline && window.locationPickerMap) {
+            window.locationPickerMap.geoObjects.remove(window.addModalPolyline);
+            window.addModalPolyline = null;
+        }
+    } else if ((!window.addModalRoute || !window.addModalRoute.length) && window.tempAddCoords) {
+        window.addModalRoute = [window.tempAddCoords.slice()];
+    }
+};
+
+window.updateSoundwalkRouteUI = function() {
+    const clearBtn = document.getElementById('add-clear-route');
+    const isWalk = window.isSoundwalkPrinciple();
+    const count = (window.addModalRoute || []).length;
+    if (clearBtn) {
+        clearBtn.classList.toggle('hidden', !isWalk || count === 0);
+        clearBtn.textContent = count > 0 ? `Очистить маршрут (${count} т.)` : 'Очистить маршрут';
+    }
+};
+
+window.clearAddModalRoute = function() {
+    window.addModalRoute = [];
+    if (window.addModalPolyline && window.locationPickerMap) {
+        window.locationPickerMap.geoObjects.remove(window.addModalPolyline);
+        window.addModalPolyline = null;
+    }
+    window.updateSoundwalkRouteUI();
+    window.showToast('Маршрут очищен');
 };
 
 window.assignArchiveNumbers = function() {
@@ -488,7 +529,13 @@ window.updateLightboxView = function() {
 window.mergeData = function(cloudData) {
     const combinedMap = new Map();
     window.rawSoundsData.forEach(rs => combinedMap.set(rs.id, JSON.parse(JSON.stringify(rs))));
-    cloudData.forEach(cs => { if(cs.deleted) combinedMap.delete(cs.id); else combinedMap.set(cs.id, cs); });
+    // Если облачная копия того же id пришла без route — сохраняем маршрут из локального демо,
+    // иначе soundwalk'и r2/r5 «теряют» прогулку после первой синхронизации.
+    cloudData.forEach(cs => {
+        if (cs.deleted) { combinedMap.delete(cs.id); return; }
+        const prev = combinedMap.get(cs.id);
+        combinedMap.set(cs.id, { ...cs, route: (cs.route && cs.route.length > 1) ? cs.route : (prev?.route || cs.route) });
+    });
     window.soundsData = Array.from(combinedMap.values()).reverse().map(window.formatSoundObject);
     window.assignArchiveNumbers();
     window.cloudDataCache = cloudData;
@@ -1016,6 +1063,20 @@ window.selectSound = function(id) {
         window.activePolyline = new ymaps.Polyline(s.route, {}, { strokeColor: '#38bdf8', strokeWidth: 4, strokeOpacity: 0.8, strokeStyle: 'shortdash' });
         window.map.geoObjects.add(window.activePolyline);
         window.map.setBounds(window.activePolyline.geometry.getBounds(), {checkZoomRange: true, duration: 800, zoomMargin: 40});
+
+        // Маркер «прогуливающегося» — двигается вдоль маршрута во время воспроизведения
+        // (см. updatePlayerVisuals / getPointAlongRoute). Без него Soundwalk выглядел «сломанным».
+        const colorClass = s.ecoCategory === 'geophony' ? 'walker-geo'
+            : s.ecoCategory === 'biophony' ? 'walker-bio' : 'walker-anthro';
+        if (window.walkerLayout) {
+            window.walkerMarker = new ymaps.Placemark(s.route[0], { colorClass }, {
+                iconLayout: window.walkerLayout,
+                iconOffset: [-14, -14],
+                iconShape: { type: 'Circle', coordinates: [0, 0], radius: 14 },
+                zIndex: 1000
+            });
+            window.map.geoObjects.add(window.walkerMarker);
+        }
     } else if (window.map) {
         window.map.setCenter([s.lat, s.lng], 15, { duration: 800 });
     }
@@ -1168,13 +1229,19 @@ window.renderComments = function(sound) {
     if(!sound.comments || sound.comments.length === 0) { container.innerHTML = `<p class="text-sm text-slate-400 italic px-2">Нет комментариев</p>`; return; }
 
     const login = window.currentUser ? (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase()) : null;
+    const isAdmin = !!window.currentUser && (String(window.currentUser.role || '').toLowerCase() === 'admin' || login === 'admin');
     const esc = s => String(s == null ? '' : s).replace(/'/g, "\\'");
 
-    // Имя автора кликабельно и ведёт на публичный профиль только для зарегистрированных
-    // пользователей (authorId задан) — у гостевых комментариев профиля нет.
-    const renderAuthor = (author, authorId) => authorId
-        ? `<span class="comment-author-link" onclick="window.openPublicProfile('${authorId}', '${esc(author)}')">${author}</span>`
-        : `<span class="font-bold text-slate-700 dark:text-slate-200">${author}</span>`;
+    const renderAuthor = (author, authorId) => {
+        const profile = authorId && window.getProfileByLogin ? window.getProfileByLogin(authorId) : null;
+        const avatar = profile?.avatar
+            ? `<img src="${profile.avatar}" alt="" class="comment-avatar">`
+            : `<span class="comment-avatar comment-avatar-fallback"><i class="fa-solid fa-user"></i></span>`;
+        const name = authorId
+            ? `<span class="comment-author-link" onclick="window.openPublicProfile('${authorId}', '${esc(author)}')">${author}</span>`
+            : `<span class="font-bold text-slate-700 dark:text-slate-200">${author}</span>`;
+        return `<span class="comment-author-wrap">${avatar}${name}</span>`;
+    };
 
     const renderReply = r => `
         <div class="comment-reply">
@@ -1232,22 +1299,34 @@ window.addComment = async function() {
     if(!input || !input.value.trim() || !window.currentPlayingId) return; 
     const s = window.soundsData.find(x => x.id === window.currentPlayingId);
     if(s) {
-        const dateStr = new Date().toLocaleDateString(window.currentLang === 'ru' ? 'ru-RU' : 'en-US');
+        const now = new Date();
+        const dateStr = now.toLocaleDateString(window.currentLang === 'ru' ? 'ru-RU' : 'en-US');
+        const createdAt = now.toISOString();
         const authorName = window.currentUser ? window.currentUser.username : (window.currentLang === 'ru' ? 'Гость' : 'Guest');
         const authorId = window.currentUser ? (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase()) : null;
         const text = input.value.trim();
         const idBase = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
         const replyCtx = (window.__replyContext && window.__replyContext.soundId === s.id) ? window.__replyContext : null;
+        let notifyTarget = null;
+        let notifType = 'comment';
+        let notifText = '';
+
         if (replyCtx) {
             const parent = (s.comments || []).find(c => c.id === replyCtx.commentId);
             if (parent) {
                 parent.replies = parent.replies || [];
-                parent.replies.push({ id: 'cr' + idBase, author: authorName, authorId, text, date: dateStr });
+                parent.replies.push({ id: 'cr' + idBase, author: authorName, authorId, text, date: dateStr, createdAt });
+                notifyTarget = parent.authorId;
+                notifType = 'reply';
+                notifText = `${authorName} ответил(а) на ваш комментарий к «${s.title}»`;
             }
             window.cancelReplyToComment();
         } else {
-            s.comments.push({ id: 'c' + idBase, author: authorName, authorId, text, date: dateStr, replies: [], reactedBy: [] });
+            s.comments.push({ id: 'c' + idBase, author: authorName, authorId, text, date: dateStr, createdAt, replies: [], reactedBy: [] });
+            notifyTarget = s.recordistId;
+            notifType = 'comment';
+            notifText = `${authorName} прокомментировал(а) «${s.title}»`;
         }
 
         input.value = ''; window.renderComments(s);
@@ -1255,6 +1334,13 @@ window.addComment = async function() {
         let idx = updatedCloud.findIndex(x => x.id === s.id);
         if(idx >= 0) updatedCloud[idx] = s; else updatedCloud.push(s); 
         await window.syncCloudData(updatedCloud);
+
+        if (notifyTarget && window.pushNotifications) {
+            window.pushNotifications([notifyTarget], {
+                type: notifType, text: notifText, fromId: authorId, fromName: authorName,
+                soundId: s.id, soundTitle: s.title
+            });
+        }
     }
 }
 
@@ -1265,6 +1351,7 @@ window.openCommentMenu = function(soundId, commentId) {
     const c = (s.comments || []).find(x => x.id === commentId);
     if (!c) return;
     const login = window.currentUser ? (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase()) : null;
+    const isAdmin = !!window.currentUser && (String(window.currentUser.role || '').toLowerCase() === 'admin' || login === 'admin');
     const reacted = !!login && (c.reactedBy || []).includes(login);
 
     const items = [];
@@ -1272,7 +1359,28 @@ window.openCommentMenu = function(soundId, commentId) {
     items.push({ icon: 'fa-reply', label: 'Ответить', onClick: () => window.startReplyToComment(soundId, commentId, c.author) });
     items.push({ icon: 'fa-heart', label: reacted ? 'Убрать реакцию' : 'Поставить реакцию', onClick: () => window.toggleCommentReaction(soundId, commentId) });
     items.push({ icon: 'fa-flag', label: 'Пожаловаться', danger: true, onClick: () => window.openReportModal('comment', soundId, commentId) });
+    if (isAdmin) {
+        items.push({ icon: 'fa-trash-can', label: 'Удалить комментарий', danger: true, onClick: () => window.adminDeleteComment(soundId, commentId) });
+    }
     window.ActionSheet.open(items);
+};
+
+window.adminDeleteComment = async function(soundId, commentId) {
+    const s = window.soundsData.find(x => x.id === soundId);
+    if (!s) return;
+    const confirmed = await window.CustomUI.open({
+        title: '<i class="fa-solid fa-trash-can mr-2 text-red-500"></i>Удалить комментарий?',
+        message: 'Комментарий и все ответы к нему будут удалены.',
+        confirmText: 'Удалить',
+        confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
+    });
+    if (!confirmed) return;
+    s.comments = (s.comments || []).filter(c => c.id !== commentId);
+    const updatedCloud = [...window.cloudDataCache];
+    const idx = updatedCloud.findIndex(x => x.id === soundId);
+    if (idx >= 0) updatedCloud[idx] = s; else updatedCloud.push(s);
+    const success = await window.syncCloudData(updatedCloud);
+    if (success) { window.showToast('Комментарий удалён'); window.renderComments(s); }
 };
 
 window.toggleCommentReaction = async function(soundId, commentId) {
@@ -1284,6 +1392,7 @@ window.toggleCommentReaction = async function(soundId, commentId) {
     const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
     c.reactedBy = c.reactedBy || [];
     const idx = c.reactedBy.indexOf(login);
+    const adding = idx < 0;
     if (idx >= 0) c.reactedBy.splice(idx, 1); else c.reactedBy.push(login);
     window.renderComments(s);
 
@@ -1291,6 +1400,17 @@ window.toggleCommentReaction = async function(soundId, commentId) {
     const cIdx = updatedCloud.findIndex(x => x.id === soundId);
     if (cIdx >= 0) updatedCloud[cIdx] = s; else updatedCloud.push(s);
     await window.syncCloudData(updatedCloud);
+
+    if (adding && c.authorId && window.pushNotifications) {
+        window.pushNotifications([c.authorId], {
+            type: 'reaction',
+            text: `${window.currentUser.username} отреагировал(а) на ваш комментарий к «${s.title}»`,
+            fromId: login,
+            fromName: window.currentUser.username,
+            soundId: s.id,
+            soundTitle: s.title
+        });
+    }
 };
 
 // Жалоба на метку или на конкретный комментарий — попадает в очередь модерации
@@ -1328,6 +1448,17 @@ window.openReportModal = async function(type, soundId, commentId = null) {
     if (idx >= 0) updatedCloud[idx] = s; else updatedCloud.push(s);
     const success = await window.syncCloudData(updatedCloud);
     window.showToast(success ? 'Жалоба отправлена модераторам' : 'Не удалось отправить жалобу');
+
+    if (success && window.notifyAdmins) {
+        window.notifyAdmins({
+            type: 'report',
+            text: `${report.reporterName} пожаловался(ась) на ${type === 'comment' ? 'комментарий к' : ''} «${s.title}»: ${reason}`,
+            fromId: report.reporterId,
+            fromName: report.reporterName,
+            soundId: s.id,
+            soundTitle: s.title
+        });
+    }
 };
 
 // Лайк/дизлайк метки — взаимоисключающий тумблер (голос за один автоматически снимает другой).
@@ -1341,6 +1472,7 @@ window.toggleSoundReaction = async function(kind) {
     const target = kind === 'like' ? s.likedBy : s.dislikedBy;
     const oi = other.indexOf(login); if (oi >= 0) other.splice(oi, 1);
     const ti = target.indexOf(login);
+    const adding = ti < 0;
     if (ti >= 0) target.splice(ti, 1); else target.push(login);
     window.renderDetailsReactions(s);
 
@@ -1348,6 +1480,17 @@ window.toggleSoundReaction = async function(kind) {
     const idx = updatedCloud.findIndex(x => x.id === s.id);
     if (idx >= 0) updatedCloud[idx] = s; else updatedCloud.push(s);
     await window.syncCloudData(updatedCloud);
+
+    if (adding && kind === 'like' && s.recordistId && window.pushNotifications) {
+        window.pushNotifications([s.recordistId], {
+            type: 'like',
+            text: `${window.currentUser.username} оценил(а) вашу запись «${s.title}»`,
+            fromId: login,
+            fromName: window.currentUser.username,
+            soundId: s.id,
+            soundTitle: s.title
+        });
+    }
 };
 
 window.renderDetailsReactions = function(s) {
@@ -1485,8 +1628,11 @@ window.publishSound = async function(targetStatus = 'pending') {
         license: val('add-license'),
         fileName: val('add-file-name'),
         images: (window.pendingImages && window.pendingImages.length) ? [...window.pendingImages] : (existing?.images || []),
-        route: existing?.route,
+        route: window.isSoundwalkPrinciple()
+            ? ((window.addModalRoute && window.addModalRoute.length > 1) ? [...window.addModalRoute] : (existing?.route || undefined))
+            : undefined,
         sessionId: val('add-session') || null,
+        createdAt: existing?.createdAt || new Date().toISOString(),
         // Черновик остаётся черновиком до явной публикации; уже прошедшую модерацию запись
         // редактирование метаданных не трогает (кнопка "Опубликовать" тут работает как "Сохранить").
         // Только переход draft -> pending образует настоящую отправку на модерацию.
@@ -1495,9 +1641,19 @@ window.publishSound = async function(targetStatus = 'pending') {
             : (isEdit ? (existing.status === 'draft' ? 'pending' : (existing.status || 'published')) : 'pending'),
         downloads: existing?.downloads || 0,
         plays: existing?.plays || 0,
+        likedBy: existing?.likedBy || [],
+        dislikedBy: existing?.dislikedBy || [],
+        reports: existing?.reports || [],
         rejectionReason: existing && existing.status === 'draft' ? '' : (existing?.rejectionReason || ''),
         seenByAuthor: true
     };
+
+    if (window.isSoundwalkPrinciple() && (!soundObj.route || soundObj.route.length < 2)) {
+        if (btn) btn.disabled = false;
+        if (draftBtn) draftBtn.disabled = false;
+        window.showToast('Для звуковой прогулки нарисуйте маршрут (минимум 2 точки)');
+        return;
+    }
 
     let updatedCloud = [...window.cloudDataCache];
     const idx = updatedCloud.findIndex(x => x.id === soundObj.id);
@@ -1561,6 +1717,9 @@ window.editSound = function(id) {
     setVal('add-license', s.license || 'CC BY 4.0');
     setVal('add-file-name', s.fileName || '');
 
+    window.addModalRoute = (s.route && s.route.length) ? s.route.map(p => [...p]) : [];
+    window.handlePrincipleChange(s.recPrinciple || '');
+
     window.populateSessionSelect(s.sessionId || '');
     const draftBtnEl = document.getElementById('draft-btn');
     // Кнопка "Черновик" уместна только пока запись сама остаётся черновиком —
@@ -1588,6 +1747,8 @@ window.resetAddModalToCreateMode = function() {
     window.currentUploadedFile = null;
     window.currentUploadedFileUrl = '';
     window.tempAddCoords = null;
+    window.addModalRoute = [];
+    window.updateSoundwalkRouteUI();
 
     const headerTitle = document.getElementById('add-modal-header-title');
     if (headerTitle) headerTitle.innerHTML = `<i class="fa-solid fa-file-audio mr-2 text-blue-600"></i><span data-lang="add_audio_title">Добавить аудио</span>`;
@@ -1608,6 +1769,8 @@ window.resetAddModalToCreateMode = function() {
     if (fileNameEl) fileNameEl.value = 'AMB_Loc_Tag_Anon.wav';
     const recEl = document.getElementById('add-recordist');
     if (recEl) recEl.value = window.currentUser ? window.currentUser.username : '';
+    const principleEl = document.getElementById('add-principle');
+    if (principleEl) principleEl.value = 'Направленная фиксация (Spot)';
 
     window.populateSessionSelect();
     const draftBtnEl = document.getElementById('draft-btn');
