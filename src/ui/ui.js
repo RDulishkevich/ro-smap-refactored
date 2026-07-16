@@ -95,9 +95,9 @@ window.renderRegionStats = function(targetId = 'region-stats-grid') {
         { value: stats.withAudio, label: 'С аудио', color: 'text-emerald-600 dark:text-emerald-400' },
         { value: stats.recordists, label: 'Авторов', color: 'text-indigo-600 dark:text-indigo-400' },
         { value: window.formatTotalDuration(stats.totalSecs), label: 'Длительность', color: 'text-amber-600 dark:text-amber-400' },
-        { value: stats.byEco.geophony, label: 'Геофония', color: 'text-sky-600' },
-        { value: stats.byEco.biophony, label: 'Биофония', color: 'text-green-600' },
-        { value: stats.byEco.anthrophony, label: 'Антропофония', color: 'text-orange-600' },
+        { value: stats.byEco.geophony, label: 'Геофония', color: 'text-sky-600 dark:text-sky-400' },
+        { value: stats.byEco.biophony, label: 'Биофония', color: 'text-green-600 dark:text-green-400' },
+        { value: stats.byEco.anthrophony, label: 'Антропофония', color: 'text-orange-600 dark:text-orange-400' },
         { value: stats.topUcs[0] ? stats.topUcs[0][0] : '—', label: stats.topUcs[0] ? `Топ UCS (${stats.topUcs[0][1]})` : 'Топ UCS', color: 'text-violet-600 dark:text-violet-400' }
     ];
     grid.innerHTML = cards.map(c => `
@@ -184,78 +184,70 @@ window.updateOnboardingStep = function() {
     document.getElementById('onboarding-step-label').textContent = `Шаг ${window.__onboardingStep + 1} / ${window.onboardingSteps.length}`;
     document.getElementById('onboarding-title').textContent = step.title;
     document.getElementById('onboarding-text').textContent = step.text;
-    
+
     const prevBtn = document.getElementById('onboarding-prev');
     if (prevBtn) prevBtn.style.visibility = window.__onboardingStep === 0 ? 'hidden' : 'visible';
-    
+
     const nextBtn = document.getElementById('onboarding-next');
     if (nextBtn) nextBtn.textContent = window.__onboardingStep === window.onboardingSteps.length - 1 ? 'Готово' : 'Далее';
 
-    // Сбрасываем стили
-    card.style.cssText = '';
-    highlight.style.cssText = 'display:none';
-
-    // Центрирование (если нет цели)
-    if (!step.target) {
+    const placeCardCentered = () => {
+        highlight.style.opacity = '0';
+        highlight.style.pointerEvents = 'none';
         card.style.left = '50%';
         card.style.top = '50%';
         card.style.transform = 'translate(-50%, -50%)';
+    };
+
+    if (!step.target) {
+        placeCardCentered();
         return;
     }
 
     const el = document.querySelector(step.target);
     if (!el) {
-        card.style.left = '50%';
-        card.style.top = '50%';
-        card.style.transform = 'translate(-50%, -50%)';
+        placeCardCentered();
         return;
     }
 
-    // Рассчитываем позицию цели
     const rect = el.getBoundingClientRect();
     const pad = 8;
+    highlight.style.opacity = '1';
     highlight.style.display = 'block';
     highlight.style.left = `${rect.left - pad}px`;
     highlight.style.top = `${rect.top - pad}px`;
     highlight.style.width = `${rect.width + pad * 2}px`;
     highlight.style.height = `${rect.height + pad * 2}px`;
 
-    // Вычисляем реальные размеры карточки после обновления текста
-    const cardRect = card.getBoundingClientRect();
-    const cardWidth = cardRect.width;
-    const cardHeight = cardRect.height;
+    // Ждём кадр, чтобы размеры карточки обновились после смены текста
+    requestAnimationFrame(() => {
+        const cardRect = card.getBoundingClientRect();
+        const cardWidth = cardRect.width || 320;
+        const cardHeight = cardRect.height || 180;
 
-    let top = rect.bottom + 16;
-    let left = rect.left;
+        let top = rect.bottom + 16;
+        let left = rect.left;
 
-    // Проверка выхода за нижний край
-    if (top + cardHeight > window.innerHeight - 16) {
-        top = rect.top - cardHeight - 16;
-    }
-    
-    // Мобильная адаптация: центрируем по горизонтали
-    if (window.innerWidth < 640) {
-        left = (window.innerWidth - cardWidth) / 2;
-    } else {
-        // Защита от выхода за правый край
-        if (left + cardWidth > window.innerWidth - 16) {
-            left = window.innerWidth - cardWidth - 16;
+        if (top + cardHeight > window.innerHeight - 16) {
+            top = rect.top - cardHeight - 16;
         }
-        // Защита от выхода за левый край
-        if (left < 16) {
-            left = 16;
+
+        if (window.innerWidth < 640) {
+            left = (window.innerWidth - cardWidth) / 2;
+        } else {
+            if (left + cardWidth > window.innerWidth - 16) left = window.innerWidth - cardWidth - 16;
+            if (left < 16) left = 16;
         }
-    }
 
-    // Защита от выхода за верхний край
-    if (top < 16) {
-        top = (window.innerHeight - cardHeight) / 2;
-        left = (window.innerWidth - cardWidth) / 2;
-    }
+        if (top < 16) {
+            top = Math.max(16, (window.innerHeight - cardHeight) / 2);
+            left = (window.innerWidth - cardWidth) / 2;
+        }
 
-    card.style.left = `${left}px`;
-    card.style.top = `${top}px`;
-    card.style.transform = 'none';
+        card.style.left = `${left}px`;
+        card.style.top = `${top}px`;
+        card.style.transform = 'none';
+    });
 };
 
 window.nextOnboardingStep = function() {
@@ -642,9 +634,10 @@ window.pollLiveCloudData = async function() {
                 if (window.__activeMessagePeer && window.openMessageThread) {
                     const thread = document.getElementById('messages-thread');
                     if (thread && !thread.classList.contains('hidden')) {
-                        window.openMessageThread(window.__activeMessagePeer);
+                        window.openMessageThread(window.__activeMessagePeer, { quiet: true });
                     }
                 }
+                if (window.touchMyPresence) window.touchMyPresence();
             }
         }
     } finally {
@@ -1077,7 +1070,9 @@ window.renderList = function() {
         const isSelected = window.currentPlayingId === sound.id;
         item.className = `p-3 rounded-2xl border transition-all cursor-pointer flex items-center gap-3 group ${isSelected ? 'bg-slate-50 dark:bg-slate-700/50 shadow-sm' : 'bg-white dark:bg-slate-800 border-slate-100'}`;
         item.onclick = () => window.selectSound(sound.id);
+        const thumb = (sound.images && sound.images[0]) || `https://picsum.photos/seed/${sound.id}/72/72`;
         item.innerHTML = `
+            <img src="${thumb}" alt="" class="sidebar-sound-thumb" loading="lazy" onerror="this.src='https://picsum.photos/seed/${sound.id}/72/72'">
             <button class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${isSelected && window.isPlaying ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}">
                 ${isSelected && window.isPlaying ? '<i class="fa-solid fa-pause text-xs"></i>' : '<i class="fa-solid fa-play text-xs translate-x-[1px]"></i>'}
             </button>
@@ -1660,15 +1655,26 @@ window.toggleSoundReaction = async function(kind) {
     if (idx >= 0) updatedCloud[idx] = s; else updatedCloud.push(s);
     await window.syncCloudData(updatedCloud);
 
-    if (adding && kind === 'like' && s.recordistId && window.pushNotifications) {
-        window.pushNotifications([s.recordistId], {
-            type: 'like',
-            text: `${window.currentUser.username} оценил(а) вашу запись «${s.title}»`,
-            fromId: login,
-            fromName: window.currentUser.username,
-            soundId: s.id,
-            soundTitle: s.title
-        });
+    if (adding && s.recordistId && window.pushNotifications) {
+        if (kind === 'like') {
+            window.pushNotifications([s.recordistId], {
+                type: 'like',
+                text: `${window.currentUser.username} оценил(а) вашу запись «${s.title}»`,
+                fromId: login,
+                fromName: window.currentUser.username,
+                soundId: s.id,
+                soundTitle: s.title
+            });
+        } else {
+            window.pushNotifications([s.recordistId], {
+                type: 'dislike',
+                text: `${window.currentUser.username} поставил(а) дизлайк записи «${s.title}»`,
+                fromId: login,
+                fromName: window.currentUser.username,
+                soundId: s.id,
+                soundTitle: s.title
+            });
+        }
     }
 };
 

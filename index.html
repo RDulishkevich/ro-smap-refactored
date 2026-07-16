@@ -43,8 +43,8 @@
 
     <!-- Онбординг для новых пользователей -->
     <div id="onboarding-overlay" class="fixed inset-0 z-[400] hidden pointer-events-none">
-        <div id="onboarding-highlight" class="absolute rounded-3xl border-2 border-blue-400 shadow-[0_0_0_9999px_rgba(15,23,42,0.72)] transition-all duration-500 pointer-events-none"></div>
-        <div id="onboarding-card" class="absolute bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 p-5 w-[min(92vw,22rem)] pointer-events-auto transition-all duration-500">
+        <div id="onboarding-highlight" class="absolute rounded-3xl border-2 border-blue-400 shadow-[0_0_0_9999px_rgba(15,23,42,0.72)] pointer-events-none opacity-0" style="left:0;top:0;width:0;height:0;"></div>
+        <div id="onboarding-card" class="absolute bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 p-5 w-[min(92vw,22rem)] pointer-events-auto" style="left:50%;top:50%;transform:translate(-50%,-50%);">
             <div class="flex items-center justify-between mb-3">
                 <span id="onboarding-step-label" class="text-[10px] font-bold uppercase tracking-wider text-blue-600">Шаг 1 / 4</span>
                 <button onclick="window.dismissOnboarding()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-semibold">Пропустить</button>
@@ -85,12 +85,12 @@
                     <i class="fa-solid fa-bell text-xl pointer-events-none"></i>
                     <span id="notif-badge" class="hidden absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow">0</span>
                 </button>
-                <div id="notif-panel" class="hidden absolute right-0 top-14 w-[min(92vw,22rem)] max-h-[70vh] overflow-hidden bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 flex flex-col z-[80]">
+                <div id="notif-panel" class="hidden absolute right-0 top-14 w-[min(calc(100vw-2rem),22rem)] max-w-[calc(100vw-1.5rem)] max-h-[min(70vh,28rem)] overflow-hidden bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 flex flex-col z-[80]">
                     <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
                         <h4 class="text-sm font-bold text-slate-800 dark:text-white">Уведомления</h4>
-                        <button onclick="window.markAllNotificationsRead()" class="text-[11px] font-semibold text-blue-600 hover:text-blue-700">Прочитать все</button>
+                        <button onclick="window.markAllNotificationsRead()" class="text-[11px] font-semibold text-blue-600 hover:text-blue-700 shrink-0 ml-2">Прочитать все</button>
                     </div>
-                    <div id="notif-list" class="overflow-y-auto custom-scrollbar flex-1 p-2 space-y-1"></div>
+                    <div id="notif-list" class="overflow-y-auto custom-scrollbar flex-1 p-2 space-y-1 min-h-0"></div>
                 </div>
             </div>
             <button onclick="window.openSettingsPanel()" id="settings-btn" class="w-12 h-12 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:scale-105 active:scale-95 transition-all" title="Настройки">
@@ -1017,23 +1017,55 @@
     </div>
 
     <!-- Модальное окно сообщений -->
-    <div id="messages-modal" onmousedown="if(event.target === this) window.closeMessagesModal()" class="fixed inset-0 z-[225] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none">
-        <div id="messages-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
-            <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
+    <div id="messages-modal" onmousedown="if(event.target === this) window.closeMessagesModal()" class="fixed inset-0 z-[225] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 opacity-0 transition-opacity duration-300 pointer-events-none">
+        <div id="messages-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
+            <div class="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
                 <h3 id="messages-modal-title" class="text-lg font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-envelope mr-2 text-blue-500"></i>Сообщения</h3>
                 <button onclick="window.closeMessagesModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            <div id="messages-conversations" class="overflow-y-auto custom-scrollbar flex-1 p-3 space-y-1"></div>
+            <div id="messages-conversations" class="overflow-y-auto custom-scrollbar flex-1 p-3 space-y-1 min-h-0"></div>
             <div id="messages-thread" class="hidden flex-1 flex flex-col min-h-0">
-                <div class="px-4 py-2 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2 shrink-0">
-                    <button onclick="window.showMessagesConversations()" class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-500 flex items-center justify-center"><i class="fa-solid fa-arrow-left text-sm"></i></button>
-                    <span id="messages-thread-name" class="text-sm font-bold text-slate-800 dark:text-white truncate"></span>
+                <div class="px-3 sm:px-4 py-2.5 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2 shrink-0">
+                    <button onclick="window.showMessagesConversations()" class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-500 flex items-center justify-center shrink-0"><i class="fa-solid fa-arrow-left text-sm"></i></button>
+                    <button onclick="window.openPeerProfileFromChat()" id="messages-thread-peer" class="flex items-center gap-2 min-w-0 flex-1 text-left hover:opacity-80 transition-opacity">
+                        <div class="relative shrink-0">
+                            <img id="messages-thread-avatar" class="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-slate-600 hidden" alt="">
+                            <span id="messages-thread-avatar-fallback" class="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-sm"><i class="fa-solid fa-user"></i></span>
+                            <span id="messages-thread-online" class="hidden absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-800"></span>
+                        </div>
+                        <div class="min-w-0">
+                            <span id="messages-thread-name" class="block text-sm font-bold text-slate-800 dark:text-white truncate"></span>
+                            <span id="messages-thread-status" class="block text-[10px] text-slate-400 truncate">не в сети</span>
+                        </div>
+                    </button>
                 </div>
-                <div id="messages-thread-list" class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2"></div>
-                <div class="p-3 border-t border-slate-100 dark:border-slate-700 flex gap-2 shrink-0">
-                    <input id="messages-compose-input" type="text" placeholder="Написать сообщение..." class="modal-input flex-1 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-sm" onkeydown="if(event.key==='Enter') window.sendMessageInThread()">
-                    <button onclick="window.sendMessageInThread()" class="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold"><i class="fa-solid fa-paper-plane"></i></button>
+                <div id="messages-thread-list" class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2 min-h-0"></div>
+                <div id="messages-reply-banner" class="hidden px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-[11px] font-semibold items-center justify-between gap-2 border-t border-blue-100 dark:border-blue-900/40">
+                    <span class="truncate">Ответ: <span id="messages-reply-preview"></span></span>
+                    <button onclick="window.cancelMessageReply()" class="shrink-0"><i class="fa-solid fa-xmark"></i></button>
                 </div>
+                <div id="messages-emoji-picker" class="hidden px-3 py-2 border-t border-slate-100 dark:border-slate-700 flex flex-wrap gap-1.5"></div>
+                <div class="p-3 border-t border-slate-100 dark:border-slate-700 flex items-center gap-1.5 shrink-0">
+                    <button type="button" onclick="window.toggleEmojiPicker()" class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-500 flex items-center justify-center shrink-0" title="Смайлики"><i class="fa-regular fa-face-smile"></i></button>
+                    <button type="button" onclick="document.getElementById('messages-photo-input').click()" class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-500 flex items-center justify-center shrink-0" title="Фото"><i class="fa-solid fa-image"></i></button>
+                    <input id="messages-photo-input" type="file" accept="image/*" class="hidden" onchange="window.sendMessagePhoto(this.files)">
+                    <input id="messages-compose-input" type="text" placeholder="Написать сообщение..." class="modal-input flex-1 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-sm min-w-0" onkeydown="if(event.key==='Enter') window.sendMessageInThread()">
+                    <button onclick="window.sendMessageInThread()" class="px-3.5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shrink-0"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Просмотр экспедиции (только чтение) -->
+    <div id="expedition-view-modal" onmousedown="if(event.target === this) window.closeExpeditionViewModal()" class="fixed inset-0 z-[216] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none">
+        <div id="expedition-view-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
+            <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
+                <h3 id="expedition-view-title" class="text-lg font-bold text-slate-800 dark:text-white truncate pr-2"><i class="fa-solid fa-route mr-2 text-blue-500"></i>Экспедиция</h3>
+                <button onclick="window.closeExpeditionViewModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div id="expedition-view-body" class="p-5 overflow-y-auto custom-scrollbar flex-1 space-y-3"></div>
+            <div class="p-4 border-t border-slate-100 dark:border-slate-700 shrink-0 flex gap-2">
+                <button id="expedition-view-filter-btn" onclick="window.applyExpeditionViewFilter()" class="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors">Показать звуки</button>
             </div>
         </div>
     </div>

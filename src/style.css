@@ -94,7 +94,9 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
     font-size: 1.25rem;
     font-weight: 800;
     line-height: 1.2;
+    color: #1e293b;
 }
+.dark .stat-card .stat-value { color: #f1f5f9; }
 .stat-card .stat-label {
     font-size: 9px;
     font-weight: 700;
@@ -272,7 +274,10 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
 .dark .analytics-stat-card { background: #0f172a; border-color: #1e293b; }
 .dark .analytics-stat-card:hover { box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35); }
 .analytics-stat-icon { font-size: 0.8rem; margin-bottom: 0.25rem; opacity: 0.85; }
-.analytics-stat-value { font-size: 1.3rem; font-weight: 800; line-height: 1.1; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.analytics-stat-value { font-size: 1.3rem; font-weight: 800; line-height: 1.1; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: #1e293b; }
+.dark .analytics-stat-value,
+.dark .analytics-stat-value[class*="text-"] { color: #f1f5f9 !important; }
+.dark .analytics-legend-value { color: #e2e8f0; }
 .analytics-stat-label { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #94a3b8; margin-top: 0.15rem; }
 
 .analytics-charts-row { display: flex; flex-direction: column; gap: 0.6rem; }
@@ -766,6 +771,8 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
     background: #f1f5f9;
     color: #1e293b;
     align-self: flex-start;
+    position: relative;
+    cursor: pointer;
 }
 .dark .msg-bubble { background: #1e293b; color: #e2e8f0; }
 .msg-bubble.mine {
@@ -774,7 +781,92 @@ body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; 
     align-self: flex-end;
     margin-left: auto;
 }
+.msg-bubble.deleted { opacity: 0.65; font-style: italic; }
+.msg-bubble-reply {
+    font-size: 10px;
+    opacity: 0.75;
+    border-left: 2px solid currentColor;
+    padding-left: 6px;
+    margin-bottom: 4px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.msg-bubble-img {
+    display: block;
+    max-width: 220px;
+    max-height: 180px;
+    border-radius: 10px;
+    margin-bottom: 4px;
+    object-fit: cover;
+    cursor: zoom-in;
+}
+.msg-reactions {
+    display: flex; flex-wrap: wrap; gap: 3px;
+    margin-top: 4px;
+}
+.msg-reaction-chip {
+    font-size: 11px;
+    line-height: 1;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.08);
+}
+.msg-bubble.mine .msg-reaction-chip { background: rgba(255,255,255,0.2); }
+.dark .msg-reaction-chip { background: rgba(255,255,255,0.1); }
+.msg-online-dot {
+    position: absolute; bottom: 0; right: 0;
+    width: 10px; height: 10px; border-radius: 999px;
+    background: #94a3b8;
+    border: 2px solid #fff;
+}
+.dark .msg-online-dot { border-color: #1e293b; }
+.msg-online-dot.on { background: #22c55e; }
 #messages-thread-list { display: flex; flex-direction: column; }
+#messages-emoji-picker button {
+    width: 2rem; height: 2rem; border-radius: 0.5rem;
+    font-size: 1.15rem; line-height: 1;
+    transition: background 0.15s;
+}
+#messages-emoji-picker button:hover { background: #f1f5f9; }
+.dark #messages-emoji-picker button:hover { background: #334155; }
+.sidebar-sound-thumb {
+    width: 2.25rem; height: 2.25rem; border-radius: 0.65rem;
+    object-fit: cover; flex-shrink: 0;
+    border: 1px solid #e2e8f0;
+}
+.dark .sidebar-sound-thumb { border-color: #334155; }
+.sidebar-expedition-thumb {
+    width: 2.5rem; height: 2.5rem; border-radius: 0.75rem;
+    object-fit: cover; flex-shrink: 0;
+    border: 1px solid #e2e8f0;
+    background: #e2e8f0;
+}
+.dark .sidebar-expedition-thumb { border-color: #334155; background: #0f172a; }
+.sidebar-expedition-thumb-fallback {
+    display: flex; align-items: center; justify-content: center;
+    color: #94a3b8; font-size: 0.85rem;
+}
+#onboarding-highlight, #onboarding-card {
+    transition: left 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+                top 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+                width 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+                height 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+                opacity 0.35s ease,
+                transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (max-width: 640px) {
+    #notif-panel {
+        position: fixed !important;
+        top: 4.5rem !important;
+        right: 0.75rem !important;
+        left: 0.75rem !important;
+        width: auto !important;
+        max-width: none !important;
+        max-height: min(65vh, 24rem) !important;
+    }
+}
 
 /* --- Вкладка "Экспедиции" в левой панели звуков --- */
 .sidebar-expedition-reset {

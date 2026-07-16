@@ -83,6 +83,7 @@ export function initAuth() {
             if (window.applyProfileToCurrentUser) window.applyProfileToCurrentUser();
             window.bustFilteredSoundsCache();
             if (window.refreshNotificationsUI) window.refreshNotificationsUI();
+            if (window.touchMyPresence) window.touchMyPresence(true);
             window.openCabinet();
             return;
         }
@@ -133,6 +134,7 @@ export function initAuth() {
         window.bustFilteredSoundsCache();
         if (window.refreshNotificationsUI) window.refreshNotificationsUI();
         if (window.refreshMessagesUI) window.refreshMessagesUI();
+        if (window.touchMyPresence) window.touchMyPresence(true);
         window.openCabinet();
     };
 
@@ -436,21 +438,95 @@ export function initAuth() {
             const active = window.activeSessionId === session.id;
             const mine = myLogin && session.ownerId === myLogin;
             const joined = myLogin && !mine && Array.isArray(session.participants) && session.participants.includes(myLogin);
+            const thumb = (session.photos && session.photos[0])
+                ? `<img src="${session.photos[0]}" alt="" class="sidebar-expedition-thumb">`
+                : `<span class="sidebar-expedition-thumb sidebar-expedition-thumb-fallback"><i class="fa-solid fa-route"></i></span>`;
             return `
-            <div class="sidebar-expedition-card ${active ? 'active' : ''}" onclick="window.setSidebarSessionFilter('${session.id}')">
-                <div class="flex items-center justify-between gap-2">
-                    <h5 class="font-bold text-slate-800 dark:text-white text-xs truncate">${session.title}</h5>
-                    <span class="sidebar-expedition-count">${count}</span>
+            <div class="sidebar-expedition-card ${active ? 'active' : ''}">
+                <div class="flex items-start gap-2.5">
+                    ${thumb}
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center justify-between gap-2">
+                            <h5 class="font-bold text-slate-800 dark:text-white text-xs truncate">${session.title}</h5>
+                            <span class="sidebar-expedition-count">${count}</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-0.5 truncate">
+                            <i class="fa-solid fa-user-astronaut mr-1 opacity-60"></i>${session.ownerName}
+                            ${mine ? ' · ваша' : (joined ? ' · вы участник' : '')}
+                        </p>
+                        ${dateStr || session.route ? `<p class="text-[10px] text-slate-400 mt-0.5 truncate">${dateStr ? `<i class="fa-regular fa-calendar mr-1"></i>${dateStr}` : ''}${dateStr && session.route ? ' · ' : ''}${session.route ? `<i class="fa-solid fa-route mr-1"></i>${session.route}` : ''}</p>` : ''}
+                        <div class="flex gap-1.5 mt-2">
+                            <button type="button" onclick="event.stopPropagation(); window.openExpeditionViewModal('${session.id}')" class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700/80 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 transition-colors"><i class="fa-solid fa-eye mr-1"></i>Посмотреть</button>
+                            <button type="button" onclick="event.stopPropagation(); window.setSidebarSessionFilter('${session.id}')" class="px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-100 transition-colors"><i class="fa-solid fa-filter mr-1"></i>Фильтр</button>
+                        </div>
+                    </div>
                 </div>
-                <p class="text-[10px] text-slate-400 mt-0.5 truncate">
-                    <i class="fa-solid fa-user-astronaut mr-1 opacity-60"></i>${session.ownerName}
-                    ${mine ? ' · ваша' : (joined ? ' · вы участник' : '')}
-                </p>
-                ${dateStr || session.route ? `<p class="text-[10px] text-slate-400 mt-0.5 truncate">${dateStr ? `<i class="fa-regular fa-calendar mr-1"></i>${dateStr}` : ''}${dateStr && session.route ? ' · ' : ''}${session.route ? `<i class="fa-solid fa-route mr-1"></i>${session.route}` : ''}</p>` : ''}
             </div>`;
         }).join('') + (myLogin
             ? `<button onclick="window.openSessionModal()" class="sidebar-expedition-add"><i class="fa-solid fa-plus mr-1.5"></i>Новая экспедиция</button>`
             : '');
+    };
+
+    window.__viewingExpeditionId = null;
+    window.openExpeditionViewModal = function(sessionId) {
+        const session = window.findSessionById ? window.findSessionById(sessionId) : null;
+        if (!session) { window.showToast('Экспедиция не найдена'); return; }
+        window.__viewingExpeditionId = sessionId;
+
+        const titleEl = document.getElementById('expedition-view-title');
+        const body = document.getElementById('expedition-view-body');
+        if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-route mr-2 text-blue-500"></i>${session.title}`;
+
+        const dateStr = session.date ? new Date(session.date).toLocaleDateString('ru-RU') : '—';
+        const count = (window.soundsData || []).filter(s =>
+            s.sessionId === session.id && (!s.status || s.status === 'published')
+        ).length;
+        const participants = (session.participants || []).map(login => {
+            const p = window.getProfileByLogin ? window.getProfileByLogin(login) : null;
+            return p?.displayName || login;
+        });
+        const guests = session.guests || [];
+        const photos = session.photos || [];
+        const links = [...(session.links || []), ...(session.videoLinks || [])];
+
+        if (body) {
+            body.innerHTML = `
+                ${photos.length ? `<div class="flex gap-2 overflow-x-auto pb-1">${photos.map((src, i) => `<img src="${src}" class="h-28 w-40 object-cover rounded-xl border border-slate-100 dark:border-slate-700 shrink-0 cursor-pointer" onclick="window.openLightbox((window.findSessionById('${session.id}')||{}).photos||[], ${i})" alt="">`).join('')}</div>` : ''}
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60"><p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Организатор</p><p class="font-semibold text-slate-700 dark:text-slate-200 truncate">${session.ownerName}</p></div>
+                    <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60"><p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Дата</p><p class="font-semibold text-slate-700 dark:text-slate-200">${dateStr}</p></div>
+                    <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60"><p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Звуков</p><p class="font-semibold text-slate-700 dark:text-slate-200">${count}</p></div>
+                    <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60"><p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Маршрут</p><p class="font-semibold text-slate-700 dark:text-slate-200 truncate">${session.route || '—'}</p></div>
+                </div>
+                ${session.purpose ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Цель</p><p class="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">${session.purpose}</p></div>` : ''}
+                ${participants.length || guests.length ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Участники</p><p class="text-sm text-slate-700 dark:text-slate-200">${[...participants, ...guests.map(g => g + ' (гость)')].join(', ') || '—'}</p></div>` : ''}
+                ${links.length ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Ссылки</p><ul class="space-y-1">${links.map(l => `<li><a href="${l}" target="_blank" rel="noopener" class="text-sm text-blue-600 hover:underline break-all">${l}</a></li>`).join('')}</ul></div>` : ''}
+            `;
+        }
+
+        const m = document.getElementById('expedition-view-modal');
+        const c = document.getElementById('expedition-view-modal-content');
+        if (!m || !c) return;
+        m.classList.remove('hidden');
+        void m.offsetWidth;
+        m.classList.remove('opacity-0', 'pointer-events-none');
+        c.classList.remove('scale-95');
+    };
+
+    window.closeExpeditionViewModal = function() {
+        const m = document.getElementById('expedition-view-modal');
+        const c = document.getElementById('expedition-view-modal-content');
+        if (!m || !c) return;
+        m.classList.add('opacity-0', 'pointer-events-none');
+        c.classList.add('scale-95');
+        setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
+        window.__viewingExpeditionId = null;
+    };
+
+    window.applyExpeditionViewFilter = function() {
+        const id = window.__viewingExpeditionId;
+        window.closeExpeditionViewModal();
+        if (id) window.setSidebarSessionFilter(id);
     };
 
     window.setSidebarSessionFilter = function(sessionId) {
@@ -572,6 +648,9 @@ export function initAuth() {
 
         const isEdit = !!window.__editingSessionId;
         const existingSessions = idx >= 0 ? [...(updated[idx].sessions || [])] : [];
+        const prevParticipants = isEdit
+            ? new Set((existingSessions.find(s => s.id === window.__editingSessionId)?.participants) || [])
+            : new Set();
 
         let sessionObj;
         if (isEdit) {
@@ -598,6 +677,16 @@ export function initAuth() {
             if (window.populateSessionSelect) window.populateSessionSelect(sessionObj.id);
             if (window.renderSessionsPanel) window.renderSessionsPanel();
             if (window.renderSidebarExpeditions) window.renderSidebarExpeditions();
+
+            const newlyAdded = participants.filter(p => !prevParticipants.has(p) && p !== login);
+            if (newlyAdded.length && window.pushNotifications) {
+                window.pushNotifications(newlyAdded, {
+                    type: 'expedition',
+                    text: `${window.currentUser.username} добавил(а) вас в экспедицию «${title}»`,
+                    fromId: login,
+                    fromName: window.currentUser.username
+                });
+            }
         } else {
             window.showToast('Не удалось сохранить экспедицию');
         }
@@ -1097,7 +1186,32 @@ export function initAuth() {
         if (idx >= 0) updatedCloud[idx] = { ...updatedCloud[idx], status, rejectionReason: reason, seenByAuthor: false };
         else updatedCloud.push(s);
         const success = await window.syncCloudData(updatedCloud);
-        if (success) { window.showToast('Статус обновлён'); window.renderAdminList(); }
+        if (success) {
+            window.showToast('Статус обновлён');
+            window.renderAdminList();
+            if (s.recordistId && window.pushNotifications) {
+                const adminLogin = window.currentUser?.loginName || 'admin';
+                if (status === 'published') {
+                    window.pushNotifications([s.recordistId], {
+                        type: 'moderation',
+                        text: `Ваша запись «${s.title}» одобрена и опубликована`,
+                        fromId: adminLogin,
+                        fromName: window.currentUser?.username || 'Администратор',
+                        soundId: s.id,
+                        soundTitle: s.title
+                    });
+                } else if (status === 'rejected') {
+                    window.pushNotifications([s.recordistId], {
+                        type: 'moderation',
+                        text: `Ваша запись «${s.title}» отклонена${reason ? ': ' + reason : ''}`,
+                        fromId: adminLogin,
+                        fromName: window.currentUser?.username || 'Администратор',
+                        soundId: s.id,
+                        soundTitle: s.title
+                    });
+                }
+            }
+        }
     };
 
     // --- Жалобы (на записи и на комментарии) — очередь модерации в админ-панели ---
@@ -1234,7 +1348,20 @@ export function initAuth() {
         if (checked) badges.add(badgeKey); else badges.delete(badgeKey);
         updated[idx] = { ...updated[idx], badges: Array.from(badges) };
         const success = await window.syncProfilesData(updated);
-        if (success) { window.showToast('Бейджи обновлены'); window.renderAdminUsersList(); }
+        if (success) {
+            window.showToast('Бейджи обновлены');
+            window.renderAdminUsersList();
+            if (checked && window.pushNotifications) {
+                const badgeMeta = (window.BADGE_CATALOG && window.BADGE_CATALOG[badgeKey]) || { label: badgeKey };
+                const adminLogin = window.currentUser?.loginName || 'admin';
+                window.pushNotifications([login], {
+                    type: 'badge',
+                    text: `Вам присвоен бейдж «${badgeMeta.label}»`,
+                    fromId: adminLogin,
+                    fromName: window.currentUser?.username || 'Администратор'
+                });
+            }
+        }
     };
 
     window.setUserBlocked = async function(login, blocked) {
@@ -1272,7 +1399,21 @@ export function initAuth() {
         if (!confirmed) return;
         updated[idx] = { ...updated[idx], role: makeAdmin ? 'admin' : 'user' };
         const success = await window.syncProfilesData(updated);
-        if (success) { window.showToast(makeAdmin ? 'Права администратора выданы' : 'Права администратора сняты'); window.renderAdminUsersList(); }
+        if (success) {
+            window.showToast(makeAdmin ? 'Права администратора выданы' : 'Права администратора сняты');
+            window.renderAdminUsersList();
+            if (window.pushNotifications) {
+                const adminLogin = window.currentUser?.loginName || 'admin';
+                window.pushNotifications([login], {
+                    type: 'badge',
+                    text: makeAdmin
+                        ? 'Вам выданы права администратора'
+                        : 'С вас сняты права администратора',
+                    fromId: adminLogin,
+                    fromName: window.currentUser?.username || 'Администратор'
+                });
+            }
+        }
     };
 
     // Сводка всех действий пользователя для админа: регистрация, метки, комментарии.
@@ -1451,9 +1592,13 @@ export function initAuth() {
             comment: 'fa-comment',
             reply: 'fa-reply',
             like: 'fa-thumbs-up',
+            dislike: 'fa-thumbs-down',
             reaction: 'fa-heart',
             report: 'fa-flag',
-            message: 'fa-envelope'
+            message: 'fa-envelope',
+            badge: 'fa-award',
+            expedition: 'fa-route',
+            moderation: 'fa-clipboard-check'
         };
         list.innerHTML = items.map(n => `
             <button onclick="window.openNotification('${n.id}')" class="notif-item ${n.read ? '' : 'unread'} w-full text-left">
@@ -1484,11 +1629,13 @@ export function initAuth() {
 
         if (n.soundId) {
             window.selectSound(n.soundId);
-            if (n.type === 'comment' || n.type === 'reply' || n.type === 'report' || n.type === 'reaction') {
+            if (n.type === 'comment' || n.type === 'reply' || n.type === 'report' || n.type === 'reaction' || n.type === 'moderation' || n.type === 'like' || n.type === 'dislike') {
                 setTimeout(() => window.openDetailsModal(), 200);
             }
-        } else if (n.type === 'message' && n.fromId) {
+        } else if (n.fromId && (n.type === 'message' || n.type === 'reaction')) {
             window.openMessagesModal(n.fromId);
+        } else if (n.type === 'expedition' && window.switchFilterTab) {
+            window.switchFilterTab('expeditions');
         }
     };
 
@@ -1506,12 +1653,57 @@ export function initAuth() {
 
     // --- Личные сообщения между пользователями (inbox в profiles.json) ---
     window.__activeMessagePeer = null;
+    window.__messageReplyTo = null;
+    window.__messagePendingImage = null;
+    window.MSG_EMOJI_LIST = ['😀','😂','😍','👍','👎','❤️','🔥','👏','😮','😢','🎉','🎵','📸','🙏','✨','💯'];
+    window.MSG_REACT_EMOJI = ['👍','❤️','😂','😮','😢','🔥'];
+    window.ONLINE_THRESHOLD_MS = 2 * 60 * 1000;
+
+    window.escMsgHtml = function(str) {
+        return String(str || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    };
+
+    window.isUserOnline = function(loginOrProfile) {
+        const profile = typeof loginOrProfile === 'string'
+            ? (window.getProfileByLogin ? window.getProfileByLogin(loginOrProfile) : null)
+            : loginOrProfile;
+        if (!profile || !profile.lastSeen) return false;
+        return (Date.now() - new Date(profile.lastSeen).getTime()) < window.ONLINE_THRESHOLD_MS;
+    };
+
+    window.touchMyPresence = async function(force = false) {
+        if (!window.currentUser) return;
+        const now = Date.now();
+        if (!force && window.__lastPresenceTouch && (now - window.__lastPresenceTouch) < 45000) return;
+        window.__lastPresenceTouch = now;
+        const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const updated = [...(window.profilesData || [])];
+        const idx = updated.findIndex(p => p.loginName === login);
+        const iso = new Date().toISOString();
+        if (idx >= 0) updated[idx] = { ...updated[idx], lastSeen: iso };
+        else updated.push({ loginName: login, displayName: window.currentUser.username, lastSeen: iso });
+        await window.syncProfilesData(updated);
+    };
 
     window.getMyInbox = function() {
         if (!window.currentUser) return [];
         const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
         const profile = window.getProfileByLogin ? window.getProfileByLogin(login) : null;
         return (profile && profile.inbox) || [];
+    };
+
+    window.findInboxMessage = function(msgId) {
+        const profiles = window.profilesData || [];
+        for (let i = 0; i < profiles.length; i++) {
+            const inbox = profiles[i].inbox || [];
+            const mi = inbox.findIndex(m => m.id === msgId);
+            if (mi >= 0) return { profileLogin: profiles[i].loginName, profileIdx: i, msgIdx: mi, msg: inbox[mi] };
+        }
+        return null;
     };
 
     window.refreshMessagesUI = function() {
@@ -1523,7 +1715,7 @@ export function initAuth() {
             return;
         }
         btn.classList.remove('hidden');
-        const unread = window.getMyInbox().filter(m => !m.read).length;
+        const unread = window.getMyInbox().filter(m => !m.read && !m.deleted).length;
         if (badge) {
             badge.textContent = unread > 99 ? '99+' : String(unread);
             badge.classList.toggle('hidden', unread === 0);
@@ -1543,6 +1735,7 @@ export function initAuth() {
         void m.offsetWidth;
         m.classList.remove('opacity-0', 'pointer-events-none');
         c.classList.remove('scale-95');
+        window.touchMyPresence(true);
         if (peerLogin) window.openMessageThread(peerLogin);
         else window.showMessagesConversations();
     };
@@ -1555,10 +1748,14 @@ export function initAuth() {
         c.classList.add('scale-95');
         setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
         window.__activeMessagePeer = null;
+        window.cancelMessageReply();
+        window.hideEmojiPicker();
     };
 
     window.showMessagesConversations = function() {
         window.__activeMessagePeer = null;
+        window.cancelMessageReply();
+        window.hideEmojiPicker();
         const conv = document.getElementById('messages-conversations');
         const thread = document.getElementById('messages-thread');
         if (conv) conv.classList.remove('hidden');
@@ -1573,8 +1770,6 @@ export function initAuth() {
             if (!prev || new Date(msg.date) > new Date(prev.date)) byPeer.set(peer, msg);
         });
 
-        // Также показываем людей, которым мы писали (их ответы лежат у нас; исходящие — у них).
-        // Для исходящих ищем себя в их inbox.
         const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
         (window.profilesData || []).forEach(p => {
             (p.inbox || []).forEach(msg => {
@@ -1595,54 +1790,116 @@ export function initAuth() {
 
         const rows = [...byPeer.entries()].sort((a, b) => new Date(b[1].date) - new Date(a[1].date));
         conv.innerHTML = rows.map(([peer, last]) => {
-            const unread = inbox.filter(m => m.fromId === peer && !m.read).length;
+            const unread = inbox.filter(m => m.fromId === peer && !m.read && !m.deleted).length;
             const profile = window.getProfileByLogin ? window.getProfileByLogin(peer) : null;
             const name = profile?.displayName || last.fromName || peer;
+            const online = window.isUserOnline(profile);
+            const avatar = profile?.avatar
+                ? `<img src="${profile.avatar}" class="w-9 h-9 rounded-full object-cover" alt="">`
+                : `<span class="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-sm"><i class="fa-solid fa-user"></i></span>`;
+            const preview = last.deleted ? 'Сообщение удалено' : (last.image && !last.text ? '📷 Фото' : (last.text || ''));
             return `
             <button onclick="window.openMessageThread('${peer}')" class="notif-item ${unread ? 'unread' : ''} w-full text-left">
-                <i class="fa-solid fa-user notif-item-icon"></i>
+                <div class="relative shrink-0">${avatar}<span class="msg-online-dot ${online ? 'on' : ''}"></span></div>
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center justify-between gap-2">
-                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${name}</p>
+                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${window.escMsgHtml(name)}</p>
                         ${unread ? `<span class="text-[10px] font-bold text-blue-600">${unread}</span>` : ''}
                     </div>
-                    <p class="text-[11px] text-slate-500 truncate mt-0.5">${last.text}</p>
+                    <p class="text-[11px] text-slate-500 truncate mt-0.5">${window.escMsgHtml(preview)}</p>
                 </div>
             </button>`;
         }).join('');
     };
 
-    window.openMessageThread = async function(peerLogin) {
+    window.updateThreadPeerHeader = function(peerLogin) {
+        const profile = window.getProfileByLogin ? window.getProfileByLogin(peerLogin) : null;
+        const name = profile?.displayName || peerLogin;
+        const nameEl = document.getElementById('messages-thread-name');
+        const statusEl = document.getElementById('messages-thread-status');
+        const avatar = document.getElementById('messages-thread-avatar');
+        const fallback = document.getElementById('messages-thread-avatar-fallback');
+        const onlineDot = document.getElementById('messages-thread-online');
+        const online = window.isUserOnline(profile);
+
+        if (nameEl) nameEl.textContent = name;
+        if (statusEl) statusEl.textContent = online ? 'в сети' : 'не в сети';
+        if (onlineDot) onlineDot.classList.toggle('hidden', !online);
+
+        if (profile?.avatar) {
+            if (avatar) { avatar.src = profile.avatar; avatar.classList.remove('hidden'); }
+            if (fallback) fallback.classList.add('hidden');
+        } else {
+            if (avatar) avatar.classList.add('hidden');
+            if (fallback) fallback.classList.remove('hidden');
+        }
+    };
+
+    window.openPeerProfileFromChat = function() {
+        const peer = window.__activeMessagePeer;
+        if (!peer) return;
+        const profile = window.getProfileByLogin ? window.getProfileByLogin(peer) : null;
+        window.openPublicProfile(peer, profile?.displayName || peer);
+    };
+
+    window.renderMessageBubble = function(m) {
+        if (m.deleted) {
+            return `<div class="msg-bubble deleted ${m._mine ? 'mine' : ''}" onclick="window.openMessageMenu('${m.id}')">
+                <p class="text-[13px] leading-snug">Сообщение удалено</p>
+                <p class="text-[9px] opacity-60 mt-1">${m.date ? new Date(m.date).toLocaleString('ru-RU') : ''}</p>
+            </div>`;
+        }
+        const reply = m.replyTo
+            ? `<div class="msg-bubble-reply">${window.escMsgHtml(m.replyTo.fromName || '')}: ${window.escMsgHtml(m.replyTo.text || (m.replyTo.image ? '📷 Фото' : ''))}</div>`
+            : '';
+        const img = m.image
+            ? `<img src="${m.image}" class="msg-bubble-img" alt="" onclick="event.stopPropagation(); window.openMessageImage('${m.id}')">`
+            : '';
+        const edited = m.editedAt ? ' · изменено' : '';
+        const reactions = m.reactions && Object.keys(m.reactions).length
+            ? `<div class="msg-reactions">${Object.entries(m.reactions).map(([emoji, users]) =>
+                users?.length ? `<span class="msg-reaction-chip">${emoji} ${users.length}</span>` : ''
+            ).join('')}</div>`
+            : '';
+        return `<div class="msg-bubble ${m._mine ? 'mine' : ''}" onclick="window.openMessageMenu('${m.id}')">
+            ${reply}${img}
+            ${m.text ? `<p class="text-[13px] leading-snug">${window.escMsgHtml(m.text)}</p>` : ''}
+            ${reactions}
+            <p class="text-[9px] opacity-60 mt-1">${m.date ? new Date(m.date).toLocaleString('ru-RU') : ''}${edited}</p>
+        </div>`;
+    };
+
+    window.openMessageImage = function(msgId) {
+        const found = window.findInboxMessage(msgId);
+        if (found?.msg?.image && window.openLightbox) window.openLightbox([found.msg.image], 0);
+    };
+
+    window.openMessageThread = async function(peerLogin, { quiet = false } = {}) {
         window.__activeMessagePeer = peerLogin;
         const conv = document.getElementById('messages-conversations');
         const thread = document.getElementById('messages-thread');
-        const nameEl = document.getElementById('messages-thread-name');
         const list = document.getElementById('messages-thread-list');
         if (conv) conv.classList.add('hidden');
         if (thread) thread.classList.remove('hidden');
 
-        const profile = window.getProfileByLogin ? window.getProfileByLogin(peerLogin) : null;
-        if (nameEl) nameEl.textContent = profile?.displayName || peerLogin;
+        window.updateThreadPeerHeader(peerLogin);
 
         const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
         const incoming = window.getMyInbox().filter(m => m.fromId === peerLogin);
-        const peerProfile = profile || {};
+        const peerProfile = (window.getProfileByLogin ? window.getProfileByLogin(peerLogin) : null) || {};
         const outgoing = (peerProfile.inbox || []).filter(m => m.fromId === myLogin).map(m => ({ ...m, _mine: true }));
 
         const all = [...incoming.map(m => ({ ...m, _mine: false })), ...outgoing]
             .sort((a, b) => new Date(a.date) - new Date(b.date));
 
         if (list) {
-            list.innerHTML = all.length ? all.map(m => `
-                <div class="msg-bubble ${m._mine ? 'mine' : ''}">
-                    <p class="text-[13px] leading-snug">${m.text}</p>
-                    <p class="text-[9px] opacity-60 mt-1">${m.date ? new Date(m.date).toLocaleString('ru-RU') : ''}</p>
-                </div>
-            `).join('') : `<p class="text-xs text-slate-400 text-center py-6">Начните переписку</p>`;
-            list.scrollTop = list.scrollHeight;
+            const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+            list.innerHTML = all.length
+                ? all.map(m => window.renderMessageBubble(m)).join('')
+                : `<p class="text-xs text-slate-400 text-center py-6">Начните переписку</p>`;
+            if (!quiet || nearBottom) list.scrollTop = list.scrollHeight;
         }
 
-        // Помечаем входящие от этого пира как прочитанные
         const updated = [...(window.profilesData || [])];
         const idx = updated.findIndex(p => p.loginName === myLogin);
         if (idx >= 0) {
@@ -1659,12 +1916,80 @@ export function initAuth() {
         }
     };
 
+    window.cancelMessageReply = function() {
+        window.__messageReplyTo = null;
+        const banner = document.getElementById('messages-reply-banner');
+        if (banner) banner.classList.add('hidden');
+    };
+
+    window.startMessageReply = function(msgId) {
+        const found = window.findInboxMessage(msgId);
+        if (!found || found.msg.deleted) return;
+        const m = found.msg;
+        window.__messageReplyTo = {
+            id: m.id,
+            text: m.text || '',
+            image: !!m.image,
+            fromName: m.fromName || m.fromId
+        };
+        const banner = document.getElementById('messages-reply-banner');
+        const preview = document.getElementById('messages-reply-preview');
+        if (preview) preview.textContent = m.text || (m.image ? '📷 Фото' : '');
+        if (banner) {
+            banner.classList.remove('hidden');
+            banner.classList.add('flex');
+        }
+        document.getElementById('messages-compose-input')?.focus();
+    };
+
+    window.toggleEmojiPicker = function() {
+        const picker = document.getElementById('messages-emoji-picker');
+        if (!picker) return;
+        const opening = picker.classList.contains('hidden');
+        if (opening) {
+            picker.innerHTML = window.MSG_EMOJI_LIST.map(e =>
+                `<button type="button" onclick="window.insertMessageEmoji('${e}')">${e}</button>`
+            ).join('');
+            picker.classList.remove('hidden');
+        } else {
+            picker.classList.add('hidden');
+        }
+    };
+
+    window.hideEmojiPicker = function() {
+        const picker = document.getElementById('messages-emoji-picker');
+        if (picker) picker.classList.add('hidden');
+    };
+
+    window.insertMessageEmoji = function(emoji) {
+        const input = document.getElementById('messages-compose-input');
+        if (!input) return;
+        const start = input.selectionStart || input.value.length;
+        const end = input.selectionEnd || input.value.length;
+        input.value = input.value.slice(0, start) + emoji + input.value.slice(end);
+        input.focus();
+        input.selectionStart = input.selectionEnd = start + emoji.length;
+    };
+
+    window.sendMessagePhoto = function(files) {
+        if (!files || !files[0] || !files[0].type.startsWith('image/')) return;
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            window.__messagePendingImage = e.target.result;
+            await window.sendMessageInThread();
+            const input = document.getElementById('messages-photo-input');
+            if (input) input.value = '';
+        };
+        reader.readAsDataURL(files[0]);
+    };
+
     window.sendMessageInThread = async function() {
         const peer = window.__activeMessagePeer;
         if (!peer || !window.currentUser) return;
         const input = document.getElementById('messages-compose-input');
         const text = (input?.value || '').trim();
-        if (!text) return;
+        const image = window.__messagePendingImage || null;
+        if (!text && !image) return;
 
         const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
         const updated = [...(window.profilesData || [])];
@@ -1678,17 +2003,24 @@ export function initAuth() {
             fromId: myLogin,
             fromName: window.currentUser.username,
             text,
+            image: image || undefined,
+            replyTo: window.__messageReplyTo || undefined,
+            reactions: {},
             date: new Date().toISOString(),
             read: false
         };
         updated[idx] = { ...updated[idx], inbox: [msg, ...(updated[idx].inbox || [])].slice(0, 200) };
 
-        // Уведомление получателю
+        const isReply = !!window.__messageReplyTo;
         const notifs = [...(updated[idx].notifications || [])];
         notifs.unshift({
             id: 'n' + Date.now().toString(36),
             type: 'message',
-            text: `${window.currentUser.username} написал(а) вам сообщение`,
+            text: isReply
+                ? `${window.currentUser.username} ответил(а) на ваше сообщение`
+                : (image && !text
+                    ? `${window.currentUser.username} отправил(а) вам фото`
+                    : `${window.currentUser.username} написал(а) вам сообщение`),
             fromId: myLogin,
             fromName: window.currentUser.username,
             date: new Date().toISOString(),
@@ -1697,12 +2029,203 @@ export function initAuth() {
         updated[idx] = { ...updated[idx], notifications: notifs.slice(0, 60) };
 
         if (input) input.value = '';
+        window.__messagePendingImage = null;
+        window.cancelMessageReply();
+        window.hideEmojiPicker();
+
         const ok = await window.syncProfilesData(updated);
         if (ok) {
             window.openMessageThread(peer);
             window.showToast('Сообщение отправлено');
+            window.touchMyPresence();
         } else {
             window.showToast('Не удалось отправить');
+        }
+    };
+
+    window.openMessageMenu = function(msgId) {
+        const found = window.findInboxMessage(msgId);
+        if (!found) return;
+        const m = found.msg;
+        const myLogin = window.currentUser?.loginName || String(window.currentUser?.username || '').toLowerCase();
+        const isMine = m.fromId === myLogin;
+        const items = [];
+
+        if (!m.deleted) {
+            items.push({ icon: 'fa-reply', label: 'Ответить', onClick: () => window.startMessageReply(msgId) });
+            items.push({
+                icon: 'fa-face-smile',
+                label: 'Реакция',
+                onClick: () => {
+                    const reactItems = window.MSG_REACT_EMOJI.map(emoji => ({
+                        icon: 'fa-heart',
+                        label: emoji,
+                        onClick: () => window.toggleMessageReaction(msgId, emoji)
+                    }));
+                    setTimeout(() => window.ActionSheet.open(reactItems), 300);
+                }
+            });
+            if (isMine) {
+                items.push({ icon: 'fa-pen', label: 'Редактировать', onClick: () => window.editMessage(msgId) });
+                items.push({ icon: 'fa-trash-can', label: 'Удалить', danger: true, onClick: () => window.deleteMessage(msgId) });
+            } else {
+                items.push({ icon: 'fa-flag', label: 'Пожаловаться', danger: true, onClick: () => window.reportMessage(msgId) });
+            }
+        }
+        if (m.fromId) {
+            const authorProfile = window.getProfileByLogin ? window.getProfileByLogin(m.fromId) : null;
+            items.unshift({
+                icon: 'fa-id-badge',
+                label: 'Профиль автора',
+                onClick: () => window.openPublicProfile(m.fromId, authorProfile?.displayName || m.fromName || m.fromId)
+            });
+        }
+        if (items.length) window.ActionSheet.open(items);
+    };
+
+    window.toggleMessageReaction = async function(msgId, emoji) {
+        if (!window.currentUser) return;
+        const found = window.findInboxMessage(msgId);
+        if (!found || found.msg.deleted) return;
+        const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const updated = [...(window.profilesData || [])];
+        const pIdx = updated.findIndex(p => p.loginName === found.profileLogin);
+        if (pIdx < 0) return;
+        const inbox = [...(updated[pIdx].inbox || [])];
+        const msg = { ...inbox[found.msgIdx] };
+        const reactions = { ...(msg.reactions || {}) };
+
+        // Убираем прошлую реакцию пользователя
+        Object.keys(reactions).forEach(key => {
+            reactions[key] = (reactions[key] || []).filter(u => u !== myLogin);
+            if (!reactions[key].length) delete reactions[key];
+        });
+        const list = reactions[emoji] || [];
+        const had = (found.msg.reactions?.[emoji] || []).includes(myLogin);
+        if (!had) {
+            reactions[emoji] = [...list, myLogin];
+        }
+        msg.reactions = reactions;
+        inbox[found.msgIdx] = msg;
+        updated[pIdx] = { ...updated[pIdx], inbox };
+
+        const ok = await window.syncProfilesData(updated);
+        if (ok) {
+            if (window.__activeMessagePeer) window.openMessageThread(window.__activeMessagePeer, { quiet: true });
+            if (!had && msg.fromId && msg.fromId !== myLogin && window.pushNotifications) {
+                window.pushNotifications([msg.fromId], {
+                    type: 'reaction',
+                    text: `${window.currentUser.username} поставил(а) реакцию ${emoji} на ваше сообщение`,
+                    fromId: myLogin,
+                    fromName: window.currentUser.username
+                });
+            }
+        }
+    };
+
+    window.editMessage = async function(msgId) {
+        const found = window.findInboxMessage(msgId);
+        if (!found || found.msg.deleted) return;
+        const myLogin = window.currentUser?.loginName || String(window.currentUser?.username || '').toLowerCase();
+        if (found.msg.fromId !== myLogin) return;
+
+        const next = await window.CustomUI.open({
+            title: '<i class="fa-solid fa-pen mr-2 text-blue-500"></i>Редактировать',
+            message: 'Измените текст сообщения',
+            confirmText: 'Сохранить',
+            confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-md',
+            showInput: true,
+            inputPlaceholder: 'Текст сообщения',
+            inputValue: found.msg.text || ''
+        });
+        if (next === false || next == null) return;
+        const text = String(next).trim();
+        if (!text && !found.msg.image) { window.showToast('Текст не может быть пустым'); return; }
+
+        const updated = [...(window.profilesData || [])];
+        const pIdx = updated.findIndex(p => p.loginName === found.profileLogin);
+        if (pIdx < 0) return;
+        const inbox = [...(updated[pIdx].inbox || [])];
+        inbox[found.msgIdx] = { ...inbox[found.msgIdx], text, editedAt: new Date().toISOString() };
+        updated[pIdx] = { ...updated[pIdx], inbox };
+        const ok = await window.syncProfilesData(updated);
+        if (ok) {
+            window.showToast('Сообщение изменено');
+            if (window.__activeMessagePeer) window.openMessageThread(window.__activeMessagePeer, { quiet: true });
+        }
+    };
+
+    window.deleteMessage = async function(msgId) {
+        const found = window.findInboxMessage(msgId);
+        if (!found) return;
+        const myLogin = window.currentUser?.loginName || String(window.currentUser?.username || '').toLowerCase();
+        if (found.msg.fromId !== myLogin) return;
+        const confirmed = await window.CustomUI.open({
+            title: '<i class="fa-solid fa-trash-can mr-2 text-red-500"></i>Удалить сообщение?',
+            message: 'Сообщение будет удалено для обоих участников переписки.',
+            confirmText: 'Удалить',
+            confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
+        });
+        if (!confirmed) return;
+
+        const updated = [...(window.profilesData || [])];
+        const pIdx = updated.findIndex(p => p.loginName === found.profileLogin);
+        if (pIdx < 0) return;
+        const inbox = [...(updated[pIdx].inbox || [])];
+        inbox[found.msgIdx] = {
+            ...inbox[found.msgIdx],
+            deleted: true,
+            text: '',
+            image: undefined,
+            reactions: {}
+        };
+        updated[pIdx] = { ...updated[pIdx], inbox };
+        const ok = await window.syncProfilesData(updated);
+        if (ok) {
+            window.showToast('Сообщение удалено');
+            if (window.__activeMessagePeer) window.openMessageThread(window.__activeMessagePeer, { quiet: true });
+        }
+    };
+
+    window.reportMessage = async function(msgId) {
+        if (!window.currentUser) return;
+        const found = window.findInboxMessage(msgId);
+        if (!found || found.msg.deleted) return;
+
+        const reason = await window.CustomUI.open({
+            title: '<i class="fa-solid fa-flag mr-2 text-red-500"></i>Пожаловаться на сообщение',
+            message: 'Опишите причину — жалобу рассмотрят модераторы.',
+            confirmText: 'Отправить',
+            confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md',
+            showInput: true,
+            inputPlaceholder: 'Причина жалобы'
+        });
+        if (reason === false || !reason) return;
+
+        const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const updated = [...(window.profilesData || [])];
+        const pIdx = updated.findIndex(p => p.loginName === found.profileLogin);
+        if (pIdx < 0) return;
+        const inbox = [...(updated[pIdx].inbox || [])];
+        const msg = { ...inbox[found.msgIdx] };
+        msg.reports = [...(msg.reports || []), {
+            id: 'rep' + Date.now().toString(36),
+            reason: String(reason),
+            reporterId: myLogin,
+            reporterName: window.currentUser.username,
+            date: new Date().toISOString()
+        }];
+        inbox[found.msgIdx] = msg;
+        updated[pIdx] = { ...updated[pIdx], inbox };
+        const ok = await window.syncProfilesData(updated);
+        window.showToast(ok ? 'Жалоба отправлена' : 'Не удалось отправить жалобу');
+        if (ok && window.notifyAdmins) {
+            window.notifyAdmins({
+                type: 'report',
+                text: `${window.currentUser.username} пожаловался(ась) на сообщение от ${msg.fromName || msg.fromId}: ${reason}`,
+                fromId: myLogin,
+                fromName: window.currentUser.username
+            });
         }
     };
 
