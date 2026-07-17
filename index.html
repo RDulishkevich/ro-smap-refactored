@@ -14,14 +14,14 @@
                 theme: {
                     extend: {
                         fontFamily: {
-                        sans: ['Satoshi', 'Gilroy', 'Plus Jakarta Sans', 'system-ui', 'sans-serif'],
-                        brand: ['Clash Display', 'Gilroy', 'Satoshi', 'sans-serif'],
+                        sans: ['Gilroy', 'Satoshi', 'Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+                        brand: ['Gilroy', 'Clash Display', 'Satoshi', 'sans-serif'],
                     },
                     colors: {
                         accent: {
-                            DEFAULT: '#2563eb',
-                            soft: '#dbeafe',
-                            dark: '#60a5fa',
+                            DEFAULT: '#ff5a3d',
+                            soft: '#ffe8e3',
+                            dark: '#ff7a5c',
                         }
                     }
                     }
@@ -40,9 +40,9 @@
     <!-- React (панель "Статистика региона" рисуется React-компонентом, см. src/widgets/analytics-widget.js) -->
     <script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js" crossorigin></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
-    <!-- Clash Display + Satoshi (Fontshare) · Gilroy fallback · Plus Jakarta -->
-    <link href="https://api.fontshare.com/v2/css?f[]=clash-display@600,700&f[]=satoshi@400,500,600,700&display=swap" rel="stylesheet">
+    <!-- Gilroy first (refs) · Satoshi/Clash fallbacks -->
     <link href="https://fonts.cdnfonts.com/css/gilroy" rel="stylesheet">
+    <link href="https://api.fontshare.com/v2/css?f[]=clash-display@600,700&f[]=satoshi@400,500,600,700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="text-slate-800 antialiased relative">
@@ -102,7 +102,7 @@
                 <div id="notif-panel" class="hidden absolute right-0 top-[3.35rem] w-[min(calc(100vw-2rem),22rem)] max-w-[calc(100vw-1.5rem)] max-h-[min(70vh,28rem)] overflow-hidden flex flex-col z-[90]">
                     <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
                         <h4 class="text-sm font-bold text-slate-800 dark:text-white" data-lang="notifications_title">Уведомления</h4>
-                        <button onclick="window.markAllNotificationsRead()" class="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:opacity-80 shrink-0 ml-2">Прочитать все</button>
+                        <button onclick="window.markAllNotificationsRead()" class="text-[11px] font-semibold text-accent hover:opacity-80 shrink-0 ml-2">Прочитать все</button>
                     </div>
                     <div id="notif-list" class="overflow-y-auto custom-scrollbar flex-1 p-2 space-y-1 min-h-0"></div>
                 </div>
@@ -124,7 +124,7 @@
                         <i class="fa-solid fa-xmark text-lg pointer-events-none"></i>
                     </button>
                 </div>
-                <p class="brand-sub text-sm mb-5 flex items-center gap-2" data-lang="subtitle"><i class="fa-solid fa-map-location-dot text-accent"></i> Audio Map</p>
+                    <p class="brand-sub text-sm mb-5 flex items-center gap-2" data-lang="subtitle"><i class="fa-solid fa-map-location-dot text-[#ff5a3d]"></i> Audio Map</p>
                 <div id="sidebar-search-wrap" class="relative">
                     <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
                     <input type="text" id="search-input" data-lang-placeholder="search_placeholder" placeholder="Поиск звуков..." class="w-full py-3 pl-10 pr-4 text-sm focus:outline-none text-slate-800 dark:text-white">
@@ -195,9 +195,9 @@
                 <div id="waveform-wrapper" class="relative w-full h-12 md:h-16 cursor-pointer group mb-2 mt-4">
                     <div id="waveform-bg" class="absolute inset-0 flex items-center justify-between gap-[2px] text-slate-100 dark:text-slate-700"></div>
                     <div id="waveform-buffered" class="absolute inset-0 flex items-center justify-between gap-[2px] text-slate-300 dark:text-slate-600 pointer-events-none transition-all duration-300 ease-out" style="clip-path: inset(0 100% 0 0);"></div>
-                    <div id="waveform-active" class="absolute inset-0 flex items-center justify-between gap-[2px] text-slate-800 dark:text-blue-500 pointer-events-none" style="clip-path: inset(0 100% 0 0);"></div>
+                    <div id="waveform-active" class="absolute inset-0 flex items-center justify-between gap-[2px] text-[#ff5a3d] dark:text-[#ff7a5c] pointer-events-none" style="clip-path: inset(0 100% 0 0);"></div>
                     
-                    <div id="playhead" class="absolute top-0 bottom-0 w-[1.5px] bg-slate-400 dark:bg-blue-400 rounded-full pointer-events-none z-10 shadow-[0_0_4px_rgba(0,0,0,0.2)]" style="left: 0%;"></div>
+                    <div id="playhead" class="absolute top-0 bottom-0 w-[1.5px] bg-slate-800 dark:bg-white rounded-full pointer-events-none z-10 shadow-[0_0_4px_rgba(0,0,0,0.2)]" style="left: 0%;"></div>
                     <input type="range" id="audio-timeline" min="0" max="100" value="0" step="0.01" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30 m-0" oninput="window.seekAudio(this.value)">
                 </div>
                 
@@ -244,7 +244,7 @@
                 <!-- Анализаторы -->
                 <div id="player-analyzers" class="hidden mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 pointer-events-auto space-y-4">
                     <div class="flex items-center justify-between px-0.5">
-                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider"><i class="fa-solid fa-wave-square mr-1 text-blue-500"></i><span data-lang="analyzers_title">Анализаторы</span></span>
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider"><i class="fa-solid fa-wave-square mr-1 text-[#ff5a3d]"></i><span data-lang="analyzers_title">Анализаторы</span></span>
                         <span class="text-[9px] font-semibold text-slate-400">Спектр · стерео · громкость</span>
                     </div>
 

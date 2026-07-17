@@ -303,14 +303,14 @@ window.toggleAmbisonics = function() {
     if(window.isAmbisonicMode) {
         window.enableAmbisonicMode(); 
         control.classList.remove('hidden');
-        btn.classList.remove('text-indigo-500'); btn.classList.add('text-green-500');
+        btn.classList.remove('text-indigo-500'); btn.classList.add('text-[#ff5a3d]');
         window.showToast(translations[window.currentLang].ambisonics_pan + " ON");
         window.resizeAmbiGoniometerCanvas();
         window.syncAnalyzerAnimation();
     } else {
         window.disableAmbisonicMode(); 
         control.classList.add('hidden');
-        btn.classList.add('text-indigo-500'); btn.classList.remove('text-green-500');
+        btn.classList.add('text-indigo-500'); btn.classList.remove('text-[#ff5a3d]');
         const dot = document.getElementById('ambi-dot');
         if(dot) { dot.style.left = '50%'; dot.style.top = '50%'; }
         const angleDisplay = document.getElementById('ambi-angle-val');
@@ -639,7 +639,7 @@ window.drawGoniometerFrame = function() {
     analyserA.getFloatTimeDomainData(window._gonioBufA);
     analyserB.getFloatTimeDomainData(window._gonioBufB);
 
-    // Neon teal/cyan stroke with a soft glow — kept light to protect frame rate
+    // Coral stroke with soft glow — kept light to protect frame rate
     ctx.strokeStyle = pal.stroke;
     ctx.lineWidth = 1.5;
     ctx.shadowColor = pal.strokeGlow;

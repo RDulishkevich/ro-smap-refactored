@@ -48,9 +48,9 @@ window.renderSoundTags = function(sound, containerId, clickable = false) {
             ? `onclick="window.toggleGenTag('${String(tag.value).replace(/'/g, "\\'")}')"`
             : '';
         const colors = tag.type === 'eco'
-            ? 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800'
+            ? 'bg-orange-50 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800'
             : tag.type === 'ucsSub'
-                ? 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800'
+                ? 'bg-stone-100 text-stone-700 border-stone-200 dark:bg-stone-800/50 dark:text-stone-300 dark:border-stone-600'
                 : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600';
         return `<span ${clickAttr} class="tag-pill ${colors} border">${tag.label}</span>`;
     }).join('');
@@ -96,13 +96,13 @@ window.renderRegionStats = function(targetId = 'region-stats-grid') {
     }
 
     const cards = [
-        { value: stats.total, label: 'Записей', color: 'text-blue-600 dark:text-blue-400' },
-        { value: stats.withAudio, label: 'С аудио', color: 'text-emerald-600 dark:text-emerald-400' },
-        { value: stats.recordists, label: 'Авторов', color: 'text-indigo-600 dark:text-indigo-400' },
+        { value: stats.total, label: 'Записей', color: 'text-[#ff5a3d] dark:text-[#ff7a5c]' },
+        { value: stats.withAudio, label: 'С аудио', color: 'text-stone-600 dark:text-stone-300' },
+        { value: stats.recordists, label: 'Авторов', color: 'text-slate-700 dark:text-slate-300' },
         { value: window.formatTotalDuration(stats.totalSecs), label: 'Длительность', color: 'text-amber-600 dark:text-amber-400' },
         { value: stats.byEco.geophony, label: 'Геофония', color: 'text-sky-600 dark:text-sky-400' },
-        { value: stats.byEco.biophony, label: 'Биофония', color: 'text-green-600 dark:text-green-400' },
-        { value: stats.byEco.anthrophony, label: 'Антропофония', color: 'text-orange-600 dark:text-orange-400' },
+        { value: stats.byEco.biophony, label: 'Биофония', color: 'text-orange-700 dark:text-orange-300' },
+        { value: stats.byEco.anthrophony, label: 'Антропофония', color: 'text-stone-600 dark:text-stone-300' },
         { value: stats.topUcs[0] ? stats.topUcs[0][0] : '—', label: stats.topUcs[0] ? `Топ UCS (${stats.topUcs[0][1]})` : 'Топ UCS', color: 'text-violet-600 dark:text-violet-400' }
     ];
     grid.innerHTML = cards.map(c => `
@@ -1586,7 +1586,7 @@ window.renderFilterPanels = function() {
                 displayName = window.translations[window.currentLang][`filter_${val}`];
             }
 
-            return `<button onclick="${toggleFn}('${val}')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border flex items-center ${isActive ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'}">
+            return `<button onclick="${toggleFn}('${val}')" class="px-2.5 py-1 rounded-full text-[11px] font-bold transition-all border flex items-center ${isActive ? 'bg-[#141414] text-white border-[#141414] shadow-sm dark:bg-[#ff5a3d] dark:border-[#ff5a3d]' : 'bg-white/40 dark:bg-white/10 text-slate-600 dark:text-slate-300 border-white/50 dark:border-white/15 hover:bg-white/60 dark:hover:bg-white/15'}">
                 ${icon ? `<i class="fa-solid ${icon} mr-1 opacity-70"></i>` : ''}${displayName} <span class="ml-1 text-[9px] font-normal opacity-60">(${count})</span>
             </button>`;
         }).join('');

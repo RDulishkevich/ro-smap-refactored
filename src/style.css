@@ -1,23 +1,23 @@
-﻿/* ——— Base layout tokens (visual glass lives in glass.css) ——— */
+/* Base layout tokens (visual glass lives in glass.css) */
 :root {
-    --ink: #14201c;
-    --ink-muted: #5a6b64;
-    --surface: #e8eeeb;
-    --panel: rgba(255, 255, 255, 0.72);
-    --panel-solid: #f7faf8;
-    --panel-border: rgba(20, 32, 28, 0.1);
-    --panel-shadow: 0 10px 32px rgba(20, 32, 28, 0.12);
-    --accent: #2563eb;
-    --accent-hover: #1d4ed8;
-    --accent-soft: rgba(37, 99, 235, 0.12);
-    --accent-ink: #2563eb;
+    --ink: #141414;
+    --ink-muted: #6b7280;
+    --surface: #ebe8e4;
+    --panel: rgba(255, 255, 255, 0.62);
+    --panel-solid: #f4f2ef;
+    --panel-border: rgba(20, 20, 20, 0.08);
+    --panel-shadow: 0 12px 40px rgba(20, 20, 20, 0.14);
+    --accent: #ff5a3d;
+    --accent-hover: #e84a2f;
+    --accent-soft: rgba(255, 90, 61, 0.14);
+    --accent-ink: #e84a2f;
+    --font-ui: "Gilroy", "Satoshi", "Plus Jakarta Sans", system-ui, sans-serif;
+    --font-brand: "Gilroy", "Clash Display", "Satoshi", sans-serif;
     --danger: #c2410c;
     --radius-sm: 0.7rem;
     --radius-md: 1.05rem;
     --radius-lg: 1.4rem;
     --radius-xl: 1.75rem;
-    --font-ui: "Satoshi", "Gilroy", "Plus Jakarta Sans", system-ui, sans-serif;
-    --font-brand: "Clash Display", "Satoshi", "Gilroy", sans-serif;
     --map-btn-size: 3rem;
     --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
     --dur-fast: 150ms;
@@ -26,17 +26,17 @@
 
 html.dark,
 .dark {
-    --ink: #eef6f1;
-    --ink-muted: #9bb0a6;
-    --surface: #0a1210;
-    --panel: rgba(18, 28, 24, 0.78);
-    --panel-solid: #121e1a;
+    --ink: #f5f5f4;
+    --ink-muted: #a8a29e;
+    --surface: #0c1014;
+    --panel: rgba(22, 28, 34, 0.72);
+    --panel-solid: #161c22;
     --panel-border: rgba(255, 255, 255, 0.12);
     --panel-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
-    --accent: #60a5fa;
-    --accent-hover: #93c5fd;
-    --accent-soft: rgba(96, 165, 250, 0.18);
-    --accent-ink: #60a5fa;
+    --accent: #ff7a5c;
+    --accent-hover: #ff5a3d;
+    --accent-soft: rgba(255, 122, 92, 0.18);
+    --accent-ink: #ff7a5c;
 }
 
 body {
@@ -247,7 +247,7 @@ html.dark .glass-seg__btn.is-active,
 }
 #fab-add > *:nth-child(2) { animation-delay: 0.06s; }
 
-/* Модалки: не вылезают за экран телефона (dvh + safe-area) */
+/* ???????: ?? ???????? ?? ????? ???????? (dvh + safe-area) */
 .app-modal-overlay {
     padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
     padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
@@ -269,8 +269,8 @@ html.dark .glass-seg__btn.is-active,
 #player-card {
     max-height: min(85vh, calc(100dvh - 1rem - env(safe-area-inset-bottom, 0px))) !important;
 }
-/* На телефоне при анализаторах прячем FAB (Guessr / добавить звук) и верхние кнопки —
-   на десктопе они остаются, плеер не расширяется. */
+/* ?? ???????? ??? ???????????? ?????? FAB (Guessr / ???????? ????) ? ??????? ?????? ?
+   ?? ???????? ??? ????????, ????? ?? ???????????. */
 @media (max-width: 767px) {
     body.player-analyzers-open #map-top-right-controls,
     body.player-analyzers-open #fab-add {
@@ -386,7 +386,7 @@ html.dark .glass-seg__btn.is-active,
     width: 1.4rem;
     height: 1.4rem;
     border-radius: 9999px;
-    background: #2563eb;
+    background: #ff5a3d;
     color: #fff;
     font-size: 10px;
     font-weight: 800;
@@ -417,9 +417,9 @@ html.dark .glass-seg__btn.is-active,
 }
 .lightbox-dot.active { background: #fff; width: 1rem; }
 
-/* Тёмная тема */
+/* ?????? ???? */
 body.dark-mode { background-color: transparent; color: var(--ink); }
-/* Surfaces styled by glass.css — do not force opaque slate fills here */
+/* Surfaces styled by glass.css ? do not force opaque slate fills here */
 body.dark-mode .text-slate-800 { color: #f1f5f9; }
 body.dark-mode .text-slate-600 { color: #cbd5e1; }
 body.dark-mode .modal-input,
@@ -435,7 +435,7 @@ body.dark-mode .modal-input::placeholder,
     opacity: 1;
 }
 
-/* Кастомный скроллбар */
+/* ????????? ????????? */
 .custom-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: #94a3b8 transparent;
@@ -480,13 +480,13 @@ body.dark-mode .modal-input::placeholder,
 
 [class*="gototech"] { display: none !important; }
 
-/* Маркеры: Увеличенные для телефонов */
+/* ???????: ??????????? ??? ????????? */
 .custom-marker { border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: transform 0.2s; cursor: pointer; }
 .dark .custom-marker { border-color: #1e293b; }
 .custom-marker.selected { transform: scale(1.3); z-index: 1000 !important; border-color: #0f172a; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.4); }
 .dark .custom-marker.selected { border-color: #f8fafc; }
 
-/* Превью метки при наведении */
+/* ?????? ????? ??? ????????? */
 .marker-hover-card {
     position: fixed;
     z-index: 9996;
@@ -575,12 +575,12 @@ body.dark-mode .modal-input::placeholder,
     .marker-hover-card { display: none !important; }
 }
 
-/* Цвета слоев */
+/* ????? ????? */
 .marker-geo { background-color: #38bdf8; } 
 .marker-bio { background-color: #4ade80; } 
 .marker-anthro { background-color: #f97316; } 
 
-/* Логика боковой панели */
+/* ?????? ??????? ?????? */
 #sidebar {
     position: absolute;
     top: 1rem; left: 1rem; bottom: 1rem;
@@ -600,7 +600,7 @@ body.dark-mode .modal-input::placeholder,
     pointer-events: auto !important;
 }
 
-/* Скелетон загрузки списка */
+/* ???????? ???????? ?????? */
 .skeleton-line {
     height: 14px;
     border-radius: 8px;
@@ -617,7 +617,7 @@ body.dark-mode .modal-input::placeholder,
     100% { background-position: -200% 0; }
 }
 
-/* Статистика */
+/* ?????????? */
 .stat-card {
     background: #fff;
     border: 1px solid #e2e8f0;
@@ -643,7 +643,7 @@ body.dark-mode .modal-input::placeholder,
     color: #94a3b8;
 }
 
-/* Вкладки личного кабинета — горизонтальный bar без сжатия кнопок */
+/* ??????? ??????? ???????? ? ?????????????? bar ??? ?????? ?????? */
 .cabinet-tabs {
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
@@ -679,8 +679,8 @@ body.dark-mode .modal-input::placeholder,
     border-bottom-color: #f87171;
 }
 
-/* FAB: на телефоне — под профилем (классы в HTML). На ПК — всегда правый нижний угол,
-   без прыжков при открытии плеера/анализаторов. */
+/* FAB: ?? ???????? ? ??? ???????? (?????? ? HTML). ?? ?? ? ?????? ?????? ?????? ????,
+   ??? ??????? ??? ???????? ??????/????????????. */
 @media (min-width: 768px) {
     #fab-add {
         top: auto !important;
@@ -693,11 +693,11 @@ body.dark-mode .modal-input::placeholder,
     }
 }
 
-/* Анимация плеера */
+/* ???????? ?????? */
 #player-card { transition: transform 0.55s var(--ease-out), opacity 0.35s ease; will-change: transform; }
-/* Ширина плеера не меняется при открытии анализаторов */
+/* ?????? ?????? ?? ???????? ??? ???????? ???????????? */
 
-/* Анализаторы Web Audio: панель и «экран» прибора следуют теме приложения */
+/* ??????????? Web Audio: ?????? ? ??????? ??????? ??????? ???? ?????????? */
 :root {
     --analyzer-screen-bg: #f8fafc;
     --analyzer-screen-border: #e2e8f0;
@@ -706,10 +706,10 @@ body.dark-mode .modal-input::placeholder,
     --analyzer-grid: rgba(100, 116, 139, 0.4);
     --analyzer-grid-soft: rgba(100, 116, 139, 0.22);
     --analyzer-label: rgba(51, 65, 85, 0.92);
-    --analyzer-stroke: #0284c7;
-    --analyzer-stroke-glow: rgba(2, 132, 199, 0.4);
-    --analyzer-ambi-stroke: #6366f1;
-    --analyzer-ambi-glow: rgba(99, 102, 241, 0.4);
+    --analyzer-stroke: #e84a2f;
+    --analyzer-stroke-glow: rgba(232, 74, 47, 0.4);
+    --analyzer-ambi-stroke: #ff7a5c;
+    --analyzer-ambi-glow: rgba(255, 122, 92, 0.4);
     --analyzer-loudness-cover: #f8fafc;
     --analyzer-loudness-peak: #0f172a;
     --analyzer-axis: rgba(51, 65, 85, 0.9);
@@ -724,10 +724,10 @@ html.dark,
     --analyzer-grid: rgba(148, 163, 184, 0.28);
     --analyzer-grid-soft: rgba(148, 163, 184, 0.16);
     --analyzer-label: rgba(203, 213, 225, 0.85);
-    --analyzer-stroke: #38bdf8;
-    --analyzer-stroke-glow: rgba(56, 189, 248, 0.55);
-    --analyzer-ambi-stroke: #818cf8;
-    --analyzer-ambi-glow: rgba(129, 140, 248, 0.6);
+    --analyzer-stroke: #ff7a5c;
+    --analyzer-stroke-glow: rgba(255, 122, 92, 0.55);
+    --analyzer-ambi-stroke: #ffab91;
+    --analyzer-ambi-glow: rgba(255, 171, 145, 0.55);
     --analyzer-loudness-cover: #0f172a;
     --analyzer-loudness-peak: #f8fafc;
     --analyzer-axis: rgba(226, 232, 240, 0.9);
@@ -750,8 +750,8 @@ html.dark,
 .dark .analyzer-panel-sky { border-color: rgba(7, 89, 133, 0.5); }
 .analyzer-panel-fuchsia { border-color: #f5d0fe; }
 .dark .analyzer-panel-fuchsia { border-color: rgba(134, 25, 143, 0.5); }
-.analyzer-panel-emerald { border-color: #a7f3d0; }
-.dark .analyzer-panel-emerald { border-color: rgba(6, 95, 70, 0.5); }
+.analyzer-panel-emerald { border-color: #ffd5cc; }
+.dark .analyzer-panel-emerald { border-color: rgba(232, 74, 47, 0.45); }
 
 .goniometer-canvas-wrap,
 .spectrum-canvas-wrap {
@@ -809,7 +809,7 @@ html.dark,
     border-radius: 6px;
     overflow: hidden;
     background: linear-gradient(to top,
-        #22c55e 0%, #22c55e 55%,
+        #94a3b8 0%, #64748b 45%,
         #eab308 70%, #f97316 85%,
         #ef4444 95%, #ef4444 100%);
 }
@@ -840,22 +840,22 @@ html.dark,
 .loudness-db-label-v {
     font-size: 9px;
     font-weight: 700;
-    color: #2563eb;
+    color: #ff5a3d;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     min-width: 34px;
     text-align: center;
 }
-.dark .loudness-db-label-v { color: #5eead4; }
+.dark .loudness-db-label-v { color: #ff7a5c; }
 #btn-analyzer-toggle.active {
-    background: #dbeafe;
-    color: #2563eb;
+    background: #ffe8e3;
+    color: #e84a2f;
 }
 .dark #btn-analyzer-toggle.active {
-    background: #1e3a5f;
-    color: #60a5fa;
+    background: #3d221c;
+    color: #ff7a5c;
 }
 
-/* --- Аналитика (React + Motion, без сборщика, см. src/widgets/analytics-widget.js) --- */
+/* --- ????????? (React + Motion, ??? ????????, ??. src/widgets/analytics-widget.js) --- */
 .analytics-widget { display: flex; flex-direction: column; gap: 0.85rem; }
 .analytics-cards-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
 .analytics-stat-card {
@@ -960,7 +960,7 @@ textarea.modal-input {
     overflow-wrap: anywhere;
 }
 
-/* Базовые тайлы карты */
+/* ??????? ????? ????? */
 #map [class*="-ground-pane"], #map [class*="-copyrights-pane"] { transition: filter 0.5s ease; }
 .dark #map:not(.map-monochrome) [class*="-ground-pane"], .dark #map:not(.map-monochrome) [class*="-copyrights-pane"] { filter: invert(90%) hue-rotate(180deg) brightness(0.8) contrast(1.1); }
 #map.map-monochrome [class*="-ground-pane"], #map.map-monochrome [class*="-copyrights-pane"],
@@ -975,12 +975,12 @@ textarea.modal-input {
 .meta-value { font-size: 0.85rem; font-weight: 500; color: #334155; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; hyphens: auto; }
 .dark .meta-value { color: #cbd5e1; }
 
-/* Сетка для картинок */
+/* ????? ??? ???????? */
 .image-preview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
 .image-thumb { width: 100%; aspect-ratio: 1; border-radius: 8px; object-fit: cover; border: 1px solid #e2e8f0; }
 .dark .image-thumb { border-color: #334155; }
 
-/* Иконка человека (Soundwalker) */
+/* ?????? ???????? (Soundwalker) */
 .walker-marker {
     width: 24px; height: 24px; border-radius: 50%; border: 2px solid white;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;
@@ -1000,10 +1000,10 @@ textarea.modal-input {
     touch-action: none; 
 }
 
-/* --- Публичный профиль рекордиста + приватная панель публикаций --- */
+/* --- ????????? ??????? ?????????? + ????????? ?????? ?????????? --- */
 
-/* Статус модерации: одна и та же пилюля используется и в приватном кабинете (свои звуки),
-   и в списке админки, и в чужом портфолио (когда владелец сам просматривает свой профиль). */
+/* ?????? ?????????: ???? ? ?? ?? ?????? ???????????? ? ? ????????? ???????? (???? ?????),
+   ? ? ?????? ???????, ? ? ????? ????????? (????? ???????? ??? ????????????? ???? ???????). */
 .pub-status-pill {
     display: inline-flex;
     align-items: center;
@@ -1024,7 +1024,7 @@ textarea.modal-input {
 .pub-status-draft { background: #e2e8f0; color: #475569; }
 .dark .pub-status-draft { background: rgba(71, 85, 105, 0.35); color: #cbd5e1; }
 
-/* Чипы гир-листа (оборудование рекордиста) */
+/* ???? ???-????? (???????????? ??????????) */
 .gear-chip {
     display: inline-flex;
     align-items: center;
@@ -1040,7 +1040,7 @@ textarea.modal-input {
 .dark .gear-chip { background: #1e293b; color: #cbd5e1; border-color: #334155; }
 .gear-chip i { opacity: 0.7; font-size: 10px; }
 
-/* Чипы бейджей доверия — каждый вид со своим акцентным цветом */
+/* ???? ??????? ??????? ? ?????? ??? ?? ????? ????????? ?????? */
 .badge-chip {
     display: inline-flex;
     align-items: center;
@@ -1052,8 +1052,8 @@ textarea.modal-input {
     border-width: 1px;
     white-space: nowrap;
 }
-.badge-chip-verified { background: #dbeafe; color: #1d4ed8; border-color: #bfdbfe; }
-.dark .badge-chip-verified { background: rgba(29, 78, 216, 0.25); color: #60a5fa; border-color: rgba(29, 78, 216, 0.4); }
+.badge-chip-verified { background: #ffe8e3; color: #e84a2f; border-color: #ffd5cc; }
+.dark .badge-chip-verified { background: rgba(232, 74, 47, 0.25); color: #ff7a5c; border-color: rgba(232, 74, 47, 0.4); }
 .badge-chip-geo { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
 .dark .badge-chip-geo { background: rgba(3, 105, 161, 0.25); color: #38bdf8; border-color: rgba(3, 105, 161, 0.4); }
 .badge-chip-bio { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
@@ -1061,7 +1061,7 @@ textarea.modal-input {
 .badge-chip-anthro { background: #ffedd5; color: #c2410c; border-color: #fed7aa; }
 .dark .badge-chip-anthro { background: rgba(194, 65, 12, 0.25); color: #fb923c; border-color: rgba(194, 65, 12, 0.4); }
 
-/* Ссылки на внешние профессиональные ресурсы в публичном профиле */
+/* ?????? ?? ??????? ???????????????? ??????? ? ????????? ??????? */
 .profile-link-chip {
     display: inline-flex;
     align-items: center;
@@ -1071,15 +1071,15 @@ textarea.modal-input {
     font-size: 11px;
     font-weight: 600;
     background: #fff;
-    color: #2563eb;
+    color: #ff5a3d;
     border: 1px solid #e2e8f0;
     transition: background-color 0.15s ease, transform 0.15s ease;
 }
-.profile-link-chip:hover { background: #eff6ff; transform: translateY(-1px); }
-.dark .profile-link-chip { background: #1e293b; color: #60a5fa; border-color: #334155; }
+.profile-link-chip:hover { background: #fff5f2; transform: translateY(-1px); }
+.dark .profile-link-chip { background: #1e293b; color: #ff7a5c; border-color: #334155; }
 .dark .profile-link-chip:hover { background: #0f172a; }
 
-/* Вкладки-фильтры портфолио (Все / Гео / Био / Антро) */
+/* ???????-??????? ????????? (??? / ??? / ??? / ?????) */
 .pp-filter-btn {
     flex-shrink: 0;
     padding: 6px 14px;
@@ -1095,10 +1095,10 @@ textarea.modal-input {
 .dark .pp-filter-btn { background: #1e293b; color: #94a3b8; border-color: #334155; }
 .pp-filter-btn:hover { background: #f1f5f9; }
 .dark .pp-filter-btn:hover { background: #0f172a; }
-.pp-filter-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+.pp-filter-btn.active { background: #ff5a3d; color: #fff; border-color: #ff5a3d; }
 .dark .pp-filter-btn.active { background: #3b82f6; border-color: #3b82f6; }
 
-/* Сетка карточек портфолио */
+/* ????? ???????? ????????? */
 .portfolio-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -1148,7 +1148,7 @@ textarea.modal-input {
 }
 .dark .portfolio-card-thumb { border-color: #334155; background: #0f172a; }
 
-/* Личная акустическая карта — облегчённая ymaps.Map внутри профиля */
+/* ?????? ???????????? ????? ? ??????????? ymaps.Map ?????? ??????? */
 .profile-mini-map-wrap {
     width: 100%;
     height: 220px;
@@ -1216,9 +1216,9 @@ textarea.modal-input {
 .dark .action-sheet-item--warning { color: #fbbf24 !important; }
 .action-sheet-item--warning:hover { background: #fffbeb !important; }
 .dark .action-sheet-item--warning:hover { background: rgba(120, 53, 15, 0.25) !important; }
-.action-sheet-item--primary { color: #2563eb !important; }
-.dark .action-sheet-item--primary { color: #60a5fa !important; }
-.action-sheet-item--primary:hover { background: #eff6ff !important; }
+.action-sheet-item--primary { color: #ff5a3d !important; }
+.dark .action-sheet-item--primary { color: #ff7a5c !important; }
+.action-sheet-item--primary:hover { background: #fff5f2 !important; }
 .dark .action-sheet-item--primary:hover { background: rgba(30, 58, 138, 0.3) !important; }
 .action-sheet-item--danger { color: #dc2626 !important; }
 .dark .action-sheet-item--danger { color: #f87171 !important; }
@@ -1267,7 +1267,7 @@ textarea.modal-input {
 }
 .analytics-line-chart path.line {
     fill: none;
-    stroke: #2563eb;
+    stroke: #ff5a3d;
     stroke-width: 2.5;
     stroke-linecap: round;
     stroke-linejoin: round;
@@ -1277,7 +1277,7 @@ textarea.modal-input {
     stroke: none;
 }
 .dark .analytics-line-chart path.area { fill: rgba(96, 165, 250, 0.15); }
-.dark .analytics-line-chart path.line { stroke: #60a5fa; }
+.dark .analytics-line-chart path.line { stroke: #ff7a5c; }
 .picker-route-points {
     display: flex;
     flex-wrap: wrap;
@@ -1300,7 +1300,7 @@ textarea.modal-input {
     color: #fca5a5;
 }
 
-/* Список пользователей в админ-панели (назначение бейджей доверия) */
+/* ?????? ????????????? ? ?????-?????? (?????????? ??????? ???????) */
 .admin-user-row {
     background: #fff;
     border: 1px solid #e2e8f0;
@@ -1333,10 +1333,10 @@ textarea.modal-input {
 .dark .badge-toggle-chip { background: #0f172a; color: #94a3b8; border-color: #334155; }
 .badge-toggle-chip:hover { background: #e2e8f0; }
 .dark .badge-toggle-chip:hover { background: #1e293b; }
-.badge-toggle-chip.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+.badge-toggle-chip.active { background: #ff5a3d; color: #fff; border-color: #ff5a3d; }
 .dark .badge-toggle-chip.active { background: #3b82f6; border-color: #3b82f6; }
 
-/* --- Экспедиции/сессии: группировка звуков перед массовой публикацией (кабинет) --- */
+/* --- ??????????/??????: ??????????? ?????? ????? ???????? ??????????? (???????) --- */
 .session-card {
     background: #fff;
     border: 1px solid #e2e8f0;
@@ -1372,7 +1372,7 @@ textarea.modal-input {
 .dark .session-sound-row { color: #cbd5e1; }
 .dark .session-sound-row:hover { background: #0f172a; }
 
-/* --- Очередь модерации: переключатель "Все записи / На модерации" в админ-панели --- */
+/* --- ??????? ?????????: ????????????? "??? ?????? / ?? ?????????" ? ?????-?????? --- */
 .admin-filter-btn {
     flex: 1;
     padding: 0.55rem 0.75rem;
@@ -1400,7 +1400,7 @@ textarea.modal-input {
 }
 .admin-filter-btn.active .admin-filter-count { background: rgba(185, 28, 28, 0.18); }
 
-/* --- Статистика/реакции/жалоба в карточке деталей метки --- */
+/* --- ??????????/???????/?????? ? ???????? ??????? ????? --- */
 .details-stat-chip {
     display: inline-flex; align-items: center; gap: 5px;
     padding: 5px 10px; border-radius: 9999px;
@@ -1419,8 +1419,8 @@ textarea.modal-input {
 .dark .details-reaction-btn { background: #1e293b; color: #94a3b8; }
 .details-reaction-btn:hover { background: #e2e8f0; }
 .dark .details-reaction-btn:hover { background: #334155; }
-.details-reaction-btn.active { background: #dbeafe; color: #2563eb; border-color: #bfdbfe; }
-.dark .details-reaction-btn.active { background: rgba(37, 99, 235, 0.25); color: #60a5fa; border-color: rgba(96, 165, 250, 0.35); }
+.details-reaction-btn.active { background: #ffe8e3; color: #ff5a3d; border-color: #ffd5cc; }
+.dark .details-reaction-btn.active { background: rgba(255, 90, 61, 0.25); color: #ff7a5c; border-color: rgba(255, 122, 92, 0.35); }
 .details-report-btn {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 5px 10px; border-radius: 9999px;
@@ -1433,11 +1433,11 @@ textarea.modal-input {
 .details-report-btn:hover { background: #fee2e2; }
 .dark .details-report-btn:hover { background: rgba(220, 38, 38, 0.28); }
 
-/* --- Комментарии: клик по автору -> профиль, меню "...", реакция, ответы --- */
+/* --- ???????????: ???? ?? ?????? -> ???????, ???? "...", ???????, ?????? --- */
 .comment-author-link {
-    font-weight: 700; color: #2563eb; cursor: pointer;
+    font-weight: 700; color: #ff5a3d; cursor: pointer;
 }
-.dark .comment-author-link { color: #60a5fa; }
+.dark .comment-author-link { color: #ff7a5c; }
 .comment-author-link:hover { text-decoration: underline; }
 .comment-menu-btn {
     width: 22px; height: 22px; border-radius: 9999px;
@@ -1487,7 +1487,7 @@ textarea.modal-input {
     color: #94a3b8;
 }
 
-/* --- Уведомления --- */
+/* --- ??????????? --- */
 .notif-item {
     display: flex;
     align-items: flex-start;
@@ -1498,7 +1498,7 @@ textarea.modal-input {
 }
 .notif-item:hover { background: #f1f5f9; }
 .dark .notif-item:hover { background: #1e293b; }
-.notif-item.unread { background: #eff6ff; }
+.notif-item.unread { background: #fff5f2; }
 .dark .notif-item.unread { background: rgba(37, 99, 235, 0.15); }
 .notif-item-icon {
     width: 1.1rem;
@@ -1508,7 +1508,7 @@ textarea.modal-input {
     flex-shrink: 0;
 }
 
-/* --- Сводка действий пользователя --- */
+/* --- ?????? ???????? ???????????? --- */
 .activity-row {
     display: flex;
     align-items: center;
@@ -1537,7 +1537,7 @@ textarea.modal-input {
     transition: border-color 0.15s ease, transform 0.15s ease;
 }
 .dark .pp-expedition-card { background: #1e293b; border-color: #334155; }
-.pp-expedition-card:hover { border-color: #2563eb; transform: translateY(-1px); }
+.pp-expedition-card:hover { border-color: #ff5a3d; transform: translateY(-1px); }
 
 .feed-card {
     border-radius: 1rem;
@@ -1558,7 +1558,7 @@ textarea.modal-input {
 }
 .dark .feed-card--sound:hover,
 .dark .feed-card:hover {
-    border-color: #1d4ed8;
+    border-color: #e84a2f;
     box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
 }
 .feed-card--info:hover { transform: none; box-shadow: none; border-color: #e2e8f0; }
@@ -1573,7 +1573,7 @@ textarea.modal-input {
     margin-bottom: 4px;
 }
 .feed-card__badge--exp { color: #7c3aed; }
-.feed-card__badge--info { color: #2563eb; }
+.feed-card__badge--info { color: #ff5a3d; }
 .feed-card__badge--tip { color: #059669; }
 .feed-card__badge--notice { color: #d97706; }
 .feed-card__badge--article { color: #7c3aed; }
@@ -1581,13 +1581,13 @@ textarea.modal-input {
     width: 100%;
     padding: 0.7rem 0.9rem;
     border-radius: 0.9rem;
-    background: #2563eb;
+    background: #ff5a3d;
     color: #fff;
     font-size: 12px;
     font-weight: 700;
     transition: background 0.15s ease;
 }
-.feed-admin-create:hover { background: #1d4ed8; }
+.feed-admin-create:hover { background: #e84a2f; }
 .feed-card--notice { background: #fffbeb; border-color: #fde68a; }
 .dark .feed-card--notice { background: #42200633; border-color: #92400e66; }
 .feed-card--post:hover { border-color: #a78bfa; }
@@ -1596,14 +1596,14 @@ textarea.modal-input {
     align-items: center;
     padding: 0.25rem 0.55rem;
     border-radius: 999px;
-    background: #eff6ff;
-    color: #1d4ed8;
+    background: #fff5f2;
+    color: #e84a2f;
     font-size: 11px;
     font-weight: 700;
-    border: 1px solid #bfdbfe;
+    border: 1px solid #ffd5cc;
     transition: background 0.15s ease;
 }
-.exp-participant-chip:hover { background: #dbeafe; }
+.exp-participant-chip:hover { background: #ffe8e3; }
 .dark .exp-participant-chip {
     background: #1e3a8a44;
     color: #93c5fd;
@@ -1743,9 +1743,9 @@ textarea.modal-input {
     pointer-events: none;
 }
 .msg-support-row {
-    border: 1px solid #bfdbfe;
+    border: 1px solid #ffd5cc;
     border-radius: 0.9rem;
-    background: #eff6ff;
+    background: #fff5f2;
 }
 .dark .msg-support-row {
     border-color: #1e3a8a;
@@ -1785,7 +1785,7 @@ textarea.modal-input {
 }
 .dark .msg-bubble { background: #1e293b; color: #e2e8f0; }
 .msg-bubble.mine {
-    background: #2563eb;
+    background: #ff5a3d;
     color: #fff;
     align-self: flex-end;
     margin-left: auto;
@@ -1811,8 +1811,8 @@ textarea.modal-input {
 .msg-ticks.is-read { color: #93c5fd; }
 .msg-ticks--list { font-size: 10px; opacity: 1; }
 .msg-ticks--list.is-delivered { color: #94a3b8; }
-.msg-ticks--list.is-read { color: #2563eb; }
-.dark .msg-ticks--list.is-read { color: #60a5fa; }
+.msg-ticks--list.is-read { color: #ff5a3d; }
+.dark .msg-ticks--list.is-read { color: #ff7a5c; }
 .msg-bubble-reply {
     font-size: 10px;
     opacity: 0.75;
@@ -1899,7 +1899,7 @@ textarea.modal-input {
     }
 }
 
-/* --- Вкладка "Экспедиции" в левой панели звуков --- */
+/* --- ??????? "??????????" ? ????? ?????? ?????? --- */
 .sidebar-expedition-reset {
     display: flex; align-items: center; gap: 6px;
     width: 100%;
@@ -1911,7 +1911,7 @@ textarea.modal-input {
     margin-bottom: 2px;
 }
 .dark .sidebar-expedition-reset { background: #1e293b; color: #94a3b8; }
-.sidebar-expedition-reset.active { background: #2563eb; color: #fff; }
+.sidebar-expedition-reset.active { background: #ff5a3d; color: #fff; }
 .sidebar-expedition-card {
     background: #fff;
     border: 1px solid #e2e8f0;
@@ -1922,7 +1922,7 @@ textarea.modal-input {
 }
 .dark .sidebar-expedition-card { background: #1e293b; border-color: #334155; }
 .sidebar-expedition-card:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08); }
-.sidebar-expedition-card.active { border-color: #2563eb; background: #eff6ff; }
+.sidebar-expedition-card.active { border-color: #ff5a3d; background: #fff5f2; }
 .dark .sidebar-expedition-card.active { border-color: #3b82f6; background: rgba(37, 99, 235, 0.15); }
 .sidebar-expedition-count {
     font-size: 10px; font-weight: 700;
@@ -1943,9 +1943,9 @@ textarea.modal-input {
     margin-top: 2px;
 }
 .dark .sidebar-expedition-add { border-color: #334155; color: #94a3b8; }
-.sidebar-expedition-add:hover { border-color: #2563eb; color: #2563eb; }
+.sidebar-expedition-add:hover { border-color: #ff5a3d; color: #ff5a3d; }
 
-/* --- Жалобы в админ-панели --- */
+/* --- ?????? ? ?????-?????? --- */
 .admin-report-row {
     background: #fff;
     border: 1px solid #fee2e2;
