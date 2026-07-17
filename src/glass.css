@@ -1,80 +1,116 @@
 /**
- * Liquid grainy glass — overrides. Loaded AFTER style.css.
- * Signature: map must read through panels (low alpha + heavy blur).
+ * Stable frosted glass for RO.SMap (product-safe).
+ * Rules: no overflow hacks, no child position overrides, cheap blur, map stays interactive.
  */
 :root {
-    --ink: #0f1a16;
-    --ink-muted: #3d4f48;
-    --glass-bg: rgba(255, 255, 255, 0.14);
-    --glass-bg-strong: rgba(255, 255, 255, 0.24);
-    --glass-border-outer: rgba(255, 255, 255, 0.5);
-    --glass-highlight: rgba(255, 255, 255, 0.9);
-    --glass-shadow:
-        0 10px 40px rgba(15, 26, 22, 0.16),
-        0 2px 10px rgba(15, 26, 22, 0.08),
-        inset 0 1px 0 rgba(255, 255, 255, 0.75),
-        inset 0 -1px 0 rgba(255, 255, 255, 0.15);
-    --glass-blur: 52px;
-    --grain-opacity: 0.08;
-    --panel: var(--glass-bg-strong);
-    --panel-solid: rgba(255, 255, 255, 0.88);
-    --panel-border: var(--glass-border-outer);
-    --panel-shadow: var(--glass-shadow);
-    --accent: #0d9488;
-    --accent-hover: #14b8a6;
-    --accent-soft: rgba(13, 148, 136, 0.2);
+    --ink: #14201c;
+    --ink-muted: #5a6b64;
+    --glass-fill: rgba(255, 255, 255, 0.72);
+    --glass-fill-soft: rgba(255, 255, 255, 0.55);
+    --glass-stroke: rgba(255, 255, 255, 0.65);
+    --glass-stroke-outer: rgba(20, 32, 28, 0.1);
+    --glass-shine: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+    --glass-elev: 0 10px 32px rgba(20, 32, 28, 0.12);
+    --glass-blur: 18px;
+    --grain-opacity: 0.035;
+    --accent: #0f766e;
+    --accent-hover: #0d9488;
+    --accent-soft: rgba(15, 118, 110, 0.14);
     --accent-ink: #0f766e;
+    --panel: var(--glass-fill);
+    --panel-solid: #f7faf8;
+    --panel-border: var(--glass-stroke-outer);
+    --panel-shadow: var(--glass-elev);
     --font-ui: "Satoshi", "Gilroy", "Plus Jakarta Sans", system-ui, sans-serif;
-    --font-brand: "Clash Display", "Gilroy", "Satoshi", sans-serif;
-    --glass-text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+    --font-brand: "Clash Display", "Satoshi", "Gilroy", sans-serif;
+    --radius-md: 1.05rem;
+    --radius-lg: 1.4rem;
+    --radius-xl: 1.75rem;
+    --dur: 200ms;
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 html.dark,
 .dark {
-    --ink: #f2faf6;
-    --ink-muted: #a8c0b4;
-    --glass-bg: rgba(6, 14, 12, 0.3);
-    --glass-bg-strong: rgba(6, 14, 12, 0.42);
-    --glass-border-outer: rgba(255, 255, 255, 0.2);
-    --glass-highlight: rgba(255, 255, 255, 0.24);
-    --glass-shadow:
-        0 18px 50px rgba(0, 0, 0, 0.5),
-        0 4px 14px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.22),
-        inset 0 -1px 0 rgba(255, 255, 255, 0.06);
-    --glass-blur: 60px;
-    --grain-opacity: 0.1;
-    --panel: var(--glass-bg-strong);
-    --panel-solid: rgba(8, 14, 12, 0.9);
+    --ink: #eef6f1;
+    --ink-muted: #9bb0a6;
+    --glass-fill: rgba(18, 28, 24, 0.78);
+    --glass-fill-soft: rgba(18, 28, 24, 0.62);
+    --glass-stroke: rgba(255, 255, 255, 0.14);
+    --glass-stroke-outer: rgba(255, 255, 255, 0.12);
+    --glass-shine: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    --glass-elev: 0 14px 40px rgba(0, 0, 0, 0.45);
+    --glass-blur: 20px;
+    --grain-opacity: 0.045;
     --accent: #2dd4bf;
     --accent-hover: #5eead4;
-    --accent-soft: rgba(45, 212, 191, 0.24);
+    --accent-soft: rgba(45, 212, 191, 0.18);
     --accent-ink: #5eead4;
-    --glass-text-shadow: 0 1px 14px rgba(0, 0, 0, 0.55);
+    --panel: var(--glass-fill);
+    --panel-solid: #121e1a;
+    --panel-border: var(--glass-stroke-outer);
+    --panel-shadow: var(--glass-elev);
+}
+
+/* Single cheap grain — never blocks input */
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    pointer-events: none !important;
+    opacity: var(--grain-opacity);
+    mix-blend-mode: soft-light;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+    background-size: 160px 160px;
 }
 
 body {
+    font-family: var(--font-ui);
+    color: var(--ink);
     background: transparent !important;
-    font-family: var(--font-ui) !important;
 }
 
-body::before {
-    opacity: var(--grain-opacity) !important;
+.brand-title {
+    font-family: var(--font-brand);
+    font-weight: 700;
+    letter-spacing: -0.03em;
 }
 
-.brand-title,
-#player-title {
-    font-family: var(--font-brand) !important;
-    letter-spacing: -0.035em !important;
-    text-shadow: var(--glass-text-shadow);
-}
-
-/* Unified glass surfaces — force translucency over any Tailwind bg-* */
+/* ——— Glass shells only (no child position / overflow overrides) ——— */
 #sidebar.sidebar-panel,
 #player-card.player-shell,
 .map-icon-btn,
-#notif-panel,
-#toast-message,
+#notif-panel {
+    background: var(--glass-fill) !important;
+    background-color: var(--glass-fill) !important;
+    border: 1px solid var(--glass-stroke-outer) !important;
+    box-shadow: var(--glass-elev), var(--glass-shine) !important;
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
+}
+
+#sidebar.sidebar-panel {
+    border-radius: var(--radius-xl);
+    color: var(--ink);
+}
+
+#player-card.player-shell {
+    border-radius: var(--radius-xl);
+}
+
+.map-icon-btn {
+    color: var(--ink);
+}
+.map-icon-btn:hover {
+    color: var(--accent-ink);
+}
+
+#notif-panel {
+    border-radius: var(--radius-lg) !important;
+}
+
+/* Modals: readable, lighter blur — do NOT set overflow here */
 #settings-modal > div,
 #auth-modal > div,
 #cabinet-modal > div,
@@ -89,155 +125,130 @@ body.dark-mode #add-modal-content,
 body.dark-mode #details-modal-content,
 body.dark-mode #settings-modal-content,
 body.dark-mode #ui-modal-content {
-    background: var(--glass-bg-strong) !important;
-    background-color: var(--glass-bg-strong) !important;
-    border: 1px solid var(--glass-border-outer) !important;
-    box-shadow: var(--glass-shadow) !important;
-    backdrop-filter: blur(var(--glass-blur)) saturate(1.65) brightness(1.06) !important;
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.65) brightness(1.06) !important;
+    background: var(--glass-fill) !important;
+    background-color: var(--glass-fill) !important;
+    border: 1px solid var(--glass-stroke-outer) !important;
+    box-shadow: var(--glass-elev), var(--glass-shine) !important;
+    backdrop-filter: blur(14px) saturate(1.15);
+    -webkit-backdrop-filter: blur(14px) saturate(1.15);
 }
 
-#sidebar.sidebar-panel,
-#player-card.player-shell,
-#notif-panel,
-#settings-modal > div,
-#auth-modal > div,
-#cabinet-modal > div,
-#messages-modal-content,
-#add-modal-content,
-#details-modal-content,
-#ui-modal-content,
-#support-modal > div {
-    position: relative;
-    isolation: isolate;
-    overflow: hidden;
-}
-
-#sidebar.sidebar-panel::after,
-#player-card.player-shell::after,
-#notif-panel::after,
-#settings-modal > div::after,
-#auth-modal > div::after,
-#cabinet-modal > div::after,
-#messages-modal-content::after,
-#add-modal-content::after,
-#details-modal-content::after,
-#ui-modal-content::after,
-#support-modal > div::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-    z-index: 0;
-    background:
-        linear-gradient(150deg, rgba(255, 255, 255, 0.55) 0%, transparent 36%, transparent 68%, rgba(255, 255, 255, 0.1) 100%),
-        url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)' opacity='0.55'/%3E%3C/svg%3E");
-    background-size: auto, 110px 110px;
-    opacity: 0.65;
-    mix-blend-mode: soft-light;
-}
-
-#sidebar.sidebar-panel > *,
-#player-card.player-shell > *,
-#notif-panel > *,
-#settings-modal > div > *,
-#auth-modal > div > *,
-#cabinet-modal > div > *,
-#messages-modal-content > *,
-#add-modal-content > *,
-#details-modal-content > *,
-#ui-modal-content > *,
-#support-modal > div > * {
-    position: relative;
-    z-index: 1;
-}
-
-/* Strip opaque strips inside sidebar so glass stays continuous */
+/* Soften opaque Tailwind strips inside sidebar without killing contrast */
 #sidebar.sidebar-panel [class*="bg-slate-50"],
 #sidebar.sidebar-panel [class*="bg-slate-100"],
-#sidebar.sidebar-panel [class*="bg-white"],
 #sidebar.sidebar-panel .bg-slate-50\/70,
-#sidebar.sidebar-panel .bg-slate-50\/80,
-#sidebar.sidebar-panel .bg-slate-900\/40,
-#sidebar.sidebar-panel .bg-slate-900\/50 {
-    background: transparent !important;
-    background-color: transparent !important;
+#sidebar.sidebar-panel .bg-slate-50\/80 {
+    background-color: rgba(255, 255, 255, 0.28) !important;
 }
-
-#sidebar.sidebar-panel [class*="border-slate-100"],
-#sidebar.sidebar-panel [class*="border-slate-700"] {
-    border-color: rgba(255, 255, 255, 0.28) !important;
-}
-html.dark #sidebar.sidebar-panel [class*="border-slate"],
-.dark #sidebar.sidebar-panel [class*="border-slate"] {
-    border-color: rgba(255, 255, 255, 0.12) !important;
+html.dark #sidebar.sidebar-panel [class*="bg-slate-50"],
+html.dark #sidebar.sidebar-panel [class*="bg-slate-900"],
+.dark #sidebar.sidebar-panel [class*="bg-slate-50"],
+.dark #sidebar.sidebar-panel [class*="bg-slate-900"] {
+    background-color: rgba(0, 0, 0, 0.18) !important;
 }
 
 #sidebar-search-wrap input {
-    background: rgba(255, 255, 255, 0.2) !important;
-    border: 1px solid var(--glass-border-outer) !important;
-    backdrop-filter: blur(14px) !important;
+    background: var(--glass-fill-soft) !important;
+    border: 1px solid var(--glass-stroke-outer) !important;
+    color: var(--ink) !important;
 }
-html.dark #sidebar-search-wrap input,
-.dark #sidebar-search-wrap input {
-    background: rgba(0, 0, 0, 0.28) !important;
-}
-
-.map-icon-btn {
-    background: var(--glass-bg-strong) !important;
+#sidebar-search-wrap input:focus {
+    box-shadow: 0 0 0 2px var(--accent) !important;
 }
 
 .map-fab--primary {
-    background: color-mix(in srgb, var(--accent) 68%, transparent) !important;
-    backdrop-filter: blur(18px) saturate(1.4) !important;
-    -webkit-backdrop-filter: blur(18px) saturate(1.4) !important;
-    border: 1px solid rgba(255, 255, 255, 0.35) !important;
+    background: color-mix(in srgb, var(--accent) 92%, white 0%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.22) !important;
+    box-shadow: var(--glass-elev) !important;
+    /* no extra backdrop-filter — solid CTA is clearer & cheaper */
 }
 .map-fab--secondary {
-    background: color-mix(in srgb, #059669 65%, transparent) !important;
-    backdrop-filter: blur(18px) saturate(1.4) !important;
-    -webkit-backdrop-filter: blur(18px) saturate(1.4) !important;
-    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    background: #059669 !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    box-shadow: var(--glass-elev) !important;
 }
 
 .glass-switch-row,
 .glass-seg {
-    background: var(--glass-bg) !important;
-    border: 1px solid var(--glass-border-outer) !important;
-    backdrop-filter: blur(20px) saturate(1.45) !important;
-    -webkit-backdrop-filter: blur(20px) saturate(1.45) !important;
-    box-shadow: inset 0 1px 0 var(--glass-highlight) !important;
+    background: var(--glass-fill-soft) !important;
+    border: 1px solid var(--glass-stroke-outer) !important;
+    box-shadow: var(--glass-shine) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.glass-switch[aria-checked="true"] {
+    background: color-mix(in srgb, var(--accent) 82%, transparent);
+}
+
+.glass-seg__btn.is-active--accent {
+    background: var(--accent) !important;
+    color: #fff !important;
 }
 
 .sidebar-sound-row:hover {
-    background: rgba(255, 255, 255, 0.2) !important;
-    backdrop-filter: blur(10px);
+    background: var(--accent-soft) !important;
 }
-html.dark .sidebar-sound-row:hover,
-.dark .sidebar-sound-row:hover {
-    background: rgba(255, 255, 255, 0.08) !important;
+.sidebar-sound-row.is-active {
+    background: var(--accent-soft) !important;
+    border-color: color-mix(in srgb, var(--accent) 35%, transparent);
 }
+
+#player-card .player-play-btn {
+    background: var(--ink) !important;
+    color: #fff !important;
+}
+html.dark #player-card .player-play-btn,
+.dark #player-card .player-play-btn {
+    background: var(--accent) !important;
+    color: #0a1210 !important;
+}
+#player-card .player-icon-btn {
+    background: var(--accent-soft) !important;
+    color: var(--accent-ink) !important;
+    border: 1px solid transparent;
+    box-shadow: none !important;
+}
+
+#waveform-active { color: var(--accent) !important; }
+#playhead { background: var(--accent) !important; }
+#volume-slider { accent-color: var(--accent); }
 
 #toast-message {
+    background: var(--glass-fill) !important;
     color: var(--ink) !important;
+    border: 1px solid var(--glass-stroke-outer) !important;
+    box-shadow: var(--glass-elev) !important;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
 }
-#toast-message #toast-text {
-    color: var(--ink) !important;
-}
+#toast-message #toast-text { color: var(--ink) !important; }
 
-/* Modal overlays: softer blur so glass panels float over map */
+/* Modal dimmer — keep map usable feel, don't over-blur whole viewport */
 .app-modal-overlay {
-    background: rgba(15, 26, 22, 0.28) !important;
-    backdrop-filter: blur(10px) saturate(1.2) !important;
-    -webkit-backdrop-filter: blur(10px) saturate(1.2) !important;
+    background: rgba(15, 26, 22, 0.4) !important;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
 }
 html.dark .app-modal-overlay,
 .dark .app-modal-overlay {
-    background: rgba(0, 0, 0, 0.45) !important;
+    background: rgba(0, 0, 0, 0.55) !important;
+}
+
+/* Mobile perf: lighter blur */
+@media (max-width: 767px) {
+    :root { --glass-blur: 14px; }
+    #sidebar.sidebar-panel,
+    #player-card.player-shell,
+    .map-icon-btn,
+    #notif-panel {
+        backdrop-filter: blur(14px) saturate(1.15);
+        -webkit-backdrop-filter: blur(14px) saturate(1.15);
+    }
 }
 
 @media (prefers-reduced-transparency: reduce) {
+    body::before { display: none !important; }
     #sidebar.sidebar-panel,
     #player-card.player-shell,
     .map-icon-btn,
@@ -255,6 +266,12 @@ html.dark .app-modal-overlay,
         -webkit-backdrop-filter: none !important;
         background: var(--panel-solid) !important;
     }
-    #sidebar.sidebar-panel::after,
-    #player-card.player-shell::after { display: none !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #burger-btn,
+    #map-top-right-controls > *,
+    #fab-add > * {
+        animation: none !important;
+    }
 }
