@@ -1754,7 +1754,7 @@ window.setDockHeader = function(title, subtitle, showBack) {
             subEl.innerHTML = subtitle;
             subEl.removeAttribute('data-lang');
         } else {
-            subEl.innerHTML = '<i class="fa-solid fa-map-location-dot text-[#ff5a3d]"></i> Audio Map';
+            subEl.innerHTML = '<i class="fa-solid fa-map-location-dot text-[color:var(--accent)]"></i> Audio Map';
             subEl.setAttribute('data-lang', 'subtitle');
         }
     }
