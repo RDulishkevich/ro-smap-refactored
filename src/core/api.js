@@ -113,6 +113,57 @@ window.apiPresignUpload = function(fileName, contentType) {
     return window.apiRequest('presign', { fileName, contentType }, { auth: true });
 };
 
+/** Сжать картинку в JPEG blob (для аватара / вложений в чат). */
+window.compressImageFile = function(file, maxSide = 720, quality = 0.82) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+            try {
+                const scale = Math.min(1, maxSide / Math.max(img.width || 1, img.height || 1));
+                const w = Math.max(1, Math.round((img.width || 1) * scale));
+                const h = Math.max(1, Math.round((img.height || 1) * scale));
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                URL.revokeObjectURL(url);
+                canvas.toBlob(
+                    (blob) => (blob ? resolve(blob) : reject(new Error('compress_failed'))),
+                    'image/jpeg',
+                    quality
+                );
+            } catch (err) {
+                URL.revokeObjectURL(url);
+                reject(err);
+            }
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error('image_load_failed'));
+        };
+        img.src = url;
+    });
+};
+
+/** Presigned PUT в uploads/{login}/… → публичный URL. */
+window.uploadUserMedia = async function(blob, fileName, contentType) {
+    const login = window.currentUser?.loginName
+        || String(window.currentUser?.username || '').toLowerCase();
+    if (!login) throw Object.assign(new Error('unauthorized'), { code: 'unauthorized' });
+    const safeName = String(fileName || `file_${Date.now()}`).replace(/[^a-zA-Z0-9._-]/g, '_');
+    const key = `uploads/${login}/${safeName}`;
+    const type = contentType || blob.type || 'application/octet-stream';
+    const pre = await window.apiPresignUpload(key, type);
+    const putRes = await fetch(pre.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': type },
+        body: blob
+    });
+    if (!putRes.ok) throw new Error('Ошибка загрузки файла в облако');
+    return pre.publicUrl || `${window.YANDEX_BUCKET_URL}/${key}`;
+};
+
 /** Восстановить сессию после перезагрузки (JWT → me). */
 window.restoreAuthSession = async function() {
     const token = window.getAuthToken();

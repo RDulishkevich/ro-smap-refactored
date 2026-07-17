@@ -1168,31 +1168,46 @@ export function initAuth() {
         setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
     };
 
-    window.uploadProfilePhoto = function(files) {
-        if (!files || !files[0]) return;
+    window.uploadProfilePhoto = async function(files) {
+        if (!files || !files[0] || !window.currentUser) return;
+        if (!window.getAuthToken || !window.getAuthToken()) {
+            window.showToast('Войдите в аккаунт, чтобы сохранить фото');
+            return;
+        }
         const file = files[0];
-        const reader = new FileReader();
-        reader.onload = function(e) {
+        if (!file.type || !file.type.startsWith('image/')) {
+            window.showToast('Выберите изображение');
+            return;
+        }
+        window.showToast('Загрузка фото...');
+        try {
+            const blob = window.compressImageFile
+                ? await window.compressImageFile(file, 720, 0.82)
+                : file;
+            const url = await window.uploadUserMedia(
+                blob,
+                `avatar_${Date.now()}.jpg`,
+                'image/jpeg'
+            );
             const avatar = document.getElementById('cabinet-avatar');
             const fallback = document.getElementById('cabinet-avatar-fallback');
             if (avatar) {
-                avatar.src = e.target.result;
+                avatar.src = url;
                 avatar.classList.remove('hidden');
             }
             if (fallback) fallback.classList.add('hidden');
-            window.currentUser = window.currentUser || {};
-            if (window.saveMyProfile) window.saveMyProfile({ avatar: e.target.result }).then(() => {
+            const ok = await window.saveMyProfile({ avatar: url });
+            if (ok) {
                 if (window.evaluateFieldProgress) window.evaluateFieldProgress();
                 if (window.refreshProfileButtonAvatar) window.refreshProfileButtonAvatar();
-            });
-            else {
-                window.currentUser.avatar = e.target.result;
-                localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser));
-                if (window.refreshProfileButtonAvatar) window.refreshProfileButtonAvatar();
+                window.showToast('Фото профиля обновлено');
+            } else {
+                window.showToast('Не удалось сохранить фото профиля');
             }
-            window.showToast('Фото профиля обновлено');
-        };
-        reader.readAsDataURL(file);
+        } catch (err) {
+            console.error(err);
+            window.showToast(err.message || 'Не удалось загрузить фото');
+        }
     };
 
     window.changePassword = async function() {
@@ -2308,7 +2323,7 @@ export function initAuth() {
         if (!window.currentUser) return [];
         const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
         const profile = window.getProfileByLogin ? window.getProfileByLogin(login) : null;
-        const list = [...((profile && profile.notifications) || [])];
+        const list = [...((profile && profile.notifications) || [])].filter(n => n && !n.deleted);
         return list.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
     };
 
@@ -2463,10 +2478,24 @@ export function initAuth() {
         const updated = [...(window.profilesData || [])];
         const idx = updated.findIndex(p => p.loginName === login);
         if (idx < 0) return;
-        updated[idx] = { ...updated[idx], notifications: [] };
-        await window.syncProfilesData(updated);
+        const now = new Date().toISOString();
+        // Soft-delete: пустой массив при merge возвращает облачные уведомления обратно.
+        const cleared = (updated[idx].notifications || []).map(n => ({
+            ...n,
+            deleted: true,
+            read: true,
+            date: now
+        }));
+        updated[idx] = {
+            ...updated[idx],
+            notifications: cleared,
+            profileUpdatedAt: now
+        };
+        window.profilesData = updated;
         window.refreshNotificationsUI();
-        window.showToast('Уведомления очищены');
+        const saved = await window.syncProfilesData(updated);
+        window.refreshNotificationsUI();
+        window.showToast(saved ? 'Уведомления очищены' : 'Не удалось очистить уведомления');
     };
 
     // --- Личные сообщения между пользователями (inbox в profiles.json) ---
@@ -3082,14 +3111,28 @@ export function initAuth() {
 
     window.sendMessagePhoto = function(files) {
         if (!files || !files[0] || !files[0].type.startsWith('image/')) return;
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            window.__messagePendingImage = e.target.result;
-            await window.sendMessageInThread();
-            const input = document.getElementById('messages-photo-input');
-            if (input) input.value = '';
-        };
-        reader.readAsDataURL(files[0]);
+        const file = files[0];
+        (async () => {
+            try {
+                window.showToast('Загрузка фото...');
+                const blob = window.compressImageFile
+                    ? await window.compressImageFile(file, 1280, 0.8)
+                    : file;
+                const url = await window.uploadUserMedia(
+                    blob,
+                    `msg_${Date.now()}.jpg`,
+                    'image/jpeg'
+                );
+                window.__messagePendingImage = url;
+                await window.sendMessageInThread();
+            } catch (err) {
+                console.error(err);
+                window.showToast(err.message || 'Не удалось отправить фото');
+            } finally {
+                const input = document.getElementById('messages-photo-input');
+                if (input) input.value = '';
+            }
+        })();
     };
 
     window.updateTypingIndicator = function(peerLogin) {
@@ -3115,6 +3158,7 @@ export function initAuth() {
     };
 
     window.publishTypingStatus = async function(isTyping) {
+        if (window.__sendingMessage) return;
         if (!window.currentUser || !window.__activeMessagePeer) return;
         if (window.__messagingAsSupport) return;
         const peer = window.__activeMessagePeer;
@@ -3165,80 +3209,89 @@ export function initAuth() {
         const text = (input?.value || '').trim();
         const image = window.__messagePendingImage || null;
         if (!text && !image) return;
-        if (window.publishTypingStatus) window.publishTypingStatus(false);
+        if (window.__typingIdleTimer) clearTimeout(window.__typingIdleTimer);
+        window.__sendingMessage = true;
 
-        const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
-        const asSupport = !!window.__messagingAsSupport;
-        const updated = [...(window.profilesData || [])];
+        try {
+            const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+            const asSupport = !!window.__messagingAsSupport;
 
-        // Куда кладём сообщение и от чьего имени
-        let targetLogin = peer;
-        let fromId = myLogin;
-        let fromName = window.currentUser.username;
-        if (asSupport) {
-            // Админ → inbox пользователя от имени support
-            targetLogin = peer;
-            fromId = window.SUPPORT_LOGIN;
-            fromName = window.SUPPORT_NAME;
-            await window.ensureSupportProfile();
-        } else if (peer === window.SUPPORT_LOGIN) {
-            // Пользователь → inbox поддержки
-            targetLogin = window.SUPPORT_LOGIN;
-            await window.ensureSupportProfile();
-        }
+            // Куда кладём сообщение и от чьего имени
+            let targetLogin = peer;
+            let fromId = myLogin;
+            let fromName = window.currentUser.username;
+            if (asSupport) {
+                targetLogin = peer;
+                fromId = window.SUPPORT_LOGIN;
+                fromName = window.SUPPORT_NAME;
+                await window.ensureSupportProfile();
+            } else if (peer === window.SUPPORT_LOGIN) {
+                targetLogin = window.SUPPORT_LOGIN;
+                await window.ensureSupportProfile();
+            }
 
-        let idx = updated.findIndex(p => p.loginName === targetLogin);
-        if (idx < 0) {
-            updated.push({ loginName: targetLogin, displayName: targetLogin === window.SUPPORT_LOGIN ? window.SUPPORT_NAME : targetLogin, inbox: [] });
-            idx = updated.length - 1;
-        }
-        const msg = {
-            id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-            fromId,
-            fromName,
-            text,
-            image: image || undefined,
-            replyTo: window.__messageReplyTo || undefined,
-            reactions: {},
-            date: new Date().toISOString(),
-            read: false
-        };
-        updated[idx] = { ...updated[idx], inbox: [msg, ...(updated[idx].inbox || [])].slice(0, 200) };
+            const updated = [...(window.profilesData || [])];
+            // Снимаем «печатает» в том же write — без отдельной синхронизации перед отправкой.
+            const myIdx = updated.findIndex(p => String(p.loginName || '').toLowerCase() === myLogin);
+            if (myIdx >= 0 && updated[myIdx].typing) {
+                updated[myIdx] = { ...updated[myIdx], typing: null, lastSeen: new Date().toISOString() };
+            }
 
-        if (targetLogin !== window.SUPPORT_LOGIN) {
-            const isReply = !!window.__messageReplyTo;
-            const notifs = [...(updated[idx].notifications || [])];
-            notifs.unshift({
-                id: 'n' + Date.now().toString(36),
-                type: 'message',
-                text: asSupport
-                    ? (image && !text ? 'Поддержка отправила вам фото' : 'Поддержка ответила на ваше обращение')
-                    : (isReply
-                        ? `${window.currentUser.username} ответил(а) на ваше сообщение`
-                        : (image && !text
-                            ? `${window.currentUser.username} отправил(а) вам фото`
-                            : `${window.currentUser.username} написал(а) вам сообщение`)),
+            let idx = updated.findIndex(p => p.loginName === targetLogin);
+            if (idx < 0) {
+                updated.push({ loginName: targetLogin, displayName: targetLogin === window.SUPPORT_LOGIN ? window.SUPPORT_NAME : targetLogin, inbox: [] });
+                idx = updated.length - 1;
+            }
+            const msg = {
+                id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
                 fromId,
                 fromName,
+                text,
+                image: image || undefined,
+                replyTo: window.__messageReplyTo || undefined,
+                reactions: {},
                 date: new Date().toISOString(),
                 read: false
-            });
-            updated[idx] = { ...updated[idx], notifications: notifs.slice(0, 60) };
-        }
+            };
+            updated[idx] = { ...updated[idx], inbox: [msg, ...(updated[idx].inbox || [])].slice(0, 200) };
 
-        if (input) input.value = '';
-        window.__messagePendingImage = null;
-        window.cancelMessageReply();
-        window.hideEmojiPicker();
+            if (targetLogin !== window.SUPPORT_LOGIN) {
+                const isReply = !!window.__messageReplyTo;
+                const notifs = [...(updated[idx].notifications || [])];
+                notifs.unshift({
+                    id: 'n' + Date.now().toString(36),
+                    type: 'message',
+                    text: asSupport
+                        ? (image && !text ? 'Поддержка отправила вам фото' : 'Поддержка ответила на ваше обращение')
+                        : (isReply
+                            ? `${window.currentUser.username} ответил(а) на ваше сообщение`
+                            : (image && !text
+                                ? `${window.currentUser.username} отправил(а) вам фото`
+                                : `${window.currentUser.username} написал(а) вам сообщение`)),
+                    fromId,
+                    fromName,
+                    date: new Date().toISOString(),
+                    read: false
+                });
+                updated[idx] = { ...updated[idx], notifications: notifs.slice(0, 60) };
+            }
 
-        const ok = await window.syncProfilesData(updated);
-        if (ok) {
-            if (asSupport) window.openMessageThread(peer, { asSupport: true });
-            else window.openMessageThread(peer);
-            window.showToast('Сообщение отправлено', { sfx: 'send' });
-            window.touchMyPresence();
-        } else {
-            window.showToast('Не удалось отправить');
+            if (input) input.value = '';
+            window.__messagePendingImage = null;
+            window.cancelMessageReply();
+            window.hideEmojiPicker();
+
+            const ok = await window.syncProfilesData(updated);
+            if (ok) {
+                if (asSupport) window.openMessageThread(peer, { asSupport: true });
+                else window.openMessageThread(peer);
+                window.showToast('Сообщение отправлено', { sfx: 'send' });
+                window.touchMyPresence();
+            } else {
+                window.showToast('Не удалось отправить');
+            }
+        } finally {
+            window.__sendingMessage = false;
         }
     };
 

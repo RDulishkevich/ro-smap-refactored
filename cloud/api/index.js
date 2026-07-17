@@ -324,8 +324,12 @@ function mergeMapDataArrays(fresh = [], proposed = []) {
         if (s?.id == null) return;
         const cloud = map.get(s.id);
         if (!cloud) { map.set(s.id, s); return; }
-        if (s.deleted) { map.set(s.id, s); return; }
-        if (cloud.deleted && !s.deleted) { map.set(s.id, s); return; }
+        // Tombstone всегда побеждает «живую» копию — иначе удаление откатывается.
+        if (s.deleted) {
+            map.set(s.id, { ...cloud, ...s, deleted: true });
+            return;
+        }
+        if (cloud.deleted) return;
         map.set(s.id, {
             ...cloud,
             ...s,
@@ -442,8 +446,14 @@ function sanitizeProfiles(fresh, merged, user) {
                 ...p,
                 role: cloud.role === 'admin' ? 'admin' : 'user',
                 blocked: !!cloud.blocked,
-                badges: Array.isArray(cloud.badges) ? cloud.badges : [],
-                loginName: login
+                badges: Array.isArray(cloud.badges) ? cloud.badges : (p.badges || []),
+                loginName: login,
+                // Свои bio/avatar/links/gear всегда из proposed (после merge)
+                bio: p.bio,
+                avatar: p.avatar,
+                links: p.links,
+                gear: p.gear,
+                profileUpdatedAt: laterIso(cloud.profileUpdatedAt, p.profileUpdatedAt)
             };
         }
         return {

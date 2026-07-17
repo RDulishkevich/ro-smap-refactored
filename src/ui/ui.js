@@ -1128,8 +1128,12 @@ window.mergeMapDataArrays = function(fresh = [], proposed = []) {
         if (s?.id == null) return;
         const cloud = map.get(s.id);
         if (!cloud) { map.set(s.id, s); return; }
-        if (s.deleted) { map.set(s.id, s); return; }
-        if (cloud.deleted && !s.deleted) { map.set(s.id, s); return; }
+        // Tombstone всегда побеждает «живую» копию — иначе удаление откатывается.
+        if (s.deleted) {
+            map.set(s.id, { ...cloud, ...s, deleted: true });
+            return;
+        }
+        if (cloud.deleted) return;
         map.set(s.id, {
             ...cloud,
             ...s,
@@ -1410,15 +1414,12 @@ window.deleteSoundFromCloud = async function(id) {
         ? (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase())
         : null;
     window.showToast("Удаление...");
-    let updatedCloud = [...window.cloudDataCache];
-    const rawIds = window.rawSoundsData.map(s => s.id);
-    if (rawIds.includes(id)) {
-        let idx = updatedCloud.findIndex(x => x.id === id);
-        if(idx >= 0) updatedCloud[idx] = { id: id, deleted: true };
-        else updatedCloud.push({ id: id, deleted: true });
-    } else {
-        updatedCloud = updatedCloud.filter(s => s.id !== id);
-    }
+    // Всегда soft-delete: hard-remove из массива откатывается merge'ем из облака.
+    const updatedCloud = [...(window.cloudDataCache || [])];
+    const tombstone = { id, deleted: true, editedAt: new Date().toISOString() };
+    const idx = updatedCloud.findIndex(x => x && x.id === id);
+    if (idx >= 0) updatedCloud[idx] = { ...updatedCloud[idx], ...tombstone };
+    else updatedCloud.push(tombstone);
     const success = await window.syncCloudData(updatedCloud);
     if(success) {
         window.showToast("Звук успешно удален!");
