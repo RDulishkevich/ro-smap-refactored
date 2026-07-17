@@ -391,6 +391,7 @@ window.showMarkerHoverCard = function(sound) {
 
     const fillMeta = (durationLabel) => {
         metaEl.innerHTML = [
+            `<span><i class="fa-solid fa-fingerprint"></i>${window.escapeHoverText(window.getSoundDisplayId ? window.getSoundDisplayId(sound) : sound.id)}</span>`,
             durationLabel ? `<span><i class="fa-regular fa-clock"></i>${window.escapeHoverText(durationLabel)}</span>` : '',
             sound.recordist ? `<span><i class="fa-regular fa-user"></i>${window.escapeHoverText(sound.recordist)}</span>` : '',
             sound.ucsCat ? `<span><i class="fa-solid fa-tag"></i>${window.escapeHoverText(sound.ucsCat)}</span>` : ''

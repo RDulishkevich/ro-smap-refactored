@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260718r">
-    <link rel="stylesheet" href="./src/glass.css?v=20260718r">
+    <link rel="stylesheet" href="./src/style.css?v=20260718s">
+    <link rel="stylesheet" href="./src/glass.css?v=20260718s">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -96,14 +96,14 @@
             <button type="button" id="rail-expeditions" class="app-rail__btn" onclick="window.switchSidebarTab('expeditions')" title="Экспедиции">
                 <i class="fa-solid fa-route"></i>
             </button>
-            <button type="button" id="rail-admin" class="app-rail__btn app-rail__btn--admin relative hidden" onclick="window.openAdminPanel()" title="Админ-панель">
-                <i class="fa-solid fa-shield-halved"></i>
-                <span id="rail-admin-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[1rem] h-[1rem] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center shadow">0</span>
-            </button>
 
             <div class="app-rail__spacer" aria-hidden="true"></div>
 
             <div class="app-rail__account flex flex-col items-center gap-1.5">
+                <button type="button" id="rail-admin" class="app-rail__btn app-rail__btn--admin relative hidden" onclick="window.openAdminPanel()" title="Админ-панель">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span id="rail-admin-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[1rem] h-[1rem] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center shadow">0</span>
+                </button>
                 <div class="relative" id="msg-wrap">
                     <button type="button" onclick="window.toggleMessagesPanel()" id="msg-btn" class="hidden relative app-rail__btn" title="Сообщения" data-lang-title="messages_title">
                         <i class="fa-solid fa-envelope"></i>
@@ -393,12 +393,15 @@
 
                     <div id="admin-section-console" class="hidden flex flex-col min-h-[320px]">
                         <div class="flex items-center justify-between mb-2">
-                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500"><i class="fa-solid fa-terminal mr-1"></i>Консоль · 30 команд</p>
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500"><i class="fa-solid fa-terminal mr-1"></i>Консоль · 70+ команд</p>
                             <button type="button" class="text-[11px] font-semibold text-slate-400 hover:text-slate-600" onclick="window.adminConsoleClear()">Очистить</button>
                         </div>
                         <div id="admin-console-output" class="admin-console-output flex-1 min-h-[220px] mb-2"></div>
-                        <input id="admin-console-input" type="text" class="modal-input text-sm font-mono" placeholder="help · pending · approve &lt;id&gt; · …" onkeydown="window.onAdminConsoleKeydown(event)" autocomplete="off" spellcheck="false">
-                        <p class="text-[10px] text-slate-400 mt-1.5">Enter — выполнить. Список: <button type="button" class="underline" onclick="window.runAdminConsoleCommand('help')">help</button></p>
+                        <div class="admin-console-compose relative">
+                            <input id="admin-console-input" type="text" class="modal-input text-sm font-mono" placeholder="help · pending · approve &lt;id&gt; · …" onkeydown="window.onAdminConsoleKeydown(event)" oninput="window.onAdminConsoleInput(event)" autocomplete="off" spellcheck="false" aria-autocomplete="list" aria-controls="admin-console-suggest">
+                            <div id="admin-console-suggest" class="admin-console-suggest hidden" role="listbox"></div>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-1.5">Tab — подсказка · Enter — выполнить · <button type="button" class="underline" onclick="window.runAdminConsoleCommand('help')">help</button></p>
                     </div>
                 </div>
             </div>
@@ -413,9 +416,9 @@
                     <div id="help-panel-support" class="space-y-4">
                         <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
                             <h4 class="font-bold text-slate-800 dark:text-white mb-1">Поддержка и помощь</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Если что-то не работает или нужна помощь с картой — напишите нам.</p>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Сначала ответит бот по частым вопросам. Если ответ не подойдёт — напишите «обращение», и создастся тикет с номером для оператора.</p>
                             <button onclick="window.contactSupport()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
-                                <i class="fa-solid fa-circle-question"></i>Связаться с поддержкой
+                                <i class="fa-solid fa-circle-question"></i>Открыть чат поддержки
                             </button>
                         </div>
                     </div>
@@ -1604,6 +1607,7 @@
                     <div class="flex-grow min-w-0">
                         <div id="details-tags-container" class="flex flex-wrap gap-2 mb-3"></div>
                         <h2 id="details-title" class="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white leading-tight mb-2"></h2>
+                        <p id="details-sound-id" class="text-[11px] font-mono font-bold text-[color:var(--accent)] mb-1"></p>
                         <p id="details-filename" class="text-xs font-mono text-slate-400 dark:text-slate-500 break-all"></p>
                     </div>
                     
@@ -1838,7 +1842,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260718r"></script>
+    <script type="module" src="./src/main.js?v=20260718s"></script>
 
 </body>
 </html>

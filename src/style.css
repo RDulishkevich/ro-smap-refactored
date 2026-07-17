@@ -463,7 +463,44 @@ html.dark .glass-seg__btn.is-active,
 .admin-console-line--cmd { color: #93c5fd; }
 .admin-console-line--ok { color: #86efac; }
 .admin-console-line--error { color: #fca5a5; }
-.admin-console-line--info { color: #cbd5e1; }
+.admin-console-compose { position: relative; }
+.admin-console-suggest {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(100% + 4px);
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 20;
+    border-radius: 0.75rem;
+    border: 1px solid #334155;
+    background: #0f172a;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.admin-console-suggest__item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    width: 100%;
+    text-align: left;
+    padding: 0.45rem 0.65rem;
+    border: 0;
+    background: transparent;
+    color: #cbd5e1;
+    cursor: pointer;
+}
+.admin-console-suggest__item code {
+    font-size: 11px;
+    color: #93c5fd;
+}
+.admin-console-suggest__item span {
+    font-size: 10px;
+    color: #94a3b8;
+}
+.admin-console-suggest__item:hover,
+.admin-console-suggest__item.is-active {
+    background: rgba(59, 130, 246, 0.18);
+}
 
 /* Public profile */
 .pp-modal { max-height: min(92dvh, 760px); }

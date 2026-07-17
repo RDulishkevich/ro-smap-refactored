@@ -105,6 +105,7 @@ export function initAuth() {
             if (window.ensureSupportWelcome) window.ensureSupportWelcome();
             if (window.touchMyPresence) window.touchMyPresence(true);
             if (window.syncAccountChrome) window.syncAccountChrome();
+            if (window.refreshCabinetTabs) window.refreshCabinetTabs();
             if (window.__pendingSupportOpen) {
                 window.__pendingSupportOpen = false;
                 if (window.openMessagesModal) window.openMessagesModal(window.SUPPORT_LOGIN || 'support');
@@ -184,6 +185,7 @@ export function initAuth() {
         if (window.refreshMessagesUI) window.refreshMessagesUI();
         if (window.syncAccountChrome) window.syncAccountChrome();
         if (window.refreshProfileButtonAvatar) window.refreshProfileButtonAvatar();
+        if (window.refreshCabinetTabs) window.refreshCabinetTabs();
         const panel = document.getElementById('notif-panel');
         if (panel) panel.classList.add('hidden');
     };
@@ -229,6 +231,7 @@ export function initAuth() {
         if (window.refreshMessagesUI) window.refreshMessagesUI();
         if (window.__sidebarTab === 'feed' && window.renderSidebarFeed) window.renderSidebarFeed();
         if (window.refreshProfileButtonAvatar) window.refreshProfileButtonAvatar();
+        if (window.refreshCabinetTabs) window.refreshCabinetTabs();
     };
 
     // Единая точка сохранения профиля: патчит currentUser переданными полями и апсертит
@@ -1613,7 +1616,7 @@ export function initAuth() {
             return `
                 <div class="admin-entity-row">
                     <button type="button" class="admin-entity-main min-w-0 flex-1 text-left" onclick="window.openedFromAdmin=true; window.closeCabinet(); window.selectSound('${s.id}'); window.openDetailsModal();">
-                        <p class="admin-entity-num">№ ${num}${isHardcoded ? ' · вшито' : ''}</p>
+                        <p class="admin-entity-num">№ ${num}${isHardcoded ? ' · вшито' : ''} · ID ${s.id}</p>
                         <p class="admin-entity-title">${s.title || 'Без названия'}</p>
                         <p class="admin-entity-meta">${s.fileName || ''} · ${s.recordist || 'Автор'} · ${statusLabel}</p>
                         ${status === 'rejected' && s.rejectionReason ? `<p class="text-[11px] text-red-500 mt-0.5 line-clamp-2"><i class="fa-solid fa-circle-exclamation mr-1"></i>${s.rejectionReason}</p>` : ''}
@@ -2070,13 +2073,20 @@ export function initAuth() {
             const unread = !last.read;
             const preview = last.text || (last.image ? '📷 Фото' : '');
             const safePeer = String(peer).replace(/'/g, "\\'");
+            const tickets = (supportProfile?.inbox || [])
+                .filter((m) => String(m.fromId || '').toLowerCase() === peer && m.ticketNumber)
+                .map((m) => Number(m.ticketNumber))
+                .filter((n) => n > 0);
+            const ticketLabel = tickets.length
+                ? ` · № ${Math.max(...tickets)}`
+                : '';
             return `
             <button type="button" onclick="window.openMessagesModal('${safePeer}', { asSupport: true })" class="notif-item ${unread ? 'unread' : ''} msg-support-row w-full text-left">
                 <span class="w-9 h-9 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center shrink-0 overflow-hidden">
                     ${profile?.avatar ? `<img src="${profile.avatar}" class="w-full h-full object-cover" alt="">` : `<i class="fa-solid fa-headset"></i>`}
                 </span>
                 <div class="min-w-0 flex-1">
-                    <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${name}${unread ? ' · новое' : ''}</p>
+                    <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${name}${ticketLabel}${unread ? ' · новое' : ''}</p>
                     <p class="text-[11px] text-slate-500 truncate">${preview}</p>
                     <p class="text-[10px] text-slate-400 mt-0.5">${last.date ? new Date(last.date).toLocaleString('ru-RU') : ''}</p>
                 </div>
@@ -2750,7 +2760,7 @@ export function initAuth() {
             id: 'msup' + Date.now().toString(36),
             fromId: window.SUPPORT_LOGIN,
             fromName: window.SUPPORT_NAME,
-            text: 'Здравствуйте! Это чат поддержки RO·SMap. Напишите сюда, если нужна помощь с картой, публикацией или аккаунтом.',
+            text: 'Здравствуйте! Я бот поддержки RO·SMap. Опишите вопрос — отвечу из базы знаний. Если ответ не подойдёт, напишите «обращение» — создам тикет с номером для оператора.',
             date: new Date().toISOString(),
             read: true,
             _supportThread: true
@@ -3479,6 +3489,23 @@ export function initAuth() {
                 date: new Date().toISOString(),
                 read: false
             };
+
+            let supportTicketNumber = null;
+            if (!asSupport && peer === window.SUPPORT_LOGIN && !image && text && window.isSupportEscalationRequest?.(text)) {
+                supportTicketNumber = window.getNextSupportTicketNumber ? window.getNextSupportTicketNumber() : null;
+                if (supportTicketNumber != null) {
+                    const subject = window.__supportBotLastQuestion && !window.isSupportEscalationRequest(window.__supportBotLastQuestion)
+                        ? window.__supportBotLastQuestion
+                        : text;
+                    msg.text = `Обращение: ${subject}`;
+                    msg.ticketNumber = supportTicketNumber;
+                    msg.ticketStatus = 'open';
+                    msg._ticket = true;
+                }
+            } else if (!asSupport && peer === window.SUPPORT_LOGIN && text) {
+                window.__supportBotLastQuestion = text;
+            }
+
             updated[idx] = { ...updated[idx], inbox: [msg, ...(updated[idx].inbox || [])].slice(0, 200) };
 
             if (targetLogin !== window.SUPPORT_LOGIN) {
@@ -3514,12 +3541,36 @@ export function initAuth() {
                 window.showToast('Сообщение отправлено', { sfx: 'send' });
                 window.touchMyPresence();
                 if (!asSupport && targetLogin === window.SUPPORT_LOGIN && window.notifyAdmins) {
+                    const ticketLabel = supportTicketNumber != null ? `Обращение № ${supportTicketNumber}` : 'сообщение в поддержку';
                     window.notifyAdmins({
                         type: 'support',
-                        text: `${window.currentUser.username || myLogin} написал(а) в поддержку`,
+                        text: `${window.currentUser.username || myLogin}: ${ticketLabel}`,
                         fromId: myLogin,
                         fromName: window.currentUser.username || myLogin
                     });
+                }
+                if (!asSupport && peer === window.SUPPORT_LOGIN && text && !image && window.appendSupportBotReply) {
+                    if (supportTicketNumber != null) {
+                        await window.appendSupportBotReply(
+                            myLogin,
+                            `Обращение № ${supportTicketNumber} создано. Оператор ответит в этом чате.`
+                        );
+                        window.showToast(`Обращение № ${supportTicketNumber} создано`);
+                    } else {
+                        const faq = window.matchSupportBotFaq ? window.matchSupportBotFaq(text) : null;
+                        if (faq) {
+                            await window.appendSupportBotReply(
+                                myLogin,
+                                `${faq.answer}\n\nПомогло? Если нет — напишите «обращение», и мы создадим тикет с номером.`
+                            );
+                        } else {
+                            await window.appendSupportBotReply(
+                                myLogin,
+                                'Пока нет точного ответа в базе. Уточните вопрос или напишите «обращение» — создам тикет для оператора.'
+                            );
+                        }
+                    }
+                    if (window.openMessageThread) window.openMessageThread(window.SUPPORT_LOGIN);
                 }
                 if (window.refreshAdminSupportBadge) window.refreshAdminSupportBadge();
             } else {

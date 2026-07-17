@@ -962,9 +962,21 @@ window.clearAddModalRoute = function() {
 };
 
 window.assignArchiveNumbers = function() {
-    const total = window.soundsData.length;
-    window.soundsData.forEach((s, idx) => { s.archiveNum = String(total - idx).padStart(3, '0'); });
-}
+    // Стабильный публичный ID: не зависит от порядка массива (раньше номера «прыгали»).
+    (window.soundsData || []).forEach((s) => {
+        if (!s || s.deleted) return;
+        if (!s.publicId) s.publicId = String(s.id || '').trim();
+        s.archiveNum = String(s.publicId || s.id || '—');
+    });
+};
+
+window.getSoundDisplayId = function(soundOrId) {
+    const s = typeof soundOrId === 'string'
+        ? (window.soundsData || []).find((x) => x.id === soundOrId)
+        : soundOrId;
+    if (!s) return String(soundOrId || '—');
+    return String(s.publicId || s.id || '—');
+};
 
 // Lightbox
 window.openLightbox = function(images, index) {
@@ -2380,7 +2392,10 @@ window.buildSoundListRowHtml = function(sound) {
             </button>
             <div class="flex-grow min-w-0 text-left">
                 <h3 class="font-semibold text-[13px] truncate text-slate-800 dark:text-white flex items-center gap-1.5">${esc(sound.title)}</h3>
-                <div class="flex flex-wrap gap-1 mt-1"><span class="text-[8px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 font-bold uppercase tracking-wider">${esc(eco)}</span></div>
+                <div class="flex flex-wrap gap-1 mt-1">
+                    <span class="text-[8px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 font-bold uppercase tracking-wider font-mono">${esc(window.getSoundDisplayId ? window.getSoundDisplayId(sound) : sound.id)}</span>
+                    <span class="text-[8px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 font-bold uppercase tracking-wider">${esc(eco)}</span>
+                </div>
             </div>
         </div>`;
 };
@@ -2896,6 +2911,8 @@ window.syncAccountChrome = function() {
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) logoutBtn.classList.toggle('hidden', !loggedIn);
     if (window.refreshProfileButtonAvatar) window.refreshProfileButtonAvatar();
+    if (window.refreshCabinetTabs) window.refreshCabinetTabs();
+    else if (window.refreshAdminRailBadge) window.refreshAdminRailBadge();
 };
 
 window.renderSidebarFeed = function() {
@@ -3553,7 +3570,9 @@ window.openDetailsModal = function() {
     const descEl = document.getElementById('details-description');
 
     if (titleEl) titleEl.textContent = s.title;
-    if (fileEl) fileEl.innerHTML = `<i class="fa-solid fa-file-waveform mr-1"></i>${s.archiveNum}_${s.fileName}`;
+    const idEl = document.getElementById('details-sound-id');
+    if (idEl) idEl.textContent = `ID · ${window.getSoundDisplayId ? window.getSoundDisplayId(s) : s.id}`;
+    if (fileEl) fileEl.innerHTML = `<i class="fa-solid fa-file-waveform mr-1"></i>${s.archiveNum || s.id}_${s.fileName}`;
     if (descEl) descEl.textContent = s.description;
 
     const safeText = (id, txt) => {

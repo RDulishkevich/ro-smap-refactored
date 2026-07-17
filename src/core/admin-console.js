@@ -1,40 +1,86 @@
 /**
- * Admin console — command palette for operators.
- * Commands call existing product functions; they do not invent new backends.
+ * Admin console — command palette for operators (~70 commands).
+ * Commands stay inside the admin dock (no section jumps / no forced navigation).
  */
 
 window.ADMIN_CONSOLE_COMMANDS = [
-    { name: 'help', usage: 'help', desc: 'Список команд' },
+    { name: 'help', usage: 'help [filter]', desc: 'Список команд' },
     { name: 'whoami', usage: 'whoami', desc: 'Текущий админ' },
     { name: 'health', usage: 'health', desc: 'Проверка Secure API' },
     { name: 'version', usage: 'version', desc: 'Версия клиента / API' },
     { name: 'stats', usage: 'stats', desc: 'Сводка по каталогу' },
     { name: 'pending', usage: 'pending', desc: 'Звуки на модерации' },
+    { name: 'published', usage: 'published', desc: 'Опубликованные (топ)' },
+    { name: 'rejected', usage: 'rejected', desc: 'Отклонённые' },
     { name: 'approve', usage: 'approve <soundId>', desc: 'Одобрить запись' },
     { name: 'reject', usage: 'reject <soundId>', desc: 'Отклонить запись' },
     { name: 'delete', usage: 'delete <soundId>', desc: 'Удалить запись (tombstone)' },
-    { name: 'sound', usage: 'sound <soundId>', desc: 'Карточка звука' },
-    { name: 'find', usage: 'find <текст>', desc: 'Поиск по названию/автору' },
+    { name: 'status', usage: 'status <soundId> <published|pending|rejected>', desc: 'Сменить статус' },
+    { name: 'sound', usage: 'sound <soundId>', desc: 'Карточка звука (в консоли)' },
+    { name: 'id', usage: 'id <soundId>', desc: 'Показать публичный ID' },
+    { name: 'find', usage: 'find <текст>', desc: 'Поиск по названию/автору/id' },
     { name: 'users', usage: 'users', desc: 'Список пользователей' },
+    { name: 'whois', usage: 'whois <login>', desc: 'Карточка пользователя' },
     { name: 'block', usage: 'block <login>', desc: 'Заблокировать пользователя' },
     { name: 'unblock', usage: 'unblock <login>', desc: 'Разблокировать' },
-    { name: 'profile', usage: 'profile <login>', desc: 'Открыть публичный профиль' },
+    { name: 'role', usage: 'role <login>', desc: 'Роль пользователя' },
+    { name: 'profile', usage: 'profile <login>', desc: 'Сводка профиля (без модалки)' },
     { name: 'reports', usage: 'reports', desc: 'Открытые жалобы' },
-    { name: 'resolve', usage: 'resolve <reportId>', desc: 'Закрыть жалобу' },
+    { name: 'resolve', usage: 'resolve <reportId|№>', desc: 'Закрыть жалобу' },
     { name: 'support', usage: 'support', desc: 'Очередь поддержки' },
+    { name: 'tickets', usage: 'tickets', desc: 'Обращения с номерами' },
+    { name: 'ticket', usage: 'ticket <№>', desc: 'Найти обращение по номеру' },
     { name: 'refresh', usage: 'refresh', desc: 'Принудительный poll облака' },
     { name: 'export-csv', usage: 'export-csv', desc: 'Экспорт CSV (все)' },
     { name: 'export-geojson', usage: 'export-geojson', desc: 'Экспорт GeoJSON' },
     { name: 'tombstones', usage: 'tombstones', desc: 'Удалённые звуки в кэше' },
     { name: 'mail', usage: 'mail', desc: 'Сводка mail.json' },
     { name: 'sessions', usage: 'sessions', desc: 'Все экспедиции' },
+    { name: 'expedition', usage: 'expedition <id>', desc: 'Карточка экспедиции' },
     { name: 'feed', usage: 'feed', desc: 'Посты ленты' },
     { name: 'orphans', usage: 'orphans', desc: 'Проверка осиротевших маркеров' },
     { name: 'clear-filters', usage: 'clear-filters', desc: 'Сбросить фильтры карты' },
+    { name: 'filters', usage: 'filters', desc: 'Активные фильтры' },
     { name: 'goto', usage: 'goto <lat> <lng>', desc: 'Центрировать карту' },
     { name: 'provider', usage: 'provider <id>', desc: 'Сменить движок карты' },
-    { name: 'notify', usage: 'notify <login> <текст…>', desc: 'Системное уведомление пользователю' }
+    { name: 'providers', usage: 'providers', desc: 'Список движков карты' },
+    { name: 'notify', usage: 'notify <login> <текст…>', desc: 'Системное уведомление' },
+    { name: 'likes', usage: 'likes <soundId>', desc: 'Лайки записи' },
+    { name: 'plays', usage: 'plays <soundId>', desc: 'Прослушивания' },
+    { name: 'downloads', usage: 'downloads <soundId>', desc: 'Скачивания' },
+    { name: 'comments', usage: 'comments <soundId>', desc: 'Комментарии записи' },
+    { name: 'reports-of', usage: 'reports-of <soundId>', desc: 'Жалобы на запись' },
+    { name: 'top-plays', usage: 'top-plays', desc: 'Топ по прослушиваниям' },
+    { name: 'top-likes', usage: 'top-likes', desc: 'Топ по лайкам' },
+    { name: 'count', usage: 'count', desc: 'Быстрые счётчики' },
+    { name: 'unread', usage: 'unread', desc: 'Непрочитанные у support' },
+    { name: 'inbox', usage: 'inbox <login>', desc: 'Размер inbox пользователя' },
+    { name: 'presence', usage: 'presence <login>', desc: 'Онлайн-статус' },
+    { name: 'badges', usage: 'badges <login>', desc: 'Бейджи пользователя' },
+    { name: 'activity', usage: 'activity <login>', desc: 'Активность (кратко)' },
+    { name: 'dump-sound', usage: 'dump-sound <soundId>', desc: 'JSON записи (сжатый)' },
+    { name: 'dump-user', usage: 'dump-user <login>', desc: 'JSON профиля (сжатый)' },
+    { name: 'copy-id', usage: 'copy-id <soundId>', desc: 'Скопировать ID в буфер' },
+    { name: 'theme', usage: 'theme <light|dark>', desc: 'Тема UI' },
+    { name: 'lang', usage: 'lang <ru|en>', desc: 'Язык UI' },
+    { name: 'toast', usage: 'toast <текст…>', desc: 'Показать toast' },
+    { name: 'echo', usage: 'echo <текст…>', desc: 'Эхо в консоль' },
+    { name: 'time', usage: 'time', desc: 'Текущее время' },
+    { name: 'cls', usage: 'cls', desc: 'Очистить консоль' },
+    { name: 'clear', usage: 'clear', desc: 'Очистить консоль' },
+    { name: 'markers', usage: 'markers', desc: 'Число маркеров в кэше' },
+    { name: 'rebuild-markers', usage: 'rebuild-markers', desc: 'Пересобрать маркеры' },
+    { name: 'api-cache', usage: 'api-cache', desc: 'Ключи poll-кэша' },
+    { name: 'fingerprint', usage: 'fingerprint', desc: 'Fingerprint каталога' },
+    { name: 'follow', usage: 'follow <login>', desc: 'Подписчики/подписки' },
+    { name: 'open-section', usage: 'open-section <sounds|reports|users|support|tools|console>', desc: 'Перейти в секцию админки' },
+    { name: 'pending-count', usage: 'pending-count', desc: 'Счётчик модерации' },
+    { name: 'help-faq', usage: 'help-faq', desc: 'Темы бота поддержки' }
 ];
+
+window.__adminConsoleSuggestIdx = -1;
+window.__adminConsoleHistory = window.__adminConsoleHistory || [];
+window.__adminConsoleHistoryIdx = -1;
 
 window.adminConsoleLog = function(line, kind = 'info') {
     const out = document.getElementById('admin-console-output');
@@ -51,6 +97,113 @@ window.adminConsoleClear = function() {
     if (out) out.innerHTML = '';
 };
 
+window.hideAdminConsoleSuggest = function() {
+    const box = document.getElementById('admin-console-suggest');
+    if (box) {
+        box.classList.add('hidden');
+        box.innerHTML = '';
+    }
+    window.__adminConsoleSuggestIdx = -1;
+};
+
+window.getAdminConsoleSuggestions = function(raw) {
+    const q = String(raw || '').trim().toLowerCase();
+    const cmds = window.ADMIN_CONSOLE_COMMANDS || [];
+    if (!q) return cmds.slice(0, 12);
+    const first = q.split(/\s+/)[0];
+    return cmds
+        .filter((c) => c.name.startsWith(first) || c.usage.includes(first) || c.desc.toLowerCase().includes(first))
+        .slice(0, 12);
+};
+
+window.renderAdminConsoleSuggest = function(raw) {
+    const box = document.getElementById('admin-console-suggest');
+    if (!box) return;
+    const list = window.getAdminConsoleSuggestions(raw);
+    if (!list.length) {
+        window.hideAdminConsoleSuggest();
+        return;
+    }
+    if (window.__adminConsoleSuggestIdx >= list.length) window.__adminConsoleSuggestIdx = list.length - 1;
+    box.innerHTML = list.map((c, i) => `
+        <button type="button" class="admin-console-suggest__item${i === window.__adminConsoleSuggestIdx ? ' is-active' : ''}" data-idx="${i}" role="option">
+            <code>${c.usage}</code><span>${c.desc}</span>
+        </button>
+    `).join('');
+    box.classList.remove('hidden');
+    box.querySelectorAll('.admin-console-suggest__item').forEach((btn) => {
+        btn.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            const idx = Number(btn.dataset.idx);
+            window.applyAdminConsoleSuggestion(list[idx]);
+        });
+    });
+};
+
+window.applyAdminConsoleSuggestion = function(cmd) {
+    const input = document.getElementById('admin-console-input');
+    if (!input || !cmd) return;
+    const parts = String(input.value || '').trim().split(/\s+/);
+    if (parts.length <= 1) input.value = cmd.name + (cmd.usage.includes('<') ? ' ' : '');
+    else input.value = cmd.name + ' ' + parts.slice(1).join(' ');
+    window.hideAdminConsoleSuggest();
+    input.focus();
+};
+
+window.onAdminConsoleInput = function() {
+    const input = document.getElementById('admin-console-input');
+    window.renderAdminConsoleSuggest(input?.value || '');
+};
+
+window.onAdminConsoleKeydown = function(event) {
+    const input = document.getElementById('admin-console-input');
+    const box = document.getElementById('admin-console-suggest');
+    const open = box && !box.classList.contains('hidden');
+    const list = open ? window.getAdminConsoleSuggestions(input?.value || '') : [];
+
+    if (event.key === 'ArrowDown' && open && list.length) {
+        event.preventDefault();
+        window.__adminConsoleSuggestIdx = Math.min(list.length - 1, (window.__adminConsoleSuggestIdx < 0 ? 0 : window.__adminConsoleSuggestIdx + 1));
+        window.renderAdminConsoleSuggest(input.value);
+        return;
+    }
+    if (event.key === 'ArrowUp' && open && list.length) {
+        event.preventDefault();
+        window.__adminConsoleSuggestIdx = Math.max(0, window.__adminConsoleSuggestIdx - 1);
+        window.renderAdminConsoleSuggest(input.value);
+        return;
+    }
+    if (event.key === 'Tab' && list.length) {
+        event.preventDefault();
+        const pick = list[Math.max(0, window.__adminConsoleSuggestIdx)] || list[0];
+        window.applyAdminConsoleSuggestion(pick);
+        return;
+    }
+    if (event.key === 'Escape') {
+        window.hideAdminConsoleSuggest();
+        return;
+    }
+    if (event.key === 'ArrowUp' && !open && (window.__adminConsoleHistory || []).length) {
+        event.preventDefault();
+        const hist = window.__adminConsoleHistory;
+        if (window.__adminConsoleHistoryIdx < 0) window.__adminConsoleHistoryIdx = hist.length;
+        window.__adminConsoleHistoryIdx = Math.max(0, window.__adminConsoleHistoryIdx - 1);
+        input.value = hist[window.__adminConsoleHistoryIdx] || '';
+        return;
+    }
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (open && window.__adminConsoleSuggestIdx >= 0 && list[window.__adminConsoleSuggestIdx]) {
+        window.applyAdminConsoleSuggestion(list[window.__adminConsoleSuggestIdx]);
+        return;
+    }
+    const val = input?.value || '';
+    if (input) input.value = '';
+    window.hideAdminConsoleSuggest();
+    window.runAdminConsoleCommand(val);
+};
+
 window.runAdminConsoleCommand = async function(raw) {
     const line = String(raw || '').trim();
     if (!line) return;
@@ -58,19 +211,27 @@ window.runAdminConsoleCommand = async function(raw) {
         window.adminConsoleLog('Нет прав администратора', 'error');
         return;
     }
+    window.__adminConsoleHistory.push(line);
+    if (window.__adminConsoleHistory.length > 80) window.__adminConsoleHistory.shift();
+    window.__adminConsoleHistoryIdx = -1;
+
     window.adminConsoleLog(`› ${line}`, 'cmd');
     const parts = line.match(/(?:[^\s"]+|"[^"]*")+/g)?.map((p) => p.replace(/^"|"$/g, '')) || [];
     const cmd = String(parts[0] || '').toLowerCase();
     const args = parts.slice(1);
+    const findSound = (id) => (window.soundsData || []).find((x) => x.id === id || window.getSoundDisplayId?.(x) === id);
 
     try {
         switch (cmd) {
             case 'help':
-            case '?':
-                window.ADMIN_CONSOLE_COMMANDS.forEach((c) => {
-                    window.adminConsoleLog(`${c.usage} — ${c.desc}`);
-                });
+            case '?': {
+                const filter = String(args[0] || '').toLowerCase();
+                (window.ADMIN_CONSOLE_COMMANDS || [])
+                    .filter((c) => !filter || c.name.includes(filter) || c.desc.toLowerCase().includes(filter))
+                    .forEach((c) => window.adminConsoleLog(`${c.usage} — ${c.desc}`));
+                window.adminConsoleLog(`Всего команд: ${(window.ADMIN_CONSOLE_COMMANDS || []).length}`, 'ok');
                 break;
+            }
             case 'whoami': {
                 const u = window.currentUser;
                 window.adminConsoleLog(u ? `${u.loginName || u.username} (${u.role || 'user'})` : 'гость');
@@ -83,10 +244,11 @@ window.runAdminConsoleCommand = async function(raw) {
             }
             case 'version': {
                 const h = window.__apiHealth || {};
-                window.adminConsoleLog(`client cache 20260718r · api ${h.version ?? '?'}`);
+                window.adminConsoleLog(`client cache 20260718s · api ${h.version ?? '?'}`);
                 break;
             }
-            case 'stats': {
+            case 'stats':
+            case 'count': {
                 const all = window.soundsData || [];
                 const pub = all.filter((s) => !s.status || s.status === 'published');
                 const pending = all.filter((s) => s.status === 'pending');
@@ -95,12 +257,24 @@ window.runAdminConsoleCommand = async function(raw) {
                 window.adminConsoleLog(`sounds ${all.length} · published ${pub.length} · pending ${pending.length} · rejected ${rejected.length} · users ${users}`);
                 break;
             }
-            case 'pending': {
+            case 'pending':
+            case 'pending-count': {
                 const list = (window.soundsData || []).filter((s) => s.status === 'pending');
-                if (!list.length) window.adminConsoleLog('Очередь пуста', 'ok');
-                else list.slice(0, 40).forEach((s) => window.adminConsoleLog(`${s.id} · ${s.title} · ${s.recordist || ''}`));
+                window.adminConsoleLog(`pending: ${list.length}`, list.length ? 'info' : 'ok');
+                if (cmd === 'pending') {
+                    if (!list.length) window.adminConsoleLog('Очередь пуста', 'ok');
+                    else list.slice(0, 40).forEach((s) => window.adminConsoleLog(`${s.id} · ${s.title} · ${s.recordist || ''}`));
+                }
                 break;
             }
+            case 'published':
+                (window.soundsData || []).filter((s) => !s.status || s.status === 'published').slice(0, 40)
+                    .forEach((s) => window.adminConsoleLog(`${s.id} · ${s.title}`));
+                break;
+            case 'rejected':
+                (window.soundsData || []).filter((s) => s.status === 'rejected').slice(0, 40)
+                    .forEach((s) => window.adminConsoleLog(`${s.id} · ${s.title}`));
+                break;
             case 'approve': {
                 const id = args[0];
                 if (!id) { window.adminConsoleLog('usage: approve <soundId>', 'error'); break; }
@@ -115,6 +289,17 @@ window.runAdminConsoleCommand = async function(raw) {
                 window.adminConsoleLog(`rejected ${id}`, 'ok');
                 break;
             }
+            case 'status': {
+                const id = args[0];
+                const st = args[1];
+                if (!id || !['published', 'pending', 'rejected'].includes(st)) {
+                    window.adminConsoleLog('usage: status <soundId> <published|pending|rejected>', 'error');
+                    break;
+                }
+                if (window.setSoundStatus) await window.setSoundStatus(id, st);
+                window.adminConsoleLog(`${id} → ${st}`, 'ok');
+                break;
+            }
             case 'delete': {
                 const id = args[0];
                 if (!id) { window.adminConsoleLog('usage: delete <soundId>', 'error'); break; }
@@ -122,15 +307,42 @@ window.runAdminConsoleCommand = async function(raw) {
                 window.adminConsoleLog(`delete requested ${id}`, 'ok');
                 break;
             }
-            case 'sound': {
+            case 'sound':
+            case 'dump-sound': {
                 const id = args[0];
-                const s = (window.soundsData || []).find((x) => x.id === id);
+                const s = findSound(id);
                 if (!s) { window.adminConsoleLog('не найдено', 'error'); break; }
                 window.adminConsoleLog(JSON.stringify({
-                    id: s.id, title: s.title, status: s.status, recordist: s.recordist,
-                    plays: s.plays, downloads: s.downloads, comments: (s.comments || []).length
+                    id: s.id,
+                    publicId: window.getSoundDisplayId?.(s) || s.id,
+                    title: s.title,
+                    status: s.status,
+                    recordist: s.recordist,
+                    plays: s.plays,
+                    downloads: s.downloads,
+                    likes: (s.likedBy || []).length,
+                    comments: (s.comments || []).length,
+                    lat: s.lat,
+                    lng: s.lng
                 }));
-                if (window.selectSound) window.selectSound(id);
+                break;
+            }
+            case 'id': {
+                const s = findSound(args[0]);
+                if (!s) { window.adminConsoleLog('не найдено', 'error'); break; }
+                window.adminConsoleLog(`${s.id} · display ${window.getSoundDisplayId?.(s) || s.id}`);
+                break;
+            }
+            case 'copy-id': {
+                const s = findSound(args[0]);
+                if (!s) { window.adminConsoleLog('не найдено', 'error'); break; }
+                const text = String(s.id);
+                try {
+                    await navigator.clipboard.writeText(text);
+                    window.adminConsoleLog(`copied ${text}`, 'ok');
+                } catch (_) {
+                    window.adminConsoleLog(text);
+                }
                 break;
             }
             case 'find': {
@@ -140,15 +352,34 @@ window.runAdminConsoleCommand = async function(raw) {
                     String(s.title || '').toLowerCase().includes(q)
                     || String(s.recordist || '').toLowerCase().includes(q)
                     || String(s.id || '').toLowerCase().includes(q)
+                    || String(window.getSoundDisplayId?.(s) || '').toLowerCase().includes(q)
                 ).slice(0, 30);
                 if (!hits.length) window.adminConsoleLog('ничего', 'error');
                 else hits.forEach((s) => window.adminConsoleLog(`${s.id} · ${s.title}`));
                 break;
             }
-            case 'users': {
+            case 'users':
                 (window.profilesData || []).slice(0, 80).forEach((p) => {
                     window.adminConsoleLog(`${p.loginName} · ${p.displayName || ''} · ${p.blocked ? 'BLOCKED' : (p.role || 'user')}`);
                 });
+                break;
+            case 'whois':
+            case 'profile':
+            case 'dump-user': {
+                const login = String(args[0] || '').toLowerCase();
+                if (!login) { window.adminConsoleLog(`usage: ${cmd} <login>`, 'error'); break; }
+                const p = window.getProfileByLogin?.(login);
+                if (!p) { window.adminConsoleLog('не найден', 'error'); break; }
+                window.adminConsoleLog(JSON.stringify({
+                    login: p.loginName,
+                    name: p.displayName,
+                    role: p.role,
+                    blocked: !!p.blocked,
+                    badges: p.badges || [],
+                    joinedAt: p.joinedAt,
+                    followers: (p.followers || []).length,
+                    following: (p.following || []).length
+                }));
                 break;
             }
             case 'block': {
@@ -165,18 +396,16 @@ window.runAdminConsoleCommand = async function(raw) {
                 window.adminConsoleLog(`unblocked ${login}`, 'ok');
                 break;
             }
-            case 'profile': {
+            case 'role': {
                 const login = String(args[0] || '').toLowerCase();
-                if (!login) { window.adminConsoleLog('usage: profile <login>', 'error'); break; }
-                if (window.openPublicProfile) window.openPublicProfile(login);
-                window.adminConsoleLog(`opened ${login}`, 'ok');
+                const p = window.getProfileByLogin?.(login);
+                window.adminConsoleLog(p ? `${login}: ${p.role || 'user'}` : 'не найден', p ? 'ok' : 'error');
                 break;
             }
             case 'reports': {
                 const reports = window.getAllReports ? window.getAllReports().filter((r) => r.status !== 'resolved') : [];
                 if (!reports.length) window.adminConsoleLog('жалоб нет', 'ok');
                 else reports.slice(0, 40).forEach((r) => window.adminConsoleLog(`${r.id} · #${r.number || '?'} · ${r.soundTitle} · ${r.reason}`));
-                if (window.switchAdminSection) window.switchAdminSection('reports');
                 break;
             }
             case 'resolve': {
@@ -189,17 +418,39 @@ window.runAdminConsoleCommand = async function(raw) {
                 window.adminConsoleLog(`resolved ${hit.id} (#${hit.number || '?'})`, 'ok');
                 break;
             }
-            case 'support': {
-                if (window.switchAdminSection) window.switchAdminSection('support');
-                if (window.renderAdminSupportList) window.renderAdminSupportList();
-                window.adminConsoleLog('секция поддержки открыта', 'ok');
+            case 'support':
+            case 'unread': {
+                const supportProfile = window.getProfileByLogin?.(window.SUPPORT_LOGIN);
+                const peers = new Set();
+                (supportProfile?.inbox || []).forEach((m) => {
+                    if (!m?.fromId || m.read || m.deleted) return;
+                    if (String(m.fromId).toLowerCase() === String(window.SUPPORT_LOGIN || '').toLowerCase()) return;
+                    peers.add(String(m.fromId).toLowerCase());
+                });
+                window.adminConsoleLog(`support unread peers: ${peers.size}`);
+                [...peers].slice(0, 40).forEach((p) => window.adminConsoleLog(p));
                 break;
             }
-            case 'refresh': {
+            case 'tickets': {
+                const supportProfile = window.getProfileByLogin?.(window.SUPPORT_LOGIN);
+                const tickets = (supportProfile?.inbox || []).filter((m) => m.ticketNumber);
+                if (!tickets.length) window.adminConsoleLog('тикетов нет', 'ok');
+                else tickets.slice(0, 50).forEach((m) => window.adminConsoleLog(`№ ${m.ticketNumber} · ${m.fromId} · ${m.ticketStatus || 'open'} · ${String(m.text || '').slice(0, 80)}`));
+                break;
+            }
+            case 'ticket': {
+                const n = Number(args[0]);
+                if (!n) { window.adminConsoleLog('usage: ticket <№>', 'error'); break; }
+                const supportProfile = window.getProfileByLogin?.(window.SUPPORT_LOGIN);
+                const hit = (supportProfile?.inbox || []).find((m) => Number(m.ticketNumber) === n);
+                if (!hit) window.adminConsoleLog('не найден', 'error');
+                else window.adminConsoleLog(JSON.stringify({ number: hit.ticketNumber, from: hit.fromId, status: hit.ticketStatus, text: hit.text, date: hit.date }));
+                break;
+            }
+            case 'refresh':
                 if (window.pollLiveCloudData) await window.pollLiveCloudData();
                 window.adminConsoleLog('poll done', 'ok');
                 break;
-            }
             case 'export-csv':
                 if (window.exportSoundsData) window.exportSoundsData('csv', true);
                 window.adminConsoleLog('csv export started', 'ok');
@@ -233,6 +484,13 @@ window.runAdminConsoleCommand = async function(raw) {
                 all.slice(0, 40).forEach((s) => window.adminConsoleLog(`${s.id} · ${s.title} · ${s.owner}`));
                 break;
             }
+            case 'expedition': {
+                const id = args[0];
+                const session = window.findSessionById?.(id);
+                if (!session) { window.adminConsoleLog('не найдена', 'error'); break; }
+                window.adminConsoleLog(JSON.stringify({ id: session.id, title: session.title, owner: session.ownerId || session.ownerName, date: session.date }));
+                break;
+            }
             case 'feed': {
                 const posts = window.feedPosts || [];
                 window.adminConsoleLog(`feed posts: ${posts.length}`);
@@ -245,12 +503,19 @@ window.runAdminConsoleCommand = async function(raw) {
                 (window.markerCache || new Map()).forEach((_, id) => { if (!alive.has(id)) orphan += 1; });
                 (window.mapboxMarkerCache || new Map()).forEach((_, id) => { if (!alive.has(id)) orphan += 1; });
                 window.adminConsoleLog(`orphan markers: ${orphan}`, orphan ? 'error' : 'ok');
-                if (window.updateMapMarkers) window.updateMapMarkers();
                 break;
             }
             case 'clear-filters':
                 if (window.clearAllSoundFilters) window.clearAllSoundFilters();
                 window.adminConsoleLog('filters cleared', 'ok');
+                break;
+            case 'filters':
+                window.adminConsoleLog(JSON.stringify({
+                    eco: window.activeEcoFilter || null,
+                    ucs: window.activeUcsFilter || null,
+                    tags: window.activeTagFilters || [],
+                    session: window.activeSessionId || null
+                }));
                 break;
             case 'goto': {
                 const lat = Number(args[0]); const lng = Number(args[1]);
@@ -270,6 +535,9 @@ window.runAdminConsoleCommand = async function(raw) {
                 window.adminConsoleLog(`provider ${id}`, 'ok');
                 break;
             }
+            case 'providers':
+                window.adminConsoleLog('yandex · maplibre · mapbox · dgis · google-earth (если подключены)');
+                break;
             case 'notify': {
                 const login = String(args[0] || '').toLowerCase();
                 const text = args.slice(1).join(' ').trim();
@@ -285,20 +553,146 @@ window.runAdminConsoleCommand = async function(raw) {
                 } else window.adminConsoleLog('pushNotifications недоступен', 'error');
                 break;
             }
+            case 'likes': {
+                const s = findSound(args[0]);
+                if (!s) { window.adminConsoleLog('не найдено', 'error'); break; }
+                window.adminConsoleLog(`likes ${(s.likedBy || []).length}: ${(s.likedBy || []).slice(0, 20).join(', ')}`);
+                break;
+            }
+            case 'plays': {
+                const s = findSound(args[0]);
+                if (!s) { window.adminConsoleLog('не найдено', 'error'); break; }
+                window.adminConsoleLog(`plays ${s.plays || 0}`);
+                break;
+            }
+            case 'downloads': {
+                const s = findSound(args[0]);
+                if (!s) { window.adminConsoleLog('не найдено', 'error'); break; }
+                window.adminConsoleLog(`downloads ${s.downloads || 0}`);
+                break;
+            }
+            case 'comments': {
+                const s = findSound(args[0]);
+                if (!s) { window.adminConsoleLog('не найдено', 'error'); break; }
+                (s.comments || []).slice(0, 30).forEach((c) => window.adminConsoleLog(`${c.id} · ${c.author}: ${String(c.text || '').slice(0, 60)}`));
+                break;
+            }
+            case 'reports-of': {
+                const s = findSound(args[0]);
+                if (!s) { window.adminConsoleLog('не найдено', 'error'); break; }
+                (s.reports || []).forEach((r) => window.adminConsoleLog(`${r.id} · #${r.number || '?'} · ${r.status} · ${r.reason}`));
+                break;
+            }
+            case 'top-plays':
+                [...(window.soundsData || [])].sort((a, b) => (b.plays || 0) - (a.plays || 0)).slice(0, 15)
+                    .forEach((s) => window.adminConsoleLog(`${s.plays || 0} · ${s.id} · ${s.title}`));
+                break;
+            case 'top-likes':
+                [...(window.soundsData || [])].sort((a, b) => (b.likedBy || []).length - (a.likedBy || []).length).slice(0, 15)
+                    .forEach((s) => window.adminConsoleLog(`${(s.likedBy || []).length} · ${s.id} · ${s.title}`));
+                break;
+            case 'inbox': {
+                const login = String(args[0] || '').toLowerCase();
+                const p = window.getProfileByLogin?.(login);
+                window.adminConsoleLog(p ? `inbox ${(p.inbox || []).length}` : 'не найден', p ? 'ok' : 'error');
+                break;
+            }
+            case 'presence': {
+                const login = String(args[0] || '').toLowerCase();
+                const label = window.formatPresenceLabel?.(login) || '—';
+                window.adminConsoleLog(`${login}: ${label}`);
+                break;
+            }
+            case 'badges': {
+                const login = String(args[0] || '').toLowerCase();
+                const p = window.getProfileByLogin?.(login);
+                window.adminConsoleLog(p ? `badges: ${(p.badges || []).join(', ') || '—'}` : 'не найден');
+                break;
+            }
+            case 'activity': {
+                const login = String(args[0] || '').toLowerCase();
+                const box = (window.mailData || []).find((m) => String(m.loginName || '').toLowerCase() === login);
+                const log = box?.activityLog || [];
+                window.adminConsoleLog(`activity ${log.length}`);
+                log.slice(0, 15).forEach((e) => window.adminConsoleLog(`${e.type || ''} · ${e.text || ''}`));
+                break;
+            }
+            case 'follow': {
+                const login = String(args[0] || '').toLowerCase();
+                const p = window.getProfileByLogin?.(login);
+                if (!p) { window.adminConsoleLog('не найден', 'error'); break; }
+                window.adminConsoleLog(`followers ${(p.followers || []).length} · following ${(p.following || []).length}`);
+                break;
+            }
+            case 'theme': {
+                const t = args[0];
+                if (t !== 'light' && t !== 'dark') { window.adminConsoleLog('usage: theme <light|dark>', 'error'); break; }
+                if (window.setTheme) window.setTheme(t);
+                window.adminConsoleLog(`theme ${t}`, 'ok');
+                break;
+            }
+            case 'lang': {
+                const l = args[0];
+                if (l !== 'ru' && l !== 'en') { window.adminConsoleLog('usage: lang <ru|en>', 'error'); break; }
+                if (window.setLanguage) window.setLanguage(l);
+                window.adminConsoleLog(`lang ${l}`, 'ok');
+                break;
+            }
+            case 'toast': {
+                const text = args.join(' ');
+                if (!text) { window.adminConsoleLog('usage: toast <текст>', 'error'); break; }
+                if (window.showToast) window.showToast(text);
+                window.adminConsoleLog('toast shown', 'ok');
+                break;
+            }
+            case 'echo':
+                window.adminConsoleLog(args.join(' '));
+                break;
+            case 'time':
+                window.adminConsoleLog(new Date().toISOString());
+                break;
+            case 'cls':
+            case 'clear':
+                window.adminConsoleClear();
+                break;
+            case 'markers': {
+                const y = window.markerCache?.size || 0;
+                const m = window.mapboxMarkerCache?.size || 0;
+                const d = window.dgisMarkerCache?.size || 0;
+                window.adminConsoleLog(`markers yandex=${y} mapbox=${m} dgis=${d}`);
+                break;
+            }
+            case 'rebuild-markers':
+                if (window.updateMapMarkers) window.updateMapMarkers();
+                window.adminConsoleLog('markers rebuilt', 'ok');
+                break;
+            case 'api-cache':
+                window.adminConsoleLog(JSON.stringify({
+                    cloud: !!window.__lastCloudPollKey,
+                    profiles: !!window.__lastProfilesPollKey,
+                    mail: !!window.__lastMailPollKey,
+                    feed: !!window.__lastFeedPollKey
+                }));
+                break;
+            case 'fingerprint':
+                window.adminConsoleLog(window.fingerprintDataset?.(window.soundsData) || 'n/a');
+                break;
+            case 'open-section': {
+                const sec = args[0];
+                if (!sec) { window.adminConsoleLog('usage: open-section <sounds|reports|users|support|tools|console>', 'error'); break; }
+                if (window.switchAdminSection) window.switchAdminSection(sec);
+                window.adminConsoleLog(`section ${sec}`, 'ok');
+                break;
+            }
+            case 'help-faq':
+                (window.SUPPORT_BOT_FAQ || []).forEach((f, i) => {
+                    window.adminConsoleLog(`${i + 1}. ${f.keys.slice(0, 4).join(', ')}`);
+                });
+                break;
             default:
                 window.adminConsoleLog(`Неизвестная команда: ${cmd}. Введите help`, 'error');
         }
     } catch (err) {
         window.adminConsoleLog(String(err?.message || err), 'error');
     }
-};
-
-window.onAdminConsoleKeydown = function(event) {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    const input = document.getElementById('admin-console-input');
-    if (!input) return;
-    const val = input.value;
-    input.value = '';
-    window.runAdminConsoleCommand(val);
 };
