@@ -376,7 +376,8 @@ window.bindMessageBubbleMenus = function(container) {
             e.preventDefault();
             e.stopPropagation();
             if (bubble.dataset.swipeJustFired === '1') return;
-            if (window.openMessageMenu) window.openMessageMenu(msgId);
+            const point = window.eventClientPoint ? window.eventClientPoint(e) : { clientX: e.clientX, clientY: e.clientY };
+            if (window.openMessageMenu) window.openMessageMenu(msgId, point);
         });
 
         let pressTimer = null;
@@ -398,7 +399,9 @@ window.bindMessageBubbleMenus = function(container) {
                 pressTimer = null;
                 if (bubble.dataset.swipeJustFired === '1') return;
                 try { if (navigator.vibrate) navigator.vibrate(12); } catch (_) {}
-                if (window.openMessageMenu) window.openMessageMenu(msgId);
+                if (window.openMessageMenu) {
+                    window.openMessageMenu(msgId, { clientX: startX, clientY: startY });
+                }
             }, 480);
         }, { passive: true });
 
@@ -640,6 +643,114 @@ window.ActionSheet = {
         if (!fromTrigger && window.playSfx) window.playSfx('close');
         setTimeout(() => { if (overlay.classList.contains('opacity-0')) overlay.classList.add('hidden'); }, 300);
     }
+};
+
+/** Всплывающее контекстное меню у курсора (как ПКМ по карте), без модальной шторки. */
+window.CtxPopup = {
+    _actions: [],
+    _bound: false,
+    open: function({ title = '', subtitle = '', items = [], clientX = 12, clientY = 12 } = {}) {
+        if (window.hideMapContextMenu) window.hideMapContextMenu();
+        const menu = document.getElementById('ctx-popup-menu');
+        const itemsEl = document.getElementById('ctx-popup-items');
+        const header = document.getElementById('ctx-popup-header');
+        const titleEl = document.getElementById('ctx-popup-title');
+        const subEl = document.getElementById('ctx-popup-subtitle');
+        if (!menu || !itemsEl || !items.length) return;
+
+        this._actions = items.map(i => i.onClick);
+        if (header && titleEl) {
+            const hasTitle = !!(title || subtitle);
+            header.classList.toggle('hidden', !hasTitle);
+            titleEl.textContent = title || '';
+            if (subEl) {
+                subEl.textContent = subtitle || '';
+                subEl.classList.toggle('hidden', !subtitle);
+            }
+        }
+
+        const toneColor = {
+            primary: 'text-blue-500',
+            success: 'text-emerald-500',
+            warning: 'text-amber-500',
+            danger: 'text-red-500'
+        };
+        itemsEl.innerHTML = items.map((item, i) => {
+            const tone = item.tone || (item.danger ? 'danger' : '');
+            const iconTone = toneColor[tone] || 'text-slate-400';
+            const textTone = tone === 'danger' ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-200';
+            return `<button type="button" onclick="window.CtxPopup.trigger(${i})" class="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold ${textTone} hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left">
+                <i class="fa-solid ${item.icon || 'fa-circle'} ${iconTone} w-4 text-center"></i>
+                <span class="truncate">${item.label}</span>
+            </button>`;
+        }).join('');
+
+        menu.classList.remove('hidden');
+        menu.style.position = 'fixed';
+        menu.style.left = '-9999px';
+        menu.style.top = '-9999px';
+        const mw = menu.offsetWidth || 224;
+        const mh = menu.offsetHeight || 160;
+        const vw = window.innerWidth || 0;
+        const vh = window.innerHeight || 0;
+        const x = Math.min(Math.max(8, clientX), Math.max(8, vw - mw - 8));
+        const y = Math.min(Math.max(8, clientY), Math.max(8, vh - mh - 8));
+        menu.style.left = `${x}px`;
+        menu.style.top = `${y}px`;
+
+        if (!this._bound) {
+            this._bound = true;
+            document.addEventListener('mousedown', (e) => {
+                const m = document.getElementById('ctx-popup-menu');
+                if (!m || m.classList.contains('hidden')) return;
+                if (m.contains(e.target)) return;
+                window.CtxPopup.close();
+            }, true);
+            document.addEventListener('scroll', () => window.CtxPopup.close(), true);
+            window.addEventListener('resize', () => window.CtxPopup.close());
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') window.CtxPopup.close();
+            });
+        }
+    },
+    trigger: function(i) {
+        const fn = this._actions[i];
+        this.close();
+        if (window.playSfx) window.playSfx('click');
+        if (fn) setTimeout(fn, 40);
+    },
+    close: function() {
+        const menu = document.getElementById('ctx-popup-menu');
+        if (!menu) return;
+        menu.classList.add('hidden');
+        menu.style.left = '-9999px';
+        menu.style.top = '-9999px';
+        this._actions = [];
+    }
+};
+
+window.eventClientPoint = function(e, fallback) {
+    if (e && typeof e.clientX === 'number') return { clientX: e.clientX, clientY: e.clientY || 0 };
+    const t = e?.touches?.[0] || e?.changedTouches?.[0];
+    if (t) return { clientX: t.clientX, clientY: t.clientY };
+    try {
+        const dom = e?.get?.('domEvent');
+        const original = (dom && dom.originalEvent) || null;
+        const read = (key) => {
+            if (original && typeof original[key] === 'number') return original[key];
+            if (dom && typeof dom.get === 'function') {
+                const v = dom.get(key);
+                if (typeof v === 'number') return v;
+            }
+            if (dom && typeof dom[key] === 'number') return dom[key];
+            return null;
+        };
+        const cx = read('clientX');
+        const cy = read('clientY');
+        if (cx != null) return { clientX: cx, clientY: cy ?? 0 };
+    } catch (_) {}
+    if (fallback && typeof fallback.clientX === 'number') return fallback;
+    return { clientX: 24, clientY: 24 };
 };
 
 window.openLocationPickerModal = function() {

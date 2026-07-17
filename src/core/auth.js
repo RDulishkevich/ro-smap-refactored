@@ -390,7 +390,7 @@ export function initAuth() {
             ];
 
             return `
-            <div class="session-card">
+            <div class="session-card cursor-pointer" onclick="window.openCabinetExpedition('${session.id}')">
                 <div class="flex items-start justify-between gap-2">
                     <div class="min-w-0">
                         <h5 class="font-bold text-slate-800 dark:text-white text-sm truncate">${session.title}</h5>
@@ -404,11 +404,11 @@ export function initAuth() {
                         ${(session.photos && session.photos.length) ? `<div class="flex gap-1.5 mt-2">${session.photos.slice(0, 4).map(src => `<img src="${src}" class="w-9 h-9 rounded-lg object-cover border border-slate-200 dark:border-slate-700">`).join('')}</div>` : ''}
                         ${(session.videoLinks && session.videoLinks.length) || (session.links && session.links.length) ? `
                         <div class="flex flex-wrap gap-1.5 mt-2">
-                            ${(session.videoLinks || []).map(url => `<a href="${url}" target="_blank" rel="noopener" class="profile-link-chip"><i class="fa-solid fa-film"></i>Видео</a>`).join('')}
-                            ${(session.links || []).map(url => `<a href="${url}" target="_blank" rel="noopener" class="profile-link-chip"><i class="fa-solid fa-link"></i>Ресурс</a>`).join('')}
+                            ${(session.videoLinks || []).map(url => `<a href="${url}" target="_blank" rel="noopener" class="profile-link-chip" onclick="event.stopPropagation()"><i class="fa-solid fa-film"></i>Видео</a>`).join('')}
+                            ${(session.links || []).map(url => `<a href="${url}" target="_blank" rel="noopener" class="profile-link-chip" onclick="event.stopPropagation()"><i class="fa-solid fa-link"></i>Ресурс</a>`).join('')}
                         </div>` : ''}
                     </div>
-                    <div class="flex items-center gap-1.5 shrink-0">
+                    <div class="flex items-center gap-1.5 shrink-0" onclick="event.stopPropagation()">
                         <button onclick="window.openSessionModal('${session.id}')" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-500 dark:text-slate-300 flex items-center justify-center transition-colors" title="Редактировать экспедицию">
                             <i class="fa-solid fa-pen text-xs"></i>
                         </button>
@@ -418,7 +418,7 @@ export function initAuth() {
                     </div>
                 </div>
                 ${soundsInSession.length ? `
-                <div class="session-sound-list">
+                <div class="session-sound-list" onclick="event.stopPropagation()">
                     ${soundsInSession.map(s => {
                         const st = window.STATUS_LABELS[s.status] || window.STATUS_LABELS.published;
                         return `
@@ -429,11 +429,16 @@ export function initAuth() {
                     }).join('')}
                 </div>` : `<p class="text-xs text-slate-400 italic mt-2">Пока нет записей — привяжите звук к сессии в вкладке "Мои звуки".</p>`}
                 ${draftCount > 0 ? `
-                <button onclick="window.publishSessionDrafts('${session.id}')" class="mt-3 w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-sm">
+                <button onclick="event.stopPropagation(); window.publishSessionDrafts('${session.id}')" class="mt-3 w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-sm">
                     <i class="fa-solid fa-cloud-arrow-up mr-1.5"></i>Опубликовать все черновики (${draftCount})
                 </button>` : ''}
             </div>`;
         }).join('');
+    };
+
+    window.openCabinetExpedition = function(sessionId) {
+        if (window.closeCabinet) window.closeCabinet();
+        if (window.openExpeditionViewModal) window.openExpeditionViewModal(sessionId);
     };
 
     // --- Вкладка "Экспедиции" в левой панели: публичный каталог всех экспедиций пользователей.
@@ -1504,9 +1509,9 @@ export function initAuth() {
         }).join('');
     };
 
-    window.openAdminSoundActions = function(soundId) {
+    window.getAdminSoundActionItems = function(soundId) {
         const s = window.soundsData.find(x => x.id === soundId);
-        if (!s) return;
+        if (!s) return [];
         const status = s.status || 'published';
         const items = [
             { icon: 'fa-eye', label: 'Просмотреть', tone: 'primary', onClick: () => { window.openedFromAdmin = true; window.closeCabinet(); window.selectSound(soundId); window.openDetailsModal(); } },
@@ -1521,7 +1526,12 @@ export function initAuth() {
             if (status !== 'rejected') items.push({ icon: 'fa-ban', label: 'Отклонить', tone: 'danger', onClick: () => window.setSoundStatus(soundId, 'rejected') });
         }
         items.push({ icon: 'fa-trash', label: 'Удалить', tone: 'danger', onClick: () => window.deleteSoundFromCloud(soundId) });
-        window.ActionSheet.open(items);
+        return items;
+    };
+
+    window.openAdminSoundActions = function(soundId) {
+        const items = window.getAdminSoundActionItems(soundId);
+        if (items.length) window.ActionSheet.open(items);
     };
 
     window.openDetailsAdminActions = function() {
@@ -2435,6 +2445,25 @@ export function initAuth() {
         window.refreshNotificationsUI();
     };
 
+    window.clearAllNotifications = async function() {
+        if (!window.currentUser) return;
+        const ok = await window.CustomUI.open({
+            title: '<i class="fa-solid fa-trash-can mr-2 text-red-500"></i>Очистить уведомления',
+            message: 'Все уведомления будут удалены без возможности восстановления.',
+            confirmText: 'Очистить',
+            confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
+        });
+        if (!ok) return;
+        const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const updated = [...(window.profilesData || [])];
+        const idx = updated.findIndex(p => p.loginName === login);
+        if (idx < 0) return;
+        updated[idx] = { ...updated[idx], notifications: [] };
+        await window.syncProfilesData(updated);
+        window.refreshNotificationsUI();
+        window.showToast('Уведомления очищены');
+    };
+
     // --- Личные сообщения между пользователями (inbox в profiles.json) ---
     window.__activeMessagePeer = null;
     window.__messageReplyTo = null;
@@ -3208,7 +3237,7 @@ export function initAuth() {
         }
     };
 
-    window.openMessageMenu = function(msgId) {
+    window.openMessageMenu = function(msgId, position) {
         const found = window.findInboxMessage(msgId);
         if (!found) return;
         const m = found.msg;
@@ -3227,7 +3256,19 @@ export function initAuth() {
                         label: emoji,
                         onClick: () => window.toggleMessageReaction(msgId, emoji)
                     }));
-                    setTimeout(() => window.ActionSheet.open(reactItems), 300);
+                    const point = position || { clientX: 24, clientY: 24 };
+                    setTimeout(() => {
+                        if (window.CtxPopup) {
+                            window.CtxPopup.open({
+                                title: 'Реакция',
+                                items: reactItems,
+                                clientX: point.clientX,
+                                clientY: point.clientY
+                            });
+                        } else {
+                            window.ActionSheet.open(reactItems);
+                        }
+                    }, 40);
                 }
             });
             if (isMine) {
@@ -3245,7 +3286,19 @@ export function initAuth() {
                 onClick: () => window.openPublicProfile(m.fromId, authorProfile?.displayName || m.fromName || m.fromId)
             });
         }
-        if (items.length) window.ActionSheet.open(items);
+        if (!items.length) return;
+
+        const point = position || { clientX: 24, clientY: 24 };
+        if (window.CtxPopup) {
+            window.CtxPopup.open({
+                title: isMine ? 'Ваше сообщение' : (m.fromName || 'Сообщение'),
+                items,
+                clientX: point.clientX,
+                clientY: point.clientY
+            });
+        } else {
+            window.ActionSheet.open(items);
+        }
     };
 
     window.toggleMessageReaction = async function(msgId, emoji) {

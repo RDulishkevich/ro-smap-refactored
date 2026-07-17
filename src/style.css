@@ -3045,6 +3045,13 @@ textarea.modal-input {
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 0.5rem;
+    }
+    body.dock-view-cabinet .dock-header > .flex {
+        width: 100%;
+        flex: 1 1 auto;
+        min-width: 0;
+        align-items: center;
     }
     body.dock-view-cabinet .dock-header .dock-back-btn { display: none; }
     body.dock-view-cabinet:not(.cab-mobile-home) .dock-header .dock-back-btn {
@@ -3055,11 +3062,18 @@ textarea.modal-input {
     body.dock-view-cabinet.cab-mobile-home #dock-mobile-close,
     body.dock-view-cabinet.cab-mobile-home .dock-header #dock-mobile-close {
         display: inline-flex !important;
-        margin-left: 0.25rem;
+        margin-left: 0;
+        order: 2;
     }
     body.dock-view-cabinet .dock-header-actions {
         margin-left: auto;
         justify-content: flex-end;
+        align-items: center;
+        flex-shrink: 0;
+        gap: 0.25rem;
+    }
+    body.dock-view-cabinet.cab-mobile-home #dock-mobile-logout {
+        order: 1;
     }
     body.dock-view-cabinet:not(.cab-mobile-home) #dock-mobile-close {
         display: none !important;

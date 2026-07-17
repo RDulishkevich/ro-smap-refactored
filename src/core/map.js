@@ -5,12 +5,15 @@ window.hideMapContextMenu = function() {
         menu.style.left = '-9999px';
         menu.style.top = '-9999px';
     }
+    if (window.CtxPopup) window.CtxPopup.close();
 };
 
 window.showMapContextMenu = function(coords, position) {
     const menu = document.getElementById('map-context-menu');
     const coordsLabel = document.getElementById('map-context-menu-coords');
     if (!menu || !coordsLabel) return;
+
+    if (window.CtxPopup) window.CtxPopup.close();
 
     window.tempAddCoords = [coords[0], coords[1]];
     coordsLabel.textContent = `${Number(coords[0]).toFixed(5)}, ${Number(coords[1]).toFixed(5)}`;
@@ -63,7 +66,7 @@ window.createMapMarkerFromContext = function() {
     if (window.toggleAddModal) window.toggleAddModal(false, window.tempAddCoords);
 };
 
-/** ПКМ по метке: админское меню действий (просмотр / изменить / модерация / удалить). */
+/** ПКМ по метке: всплывающее меню админ-действий (как ПКМ по пустой карте). */
 window.openMarkerAdminContext = function(soundId, e) {
     if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) return false;
     if (e) {
@@ -77,7 +80,25 @@ window.openMarkerAdminContext = function(soundId, e) {
     }
     if (window.hideMapContextMenu) window.hideMapContextMenu();
     if (window.hideMarkerHoverCard) window.hideMarkerHoverCard(true);
-    if (window.openAdminSoundActions) window.openAdminSoundActions(soundId);
+
+    const s = (window.soundsData || []).find(x => x.id === soundId);
+    if (!s || !window.getAdminSoundActionItems) return false;
+
+    const point = window.eventClientPoint
+        ? window.eventClientPoint(e)
+        : { clientX: 24, clientY: 24 };
+
+    if (window.CtxPopup) {
+        window.CtxPopup.open({
+            title: s.title || 'Метка',
+            subtitle: `${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`,
+            items: window.getAdminSoundActionItems(soundId),
+            clientX: point.clientX,
+            clientY: point.clientY
+        });
+    } else if (window.openAdminSoundActions) {
+        window.openAdminSoundActions(soundId);
+    }
     return true;
 };
 

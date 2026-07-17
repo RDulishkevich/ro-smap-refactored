@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260717r">
-    <link rel="stylesheet" href="./src/glass.css?v=20260717r">
+    <link rel="stylesheet" href="./src/style.css?v=20260717s">
+    <link rel="stylesheet" href="./src/glass.css?v=20260717s">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -130,9 +130,12 @@
 
         <!-- Notifications popover (outside rail so it is not clipped / glass-bleed) -->
         <div id="notif-panel" class="notif-panel hidden pointer-events-auto z-[90] flex flex-col overflow-hidden">
-            <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
+            <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0 gap-2">
                 <h4 class="text-sm font-bold text-slate-800 dark:text-white" data-lang="notifications_title">Уведомления</h4>
-                <button onclick="window.markAllNotificationsRead()" class="text-[11px] font-semibold text-accent hover:opacity-80 shrink-0 ml-2">Прочитать все</button>
+                <div class="flex items-center gap-2 shrink-0">
+                    <button type="button" onclick="window.clearAllNotifications()" class="text-[11px] font-semibold text-slate-400 hover:text-red-500 transition-colors">Очистить</button>
+                    <button type="button" onclick="window.markAllNotificationsRead()" class="text-[11px] font-semibold text-accent hover:opacity-80">Прочитать все</button>
+                </div>
             </div>
             <div id="notif-list" class="overflow-y-auto custom-scrollbar flex-1 p-2 space-y-1 min-h-0"></div>
         </div>
@@ -1726,6 +1729,15 @@
         </button>
     </div>
 
+    <!-- Универсальное всплывающее контекстное меню (ПКМ по метке / сообщению) -->
+    <div id="ctx-popup-menu" class="fixed z-[9997] hidden w-56 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-800/95 shadow-2xl backdrop-blur-sm overflow-hidden">
+        <div id="ctx-popup-header" class="px-3 py-2 border-b border-slate-100 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/60 hidden">
+            <div id="ctx-popup-title" class="text-[11px] font-semibold text-slate-600 dark:text-slate-300 truncate"></div>
+            <div id="ctx-popup-subtitle" class="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-1 truncate hidden"></div>
+        </div>
+        <div id="ctx-popup-items" class="py-1"></div>
+    </div>
+
     <!-- Кастомные UI Модальные окна -->
     <div id="ui-modal-overlay" class="fixed inset-0 z-[9999] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 app-modal-overlay">
         <div id="ui-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-sm app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all">
@@ -1758,7 +1770,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260717r"></script>
+    <script type="module" src="./src/main.js?v=20260717s"></script>
 
 </body>
 </html>
