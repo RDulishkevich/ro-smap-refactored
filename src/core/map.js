@@ -142,7 +142,13 @@ window.normalizeMapProvider = function(provider) {
     if (raw === 'ozon' || raw === 'ozom' || raw === 'ozonmaps' || raw === 'osm' || raw === 'openstreetmap') return 'ozon';
     if (raw === 'carto' || raw === 'cartodb') return 'carto';
     if (raw === 'opentopo' || raw === 'opentopomap' || raw === 'topo') return 'opentopo';
-    if (raw === 'esri' || raw === 'satellite' || raw === 'imagery') return 'esri';
+    if (raw === 'esri' || raw === 'satellite' || raw === 'imagery' || raw === 'esrisat') return 'esri';
+    if (raw === 'esristreet' || raw === 'street') return 'esristreet';
+    if (raw === 'esritopo' || raw === 'worldtopo') return 'esritopo';
+    if (raw === 'cyclosm' || raw === 'cycle') return 'cyclosm';
+    if (raw === 'hot' || raw === 'humanitarian') return 'hot';
+    if (raw === 'osmde' || raw === 'osmgermany') return 'osmde';
+    if (raw === 'osmbright' || raw === 'bright') return 'osmbright';
     if (raw === 'dgis' || raw === '2gis') return 'dgis';
     if (raw === 'googleearth' || raw === 'google' || raw === 'earth') return 'googleearth';
     return 'yandex';
@@ -200,6 +206,12 @@ window.updateMapProviderHint = function() {
         carto: 'map_provider_carto_hint',
         opentopo: 'map_provider_opentopo_hint',
         esri: 'map_provider_esri_hint',
+        esristreet: 'map_provider_esristreet_hint',
+        esritopo: 'map_provider_esritopo_hint',
+        cyclosm: 'map_provider_cyclosm_hint',
+        hot: 'map_provider_hot_hint',
+        osmde: 'map_provider_osmde_hint',
+        osmbright: 'map_provider_osmbright_hint',
         dgis: 'map_provider_dgis_hint',
         googleearth: 'map_provider_google_hint',
         yandex: 'map_provider_yandex_hint'
@@ -526,7 +538,7 @@ window.initMapLongPress = function() {
             if (moved || !window.map) return;
             let coords;
             try {
-                if (window.mapboxMap && window.currentMapProvider === 'mapbox') {
+                if (window.mapboxMap && window.isMapLibreProvider && window.isMapLibreProvider(window.currentMapProvider)) {
                     const rect = container.getBoundingClientRect();
                     const point = window.mapboxMap.unproject([start.x - rect.left, start.y - rect.top]);
                     coords = [point.lat, point.lng];

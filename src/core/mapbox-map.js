@@ -11,7 +11,10 @@ window.OPENFREEMAP_STYLES = {
 };
 
 /** Free MapLibre-based providers (no paid key). `mapbox` id is historical = OSM 3D. */
-window.MAPLIBRE_PROVIDER_IDS = ['mapbox', 'ozon', 'carto', 'opentopo', 'esri'];
+window.MAPLIBRE_PROVIDER_IDS = [
+    'mapbox', 'ozon', 'carto', 'opentopo', 'esri',
+    'cyclosm', 'hot', 'osmde', 'esristreet', 'esritopo', 'osmbright'
+];
 
 window.isMapLibreProvider = function(provider) {
     const id = window.normalizeMapProvider
@@ -20,7 +23,7 @@ window.isMapLibreProvider = function(provider) {
     return (window.MAPLIBRE_PROVIDER_IDS || []).includes(id);
 };
 
-window.buildRasterMapStyle = function(tiles, attribution) {
+window.buildRasterMapStyle = function(tiles, attribution, maxzoom = 19) {
     const list = Array.isArray(tiles) ? tiles : [tiles];
     return {
         version: 8,
@@ -30,7 +33,8 @@ window.buildRasterMapStyle = function(tiles, attribution) {
                 type: 'raster',
                 tiles: list,
                 tileSize: 256,
-                attribution: attribution || '© OpenStreetMap'
+                attribution: attribution || '© OpenStreetMap',
+                maxzoom
             }
         },
         layers: [{
@@ -43,12 +47,26 @@ window.buildRasterMapStyle = function(tiles, attribution) {
     };
 };
 
+window.abcTiles = function(template) {
+    return ['a', 'b', 'c'].map((s) => template.replace('{s}', s));
+};
+
 window.getMapLibreProviderConfig = function(provider) {
     const id = window.normalizeMapProvider
         ? window.normalizeMapProvider(provider || window.currentMapProvider)
         : (provider || window.currentMapProvider);
     const mono = window.currentMapStyle === 'monochrome';
     const dark = window.currentTheme === 'dark';
+
+    const flat = (style, extra = {}) => ({
+        id,
+        style,
+        pitch: 0,
+        bearing: 0,
+        buildings: false,
+        minPitchForView: 0,
+        ...extra
+    });
 
     if (id === 'mapbox') {
         return {
@@ -61,72 +79,42 @@ window.getMapLibreProviderConfig = function(provider) {
         };
     }
 
-    if (id === 'ozon') {
-        // «Ozon Maps» = бесплатные OSM-тайлы (отдельного API Ozon нет).
-        // Carto Voyager — стабильный бесплатный CDN на данных OSM.
-        const tiles = mono
-            ? [
-                'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-                'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-                'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
-            ]
+    if (id === 'osmbright') {
+        // OpenFreeMap vector, flat camera — still free, no key
+        const style = mono
+            ? window.OPENFREEMAP_STYLES.monochrome
             : dark
-                ? [
-                    'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-                    'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-                    'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
-                ]
-                : [
-                    'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-                    'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-                    'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'
-                ];
-        return {
-            id: 'ozon',
-            style: window.buildRasterMapStyle(tiles, '© OpenStreetMap © CARTO'),
-            pitch: 0,
-            bearing: 0,
-            buildings: false,
-            minPitchForView: 0
-        };
+                ? window.OPENFREEMAP_STYLES.dark
+                : window.OPENFREEMAP_STYLES.normal;
+        return flat(style, { pitch: 0, buildings: false });
+    }
+
+    if (id === 'ozon') {
+        const tiles = mono
+            ? window.abcTiles('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png')
+            : dark
+                ? window.abcTiles('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png')
+                : window.abcTiles('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png');
+        return flat(window.buildRasterMapStyle(tiles, '© OpenStreetMap © CARTO'));
     }
 
     if (id === 'carto') {
         const tiles = mono
-            ? [
-                'https://a.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png',
-                'https://b.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png',
-                'https://c.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png'
-            ]
+            ? window.abcTiles('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png')
             : dark
-                ? [
-                    'https://a.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png',
-                    'https://b.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png',
-                    'https://c.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png'
-                ]
-                : [
-                    'https://a.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}.png',
-                    'https://b.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}.png',
-                    'https://c.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}.png'
-                ];
-        return {
-            id: 'carto',
-            style: window.buildRasterMapStyle(tiles, '© OpenStreetMap © CARTO'),
-            pitch: 0,
-            bearing: 0,
-            buildings: false,
-            minPitchForView: 0
-        };
+                ? window.abcTiles('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png')
+                : window.abcTiles('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}.png');
+        return flat(window.buildRasterMapStyle(tiles, '© OpenStreetMap © CARTO'));
     }
 
     if (id === 'opentopo') {
         return {
             id: 'opentopo',
-            style: window.buildRasterMapStyle([
-                'https://a.tile.opentopomap.org/{z}/{x}/{y}.png',
-                'https://b.tile.opentopomap.org/{z}/{x}/{y}.png',
-                'https://c.tile.opentopomap.org/{z}/{x}/{y}.png'
-            ], '© OpenStreetMap © OpenTopoMap (CC-BY-SA)'),
+            style: window.buildRasterMapStyle(
+                window.abcTiles('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'),
+                '© OpenStreetMap © OpenTopoMap (CC-BY-SA)',
+                17
+            ),
             pitch: 42,
             bearing: -12,
             buildings: false,
@@ -135,7 +123,6 @@ window.getMapLibreProviderConfig = function(provider) {
     }
 
     if (id === 'esri') {
-        // Esri World Imagery — бесплатные публичные тайлы (с атрибуцией).
         return {
             id: 'esri',
             style: window.buildRasterMapStyle(
@@ -147,6 +134,49 @@ window.getMapLibreProviderConfig = function(provider) {
             buildings: false,
             minPitchForView: 40
         };
+    }
+
+    if (id === 'esristreet') {
+        return flat(window.buildRasterMapStyle(
+            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+            'Tiles © Esri'
+        ));
+    }
+
+    if (id === 'esritopo') {
+        return {
+            id: 'esritopo',
+            style: window.buildRasterMapStyle(
+                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+                'Tiles © Esri'
+            ),
+            pitch: 35,
+            bearing: -8,
+            buildings: false,
+            minPitchForView: 25
+        };
+    }
+
+    if (id === 'cyclosm') {
+        return flat(window.buildRasterMapStyle(
+            window.abcTiles('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png'),
+            '© OpenStreetMap © CyclOSM',
+            20
+        ));
+    }
+
+    if (id === 'hot') {
+        return flat(window.buildRasterMapStyle(
+            window.abcTiles('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png'),
+            '© OpenStreetMap, Tiles courtesy of Humanitarian OpenStreetMap Team'
+        ));
+    }
+
+    if (id === 'osmde') {
+        return flat(window.buildRasterMapStyle(
+            'https://tile.openstreetmap.de/{z}/{x}/{y}.png',
+            '© OpenStreetMap contributors'
+        ));
     }
 
     return {

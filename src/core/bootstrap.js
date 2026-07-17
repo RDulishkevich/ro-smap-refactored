@@ -1,17 +1,17 @@
-import { initGlobalState } from './state.js?v=20260718j';
-import './api.js?v=20260718j';
-import { initAuth } from './auth.js?v=20260718j';
+import { initGlobalState } from './state.js?v=20260718k';
+import './api.js?v=20260718k';
+import { initAuth } from './auth.js?v=20260718k';
 
-import '../ui/ui.js?v=20260718j';
-import './sfx.js?v=20260718j';
-import './audio.js?v=20260718j';
-import './map.js?v=20260718j';
-import './mapbox-map.js?v=20260718j';
-import './dgis-map.js?v=20260718j';
-import './google-earth-map.js?v=20260718j';
-import './achievements.js?v=20260718j';
-import './guessr.js?v=20260718j';
-import '../widgets/analytics-widget.js?v=20260718j';
+import '../ui/ui.js?v=20260718k';
+import './sfx.js?v=20260718k';
+import './audio.js?v=20260718k';
+import './map.js?v=20260718k';
+import './mapbox-map.js?v=20260718k';
+import './dgis-map.js?v=20260718k';
+import './google-earth-map.js?v=20260718k';
+import './achievements.js?v=20260718k';
+import './guessr.js?v=20260718k';
+import '../widgets/analytics-widget.js?v=20260718k';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;

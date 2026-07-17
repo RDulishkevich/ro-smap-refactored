@@ -1138,6 +1138,11 @@ export function initAuth() {
         setProv(mapEsriBtn, 'esri');
         setProv(mapDgisBtn, 'dgis');
         setProv(mapGoogleBtn, 'googleearth');
+        const freeSelect = document.getElementById('map-free-basemap-select');
+        if (freeSelect) {
+            const freeIds = window.MAPLIBRE_PROVIDER_IDS || [];
+            freeSelect.value = freeIds.includes(provider) ? provider : '';
+        }
         if (window.updateMapProviderHint) window.updateMapProviderHint();
         if (window.updateMapProviderKeyFields) window.updateMapProviderKeyFields();
 

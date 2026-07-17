@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260718j">
-    <link rel="stylesheet" href="./src/glass.css?v=20260718j">
+    <link rel="stylesheet" href="./src/style.css?v=20260718k">
+    <link rel="stylesheet" href="./src/glass.css?v=20260718k">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -577,6 +577,24 @@
                         <button type="button" onclick="window.setMapProvider('esri')" id="map-provider-esri-btn" class="glass-seg__btn" data-lang="map_provider_esri">Esri Sat</button>
                         <button type="button" onclick="window.setMapProvider('dgis')" id="map-provider-dgis-btn" class="glass-seg__btn" data-lang="map_provider_dgis">2GIS 3D</button>
                         <button type="button" onclick="window.setMapProvider('googleearth')" id="map-provider-google-btn" class="glass-seg__btn" data-lang="map_provider_google">Google Earth</button>
+                    </div>
+                    <label class="modal-label text-slate-500 dark:text-slate-400 mt-3" data-lang="map_provider_free_more"><i class="fa-solid fa-gift mr-1"></i> Ещё бесплатные слои</label>
+                    <div class="relative mt-1">
+                        <select id="map-free-basemap-select" onchange="if(this.value) window.setMapProvider(this.value)" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-semibold appearance-none cursor-pointer text-xs">
+                            <option value="">— выберите слой —</option>
+                            <option value="cyclosm">CyclOSM (вело)</option>
+                            <option value="hot">HOT Humanitarian</option>
+                            <option value="osmde">OSM.de</option>
+                            <option value="osmbright">OSM Bright</option>
+                            <option value="esristreet">Esri Streets</option>
+                            <option value="esritopo">Esri Topo</option>
+                            <option value="ozon">Ozon Maps</option>
+                            <option value="carto">Carto</option>
+                            <option value="opentopo">OpenTopo</option>
+                            <option value="esri">Esri Satellite</option>
+                            <option value="mapbox">OSM 3D</option>
+                        </select>
+                        <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
                     </div>
                     <p id="map-provider-hint" class="text-[11px] text-slate-400 leading-relaxed mt-2" data-lang="map_provider_yandex_hint">Классическая карта Яндекса — быстрый и стабильный режим по умолчанию.</p>
                     <div id="dgis-key-wrap" class="hidden mt-3 space-y-1.5">
@@ -1786,7 +1804,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260718j"></script>
+    <script type="module" src="./src/main.js?v=20260718k"></script>
 
 </body>
 </html>
