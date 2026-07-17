@@ -39,6 +39,7 @@ window.ensureAudioGraph = async function() {
         if (window.audioContext.state === 'suspended') {
             await window.audioContext.resume();
         }
+        if (window.unlockUiSfx) window.unlockUiSfx();
 
         if (window.audioElement) {
             window.audioElement.crossOrigin = 'anonymous';
