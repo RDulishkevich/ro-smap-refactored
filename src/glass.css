@@ -192,7 +192,7 @@ body {
     background: var(--glass-fill-strong) !important;
     background-color: var(--glass-fill-strong) !important;
     border: 1px solid var(--glass-rim) !important;
-    box-shadow: var(--glass-elev), var(--glass-shine) !important;
+    box-shadow: var(--glass-elev) !important;
     backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
 }
@@ -200,6 +200,7 @@ body {
 #app-rail.app-rail {
     border-radius: var(--radius-xl);
     color: var(--ink);
+    box-shadow: var(--glass-elev) !important;
 }
 
 #map-top-toolbar.map-top-toolbar {
@@ -215,7 +216,8 @@ body {
     background: var(--panel-solid) !important;
     background-color: var(--panel-solid) !important;
     border: 1px solid var(--glass-rim-outer) !important;
-    box-shadow: var(--glass-elev), var(--glass-shine) !important;
+    /* Drop inset shine — it can align with dock borders and look like a full-bleed rule */
+    box-shadow: var(--glass-elev) !important;
 }
 #player-card.player-shell {
     backdrop-filter: none !important;

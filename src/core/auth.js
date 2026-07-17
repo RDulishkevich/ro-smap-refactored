@@ -1158,19 +1158,27 @@ export function initAuth() {
         });
 
         if (tab === 'sounds') {
+            document.body.classList.add('cab-mobile-home');
             window.renderCabinet();
         } else if (tab === 'quests') {
+            document.body.classList.remove('cab-mobile-home');
             if (window.evaluateFieldProgress) window.evaluateFieldProgress({ refreshUi: false }).then(() => {
                 if (window.renderQuestsPanel) window.renderQuestsPanel();
             });
             else if (window.renderQuestsPanel) window.renderQuestsPanel();
         } else if (tab === 'sessions') {
+            document.body.classList.remove('cab-mobile-home');
             if (window.renderSessionsPanel) window.renderSessionsPanel();
         } else if (tab === 'analytics') {
+            document.body.classList.remove('cab-mobile-home');
             if (window.renderMyAnalytics) window.renderMyAnalytics();
         } else if (tab === 'settings') {
+            document.body.classList.remove('cab-mobile-home');
             if (window.fillProfileSettingsForm) window.fillProfileSettingsForm();
+        } else if (tab === 'security') {
+            document.body.classList.remove('cab-mobile-home');
         } else if (tab === 'admin') {
+            document.body.classList.remove('cab-mobile-home');
             const adminBtn = document.getElementById('cab-tab-admin');
             if (adminBtn && adminBtn.classList.contains('hidden')) {
                 window.switchCabinetTab('sounds');
@@ -1215,6 +1223,17 @@ export function initAuth() {
 
         const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
         document.getElementById('cabinet-user-name').textContent = window.currentUser.username;
+        const loginEl = document.getElementById('cabinet-user-login');
+        if (loginEl) {
+            loginEl.textContent = `@${login}`;
+            loginEl.classList.remove('hidden');
+        }
+        const badgeEl = document.getElementById('cabinet-member-badge');
+        if (badgeEl && window.getMyProgress && window.getLevelTitle) {
+            const prog = window.getMyProgress();
+            badgeEl.classList.remove('hidden');
+            badgeEl.innerHTML = `<i class="fa-solid fa-circle-check"></i>${window.getLevelTitle(prog.level)}`;
+        }
         const joinedEl = document.getElementById('cabinet-user-joined');
         const joinedDate = window.currentUser.joinedAt ? new Date(window.currentUser.joinedAt) : null;
         if (joinedEl) joinedEl.innerHTML = `<i class="fa-solid fa-calendar-days"></i>${joinedDate && !isNaN(joinedDate) ? joinedDate.toLocaleDateString('ru-RU') : new Date().toLocaleDateString('ru-RU')}`;
@@ -1995,7 +2014,8 @@ export function initAuth() {
         }
     };
 
-    window.toggleNotificationsPanel = function() {
+    window.toggleNotificationsPanel = function(ev) {
+        if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
         if (!window.currentUser) return;
         const panel = document.getElementById('notif-panel');
         if (!panel) return;
@@ -2610,6 +2630,8 @@ export function initAuth() {
             if (window.bindSwipeReplyRows) window.bindSwipeReplyRows(list, (id) => window.startMessageReply(id));
         }
 
+        if (window.updateTypingIndicator) window.updateTypingIndicator(peerLogin);
+
         // Пометить прочитанными входящие в мой inbox
         const updated = [...(window.profilesData || [])];
         const idx = updated.findIndex(p => p.loginName === myLogin);
@@ -2722,6 +2744,60 @@ export function initAuth() {
         reader.readAsDataURL(files[0]);
     };
 
+    window.updateTypingIndicator = function(peerLogin) {
+        const el = document.getElementById('messages-typing');
+        const textEl = document.getElementById('messages-typing-text');
+        if (!el) return;
+        const peer = peerLogin || window.__activeMessagePeer;
+        if (!peer || peer === window.SUPPORT_LOGIN) {
+            el.classList.add('hidden');
+            return;
+        }
+        const profile = window.getProfileByLogin ? window.getProfileByLogin(peer) : null;
+        const typing = profile?.typing;
+        const myLogin = window.currentUser?.loginName || String(window.currentUser?.username || '').toLowerCase();
+        const fresh = typing && typing.to === myLogin && typing.at && (Date.now() - new Date(typing.at).getTime() < 4500);
+        if (!fresh) {
+            el.classList.add('hidden');
+            return;
+        }
+        const name = profile?.displayName || peer;
+        if (textEl) textEl.textContent = `${name} ${window.currentLang === 'en' ? 'is typing…' : 'печатает…'}`;
+        el.classList.remove('hidden');
+    };
+
+    window.publishTypingStatus = async function(isTyping) {
+        if (!window.currentUser || !window.__activeMessagePeer) return;
+        if (window.__messagingAsSupport) return;
+        const peer = window.__activeMessagePeer;
+        if (peer === window.SUPPORT_LOGIN) return;
+        const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const updated = [...(window.profilesData || [])];
+        const idx = updated.findIndex(p => p.loginName === myLogin);
+        if (idx < 0) return;
+        const nextTyping = isTyping
+            ? { to: peer, at: new Date().toISOString() }
+            : null;
+        const prev = updated[idx].typing;
+        if (!isTyping && !prev) return;
+        if (isTyping && prev?.to === peer && prev.at && Date.now() - new Date(prev.at).getTime() < 1800) return;
+        updated[idx] = { ...updated[idx], typing: nextTyping, lastSeen: new Date().toISOString() };
+        window.profilesData = updated;
+        window.syncProfilesData(updated).catch(() => {});
+    };
+
+    window.onMessageComposeInput = function() {
+        const input = document.getElementById('messages-compose-input');
+        const hasText = !!(input && input.value.trim());
+        if (window.__typingIdleTimer) clearTimeout(window.__typingIdleTimer);
+        if (hasText) {
+            window.publishTypingStatus(true);
+            window.__typingIdleTimer = setTimeout(() => window.publishTypingStatus(false), 2800);
+        } else {
+            window.publishTypingStatus(false);
+        }
+    };
+
     window.sendMessageInThread = async function() {
         const peer = window.__activeMessagePeer;
         if (!peer || !window.currentUser) return;
@@ -2729,6 +2805,7 @@ export function initAuth() {
         const text = (input?.value || '').trim();
         const image = window.__messagePendingImage || null;
         if (!text && !image) return;
+        if (window.publishTypingStatus) window.publishTypingStatus(false);
 
         const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
         const asSupport = !!window.__messagingAsSupport;

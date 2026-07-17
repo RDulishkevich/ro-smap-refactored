@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260717l">
-    <link rel="stylesheet" href="./src/glass.css?v=20260717l">
+    <link rel="stylesheet" href="./src/style.css?v=20260717m">
+    <link rel="stylesheet" href="./src/glass.css?v=20260717m">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -107,7 +107,7 @@
                     </button>
                 </div>
                 <div class="relative" id="notif-wrap">
-                    <button type="button" onclick="window.toggleNotificationsPanel()" id="notif-btn" class="hidden relative app-rail__btn" title="Уведомления" data-lang-title="notifications_title">
+                    <button type="button" onclick="window.toggleNotificationsPanel(event)" id="notif-btn" class="hidden relative app-rail__btn" title="Уведомления" data-lang-title="notifications_title">
                         <i class="fa-solid fa-bell"></i>
                         <span id="notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[1rem] h-[1rem] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center shadow">0</span>
                     </button>
@@ -157,7 +157,7 @@
                 </button>
             </div>
             <div class="relative md:hidden" id="notif-wrap-mobile">
-                <button type="button" onclick="window.toggleNotificationsPanel()" id="notif-btn-mobile" class="hidden relative map-icon-btn" title="Уведомления" data-lang-title="notifications_title">
+                <button type="button" onclick="window.toggleNotificationsPanel(event)" id="notif-btn-mobile" class="hidden relative map-icon-btn" title="Уведомления" data-lang-title="notifications_title">
                     <i class="fa-solid fa-bell"></i>
                     <span id="notif-badge-mobile" class="hidden absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow">0</span>
                 </button>
@@ -184,6 +184,7 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-1 shrink-0 md:hidden">
+                        <button type="button" id="dock-mobile-logout" onclick="window.logoutUser()" class="hidden px-2 py-1 text-sm font-bold text-red-500">Выйти</button>
                         <button type="button" onclick="window.hideDockPanel()" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors pointer-events-auto" aria-label="Закрыть">
                             <i class="fa-solid fa-xmark text-lg pointer-events-none"></i>
                         </button>
@@ -651,11 +652,13 @@
                     <div class="min-w-0">
                         <h3 id="cabinet-user-name" class="text-lg font-bold text-slate-800 dark:text-white leading-tight truncate">Имя Пользователя</h3>
                         <p id="cabinet-user-role" class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Рекордист</p>
+                        <p id="cabinet-user-login" class="hidden text-[11px] text-slate-400 mt-0.5"></p>
                         <div class="flex flex-wrap gap-2 mt-2 text-[10px] text-slate-500 dark:text-slate-400">
                             <span id="cabinet-user-joined" class="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full"><i class="fa-solid fa-calendar-days"></i>Дата</span>
                             <span id="cabinet-user-stats" class="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full"><i class="fa-solid fa-microphone"></i>0 звуков</span>
                             <span id="cabinet-user-level" class="hidden inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-1 rounded-full font-bold"><i class="fa-solid fa-bolt"></i>Lv 1</span>
                         </div>
+                        <div id="cabinet-member-badge" class="cabinet-member-badge hidden mt-2"></div>
                     </div>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
@@ -683,6 +686,15 @@
 
             <div class="p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0">
                 <div id="cab-panel-sounds" data-cab-panel="sounds" class="space-y-4">
+                    <div id="cabinet-mobile-menu" class="cabinet-mobile-menu md:hidden space-y-2 mb-2">
+                        <button type="button" class="cabinet-mobile-row" onclick="window.switchCabinetTab('quests')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-trophy"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_quests">Задания</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
+                        <button type="button" class="cabinet-mobile-row" onclick="window.switchCabinetTab('sessions')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-route"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_sessions">Экспедиции</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
+                        <button type="button" class="cabinet-mobile-row" onclick="window.switchCabinetTab('analytics')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-chart-line"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_analytics">Аналитика</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
+                        <button type="button" class="cabinet-mobile-row" onclick="window.switchCabinetTab('settings')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-gear"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_settings">Настройки</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
+                        <button type="button" class="cabinet-mobile-row" onclick="window.openSettingsPanel()"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-bell"></i></span><span class="cabinet-mobile-row__label" data-lang="notifications_title">Уведомления</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
+                        <button type="button" class="cabinet-mobile-row" onclick="window.switchCabinetTab('security')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-lock"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_security">Сменить пароль</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
+                        <button type="button" class="cabinet-mobile-row cabinet-mobile-row--danger" onclick="window.logoutUser()"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-right-from-bracket"></i></span><span class="cabinet-mobile-row__label">Выйти</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
+                    </div>
                     <div class="grid grid-cols-2 gap-4 mb-4">
                         <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-center items-center text-center">
                             <span class="text-3xl font-black text-blue-600 dark:text-blue-400 mb-1" id="cabinet-stat-count">0</span>
@@ -1236,6 +1248,7 @@
                     </button>
                 </div>
                 <div id="messages-thread-list" class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2 min-h-0 flex flex-col"></div>
+                <div id="messages-typing" class="hidden px-4 py-1 text-[11px] font-semibold text-slate-400"><span class="msg-typing-dots" aria-hidden="true"></span> <span id="messages-typing-text">печатает…</span></div>
                 <div id="messages-reply-banner" class="hidden px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-[11px] font-semibold items-center justify-between gap-2 border-t border-blue-100 dark:border-blue-900/40">
                     <span class="truncate">Ответ: <span id="messages-reply-preview"></span></span>
                     <button onclick="window.cancelMessageReply()" class="shrink-0"><i class="fa-solid fa-xmark"></i></button>
@@ -1245,7 +1258,7 @@
                     <button type="button" onclick="window.toggleEmojiPicker()" class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-500 flex items-center justify-center shrink-0" title="Смайлики"><i class="fa-regular fa-face-smile"></i></button>
                     <button type="button" onclick="document.getElementById('messages-photo-input').click()" class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-500 flex items-center justify-center shrink-0" title="Фото"><i class="fa-solid fa-image"></i></button>
                     <input id="messages-photo-input" type="file" accept="image/*" class="hidden" onchange="window.sendMessagePhoto(this.files)">
-                    <input id="messages-compose-input" type="text" placeholder="Написать сообщение..." data-lang-placeholder="msg_write_placeholder" class="modal-input flex-1 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-sm min-w-0" onkeydown="if(event.key==='Enter') window.sendMessageInThread()">
+                    <input id="messages-compose-input" type="text" placeholder="Написать сообщение..." data-lang-placeholder="msg_write_placeholder" class="modal-input flex-1 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-sm min-w-0" onkeydown="if(event.key==='Enter') window.sendMessageInThread()" oninput="window.onMessageComposeInput()">
                     <button onclick="window.sendMessageInThread()" class="px-3.5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shrink-0"><i class="fa-solid fa-paper-plane"></i></button>
                 </div>
             </div>
@@ -1726,7 +1739,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260717l"></script>
+    <script type="module" src="./src/main.js?v=20260717m"></script>
 
 </body>
 </html>

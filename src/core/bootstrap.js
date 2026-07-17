@@ -1,14 +1,14 @@
-import { initGlobalState } from './state.js?v=20260717l';
-import { initAuth } from './auth.js?v=20260717l';
+import { initGlobalState } from './state.js?v=20260717m';
+import { initAuth } from './auth.js?v=20260717m';
 
-import '../ui/ui.js?v=20260717l';
-import './sfx.js?v=20260717l';
-import './audio.js?v=20260717l';
-import './map.js?v=20260717l';
-import './mapbox-map.js?v=20260717l';
-import './achievements.js?v=20260717l';
-import './guessr.js?v=20260717l';
-import '../widgets/analytics-widget.js?v=20260717l';
+import '../ui/ui.js?v=20260717m';
+import './sfx.js?v=20260717m';
+import './audio.js?v=20260717m';
+import './map.js?v=20260717m';
+import './mapbox-map.js?v=20260717m';
+import './achievements.js?v=20260717m';
+import './guessr.js?v=20260717m';
+import '../widgets/analytics-widget.js?v=20260717m';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;
@@ -48,10 +48,11 @@ export function bootstrapApp() {
 
         document.addEventListener('click', (e) => {
             const wrap = document.getElementById('notif-wrap');
+            const wrapMobile = document.getElementById('notif-wrap-mobile');
             const panel = document.getElementById('notif-panel');
-            if (wrap && panel && !wrap.contains(e.target) && !panel.classList.contains('hidden')) {
-                panel.classList.add('hidden');
-            }
+            if (!panel || panel.classList.contains('hidden')) return;
+            if (wrap?.contains(e.target) || wrapMobile?.contains(e.target) || panel.contains(e.target)) return;
+            panel.classList.add('hidden');
         });
 
         if (window.refreshMessagesUI) window.refreshMessagesUI();
@@ -79,14 +80,15 @@ export function bootstrapApp() {
             }
             window.__cloudDataReady = true;
             if (window.initFiltersData) window.initFiltersData();
-            if (window.processFilterChange) window.processFilterChange(window.innerWidth >= 768);
+            if (window.clearAllSoundFilters) window.clearAllSoundFilters(true);
+            else if (window.processFilterChange) window.processFilterChange(false);
             if (window.applyProfileToCurrentUser) window.applyProfileToCurrentUser();
             if (window.refreshNotificationsUI) window.refreshNotificationsUI();
             if (window.refreshMessagesUI) window.refreshMessagesUI();
             if (window.ensureSupportWelcome) window.ensureSupportWelcome().then(() => {
                 if (window.refreshMessagesUI) window.refreshMessagesUI();
             });
-            if (window.startLiveCloudPolling) window.startLiveCloudPolling(12000);
+            if (window.startLiveCloudPolling) window.startLiveCloudPolling();
             if (window.touchMyPresence) window.touchMyPresence(true);
         }).catch(err => {
             console.warn('Не удалось загрузить облачные данные:', err);
@@ -95,6 +97,7 @@ export function bootstrapApp() {
 
         const searchInput = document.getElementById('search-input');
         if (searchInput) {
+            searchInput.value = '';
             let searchTimer = null;
             searchInput.addEventListener('input', () => {
                 if (window.updateSearchSuggestions) window.updateSearchSuggestions(searchInput.value || '');

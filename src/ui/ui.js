@@ -1131,6 +1131,7 @@ window.pollLiveCloudData = async function() {
                             quiet: true,
                             asSupport: !!window.__messagingAsSupport
                         });
+                        if (window.updateTypingIndicator) window.updateTypingIndicator(window.__activeMessagePeer);
                     }
                 }
             }
@@ -1149,9 +1150,37 @@ window.pollLiveCloudData = async function() {
     }
 };
 
-window.startLiveCloudPolling = function(intervalMs = 12000) {
+window.clearAllSoundFilters = function(skipRender = false) {
+    [
+        'activeEcoLayer', 'activeUcsCat', 'activeUcsSub', 'activeGenTags',
+        'activePrinciple', 'activeGear', 'activeMic', 'activeChannels',
+        'activeLicense', 'activeRecordist', 'activeWeather', 'activeDate'
+    ].forEach((key) => {
+        if (window[key] && typeof window[key].clear === 'function') window[key].clear();
+    });
+    window.activeSessionId = null;
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) searchInput.value = '';
+    if (window.hideSearchSuggestions) window.hideSearchSuggestions();
+    if (!skipRender && window.processFilterChange) window.processFilterChange(false);
+    else if (skipRender) {
+        if (window.renderActiveTags) window.renderActiveTags();
+        if (window.renderList) window.renderList();
+        if (window.updateMapMarkers) window.updateMapMarkers();
+        if (window.renderSidebarExpeditions) window.renderSidebarExpeditions();
+    }
+};
+
+window.startLiveCloudPolling = function() {
     if (window.__livePollTimer) return;
-    window.__livePollTimer = setInterval(() => window.pollLiveCloudData(), intervalMs);
+    const tick = async () => {
+        await window.pollLiveCloudData();
+        const fast = document.body.classList.contains('dock-view-messages')
+            || (document.getElementById('messages-thread') && !document.getElementById('messages-thread').classList.contains('hidden'));
+        const ms = document.hidden ? 20000 : (fast ? 3000 : 10000);
+        window.__livePollTimer = setTimeout(tick, ms);
+    };
+    window.__livePollTimer = setTimeout(tick, 2500);
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden) window.pollLiveCloudData();
     });
@@ -1892,6 +1921,9 @@ window.openDockView = function(view) {
     window.undockSettingsContent();
     window.undockCabinetContent();
     window.undockMessagesContent();
+    document.body.classList.remove('cab-mobile-home');
+    const mobileLogout = document.getElementById('dock-mobile-logout');
+    if (mobileLogout) mobileLogout.classList.add('hidden');
 
     const mobileTabs = document.getElementById('dock-mobile-tabs');
 
@@ -1922,10 +1954,16 @@ window.openDockView = function(view) {
         if (window.renderRegionStats) window.renderRegionStats('region-stats-grid');
     } else if (next === 'cabinet') {
         document.body.classList.add('dock-view-cabinet');
+        document.body.classList.add('cab-mobile-home');
         const panel = document.getElementById('dock-cabinet');
         if (panel) panel.classList.remove('hidden');
         window.dockCabinetContent();
         window.setDockHeader('Личный кабинет', 'Профиль и записи', true);
+        if (window.innerWidth < 768) {
+            window.setDockHeader(window.currentLang === 'en' ? 'Profile' : 'Профиль', '', false);
+        }
+        const mobileLogout = document.getElementById('dock-mobile-logout');
+        if (mobileLogout) mobileLogout.classList.toggle('hidden', window.innerWidth >= 768);
         if (mobileTabs) mobileTabs.classList.add('hidden');
         window.clearRailTabActive();
         if (window.refreshCabinetTabs) window.refreshCabinetTabs();
