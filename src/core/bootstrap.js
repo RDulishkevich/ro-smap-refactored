@@ -2,6 +2,7 @@ import { initGlobalState } from './state.js';
 import { initAuth } from './auth.js';
 
 import '../ui/ui.js';
+import './sfx.js';
 import './audio.js';
 import './map.js';
 import './guessr.js';

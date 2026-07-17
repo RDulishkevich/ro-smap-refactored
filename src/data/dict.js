@@ -48,7 +48,9 @@ export const translations = {
         tour_step: "Шаг", loaded_sounds: "Загружено звуков", total_duration: "Общая длительность",
         your_recordings: "Список ваших записей:", faq_title: "Помощь и FAQ",
         details_title: "Подробности", save_draft: "Черновик",
-        lang_app: "Язык приложения"
+        lang_app: "Язык приложения",
+        ui_sounds: "Звуки интерфейса", ui_sounds_on: "Вкл", ui_sounds_off: "Выкл",
+        ui_sounds_hint: "Короткие звуки для уведомлений, тостов, окон и действий."
     },
     en: {
         title: "Rostov Region", subtitle: "Audio Map", search_placeholder: "Search sounds...",
@@ -84,6 +86,8 @@ export const translations = {
         tour_step: "Step", loaded_sounds: "Uploaded sounds", total_duration: "Total duration",
         your_recordings: "Your recordings:", faq_title: "Help & FAQ",
         details_title: "Details", save_draft: "Draft",
-        lang_app: "App language"
+        lang_app: "App language",
+        ui_sounds: "Interface sounds", ui_sounds_on: "On", ui_sounds_off: "Off",
+        ui_sounds_hint: "Short sounds for notifications, toasts, windows, and actions."
     }
 };

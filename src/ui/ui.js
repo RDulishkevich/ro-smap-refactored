@@ -1,4 +1,4 @@
-window.showToast = function(message) {
+window.showToast = function(message, opts = {}) {
     const toast = document.getElementById('toast-message');
     if (!toast) return;
     const textEl = document.getElementById('toast-text');
@@ -10,6 +10,11 @@ window.showToast = function(message) {
         toast.classList.remove('translate-y-0', 'opacity-100');
         toast.classList.add('-translate-y-24', 'opacity-0');
     }, 3000);
+    if (opts.silent) return;
+    if (window.playSfx) {
+        const kind = opts.sfx || (window.sfxFromToastMessage ? window.sfxFromToastMessage(message) : 'toast');
+        window.playSfx(kind, { throttleMs: 140 });
+    }
 }
 
 window.setSoundsListLoading = function(isLoading) {
@@ -184,6 +189,7 @@ window.startOnboarding = function(step = 0) {
     window.__onboardingStep = step;
     overlay.classList.remove('hidden');
     overlay.classList.add('pointer-events-auto');
+    if (window.playSfx) window.playSfx('whoosh');
     window.updateOnboardingStep();
 };
 
@@ -489,6 +495,7 @@ window.CustomUI = window.CustomUI || {
             m.classList.remove('opacity-0');
             content.classList.remove('scale-95');
         }
+        if (window.playSfx) window.playSfx('open');
 
         return new Promise(res => { this.resolve = res; });
     },
@@ -506,6 +513,7 @@ window.CustomUI = window.CustomUI || {
         if (m && content) {
             m.classList.add('opacity-0');
             content.classList.add('scale-95');
+            if (window.playSfx) window.playSfx(value === false ? 'close' : 'click');
             setTimeout(() => {
                 if (m.classList.contains('opacity-0')) m.classList.add('hidden');
                 if (inputEl) { inputEl.classList.add('hidden'); inputEl.value = ''; }
@@ -563,18 +571,21 @@ window.ActionSheet = {
         void overlay.offsetWidth;
         overlay.classList.remove('opacity-0');
         content.classList.remove('translate-y-full', 'sm:scale-95');
+        if (window.playSfx) window.playSfx('open');
     },
     trigger: function(i) {
         const fn = this._actions[i];
-        this.close();
+        this.close(true);
+        if (window.playSfx) window.playSfx('click');
         if (fn) setTimeout(fn, 280);
     },
-    close: function() {
+    close: function(fromTrigger = false) {
         const overlay = document.getElementById('action-sheet-overlay');
         const content = document.getElementById('action-sheet-content');
         if (!overlay || !content) return;
         overlay.classList.add('opacity-0');
         content.classList.add('translate-y-full', 'sm:scale-95');
+        if (!fromTrigger && window.playSfx) window.playSfx('close');
         setTimeout(() => { if (overlay.classList.contains('opacity-0')) overlay.classList.add('hidden'); }, 300);
     }
 };
@@ -2357,6 +2368,7 @@ window.selectSound = function(id) {
     window.currentPlayingId = id;
     window.trackSoundPlay(id);
     window.updateMapMarkers();
+    if (window.playSfx) window.playSfx('select');
     const card = document.getElementById('player-card');
     if(card) card.classList.remove('translate-y-[150%]', 'opacity-0');
     document.body.classList.add('player-visible');
@@ -3212,6 +3224,7 @@ window.toggleAddModal = function(forceClose = false, coords = null, isEdit = fal
             c.classList.remove('scale-95');
         }
 
+        if (window.playSfx) window.playSfx('open');
         window.updateUcsSubcats();
         return;
     }
@@ -3219,6 +3232,7 @@ window.toggleAddModal = function(forceClose = false, coords = null, isEdit = fal
     if (m && c) {
         m.classList.add('opacity-0', 'pointer-events-none');
         c.classList.add('scale-95');
+        if (window.playSfx) window.playSfx('close');
         setTimeout(() => {
             if (m.classList.contains('opacity-0')) m.classList.add('hidden');
         }, 300);

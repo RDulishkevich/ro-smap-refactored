@@ -398,6 +398,14 @@
                         <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
                     </div>
                 </div>
+                <div>
+                    <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="ui_sounds"><i class="fa-solid fa-bell mr-1"></i> Звуки интерфейса</label>
+                    <div class="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <button type="button" onclick="window.setUiSoundsEnabled(true)" id="sfx-on-btn" class="flex-1 py-2 text-xs font-bold bg-blue-600 text-white shadow-md rounded-lg transition-all" data-lang="ui_sounds_on">Вкл</button>
+                        <button type="button" onclick="window.setUiSoundsEnabled(false)" id="sfx-off-btn" class="flex-1 py-2 text-xs font-bold bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50 rounded-lg transition-all" data-lang="ui_sounds_off">Выкл</button>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-2" data-lang="ui_sounds_hint">Короткие звуки для уведомлений, тостов, окон и действий.</p>
+                </div>
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4 space-y-3">
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider"><i class="fa-solid fa-chart-pie mr-1"></i> Статистика региона</p>
                     <div id="region-stats-grid"></div>

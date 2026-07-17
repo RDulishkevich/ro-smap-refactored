@@ -12,6 +12,7 @@ export function initAuth() {
         void m.offsetWidth;
         m.classList.remove('opacity-0', 'pointer-events-none');
         m.firstElementChild.classList.remove('scale-95');
+        if (window.playSfx) window.playSfx('open');
         window.switchAuthTab('login');
     };
 
@@ -836,6 +837,9 @@ export function initAuth() {
         if(s.mapStyle) window.setMapStyle(s.mapStyle, true);
         if(s.lang) window.setLanguage(s.lang, true);
         if(s.guiScale) window.changeGUISize(s.guiScale, true);
+        if (typeof s.uiSounds === 'boolean' && window.setUiSoundsEnabled) {
+            window.setUiSoundsEnabled(s.uiSounds, true);
+        }
     };
 
     // Сохранение настроек в базу
@@ -895,6 +899,7 @@ export function initAuth() {
             void m.offsetWidth;
             m.classList.remove('opacity-0', 'pointer-events-none');
             m.firstElementChild.classList.remove('scale-95');
+            if (window.playSfx) window.playSfx('open');
             window.refreshCabinetTabs();
             window.switchCabinetTab('sounds');
         }
@@ -908,6 +913,7 @@ export function initAuth() {
         void m.offsetWidth;
         m.classList.remove('opacity-0', 'pointer-events-none');
         m.firstElementChild.classList.remove('scale-95');
+        if (window.playSfx) window.playSfx('open');
         window.refreshSettingsUI();
         if (window.renderRegionStats) window.renderRegionStats('region-stats-grid');
     };
@@ -917,6 +923,7 @@ export function initAuth() {
         if (!m) return;
         m.classList.add('opacity-0', 'pointer-events-none');
         m.firstElementChild.classList.add('scale-95');
+        if (window.playSfx) window.playSfx('close');
         setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
     };
 
@@ -945,6 +952,14 @@ export function initAuth() {
 
         if (langSelect) {
             langSelect.value = window.currentLang || 'ru';
+        }
+
+        const sfxOnBtn = document.getElementById('sfx-on-btn');
+        const sfxOffBtn = document.getElementById('sfx-off-btn');
+        if (sfxOnBtn && sfxOffBtn) {
+            const on = window.uiSoundsEnabled !== false;
+            sfxOnBtn.className = on ? activeClass : inactiveClass;
+            sfxOffBtn.className = on ? inactiveClass : activeClass;
         }
 
         scaleButtons.forEach(btn => {
@@ -1066,8 +1081,10 @@ export function initAuth() {
     window.closeCabinet = function() {
         const m = document.getElementById('cabinet-modal');
         if(m) {
+            const wasOpen = !m.classList.contains('hidden') && !m.classList.contains('opacity-0');
             m.classList.add('opacity-0', 'pointer-events-none');
             m.firstElementChild.classList.add('scale-95');
+            if (wasOpen && window.playSfx) window.playSfx('close');
             setTimeout(() => { if(m.classList.contains('opacity-0')) m.classList.add('hidden') }, 300);
         }
     };
@@ -1873,6 +1890,10 @@ export function initAuth() {
 
         const ok = await window.syncProfilesData(updated);
         if (ok && window.refreshNotificationsUI) window.refreshNotificationsUI();
+        if (ok && window.currentUser && window.playSfx) {
+            const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+            if (targets.includes(myLogin)) window.playSfx('notify');
+        }
         return ok;
     };
 
@@ -1916,7 +1937,12 @@ export function initAuth() {
         if (!panel) return;
         const opening = panel.classList.contains('hidden');
         panel.classList.toggle('hidden', !opening);
-        if (opening) window.renderNotificationsList();
+        if (opening) {
+            if (window.playSfx) window.playSfx('open');
+            window.renderNotificationsList();
+        } else if (window.playSfx) {
+            window.playSfx('close');
+        }
     };
 
     window.renderNotificationsList = function() {
@@ -2126,6 +2152,7 @@ export function initAuth() {
         void m.offsetWidth;
         m.classList.remove('opacity-0', 'pointer-events-none');
         c.classList.remove('scale-95');
+        if (window.playSfx) window.playSfx('open');
         window.touchMyPresence(true);
 
         // Сразу рисуем список — иначе flex-1 даёт пустую область до завершения async
@@ -2153,6 +2180,7 @@ export function initAuth() {
         if (!m || !c) return;
         m.classList.add('opacity-0', 'pointer-events-none');
         c.classList.add('scale-95');
+        if (window.playSfx) window.playSfx('close');
         setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
         window.__activeMessagePeer = null;
         window.cancelMessageReply();
@@ -2625,7 +2653,7 @@ export function initAuth() {
         if (ok) {
             if (asSupport) window.openMessageThread(peer, { asSupport: true });
             else window.openMessageThread(peer);
-            window.showToast('Сообщение отправлено');
+            window.showToast('Сообщение отправлено', { sfx: 'send' });
             window.touchMyPresence();
         } else {
             window.showToast('Не удалось отправить');

@@ -880,8 +880,10 @@ window.toggleMainPlay = function() {
         if(window.audioElement) window.audioElement.pause(); 
         if (window.mockInterval) clearInterval(window.mockInterval);
         if (window.animationFrameId) cancelAnimationFrame(window.animationFrameId);
+        if (window.playSfx) window.playSfx('pause');
     } else { 
         window.isPlaying = true;
+        if (window.playSfx) window.playSfx('play');
         if (s.url && window.audioElement && window.audioElement.src) {
             const playPromise = window.audioElement.play();
             if (playPromise !== undefined) {
@@ -1059,6 +1061,7 @@ window.closePlayerCard = function() {
 
     if (card) card.classList.add('translate-y-[150%]', 'opacity-0');
     document.body.classList.remove('player-visible');
+    if (window.playSfx) window.playSfx('close');
 
     const ambiControl = document.getElementById('ambisonics-control');
     if (ambiControl) ambiControl.classList.add('hidden');
