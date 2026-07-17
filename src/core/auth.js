@@ -875,6 +875,7 @@ export function initAuth() {
 
     window.refreshCabinetTabs = function() {
         const adminTab = document.getElementById('cab-tab-admin');
+        const adminMobile = document.getElementById('cab-mobile-admin');
         const roleEl = document.getElementById('cabinet-user-role');
         const isAdmin = String(window.currentUser?.role || '').toLowerCase() === 'admin' || String(window.currentUser?.username || '').toLowerCase() === 'admin';
 
@@ -887,6 +888,9 @@ export function initAuth() {
                 adminTab.classList.add('pointer-events-none');
             }
         }
+        if (adminMobile) {
+            adminMobile.classList.toggle('hidden', !isAdmin);
+        }
 
         if (roleEl) {
             if (isAdmin) {
@@ -897,6 +901,64 @@ export function initAuth() {
                 roleEl.className = 'text-[11px] font-bold text-slate-400 uppercase tracking-wider';
             }
         }
+    };
+
+    window.refreshCabinetMobileChrome = function(tab) {
+        if (window.innerWidth >= 768 || window.__dockView !== 'cabinet') return;
+        const logout = document.getElementById('dock-mobile-logout');
+        const back = document.getElementById('dock-back-btn');
+        const closeBtn = document.querySelector('.dock-header button[onclick*="hideDockPanel"]');
+        const isHome = !tab || tab === 'sounds';
+        const titles = {
+            sounds: window.currentLang === 'en' ? 'Profile' : 'Профиль',
+            mysounds: window.currentLang === 'en' ? 'My sounds' : 'Мои звуки',
+            quests: window.currentLang === 'en' ? 'Quests' : 'Задания',
+            sessions: window.currentLang === 'en' ? 'Expeditions' : 'Экспедиции',
+            analytics: window.currentLang === 'en' ? 'Analytics' : 'Аналитика',
+            settings: window.currentLang === 'en' ? 'Settings' : 'Настройки',
+            security: window.currentLang === 'en' ? 'Password' : 'Пароль',
+            admin: window.currentLang === 'en' ? 'Admin' : 'Админ-панель'
+        };
+        const titleEl = document.getElementById('dock-title');
+        const subEl = document.getElementById('dock-subtitle');
+        if (titleEl) {
+            titleEl.textContent = titles[tab] || titles.sounds;
+            titleEl.removeAttribute('data-lang');
+        }
+        if (subEl) {
+            subEl.innerHTML = '';
+        }
+        if (isHome) {
+            if (logout) logout.classList.remove('hidden');
+            if (back) back.classList.add('hidden');
+            if (closeBtn) closeBtn.classList.add('hidden');
+        } else {
+            if (logout) logout.classList.add('hidden');
+            if (closeBtn) closeBtn.classList.add('hidden');
+            if (back) {
+                back.classList.remove('hidden');
+                back.title = window.currentLang === 'en' ? 'Back' : 'Назад';
+                back.setAttribute('aria-label', back.title);
+                back.onclick = () => window.switchCabinetTab('sounds');
+            }
+        }
+    };
+
+    window.openCabinetMySounds = function() {
+        if (window.innerWidth >= 768) {
+            window.switchCabinetTab('sounds');
+            return;
+        }
+        document.querySelectorAll('[data-cab-panel]').forEach(p => p.classList.add('hidden'));
+        document.querySelectorAll('[data-cab-tab]').forEach(b => b.classList.remove('active'));
+        const panel = document.getElementById('cab-panel-sounds');
+        const tabBtn = document.getElementById('cab-tab-sounds');
+        if (panel) panel.classList.remove('hidden');
+        if (tabBtn) tabBtn.classList.add('active');
+        document.body.classList.remove('cab-mobile-home');
+        document.body.classList.add('cab-mobile-sounds');
+        if (window.renderCabinet) window.renderCabinet();
+        if (window.refreshCabinetMobileChrome) window.refreshCabinetMobileChrome('mysounds');
     };
 
     window.openCabinet = function() {
@@ -1144,6 +1206,8 @@ export function initAuth() {
         const panels = document.querySelectorAll('[data-cab-panel]');
         if (!tabs.length) return;
 
+        document.body.classList.remove('cab-mobile-sounds');
+
         tabs.forEach(btn => {
             const on = btn.dataset.cabTab === tab;
             btn.classList.toggle('active', on);
@@ -1192,6 +1256,7 @@ export function initAuth() {
                 if (window.renderRegionStats) window.renderRegionStats('admin-stats-grid');
             }
         }
+        if (window.refreshCabinetMobileChrome) window.refreshCabinetMobileChrome(tab);
     };
 
     window.parseDuration = function(durStr) {
@@ -1982,7 +2047,8 @@ export function initAuth() {
         if (!window.currentUser) return [];
         const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
         const profile = window.getProfileByLogin ? window.getProfileByLogin(login) : null;
-        return (profile && profile.notifications) || [];
+        const list = [...((profile && profile.notifications) || [])];
+        return list.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
     };
 
     window.refreshNotificationsUI = function() {

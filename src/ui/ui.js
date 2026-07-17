@@ -1922,6 +1922,7 @@ window.openDockView = function(view) {
     window.undockCabinetContent();
     window.undockMessagesContent();
     document.body.classList.remove('cab-mobile-home');
+    document.body.classList.remove('cab-mobile-sounds');
     const mobileLogout = document.getElementById('dock-mobile-logout');
     if (mobileLogout) mobileLogout.classList.add('hidden');
 
@@ -3766,8 +3767,21 @@ window.initDockChrome = function() {
 window.toggleSidebar = function() {
     const s = document.getElementById('sidebar');
     if (!s) return;
-    if (s.classList.contains('sidebar-hidden')) window.showDockPanel();
-    else window.hideDockPanel();
+    if (s.classList.contains('sidebar-hidden')) {
+        // На мобильном бургер всегда открывает каталог, а не оставшийся кабинет/чат/настройки
+        if (window.innerWidth < 768) {
+            const view = window.__dockView;
+            if (!['library', 'feed', 'expeditions', 'help'].includes(view)) {
+                if (window.openDockView) {
+                    window.openDockView(window.__sidebarTab || 'library');
+                    return;
+                }
+            }
+        }
+        window.showDockPanel();
+    } else {
+        window.hideDockPanel();
+    }
 };
 
 window.toggleSearchBar = function(forceOpen) {
@@ -3781,6 +3795,7 @@ window.toggleSearchBar = function(forceOpen) {
         : !cluster.classList.contains('is-open');
     cluster.classList.toggle('is-open', open);
     if (toolbar) toolbar.classList.toggle('is-search-open', open);
+    document.body.classList.toggle('search-is-open', open);
     if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (open) {
         // Defer focus so width transition can start before caret appears

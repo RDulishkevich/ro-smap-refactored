@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260717m">
-    <link rel="stylesheet" href="./src/glass.css?v=20260717m">
+    <link rel="stylesheet" href="./src/style.css?v=20260717n">
+    <link rel="stylesheet" href="./src/glass.css?v=20260717n">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -659,6 +659,9 @@
                             <span id="cabinet-user-level" class="hidden inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-1 rounded-full font-bold"><i class="fa-solid fa-bolt"></i>Lv 1</span>
                         </div>
                         <div id="cabinet-member-badge" class="cabinet-member-badge hidden mt-2"></div>
+                        <button type="button" onclick="window.openOwnPublicProfile()" class="md:hidden mt-2 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-bold">
+                            <i class="fa-solid fa-id-badge"></i><span data-lang="public_profile">Публичный профиль</span>
+                        </button>
                     </div>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
@@ -670,9 +673,6 @@
                     </button>
                 </div>
             </div>
-            <button onclick="window.openOwnPublicProfile()" class="sm:hidden mx-6 -mt-2 mb-3 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors">
-                <i class="fa-solid fa-id-badge"></i><span data-lang="public_profile">Публичный профиль</span>
-            </button>
 
             <div id="cabinet-tabs" class="cabinet-tabs flex flex-nowrap bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 px-2 gap-1 overflow-x-auto shrink-0">
                 <button type="button" onclick="window.switchCabinetTab('sounds')" id="cab-tab-sounds" data-cab-tab="sounds" class="cab-tab active" data-lang="cab_tab_sounds">Мои звуки</button>
@@ -687,13 +687,14 @@
             <div class="p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0">
                 <div id="cab-panel-sounds" data-cab-panel="sounds" class="space-y-4">
                     <div id="cabinet-mobile-menu" class="cabinet-mobile-menu md:hidden space-y-2 mb-2">
+                        <button type="button" class="cabinet-mobile-row" onclick="window.openCabinetMySounds()"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-microphone"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_sounds">Мои звуки</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
                         <button type="button" class="cabinet-mobile-row" onclick="window.switchCabinetTab('quests')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-trophy"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_quests">Задания</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
                         <button type="button" class="cabinet-mobile-row" onclick="window.switchCabinetTab('sessions')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-route"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_sessions">Экспедиции</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
                         <button type="button" class="cabinet-mobile-row" onclick="window.switchCabinetTab('analytics')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-chart-line"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_analytics">Аналитика</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
                         <button type="button" class="cabinet-mobile-row" onclick="window.switchCabinetTab('settings')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-gear"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_settings">Настройки</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
-                        <button type="button" class="cabinet-mobile-row" onclick="window.openSettingsPanel()"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-bell"></i></span><span class="cabinet-mobile-row__label" data-lang="notifications_title">Уведомления</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
+                        <button type="button" class="cabinet-mobile-row" onclick="window.hideDockPanel(); window.toggleNotificationsPanel && window.toggleNotificationsPanel();"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-bell"></i></span><span class="cabinet-mobile-row__label" data-lang="notifications_title">Уведомления</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
                         <button type="button" class="cabinet-mobile-row" onclick="window.switchCabinetTab('security')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-lock"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_security">Сменить пароль</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
-                        <button type="button" class="cabinet-mobile-row cabinet-mobile-row--danger" onclick="window.logoutUser()"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-right-from-bracket"></i></span><span class="cabinet-mobile-row__label">Выйти</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
+                        <button type="button" id="cab-mobile-admin" class="cabinet-mobile-row hidden" onclick="window.switchCabinetTab('admin')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-shield-halved"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_admin">Админ-панель</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
                     </div>
                     <div class="grid grid-cols-2 gap-4 mb-4">
                         <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-center items-center text-center">
@@ -886,7 +887,7 @@
                 </div>
             </div>
 
-            <div class="p-6 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700">
+            <div id="cabinet-logout-footer" class="p-6 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700">
                 <button onclick="window.logoutUser()" class="w-full py-3.5 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 dark:bg-slate-700 dark:hover:bg-red-900/30 dark:text-slate-300 dark:hover:text-red-400 font-bold rounded-xl transition-all shadow-sm active:scale-[0.98]">
                     <i class="fa-solid fa-right-from-bracket mr-2"></i>Выйти из аккаунта
                 </button>
@@ -1739,7 +1740,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260717m"></script>
+    <script type="module" src="./src/main.js?v=20260717n"></script>
 
 </body>
 </html>

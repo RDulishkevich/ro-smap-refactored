@@ -857,9 +857,17 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
     #map-top-toolbar.is-search-open,
     #map-top-toolbar:has(.map-search-cluster.is-open),
     #map-top-toolbar:has(.map-search-cluster:focus-within) {
-        right: 4.25rem;
+        left: max(0.75rem, env(safe-area-inset-left, 0px));
+        right: max(0.75rem, env(safe-area-inset-right, 0px));
         max-width: none;
         width: auto;
+        z-index: 70;
+    }
+    body.search-is-open #map-top-right-controls,
+    body.search-is-open #burger-btn {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
     }
     #map-top-right-controls {
         top: max(1rem, env(safe-area-inset-top, 0px));
@@ -2922,6 +2930,7 @@ textarea.modal-input {
         padding-top: 1rem;
         padding-bottom: 1rem;
         gap: 0.75rem;
+        border-bottom: none !important;
     }
     body.dock-view-cabinet #cabinet-modal-content.cabinet-in-dock > div:first-child .flex.items-center.gap-4 {
         flex-direction: column;
@@ -2951,13 +2960,20 @@ textarea.modal-input {
     body.dock-view-cabinet #cabinet-modal-content.cabinet-in-dock > div:first-child button[onclick*="closeCabinet"] {
         display: none !important;
     }
+    body.dock-view-cabinet #cabinet-logout-footer {
+        display: none !important;
+    }
     body.dock-view-cabinet .dock-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
     }
     body.dock-view-cabinet .dock-header .dock-back-btn { display: none; }
-    body.dock-view-cabinet #dock-mobile-logout { display: inline-flex !important; }
+    body.dock-view-cabinet:not(.cab-mobile-home) .dock-header .dock-back-btn {
+        display: inline-flex !important;
+    }
+    body.dock-view-cabinet.cab-mobile-home #dock-mobile-logout { display: inline-flex !important; }
+    body.dock-view-cabinet:not(.cab-mobile-home) #dock-mobile-logout { display: none !important; }
     body.dock-view-cabinet.cab-mobile-home .dock-header button[onclick*="hideDockPanel"] {
         display: none !important;
     }
@@ -2970,6 +2986,16 @@ textarea.modal-input {
     }
     body.dock-view-cabinet:not(.cab-mobile-home) #cabinet-mobile-menu {
         display: none;
+    }
+    body.dock-view-cabinet.cab-mobile-sounds #cabinet-mobile-menu {
+        display: none;
+    }
+    body.dock-view-cabinet.cab-mobile-sounds #cab-panel-sounds .grid.grid-cols-2 {
+        display: grid;
+    }
+    body.dock-view-cabinet.cab-mobile-sounds #cab-panel-sounds h4[data-lang="your_recordings"],
+    body.dock-view-cabinet.cab-mobile-sounds #cabinet-sounds-list {
+        display: block;
     }
 }
 
