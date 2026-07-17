@@ -1,17 +1,17 @@
-import { initGlobalState } from './state.js?v=20260718k';
-import './api.js?v=20260718k';
-import { initAuth } from './auth.js?v=20260718k';
+import { initGlobalState } from './state.js?v=20260718l';
+import './api.js?v=20260718l';
+import { initAuth } from './auth.js?v=20260718l';
 
-import '../ui/ui.js?v=20260718k';
-import './sfx.js?v=20260718k';
-import './audio.js?v=20260718k';
-import './map.js?v=20260718k';
-import './mapbox-map.js?v=20260718k';
-import './dgis-map.js?v=20260718k';
-import './google-earth-map.js?v=20260718k';
-import './achievements.js?v=20260718k';
-import './guessr.js?v=20260718k';
-import '../widgets/analytics-widget.js?v=20260718k';
+import '../ui/ui.js?v=20260718l';
+import './sfx.js?v=20260718l';
+import './audio.js?v=20260718l';
+import './map.js?v=20260718l';
+import './mapbox-map.js?v=20260718l';
+import './dgis-map.js?v=20260718l';
+import './google-earth-map.js?v=20260718l';
+import './achievements.js?v=20260718l';
+import './guessr.js?v=20260718l';
+import '../widgets/analytics-widget.js?v=20260718l';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;
@@ -92,16 +92,26 @@ export function bootstrapApp() {
             } else {
                 window.profilesData = Array.isArray(profiles) ? profiles : [];
                 window.mailData = Array.isArray(mail) ? mail : [];
-                window.__lastProfilesPollKey = JSON.stringify(window.profilesData);
-                window.__lastMailPollKey = JSON.stringify(window.mailData);
+                window.__lastProfilesPollKey = window.fingerprintDataset
+                    ? window.fingerprintDataset(window.profilesData)
+                    : String((window.profilesData || []).length);
+                window.__lastMailPollKey = window.fingerprintDataset
+                    ? window.fingerprintDataset(window.mailData)
+                    : String((window.mailData || []).length);
             }
             window.feedPosts = Array.isArray(feed) ? feed.filter(p => !p.deleted) : [];
-            window.__lastFeedPollKey = JSON.stringify(window.feedPosts);
+            window.__lastFeedPollKey = window.fingerprintDataset
+                ? window.fingerprintDataset(window.feedPosts)
+                : String(window.feedPosts.length);
             if (cloudData.length > 0 && window.mergeData) {
                 window.mergeData(cloudData);
-                window.__lastCloudPollKey = JSON.stringify(cloudData);
+                window.__lastCloudPollKey = window.fingerprintDataset
+                    ? window.fingerprintDataset(cloudData)
+                    : String(cloudData.length);
             } else {
-                window.__lastCloudPollKey = JSON.stringify([]);
+                window.__lastCloudPollKey = window.fingerprintDataset
+                    ? window.fingerprintDataset([])
+                    : '0';
             }
             window.__cloudDataReady = true;
             if (window.initFiltersData) window.initFiltersData();

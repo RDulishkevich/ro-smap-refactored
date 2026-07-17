@@ -441,6 +441,11 @@ window.getAnalyzerPalette = function() {
 };
 
 window.izotopeColor = function(value) {
+    const rgb = window.izotopeColorRgb(value);
+    return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+};
+
+window.izotopeColorRgb = function(value) {
     const v = Math.max(0, Math.min(1, value));
     const stops = window.isAnalyzerLightTheme()
         ? window.izotopeColorStopsLight
@@ -449,14 +454,15 @@ window.izotopeColor = function(value) {
         const a = stops[i], b = stops[i + 1];
         if (v >= a.t && v <= b.t) {
             const localT = (v - a.t) / (b.t - a.t || 1);
-            const r = Math.round(a.c[0] + (b.c[0] - a.c[0]) * localT);
-            const g = Math.round(a.c[1] + (b.c[1] - a.c[1]) * localT);
-            const bch = Math.round(a.c[2] + (b.c[2] - a.c[2]) * localT);
-            return `rgb(${r},${g},${bch})`;
+            return [
+                Math.round(a.c[0] + (b.c[0] - a.c[0]) * localT),
+                Math.round(a.c[1] + (b.c[1] - a.c[1]) * localT),
+                Math.round(a.c[2] + (b.c[2] - a.c[2]) * localT)
+            ];
         }
     }
     const last = stops[stops.length - 1].c;
-    return `rgb(${last[0]},${last[1]},${last[2]})`;
+    return [last[0], last[1], last[2]];
 };
 
 window.refreshAnalyzersTheme = function() {
@@ -684,15 +690,25 @@ window.drawSpectrumFrame = function() {
     const minFreq = 20, maxFreq = Math.min(20000, nyquist);
     const minLog = Math.log10(minFreq), maxLog = Math.log10(maxFreq);
 
-    // Bottom = bass (more screen space via log scale), top = highs
+    // One ImageData column instead of h× fillRect — much cheaper on the main thread.
+    if (!window._spectrumColumn || window._spectrumColumn.height !== h) {
+        window._spectrumColumn = ctx.createImageData(1, h);
+    }
+    const col = window._spectrumColumn;
+    const data = col.data;
     for (let y = 0; y < h; y++) {
         const t = 1 - y / h;
         const freq = Math.pow(10, minLog + t * (maxLog - minLog));
         const bin = Math.max(0, Math.min(binCount - 1, Math.round((freq / nyquist) * binCount)));
         const mag = Math.pow(window._spectrumData[bin] / 255, 0.85);
-        ctx.fillStyle = window.izotopeColor(mag);
-        ctx.fillRect(w - 1, y, 1, 1);
+        const rgb = window.izotopeColorRgb(mag);
+        const i = y * 4;
+        data[i] = rgb[0];
+        data[i + 1] = rgb[1];
+        data[i + 2] = rgb[2];
+        data[i + 3] = 255;
     }
+    ctx.putImageData(col, w - 1, 0);
 };
 
 // --- Module 3: Loudness Meter (RMS bar + Peak hold) ---
@@ -788,9 +804,19 @@ window.drawLoudnessFrame = function() {
 };
 
 // --- Animation loop: runs ONLY while something needs it AND audio is playing ---
-window.analyzerTick = function() {
+// Cap ~30fps so spectrogram/gonio share the main thread with map/list work.
+window.analyzerTick = function(ts) {
     window.analyzerFrameId = null;
     if (!window.isPlaying) return;
+    const now = typeof ts === 'number' ? ts : performance.now();
+    if (window.__analyzerLastTs == null) window.__analyzerLastTs = 0;
+    if (now - window.__analyzerLastTs < 32) {
+        if (window.analyzersOpen || window.isAmbisonicMode) {
+            window.analyzerFrameId = requestAnimationFrame(window.analyzerTick);
+        }
+        return;
+    }
+    window.__analyzerLastTs = now;
     if (window.analyzersOpen) {
         window.drawGoniometerFrame();
         window.drawSpectrumFrame();
@@ -945,7 +971,8 @@ window.updateUIState = function() {
         else { l.classList.add('hidden'); s.classList.add('hidden'); p.classList.remove('hidden'); }
     }
     if (window.syncAnalyzerAnimation) window.syncAnalyzerAnimation();
-    window.renderList();
+    if (window.refreshPlayingListRow) window.refreshPlayingListRow();
+    else if (window.renderList) window.renderList();
 }
 
 window.renderWaveform = function() {
@@ -1079,7 +1106,6 @@ window.closePlayerCard = function() {
     window.clearMapRoutes();
     window.updateMapMarkers();
     if (window.updateUIState) window.updateUIState();
-    window.renderList();
 }
 
 // Canvas backing stores are sized from their CSS box on open; keep them in sync with the

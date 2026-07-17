@@ -844,12 +844,14 @@ window.updateMapMarkers = function() {
         return layout;
     };
 
+    const selectedDomIds = [];
     filtered.forEach(sound => {
         let colorClass = sound.ecoCategory === 'geophony' ? 'marker-geo' : sound.ecoCategory === 'biophony' ? 'marker-bio' : 'marker-anthro';
         const isSoundwalk = sound.recPrinciple && sound.recPrinciple.includes('Soundwalk');
         const isAmbisonic = sound.channels && sound.channels.toLowerCase().includes('ambisonics');
         const isSelected = activeId === sound.id;
         const hitRadius = isSelected ? 40 : 28;
+        const layoutKey = `${sound.id}|${colorClass}|${isSelected ? 'selected' : 'normal'}|${isSoundwalk ? 'sw' : 'n'}|${isAmbisonic ? 'amb' : 'na'}`;
 
         let placemark = window.markerCache.get(sound.id);
         if (!placemark) {
@@ -858,6 +860,8 @@ window.updateMapMarkers = function() {
                 iconShape: { type: 'Circle', coordinates: [0, 0], radius: hitRadius },
                 iconOffset: [-14, -14]
             });
+            placemark.__rosmapLayoutKey = layoutKey;
+            placemark.__rosmapHitRadius = hitRadius;
             placemark.events.add('click', () => window.selectSound(sound.id));
             placemark.events.add('contextmenu', (e) => {
                 try {
@@ -870,21 +874,36 @@ window.updateMapMarkers = function() {
             window.map.geoObjects.add(placemark);
             window.markerCache.set(sound.id, placemark);
         } else {
-            placemark.geometry.setCoordinates([sound.lat, sound.lng]);
-            placemark.options.set('iconLayout', createMarkerLayout(colorClass, sound.id, isSoundwalk, isAmbisonic, isSelected));
-            placemark.options.set('iconShape', { type: 'Circle', coordinates: [0, 0], radius: hitRadius });
-            placemark.options.set('iconOffset', [-14, -14]);
+            const coords = placemark.geometry.getCoordinates();
+            if (!coords || coords[0] !== sound.lat || coords[1] !== sound.lng) {
+                placemark.geometry.setCoordinates([sound.lat, sound.lng]);
+            }
+            // Rebuild Yandex iconLayout only when selection/style actually changed.
+            if (placemark.__rosmapLayoutKey !== layoutKey) {
+                placemark.options.set('iconLayout', createMarkerLayout(colorClass, sound.id, isSoundwalk, isAmbisonic, isSelected));
+                placemark.__rosmapLayoutKey = layoutKey;
+            }
+            if (placemark.__rosmapHitRadius !== hitRadius) {
+                placemark.options.set('iconShape', { type: 'Circle', coordinates: [0, 0], radius: hitRadius });
+                placemark.options.set('iconOffset', [-14, -14]);
+                placemark.__rosmapHitRadius = hitRadius;
+            }
             if (window.__markerHoverSoundId === sound.id) {
                 window.__markerHoverCoords = [sound.lat, sound.lng];
                 window.positionMarkerHoverCard();
             }
         }
-        // Дополнительно синхронизируем класс в уже отрисованном DOM (Yandex иногда кэширует layout).
-        requestAnimationFrame(() => {
-            const el = document.getElementById(`marker-${sound.id}`);
-            if (el) el.classList.toggle('selected', isSelected);
-        });
+        if (isSelected) selectedDomIds.push(sound.id);
     });
+
+    if (selectedDomIds.length) {
+        requestAnimationFrame(() => {
+            selectedDomIds.forEach((id) => {
+                const el = document.getElementById(`marker-${id}`);
+                if (el) el.classList.add('selected');
+            });
+        });
+    }
 }
 
 window.getDistance = function(p1, p2) {

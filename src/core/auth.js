@@ -3309,7 +3309,8 @@ export function initAuth() {
         if (isTyping && prev?.to === peer && prev.at && Date.now() - new Date(prev.at).getTime() < 1200) return;
         updated[idx] = { ...updated[idx], typing: nextTyping, lastSeen: new Date().toISOString() };
         window.profilesData = updated;
-        window.syncProfilesData(updated).catch(() => {});
+        // Local-only: rewriting profiles.json on every keystroke caused multi-second freezes.
+        // Peer typing indicators stay best-effort via lastSeen/poll until a lightweight channel exists.
     };
 
     window.onMessageComposeInput = function() {

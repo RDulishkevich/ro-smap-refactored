@@ -1,3 +1,41 @@
+/** Cheap change key for poll/sync — avoids JSON.stringify of whole datasets on the main thread. */
+window.fingerprintDataset = function(arr) {
+    if (!Array.isArray(arr)) return 'x';
+    const n = arr.length;
+    let h = (n * 2654435761) >>> 0;
+    let maxTs = 0;
+    let extras = 0;
+    for (let i = 0; i < n; i++) {
+        const item = arr[i];
+        if (!item || typeof item !== 'object') continue;
+        const id = String(item.id || item.loginName || i);
+        for (let j = 0; j < id.length; j++) h = (Math.imul(h, 31) + id.charCodeAt(j)) >>> 0;
+        const tsRaw = item.editedAt || item.updatedAt || item.profileUpdatedAt
+            || item.joinedAt || item.createdAt || item.at || item.lastSeen || '';
+        if (tsRaw) {
+            const t = typeof tsRaw === 'number' ? tsRaw : (Date.parse(tsRaw) || 0);
+            if (t > maxTs) maxTs = t;
+        }
+        if (item.deleted) extras += 9973;
+        if (item.plays != null) extras += (item.plays | 0) * 17;
+        if (item.downloads != null) extras += (item.downloads | 0) * 19;
+        if (Array.isArray(item.comments)) extras += item.comments.length * 23;
+        if (Array.isArray(item.likedBy)) extras += item.likedBy.length * 29;
+        if (Array.isArray(item.dislikedBy)) extras += item.dislikedBy.length * 31;
+        if (Array.isArray(item.inbox)) extras += item.inbox.length * 1009;
+        if (Array.isArray(item.notifications)) extras += item.notifications.length * 1013;
+        if (item.typing && item.typing.at) {
+            extras += String(item.typing.at).length * 37 + String(item.typing.to || '').length * 41;
+        }
+        if (item.status) {
+            const st = String(item.status);
+            for (let j = 0; j < st.length; j++) h = (Math.imul(h, 31) + st.charCodeAt(j)) >>> 0;
+        }
+    }
+    h = (h + extras) >>> 0;
+    return `${n}:${maxTs}:${h.toString(36)}`;
+};
+
 window.showToast = function(message, opts = {}) {
     const toast = document.getElementById('toast-message');
     if (!toast) return;
@@ -998,10 +1036,11 @@ window.mergeData = function(cloudData) {
         : incoming;
 
     const combinedMap = new Map();
-    window.rawSoundsData.forEach(rs => combinedMap.set(rs.id, JSON.parse(JSON.stringify(rs))));
+    // Shallow copy demo rows — deep JSON clone of the whole library was freezing the UI on every poll.
+    (window.rawSoundsData || []).forEach((rs) => combinedMap.set(rs.id, { ...rs }));
     // Если облачная копия того же id пришла без route — сохраняем маршрут из локального демо,
     // иначе soundwalk'и r2/r5 «теряют» прогулку после первой синхронизации.
-    mergedCloud.forEach(cs => {
+    mergedCloud.forEach((cs) => {
         if (cs.deleted) { combinedMap.delete(cs.id); return; }
         const prev = combinedMap.get(cs.id);
         combinedMap.set(cs.id, { ...cs, route: (cs.route && cs.route.length > 1) ? cs.route : (prev?.route || cs.route) });
@@ -1013,35 +1052,30 @@ window.mergeData = function(cloudData) {
     window.__filteredSoundsCache = null;
     window.__filteredSoundsCacheKey = null;
 
-    // Важно: не оставлять «осиротевшие» placemark на карте после очистки кэша.
-    if (window.markerCache && window.markerCache.size) {
-        window.markerCache.forEach((placemark) => {
-            try { if (window.map) window.map.geoObjects.remove(placemark); } catch (_) {}
+    // Prune only removed markers — full cache wipe forced a multi-frame map rebuild on every sync/poll.
+    const aliveIds = new Set(window.soundsData.map((s) => s.id));
+    const prune = (cache, destroy) => {
+        if (!cache || !cache.size) return;
+        cache.forEach((marker, id) => {
+            if (aliveIds.has(id)) return;
+            try { destroy(marker); } catch (_) {}
+            cache.delete(id);
+            if (window.__markerHoverSoundId === id && window.hideMarkerHoverCard) {
+                window.hideMarkerHoverCard(true);
+            }
         });
-    }
-    window.markerCache = new Map();
-    window.markerLayoutCache = new Map();
-    if (window.mapboxMarkerCache && window.mapboxMarkerCache.size) {
-        window.mapboxMarkerCache.forEach((marker) => {
-            try { marker.remove(); } catch (_) {}
+    };
+    prune(window.markerCache, (pm) => { if (window.map) window.map.geoObjects.remove(pm); });
+    prune(window.mapboxMarkerCache, (m) => m.remove());
+    prune(window.dgisMarkerCache, (m) => m.destroy());
+    prune(window.googleEarthMarkerCache, (m) => m.remove());
+    if (window.markerLayoutCache && window.markerLayoutCache.size) {
+        const nextLayouts = new Map();
+        window.markerLayoutCache.forEach((layout, key) => {
+            const id = String(key).split('|')[0];
+            if (aliveIds.has(id)) nextLayouts.set(key, layout);
         });
-    }
-    window.mapboxMarkerCache = new Map();
-    if (window.dgisMarkerCache && window.dgisMarkerCache.size) {
-        window.dgisMarkerCache.forEach((marker) => {
-            try { marker.destroy(); } catch (_) {}
-        });
-    }
-    window.dgisMarkerCache = new Map();
-    if (window.googleEarthMarkerCache && window.googleEarthMarkerCache.size) {
-        window.googleEarthMarkerCache.forEach((marker) => {
-            try { marker.remove(); } catch (_) {}
-        });
-    }
-    window.googleEarthMarkerCache = new Map();
-    if (window.markerClusterer && window.map) {
-        window.map.geoObjects.remove(window.markerClusterer);
-        window.markerClusterer = null;
+        window.markerLayoutCache = nextLayouts;
     }
 };
 
@@ -1376,10 +1410,10 @@ window.hydrateProfilesWithMail = function(profiles = [], mail = []) {
 
 window.applyProfilesAndMailSnapshot = function(profiles, mail) {
     window.mailData = Array.isArray(mail) ? mail : (window.mailData || []);
-    window.__lastMailPollKey = JSON.stringify(window.mailData);
+    window.__lastMailPollKey = window.fingerprintDataset(window.mailData);
     const cards = Array.isArray(profiles) ? profiles : [];
     window.profilesData = window.hydrateProfilesWithMail(cards, window.mailData);
-    window.__lastProfilesPollKey = JSON.stringify(cards);
+    window.__lastProfilesPollKey = window.fingerprintDataset(cards);
 };
 
 // fileName выбирает JSON-файл в том же бакете: "map_data.json" для звуков (по умолчанию,
@@ -1403,7 +1437,7 @@ window.syncCloudData = async function(newCloudData, fileName = "map_data.json") 
                 console.warn(`[sync] Skip empty overwrite for ${fileName}`);
                 if (fileName === "map_data.json") {
                     window.mergeData(fresh);
-                    window.__lastCloudPollKey = JSON.stringify(fresh);
+                    window.__lastCloudPollKey = window.fingerprintDataset(fresh);
                 }
                 return false;
             }
@@ -1428,17 +1462,17 @@ window.syncCloudData = async function(newCloudData, fileName = "map_data.json") 
                 window.mergeData(merged);
                 window.initFiltersData();
                 window.processFilterChange(false);
-                window.__lastCloudPollKey = JSON.stringify(merged);
+                window.__lastCloudPollKey = window.fingerprintDataset(merged);
                 if (document.getElementById('cabinet-modal') && !document.getElementById('cabinet-modal').classList.contains('hidden')) {
                     window.renderCabinet();
                 }
             } else if (fileName === "feed.json") {
                 window.feedPosts = merged.filter(p => !p.deleted);
-                window.__lastFeedPollKey = JSON.stringify(window.feedPosts);
+                window.__lastFeedPollKey = window.fingerprintDataset(window.feedPosts);
                 if (window.__sidebarTab === 'feed' && window.renderSidebarFeed) window.renderSidebarFeed();
             } else if (fileName === "mail.json") {
                 window.mailData = merged;
-                window.__lastMailPollKey = JSON.stringify(merged);
+                window.__lastMailPollKey = window.fingerprintDataset(merged);
             }
             return true;
         } catch (e) {
@@ -1471,7 +1505,7 @@ window.syncProfilesData = async function(newProfiles) {
             ? window.mergeMailArrays(window.mailData, mail)
             : mail;
 
-        const mailKey = JSON.stringify(mail);
+        const mailKey = window.fingerprintDataset(mail);
         if (mailKey !== window.__lastMailPollKey) {
             const mailOk = await window.syncCloudData(mail, "mail.json");
             if (!mailOk) return false;
@@ -1523,7 +1557,7 @@ window.syncFeedPosts = async function(posts) {
             ? window.__lastMergedUpload.data
             : posts;
         window.feedPosts = (merged || []).filter(p => !p.deleted);
-        window.__lastFeedPollKey = JSON.stringify(window.feedPosts);
+        window.__lastFeedPollKey = window.fingerprintDataset(window.feedPosts);
         if (window.renderSidebarFeed) window.renderSidebarFeed();
     }
     return success;
@@ -1560,7 +1594,7 @@ window.pollLiveCloudData = async function() {
         ]);
 
         if (Array.isArray(cloudData)) {
-            const key = JSON.stringify(cloudData);
+            const key = window.fingerprintDataset(cloudData);
             if (key !== window.__lastCloudPollKey) {
                 window.__lastCloudPollKey = key;
                 const playingId = window.currentPlayingId;
@@ -1595,8 +1629,8 @@ window.pollLiveCloudData = async function() {
             const effectiveMail = mailArr && Array.isArray(window.mailData)
                 ? window.mergeMailArrays(nextMail, window.mailData)
                 : nextMail;
-            const cardsKey = JSON.stringify(nextProfiles);
-            const mailKey = JSON.stringify(effectiveMail);
+            const cardsKey = window.fingerprintDataset(nextProfiles);
+            const mailKey = window.fingerprintDataset(effectiveMail);
             if (cardsKey !== window.__lastProfilesPollKey || mailKey !== window.__lastMailPollKey) {
                 window.applyProfilesAndMailSnapshot(nextProfiles, effectiveMail);
                 if (window.applyProfileToCurrentUser) window.applyProfileToCurrentUser();
@@ -1632,7 +1666,7 @@ window.pollLiveCloudData = async function() {
         }
 
         if (Array.isArray(feed)) {
-            const key = JSON.stringify(feed);
+            const key = window.fingerprintDataset(feed);
             if (key !== window.__lastFeedPollKey) {
                 window.__lastFeedPollKey = key;
                 window.feedPosts = feed.filter(p => !p.deleted);
@@ -1696,7 +1730,7 @@ window.startLiveCloudPolling = function() {
         await window.pollLiveCloudData();
         const fast = document.body.classList.contains('dock-view-messages')
             || (document.getElementById('messages-thread') && !document.getElementById('messages-thread').classList.contains('hidden'));
-        const ms = document.hidden ? 20000 : (fast ? 3000 : 10000);
+        const ms = document.hidden ? 25000 : (fast ? 4000 : 15000);
         window.__livePollTimer = setTimeout(tick, ms);
     };
     window.__livePollTimer = setTimeout(tick, 2500);
@@ -2334,9 +2368,11 @@ window.renderList = function() {
         return;
     }
 
+    const frag = document.createDocumentFragment();
     filtered.forEach(sound => {
         const item = document.createElement('div');
         const isSelected = window.currentPlayingId === sound.id;
+        item.dataset.soundId = sound.id;
         item.className = `sidebar-sound-row${isSelected ? ' is-active' : ''}`;
         item.onclick = () => window.selectSound(sound.id);
         const thumb = (sound.images && sound.images[0]) || `https://picsum.photos/seed/${sound.id}/72/72`;
@@ -2350,9 +2386,35 @@ window.renderList = function() {
                 <h3 class="font-semibold text-[13px] truncate text-slate-800 dark:text-white flex items-center gap-1.5">${sound.title}</h3>
                 <div class="flex flex-wrap gap-1 mt-1"><span class="text-[8px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 font-bold uppercase tracking-wider">${window.translations[window.currentLang][`filter_${sound.ecoCategory}`] || sound.ecoCategory}</span></div>
             </div>`;
-        listContainer.appendChild(item);
+        frag.appendChild(item);
     });
-}
+    listContainer.appendChild(frag);
+};
+
+/** Update play/selection classes without rebuilding the whole library list. */
+window.refreshPlayingListRow = function() {
+    const listContainer = document.getElementById('sounds-list');
+    if (!listContainer) return;
+    const rows = listContainer.querySelectorAll('.sidebar-sound-row[data-sound-id]');
+    if (!rows.length) {
+        if (window.renderList) window.renderList();
+        return;
+    }
+    const activeId = window.currentPlayingId;
+    rows.forEach((row) => {
+        const id = row.dataset.soundId;
+        const isSelected = id === activeId;
+        const playing = isSelected && window.isPlaying;
+        row.classList.toggle('is-active', isSelected);
+        const playBtn = row.querySelector('.sidebar-sound-row__play');
+        if (playBtn) {
+            playBtn.classList.toggle('is-playing', playing);
+            playBtn.innerHTML = playing
+                ? '<i class="fa-solid fa-pause text-xs"></i>'
+                : '<i class="fa-solid fa-play text-xs translate-x-[1px]"></i>';
+        }
+    });
+};
 
 // ДОБАВЛЕНО: Функции переключения UCS фильтров
 window.toggleEcoLayer = function(val) { if (window.activeEcoLayer.has(val)) window.activeEcoLayer.delete(val); else window.activeEcoLayer.add(val); window.processFilterChange(false); }
@@ -3290,6 +3352,7 @@ window.selectSound = function(id) {
     window.currentPlayingId = id;
     window.trackSoundPlay(id);
     window.updateMapMarkers();
+    if (window.refreshPlayingListRow) window.refreshPlayingListRow();
     if (window.playSfx) window.playSfx('select');
     const card = document.getElementById('player-card');
     if(card) card.classList.remove('translate-y-[150%]', 'opacity-0');
@@ -3438,7 +3501,27 @@ window.downloadSound = function(format) {
 }
 
 // Счётчик скачиваний питает блок доверия в публичном профиле ("статистика скачиваний
-// коллегами"). Fire-and-forget синхронизация с облаком — не блокируем сам файл-даунлоад.
+// коллегами"). Батчим запись в облако — полный rewrite map_data на каждый клик подвешивал UI.
+window.__flushCounterCloudSync = function() {
+    if (window.__counterSyncTimer) {
+        clearTimeout(window.__counterSyncTimer);
+        window.__counterSyncTimer = null;
+    }
+    window.__counterSyncDirty = false;
+    if (!window.getAuthToken || !window.getAuthToken()) return;
+    if (!Array.isArray(window.cloudDataCache)) return;
+    window.syncCloudData([...window.cloudDataCache]).catch(() => {});
+};
+
+window.__queueCounterCloudSync = function() {
+    window.__counterSyncDirty = true;
+    if (window.__counterSyncTimer) return;
+    window.__counterSyncTimer = setTimeout(() => {
+        window.__counterSyncTimer = null;
+        window.__flushCounterCloudSync();
+    }, 8000);
+};
+
 window.incrementDownloadCount = function(id) {
     const s = window.soundsData.find(x => x.id === id);
     if (!s) return;
@@ -3447,7 +3530,8 @@ window.incrementDownloadCount = function(id) {
     const idx = updatedCloud.findIndex(x => x.id === id);
     if (idx >= 0) updatedCloud[idx] = { ...updatedCloud[idx], downloads: s.downloads };
     else updatedCloud.push(s);
-    window.syncCloudData(updatedCloud);
+    window.cloudDataCache = updatedCloud;
+    window.__queueCounterCloudSync();
 };
 
 // Счётчик прослушиваний питает вкладку "Аналитика" (спрос по нишам/трекам). Дедуплицируем
@@ -3463,8 +3547,18 @@ window.trackSoundPlay = function(id) {
     const idx = updatedCloud.findIndex(x => x.id === id);
     if (idx >= 0) updatedCloud[idx] = { ...updatedCloud[idx], plays: s.plays };
     else updatedCloud.push(s);
-    window.syncCloudData(updatedCloud);
+    window.cloudDataCache = updatedCloud;
+    window.__queueCounterCloudSync();
 };
+
+window.addEventListener('pagehide', () => {
+    if (window.__counterSyncDirty && window.__flushCounterCloudSync) window.__flushCounterCloudSync();
+});
+window.addEventListener('visibilitychange', () => {
+    if (document.hidden && window.__counterSyncDirty && window.__flushCounterCloudSync) {
+        window.__flushCounterCloudSync();
+    }
+});
 
 window.renderComments = function(sound) {
     const container = document.getElementById('comments-list');
