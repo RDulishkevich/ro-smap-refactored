@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260718e">
-    <link rel="stylesheet" href="./src/glass.css?v=20260718e">
+    <link rel="stylesheet" href="./src/style.css?v=20260718g">
+    <link rel="stylesheet" href="./src/glass.css?v=20260718g">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -630,12 +630,21 @@
                         </button>
                     </div>
                 </div>
-                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
-                    <button onclick="window.switchSidebarTab('help')" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
-                        <i class="fa-solid fa-circle-question"></i>
+                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4 space-y-3">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider"><i class="fa-solid fa-circle-question mr-1"></i> Помощь</p>
+                    <button onclick="window.closeSettingsModal(); window.restartOnboarding();" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
+                        <i class="fa-solid fa-compass"></i>
+                        Пройти тур по карте
+                    </button>
+                    <button onclick="window.closeSettingsModal(); if(window.openSupportModal) window.openSupportModal(); else if(window.openMessagesModal) window.openMessagesModal(window.SUPPORT_LOGIN || 'support');" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                        <i class="fa-solid fa-headset"></i>
+                        Написать в поддержку
+                    </button>
+                    <button type="button" onclick="window.closeSettingsModal(); window.switchSidebarTab('help');" class="hidden md:flex w-full items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                        <i class="fa-solid fa-book-open"></i>
                         Открыть раздел «Помощь»
                     </button>
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-2 text-center">Поддержка, FAQ и тур по карте — во вкладке «Помощь».</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 text-center">Тур, поддержка и справка — здесь в настройках на телефоне.</p>
                 </div>
             </div>
         </div>
@@ -1772,7 +1781,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260718e"></script>
+    <script type="module" src="./src/main.js?v=20260718g"></script>
 
 </body>
 </html>

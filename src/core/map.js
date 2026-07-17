@@ -704,6 +704,7 @@ window.updateMapMarkers = function() {
     if (currentActiveId && !filtered.some(sound => sound.id === currentActiveId)) {
         window.currentPlayingId = null;
     }
+    const activeId = window.currentPlayingId;
 
     window.markerCache = window.markerCache || new Map();
     window.markerLayoutCache = window.markerLayoutCache || new Map();
@@ -717,6 +718,9 @@ window.updateMapMarkers = function() {
             if (window.__markerHoverSoundId === id) window.hideMarkerHoverCard(true);
         }
     });
+
+    // Снять «selected» со всех DOM-маркеров до пересчёта (иначе прошлый остаётся подсвеченным).
+    document.querySelectorAll('.custom-marker.selected').forEach((el) => el.classList.remove('selected'));
 
     const createMarkerLayout = (colorClass, id, isSoundwalk, isAmbisonic, isSelected) => {
         const layoutKey = `${id}|${colorClass}|${isSelected ? 'selected' : 'normal'}|${isSoundwalk ? 'sw' : 'n'}|${isAmbisonic ? 'amb' : 'na'}`;
@@ -734,7 +738,7 @@ window.updateMapMarkers = function() {
         let colorClass = sound.ecoCategory === 'geophony' ? 'marker-geo' : sound.ecoCategory === 'biophony' ? 'marker-bio' : 'marker-anthro';
         const isSoundwalk = sound.recPrinciple && sound.recPrinciple.includes('Soundwalk');
         const isAmbisonic = sound.channels && sound.channels.toLowerCase().includes('ambisonics');
-        const isSelected = currentActiveId === sound.id;
+        const isSelected = activeId === sound.id;
         const hitRadius = isSelected ? 40 : 28;
 
         let placemark = window.markerCache.get(sound.id);
@@ -765,6 +769,11 @@ window.updateMapMarkers = function() {
                 window.positionMarkerHoverCard();
             }
         }
+        // Дополнительно синхронизируем класс в уже отрисованном DOM (Yandex иногда кэширует layout).
+        requestAnimationFrame(() => {
+            const el = document.getElementById(`marker-${sound.id}`);
+            if (el) el.classList.toggle('selected', isSelected);
+        });
     });
 }
 

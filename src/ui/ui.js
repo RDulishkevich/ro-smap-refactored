@@ -107,7 +107,7 @@ window.renderRegionStats = function(targetId = 'region-stats-grid') {
     ];
     grid.innerHTML = cards.map(c => `
         <div class="stat-card">
-            <div class="stat-value ${c.color}">${c.value}</div>
+            <div class="stat-value ${c.color}" title="${String(c.value).replace(/"/g, '&quot;')}">${c.value}</div>
             <div class="stat-label">${c.label}</div>
         </div>
     `).join('');
@@ -990,26 +990,47 @@ window.bindLightboxSwipe = function() {
 
 // Data Merging & Sync
 window.mergeData = function(cloudData) {
+    const incoming = Array.isArray(cloudData) ? cloudData : [];
+    // Сохраняем локальные tombstone: иначе CDN без deleted снова «воскрешает» звук на карте.
+    const localTombs = (window.cloudDataCache || []).filter((s) => s && s.deleted);
+    const mergedCloud = localTombs.length
+        ? window.mergeMapDataArrays(incoming, localTombs)
+        : incoming;
+
     const combinedMap = new Map();
     window.rawSoundsData.forEach(rs => combinedMap.set(rs.id, JSON.parse(JSON.stringify(rs))));
     // Если облачная копия того же id пришла без route — сохраняем маршрут из локального демо,
     // иначе soundwalk'и r2/r5 «теряют» прогулку после первой синхронизации.
-    cloudData.forEach(cs => {
+    mergedCloud.forEach(cs => {
         if (cs.deleted) { combinedMap.delete(cs.id); return; }
         const prev = combinedMap.get(cs.id);
         combinedMap.set(cs.id, { ...cs, route: (cs.route && cs.route.length > 1) ? cs.route : (prev?.route || cs.route) });
     });
     window.soundsData = Array.from(combinedMap.values()).reverse().map(window.formatSoundObject);
     window.assignArchiveNumbers();
-    window.cloudDataCache = cloudData;
+    // Tombstone остаются в кэше — нужны для следующего sync/poll.
+    window.cloudDataCache = mergedCloud.slice();
     window.__filteredSoundsCache = null;
     window.__filteredSoundsCacheKey = null;
-        window.markerCache = new Map();
-        window.markerLayoutCache = new Map();
-        if (window.markerClusterer && window.map) {
-            window.map.geoObjects.remove(window.markerClusterer);
-            window.markerClusterer = null;
-        }
+
+    // Важно: не оставлять «осиротевшие» placemark на карте после очистки кэша.
+    if (window.markerCache && window.markerCache.size) {
+        window.markerCache.forEach((placemark) => {
+            try { if (window.map) window.map.geoObjects.remove(placemark); } catch (_) {}
+        });
+    }
+    window.markerCache = new Map();
+    window.markerLayoutCache = new Map();
+    if (window.mapboxMarkerCache && window.mapboxMarkerCache.size) {
+        window.mapboxMarkerCache.forEach((marker) => {
+            try { marker.remove(); } catch (_) {}
+        });
+    }
+    window.mapboxMarkerCache = new Map();
+    if (window.markerClusterer && window.map) {
+        window.map.geoObjects.remove(window.markerClusterer);
+        window.markerClusterer = null;
+    }
 };
 
 // --- Устойчивая синхронизация: очередь + GET→merge→PUT ---
@@ -1062,7 +1083,8 @@ window.__putCloudJson = async function(fileName, data) {
 
 window.__recordTime = function(item) {
     if (!item) return 0;
-    const raw = item.editedAt || item.date || item.createdAt || item.profileUpdatedAt || 0;
+    // readAt важнее date: иначе mark-as-read с тем же date проигрывает CDN-снимку без read.
+    const raw = item.editedAt || item.readAt || item.date || item.createdAt || item.profileUpdatedAt || 0;
     const t = new Date(raw).getTime();
     return Number.isFinite(t) ? t : 0;
 };
@@ -1095,10 +1117,17 @@ window.__mergeKeyedArrays = function(a = [], b = [], idKey = 'id') {
         const newer = nextT >= prevT ? item : prev;
         const older = nextT >= prevT ? prev : item;
         const deleted = !!(newer.deleted || (older.deleted && nextT <= prevT));
+        // read монотонен: прочитанное не откатывается устаревшим CDN.
+        const read = !!(newer.read || older.read);
+        const readAt = read
+            ? (window.__laterIso(older.readAt, newer.readAt) || newer.readAt || older.readAt)
+            : undefined;
         map.set(item[idKey], {
             ...older,
             ...newer,
             deleted: deleted || undefined,
+            read: read || undefined,
+            readAt: readAt || undefined,
             reactions: window.__mergeReactions(older.reactions, newer.reactions),
             reports: window.__mergeKeyedArrays(older.reports || [], newer.reports || [])
         });
@@ -1463,6 +1492,7 @@ window.syncMailData = async function(newMail) {
         const mergedMail = (window.__lastMergedUpload && window.__lastMergedUpload.fileName === "mail.json")
             ? window.__lastMergedUpload.data
             : newMail;
+        window.__lastMailWriteAt = Date.now();
         const cards = (window.profilesData || []).map((p) => {
             const { inbox, notifications, activityLog, ...card } = p;
             return card;
@@ -1549,12 +1579,10 @@ window.pollLiveCloudData = async function() {
                 return card;
             });
             const nextMail = mailArr || window.mailData || [];
-            // Не откатываем локальную почту устаревшим CDN-снимком (меньше сообщений, чем уже есть).
-            const localMailCount = (window.mailData || []).reduce((n, r) => n + ((r.inbox || []).length), 0);
-            const nextMailCount = (nextMail || []).reduce((n, r) => n + ((r.inbox || []).length), 0);
-            const mailLooksStale = mailArr && localMailCount > 0 && nextMailCount < localMailCount
-                && (Date.now() - (window.__lastMailWriteAt || 0) < 15000);
-            const effectiveMail = mailLooksStale ? (window.mailData || nextMail) : nextMail;
+            // Сливаем с локальной почтой: read-флаги монотонны, новые письма с CDN не теряются.
+            const effectiveMail = mailArr && Array.isArray(window.mailData)
+                ? window.mergeMailArrays(nextMail, window.mailData)
+                : nextMail;
             const cardsKey = JSON.stringify(nextProfiles);
             const mailKey = JSON.stringify(effectiveMail);
             if (cardsKey !== window.__lastProfilesPollKey || mailKey !== window.__lastMailPollKey) {
@@ -1689,15 +1717,12 @@ window.getUserSounds = function(login, displayName, { includeAllStatuses = false
     });
 };
 
-// Публично (главная карта/список/чужие портфолио) видны только status === 'published';
-// автор и админ видят свои pending/rejected записи везде, где идёт прямая работа с ними.
+// Публично на карте/в библиотеке — только published.
+// pending/rejected/draft живут в кабинете автора и в админ-очереди.
 window.isSoundStatusVisible = function(s) {
-    if (!s || !s.status || s.status === 'published') return true;
-    if (!window.currentUser) return false;
-    const isAdmin = String(window.currentUser.role || '').toLowerCase() === 'admin' || String(window.currentUser.username || '').toLowerCase() === 'admin';
-    if (isAdmin) return true;
-    const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
-    return window.matchesRecordist(s, login, window.currentUser.username);
+    if (!s || s.deleted) return false;
+    if (!s.status || s.status === 'published') return true;
+    return false;
 };
 
 // --- Публичные профили рекордистов (общее облачное хранилище profiles.json) ---

@@ -132,6 +132,7 @@ window.updateMapboxMarkers = function() {
     if (currentActiveId && !filtered.some((sound) => sound.id === currentActiveId)) {
         window.currentPlayingId = null;
     }
+    const activeId = window.currentPlayingId;
 
     window.mapboxMarkerCache = window.mapboxMarkerCache || new Map();
     const visibleIds = new Set(filtered.map((sound) => sound.id));
@@ -146,13 +147,15 @@ window.updateMapboxMarkers = function() {
         }
     });
 
+    document.querySelectorAll('.custom-marker.selected').forEach((el) => el.classList.remove('selected'));
+
     filtered.forEach((sound) => {
         const colorClass = sound.ecoCategory === 'geophony'
             ? 'marker-geo'
             : sound.ecoCategory === 'biophony'
                 ? 'marker-bio'
                 : 'marker-anthro';
-        const isSelected = window.currentPlayingId === sound.id;
+        const isSelected = activeId === sound.id;
         const lngLat = window.toLngLat([sound.lat, sound.lng]);
         if (!lngLat) return;
 
@@ -167,12 +170,9 @@ window.updateMapboxMarkers = function() {
             marker.setLngLat(lngLat);
             const el = marker.getElement();
             if (el) {
-                el.className = `w-6 h-6 md:w-7 md:h-7 custom-marker ${colorClass} ${isSelected ? 'selected' : ''} flex items-center justify-center text-white shadow-lg transition-transform hover:scale-110`;
-                const isSoundwalk = sound.recPrinciple && sound.recPrinciple.includes('Soundwalk');
-                const isAmbisonic = sound.channels && String(sound.channels).toLowerCase().includes('ambisonics');
-                if (isSoundwalk) el.innerHTML = '<i class="fa-solid fa-route text-[11px] md:text-[13px] opacity-90"></i>';
-                else if (isAmbisonic) el.innerHTML = '<i class="fa-solid fa-cube text-[10px] md:text-[12px] opacity-90"></i>';
-                else el.innerHTML = '';
+                el.classList.toggle('selected', !!isSelected);
+                el.classList.remove('marker-geo', 'marker-bio', 'marker-anthro');
+                el.classList.add(colorClass);
             }
             if (window.__markerHoverSoundId === sound.id) {
                 window.__markerHoverCoords = [sound.lat, sound.lng];

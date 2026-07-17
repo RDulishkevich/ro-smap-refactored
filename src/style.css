@@ -948,8 +948,10 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
         padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
     }
     #fab-add {
-        bottom: max(5.5rem, calc(4.5rem + env(safe-area-inset-bottom, 0px)));
+        top: max(4.75rem, calc(env(safe-area-inset-top, 0px) + 3.75rem));
+        bottom: auto;
         right: max(0.75rem, env(safe-area-inset-right, 0px));
+        flex-direction: column-reverse;
     }
 }
 
@@ -1231,27 +1233,44 @@ html.dark .search-suggestions,
     100% { background-position: -200% 0; }
 }
 
-/* ?????????? */
+/* Админ / регион: карточки статистики */
+#admin-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 640px) {
+    #admin-stats-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
 .stat-card {
     background: #fff;
     border: 1px solid #e2e8f0;
     border-radius: 14px;
     padding: 10px 8px;
+    min-width: 0;
+    overflow: hidden;
 }
 .dark .stat-card {
     background: #1e293b;
     border-color: #334155;
 }
 .stat-card .stat-value {
-    font-size: 1.25rem;
+    font-size: clamp(0.75rem, 2.8vw, 1.15rem);
     font-weight: 800;
     line-height: 1.2;
     color: #1e293b;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
 }
 .dark .stat-card .stat-value { color: #f1f5f9; }
 .stat-card .stat-label {
     font-size: 0.65rem;
     font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: #94a3b8;
@@ -3085,9 +3104,7 @@ textarea.modal-input {
     }
     .dock-mobile-tabs::-webkit-scrollbar { display: none; }
     #tab-help {
-        display: inline-flex !important;
-        flex: 0 0 auto;
-        white-space: nowrap;
+        display: none !important;
     }
     body.dock-view-messages.messages-kb-open #messages-compose-bar,
     body.messages-kb-open #messages-compose-bar {

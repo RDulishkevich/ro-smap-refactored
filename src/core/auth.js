@@ -2847,19 +2847,20 @@ export function initAuth() {
 
         const inbox = window.getMyInbox();
         const byPeer = new Map();
+        const peerKeyOf = (v) => String(v || '').toLowerCase();
         inbox.forEach(msg => {
-            const peer = msg.fromId;
+            const peer = peerKeyOf(msg.fromId);
             if (!peer) return;
             const prev = byPeer.get(peer);
-            if (!prev || new Date(msg.date) > new Date(prev.date)) byPeer.set(peer, msg);
+            if (!prev || new Date(msg.date) > new Date(prev.date)) byPeer.set(peer, { ...msg, fromId: peer });
         });
 
-        const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const myLogin = String(window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase()).toLowerCase();
 
         (window.profilesData || []).forEach(p => {
             (p.inbox || []).forEach(msg => {
-                if (msg.fromId === myLogin) {
-                    const peer = p.loginName;
+                if (peerKeyOf(msg.fromId) === myLogin) {
+                    const peer = peerKeyOf(p.loginName);
                     const synthetic = { ...msg, fromId: peer, fromName: p.displayName || peer, _outgoingHint: true };
                     const prev = byPeer.get(peer);
                     if (!prev || new Date(msg.date) > new Date(prev.date)) byPeer.set(peer, synthetic);
@@ -2890,7 +2891,7 @@ export function initAuth() {
             return new Date(b[1].date) - new Date(a[1].date);
         });
         conv.innerHTML = rows.map(([peer, last]) => {
-            const unread = inbox.filter(m => m.fromId === peer && !m.read && !m.deleted).length;
+            const unread = inbox.filter(m => peerKeyOf(m.fromId) === peer && !m.read && !m.deleted).length;
             const isSupport = peer === window.SUPPORT_LOGIN;
             const profile = window.getProfileByLogin ? window.getProfileByLogin(peer) : null;
             const name = isSupport ? window.SUPPORT_NAME : (profile?.displayName || last.fromName || peer);
@@ -3060,25 +3061,27 @@ export function initAuth() {
         }, 1500);
         if (window.updateTypingIndicator) window.updateTypingIndicator(peerLogin);
 
-        const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const myLogin = String(window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase()).toLowerCase();
+        const peerKey = String(peerLogin || '').toLowerCase();
+        const sameLogin = (a, b) => String(a || '').toLowerCase() === String(b || '').toLowerCase();
         let all = [];
 
         if (asSupport) {
             // Админ смотрит переписку пользователя с поддержкой
             const supportProfile = (window.getProfileByLogin ? window.getProfileByLogin(window.SUPPORT_LOGIN) : null) || {};
-            const fromUser = (supportProfile.inbox || []).filter(m => m.fromId === peerLogin).map(m => ({ ...m, _mine: false }));
+            const fromUser = (supportProfile.inbox || []).filter(m => sameLogin(m.fromId, peerLogin)).map(m => ({ ...m, _mine: false }));
             const userProfile = (window.getProfileByLogin ? window.getProfileByLogin(peerLogin) : null) || {};
-            const fromSupport = (userProfile.inbox || []).filter(m => m.fromId === window.SUPPORT_LOGIN).map(m => ({ ...m, _mine: true }));
+            const fromSupport = (userProfile.inbox || []).filter(m => sameLogin(m.fromId, window.SUPPORT_LOGIN)).map(m => ({ ...m, _mine: true }));
             all = [...fromUser, ...fromSupport].sort((a, b) => new Date(a.date) - new Date(b.date));
-        } else if (peerLogin === window.SUPPORT_LOGIN) {
+        } else if (peerKey === String(window.SUPPORT_LOGIN || '').toLowerCase()) {
             const supportProfile = (window.getProfileByLogin ? window.getProfileByLogin(window.SUPPORT_LOGIN) : null) || {};
-            const outgoing = (supportProfile.inbox || []).filter(m => m.fromId === myLogin).map(m => ({ ...m, _mine: true }));
-            const incoming = window.getMyInbox().filter(m => m.fromId === window.SUPPORT_LOGIN);
+            const outgoing = (supportProfile.inbox || []).filter(m => sameLogin(m.fromId, myLogin)).map(m => ({ ...m, _mine: true }));
+            const incoming = window.getMyInbox().filter(m => sameLogin(m.fromId, window.SUPPORT_LOGIN));
             all = [...incoming.map(m => ({ ...m, _mine: false })), ...outgoing].sort((a, b) => new Date(a.date) - new Date(b.date));
         } else {
-            const incoming = window.getMyInbox().filter(m => m.fromId === peerLogin);
+            const incoming = window.getMyInbox().filter(m => sameLogin(m.fromId, peerLogin));
             const peerProfile = (window.getProfileByLogin ? window.getProfileByLogin(peerLogin) : null) || {};
-            const outgoing = (peerProfile.inbox || []).filter(m => m.fromId === myLogin).map(m => ({ ...m, _mine: true }));
+            const outgoing = (peerProfile.inbox || []).filter(m => sameLogin(m.fromId, myLogin)).map(m => ({ ...m, _mine: true }));
             all = [...incoming.map(m => ({ ...m, _mine: false })), ...outgoing].sort((a, b) => new Date(a.date) - new Date(b.date));
         }
 
@@ -3096,11 +3099,13 @@ export function initAuth() {
 
         // Пометить прочитанными входящие в мой inbox
         const updated = [...(window.profilesData || [])];
-        const idx = updated.findIndex(p => p.loginName === myLogin);
+        const myKey = String(myLogin || '').toLowerCase();
+        const idx = updated.findIndex(p => String(p.loginName || '').toLowerCase() === myKey);
         if (idx >= 0 && !asSupport) {
             let changed = false;
+            const peerKey = String(peerLogin || '').toLowerCase();
             const inbox = (updated[idx].inbox || []).map(m => {
-                if (m.fromId === peerLogin && !m.read) {
+                if (String(m.fromId || '').toLowerCase() === peerKey && !m.read) {
                     changed = true;
                     return { ...m, read: true, readAt: new Date().toISOString() };
                 }
@@ -3114,11 +3119,12 @@ export function initAuth() {
         }
         // Админ читает обращения в support inbox
         if (asSupport) {
-            const sIdx = updated.findIndex(p => p.loginName === window.SUPPORT_LOGIN);
+            const sIdx = updated.findIndex(p => String(p.loginName || '').toLowerCase() === String(window.SUPPORT_LOGIN || '').toLowerCase());
             if (sIdx >= 0) {
                 let changed = false;
+                const peerKey = String(peerLogin || '').toLowerCase();
                 const inbox = (updated[sIdx].inbox || []).map(m => {
-                    if (m.fromId === peerLogin && !m.read) {
+                    if (String(m.fromId || '').toLowerCase() === peerKey && !m.read) {
                         changed = true;
                         return { ...m, read: true, readAt: new Date().toISOString() };
                     }
