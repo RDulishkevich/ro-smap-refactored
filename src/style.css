@@ -580,15 +580,195 @@ body.dark-mode .modal-input::placeholder,
 .marker-bio { background-color: #4ade80; } 
 .marker-anthro { background-color: #f97316; } 
 
-/* ?????? ??????? ?????? */
-#sidebar {
+/* ??? Map-first chrome: rail + floating dock + top toolbar ??? */
+:root {
+    --rail-w: 3.75rem;
+    --dock-w-compact: 20rem;
+    --dock-w-expanded: 27rem;
+    --chrome-gap: 0.75rem;
+    --chrome-inset: 1rem;
+}
+
+@media (min-width: 768px) {
+    :root {
+        --chrome-inset: 1.25rem;
+        --chrome-gap: 0.85rem;
+    }
+}
+
+#app-rail.app-rail {
     position: absolute;
-    top: 1rem; left: 1rem; bottom: 1rem;
-    width: calc(100% - 2rem);
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+    top: var(--chrome-inset);
+    left: var(--chrome-inset);
+    bottom: var(--chrome-inset);
+    width: var(--rail-w);
+    flex-direction: column;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.65rem 0.4rem;
+    border-radius: var(--radius-xl, 1.6rem);
+}
+
+.app-rail__brand {
+    width: 2.55rem;
+    height: 2.55rem;
+    border-radius: 0.95rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-ink, #e84a2f);
+    font-size: 1.05rem;
+    margin-bottom: 0.35rem;
+}
+
+.app-rail__btn {
+    width: 2.55rem;
+    height: 2.55rem;
+    border-radius: 0.95rem;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ink-muted, #6b7280);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color var(--dur, 200ms) var(--ease-out), background var(--dur, 200ms) var(--ease-out), border-color var(--dur, 200ms) var(--ease-out);
+    cursor: pointer;
+}
+.app-rail__btn:hover { color: var(--ink, #141414); background: rgba(20, 20, 20, 0.05); }
+.app-rail__btn.is-active {
+    color: #fff;
+    background: var(--cta, #141414);
+    border-color: transparent;
+}
+html.dark .app-rail__btn.is-active,
+.dark .app-rail__btn.is-active {
+    background: var(--accent, #ff7a5c);
+    color: #fff;
+}
+
+#map-top-toolbar.map-top-toolbar {
+    position: absolute;
+    top: var(--chrome-inset);
+    left: calc(var(--chrome-inset) + var(--rail-w) + var(--chrome-gap) + var(--dock-w-compact) + var(--chrome-gap));
+    right: calc(var(--chrome-inset) + 11.5rem);
+    max-width: 36rem;
+    min-height: 3rem;
+    display: none;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.35rem 0.45rem 0.35rem 0.35rem;
+    border-radius: 999px;
+    z-index: 50;
+}
+body.dock-is-expanded #map-top-toolbar.map-top-toolbar {
+    left: calc(var(--chrome-inset) + var(--rail-w) + var(--chrome-gap) + var(--dock-w-expanded) + var(--chrome-gap));
 }
 @media (min-width: 768px) {
-    #sidebar { top: 1.5rem; left: 1.5rem; bottom: 1.5rem; width: 24rem; }
+    #map-top-toolbar.map-top-toolbar { display: flex; }
+}
+@media (max-width: 767px) {
+    #map-top-toolbar.map-top-toolbar {
+        display: flex;
+        left: 4.25rem;
+        right: 4.25rem;
+        max-width: none;
+        top: 1rem;
+        border-radius: 1.15rem;
+        flex-wrap: wrap;
+        padding: 0.4rem;
+    }
+    #map-top-toolbar #active-tags-container {
+        max-width: 100%;
+        width: 100%;
+        padding: 0 0.25rem 0.15rem;
+    }
+}
+
+#map-top-toolbar #sidebar-search-wrap input {
+    border-radius: 999px;
+    background: transparent;
+    border: none;
+}
+#map-top-toolbar.toolbar-search-hidden #sidebar-search-wrap {
+    display: none;
+}
+#map-top-toolbar.toolbar-search-hidden {
+    max-width: fit-content;
+}
+
+.dock-expand-btn {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    border: 1px solid rgba(20, 20, 20, 0.08);
+    background: rgba(20, 20, 20, 0.04);
+    color: var(--ink-muted, #6b7280);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 150ms ease, background 150ms ease;
+}
+.dock-expand-btn:hover,
+.dock-expand-btn[aria-pressed="true"] {
+    color: var(--accent-ink, #e84a2f);
+    background: var(--accent-soft, rgba(255, 90, 61, 0.14));
+}
+.dark .dock-expand-btn {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.dock-filters-open-btn {
+    width: 100%;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--ink-muted, #6b7280);
+    padding: 0.45rem 0.65rem;
+    border-radius: 999px;
+    border: 1px solid rgba(20, 20, 20, 0.08);
+    background: rgba(20, 20, 20, 0.03);
+    cursor: pointer;
+}
+.dock-filters-open-btn:hover { color: var(--accent-ink); }
+.dark .dock-filters-open-btn {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Compact: hide full filters, show ????????? chip */
+#sidebar.dock-compact #dock-filters { display: none; }
+#sidebar.dock-expanded .dock-filters-compact { display: none; }
+#sidebar.dock-expanded #dock-filters { display: block; }
+
+#sidebar {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    bottom: 1rem;
+    width: calc(100% - 2rem);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, width 0.35s var(--ease-out, ease), left 0.35s var(--ease-out, ease);
+}
+@media (min-width: 768px) {
+    #sidebar {
+        top: var(--chrome-inset);
+        bottom: var(--chrome-inset);
+        left: calc(var(--chrome-inset) + var(--rail-w) + var(--chrome-gap));
+        width: var(--dock-w-compact);
+        max-height: none;
+    }
+    #sidebar.dock-expanded {
+        width: var(--dock-w-expanded);
+    }
+    /* Desktop: dock always visible ? sidebar-hidden is a no-op */
+    #sidebar.sidebar-hidden {
+        transform: none !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+    }
 }
 .sidebar-hidden {
     transform: translateX(calc(-100% - 2rem)) !important;
@@ -598,6 +778,21 @@ body.dark-mode .modal-input::placeholder,
 #sidebar-backdrop.visible {
     opacity: 1 !important;
     pointer-events: auto !important;
+}
+
+/* Player sits beside dock on desktop */
+#player-anchor.player-anchor {
+    padding-left: 0;
+}
+@media (min-width: 768px) {
+    #player-anchor.player-anchor {
+        justify-content: flex-start;
+        padding-left: calc(var(--chrome-inset) + var(--rail-w) + var(--chrome-gap) + var(--dock-w-compact) + var(--chrome-gap));
+        padding-right: 5.5rem;
+    }
+    body.dock-is-expanded #player-anchor.player-anchor {
+        padding-left: calc(var(--chrome-inset) + var(--rail-w) + var(--chrome-gap) + var(--dock-w-expanded) + var(--chrome-gap));
+    }
 }
 
 /* ???????? ???????? ?????? */

@@ -75,18 +75,40 @@
     <!-- UI Слои -->
         <div class="absolute inset-0 pointer-events-none z-10 w-full h-full overflow-x-hidden overflow-y-visible">
 
-        <!-- Затемнение при открытой боковой панели (мобильные). Должно жить в том же
-             стекинг-контексте, что и #sidebar (z-60), иначе его z-[55] будет сравниваться
-             не с сайдбаром, а со всей обёрткой "UI Слои" (z-10) и перекроет её целиком —
-             из-за этого панель "открывается размытой" и закрывается по любому клику. -->
+        <!-- Mobile drawer scrim (same stacking context as #sidebar) -->
         <div id="sidebar-backdrop" onclick="window.toggleSidebar()" class="fixed inset-0 z-[55] bg-slate-900/40 backdrop-blur-[2px] opacity-0 pointer-events-none transition-opacity duration-300 md:hidden"></div>
 
-        <!-- Кнопка бургер-меню (Слева) -->
-        <button id="burger-btn" onclick="window.toggleSidebar()" class="absolute top-4 left-4 md:top-6 md:left-6 z-20 map-icon-btn pointer-events-auto" aria-label="Меню">
+        <!-- Mobile: open catalog dock -->
+        <button id="burger-btn" onclick="window.toggleSidebar()" class="absolute top-4 left-4 z-20 map-icon-btn pointer-events-auto md:hidden" aria-label="Меню">
             <i class="fa-solid fa-bars"></i>
         </button>
 
-        <!-- Кнопка Профиля (Вверху справа) -->
+        <!-- Left icon rail (desktop always; mobile hidden — burger opens dock) -->
+        <nav id="app-rail" class="app-rail pointer-events-auto z-[61] hidden md:flex" aria-label="Навигация">
+            <div class="app-rail__brand" title="RO.SMap">
+                <i class="fa-solid fa-map-location-dot"></i>
+            </div>
+            <button type="button" id="rail-library" class="app-rail__btn is-active" onclick="window.switchSidebarTab('library')" title="Библиотека" aria-current="page">
+                <i class="fa-solid fa-layer-group"></i>
+            </button>
+            <button type="button" id="rail-feed" class="app-rail__btn" onclick="window.switchSidebarTab('feed')" title="Лента">
+                <i class="fa-solid fa-newspaper"></i>
+            </button>
+            <button type="button" id="rail-expeditions" class="app-rail__btn" onclick="window.switchSidebarTab('expeditions')" title="Экспедиции">
+                <i class="fa-solid fa-route"></i>
+            </button>
+        </nav>
+
+        <!-- Floating top toolbar: search + active filter chips -->
+        <div id="map-top-toolbar" class="map-top-toolbar pointer-events-auto z-[50]">
+            <div id="sidebar-search-wrap" class="relative flex-1 min-w-0">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm"></i>
+                <input type="text" id="search-input" data-lang-placeholder="search_placeholder" placeholder="Поиск звуков..." class="w-full py-2.5 pl-10 pr-4 text-sm focus:outline-none text-slate-800 dark:text-white">
+            </div>
+            <div id="active-tags-container" class="map-top-toolbar__tags flex flex-wrap gap-1.5 empty:hidden max-w-[40%] overflow-hidden"></div>
+        </div>
+
+        <!-- Top-right cluster -->
         <div id="map-top-right-controls" class="absolute top-4 right-4 md:top-6 md:right-6 pointer-events-auto z-50 flex items-center gap-2 sm:gap-3">
             <div class="relative" id="msg-wrap">
                 <button onclick="window.toggleMessagesPanel()" id="msg-btn" class="hidden relative map-icon-btn" title="Сообщения" data-lang-title="messages_title">
@@ -115,24 +137,27 @@
             </button>
         </div>
 
-        <!-- Боковая панель -->
-        <div id="sidebar" class="sidebar-panel sidebar-hidden pointer-events-auto flex flex-col flex-shrink-0 z-[60]">
-            <div class="p-6 pb-2 border-b border-slate-100/80 dark:border-slate-700/50">
-                <div class="flex justify-between items-start mb-1">
-                    <h1 class="brand-title text-2xl text-slate-800 dark:text-white" data-lang="title">Ростовская область</h1>
-                    <button onclick="window.toggleSidebar()" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors pointer-events-auto shrink-0 ml-2">
-                        <i class="fa-solid fa-xmark text-lg pointer-events-none"></i>
-                    </button>
-                </div>
-                    <p class="brand-sub text-sm mb-5 flex items-center gap-2" data-lang="subtitle"><i class="fa-solid fa-map-location-dot text-[#ff5a3d]"></i> Audio Map</p>
-                <div id="sidebar-search-wrap" class="relative">
-                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
-                    <input type="text" id="search-input" data-lang-placeholder="search_placeholder" placeholder="Поиск звуков..." class="w-full py-3 pl-10 pr-4 text-sm focus:outline-none text-slate-800 dark:text-white">
+        <!-- Catalog dock (always on desktop; drawer on mobile) -->
+        <div id="sidebar" class="sidebar-panel dock-compact sidebar-hidden pointer-events-auto flex flex-col flex-shrink-0 z-[60]">
+            <div class="dock-header p-4 pb-3 border-b border-slate-100/80 dark:border-slate-700/50 shrink-0">
+                <div class="flex justify-between items-start gap-2">
+                    <div class="min-w-0">
+                        <h1 class="brand-title text-xl md:text-2xl text-slate-800 dark:text-white truncate" data-lang="title">Ростовская область</h1>
+                        <p class="brand-sub text-xs md:text-sm mt-0.5 flex items-center gap-2" data-lang="subtitle"><i class="fa-solid fa-map-location-dot text-[#ff5a3d]"></i> Audio Map</p>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                        <button type="button" id="dock-expand-btn" onclick="window.toggleDockExpanded()" class="dock-expand-btn" title="Расширить панель" aria-pressed="false">
+                            <i class="fa-solid fa-arrows-left-right text-sm pointer-events-none"></i>
+                        </button>
+                        <button type="button" onclick="window.toggleSidebar()" class="md:hidden w-8 h-8 flex items-center justify-center rounded-full bg-slate-100/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors pointer-events-auto" aria-label="Закрыть">
+                            <i class="fa-solid fa-xmark text-lg pointer-events-none"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Главные вкладки боковой панели -->
-            <div class="flex border-b border-slate-100/80 dark:border-slate-700/50 flex-shrink-0">
+            <!-- Mobile text tabs (desktop uses #app-rail) -->
+            <div class="dock-mobile-tabs flex border-b border-slate-100/80 dark:border-slate-700/50 flex-shrink-0 md:hidden">
                 <button onclick="window.switchSidebarTab('library')" id="tab-library" class="ui-tab ui-tab--main is-active" data-lang="sidebar_tab_library"><i class="fa-solid fa-layer-group mr-1"></i>Библиотека</button>
                 <button onclick="window.switchSidebarTab('feed')" id="tab-feed" class="ui-tab ui-tab--main" data-lang="sidebar_tab_feed"><i class="fa-solid fa-newspaper mr-1"></i>Лента</button>
                 <button onclick="window.switchSidebarTab('expeditions')" id="tab-expeditions" class="ui-tab ui-tab--main" data-lang="sidebar_tab_expeditions"><i class="fa-solid fa-route mr-1"></i>Экспедиции</button>
@@ -140,38 +165,44 @@
 
             <!-- Библиотека: фильтры + список звуков -->
             <div id="sidebar-library" class="flex flex-col flex-1 min-h-0">
-                <div class="flex border-b border-slate-100/80 dark:border-slate-700/50 flex-shrink-0 bg-slate-50/50 dark:bg-slate-900/30">
-                    <button onclick="window.switchFilterTab('ucs')" id="tab-ucs" class="ui-tab ui-tab--filter is-active" data-lang="filter_tab_ucs"><i class="fa-solid fa-wave-square mr-1"></i>Слои</button>
-                    <button onclick="window.switchFilterTab('tags')" id="tab-tags" class="ui-tab ui-tab--filter" data-lang="filter_tab_tags"><i class="fa-solid fa-hashtag mr-1"></i>Теги</button>
-                    <button onclick="window.switchFilterTab('meta')" id="tab-meta" class="ui-tab ui-tab--filter" data-lang="filter_tab_meta"><i class="fa-solid fa-sliders mr-1"></i>Параметры</button>
+                <div class="dock-filters-compact px-4 py-2 border-b border-slate-100/80 dark:border-slate-700/50 flex-shrink-0">
+                    <button type="button" id="dock-filters-open" onclick="window.toggleDockExpanded(true)" class="dock-filters-open-btn">
+                        <i class="fa-solid fa-sliders mr-1.5"></i>Фильтры
+                    </button>
                 </div>
 
-                <div id="active-tags-container" class="px-6 py-2.5 flex flex-wrap gap-2 empty:hidden bg-slate-50/80 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700/50 flex-shrink-0"></div>
-
-                <div id="panel-ucs" class="px-5 py-4 border-b border-slate-100 dark:border-slate-700/50 overflow-y-auto max-h-56 custom-scrollbar flex flex-col gap-3 flex-shrink-0">
-                    <div>
-                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="ucs_layer">Слои аудиоландшафта</p>
-                        <div class="flex flex-wrap gap-1.5" id="filter-eco-layer"></div>
+                <div id="dock-filters" class="dock-filters">
+                    <div class="dock-filter-tabs flex border-b border-slate-100/80 dark:border-slate-700/50 flex-shrink-0 bg-slate-50/50 dark:bg-slate-900/30">
+                        <button onclick="window.switchFilterTab('ucs')" id="tab-ucs" class="ui-tab ui-tab--filter is-active" data-lang="filter_tab_ucs"><i class="fa-solid fa-wave-square mr-1"></i>Слои</button>
+                        <button onclick="window.switchFilterTab('tags')" id="tab-tags" class="ui-tab ui-tab--filter" data-lang="filter_tab_tags"><i class="fa-solid fa-hashtag mr-1"></i>Теги</button>
+                        <button onclick="window.switchFilterTab('meta')" id="tab-meta" class="ui-tab ui-tab--filter" data-lang="filter_tab_meta"><i class="fa-solid fa-sliders mr-1"></i>Параметры</button>
                     </div>
-                    <div>
-                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="ucs_category">Категория (UCS)</p>
-                        <div class="flex flex-wrap gap-1.5" id="filter-ucs-categories"></div>
-                    </div>
-                    <div>
-                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="ucs_sub">Субкатегория (CatID)</p>
-                        <div class="flex flex-wrap gap-1.5" id="filter-ucs-subcategories"></div>
-                    </div>
-                </div>
 
-                <div id="panel-tags" class="hidden px-5 py-4 border-b border-slate-100 dark:border-slate-700/50 overflow-y-auto max-h-56 custom-scrollbar flex flex-wrap gap-1.5 flex-shrink-0"></div>
+                    <div id="panel-ucs" class="px-5 py-4 border-b border-slate-100 dark:border-slate-700/50 overflow-y-auto max-h-56 custom-scrollbar flex flex-col gap-3 flex-shrink-0">
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="ucs_layer">Слои аудиоландшафта</p>
+                            <div class="flex flex-wrap gap-1.5" id="filter-eco-layer"></div>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="ucs_category">Категория (UCS)</p>
+                            <div class="flex flex-wrap gap-1.5" id="filter-ucs-categories"></div>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="ucs_sub">Субкатегория (CatID)</p>
+                            <div class="flex flex-wrap gap-1.5" id="filter-ucs-subcategories"></div>
+                        </div>
+                    </div>
 
-                <div id="panel-meta" class="hidden px-5 py-4 border-b border-slate-100 dark:border-slate-700/50 overflow-y-auto max-h-56 custom-scrollbar flex flex-col gap-4 flex-shrink-0">
-                    <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_principle">Принцип записи</p><div class="flex flex-wrap gap-1.5" id="filter-meta-principle"></div></div>
-                    <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_gear">Рекордер</p><div class="flex flex-wrap gap-1.5" id="filter-meta-gear"></div></div>
-                    <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="mic_type">Микрофон</p><div class="flex flex-wrap gap-1.5" id="filter-meta-mic"></div></div>
-                    <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_channels">Система / Каналы</p><div class="flex flex-wrap gap-1.5" id="filter-meta-channels"></div></div>
-                    <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_recordist">Автор</p><div class="flex flex-wrap gap-1.5" id="filter-meta-recordist"></div></div>
-                    <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_weather">Погода</p><div class="flex flex-wrap gap-1.5" id="filter-meta-weather"></div></div>
+                    <div id="panel-tags" class="hidden px-5 py-4 border-b border-slate-100 dark:border-slate-700/50 overflow-y-auto max-h-56 custom-scrollbar flex flex-wrap gap-1.5 flex-shrink-0"></div>
+
+                    <div id="panel-meta" class="hidden px-5 py-4 border-b border-slate-100 dark:border-slate-700/50 overflow-y-auto max-h-56 custom-scrollbar flex flex-col gap-4 flex-shrink-0">
+                        <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_principle">Принцип записи</p><div class="flex flex-wrap gap-1.5" id="filter-meta-principle"></div></div>
+                        <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_gear">Рекордер</p><div class="flex flex-wrap gap-1.5" id="filter-meta-gear"></div></div>
+                        <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="mic_type">Микрофон</p><div class="flex flex-wrap gap-1.5" id="filter-meta-mic"></div></div>
+                        <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_channels">Система / Каналы</p><div class="flex flex-wrap gap-1.5" id="filter-meta-channels"></div></div>
+                        <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_recordist">Автор</p><div class="flex flex-wrap gap-1.5" id="filter-meta-recordist"></div></div>
+                        <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_weather">Погода</p><div class="flex flex-wrap gap-1.5" id="filter-meta-weather"></div></div>
+                    </div>
                 </div>
 
                 <div id="sounds-list" class="flex-1 overflow-y-auto p-4 flex flex-col gap-2 min-h-0"></div>
@@ -184,8 +215,8 @@
             <div id="panel-expeditions" class="hidden flex-1 overflow-y-auto custom-scrollbar px-4 py-4 flex flex-col gap-2 min-h-0"></div>
         </div>
 
-        <!-- Плеер -->
-        <div class="absolute bottom-0 left-0 right-0 w-full pointer-events-none flex justify-center pb-4 md:pb-6 z-40">
+        <!-- Плеер: floating contextual card -->
+        <div id="player-anchor" class="player-anchor absolute bottom-0 left-0 right-0 w-full pointer-events-none flex justify-center md:justify-start pb-4 md:pb-6 z-40">
             <div id="player-card" class="player-shell pointer-events-auto p-4 md:p-5 w-[94%] max-w-md transform translate-y-[150%] opacity-0 relative max-h-[85vh] overflow-y-auto custom-scrollbar">
                 
                 <div onclick="window.closePlayerCard()" class="absolute top-0 left-0 right-0 h-6 md:h-8 flex justify-center items-center cursor-pointer z-50">
@@ -310,8 +341,7 @@
             </div>
         </div>
 
-        <!-- Кнопка Добавления звука: на телефоне — сразу под кнопкой профиля (верх/справа),
-             на ПК — привычное место в правом нижнем углу. -->
+        <!-- FABs: mobile under profile; desktop bottom-right (map chrome ref) -->
         <div id="fab-add" class="absolute top-20 right-4 md:top-auto md:bottom-8 md:right-8 pointer-events-auto z-40 flex flex-col gap-3 items-end">
             <button id="fab-guessr" onclick="window.openAudioGuessr()" class="map-fab map-fab--secondary w-12 h-12 md:w-14 md:h-14" title="Audio Guessr">
                 <i class="fa-solid fa-headphones text-lg md:text-xl pointer-events-none"></i>

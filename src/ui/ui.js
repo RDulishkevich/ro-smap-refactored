@@ -182,7 +182,7 @@ window.startOnboarding = function(step = 0) {
     if (!overlay) return;
 
     const sb = document.getElementById('sidebar');
-    if (sb && !sb.classList.contains('sidebar-hidden')) window.toggleSidebar();
+    if (window.innerWidth < 768 && sb && !sb.classList.contains('sidebar-hidden')) window.toggleSidebar();
     if (window.closePlayerCard) window.closePlayerCard();
     window.__onboardingDemoPlayer = false;
 
@@ -1739,10 +1739,14 @@ window.switchSidebarTab = function(tab) {
     const btnLib = document.getElementById('tab-library');
     const btnFeed = document.getElementById('tab-feed');
     const btnExp = document.getElementById('tab-expeditions');
+    const railLib = document.getElementById('rail-library');
+    const railFeed = document.getElementById('rail-feed');
+    const railExp = document.getElementById('rail-expeditions');
     const panelLib = document.getElementById('sidebar-library');
     const panelFeed = document.getElementById('sidebar-feed');
     const panelExp = document.getElementById('panel-expeditions');
     const searchWrap = document.getElementById('sidebar-search-wrap');
+    const topToolbar = document.getElementById('map-top-toolbar');
 
     const activeClass = 'ui-tab ui-tab--main is-active';
     const inactiveClass = 'ui-tab ui-tab--main';
@@ -1750,24 +1754,41 @@ window.switchSidebarTab = function(tab) {
     if (btnLib) btnLib.className = inactiveClass;
     if (btnFeed) btnFeed.className = inactiveClass;
     if (btnExp) btnExp.className = inactiveClass;
+    [railLib, railFeed, railExp].forEach(btn => {
+        if (!btn) return;
+        btn.classList.remove('is-active');
+        btn.removeAttribute('aria-current');
+    });
     if (panelLib) panelLib.classList.add('hidden');
     if (panelFeed) panelFeed.classList.add('hidden');
     if (panelExp) panelExp.classList.add('hidden');
 
     if (next === 'feed') {
         if (btnFeed) btnFeed.className = activeClass;
+        if (railFeed) { railFeed.classList.add('is-active'); railFeed.setAttribute('aria-current', 'page'); }
         if (panelFeed) panelFeed.classList.remove('hidden');
         if (searchWrap) searchWrap.classList.add('hidden');
+        if (topToolbar) topToolbar.classList.add('toolbar-search-hidden');
         if (window.renderSidebarFeed) window.renderSidebarFeed();
     } else if (next === 'expeditions') {
         if (btnExp) btnExp.className = activeClass;
+        if (railExp) { railExp.classList.add('is-active'); railExp.setAttribute('aria-current', 'page'); }
         if (panelExp) panelExp.classList.remove('hidden');
         if (searchWrap) searchWrap.classList.add('hidden');
+        if (topToolbar) topToolbar.classList.add('toolbar-search-hidden');
         if (window.renderSidebarExpeditions) window.renderSidebarExpeditions();
     } else {
         if (btnLib) btnLib.className = activeClass;
+        if (railLib) { railLib.classList.add('is-active'); railLib.setAttribute('aria-current', 'page'); }
         if (panelLib) panelLib.classList.remove('hidden');
         if (searchWrap) searchWrap.classList.remove('hidden');
+        if (topToolbar) topToolbar.classList.remove('toolbar-search-hidden');
+    }
+
+    // On mobile, ensure dock is open when switching via any entry point
+    if (window.innerWidth < 768) {
+        const sb = document.getElementById('sidebar');
+        if (sb && sb.classList.contains('sidebar-hidden') && window.toggleSidebar) window.toggleSidebar();
     }
 };
 
@@ -3379,20 +3400,73 @@ window.setTheme = function(theme, skipSave = false) {
     if (window.refreshSettingsUI) window.refreshSettingsUI();
     if (window.refreshAnalyzersTheme) window.refreshAnalyzersTheme();
 }
+window.toggleDockExpanded = function(forceExpand) {
+    const s = document.getElementById('sidebar');
+    if (!s) return;
+    const expand = typeof forceExpand === 'boolean'
+        ? forceExpand
+        : !s.classList.contains('dock-expanded');
+
+    s.classList.toggle('dock-expanded', expand);
+    s.classList.toggle('dock-compact', !expand);
+    document.body.classList.toggle('dock-is-expanded', expand);
+
+    const btn = document.getElementById('dock-expand-btn');
+    if (btn) {
+        btn.setAttribute('aria-pressed', expand ? 'true' : 'false');
+        btn.title = expand ? 'Свернуть панель' : 'Расширить панель';
+        const icon = btn.querySelector('i');
+        if (icon) icon.className = expand ? 'fa-solid fa-compress text-sm pointer-events-none' : 'fa-solid fa-arrows-left-right text-sm pointer-events-none';
+    }
+
+    try { localStorage.setItem('rosmap-dock-expanded', expand ? '1' : '0'); } catch (_) {}
+
+    // Clear legacy player margin; layout uses CSS padding on #player-anchor
+    const playerCard = document.getElementById('player-card');
+    if (playerCard) playerCard.style.marginLeft = '';
+};
+
+window.initDockChrome = function() {
+    let expanded = false;
+    try { expanded = localStorage.getItem('rosmap-dock-expanded') === '1'; } catch (_) {}
+    window.toggleDockExpanded(expanded);
+
+    const syncDesktopDock = () => {
+        if (window.innerWidth >= 768) {
+            const s = document.getElementById('sidebar');
+            if (s) s.classList.remove('sidebar-hidden');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            if (backdrop) backdrop.classList.remove('visible');
+        }
+    };
+    syncDesktopDock();
+    if (!window.__dockChromeResizeBound) {
+        window.__dockChromeResizeBound = true;
+        window.addEventListener('resize', syncDesktopDock);
+    }
+};
+
 window.toggleSidebar = function() {
     const s = document.getElementById('sidebar');
-    if(!s) return;
+    if (!s) return;
+
+    // Desktop dock is always visible; expand uses #dock-expand-btn
+    if (window.innerWidth >= 768) {
+        s.classList.remove('sidebar-hidden');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        if (backdrop) backdrop.classList.remove('visible');
+        return;
+    }
+
     s.classList.toggle('sidebar-hidden');
     const isHidden = s.classList.contains('sidebar-hidden');
 
     const backdrop = document.getElementById('sidebar-backdrop');
-    if (backdrop && window.innerWidth < 768) backdrop.classList.toggle('visible', !isHidden);
+    if (backdrop) backdrop.classList.toggle('visible', !isHidden);
 
-    if(window.innerWidth >= 768) {
-        const playerCard = document.getElementById('player-card');
-        if(playerCard) { if (isHidden) { playerCard.style.marginLeft = '0'; } else { playerCard.style.marginLeft = '25.5rem'; } }
-    }
-}
+    const playerCard = document.getElementById('player-card');
+    if (playerCard) playerCard.style.marginLeft = '';
+};
 
 window.initSwipeHandlers = function() {
     const lbOverlay = document.getElementById('lightbox-overlay');

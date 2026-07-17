@@ -30,6 +30,7 @@ export function bootstrapApp() {
         } catch (_) {}
         if (window.applyUILanguage) window.applyUILanguage();
         if (window.initSwipeHandlers) window.initSwipeHandlers();
+        if (window.initDockChrome) window.initDockChrome();
         if (window.setSoundsListLoading) window.setSoundsListLoading(true);
         if (window.initOnboarding) window.initOnboarding();
         if (window.refreshNotificationsUI) window.refreshNotificationsUI();

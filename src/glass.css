@@ -90,6 +90,8 @@ body {
 /* Shared glass material */
 .glass-shell,
 #sidebar.sidebar-panel,
+#app-rail.app-rail,
+#map-top-toolbar.map-top-toolbar,
 .map-icon-btn,
 #notif-panel,
 #toast-message {
@@ -105,6 +107,16 @@ body {
     border-radius: var(--radius-xl);
     color: var(--ink);
     border-color: var(--glass-rim-outer) !important;
+}
+
+#app-rail.app-rail {
+    border-radius: var(--radius-xl);
+    color: var(--ink);
+}
+
+#map-top-toolbar.map-top-toolbar {
+    border-radius: var(--radius-pill);
+    color: var(--ink);
 }
 
 /* Player: frosted look without backdrop-filter (keeps analyzer scroll) */
@@ -182,10 +194,15 @@ html.dark #sidebar.sidebar-panel [class*="bg-slate"],
     border: 1px solid var(--glass-rim) !important;
     border-radius: var(--radius-pill) !important;
     color: var(--ink) !important;
-    padding-left: 2.75rem !important;
+    padding-left: 2.5rem !important;
 }
 #sidebar-search-wrap input:focus {
     box-shadow: 0 0 0 2px var(--accent) !important;
+}
+#map-top-toolbar #sidebar-search-wrap input {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 
 /* FABs — solid black / glass secondary (refs) */
@@ -434,6 +451,8 @@ a.bg-blue-600 {
 @media (max-width: 767px) {
     :root { --glass-blur: 16px; --radius-xl: 1.6rem; }
     #sidebar.sidebar-panel,
+    #app-rail.app-rail,
+    #map-top-toolbar.map-top-toolbar,
     .map-icon-btn,
     #notif-panel {
         backdrop-filter: blur(16px) saturate(1.2);
@@ -444,6 +463,8 @@ a.bg-blue-600 {
 @media (prefers-reduced-transparency: reduce) {
     body::before { display: none !important; }
     #sidebar.sidebar-panel,
+    #app-rail.app-rail,
+    #map-top-toolbar.map-top-toolbar,
     #player-card.player-shell,
     .map-icon-btn,
     #notif-panel,

@@ -1,27 +1,41 @@
-# RO.SMap — Design (from references)
+# RO.SMap — Design
 
 ## Design read
-**Reading this as:** product chrome for a live audio map, adapted from grainy-glass travel/weather refs (frosted panels over landscape), Gilroy geometric type, coral accent — no green.
+**Reading this as:** map-first product chrome (logistics-dashboard architecture): full-bleed map, left icon rail, always-visible floating catalog dock (compact ↔ expanded), top search toolbar, contextual player — grainy glass, Gilroy, coral accent (no green/lime).
 
-## Reference synthesis
-| Ref | Take |
-|-----|------|
-| Mountain glass | Grainy frost over scenery, thin white rim, bold display type |
-| Soft login | Pill controls, solid black primary CTA, orange accent, glass cards |
-| Fog weather | Cool charcoal glass, nested solid info blocks, mist atmosphere |
-| Cabin / trail cards | Large radius (~32–40px), glass pills, clear hierarchy |
+## Visual architecture
+
+```
+┌──────┬────────────┬─────────────────────────────┬──────────┐
+│ Rail │ Catalog    │  Top toolbar (search/tags)  │ Profile  │
+│ icons│ Dock       │                             │ cluster  │
+│      │ (always on │         MAP                 │          │
+│      │  desktop)  │                             │          │
+│      │            │  Player card ───     FABs   │          │
+└──────┴────────────┴─────────────────────────────┴──────────┘
+```
+
+| Zone | Behavior |
+|------|----------|
+| `#app-rail` | Library / Feed / Expeditions (desktop) |
+| `#sidebar` dock | Always visible on `md+`; mobile drawer via burger |
+| Compact / Expanded | `#dock-expand-btn` + `localStorage` `rosmap-dock-expanded` |
+| `#map-top-toolbar` | Search + active filter chips |
+| `#player-card` | Floating contextual card beside dock |
+| `#fab-add` | Bottom-right on desktop |
 
 ## Tokens
 - **Glass fill:** light `rgba(255,255,255,0.42–0.55)` · dark `rgba(22,28,34,0.55–0.7)`
 - **Rim:** `1px solid rgba(255,255,255,0.35–0.55)` + inset highlight
 - **Blur:** 18–22px on non-scrolling chrome only
 - **Grain:** one global layer, opacity ~0.05
-- **Accent:** coral `#FF5A3D` (waveform / selection / toggles ON)
-- **CTA:** near-black `#141414` pills (play / primary FAB)
-- **Type:** Gilroy (brand + UI), Clash Display optional for title only
+- **Accent:** coral `#FF5A3D`
+- **CTA:** near-black `#141414` pills
+- **Type:** Gilroy (brand + UI)
 
 ## Hard constraints (keep working)
 - No `backdrop-filter` on `#player-card` (scroll/analyzers)
 - No `overflow:hidden` / forced `position` on player children
 - `.map-icon-btn.hidden { display:none !important }`
 - Map layer stays clickable (`pointer-events` split)
+- Desktop: `#sidebar.sidebar-hidden` is a no-op (dock always open)
