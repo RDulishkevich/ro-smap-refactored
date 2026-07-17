@@ -1,20 +1,21 @@
-import { initGlobalState } from './state.js?v=20260718s';
-import './api.js?v=20260718s';
-import { initAuth } from './auth.js?v=20260718s';
+import { initGlobalState } from './state.js?v=20260718t';
+import './api.js?v=20260718t';
+import { initAuth } from './auth.js?v=20260718t';
 
-import './sfx.js?v=20260718s';
-import './antispam.js?v=20260718s';
-import '../ui/ui.js?v=20260718s';
-import './audio.js?v=20260718s';
-import './map.js?v=20260718s';
-import './mapbox-map.js?v=20260718s';
-import './dgis-map.js?v=20260718s';
-import './google-earth-map.js?v=20260718s';
-import './achievements.js?v=20260718s';
-import './guessr.js?v=20260718s';
-import './admin-console.js?v=20260718s';
-import './support-bot.js?v=20260718s';
-import '../widgets/analytics-widget.js?v=20260718s';
+import './sfx.js?v=20260718t';
+import './antispam.js?v=20260718t';
+import '../ui/ui.js?v=20260718t';
+import './audio.js?v=20260718t';
+import './map.js?v=20260718t';
+import './mapbox-map.js?v=20260718t';
+import './dgis-map.js?v=20260718t';
+import './google-earth-map.js?v=20260718t';
+import './achievements.js?v=20260718t';
+import './guessr.js?v=20260718t';
+import './admin-console.js?v=20260718t';
+import './support-bot.js?v=20260718t';
+import './events.js?v=20260718t';
+import '../widgets/analytics-widget.js?v=20260718t';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;
@@ -85,8 +86,11 @@ export function bootstrapApp() {
                 .catch(() => []),
             fetch(`${window.YANDEX_BUCKET_URL}/feed.json?nocache=${Date.now()}`)
                 .then(res => res.ok ? res.json() : [])
+                .catch(() => []),
+            fetch(`${window.YANDEX_BUCKET_URL}/events.json?nocache=${Date.now()}`)
+                .then(res => res.ok ? res.json() : [])
                 .catch(() => [])
-        ]).then(([, cloudData, profiles, mail, feed]) => {
+        ]).then(([, cloudData, profiles, mail, feed, events]) => {
             if (window.applyProfilesAndMailSnapshot) {
                 window.applyProfilesAndMailSnapshot(
                     Array.isArray(profiles) ? profiles : [],
@@ -106,6 +110,11 @@ export function bootstrapApp() {
             window.__lastFeedPollKey = window.fingerprintDataset
                 ? window.fingerprintDataset(window.feedPosts)
                 : String(window.feedPosts.length);
+            window.eventsData = Array.isArray(events) ? events.filter(e => !e.deleted) : [];
+            window.__lastEventsPollKey = window.fingerprintDataset
+                ? window.fingerprintDataset(window.eventsData)
+                : String(window.eventsData.length);
+            if (window.renderEventsPanel) window.renderEventsPanel();
             if (cloudData.length > 0 && window.mergeData) {
                 window.mergeData(cloudData);
                 window.__lastCloudPollKey = window.fingerprintDataset

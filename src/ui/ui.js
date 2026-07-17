@@ -1317,14 +1317,93 @@ window.mergeMapDataArrays = function(fresh = [], proposed = []) {
 
 window.mergeFeedPostsArrays = function(fresh = [], proposed = []) {
     const map = new Map();
-    const stamp = (p) => new Date(p?.updatedAt || p?.createdAt || 0).getTime();
-    (fresh || []).forEach(p => { if (p?.id != null && !p.deleted) map.set(p.id, p); });
-    (proposed || []).forEach(p => {
+    const stamp = (p) => {
+        const raw = p?.reactedAt || p?.updatedAt || p?.createdAt || 0;
+        const t = new Date(raw).getTime();
+        return Number.isFinite(t) ? t : 0;
+    };
+    const upsert = (p) => {
         if (p?.id == null) return;
         if (p.deleted) { map.delete(p.id); return; }
-        const cloud = map.get(p.id);
-        if (!cloud || stamp(p) >= stamp(cloud)) map.set(p.id, p);
+        const prev = map.get(p.id);
+        if (!prev) {
+            map.set(p.id, {
+                ...p,
+                comments: window.__mergeCommentLists?.(p.comments || [], []) || (p.comments || []),
+                reactedBy: Array.isArray(p.reactedBy) ? [...p.reactedBy] : [],
+                viewedBy: Array.isArray(p.viewedBy) ? [...p.viewedBy] : []
+            });
+            return;
+        }
+        const newer = stamp(p) >= stamp(prev) ? p : prev;
+        const older = stamp(p) >= stamp(prev) ? prev : p;
+        map.set(p.id, {
+            ...older,
+            ...newer,
+            comments: window.__mergeCommentLists
+                ? window.__mergeCommentLists(older.comments || [], newer.comments || [])
+                : (newer.comments || older.comments || []),
+            reactedBy: Array.isArray(newer.reactedBy) ? [...newer.reactedBy] : [...(older.reactedBy || [])],
+            viewedBy: Array.from(new Set([...(older.viewedBy || []), ...(newer.viewedBy || [])])),
+            views: Math.max(Number(older.views) || 0, Number(newer.views) || 0),
+            pinned: Object.prototype.hasOwnProperty.call(newer, 'pinned') ? !!newer.pinned : !!older.pinned,
+            pinnedAt: newer.pinned ? (newer.pinnedAt || older.pinnedAt) : undefined
+        });
+    };
+    (fresh || []).forEach(upsert);
+    (proposed || []).forEach(upsert);
+    return Array.from(map.values()).sort((a, b) => {
+        const ap = a.pinned ? 1 : 0;
+        const bp = b.pinned ? 1 : 0;
+        if (bp !== ap) return bp - ap;
+        return stamp(b) - stamp(a);
     });
+};
+
+window.mergeEventsArrays = function(fresh = [], proposed = []) {
+    const map = new Map();
+    const stamp = (e) => {
+        const t = new Date(e?.updatedAt || e?.createdAt || e?.joinedAt || 0).getTime();
+        return Number.isFinite(t) ? t : 0;
+    };
+    const mergeParticipants = (a = [], b = []) => {
+        const m = new Map();
+        [...(a || []), ...(b || [])].forEach((p) => {
+            if (!p?.login) return;
+            const key = String(p.login).toLowerCase();
+            const prev = m.get(key);
+            if (!prev || stamp(p) >= stamp(prev)) m.set(key, { ...prev, ...p, login: key });
+        });
+        return Array.from(m.values());
+    };
+    const upsert = (e) => {
+        if (e?.id == null) return;
+        if (e.deleted) { map.delete(e.id); return; }
+        const prev = map.get(e.id);
+        if (!prev) {
+            map.set(e.id, {
+                ...e,
+                participants: [...(e.participants || [])],
+                prizes: [...(e.prizes || [])],
+                conditions: [...(e.conditions || [])],
+                winners: [...(e.winners || [])]
+            });
+            return;
+        }
+        const newer = stamp(e) >= stamp(prev) ? e : prev;
+        const older = stamp(e) >= stamp(prev) ? prev : e;
+        map.set(e.id, {
+            ...older,
+            ...newer,
+            participants: mergeParticipants(older.participants || [], newer.participants || []),
+            prizes: Array.isArray(newer.prizes) ? newer.prizes : (older.prizes || []),
+            conditions: Array.isArray(newer.conditions) ? newer.conditions : (older.conditions || []),
+            winners: Array.isArray(newer.winners) ? newer.winners : (older.winners || []),
+            pinned: Object.prototype.hasOwnProperty.call(newer, 'pinned') ? !!newer.pinned : !!older.pinned
+        });
+    };
+    (fresh || []).forEach(upsert);
+    (proposed || []).forEach(upsert);
     return Array.from(map.values()).sort((a, b) => stamp(b) - stamp(a));
 };
 
@@ -1460,6 +1539,7 @@ window.syncCloudData = async function(newCloudData, fileName = "map_data.json") 
                 if (fileName === "profiles.json") merged = window.mergeProfilesArrays(fresh, proposed);
                 else if (fileName === "mail.json") merged = window.mergeMailArrays(fresh, proposed);
                 else if (fileName === "feed.json") merged = window.mergeFeedPostsArrays(fresh, proposed);
+                else if (fileName === "events.json") merged = window.mergeEventsArrays(fresh, proposed);
                 else merged = window.mergeMapDataArrays(fresh, proposed);
             }
 
@@ -1483,6 +1563,10 @@ window.syncCloudData = async function(newCloudData, fileName = "map_data.json") 
                 window.feedPosts = merged.filter(p => !p.deleted);
                 window.__lastFeedPollKey = window.fingerprintDataset(window.feedPosts);
                 if (window.__sidebarTab === 'feed' && window.renderSidebarFeed) window.renderSidebarFeed();
+            } else if (fileName === "events.json") {
+                window.eventsData = merged.filter(e => !e.deleted);
+                window.__lastEventsPollKey = window.fingerprintDataset(window.eventsData);
+                if (window.renderEventsPanel) window.renderEventsPanel();
             } else if (fileName === "mail.json") {
                 window.mailData = merged;
                 window.__lastMailPollKey = window.fingerprintDataset(merged);
@@ -1595,6 +1679,20 @@ window.syncFeedPosts = async function(posts) {
     return success;
 };
 
+window.syncEventsData = async function(events) {
+    const success = await window.syncCloudData(events, "events.json");
+    if (success) {
+        const merged = (window.__lastMergedUpload && window.__lastMergedUpload.fileName === "events.json")
+            ? window.__lastMergedUpload.data
+            : events;
+        window.eventsData = (merged || []).filter(e => !e.deleted);
+        window.__lastEventsPollKey = window.fingerprintDataset(window.eventsData);
+        if (window.renderEventsPanel) window.renderEventsPanel();
+        if (window.__adminSection === 'events' && window.renderAdminEventsList) window.renderAdminEventsList();
+    }
+    return success;
+};
+
 window.isCurrentUserAdmin = function() {
     if (!window.currentUser) return false;
     // Без JWT админские действия всё равно не пройдут на сервере
@@ -1610,7 +1708,7 @@ window.pollLiveCloudData = async function() {
     if (window.__cloudWriteDepth > 0) return;
     window.__pollingInFlight = true;
     try {
-        const [cloudData, profiles, mail, feed] = await Promise.all([
+        const [cloudData, profiles, mail, feed, events] = await Promise.all([
             fetch(`${window.YANDEX_BUCKET_URL}/map_data.json?nocache=${Date.now()}`)
                 .then(res => res.ok ? res.json() : null)
                 .catch(() => null),
@@ -1621,6 +1719,9 @@ window.pollLiveCloudData = async function() {
                 .then(res => res.ok ? res.json() : null)
                 .catch(() => null),
             fetch(`${window.YANDEX_BUCKET_URL}/feed.json?nocache=${Date.now()}`)
+                .then(res => res.ok ? res.json() : null)
+                .catch(() => null),
+            fetch(`${window.YANDEX_BUCKET_URL}/events.json?nocache=${Date.now()}`)
                 .then(res => res.ok ? res.json() : null)
                 .catch(() => null)
         ]);
@@ -1703,6 +1804,16 @@ window.pollLiveCloudData = async function() {
                 window.__lastFeedPollKey = key;
                 window.feedPosts = feed.filter(p => !p.deleted);
                 if (window.__sidebarTab === 'feed' && window.renderSidebarFeed) window.renderSidebarFeed();
+            }
+        }
+
+        if (Array.isArray(events)) {
+            const key = window.fingerprintDataset(events);
+            if (key !== window.__lastEventsPollKey) {
+                window.__lastEventsPollKey = key;
+                window.eventsData = events.filter(e => !e.deleted);
+                if (window.renderEventsPanel) window.renderEventsPanel();
+                if (window.__adminSection === 'events' && window.renderAdminEventsList) window.renderAdminEventsList();
             }
         }
     } finally {
@@ -2920,8 +3031,16 @@ window.renderSidebarFeed = function() {
     if (!container) return;
 
     const isAdmin = window.isCurrentUserAdmin && window.isCurrentUserAdmin();
+    const login = window.currentUser
+        ? (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase())
+        : null;
     const posts = (window.feedPosts || []).filter(p => !p.deleted)
-        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        .sort((a, b) => {
+            const ap = a.pinned ? 1 : 0;
+            const bp = b.pinned ? 1 : 0;
+            if (bp !== ap) return bp - ap;
+            return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+        });
 
     const published = (window.soundsData || []).filter(s => !s.status || s.status === 'published');
     const recent = [...published]
@@ -2929,38 +3048,78 @@ window.renderSidebarFeed = function() {
         .slice(0, 4);
     const ecoLabels = { geophony: 'Геофония', biophony: 'Биофония', anthrophony: 'Антропофония' };
     const esc = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const relTime = (iso) => {
+        if (!iso) return '';
+        const d = new Date(iso).getTime();
+        if (!Number.isFinite(d)) return '';
+        const diff = Date.now() - d;
+        if (diff < 60000) return 'только что';
+        if (diff < 3600000) return `${Math.floor(diff / 60000)} мин`;
+        if (diff < 86400000) return `${Math.floor(diff / 3600000)} ч`;
+        return new Date(iso).toLocaleDateString('ru-RU');
+    };
 
     const adminBar = isAdmin
         ? `<button type="button" onclick="window.openFeedPostEditor()" class="feed-admin-create"><i class="fa-solid fa-plus mr-1.5"></i>Создать пост</button>`
         : '';
 
+    const socialBar = (p) => {
+        const reacted = !!login && (p.reactedBy || []).includes(login);
+        const hearts = (p.reactedBy || []).length;
+        const comments = (p.comments || []).length;
+        const views = Number(p.views) || (p.viewedBy || []).length || 0;
+        const open = window.__feedOpenComments === p.id;
+        return `
+        <div class="feed-social" onclick="event.stopPropagation()">
+            <div class="feed-social__stats">
+                <button type="button" class="feed-social__btn ${reacted ? 'is-active' : ''}" onclick="window.toggleFeedReaction('${p.id}')" title="Нравится">
+                    <i class="fa-solid fa-heart"></i><span>${hearts}</span>
+                </button>
+                <button type="button" class="feed-social__btn" onclick="window.toggleFeedComments('${p.id}')" title="Комментарии">
+                    <i class="fa-solid fa-comment"></i><span>${comments}</span>
+                </button>
+                <span class="feed-social__btn feed-social__btn--muted" title="Просмотры"><i class="fa-solid fa-eye"></i><span>${views}</span></span>
+                ${isAdmin ? `<button type="button" class="feed-social__btn" onclick="window.toggleFeedPin('${p.id}')" title="${p.pinned ? 'Открепить' : 'Закрепить'}"><i class="fa-solid fa-thumbtack"></i></button>` : ''}
+            </div>
+            ${open ? window.renderFeedCommentsBlock(p) : ''}
+        </div>`;
+    };
+
     const postsHtml = posts.length
         ? posts.map(p => {
-            const dateStr = p.createdAt ? new Date(p.createdAt).toLocaleDateString('ru-RU') : '';
+            const dateStr = relTime(p.createdAt);
             const titleStyle = `font-family:${p.titleFont === 'serif' ? 'Georgia, serif' : 'inherit'};font-size:${({ sm: '13px', md: '14px', lg: '16px', xl: '18px' })[p.titleSize] || '14px'}`;
+            const authorBtn = p.authorId
+                ? `<button type="button" class="feed-card__author" onclick="event.stopPropagation(); window.openPublicProfile('${esc(p.authorId)}', '${esc(p.authorName || p.authorId)}')">${esc(p.authorName || 'Админ')}</button>`
+                : esc(p.authorName || 'Админ');
             const adminActions = isAdmin
                 ? `<div class="flex gap-1 mt-2" onclick="event.stopPropagation()">
                     <button type="button" onclick="window.openFeedPostEditor('${p.id}')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"><i class="fa-solid fa-pen mr-1"></i>Изменить</button>
                     <button type="button" onclick="window.deleteFeedPost('${p.id}')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-red-50 dark:bg-red-900/30 text-red-600"><i class="fa-solid fa-trash mr-1"></i>Удалить</button>
                    </div>`
                 : '';
+            const pinBadge = p.pinned ? `<div class="feed-card__badge feed-card__badge--pin">Закреплено</div>` : '';
             if (p.type === 'article') {
                 const cover = p.coverImage || (p.html && (p.html.match(/<img[^>]+src="([^"]+)"/) || [])[1]) || '';
-                return `<button type="button" onclick="window.openFeedArticle('${p.id}')" class="feed-card feed-card--post w-full text-left">
-                    <div class="feed-card__badge feed-card__badge--article">Статья</div>
-                    <p class="feed-card__title" style="${titleStyle}">${esc(p.title)}</p>
-                    ${cover ? `<div class="feed-card__cover"><img src="${cover}" alt=""></div>` : ''}
-                    <p class="feed-card__meta">${esc(p.authorName || 'Админ')}${dateStr ? ' · ' + dateStr : ''} · Читать полностью</p>
+                return `<div class="feed-card feed-card--post${p.pinned ? ' feed-card--pinned' : ''}" data-feed-id="${esc(p.id)}">
+                    ${pinBadge || '<div class="feed-card__badge feed-card__badge--article">Статья</div>'}
+                    <button type="button" onclick="window.openFeedArticle('${p.id}')" class="w-full text-left">
+                        <p class="feed-card__title" style="${titleStyle}">${esc(p.title)}</p>
+                        ${cover ? `<div class="feed-card__cover"><img src="${cover}" alt=""></div>` : ''}
+                        <p class="feed-card__meta">${authorBtn}${dateStr ? ' · ' + dateStr : ''} · Читать</p>
+                    </button>
+                    ${socialBar(p)}
                     ${adminActions}
-                </button>`;
+                </div>`;
             }
             const noticeW = Math.min(100, Math.max(40, Number(p.imageWidth) || 100));
-            return `<div class="feed-card feed-card--notice">
-                <div class="feed-card__badge feed-card__badge--notice">Уведомление</div>
+            return `<div class="feed-card feed-card--notice${p.pinned ? ' feed-card--pinned' : ''}" data-feed-id="${esc(p.id)}">
+                ${pinBadge || '<div class="feed-card__badge feed-card__badge--notice">Уведомление</div>'}
                 <p class="feed-card__title" style="${titleStyle}">${esc(p.title)}</p>
                 ${p.image ? `<img src="${p.image}" alt="" class="feed-notice-img" style="width:${noticeW}%">` : ''}
                 ${p.body ? `<p class="feed-card__text">${esc(p.body)}</p>` : ''}
-                <p class="feed-card__meta mt-1">${esc(p.authorName || 'Админ')}${dateStr ? ' · ' + dateStr : ''}</p>
+                <p class="feed-card__meta mt-1">${authorBtn}${dateStr ? ' · ' + dateStr : ''}</p>
+                ${socialBar(p)}
                 ${adminActions}
             </div>`;
         }).join('')
@@ -2984,10 +3143,125 @@ window.renderSidebarFeed = function() {
         </div>
         <div>
             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-0.5">Лента</p>
-            <div class="flex flex-col gap-2">${postsHtml}</div>
+            <div class="flex flex-col gap-2" id="feed-posts-list">${postsHtml}</div>
         </div>
         ${recentHtml ? `<div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-0.5">Недавние записи</p><div class="flex flex-col gap-2">${recentHtml}</div></div>` : ''}
     `;
+
+    requestAnimationFrame(() => {
+        if (window.bindFeedViewObserver) window.bindFeedViewObserver();
+    });
+};
+
+window.renderFeedCommentsBlock = function(p) {
+    const esc = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const comments = p.comments || [];
+    const list = comments.length
+        ? comments.map((c) => `
+            <div class="feed-comment">
+                <button type="button" class="feed-comment__author" onclick="window.openPublicProfile('${esc(c.authorId || '')}', '${esc(c.author)}')">${esc(c.author || 'Гость')}</button>
+                <p class="feed-comment__text">${esc(c.text)}</p>
+            </div>`).join('')
+        : `<p class="text-[11px] text-slate-400 py-1">Нет комментариев — напишите первым</p>`;
+    return `
+        <div class="feed-comments">
+            ${list}
+            <div class="feed-comments__compose">
+                <input id="feed-comment-input-${esc(p.id)}" type="text" maxlength="500" class="modal-input text-xs" placeholder="Комментарий…" onkeydown="if(event.key==='Enter'){event.preventDefault();window.addFeedComment('${p.id}')}">
+                <button type="button" class="feed-comments__send" onclick="window.addFeedComment('${p.id}')"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>`;
+};
+
+window.toggleFeedComments = function(postId) {
+    window.__feedOpenComments = window.__feedOpenComments === postId ? null : postId;
+    window.renderSidebarFeed();
+};
+
+window.toggleFeedReaction = async function(postId) {
+    if (!window.currentUser) { window.showToast('Войдите, чтобы поставить реакцию'); if (window.openAuthModal) window.openAuthModal(); return; }
+    const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+    const guard = window.spamGuardCheck ? window.spamGuardCheck(`feed-react:${login}`, { minIntervalMs: 400, maxPerWindow: 40, windowMs: 60000 }) : { ok: true };
+    if (!guard.ok) { window.spamGuardToast(guard); return; }
+    const next = (window.feedPosts || []).map((p) => {
+        if (p.id !== postId) return p;
+        const reactedBy = [...(p.reactedBy || [])];
+        const idx = reactedBy.indexOf(login);
+        if (idx >= 0) reactedBy.splice(idx, 1); else reactedBy.push(login);
+        const now = new Date().toISOString();
+        return { ...p, reactedBy, reactedAt: now, updatedAt: now };
+    });
+    await window.syncFeedPosts(next);
+};
+
+window.toggleFeedPin = async function(postId) {
+    if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) return;
+    const next = (window.feedPosts || []).map((p) => {
+        if (p.id !== postId) return p;
+        const pinned = !p.pinned;
+        const now = new Date().toISOString();
+        return { ...p, pinned, pinnedAt: pinned ? now : null, updatedAt: now };
+    });
+    await window.syncFeedPosts(next);
+};
+
+window.addFeedComment = async function(postId) {
+    if (!window.currentUser) { window.showToast('Войдите, чтобы комментировать'); if (window.openAuthModal) window.openAuthModal(); return; }
+    const input = document.getElementById(`feed-comment-input-${postId}`);
+    const text = (input?.value || '').trim();
+    if (!text) return;
+    const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+    const guard = window.spamGuardCheck ? window.spamGuardCheck(`feed-comment:${login}`, { minIntervalMs: 2500, maxPerWindow: 8, windowMs: 60000 }) : { ok: true };
+    if (!guard.ok) { window.spamGuardToast(guard); return; }
+    const now = new Date();
+    const comment = {
+        id: 'fc' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+        author: window.currentUser.username,
+        authorId: login,
+        text: text.slice(0, 500),
+        date: now.toLocaleDateString('ru-RU'),
+        createdAt: now.toISOString(),
+        reactedBy: []
+    };
+    const next = (window.feedPosts || []).map((p) => {
+        if (p.id !== postId) return p;
+        return { ...p, comments: [...(p.comments || []), comment], updatedAt: now.toISOString() };
+    });
+    window.__feedOpenComments = postId;
+    const ok = await window.syncFeedPosts(next);
+    if (ok) window.showToast('Комментарий добавлен');
+};
+
+window.__feedViewedSession = window.__feedViewedSession || new Set();
+window.recordFeedView = async function(postId) {
+    if (!postId || window.__feedViewedSession.has(postId)) return;
+    window.__feedViewedSession.add(postId);
+    const login = window.currentUser
+        ? (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase())
+        : null;
+    const next = (window.feedPosts || []).map((p) => {
+        if (p.id !== postId) return p;
+        const viewedBy = [...(p.viewedBy || [])];
+        if (login && !viewedBy.includes(login)) viewedBy.push(login);
+        const views = Math.max(Number(p.views) || 0, viewedBy.length) + (login ? 0 : 1);
+        return { ...p, viewedBy, views: login ? Math.max(views, viewedBy.length) : views, updatedAt: new Date().toISOString() };
+    });
+    // Fire-and-forget soft sync — don't block UI
+    window.syncFeedPosts(next);
+};
+
+window.bindFeedViewObserver = function() {
+    const root = document.getElementById('feed-posts-list');
+    if (!root || typeof IntersectionObserver === 'undefined') return;
+    if (window.__feedViewObserver) window.__feedViewObserver.disconnect();
+    window.__feedViewObserver = new IntersectionObserver((entries) => {
+        entries.forEach((en) => {
+            if (!en.isIntersecting) return;
+            const id = en.target.getAttribute('data-feed-id');
+            if (id) window.recordFeedView(id);
+        });
+    }, { root: document.getElementById('sidebar'), threshold: 0.55 });
+    root.querySelectorAll('[data-feed-id]').forEach((el) => window.__feedViewObserver.observe(el));
 };
 
 window.__editingFeedPostId = null;
@@ -3192,6 +3466,8 @@ window.openFeedPostEditor = function(postId = null) {
     if (sizeEl) sizeEl.value = post?.titleSize || 'md';
     window.__noticeFeedImage = post?.image || null;
     if (widthInput) widthInput.value = String(post?.imageWidth || 100);
+    const pinEl = document.getElementById('feed-post-pinned');
+    if (pinEl) pinEl.checked = !!post?.pinned;
     window.renderNoticeImagePreview();
     document.querySelectorAll('input[name="feed-post-type"]').forEach(r => {
         r.checked = (r.value === (post?.type || 'notice'));
@@ -3344,6 +3620,8 @@ window.saveFeedPost = async function() {
     const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
     const now = new Date().toISOString();
     const existingId = window.__editingFeedPostId;
+    const prev = existingId ? (window.feedPosts || []).find(p => p.id === existingId) : null;
+    const pinned = !!document.getElementById('feed-post-pinned')?.checked;
     const post = {
         id: existingId || ('fp' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
         type,
@@ -3357,9 +3635,13 @@ window.saveFeedPost = async function() {
         titleSize: document.getElementById('feed-post-title-size')?.value || 'md',
         authorId: login,
         authorName: window.currentUser.username || 'Админ',
-        createdAt: existingId
-            ? ((window.feedPosts || []).find(p => p.id === existingId)?.createdAt || now)
-            : now,
+        pinned,
+        pinnedAt: pinned ? (prev?.pinnedAt || now) : null,
+        comments: prev?.comments || [],
+        reactedBy: prev?.reactedBy || [],
+        viewedBy: prev?.viewedBy || [],
+        views: prev?.views || 0,
+        createdAt: existingId ? (prev?.createdAt || now) : now,
         updatedAt: now
     };
 
@@ -3403,6 +3685,7 @@ window.openFeedArticle = function(postId) {
         metaEl.textContent = [post.authorName || 'Админ', dateStr].filter(Boolean).join(' · ');
     }
     if (bodyEl) bodyEl.innerHTML = window.sanitizeFeedHtml(post.html || '');
+    if (window.recordFeedView) window.recordFeedView(postId);
 
     const m = document.getElementById('feed-article-modal');
     const c = document.getElementById('feed-article-modal-content');

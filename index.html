@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260718s">
-    <link rel="stylesheet" href="./src/glass.css?v=20260718s">
+    <link rel="stylesheet" href="./src/style.css?v=20260718t">
+    <link rel="stylesheet" href="./src/glass.css?v=20260718t">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -161,6 +161,10 @@
 
         <!-- Mobile top-right: messages + profile/settings -->
         <div id="map-top-right-controls" class="absolute top-4 right-4 md:top-6 md:right-6 pointer-events-auto z-50 flex items-center gap-2 sm:gap-3">
+            <button type="button" id="events-fab" onclick="window.toggleEventsPanel()" class="relative map-icon-btn" title="Ивенты" aria-label="Ивенты" aria-expanded="false">
+                <i class="fa-solid fa-calendar-days"></i>
+                <span id="events-btn-mobile-badge" class="hidden absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shadow">0</span>
+            </button>
             <div class="relative md:hidden" id="msg-wrap-mobile">
                 <button type="button" onclick="window.toggleMessagesPanel()" id="msg-btn-mobile" class="hidden relative map-icon-btn" title="Сообщения" data-lang-title="messages_title">
                     <i class="fa-solid fa-envelope"></i>
@@ -181,6 +185,21 @@
                 <i class="fa-solid fa-user-astronaut profile-btn-icon"></i>
             </button>
         </div>
+
+        <!-- Events panel (desktop right chrome) -->
+        <aside id="events-panel" class="events-panel hidden pointer-events-auto z-[55]" aria-label="Ивенты">
+            <div class="events-panel__head">
+                <div class="min-w-0">
+                    <h2 class="events-panel__title">Ивенты</h2>
+                    <p class="events-panel__sub">Конкурсы и встречи</p>
+                </div>
+                <div class="flex items-center gap-1">
+                    <span id="events-rail-badge" class="hidden events-badge">0</span>
+                    <button type="button" class="events-panel__close" onclick="window.closeEventsPanel()" aria-label="Закрыть"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div id="events-panel-body" class="events-panel__body custom-scrollbar"></div>
+        </aside>
 
         <!-- Viewer dock -->
         <div id="sidebar" class="sidebar-panel dock-expanded sidebar-hidden pointer-events-auto flex flex-col flex-shrink-0 z-[60]">
@@ -338,6 +357,7 @@
                     <button type="button" id="admin-tab-btn-reports" onclick="window.switchAdminSection('reports')" class="admin-subtab-btn">Жалобы <span id="admin-tab-reports-count" class="admin-filter-count"></span></button>
                     <button type="button" id="admin-tab-btn-users" onclick="window.switchAdminSection('users')" class="admin-subtab-btn">Люди</button>
                     <button type="button" id="admin-tab-btn-support" onclick="window.switchAdminSection('support')" class="admin-subtab-btn">Поддержка <span id="admin-tab-support-count" class="admin-filter-count"></span></button>
+                    <button type="button" id="admin-tab-btn-events" onclick="window.switchAdminSection('events')" class="admin-subtab-btn">Ивенты</button>
                     <button type="button" id="admin-tab-btn-tools" onclick="window.switchAdminSection('tools')" class="admin-subtab-btn">Инструменты</button>
                     <button type="button" id="admin-tab-btn-console" onclick="window.switchAdminSection('console')" class="admin-subtab-btn">Консоль</button>
                 </div>
@@ -374,6 +394,14 @@
                         <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"><i class="fa-solid fa-headset mr-1 text-blue-500"></i>Поддержка</p>
                         <p class="text-xs text-slate-500 dark:text-slate-400">Ответы от имени «Поддержка карты».</p>
                         <div id="admin-support-list" class="space-y-2"></div>
+                    </div>
+
+                    <div id="admin-section-events" class="hidden space-y-3">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500"><i class="fa-solid fa-calendar-days mr-1 text-amber-500"></i>Ивенты</p>
+                            <button type="button" class="admin-tool-btn !py-1.5 !px-2.5" onclick="window.openEventEditor()"><i class="fa-solid fa-plus"></i> Создать</button>
+                        </div>
+                        <div id="admin-events-list" class="space-y-2"></div>
                     </div>
 
                     <div id="admin-section-tools" class="hidden space-y-3">
@@ -1438,6 +1466,10 @@
                     </div>
                     <div id="feed-post-editor" class="feed-editor" contenteditable="true" data-placeholder="Напишите статью… Фото можно вставить через кнопку и кадрировать."></div>
                 </div>
+                <label class="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 cursor-pointer">
+                    <input id="feed-post-pinned" type="checkbox" class="rounded border-slate-300">
+                    Закрепить пост вверху ленты
+                </label>
             </div>
             <div class="p-4 border-t border-slate-100 dark:border-slate-700 shrink-0 flex gap-2">
                 <button onclick="window.requestCloseFeedPostModal()" class="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 text-sm font-bold">Отмена</button>
@@ -1458,6 +1490,124 @@
                 <button onclick="window.closeFeedArticleModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div id="feed-article-body" class="p-4 sm:p-5 overflow-y-auto custom-scrollbar flex-1 feed-article-body"></div>
+        </div>
+    </div>
+
+    <!-- Events mobile sheet -->
+    <div id="events-sheet" onmousedown="if(event.target === this) window.closeEventsSheet()" class="fixed inset-0 z-[216] bg-slate-900/50 dark:bg-slate-900/70 backdrop-blur-sm hidden flex items-end sm:items-center justify-center opacity-0 transition-opacity duration-300 pointer-events-none">
+        <div class="events-sheet-panel bg-white dark:bg-slate-800 w-full sm:max-w-md sm:rounded-[1.75rem] rounded-t-[1.75rem] shadow-2xl max-h-[92dvh] flex flex-col overflow-hidden transform translate-y-2 sm:translate-y-0 sm:scale-95 transition-all pointer-events-auto">
+            <div class="events-panel__head shrink-0">
+                <div class="min-w-0">
+                    <h2 class="events-panel__title">Ивенты</h2>
+                    <p class="events-panel__sub">Конкурсы и встречи</p>
+                </div>
+                <button type="button" class="events-panel__close" onclick="window.closeEventsSheet()" aria-label="Закрыть"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="events-sheet-body" class="events-panel__body custom-scrollbar flex-1 min-h-0"></div>
+        </div>
+    </div>
+
+    <!-- Event editor (admin) -->
+    <div id="event-editor-modal" onmousedown="if(event.target === this) window.closeEventEditor()" class="fixed inset-0 z-[220] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
+        <div id="event-editor-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto max-h-[92dvh]">
+            <div class="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
+                <h3 id="event-editor-title" class="text-lg font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-calendar-plus mr-2 text-amber-500"></i>Новый ивент</h3>
+                <button type="button" onclick="window.closeEventEditor()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="p-4 sm:p-5 overflow-y-auto custom-scrollbar flex-1 space-y-3">
+                <div>
+                    <label class="modal-label">Название</label>
+                    <input id="event-edit-title" type="text" class="modal-input" maxlength="120" placeholder="Название ивента">
+                </div>
+                <div>
+                    <label class="modal-label">Тема</label>
+                    <input id="event-edit-theme" type="text" class="modal-input" maxlength="80" placeholder="Краткий слоган">
+                </div>
+                <div>
+                    <label class="modal-label">Описание</label>
+                    <textarea id="event-edit-description" class="modal-input min-h-[5rem]" maxlength="2000" placeholder="Подробности для участников"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="modal-label">Тип</label>
+                        <select id="event-edit-type" class="modal-input">
+                            <option value="contest">Конкурс</option>
+                            <option value="meetup">Встреча</option>
+                            <option value="challenge">Челлендж</option>
+                            <option value="announcement">Анонс</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="modal-label">Статус</label>
+                        <select id="event-edit-status" class="modal-input">
+                            <option value="draft">Черновик</option>
+                            <option value="scheduled">Скоро</option>
+                            <option value="live">Идёт</option>
+                            <option value="judging">Жюри</option>
+                            <option value="ended">Завершён</option>
+                            <option value="archived">Архив</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="modal-label">Начало</label>
+                        <input id="event-edit-starts" type="datetime-local" class="modal-input">
+                    </div>
+                    <div>
+                        <label class="modal-label">Конец</label>
+                        <input id="event-edit-ends" type="datetime-local" class="modal-input">
+                    </div>
+                </div>
+                <div>
+                    <label class="modal-label">Место</label>
+                    <input id="event-edit-place" type="text" class="modal-input" placeholder="Адрес или «онлайн»">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="modal-label">Лимит участников</label>
+                        <input id="event-edit-capacity" type="number" min="0" class="modal-input" placeholder="∞">
+                    </div>
+                    <div class="flex flex-col justify-end gap-2 pb-1">
+                        <label class="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 cursor-pointer">
+                            <input id="event-edit-require-sound" type="checkbox" class="rounded border-slate-300"> Нужна запись
+                        </label>
+                        <label class="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 cursor-pointer">
+                            <input id="event-edit-pinned" type="checkbox" class="rounded border-slate-300"> Закрепить
+                        </label>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="modal-label mb-0">Призы</label>
+                        <button type="button" class="text-[11px] font-bold text-amber-600" onclick="window.addEventPrizeRow()">+ приз</button>
+                    </div>
+                    <div id="event-edit-prizes" class="space-y-1.5"></div>
+                </div>
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="modal-label mb-0">Условия</label>
+                        <button type="button" class="text-[11px] font-bold text-amber-600" onclick="window.addEventConditionRow()">+ условие</button>
+                    </div>
+                    <div id="event-edit-conditions" class="space-y-1.5"></div>
+                </div>
+                <div>
+                    <label class="modal-label">Обложка</label>
+                    <div id="event-cover-preview" class="hidden mb-2 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-600">
+                        <img id="event-cover-el" alt="" class="w-full max-h-36 object-cover">
+                    </div>
+                    <button type="button" onclick="document.getElementById('event-cover-input').click()" class="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 text-xs font-bold"><i class="fa-solid fa-image mr-1"></i>Загрузить обложку</button>
+                    <input id="event-cover-input" type="file" accept="image/*" class="hidden" onchange="window.pickEventCover(this.files)">
+                </div>
+                <div>
+                    <label class="modal-label">Участники</label>
+                    <div id="event-edit-participants" class="space-y-1.5"></div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-100 dark:border-slate-700 shrink-0 flex gap-2">
+                <button type="button" onclick="window.closeEventEditor()" class="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 text-sm font-bold">Отмена</button>
+                <button type="button" onclick="window.saveEventFromEditor()" class="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold">Сохранить</button>
+            </div>
         </div>
     </div>
 
@@ -1842,7 +1992,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260718s"></script>
+    <script type="module" src="./src/main.js?v=20260718t"></script>
 
 </body>
 </html>

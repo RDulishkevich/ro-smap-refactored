@@ -12,7 +12,7 @@ $stamp = Get-Date -Format 'yyyy-MM-dd_HHmm'
 $localDir = Join-Path $root "cloud\backups\$stamp"
 New-Item -ItemType Directory -Path $localDir -Force | Out-Null
 
-$publicFiles = @('map_data.json', 'profiles.json', 'mail.json', 'feed.json')
+$publicFiles = @('map_data.json', 'profiles.json', 'mail.json', 'feed.json', 'events.json')
 Write-Host "Local backup -> $localDir"
 
 foreach ($file in $publicFiles) {

@@ -20,6 +20,8 @@ export function initGlobalState() {
     window.mailData = [];
     window.feedPosts = [];
     window.__lastFeedPollKey = '';
+    window.eventsData = [];
+    window.__lastEventsPollKey = '';
     window.__lastMailPollKey = '';
     window.__secureApiEnabled = true;
 

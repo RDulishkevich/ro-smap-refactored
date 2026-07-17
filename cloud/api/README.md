@@ -7,7 +7,7 @@
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | проверка живости (`version: 2`) |
+| `health` | нет | проверка живости (`version: 4`) |
 | `register` | нет | регистрация (пароль → scrypt) |
 | `login` | нет | вход → JWT |
 | `me` | JWT | проверка сессии / refresh |
@@ -27,6 +27,7 @@
 | `profiles.json` | визитки (bio, avatar URL, gear, sessions…) **без** почты |
 | `mail.json` | inbox / notifications / activityLog по `loginName` |
 | `feed.json` | лента |
+| `events.json` | ивенты (конкурсы / встречи / RSVP) |
 
 Медиа только в `uploads/{login}/…` (или legacy `audio/` / `images/`). **data-URL и blob: в базах запрещены** — API вычищает при sync.
 

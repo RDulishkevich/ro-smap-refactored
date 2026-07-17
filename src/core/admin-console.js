@@ -38,6 +38,23 @@ window.ADMIN_CONSOLE_COMMANDS = [
     { name: 'sessions', usage: 'sessions', desc: 'Все экспедиции' },
     { name: 'expedition', usage: 'expedition <id>', desc: 'Карточка экспедиции' },
     { name: 'feed', usage: 'feed', desc: 'Посты ленты' },
+    { name: 'feed-pin', usage: 'feed-pin <postId>', desc: 'Закрепить пост' },
+    { name: 'feed-unpin', usage: 'feed-unpin <postId>', desc: 'Открепить пост' },
+    { name: 'feed-stats', usage: 'feed-stats [postId]', desc: 'Статистика ленты / поста' },
+    { name: 'feed-delete', usage: 'feed-delete <postId>', desc: 'Удалить пост ленты' },
+    { name: 'feed-comments', usage: 'feed-comments <postId>', desc: 'Комментарии поста' },
+    { name: 'feed-clear-comments', usage: 'feed-clear-comments <postId>', desc: 'Очистить комментарии поста' },
+    { name: 'events', usage: 'events', desc: 'Список ивентов' },
+    { name: 'event', usage: 'event <id>', desc: 'Карточка ивента' },
+    { name: 'event-create', usage: 'event-create', desc: 'Открыть редактор ивента' },
+    { name: 'event-status', usage: 'event-status <id> <status>', desc: 'Сменить статус ивента' },
+    { name: 'event-pin', usage: 'event-pin <id>', desc: 'Закрепить / открепить ивент' },
+    { name: 'event-end', usage: 'event-end <id>', desc: 'Завершить ивент' },
+    { name: 'event-participants', usage: 'event-participants <id>', desc: 'Участники ивента' },
+    { name: 'event-rsvp', usage: 'event-rsvp <id> <going|maybe|declined>', desc: 'Тест RSVP от админа' },
+    { name: 'event-set-winner', usage: 'event-set-winner <id> <login>', desc: 'Назначить победителя' },
+    { name: 'event-delete', usage: 'event-delete <id>', desc: 'Удалить ивент' },
+    { name: 'events-refresh', usage: 'events-refresh', desc: 'Перерисовать панель ивентов' },
     { name: 'orphans', usage: 'orphans', desc: 'Проверка осиротевших маркеров' },
     { name: 'clear-filters', usage: 'clear-filters', desc: 'Сбросить фильтры карты' },
     { name: 'filters', usage: 'filters', desc: 'Активные фильтры' },
@@ -73,7 +90,7 @@ window.ADMIN_CONSOLE_COMMANDS = [
     { name: 'api-cache', usage: 'api-cache', desc: 'Ключи poll-кэша' },
     { name: 'fingerprint', usage: 'fingerprint', desc: 'Fingerprint каталога' },
     { name: 'follow', usage: 'follow <login>', desc: 'Подписчики/подписки' },
-    { name: 'open-section', usage: 'open-section <sounds|reports|users|support|tools|console>', desc: 'Перейти в секцию админки' },
+    { name: 'open-section', usage: 'open-section <sounds|reports|users|support|events|tools|console>', desc: 'Перейти в секцию админки' },
     { name: 'pending-count', usage: 'pending-count', desc: 'Счётчик модерации' },
     { name: 'help-faq', usage: 'help-faq', desc: 'Темы бота поддержки' }
 ];
@@ -244,7 +261,7 @@ window.runAdminConsoleCommand = async function(raw) {
             }
             case 'version': {
                 const h = window.__apiHealth || {};
-                window.adminConsoleLog(`client cache 20260718s · api ${h.version ?? '?'}`);
+                window.adminConsoleLog(`client cache 20260718t · api ${h.version ?? '?'}`);
                 break;
             }
             case 'stats':
@@ -494,9 +511,133 @@ window.runAdminConsoleCommand = async function(raw) {
             case 'feed': {
                 const posts = window.feedPosts || [];
                 window.adminConsoleLog(`feed posts: ${posts.length}`);
-                posts.slice(0, 20).forEach((p) => window.adminConsoleLog(`${p.id} · ${p.title || p.type}`));
+                posts.slice(0, 20).forEach((p) => window.adminConsoleLog(`${p.id} · ${p.pinned ? '📌 ' : ''}${p.title || p.type} · ♥${(p.reactedBy || []).length} · 💬${(p.comments || []).length} · 👁${p.views || 0}`));
                 break;
             }
+            case 'feed-pin':
+            case 'feed-unpin': {
+                const id = args[0];
+                const post = (window.feedPosts || []).find((p) => p.id === id);
+                if (!post) { window.adminConsoleLog('пост не найден', 'error'); break; }
+                const wantPin = cmd === 'feed-pin';
+                if (!!post.pinned === wantPin) {
+                    window.adminConsoleLog(wantPin ? 'уже закреплён' : 'уже откреплён', 'ok');
+                    break;
+                }
+                if (window.toggleFeedPin) await window.toggleFeedPin(id);
+                window.adminConsoleLog(wantPin ? 'pinned' : 'unpinned', 'ok');
+                break;
+            }
+            case 'feed-stats': {
+                const id = args[0];
+                if (id) {
+                    const p = (window.feedPosts || []).find((x) => x.id === id);
+                    if (!p) { window.adminConsoleLog('не найден', 'error'); break; }
+                    window.adminConsoleLog(JSON.stringify({
+                        id: p.id, title: p.title, pinned: !!p.pinned,
+                        views: p.views || 0, viewedBy: (p.viewedBy || []).length,
+                        hearts: (p.reactedBy || []).length, comments: (p.comments || []).length
+                    }));
+                } else {
+                    const posts = window.feedPosts || [];
+                    window.adminConsoleLog(`posts ${posts.length} · pinned ${posts.filter((p) => p.pinned).length} · comments ${posts.reduce((n, p) => n + (p.comments || []).length, 0)}`);
+                }
+                break;
+            }
+            case 'feed-delete': {
+                const id = args[0];
+                if (!id) { window.adminConsoleLog('usage: feed-delete <postId>', 'error'); break; }
+                if (window.deleteFeedPost) await window.deleteFeedPost(id);
+                window.adminConsoleLog('deleted', 'ok');
+                break;
+            }
+            case 'feed-comments': {
+                const id = args[0];
+                const p = (window.feedPosts || []).find((x) => x.id === id);
+                if (!p) { window.adminConsoleLog('не найден', 'error'); break; }
+                (p.comments || []).slice(0, 40).forEach((c) => window.adminConsoleLog(`${c.id} · ${c.author}: ${String(c.text || '').slice(0, 80)}`));
+                if (!(p.comments || []).length) window.adminConsoleLog('(пусто)');
+                break;
+            }
+            case 'feed-clear-comments': {
+                const id = args[0];
+                const next = (window.feedPosts || []).map((p) => p.id === id ? { ...p, comments: [], updatedAt: new Date().toISOString() } : p);
+                if (!(window.feedPosts || []).some((p) => p.id === id)) { window.adminConsoleLog('не найден', 'error'); break; }
+                if (window.syncFeedPosts) await window.syncFeedPosts(next);
+                window.adminConsoleLog('comments cleared', 'ok');
+                break;
+            }
+            case 'events': {
+                const list = window.getActiveEvents ? window.getActiveEvents() : (window.eventsData || []);
+                window.adminConsoleLog(`events: ${list.length}`);
+                list.slice(0, 30).forEach((e) => {
+                    const st = window.normalizeEventStatus ? window.normalizeEventStatus(e) : e.status;
+                    window.adminConsoleLog(`${e.id} · ${st} · ${e.title} · ${(e.participants || []).filter((p) => p.status === 'going').length} going`);
+                });
+                break;
+            }
+            case 'event': {
+                const e = (window.getActiveEvents ? window.getActiveEvents() : []).find((x) => x.id === args[0]);
+                if (!e) { window.adminConsoleLog('не найден', 'error'); break; }
+                window.adminConsoleLog(JSON.stringify({
+                    id: e.id, title: e.title, type: e.type, status: e.status,
+                    startsAt: e.startsAt, endsAt: e.endsAt, pinned: !!e.pinned,
+                    participants: (e.participants || []).length, winners: e.winners || []
+                }));
+                break;
+            }
+            case 'event-create':
+                if (window.openEventEditor) window.openEventEditor();
+                window.adminConsoleLog('editor opened', 'ok');
+                break;
+            case 'event-status': {
+                const [id, status] = args;
+                if (!id || !status) { window.adminConsoleLog('usage: event-status <id> <status>', 'error'); break; }
+                if (window.setEventStatus) await window.setEventStatus(id, status);
+                window.adminConsoleLog(`status → ${status}`, 'ok');
+                break;
+            }
+            case 'event-pin':
+                if (!args[0]) { window.adminConsoleLog('usage: event-pin <id>', 'error'); break; }
+                if (window.toggleEventPin) await window.toggleEventPin(args[0]);
+                window.adminConsoleLog('toggled pin', 'ok');
+                break;
+            case 'event-end':
+                if (!args[0]) { window.adminConsoleLog('usage: event-end <id>', 'error'); break; }
+                if (window.setEventStatus) await window.setEventStatus(args[0], 'ended');
+                window.adminConsoleLog('ended', 'ok');
+                break;
+            case 'event-participants': {
+                const e = (window.getActiveEvents ? window.getActiveEvents() : []).find((x) => x.id === args[0]);
+                if (!e) { window.adminConsoleLog('не найден', 'error'); break; }
+                (e.participants || []).forEach((p) => window.adminConsoleLog(`${p.login} · ${p.status}${p.soundId ? ' · ' + p.soundId : ''}${p.score != null ? ' · score ' + p.score : ''}`));
+                if (!(e.participants || []).length) window.adminConsoleLog('(пусто)');
+                break;
+            }
+            case 'event-rsvp': {
+                const [id, status] = args;
+                if (!id || !status) { window.adminConsoleLog('usage: event-rsvp <id> <going|maybe|declined>', 'error'); break; }
+                if (window.rsvpEvent) await window.rsvpEvent(id, status);
+                window.adminConsoleLog(`rsvp ${status}`, 'ok');
+                break;
+            }
+            case 'event-set-winner': {
+                const [id, login] = args;
+                if (!id || !login) { window.adminConsoleLog('usage: event-set-winner <id> <login>', 'error'); break; }
+                if (window.setEventWinner) await window.setEventWinner(id, login);
+                window.adminConsoleLog('winner set', 'ok');
+                break;
+            }
+            case 'event-delete':
+                if (!args[0]) { window.adminConsoleLog('usage: event-delete <id>', 'error'); break; }
+                if (window.deleteEvent) await window.deleteEvent(args[0]);
+                window.adminConsoleLog('delete requested', 'ok');
+                break;
+            case 'events-refresh':
+                if (window.renderEventsPanel) window.renderEventsPanel();
+                if (window.renderAdminEventsList) window.renderAdminEventsList();
+                window.adminConsoleLog('refreshed', 'ok');
+                break;
             case 'orphans': {
                 const alive = new Set((window.soundsData || []).map((s) => s.id));
                 let orphan = 0;
@@ -679,7 +820,7 @@ window.runAdminConsoleCommand = async function(raw) {
                 break;
             case 'open-section': {
                 const sec = args[0];
-                if (!sec) { window.adminConsoleLog('usage: open-section <sounds|reports|users|support|tools|console>', 'error'); break; }
+                if (!sec) { window.adminConsoleLog('usage: open-section <sounds|reports|users|support|events|tools|console>', 'error'); break; }
                 if (window.switchAdminSection) window.switchAdminSection(sec);
                 window.adminConsoleLog(`section ${sec}`, 'ok');
                 break;

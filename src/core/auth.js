@@ -1764,7 +1764,7 @@ export function initAuth() {
     };
 
     window.switchAdminSection = function(section) {
-        const allowed = ['sounds', 'reports', 'users', 'support', 'tools', 'console'];
+        const allowed = ['sounds', 'reports', 'users', 'support', 'events', 'tools', 'console'];
         window.__adminSection = allowed.includes(section) ? section : 'sounds';
         allowed.forEach((key) => {
             const panel = document.getElementById(`admin-section-${key}`);
@@ -1775,6 +1775,7 @@ export function initAuth() {
         if (window.__adminSection === 'reports') window.renderReportsList();
         if (window.__adminSection === 'users') window.renderAdminUsersList();
         if (window.__adminSection === 'support') window.renderAdminSupportList();
+        if (window.__adminSection === 'events' && window.renderAdminEventsList) window.renderAdminEventsList();
         if (window.__adminSection === 'sounds') {
             if (window.renderAdminList) window.renderAdminList();
             if (window.renderRegionStats) window.renderRegionStats('admin-stats-grid');

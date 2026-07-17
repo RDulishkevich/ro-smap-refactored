@@ -60,7 +60,7 @@ const s3 = new S3Client({
     forcePathStyle: true
 });
 
-const files = ['map_data.json', 'profiles.json', 'mail.json', 'feed.json'];
+const files = ['map_data.json', 'profiles.json', 'mail.json', 'feed.json', 'events.json'];
 for (const file of files) {
     const body = fs.readFileSync(path.join(localDir, file));
     const key = `backups/${stamp}/${file}`;

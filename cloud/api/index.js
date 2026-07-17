@@ -25,7 +25,7 @@ const JWT_SECRET = process.env.JWT_SECRET || '';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
 const AUTH_KEY = '_auth/users.json';
-const ALLOWED_JSON = new Set(['map_data.json', 'profiles.json', 'feed.json', 'mail.json']);
+const ALLOWED_JSON = new Set(['map_data.json', 'profiles.json', 'feed.json', 'mail.json', 'events.json']);
 const MEDIA_PREFIXES = ['uploads/', 'audio/', 'images/'];
 const TOKEN_TTL_SEC = 60 * 60 * 24 * 14; // 14 days
 const MAX_IMAGE_BYTES = 30 * 1024 * 1024;      // 30 MB — фото/обложки с телефона
@@ -457,14 +457,91 @@ function mergeMapDataArrays(fresh = [], proposed = []) {
 
 function mergeFeedPostsArrays(fresh = [], proposed = []) {
     const map = new Map();
-    const stamp = (p) => new Date(p?.updatedAt || p?.createdAt || 0).getTime();
-    (fresh || []).forEach((p) => { if (p?.id != null && !p.deleted) map.set(p.id, p); });
-    (proposed || []).forEach((p) => {
+    const stamp = (p) => {
+        const raw = p?.reactedAt || p?.updatedAt || p?.createdAt || 0;
+        const t = new Date(raw).getTime();
+        return Number.isFinite(t) ? t : 0;
+    };
+    const upsert = (p) => {
         if (p?.id == null) return;
-        if (p.deleted) { map.delete(p.id); return; }
-        const cloud = map.get(p.id);
-        if (!cloud || stamp(p) >= stamp(cloud)) map.set(p.id, p);
+        if (p.deleted) {
+            map.delete(p.id);
+            return;
+        }
+        const prev = map.get(p.id);
+        if (!prev) {
+            map.set(p.id, {
+                ...p,
+                comments: Array.isArray(p.comments) ? p.comments : [],
+                reactedBy: Array.isArray(p.reactedBy) ? [...p.reactedBy] : [],
+                viewedBy: Array.isArray(p.viewedBy) ? [...p.viewedBy] : []
+            });
+            return;
+        }
+        const newer = stamp(p) >= stamp(prev) ? p : prev;
+        const older = stamp(p) >= stamp(prev) ? prev : p;
+        map.set(p.id, {
+            ...older,
+            ...newer,
+            comments: mergeCommentLists(older.comments || [], newer.comments || []),
+            reactedBy: Array.isArray(newer.reactedBy) ? [...newer.reactedBy] : [...(older.reactedBy || [])],
+            viewedBy: Array.from(new Set([...(older.viewedBy || []), ...(newer.viewedBy || [])])),
+            views: Math.max(Number(older.views) || 0, Number(newer.views) || 0, (newer.viewedBy || older.viewedBy || []).length),
+            pinned: Object.prototype.hasOwnProperty.call(newer, 'pinned') ? !!newer.pinned : !!older.pinned,
+            pinnedAt: newer.pinned ? (newer.pinnedAt || older.pinnedAt) : undefined
+        });
+    };
+    (fresh || []).forEach(upsert);
+    (proposed || []).forEach(upsert);
+    return Array.from(map.values()).sort((a, b) => {
+        const ap = a.pinned ? 1 : 0;
+        const bp = b.pinned ? 1 : 0;
+        if (bp !== ap) return bp - ap;
+        return stamp(b) - stamp(a);
     });
+}
+
+function mergeEventsArrays(fresh = [], proposed = []) {
+    const map = new Map();
+    const stamp = (e) => {
+        const t = new Date(e?.updatedAt || e?.createdAt || 0).getTime();
+        return Number.isFinite(t) ? t : 0;
+    };
+    const mergeParticipants = (a = [], b = []) => {
+        const m = new Map();
+        [...a, ...b].forEach((p) => {
+            if (!p?.login) return;
+            const key = String(p.login).toLowerCase();
+            const prev = m.get(key);
+            if (!prev || stamp(p) >= stamp(prev)) m.set(key, { ...prev, ...p, login: key });
+        });
+        return Array.from(m.values());
+    };
+    const upsert = (e) => {
+        if (e?.id == null) return;
+        if (e.deleted) {
+            map.delete(e.id);
+            return;
+        }
+        const prev = map.get(e.id);
+        if (!prev) {
+            map.set(e.id, { ...e, participants: [...(e.participants || [])], prizes: [...(e.prizes || [])], conditions: [...(e.conditions || [])], winners: [...(e.winners || [])] });
+            return;
+        }
+        const newer = stamp(e) >= stamp(prev) ? e : prev;
+        const older = stamp(e) >= stamp(prev) ? prev : e;
+        map.set(e.id, {
+            ...older,
+            ...newer,
+            participants: mergeParticipants(older.participants || [], newer.participants || []),
+            prizes: Array.isArray(newer.prizes) ? newer.prizes : (older.prizes || []),
+            conditions: Array.isArray(newer.conditions) ? newer.conditions : (older.conditions || []),
+            winners: Array.isArray(newer.winners) ? newer.winners : (older.winners || []),
+            pinned: Object.prototype.hasOwnProperty.call(newer, 'pinned') ? !!newer.pinned : !!older.pinned
+        });
+    };
+    (fresh || []).forEach(upsert);
+    (proposed || []).forEach(upsert);
     return Array.from(map.values()).sort((a, b) => stamp(b) - stamp(a));
 }
 
@@ -710,14 +787,49 @@ function sanitizeFeed(fresh, merged, user) {
     for (const p of merged || []) {
         const cloud = freshMap.get(p.id);
         if (!cloud) {
-            out.push({ ...p, authorId: user.login, author: p.author || user.displayName || user.login });
+            // Non-admins cannot create feed posts
             continue;
         }
-        if (String(cloud.authorId || '').toLowerCase() === user.login) out.push(p);
-        else out.push(cloud);
+        if (String(cloud.authorId || '').toLowerCase() === user.login) {
+            out.push(p);
+            continue;
+        }
+        // Social-only merge on others' posts
+        out.push({
+            ...cloud,
+            comments: mergeCommentLists(cloud.comments || [], p.comments || []),
+            reactedBy: Array.isArray(p.reactedBy) ? p.reactedBy : (cloud.reactedBy || []),
+            reactedAt: p.reactedAt || cloud.reactedAt,
+            viewedBy: Array.from(new Set([...(cloud.viewedBy || []), ...(p.viewedBy || [])])),
+            views: Math.max(Number(cloud.views) || 0, Number(p.views) || 0),
+            updatedAt: p.updatedAt && new Date(p.updatedAt) > new Date(cloud.updatedAt || 0) ? p.updatedAt : cloud.updatedAt
+        });
     }
     for (const [id, cloud] of freshMap.entries()) {
         if (!out.some((p) => p.id === id) && !cloud.deleted) out.push(cloud);
+    }
+    return out;
+}
+
+function sanitizeEvents(fresh, merged, user) {
+    if (user.role === 'admin') return merged;
+    const freshMap = new Map((fresh || []).map((e) => [e.id, e]));
+    const out = [];
+    for (const e of merged || []) {
+        const cloud = freshMap.get(e.id);
+        if (!cloud) continue; // non-admin cannot create events
+        // Users may only update their own participant row
+        const cloudParts = cloud.participants || [];
+        const nextParts = e.participants || [];
+        const mine = nextParts.find((p) => String(p.login || '').toLowerCase() === user.login);
+        const others = cloudParts.filter((p) => String(p.login || '').toLowerCase() !== user.login);
+        const participants = mine
+            ? [...others, { ...mine, login: user.login, name: mine.name || user.displayName || user.login }]
+            : cloudParts;
+        out.push({ ...cloud, participants, updatedAt: e.updatedAt || cloud.updatedAt });
+    }
+    for (const [id, cloud] of freshMap.entries()) {
+        if (!out.some((e) => e.id === id) && !cloud.deleted) out.push(cloud);
     }
     return out;
 }
@@ -993,12 +1105,14 @@ async function applyMergeAndSave(fileName, proposed, user) {
         if (fileName === 'profiles.json') merged = mergeProfilesArrays(fresh, nextProposed);
         else if (fileName === 'mail.json') merged = mergeMailArrays(fresh, nextProposed);
         else if (fileName === 'feed.json') merged = mergeFeedPostsArrays(fresh, nextProposed);
+        else if (fileName === 'events.json') merged = mergeEventsArrays(fresh, nextProposed);
         else merged = mergeMapDataArrays(fresh, nextProposed);
     }
 
     if (fileName === 'profiles.json') merged = sanitizeProfiles(fresh, merged, user).map(stripMailFields);
     else if (fileName === 'mail.json') merged = sanitizeMail(fresh, merged, user);
     else if (fileName === 'feed.json') merged = sanitizeFeed(fresh, merged, user);
+    else if (fileName === 'events.json') merged = sanitizeEvents(fresh, merged, user);
     else merged = sanitizeMapData(fresh, merged, user);
 
     await putJson(fileName, merged);
@@ -1130,7 +1244,7 @@ exports.handler = async function handler(event = {}) {
     }
 
     try {
-        if (action === 'health') return respond(200, { ok: true, version: 3 });
+        if (action === 'health') return respond(200, { ok: true, version: 4 });
         if (action === 'register') return await handleRegister(body);
         if (action === 'login') return await handleLogin(body);
         if (action === 'changePassword') return await handleChangePassword(event, body);
