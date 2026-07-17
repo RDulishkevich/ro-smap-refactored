@@ -9,13 +9,14 @@ Product UI for a regional audio map. Language: **grainy frosted glass** over liv
 - VISUAL_DENSITY: 5
 
 ## Materials
-- **Glass:** `backdrop-filter` + translucent fill + 1px rim highlight + shared SVG grain (low opacity). Solid fallback when `prefers-reduced-transparency`.
-- **Map chrome / sidebar / player / settings shell** share `.glass` vocabulary — purposeful glass, not decorative card soup.
-- **Motion:** 150–250ms product transitions; ease-out expo; `prefers-reduced-motion` strips transforms to opacity/instant.
+- **Signature:** liquid grainy glass — panels stay translucent (`~14–28%` fill) with `blur(52–60px)` so the live map reads through.
+- Specular gradient + SVG grain on glass shells.
+- Solid fallback only for `prefers-reduced-transparency`.
 
 ## Type
-- UI + brand: Gilroy (400/500/600/700), fallbacks: Plus Jakarta Sans, system-ui.
-- Tracking on titles: −0.02em to −0.03em. No display/serif pairing.
+- Display: **Clash Display** (bold titles / player title)
+- UI: **Satoshi** (with Gilroy + Plus Jakarta fallbacks)
+
 
 ## Color (restrained)
 - Light: cool mist surface, white glass panels, teal accent `#0f766e`.
