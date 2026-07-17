@@ -14,7 +14,7 @@
  */
 
 const crypto = require('crypto');
-const { S3Client, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const BUCKET = process.env.BUCKET || 'rosmap2026';
@@ -44,7 +44,7 @@ function corsHeaders() {
         'Content-Type': 'application/json; charset=utf-8',
         'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Headers': 'Content-Type, X-Rosmap-Token',
         'Access-Control-Max-Age': '86400'
     };
 }
@@ -115,8 +115,9 @@ function verifyJwt(token) {
 }
 
 function extractToken(event, body) {
-    const auth = getHeader(event, 'authorization') || '';
-    if (auth.toLowerCase().startsWith('bearer ')) return auth.slice(7).trim();
+    // Не используем Authorization: Bearer — у YC HTTP-триггера это IAM invoke-токен.
+    const custom = getHeader(event, 'x-rosmap-token');
+    if (custom) return String(custom).trim();
     if (body && body.token) return String(body.token);
     return '';
 }
@@ -661,9 +662,27 @@ async function handleSync(event, body) {
     const proposed = Array.isArray(body.data) ? body.data : null;
     if (!proposed) return respond(400, { ok: false, error: 'bad_data' });
 
+    // Крупные базы не влезают в HTTP-триггер (~3.5MB) — используйте staging+commit
+    const approx = Buffer.byteLength(JSON.stringify(proposed), 'utf8');
+    if (approx > 2_500_000) {
+        return respond(413, {
+            ok: false,
+            error: 'payload_too_large',
+            message: 'Use staging upload + action=commit'
+        });
+    }
+
+    return applyMergeAndSave(fileName, proposed, {
+        login: payload.login,
+        role: payload.role,
+        displayName: payload.displayName
+    });
+}
+
+async function applyMergeAndSave(fileName, proposed, user) {
     const fresh = await getJson(fileName, []);
     if (!proposed.length && Array.isArray(fresh) && fresh.length) {
-        return respond(200, { ok: true, skipped: true, data: fresh });
+        return respond(200, { ok: true, skipped: true, count: fresh.length });
     }
 
     let merged = proposed;
@@ -673,13 +692,42 @@ async function handleSync(event, body) {
         else merged = mergeMapDataArrays(fresh, proposed);
     }
 
-    const user = { login: payload.login, role: payload.role, displayName: payload.displayName };
     if (fileName === 'profiles.json') merged = sanitizeProfiles(fresh, merged, user);
     else if (fileName === 'feed.json') merged = sanitizeFeed(fresh, merged, user);
     else merged = sanitizeMapData(fresh, merged, user);
 
     await putJson(fileName, merged);
-    return respond(200, { ok: true, data: merged });
+    return respond(200, {
+        ok: true,
+        fileName,
+        count: Array.isArray(merged) ? merged.length : 0
+    });
+}
+
+async function handleCommit(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+
+    const fileName = String(body.fileName || '');
+    if (!ALLOWED_JSON.has(fileName)) return respond(400, { ok: false, error: 'bad_file' });
+
+    const stagingKey = `staging/${payload.login}/${fileName}`;
+    const proposed = await getJson(stagingKey, null);
+    if (!Array.isArray(proposed)) {
+        return respond(400, { ok: false, error: 'no_staging', message: `Missing ${stagingKey}` });
+    }
+
+    const result = await applyMergeAndSave(fileName, proposed, {
+        login: payload.login,
+        role: payload.role,
+        displayName: payload.displayName
+    });
+
+    try {
+        await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: stagingKey }));
+    } catch (_) {}
+
+    return result;
 }
 
 async function handlePresign(event, body) {
@@ -690,18 +738,22 @@ async function handlePresign(event, body) {
     const contentType = String(body.contentType || 'application/octet-stream');
     if (!fileName || fileName.includes('..')) return respond(400, { ok: false, error: 'bad_file' });
 
-    // JSON database files must go through action=sync, never raw presign
-    if (ALLOWED_JSON.has(fileName) || fileName === AUTH_KEY || fileName.startsWith('_auth/')) {
+    let key;
+    // Staging JSON для больших баз (обход лимита тела HTTP-триггера)
+    const stagingMatch = fileName.match(/^staging\/([^/]+)\/(map_data\.json|profiles\.json|feed\.json)$/);
+    if (stagingMatch) {
+        if (stagingMatch[1] !== payload.login) return respond(403, { ok: false, error: 'bad_staging_owner' });
+        key = fileName;
+    } else if (ALLOWED_JSON.has(fileName) || fileName === AUTH_KEY || fileName.startsWith('_auth/')) {
         return respond(403, { ok: false, error: 'use_sync' });
+    } else {
+        const allowed = MEDIA_PREFIXES.some((p) => fileName.startsWith(p));
+        if (!allowed) return respond(403, { ok: false, error: 'bad_prefix' });
+        const safe = fileName.replace(/[^a-zA-Z0-9_\-./]/g, '_');
+        key = safe.startsWith(`uploads/${payload.login}/`)
+            ? safe
+            : `uploads/${payload.login}/${safe.split('/').pop()}`;
     }
-    const allowed = MEDIA_PREFIXES.some((p) => fileName.startsWith(p));
-    if (!allowed) return respond(403, { ok: false, error: 'bad_prefix' });
-
-    // namespace by user
-    const safe = fileName.replace(/[^a-zA-Z0-9_\-./]/g, '_');
-    const key = safe.startsWith(`uploads/${payload.login}/`)
-        ? safe
-        : `uploads/${payload.login}/${safe.split('/').pop()}`;
 
     const command = new PutObjectCommand({
         Bucket: BUCKET,
@@ -743,6 +795,7 @@ exports.handler = async function handler(event = {}) {
         if (action === 'changePassword') return await handleChangePassword(event, body);
         if (action === 'me') return await handleMe(event, body);
         if (action === 'sync') return await handleSync(event, body);
+        if (action === 'commit') return await handleCommit(event, body);
         if (action === 'presign') return await handlePresign(event, body);
         if (action === 'legacy_presign') {
             return respond(401, {

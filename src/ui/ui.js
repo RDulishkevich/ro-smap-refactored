@@ -973,9 +973,11 @@ window.__putCloudJson = async function(fileName, data) {
         throw new Error('Требуется вход для синхронизации с облаком');
     }
     if (!window.apiSyncJson) throw new Error('Secure API клиент не загружен');
-    const result = await window.apiSyncJson(fileName, data);
-    if (result && Array.isArray(result.data)) {
-        window.__lastMergedUpload = { fileName, data: result.data };
+    await window.apiSyncJson(fileName, data);
+    // Сервер мог sanitize — перечитываем актуальный снимок из бакета
+    const freshAfter = await window.fetchCloudJson(fileName);
+    if (Array.isArray(freshAfter)) {
+        window.__lastMergedUpload = { fileName, data: freshAfter };
     }
     return true;
 };

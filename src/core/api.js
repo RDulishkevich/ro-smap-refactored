@@ -42,8 +42,10 @@ window.apiRequest = async function(action, payload = {}, { auth = false } = {}) 
             err.code = 'unauthorized';
             throw err;
         }
-        headers.Authorization = `Bearer ${token}`;
+        // Важно: НЕ слать Authorization: Bearer — у functions.yandexcloud.net
+        // этот заголовок означает IAM-токен вызова функции, а не наш JWT.
         body.token = token;
+        headers['X-Rosmap-Token'] = token;
     }
 
     const res = await fetch(url, {
@@ -81,8 +83,30 @@ window.apiChangePassword = function(currentPassword, newPassword) {
     return window.apiRequest('changePassword', { currentPassword, newPassword }, { auth: true });
 };
 
-window.apiSyncJson = function(fileName, data) {
-    return window.apiRequest('sync', { fileName, data }, { auth: true });
+window.apiSyncJson = async function(fileName, data) {
+    const login = window.currentUser?.loginName
+        || String(window.currentUser?.username || '').toLowerCase();
+    if (!login) throw Object.assign(new Error('unauthorized'), { code: 'unauthorized' });
+
+    const raw = JSON.stringify(Array.isArray(data) ? data : []);
+    // Мелкие файлы — сразу sync; крупные — staging в бакет + commit (лимит CF ~3.5MB)
+    if (raw.length < 2_000_000) {
+        try {
+            return await window.apiRequest('sync', { fileName, data }, { auth: true });
+        } catch (err) {
+            if (err.code !== 'payload_too_large' && err.status !== 413) throw err;
+        }
+    }
+
+    const stagingKey = `staging/${login}/${fileName}`;
+    const pre = await window.apiPresignUpload(stagingKey, 'application/json');
+    const putRes = await fetch(pre.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: raw
+    });
+    if (!putRes.ok) throw new Error('Ошибка staging-загрузки в облако');
+    return window.apiRequest('commit', { fileName }, { auth: true });
 };
 
 window.apiPresignUpload = function(fileName, contentType) {
