@@ -105,7 +105,12 @@ export function initAuth() {
             if (window.ensureSupportWelcome) window.ensureSupportWelcome();
             if (window.touchMyPresence) window.touchMyPresence(true);
             if (window.syncAccountChrome) window.syncAccountChrome();
-            window.openCabinet();
+            if (window.__pendingSupportOpen) {
+                window.__pendingSupportOpen = false;
+                if (window.openMessagesModal) window.openMessagesModal(window.SUPPORT_LOGIN || 'support');
+            } else {
+                window.openCabinet();
+            }
         };
 
         try {
@@ -618,8 +623,12 @@ export function initAuth() {
     window.setSidebarSessionFilter = function(sessionId) {
         window.activeSessionId = sessionId || null;
         if (sessionId && window.switchSidebarTab) window.switchSidebarTab('library');
-        if (window.renderList) window.renderList();
-        if (window.updateMapMarkers) window.updateMapMarkers();
+        if (window.processFilterChange) window.processFilterChange(false);
+        else {
+            if (window.renderList) window.renderList();
+            if (window.updateMapMarkers) window.updateMapMarkers();
+            if (window.renderActiveTags) window.renderActiveTags();
+        }
         if (window.renderSidebarExpeditions) window.renderSidebarExpeditions();
         if (sessionId) window.showToast('Фильтр: звуки выбранной экспедиции');
     };
@@ -1106,11 +1115,31 @@ export function initAuth() {
 
         const mapYandexBtn = document.getElementById('map-provider-yandex-btn');
         const mapMapboxBtn = document.getElementById('map-provider-mapbox-btn');
-        if (mapYandexBtn && mapMapboxBtn) {
-            const isMapbox = window.currentMapProvider === 'mapbox';
-            mapYandexBtn.className = isMapbox ? 'glass-seg__btn' : 'glass-seg__btn is-active is-active--accent';
-            mapMapboxBtn.className = isMapbox ? 'glass-seg__btn is-active is-active--accent' : 'glass-seg__btn';
-        }
+        const mapOzonBtn = document.getElementById('map-provider-ozon-btn');
+        const mapCartoBtn = document.getElementById('map-provider-carto-btn');
+        const mapOpentopoBtn = document.getElementById('map-provider-opentopo-btn');
+        const mapEsriBtn = document.getElementById('map-provider-esri-btn');
+        const mapDgisBtn = document.getElementById('map-provider-dgis-btn');
+        const mapGoogleBtn = document.getElementById('map-provider-google-btn');
+        const provider = window.normalizeMapProvider
+            ? window.normalizeMapProvider(window.currentMapProvider)
+            : window.currentMapProvider;
+        const setProv = (btn, id) => {
+            if (!btn) return;
+            btn.className = provider === id
+                ? 'glass-seg__btn is-active is-active--accent'
+                : 'glass-seg__btn';
+        };
+        setProv(mapYandexBtn, 'yandex');
+        setProv(mapOzonBtn, 'ozon');
+        setProv(mapMapboxBtn, 'mapbox');
+        setProv(mapCartoBtn, 'carto');
+        setProv(mapOpentopoBtn, 'opentopo');
+        setProv(mapEsriBtn, 'esri');
+        setProv(mapDgisBtn, 'dgis');
+        setProv(mapGoogleBtn, 'googleearth');
+        if (window.updateMapProviderHint) window.updateMapProviderHint();
+        if (window.updateMapProviderKeyFields) window.updateMapProviderKeyFields();
 
         if (langSelect) {
             langSelect.value = window.currentLang || 'ru';
@@ -1144,38 +1173,20 @@ export function initAuth() {
         if (window.closeSettingsModal) window.closeSettingsModal();
         if (window.closeCabinet) window.closeCabinet();
         if (window.closeSupportModal) window.closeSupportModal();
-        const items = [];
         if (window.currentUser) {
-            items.push({
-                icon: 'fa-comments',
-                label: 'Написать в сообщениях',
-                onClick: () => {
-                    if (window.openMessagesModal) window.openMessagesModal(window.SUPPORT_LOGIN || 'support');
-                }
-            });
-        } else {
-            items.push({
-                icon: 'fa-right-to-bracket',
-                label: 'Войти и открыть чат поддержки',
-                onClick: () => { if (window.openAuthModal) window.openAuthModal(); }
-            });
+            if (window.openMessagesModal) window.openMessagesModal(window.SUPPORT_LOGIN || 'support');
+            return;
         }
-        items.push({
-            icon: 'fa-envelope',
-            label: 'Написать на почту',
-            onClick: () => {
-                window.location.href = 'mailto:help@rosmap.local?subject=' + encodeURIComponent('Поддержка RO·SMap');
-            }
-        });
-        if (window.ActionSheet) window.ActionSheet.open(items);
-        else window.location.href = 'mailto:help@rosmap.local';
+        window.__pendingSupportOpen = true;
+        if (window.openAuthModal) window.openAuthModal();
+        else window.showToast('Войдите, чтобы написать в поддержку');
     };
 
     window.closeSupportModal = function() {
         const m = document.getElementById('support-modal');
         if (!m) return;
         m.classList.add('opacity-0', 'pointer-events-none');
-        m.firstElementChild.classList.add('scale-95');
+        if (m.firstElementChild) m.firstElementChild.classList.add('scale-95');
         setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
     };
 
@@ -1945,17 +1956,28 @@ export function initAuth() {
 
     window.renderAdminSupportList = function() {
         const el = document.getElementById('admin-support-list');
+        if (window.refreshAdminSupportBadge) window.refreshAdminSupportBadge();
         if (!el) return;
         const supportProfile = window.getProfileByLogin ? window.getProfileByLogin(window.SUPPORT_LOGIN) : null;
         const byPeer = new Map();
         (supportProfile?.inbox || []).forEach(msg => {
-            if (!msg.fromId || msg.fromId === window.SUPPORT_LOGIN) return;
-            const prev = byPeer.get(msg.fromId);
-            if (!prev || new Date(msg.date || 0) > new Date(prev.date || 0)) byPeer.set(msg.fromId, msg);
+            if (!msg.fromId || String(msg.fromId).toLowerCase() === String(window.SUPPORT_LOGIN || '').toLowerCase()) return;
+            const peer = String(msg.fromId).toLowerCase();
+            const prev = byPeer.get(peer);
+            if (!prev || new Date(msg.date || 0) > new Date(prev.date || 0)) byPeer.set(peer, { ...msg, fromId: peer });
         });
-        const rows = Array.from(byPeer.entries()).sort((a, b) => new Date(b[1].date || 0) - new Date(a[1].date || 0));
+        const rows = Array.from(byPeer.entries()).sort((a, b) => {
+            const aUnread = !a[1].read ? 1 : 0;
+            const bUnread = !b[1].read ? 1 : 0;
+            if (bUnread !== aUnread) return bUnread - aUnread;
+            return new Date(b[1].date || 0) - new Date(a[1].date || 0);
+        });
         if (!rows.length) {
-            el.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">Обращений в поддержку пока нет.</p>`;
+            el.innerHTML = `<div class="text-center py-8 px-3">
+                <i class="fa-solid fa-headset text-2xl text-slate-300 dark:text-slate-600 mb-3 block"></i>
+                <p class="text-xs font-semibold text-slate-500">Обращений пока нет</p>
+                <p class="text-[11px] text-slate-400 mt-1">Пользователи пишут из Сообщений или раздела «Помощь» в настройках.</p>
+            </div>`;
             return;
         }
         el.innerHTML = rows.map(([peer, last]) => {
@@ -1970,12 +1992,30 @@ export function initAuth() {
                     ${profile?.avatar ? `<img src="${profile.avatar}" class="w-full h-full object-cover" alt="">` : `<i class="fa-solid fa-headset"></i>`}
                 </span>
                 <div class="min-w-0 flex-1">
-                    <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${name}</p>
+                    <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${name}${unread ? ' · новое' : ''}</p>
                     <p class="text-[11px] text-slate-500 truncate">${preview}</p>
                     <p class="text-[10px] text-slate-400 mt-0.5">${last.date ? new Date(last.date).toLocaleString('ru-RU') : ''}</p>
                 </div>
             </button>`;
         }).join('');
+    };
+
+    window.refreshAdminSupportBadge = function() {
+        const tabCount = document.getElementById('admin-tab-support-count');
+        if (!tabCount) return;
+        if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) {
+            tabCount.textContent = '';
+            return;
+        }
+        const supportProfile = window.getProfileByLogin ? window.getProfileByLogin(window.SUPPORT_LOGIN) : null;
+        const unreadPeers = new Set();
+        (supportProfile?.inbox || []).forEach((msg) => {
+            if (!msg?.fromId || msg.read || msg.deleted) return;
+            if (String(msg.fromId).toLowerCase() === String(window.SUPPORT_LOGIN || '').toLowerCase()) return;
+            unreadPeers.add(String(msg.fromId).toLowerCase());
+        });
+        const n = unreadPeers.size;
+        tabCount.textContent = n ? `(${n})` : '';
     };
 
     window.openAdminUserActions = function(login) {
@@ -2627,7 +2667,7 @@ export function initAuth() {
             fromName: window.SUPPORT_NAME,
             text: 'Здравствуйте! Это чат поддержки RO·SMap. Напишите сюда, если нужна помощь с картой, публикацией или аккаунтом.',
             date: new Date().toISOString(),
-            read: false,
+            read: true,
             _supportThread: true
         };
         updated[idx] = { ...updated[idx], inbox: [welcome, ...inbox].slice(0, 200) };
@@ -2727,6 +2767,7 @@ export function initAuth() {
         };
         apply(btn, badge);
         apply(btnMobile, badgeMobile);
+        if (window.refreshAdminSupportBadge) window.refreshAdminSupportBadge();
         if (window.syncAccountChrome) window.syncAccountChrome();
     };
 
@@ -2918,7 +2959,7 @@ export function initAuth() {
                 <div class="relative shrink-0">${avatar}<span class="msg-online-dot ${online ? 'on' : ''}"></span></div>
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center justify-between gap-2">
-                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${window.escMsgHtml(name)}${isSupport ? ' <span class="text-[9px] text-blue-500 font-bold">PIN</span>' : ''}</p>
+                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${window.escMsgHtml(name)}${isSupport ? ' <span class="text-[9px] text-blue-500 font-bold">поддержка</span>' : ''}</p>
                         ${unread ? `<span class="text-[10px] font-bold text-blue-600">${unread}</span>` : ticks}
                     </div>
                     <p class="text-[10px] ${online ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'} truncate mt-0.5">${window.escMsgHtml(presence)}</p>
@@ -3089,7 +3130,9 @@ export function initAuth() {
             const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
             list.innerHTML = all.length
                 ? all.map(m => window.renderMessageBubble(m)).join('')
-                : `<p class="text-xs text-slate-400 text-center py-6">Начните переписку</p>`;
+                : `<p class="text-xs text-slate-400 text-center py-6">${peerKey === String(window.SUPPORT_LOGIN || '').toLowerCase() || asSupport
+                    ? 'Опишите проблему с картой, публикацией или аккаунтом — ответим здесь.'
+                    : 'Начните переписку'}</p>`;
             if (!quiet || nearBottom) list.scrollTop = list.scrollHeight;
             if (window.bindMessageBubbleMenus) window.bindMessageBubbleMenus(list);
             if (window.bindSwipeReplyRows) window.bindSwipeReplyRows(list, (id) => window.startMessageReply(id));
@@ -3379,6 +3422,15 @@ export function initAuth() {
                 else window.openMessageThread(peer);
                 window.showToast('Сообщение отправлено', { sfx: 'send' });
                 window.touchMyPresence();
+                if (!asSupport && targetLogin === window.SUPPORT_LOGIN && window.notifyAdmins) {
+                    window.notifyAdmins({
+                        type: 'support',
+                        text: `${window.currentUser.username || myLogin} написал(а) в поддержку`,
+                        fromId: myLogin,
+                        fromName: window.currentUser.username || myLogin
+                    });
+                }
+                if (window.refreshAdminSupportBadge) window.refreshAdminSupportBadge();
             } else {
                 window.showToast('Не удалось отправить');
             }

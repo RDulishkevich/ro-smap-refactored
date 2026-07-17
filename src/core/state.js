@@ -36,10 +36,17 @@ export function initGlobalState() {
     window.currentMapProvider = 'yandex';
     try {
         const savedProvider = localStorage.getItem('rosmap_map_provider');
-        if (savedProvider === 'mapbox' || savedProvider === 'yandex') {
+        if (savedProvider) {
             window.currentMapProvider = savedProvider;
         }
     } catch (_) {}
+    try {
+        window.DGIS_API_KEY = localStorage.getItem('rosmap_dgis_key') || '';
+        window.GOOGLE_MAPS_API_KEY = localStorage.getItem('rosmap_google_maps_key') || '';
+    } catch (_) {
+        window.DGIS_API_KEY = '';
+        window.GOOGLE_MAPS_API_KEY = '';
+    }
     window.mockInterval = null;
     window.simulatedTime = 0;
     window.simulatedDuration = 120;

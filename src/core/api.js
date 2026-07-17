@@ -79,6 +79,10 @@ window.apiMe = function() {
     return window.apiRequest('me', {}, { auth: true });
 };
 
+window.apiHealth = function() {
+    return window.apiRequest('health');
+};
+
 window.apiChangePassword = function(currentPassword, newPassword) {
     return window.apiRequest('changePassword', { currentPassword, newPassword }, { auth: true });
 };

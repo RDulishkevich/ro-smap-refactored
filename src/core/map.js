@@ -121,21 +121,46 @@ window.destroyMainMap = function() {
     if (window.hideMarkerHoverCard) window.hideMarkerHoverCard(true);
     if (window.hideMapContextMenu) window.hideMapContextMenu();
     if (window.destroyMapboxMap) window.destroyMapboxMap();
+    if (window.destroyDgisMap) window.destroyDgisMap();
+    if (window.destroyGoogleEarthMap) window.destroyGoogleEarthMap();
     window.destroyYandexMap();
     window.map = null;
     window.__mainMapReady = false;
     const container = document.getElementById('map');
     if (container) {
         container.innerHTML = '';
-        container.classList.remove('is-mapbox');
+        container.classList.remove('is-mapbox', 'is-dgis', 'is-googleearth', 'is-map-provider-placeholder', 'map-monochrome');
         container.__longPressBound = false;
+        container.__dgisCtxBound = false;
+        container.__googleCtxBound = false;
     }
 };
 
+window.normalizeMapProvider = function(provider) {
+    const raw = String(provider || '').toLowerCase().replace(/\s+/g, '');
+    if (raw === 'mapbox' || raw === 'osm3d' || raw === 'openfreemap') return 'mapbox';
+    if (raw === 'ozon' || raw === 'ozom' || raw === 'ozonmaps' || raw === 'osm' || raw === 'openstreetmap') return 'ozon';
+    if (raw === 'carto' || raw === 'cartodb') return 'carto';
+    if (raw === 'opentopo' || raw === 'opentopomap' || raw === 'topo') return 'opentopo';
+    if (raw === 'esri' || raw === 'satellite' || raw === 'imagery') return 'esri';
+    if (raw === 'dgis' || raw === '2gis') return 'dgis';
+    if (raw === 'googleearth' || raw === 'google' || raw === 'earth') return 'googleearth';
+    return 'yandex';
+};
+
 window.startMainMap = function() {
-    const provider = window.currentMapProvider === 'mapbox' ? 'mapbox' : 'yandex';
-    if (provider === 'mapbox') {
+    const provider = window.normalizeMapProvider(window.currentMapProvider);
+    window.currentMapProvider = provider;
+    if (window.isMapLibreProvider && window.isMapLibreProvider(provider)) {
         if (window.initMapboxMap) window.initMapboxMap();
+        return;
+    }
+    if (provider === 'dgis') {
+        if (window.initDgisMap) window.initDgisMap();
+        return;
+    }
+    if (provider === 'googleearth') {
+        if (window.initGoogleEarthMap) window.initGoogleEarthMap();
         return;
     }
     if (typeof ymaps !== 'undefined') ymaps.ready(window.initYandexMap);
@@ -147,13 +172,13 @@ window.remountMainMap = function() {
 };
 
 window.setMapProvider = function(provider, skipSave = false) {
-    const next = provider === 'mapbox' ? 'mapbox' : 'yandex';
-    const prev = window.currentMapProvider === 'mapbox' ? 'mapbox' : 'yandex';
+    const next = window.normalizeMapProvider(provider);
+    const prev = window.normalizeMapProvider(window.currentMapProvider);
     window.currentMapProvider = next;
     try { localStorage.setItem('rosmap_map_provider', next); } catch (_) {}
 
-    const tokenWrap = document.getElementById('mapbox-token-wrap');
-    if (tokenWrap) tokenWrap.classList.add('hidden');
+    if (window.updateMapProviderHint) window.updateMapProviderHint();
+    if (window.updateMapProviderKeyFields) window.updateMapProviderKeyFields();
 
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('mapProvider', next);
     if (window.refreshSettingsUI) window.refreshSettingsUI();
@@ -161,6 +186,38 @@ window.setMapProvider = function(provider, skipSave = false) {
     if (!skipSave && prev !== next) {
         window.remountMainMap();
     }
+};
+
+window.updateMapProviderHint = function() {
+    const hint = document.getElementById('map-provider-hint');
+    if (!hint || !window.translations) return;
+    const lang = window.currentLang || 'ru';
+    const t = window.translations[lang] || {};
+    const p = window.normalizeMapProvider(window.currentMapProvider);
+    const keyMap = {
+        mapbox: 'map_provider_osm_hint',
+        ozon: 'map_provider_ozon_hint',
+        carto: 'map_provider_carto_hint',
+        opentopo: 'map_provider_opentopo_hint',
+        esri: 'map_provider_esri_hint',
+        dgis: 'map_provider_dgis_hint',
+        googleearth: 'map_provider_google_hint',
+        yandex: 'map_provider_yandex_hint'
+    };
+    const key = keyMap[p] || 'map_provider_yandex_hint';
+    hint.textContent = t[key] || hint.textContent;
+};
+
+window.updateMapProviderKeyFields = function() {
+    const dgisWrap = document.getElementById('dgis-key-wrap');
+    const googleWrap = document.getElementById('google-key-wrap');
+    const p = window.normalizeMapProvider(window.currentMapProvider);
+    if (dgisWrap) dgisWrap.classList.toggle('hidden', p !== 'dgis');
+    if (googleWrap) googleWrap.classList.toggle('hidden', p !== 'googleearth');
+    const dgisInput = document.getElementById('dgis-api-key-input');
+    const googleInput = document.getElementById('google-api-key-input');
+    if (dgisInput && window.getDgisApiKey) dgisInput.value = window.getDgisApiKey();
+    if (googleInput && window.getGoogleMapsApiKey) googleInput.value = window.getGoogleMapsApiKey();
 };
 
 window.initMap = function() {
@@ -266,8 +323,12 @@ window.positionMarkerHoverCard = function() {
     const card = document.getElementById('marker-hover-card');
     if (!card || !window.map || !window.__markerHoverCoords) return;
 
-    if (window.mapboxMap && window.currentMapProvider === 'mapbox') {
+    if (window.mapboxMap && window.isMapLibreProvider && window.isMapLibreProvider(window.currentMapProvider)) {
         if (window.positionMapboxHoverCard) window.positionMapboxHoverCard();
+        return;
+    }
+    if (window.currentMapProvider === 'dgis' || window.currentMapProvider === 'googleearth') {
+        // HTML markers share screen space; skip projection-based hover for WebGL providers without unproject.
         return;
     }
 
@@ -371,8 +432,17 @@ window.bindMarkerHover = function(placemark, soundId) {
 };
 
 window.mapSetView = function(lat, lng, zoom = 15) {
-    if (window.currentMapProvider === 'mapbox' && window.mapboxMap) {
+    const p = window.normalizeMapProvider ? window.normalizeMapProvider(window.currentMapProvider) : window.currentMapProvider;
+    if (window.isMapLibreProvider && window.isMapLibreProvider(p) && window.mapboxMap) {
         if (window.mapboxSetView) window.mapboxSetView(lat, lng, zoom);
+        return;
+    }
+    if (p === 'dgis' && window.dgisMap) {
+        if (window.dgisSetView) window.dgisSetView(lat, lng, zoom);
+        return;
+    }
+    if (p === 'googleearth' && window.googleEarthMapEl) {
+        if (window.googleEarthSetView) window.googleEarthSetView(lat, lng, zoom);
         return;
     }
     if (!window.map) return;
@@ -380,8 +450,17 @@ window.mapSetView = function(lat, lng, zoom = 15) {
 };
 
 window.mapAddRouteOverlay = function(route, colorClass) {
-    if (window.currentMapProvider === 'mapbox') {
+    const p = window.normalizeMapProvider ? window.normalizeMapProvider(window.currentMapProvider) : window.currentMapProvider;
+    if (window.isMapLibreProvider && window.isMapLibreProvider(p)) {
         if (window.mapboxAddRouteOverlay) window.mapboxAddRouteOverlay(route, colorClass);
+        return;
+    }
+    if (p === 'dgis') {
+        if (window.dgisAddRouteOverlay) window.dgisAddRouteOverlay(route, colorClass);
+        return;
+    }
+    if (p === 'googleearth') {
+        if (window.googleEarthAddRouteOverlay) window.googleEarthAddRouteOverlay(route, colorClass);
         return;
     }
     window.clearMapRoutes();
@@ -405,6 +484,16 @@ window.setWalkerPosition = function(coords) {
     if (window.walkerMapboxMarker && coords) {
         const ll = window.toLngLat ? window.toLngLat(coords) : [coords[1], coords[0]];
         if (ll) window.walkerMapboxMarker.setLngLat(ll);
+        return;
+    }
+    if (window.dgisWalkerMarker && coords) {
+        try { window.dgisWalkerMarker.setCoordinates([coords[1], coords[0]]); } catch (_) {}
+        return;
+    }
+    if (window.googleEarthWalker && coords) {
+        try {
+            window.googleEarthWalker.position = { lat: coords[0], lng: coords[1], altitude: 0 };
+        } catch (_) {}
         return;
     }
     if (!window.walkerMarker || !coords || !window.walkerMarker.geometry) return;
@@ -692,8 +781,17 @@ window.placeLocationPickerMarker = function(coords) {
 }
 
 window.updateMapMarkers = function() {
-    if (window.currentMapProvider === 'mapbox') {
+    const p = window.normalizeMapProvider ? window.normalizeMapProvider(window.currentMapProvider) : window.currentMapProvider;
+    if (window.isMapLibreProvider && window.isMapLibreProvider(p)) {
         if (window.updateMapboxMarkers) window.updateMapboxMarkers();
+        return;
+    }
+    if (p === 'dgis') {
+        if (window.updateDgisMarkers) window.updateDgisMarkers();
+        return;
+    }
+    if (p === 'googleearth') {
+        if (window.updateGoogleEarthMarkers) window.updateGoogleEarthMarkers();
         return;
     }
     if (!window.map || typeof ymaps === 'undefined') return;
@@ -816,11 +914,17 @@ window.clearMapRoutes = function() {
     if (window.mapboxMap || window.walkerMapboxMarker || (window.activePolyline && window.activePolyline.__mapbox)) {
         if (window.clearMapboxRoutes) window.clearMapboxRoutes();
     }
-    if (window.activePolyline && window.map?.geoObjects && !window.activePolyline.__mapbox) {
+    if (window.dgisMap || window.dgisWalkerMarker || (window.activePolyline && window.activePolyline.__dgis)) {
+        if (window.clearDgisRoutes) window.clearDgisRoutes();
+    }
+    if (window.googleEarthMapEl || window.googleEarthWalker || (window.activePolyline && window.activePolyline.__googleearth)) {
+        if (window.clearGoogleEarthRoutes) window.clearGoogleEarthRoutes();
+    }
+    if (window.activePolyline && window.map?.geoObjects && !window.activePolyline.__mapbox && !window.activePolyline.__dgis && !window.activePolyline.__googleearth) {
         try { window.map.geoObjects.remove(window.activePolyline); } catch (_) {}
         window.activePolyline = null;
     }
-    if (window.walkerMarker && window.map?.geoObjects && !window.walkerMapboxMarker) {
+    if (window.walkerMarker && window.map?.geoObjects && !window.walkerMapboxMarker && !window.walkerMarker.__dgis && !window.walkerMarker.__googleearth) {
         try { window.map.geoObjects.remove(window.walkerMarker); } catch (_) {}
         window.walkerMarker = null;
     }

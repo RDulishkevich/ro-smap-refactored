@@ -45,6 +45,17 @@ Auth mirror (private):
 
 Schedule daily via Task Scheduler when ready.
 
+### Windows Task Scheduler (daily 03:00)
+
+1. Action: `Start a program`
+2. Program: `powershell.exe`
+3. Arguments:
+   `-NoProfile -ExecutionPolicy Bypass -File "G:\Мой диплом\App\cloud\ops\backup-json.ps1"`
+4. Start in: `G:\Мой диплом\App`
+5. Trigger: Daily at 03:00
+
+Needs `cloud/api/.env` with S3 keys for the cloud mirror; otherwise only local `cloud/backups/` is written.
+
 ## Admin password
 
 In the app: **Личный кабинет → Сменить пароль**.
@@ -57,7 +68,11 @@ Do not paste the new password into chat. After you change it in-app, the bootstr
 - [ ] Register new user
 - [ ] Login (admin + normal user)
 - [ ] Publish sound (audio lands in `uploads/…`, not data-URL in JSON)
-- [ ] Message send
+- [ ] Pending/deleted sound disappears from map
+- [ ] Message send + mark read sticks after refresh
+- [ ] Support chat opens from Settings → Помощь
+- [ ] Admin Support tab shows unread count
+- [ ] Search empty state + filter pills work on mobile
 - [ ] `mail.json` exists; `profiles.json` without heavy inbox
 - [ ] Hard refresh — data still there
 - [ ] `https://storage.yandexcloud.net/rosmap2026/_auth/users.json` → 404/403

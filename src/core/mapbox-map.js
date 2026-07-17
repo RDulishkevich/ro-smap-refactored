@@ -10,6 +10,155 @@ window.OPENFREEMAP_STYLES = {
     dark: 'https://tiles.openfreemap.org/styles/dark'
 };
 
+/** Free MapLibre-based providers (no paid key). `mapbox` id is historical = OSM 3D. */
+window.MAPLIBRE_PROVIDER_IDS = ['mapbox', 'ozon', 'carto', 'opentopo', 'esri'];
+
+window.isMapLibreProvider = function(provider) {
+    const id = window.normalizeMapProvider
+        ? window.normalizeMapProvider(provider)
+        : String(provider || '');
+    return (window.MAPLIBRE_PROVIDER_IDS || []).includes(id);
+};
+
+window.buildRasterMapStyle = function(tiles, attribution) {
+    const list = Array.isArray(tiles) ? tiles : [tiles];
+    return {
+        version: 8,
+        name: 'rosmap-raster',
+        sources: {
+            'rosmap-raster': {
+                type: 'raster',
+                tiles: list,
+                tileSize: 256,
+                attribution: attribution || '© OpenStreetMap'
+            }
+        },
+        layers: [{
+            id: 'rosmap-raster-layer',
+            type: 'raster',
+            source: 'rosmap-raster',
+            minzoom: 0,
+            maxzoom: 22
+        }]
+    };
+};
+
+window.getMapLibreProviderConfig = function(provider) {
+    const id = window.normalizeMapProvider
+        ? window.normalizeMapProvider(provider || window.currentMapProvider)
+        : (provider || window.currentMapProvider);
+    const mono = window.currentMapStyle === 'monochrome';
+    const dark = window.currentTheme === 'dark';
+
+    if (id === 'mapbox') {
+        return {
+            id: 'mapbox',
+            style: window.getOpenFreeMapStyleUrl(),
+            pitch: 58,
+            bearing: -18,
+            buildings: true,
+            minPitchForView: 50
+        };
+    }
+
+    if (id === 'ozon') {
+        // «Ozon Maps» = бесплатные OSM-тайлы (отдельного API Ozon нет).
+        // Carto Voyager — стабильный бесплатный CDN на данных OSM.
+        const tiles = mono
+            ? [
+                'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+                'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+                'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
+            ]
+            : dark
+                ? [
+                    'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                    'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                    'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+                ]
+                : [
+                    'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+                    'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+                    'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'
+                ];
+        return {
+            id: 'ozon',
+            style: window.buildRasterMapStyle(tiles, '© OpenStreetMap © CARTO'),
+            pitch: 0,
+            bearing: 0,
+            buildings: false,
+            minPitchForView: 0
+        };
+    }
+
+    if (id === 'carto') {
+        const tiles = mono
+            ? [
+                'https://a.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png',
+                'https://b.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png',
+                'https://c.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png'
+            ]
+            : dark
+                ? [
+                    'https://a.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png',
+                    'https://b.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png',
+                    'https://c.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png'
+                ]
+                : [
+                    'https://a.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}.png',
+                    'https://b.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}.png',
+                    'https://c.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}.png'
+                ];
+        return {
+            id: 'carto',
+            style: window.buildRasterMapStyle(tiles, '© OpenStreetMap © CARTO'),
+            pitch: 0,
+            bearing: 0,
+            buildings: false,
+            minPitchForView: 0
+        };
+    }
+
+    if (id === 'opentopo') {
+        return {
+            id: 'opentopo',
+            style: window.buildRasterMapStyle([
+                'https://a.tile.opentopomap.org/{z}/{x}/{y}.png',
+                'https://b.tile.opentopomap.org/{z}/{x}/{y}.png',
+                'https://c.tile.opentopomap.org/{z}/{x}/{y}.png'
+            ], '© OpenStreetMap © OpenTopoMap (CC-BY-SA)'),
+            pitch: 42,
+            bearing: -12,
+            buildings: false,
+            minPitchForView: 35
+        };
+    }
+
+    if (id === 'esri') {
+        // Esri World Imagery — бесплатные публичные тайлы (с атрибуцией).
+        return {
+            id: 'esri',
+            style: window.buildRasterMapStyle(
+                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                'Tiles © Esri'
+            ),
+            pitch: 48,
+            bearing: -10,
+            buildings: false,
+            minPitchForView: 40
+        };
+    }
+
+    return {
+        id: 'mapbox',
+        style: window.getOpenFreeMapStyleUrl(),
+        pitch: 58,
+        bearing: -18,
+        buildings: true,
+        minPitchForView: 50
+    };
+};
+
 window.getOpenFreeMapStyleUrl = function() {
     if (window.currentMapStyle === 'monochrome') return window.OPENFREEMAP_STYLES.monochrome;
     if (window.currentTheme === 'dark') return window.OPENFREEMAP_STYLES.dark;
@@ -81,9 +230,12 @@ window.routeToLngLat = function(route) {
 window.applyMapboxBasemapConfig = function() {
     const map = window.mapboxMap;
     if (!map || typeof map.setStyle !== 'function') return;
-    const nextStyle = window.getOpenFreeMapStyleUrl();
-    if (window.__mapLibreStyleUrl === nextStyle) return;
-    window.__mapLibreStyleUrl = nextStyle;
+    if (!window.isMapLibreProvider || !window.isMapLibreProvider(window.currentMapProvider)) return;
+    const cfg = window.getMapLibreProviderConfig(window.currentMapProvider);
+    const nextStyle = cfg.style;
+    const styleKey = typeof nextStyle === 'string' ? nextStyle : JSON.stringify(nextStyle);
+    if (window.__mapLibreStyleUrl === styleKey) return;
+    window.__mapLibreStyleUrl = styleKey;
     const center = map.getCenter();
     const zoom = map.getZoom();
     const pitch = map.getPitch();
@@ -91,10 +243,64 @@ window.applyMapboxBasemapConfig = function() {
     map.setStyle(nextStyle, { diff: false });
     map.once('style.load', () => {
         try {
-            map.jumpTo({ center, zoom, pitch, bearing });
+            map.jumpTo({
+                center,
+                zoom,
+                pitch: cfg.buildings ? pitch : Math.min(pitch, cfg.pitch || 0),
+                bearing
+            });
         } catch (_) {}
+        if (cfg.buildings && window.ensureMapLibre3DBuildings) window.ensureMapLibre3DBuildings(map);
         if (window.updateMapMarkers) window.updateMapMarkers();
     });
+};
+
+/** Extruded OSM buildings for a true 3D look on OpenFreeMap / MapLibre. */
+window.ensureMapLibre3DBuildings = function(map) {
+    if (!map || typeof map.getStyle !== 'function') return;
+    if (map.getLayer('rosmap-3d-buildings')) return;
+    let style;
+    try { style = map.getStyle(); } catch (_) { return; }
+    if (!style?.sources) return;
+
+    let sourceId = null;
+    Object.entries(style.sources).forEach(([id, src]) => {
+        if (!sourceId && src && src.type === 'vector') sourceId = id;
+    });
+    if (!sourceId) return;
+
+    const beforeId = (style.layers || []).find((l) => l.type === 'symbol' && l.layout && l.layout['text-field'])?.id;
+    const layer = {
+        id: 'rosmap-3d-buildings',
+        source: sourceId,
+        'source-layer': 'building',
+        type: 'fill-extrusion',
+        minzoom: 13,
+        paint: {
+            'fill-extrusion-color': window.currentTheme === 'dark' ? '#475569' : '#c4cdd5',
+            'fill-extrusion-height': [
+                'coalesce',
+                ['get', 'render_height'],
+                ['get', 'height'],
+                ['get', 'levels'],
+                12
+            ],
+            'fill-extrusion-base': [
+                'coalesce',
+                ['get', 'render_min_height'],
+                ['get', 'min_height'],
+                0
+            ],
+            'fill-extrusion-opacity': 0.72
+        }
+    };
+    try {
+        if (beforeId) map.addLayer(layer, beforeId);
+        else map.addLayer(layer);
+    } catch (err) {
+        // Some styles already include extrusion or use another source-layer name.
+        console.warn('OSM 3D buildings layer skipped', err);
+    }
 };
 
 window.createMapboxMarkerElement = function(sound, colorClass, isSelected) {
@@ -267,11 +473,14 @@ window.mapboxAddRouteOverlay = function(route, colorClass) {
 
 window.mapboxSetView = function(lat, lng, zoom = 15) {
     if (!window.mapboxMap) return;
+    const cfg = window.getMapLibreProviderConfig
+        ? window.getMapLibreProviderConfig(window.currentMapProvider)
+        : { minPitchForView: 50 };
     window.mapboxMap.flyTo({
         center: [lng, lat],
         zoom,
         duration: 800,
-        pitch: Math.max(window.mapboxMap.getPitch(), 50),
+        pitch: Math.max(window.mapboxMap.getPitch(), cfg.minPitchForView || 0),
         essential: true
     });
 };
@@ -325,20 +534,27 @@ window.initMapboxMap = async function() {
     const container = document.getElementById('map');
     if (!container || !window.mapboxgl) return;
 
+    const providerId = window.normalizeMapProvider
+        ? window.normalizeMapProvider(window.currentMapProvider)
+        : window.currentMapProvider;
+    const cfg = window.getMapLibreProviderConfig
+        ? window.getMapLibreProviderConfig(providerId)
+        : { style: window.getOpenFreeMapStyleUrl(), pitch: 58, bearing: -18, buildings: true, minPitchForView: 50 };
+
     container.innerHTML = '';
     container.classList.add('is-mapbox');
-    container.classList.remove('map-monochrome');
+    container.classList.remove('map-monochrome', 'is-dgis', 'is-googleearth', 'is-map-provider-placeholder');
 
-    const styleUrl = window.getOpenFreeMapStyleUrl();
-    window.__mapLibreStyleUrl = styleUrl;
+    const styleKey = typeof cfg.style === 'string' ? cfg.style : JSON.stringify(cfg.style);
+    window.__mapLibreStyleUrl = styleKey;
 
     window.mapboxMap = new window.mapboxgl.Map({
         container: 'map',
-        style: styleUrl,
+        style: cfg.style,
         center: [39.74427, 47.23371],
         zoom: 15,
-        pitch: 58,
-        bearing: -18,
+        pitch: cfg.pitch || 0,
+        bearing: cfg.bearing || 0,
         antialias: true,
         attributionControl: true,
         maxPitch: 85
@@ -349,15 +565,16 @@ window.initMapboxMap = async function() {
         'bottom-right'
     );
 
+    const minPitch = cfg.minPitchForView || 0;
     window.map = {
-        __provider: 'mapbox',
+        __provider: providerId,
         setCenter(coords, zoom, opts) {
             const [lat, lng] = coords;
             window.mapboxMap.flyTo({
                 center: [lng, lat],
                 zoom: zoom ?? window.mapboxMap.getZoom(),
                 duration: opts?.duration ?? 800,
-                pitch: Math.max(window.mapboxMap.getPitch(), 50),
+                pitch: Math.max(window.mapboxMap.getPitch(), minPitch),
                 essential: true
             });
         },
@@ -376,6 +593,9 @@ window.initMapboxMap = async function() {
     };
 
     const onReady = () => {
+        if (cfg.buildings && window.ensureMapLibre3DBuildings) {
+            window.ensureMapLibre3DBuildings(window.mapboxMap);
+        }
         if (window.updateMapMarkers) window.updateMapMarkers();
         window.__mainMapReady = true;
     };

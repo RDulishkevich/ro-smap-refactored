@@ -1027,6 +1027,18 @@ window.mergeData = function(cloudData) {
         });
     }
     window.mapboxMarkerCache = new Map();
+    if (window.dgisMarkerCache && window.dgisMarkerCache.size) {
+        window.dgisMarkerCache.forEach((marker) => {
+            try { marker.destroy(); } catch (_) {}
+        });
+    }
+    window.dgisMarkerCache = new Map();
+    if (window.googleEarthMarkerCache && window.googleEarthMarkerCache.size) {
+        window.googleEarthMarkerCache.forEach((marker) => {
+            try { marker.remove(); } catch (_) {}
+        });
+    }
+    window.googleEarthMarkerCache = new Map();
     if (window.markerClusterer && window.map) {
         window.map.geoObjects.remove(window.markerClusterer);
         window.markerClusterer = null;
@@ -1606,6 +1618,8 @@ window.pollLiveCloudData = async function() {
                 }
                 if (window.__adminSection === 'support' && window.renderAdminSupportList) {
                     window.renderAdminSupportList();
+                } else if (window.refreshAdminSupportBadge) {
+                    window.refreshAdminSupportBadge();
                 }
             }
             // Индикатор печати — на каждом тике опроса, даже если JSON «тот же» по другим полям
@@ -1641,13 +1655,38 @@ window.clearAllSoundFilters = function(skipRender = false) {
     window.activeSessionId = null;
     const searchInput = document.getElementById('search-input');
     if (searchInput) searchInput.value = '';
-    if (window.hideSearchSuggestions) window.hideSearchSuggestions();
+    if (window.syncSearchClearBtn) window.syncSearchClearBtn();
+    if (window.clearSearchSuggestions) window.clearSearchSuggestions();
     if (!skipRender && window.processFilterChange) window.processFilterChange(false);
     else if (skipRender) {
         if (window.renderActiveTags) window.renderActiveTags();
         if (window.renderList) window.renderList();
         if (window.updateMapMarkers) window.updateMapMarkers();
         if (window.renderSidebarExpeditions) window.renderSidebarExpeditions();
+    }
+};
+
+window.clearSearchQuery = function() {
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) searchInput.value = '';
+    if (window.syncSearchClearBtn) window.syncSearchClearBtn();
+    if (window.clearSearchSuggestions) window.clearSearchSuggestions();
+    if (window.processFilterChange) window.processFilterChange(false);
+};
+
+window.removeActiveFilter = function(setName, value) {
+    if (setName === 'search') {
+        window.clearSearchQuery();
+        return;
+    }
+    if (setName === 'session') {
+        window.activeSessionId = null;
+        if (window.processFilterChange) window.processFilterChange(false);
+        return;
+    }
+    if (window[setName] && typeof window[setName].delete === 'function') {
+        window[setName].delete(value);
+        if (window.processFilterChange) window.processFilterChange(false);
     }
 };
 
@@ -2089,40 +2128,40 @@ window.initFiltersData = function() {
 }
 
 window.renderFilterPanels = function() {
-    const renderMetaSet = (set, containerId, toggleFn, icon, dataKey) => {
+    const escAttr = (v) => String(v ?? '')
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'");
+
+    const renderMetaSet = (set, containerId, toggleFn, icon, dataKey, activeSetName) => {
         const container = document.getElementById(containerId);
         if (!container) return;
 
-        const values = Array.from(set || []).sort();
+        const values = Array.from(set || []).sort((a, b) => String(a).localeCompare(String(b), 'ru'));
         if (!values.length) {
             container.innerHTML = '<div class="text-[10px] text-slate-400">Нет данных</div>';
             return;
         }
 
         const counts = new Map();
-        window.soundsData.forEach(sound => {
-            const key = String(sound[dataKey] ?? '');
-            if (!key) return;
-            counts.set(key, (counts.get(key) || 0) + 1);
-        });
+        if (dataKey === 'tagArray') {
+            window.soundsData.forEach((sound) => {
+                (sound.tagArray || []).forEach((t) => {
+                    const key = String(t ?? '');
+                    if (!key) return;
+                    counts.set(key, (counts.get(key) || 0) + 1);
+                });
+            });
+        } else {
+            window.soundsData.forEach((sound) => {
+                const key = String(sound[dataKey] ?? '');
+                if (!key) return;
+                counts.set(key, (counts.get(key) || 0) + 1);
+            });
+        }
 
-        const setNameMap = {
-            'window.toggleEcoLayer': 'activeEcoLayer',
-            'window.toggleUcsCat': 'activeUcsCat',
-            'window.toggleUcsSub': 'activeUcsSub',
-            'window.togglePrinciple': 'activePrinciple',
-            'window.toggleGear': 'activeGear',
-            'window.toggleMic': 'activeMic',
-            'window.toggleChannels': 'activeChannels',
-            'window.toggleLicense': 'activeLicense',
-            'window.toggleRecordist': 'activeRecordist',
-            'window.toggleWeather': 'activeWeather',
-            'window.toggleDate': 'activeDate'
-        };
-
-        const setName = setNameMap[toggleFn] || 'activeFilters';
-        container.innerHTML = values.map(val => {
-            const isActive = window[setName] && window[setName].has(val);
+        const activeSet = window[activeSetName];
+        container.innerHTML = values.map((val) => {
+            const isActive = activeSet && activeSet.has(val);
             const count = counts.get(String(val)) || 0;
 
             let displayName = val;
@@ -2130,71 +2169,126 @@ window.renderFilterPanels = function() {
                 displayName = window.translations[window.currentLang][`filter_${val}`];
             }
 
-            return `<button onclick="${toggleFn}('${val}')" class="px-2.5 py-1 rounded-full text-[11px] font-bold transition-all border flex items-center ${isActive ? 'bg-[#141414] text-white border-[#141414] shadow-sm dark:bg-[#ff5a3d] dark:border-[#ff5a3d]' : 'bg-white/40 dark:bg-white/10 text-slate-600 dark:text-slate-300 border-white/50 dark:border-white/15 hover:bg-white/60 dark:hover:bg-white/15'}">
+            return `<button type="button" onclick="${toggleFn}('${escAttr(val)}')" class="px-2.5 py-1 rounded-full text-[11px] font-bold transition-all border flex items-center ${isActive ? 'bg-[#141414] text-white border-[#141414] shadow-sm dark:bg-[#ff5a3d] dark:border-[#ff5a3d]' : 'bg-white/40 dark:bg-white/10 text-slate-600 dark:text-slate-300 border-white/50 dark:border-white/15 hover:bg-white/60 dark:hover:bg-white/15'}">
                 ${icon ? `<i class="fa-solid ${icon} mr-1 opacity-70"></i>` : ''}${displayName} <span class="ml-1 text-[9px] font-normal opacity-60">(${count})</span>
             </button>`;
         }).join('');
     };
 
-    renderMetaSet(window.allExtractedEcoLayers, 'filter-eco-layer', 'window.toggleEcoLayer', 'fa-leaf', 'ecoCategory');
-    renderMetaSet(window.allExtractedUcsCats, 'filter-ucs-categories', 'window.toggleUcsCat', 'fa-folder-tree', 'ucsCat');
-    renderMetaSet(window.allExtractedSubcats, 'filter-ucs-subcategories', 'window.toggleUcsSub', 'fa-tag', 'typeTag');
+    renderMetaSet(window.allExtractedEcoLayers, 'filter-eco-layer', 'window.toggleEcoLayer', 'fa-leaf', 'ecoCategory', 'activeEcoLayer');
+    renderMetaSet(window.allExtractedUcsCats, 'filter-ucs-categories', 'window.toggleUcsCat', 'fa-folder-tree', 'ucsCat', 'activeUcsCat');
+    renderMetaSet(window.allExtractedSubcats, 'filter-ucs-subcategories', 'window.toggleUcsSub', 'fa-tag', 'typeTag', 'activeUcsSub');
+    renderMetaSet(window.allExtractedTags, 'panel-tags', 'window.toggleGenTag', 'fa-hashtag', 'tagArray', 'activeGenTags');
 
-    renderMetaSet(window.allExtractedPrinciples, 'filter-meta-principle', 'window.togglePrinciple', 'fa-street-view', 'recPrinciple');
-    renderMetaSet(window.allExtractedGears, 'filter-meta-gear', 'window.toggleGear', 'fa-walkie-talkie', 'gear');
-    renderMetaSet(window.allExtractedMics, 'filter-meta-mic', 'window.toggleMic', 'fa-microphone-lines', 'micType');
-    renderMetaSet(window.allExtractedChannels, 'filter-meta-channels', 'window.toggleChannels', 'fa-headphones', 'channels');
-    renderMetaSet(window.allExtractedLicenses, 'filter-meta-license', 'window.toggleLicense', 'fa-scale-balanced', 'license');
-    renderMetaSet(window.allExtractedRecordists, 'filter-meta-recordist', 'window.toggleRecordist', 'fa-user-astronaut', 'recordist');
-    renderMetaSet(window.allExtractedWeathers, 'filter-meta-weather', 'window.toggleWeather', 'fa-cloud-sun', 'weather');
-    renderMetaSet(window.allExtractedDates, 'filter-meta-date', 'window.toggleDate', 'fa-calendar-days', 'date');
+    renderMetaSet(window.allExtractedPrinciples, 'filter-meta-principle', 'window.togglePrinciple', 'fa-street-view', 'recPrinciple', 'activePrinciple');
+    renderMetaSet(window.allExtractedGears, 'filter-meta-gear', 'window.toggleGear', 'fa-walkie-talkie', 'gear', 'activeGear');
+    renderMetaSet(window.allExtractedMics, 'filter-meta-mic', 'window.toggleMic', 'fa-microphone-lines', 'micType', 'activeMic');
+    renderMetaSet(window.allExtractedChannels, 'filter-meta-channels', 'window.toggleChannels', 'fa-headphones', 'channels', 'activeChannels');
+    renderMetaSet(window.allExtractedLicenses, 'filter-meta-license', 'window.toggleLicense', 'fa-scale-balanced', 'license', 'activeLicense');
+    renderMetaSet(window.allExtractedRecordists, 'filter-meta-recordist', 'window.toggleRecordist', 'fa-user-astronaut', 'recordist', 'activeRecordist');
+    renderMetaSet(window.allExtractedWeathers, 'filter-meta-weather', 'window.toggleWeather', 'fa-cloud-sun', 'weather', 'activeWeather');
+    renderMetaSet(window.allExtractedDates, 'filter-meta-date', 'window.toggleDate', 'fa-calendar-days', 'date', 'activeDate');
     window.renderActiveTags();
 }
 
 window.renderActiveTags = function() {
-    const container = document.getElementById('active-tags-container');
-    if (!container) return;
+    const containers = [
+        document.getElementById('active-tags-container'),
+        document.getElementById('library-active-filters')
+    ].filter(Boolean);
+    if (!containers.length) return;
+
+    const escAttr = (v) => String(v ?? '')
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'");
+    const escHtml = (v) => String(v ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+
+    const pills = [];
+    const queryEl = document.getElementById('search-input');
+    const query = queryEl ? queryEl.value.trim() : '';
+    if (query) {
+        pills.push({
+            label: `«${query}»`,
+            remove: `window.removeActiveFilter('search')`
+        });
+    }
+    if (window.activeSessionId) {
+        const sess = window.findSessionById ? window.findSessionById(window.activeSessionId) : null;
+        pills.push({
+            label: sess?.title || 'Экспедиция',
+            remove: `window.removeActiveFilter('session')`
+        });
+    }
 
     const activeSets = [
-        ['eco', window.activeEcoLayer],
-        ['ucsCat', window.activeUcsCat],
-        ['ucsSub', window.activeUcsSub],
-        ['principle', window.activePrinciple],
-        ['gear', window.activeGear],
-        ['mic', window.activeMic],
-        ['channels', window.activeChannels],
-        ['license', window.activeLicense],
-        ['recordist', window.activeRecordist],
-        ['weather', window.activeWeather],
-        ['date', window.activeDate]
+        ['activeEcoLayer', 'ecoCategory'],
+        ['activeUcsCat', null],
+        ['activeUcsSub', null],
+        ['activeGenTags', null],
+        ['activePrinciple', null],
+        ['activeGear', null],
+        ['activeMic', null],
+        ['activeChannels', null],
+        ['activeLicense', null],
+        ['activeRecordist', null],
+        ['activeWeather', null],
+        ['activeDate', null]
     ];
+    activeSets.forEach(([setName, ecoKey]) => {
+        const set = window[setName];
+        if (!set || !set.size) return;
+        set.forEach((val) => {
+            let label = val;
+            if (ecoKey === 'ecoCategory' && window.translations?.[window.currentLang]?.[`filter_${val}`]) {
+                label = window.translations[window.currentLang][`filter_${val}`];
+            }
+            pills.push({
+                label,
+                remove: `window.removeActiveFilter('${setName}', '${escAttr(val)}')`
+            });
+        });
+    });
 
-    const totalActive = activeSets.reduce((sum, [, set]) => sum + set.size, 0);
-    if (totalActive === 0) {
-        container.innerHTML = '';
+    if (!pills.length) {
+        containers.forEach((c) => { c.innerHTML = ''; });
         return;
     }
 
-    const html = `<button onclick="window.activeEcoLayer.clear(); window.activeUcsCat.clear(); window.activeUcsSub.clear(); window.activeGenTags.clear(); window.activePrinciple.clear(); window.activeGear.clear(); window.activeMic.clear(); window.activeChannels.clear(); window.activeLicense.clear(); window.activeRecordist.clear(); window.activeWeather.clear(); window.activeDate.clear(); window.processFilterChange();" class="text-[10px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 uppercase tracking-wider transition-colors"><i class="fa-solid fa-trash-can mr-1"></i>Сбросить</button>`;
-    container.innerHTML = html;
+    const html = pills.map((p) => `
+        <button type="button" onclick="${p.remove}" class="active-filter-pill" title="Убрать фильтр">
+            <span class="truncate max-w-[9rem]">${escHtml(p.label)}</span>
+            <i class="fa-solid fa-xmark opacity-70"></i>
+        </button>
+    `).join('') + `
+        <button type="button" onclick="window.clearAllSoundFilters()" class="active-filter-clear">
+            <i class="fa-solid fa-trash-can mr-1"></i>Сбросить
+        </button>`;
+    containers.forEach((c) => { c.innerHTML = html; });
 }
 
 window.getFilteredSounds = function(forceRefresh = false) {
     const queryEl = document.getElementById('search-input');
     const query = queryEl ? queryEl.value.trim().toLowerCase() : '';
-    const cacheKey = `${query}|${window.activeEcoLayer.size}|${Array.from(window.activeEcoLayer).sort().join(',')}|${window.activeUcsCat.size}|${Array.from(window.activeUcsCat).sort().join(',')}|${window.activeUcsSub.size}|${Array.from(window.activeUcsSub).sort().join(',')}|${window.activePrinciple.size}|${Array.from(window.activePrinciple).sort().join(',')}|${window.activeGear.size}|${Array.from(window.activeGear).sort().join(',')}|${window.activeMic.size}|${Array.from(window.activeMic).sort().join(',')}|${window.activeChannels.size}|${Array.from(window.activeChannels).sort().join(',')}|${window.activeLicense.size}|${Array.from(window.activeLicense).sort().join(',')}|${window.activeRecordist.size}|${Array.from(window.activeRecordist).sort().join(',')}|${window.activeWeather.size}|${Array.from(window.activeWeather).sort().join(',')}|${window.activeDate.size}|${Array.from(window.activeDate).sort().join(',')}|session:${window.activeSessionId || ''}`;
+    const cacheKey = `${query}|gen:${Array.from(window.activeGenTags || []).sort().join(',')}|${window.activeEcoLayer.size}|${Array.from(window.activeEcoLayer).sort().join(',')}|${window.activeUcsCat.size}|${Array.from(window.activeUcsCat).sort().join(',')}|${window.activeUcsSub.size}|${Array.from(window.activeUcsSub).sort().join(',')}|${window.activePrinciple.size}|${Array.from(window.activePrinciple).sort().join(',')}|${window.activeGear.size}|${Array.from(window.activeGear).sort().join(',')}|${window.activeMic.size}|${Array.from(window.activeMic).sort().join(',')}|${window.activeChannels.size}|${Array.from(window.activeChannels).sort().join(',')}|${window.activeLicense.size}|${Array.from(window.activeLicense).sort().join(',')}|${window.activeRecordist.size}|${Array.from(window.activeRecordist).sort().join(',')}|${window.activeWeather.size}|${Array.from(window.activeWeather).sort().join(',')}|${window.activeDate.size}|${Array.from(window.activeDate).sort().join(',')}|session:${window.activeSessionId || ''}`;
 
     if (!forceRefresh && window.__filteredSoundsCacheKey === cacheKey && window.__filteredSoundsCache) {
         return window.__filteredSoundsCache;
     }
 
     const filtered = window.soundsData.filter(s => {
-        const searchTarget = `${s.title} ${s.description} ${s.keywords} ${s.ecoCategory} ${s.ucsCat} ${s.typeTag} ${s.recPrinciple} ${s.gear} ${s.micType} ${s.recordist} ${s.weather} ${s.date} ${s.license} ${s.channels}`.toLowerCase();
+        const tagHay = Array.isArray(s.tagArray) ? s.tagArray.join(' ') : '';
+        const searchTarget = `${s.title} ${s.description} ${s.keywords} ${tagHay} ${s.ecoCategory} ${s.ucsCat} ${s.typeTag} ${s.recPrinciple} ${s.gear} ${s.micType} ${s.recordist} ${s.weather} ${s.date} ${s.license} ${s.channels}`.toLowerCase();
         const searchMatch = !query || searchTarget.includes(query);
 
         const ecoMatch = window.activeEcoLayer.size === 0 || window.activeEcoLayer.has(s.ecoCategory);
         const ucsCatMatch = window.activeUcsCat.size === 0 || window.activeUcsCat.has(s.ucsCat);
         const ucsSubMatch = window.activeUcsSub.size === 0 || window.activeUcsSub.has(s.typeTag);
+        const genTagMatch = !window.activeGenTags.size
+            || (Array.isArray(s.tagArray) && s.tagArray.some((t) => window.activeGenTags.has(t)));
         const principleMatch = window.activePrinciple.size === 0 || window.activePrinciple.has(s.recPrinciple);
         const gearMatch = window.activeGear.size === 0 || window.activeGear.has(s.gear);
         const micMatch = window.activeMic.size === 0 || window.activeMic.has(s.micType);
@@ -2206,7 +2300,7 @@ window.getFilteredSounds = function(forceRefresh = false) {
         const statusMatch = window.isSoundStatusVisible(s);
         const sessionMatch = !window.activeSessionId || s.sessionId === window.activeSessionId;
 
-        return searchMatch && ecoMatch && ucsCatMatch && ucsSubMatch && principleMatch && gearMatch && micMatch && channelMatch && licenseMatch && recordistMatch && weatherMatch && dateMatch && statusMatch && sessionMatch;
+        return searchMatch && ecoMatch && ucsCatMatch && ucsSubMatch && genTagMatch && principleMatch && gearMatch && micMatch && channelMatch && licenseMatch && recordistMatch && weatherMatch && dateMatch && statusMatch && sessionMatch;
     });
 
     window.__filteredSoundsCache = filtered;
@@ -2219,7 +2313,26 @@ window.renderList = function() {
     if(!listContainer) return;
     listContainer.innerHTML = '';
     const filtered = window.getFilteredSounds();
-    if(filtered.length === 0) { listContainer.innerHTML = `<p class="text-center text-sm text-slate-400 mt-4">Ничего не найдено</p>`; return; }
+    if(filtered.length === 0) {
+        const query = (document.getElementById('search-input')?.value || '').trim();
+        const hasFilters = !!(window.activeEcoLayer.size || window.activeUcsCat.size || window.activeUcsSub.size
+            || window.activeGenTags.size || window.activePrinciple.size || window.activeGear.size
+            || window.activeMic.size || window.activeChannels.size || window.activeLicense.size
+            || window.activeRecordist.size || window.activeWeather.size || window.activeDate.size
+            || window.activeSessionId || query);
+        listContainer.innerHTML = `
+            <div class="library-empty text-center px-3 py-8">
+                <i class="fa-solid fa-filter-circle-xmark text-2xl text-slate-300 dark:text-slate-600 mb-3 block"></i>
+                <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Ничего не найдено</p>
+                <p class="text-[11px] text-slate-400 mt-1">${hasFilters ? 'Сбросьте поиск или фильтры, чтобы снова увидеть записи.' : 'В библиотеке пока нет опубликованных звуков.'}</p>
+                ${hasFilters ? `
+                    <div class="flex flex-wrap justify-center gap-2 mt-4">
+                        ${query ? `<button type="button" onclick="window.clearSearchQuery()" class="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200">Очистить поиск</button>` : ''}
+                        <button type="button" onclick="window.clearAllSoundFilters()" class="px-3 py-2 rounded-xl text-xs font-bold bg-[#141414] text-white dark:bg-[#ff5a3d]">Сбросить фильтры</button>
+                    </div>` : ''}
+            </div>`;
+        return;
+    }
 
     filtered.forEach(sound => {
         const item = document.createElement('div');
@@ -2245,6 +2358,7 @@ window.renderList = function() {
 window.toggleEcoLayer = function(val) { if (window.activeEcoLayer.has(val)) window.activeEcoLayer.delete(val); else window.activeEcoLayer.add(val); window.processFilterChange(false); }
 window.toggleUcsCat = function(val) { if (window.activeUcsCat.has(val)) window.activeUcsCat.delete(val); else window.activeUcsCat.add(val); window.processFilterChange(false); }
 window.toggleUcsSub = function(val) { if (window.activeUcsSub.has(val)) window.activeUcsSub.delete(val); else window.activeUcsSub.add(val); window.processFilterChange(false); }
+window.toggleGenTag = function(val) { if (window.activeGenTags.has(val)) window.activeGenTags.delete(val); else window.activeGenTags.add(val); window.processFilterChange(false); }
 
 window.togglePrinciple = function(val) { if (window.activePrinciple.has(val)) window.activePrinciple.delete(val); else window.activePrinciple.add(val); window.processFilterChange(false); }
 window.toggleGear = function(val) { if (window.activeGear.has(val)) window.activeGear.delete(val); else window.activeGear.add(val); window.processFilterChange(false); }
@@ -4235,7 +4349,7 @@ window.setMapStyle = function(style, skipSave = false) {
     const mapContainer = document.getElementById('map');
     window.currentMapStyle = style;
     if (mapContainer) {
-        if (window.currentMapProvider === 'mapbox') {
+        if (window.isMapLibreProvider && window.isMapLibreProvider(window.currentMapProvider)) {
             mapContainer.classList.remove('map-monochrome');
             if (window.applyMapboxBasemapConfig) window.applyMapboxBasemapConfig();
         } else if (style === 'monochrome') {
@@ -4352,6 +4466,7 @@ window.applyUILanguage = function() {
     if (questsPanel && !questsPanel.classList.contains('hidden') && window.renderQuestsPanel) {
         window.renderQuestsPanel();
     }
+    if (window.updateMapProviderHint) window.updateMapProviderHint();
 };
 window.setTheme = function(theme, skipSave = false) {
     window.currentTheme = theme;
@@ -4368,7 +4483,7 @@ window.setTheme = function(theme, skipSave = false) {
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('theme', theme);
     if (window.refreshSettingsUI) window.refreshSettingsUI();
     if (window.refreshAnalyzersTheme) window.refreshAnalyzersTheme();
-    if (window.currentMapProvider === 'mapbox' && window.applyMapboxBasemapConfig) {
+    if (window.isMapLibreProvider && window.isMapLibreProvider(window.currentMapProvider) && window.applyMapboxBasemapConfig) {
         window.applyMapboxBasemapConfig();
     }
 };
@@ -4555,13 +4670,27 @@ window.updateSearchSuggestions = function(query) {
     const box = document.getElementById('search-suggestions');
     const input = document.getElementById('search-input');
     if (!box) return;
+    if (window.syncSearchClearBtn) window.syncSearchClearBtn();
+    const q = String(query || '').trim();
     const items = window.getSearchSuggestions(query);
     window.__searchSuggestionIndex = -1;
     window.__searchSuggestions = items;
-    if (!items.length) {
+    if (!q.length) {
         box.classList.add('hidden');
         box.innerHTML = '';
         if (input) input.setAttribute('aria-expanded', 'false');
+        return;
+    }
+    if (!items.length) {
+        box.innerHTML = `<div class="search-suggestion search-suggestion--empty" role="option" aria-disabled="true">
+            <span class="search-suggestion__icon"><i class="fa-solid fa-magnifying-glass"></i></span>
+            <span class="min-w-0">
+                <div class="search-suggestion__label">Ничего не найдено</div>
+                <div class="search-suggestion__meta">Попробуйте другое слово или сбросьте фильтры</div>
+            </span>
+        </div>`;
+        box.classList.remove('hidden');
+        if (input) input.setAttribute('aria-expanded', 'true');
         return;
     }
     const esc = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -4578,9 +4707,24 @@ window.updateSearchSuggestions = function(query) {
     if (input) input.setAttribute('aria-expanded', 'true');
 };
 
+window.syncSearchClearBtn = function() {
+    const input = document.getElementById('search-input');
+    const btn = document.getElementById('search-clear-btn');
+    if (!btn) return;
+    const hasValue = !!(input && input.value.trim());
+    btn.classList.toggle('hidden', !hasValue);
+};
+
 window.applySearchSuggestion = function(type, id) {
     window.clearSearchSuggestions();
     if (type === 'sound') {
+        const sound = (window.soundsData || []).find((s) => s.id === id);
+        const input = document.getElementById('search-input');
+        if (input && sound?.title) {
+            input.value = sound.title;
+            if (window.syncSearchClearBtn) window.syncSearchClearBtn();
+            if (window.processFilterChange) window.processFilterChange(false);
+        }
         if (window.selectSound) window.selectSound(id);
         if (window.openDockView) window.openDockView('library');
     } else if (type === 'feed') {
@@ -4605,13 +4749,18 @@ window.initSearchChrome = function() {
     const box = document.getElementById('search-suggestions');
     if (box) {
         box.addEventListener('click', (e) => {
-            const btn = e.target.closest('.search-suggestion');
+            const btn = e.target.closest('.search-suggestion:not(.search-suggestion--empty)');
             if (!btn) return;
             e.preventDefault();
             window.applySearchSuggestion(btn.dataset.type, btn.dataset.id);
         });
     }
     if (!input) return;
+
+    input.addEventListener('input', () => {
+        if (window.syncSearchClearBtn) window.syncSearchClearBtn();
+        if (window.renderActiveTags) window.renderActiveTags();
+    });
 
     input.addEventListener('keydown', (e) => {
         const suggBox = document.getElementById('search-suggestions');
@@ -4645,12 +4794,13 @@ window.initSearchChrome = function() {
 
     document.addEventListener('click', (e) => {
         const cluster = document.getElementById('map-search-cluster');
-        const toolbar = document.getElementById('map-top-toolbar');
         if (cluster && !cluster.contains(e.target)) {
             window.clearSearchSuggestions();
-            if (cluster.classList.contains('is-open')) window.toggleSearchBar(false);
-        } else if (toolbar && !toolbar.contains(e.target)) {
-            window.clearSearchSuggestions();
+            const input = document.getElementById('search-input');
+            // Не закрываем строку, пока в ней есть запрос — иначе теряется контекст на мобиле.
+            if (cluster.classList.contains('is-open') && !(input && input.value.trim())) {
+                window.toggleSearchBar(false);
+            }
         }
     });
 };

@@ -1,15 +1,17 @@
-import { initGlobalState } from './state.js?v=20260718g';
-import './api.js?v=20260718g';
-import { initAuth } from './auth.js?v=20260718g';
+import { initGlobalState } from './state.js?v=20260718j';
+import './api.js?v=20260718j';
+import { initAuth } from './auth.js?v=20260718j';
 
-import '../ui/ui.js?v=20260718g';
-import './sfx.js?v=20260718g';
-import './audio.js?v=20260718g';
-import './map.js?v=20260718g';
-import './mapbox-map.js?v=20260718g';
-import './achievements.js?v=20260718g';
-import './guessr.js?v=20260718g';
-import '../widgets/analytics-widget.js?v=20260718g';
+import '../ui/ui.js?v=20260718j';
+import './sfx.js?v=20260718j';
+import './audio.js?v=20260718j';
+import './map.js?v=20260718j';
+import './mapbox-map.js?v=20260718j';
+import './dgis-map.js?v=20260718j';
+import './google-earth-map.js?v=20260718j';
+import './achievements.js?v=20260718j';
+import './guessr.js?v=20260718j';
+import '../widgets/analytics-widget.js?v=20260718j';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;
@@ -113,6 +115,17 @@ export function bootstrapApp() {
             });
             if (window.startLiveCloudPolling) window.startLiveCloudPolling();
             if (window.touchMyPresence) window.touchMyPresence(true);
+            if (window.refreshAdminSupportBadge) window.refreshAdminSupportBadge();
+            if (window.apiHealth) {
+                window.apiHealth().then((h) => {
+                    window.__apiHealth = h;
+                    if (h && h.ok === false && window.showToast) {
+                        window.showToast('API временно недоступен — сохранение может не работать', { silent: true });
+                    }
+                }).catch(() => {
+                    window.__apiHealth = { ok: false };
+                });
+            }
         }).catch(err => {
             console.warn('Не удалось загрузить облачные данные:', err);
             window.__cloudDataReady = true;

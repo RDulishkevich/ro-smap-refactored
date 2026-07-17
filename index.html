@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260718g">
-    <link rel="stylesheet" href="./src/glass.css?v=20260718g">
+    <link rel="stylesheet" href="./src/style.css?v=20260718j">
+    <link rel="stylesheet" href="./src/glass.css?v=20260718j">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -147,6 +147,9 @@
                     <i class="fa-solid fa-magnifying-glass pointer-events-none"></i>
                 </button>
                 <input type="search" id="search-input" name="rosmap-sound-search" data-lang-placeholder="search_placeholder" placeholder="Поиск…" class="search-cluster-input text-sm text-slate-800 dark:text-white" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-autocomplete="list" aria-controls="search-suggestions" role="combobox" aria-expanded="false" value="">
+                <button type="button" id="search-clear-btn" class="search-clear-btn hidden" onclick="window.clearSearchQuery()" title="Очистить поиск" aria-label="Очистить поиск">
+                    <i class="fa-solid fa-xmark pointer-events-none"></i>
+                </button>
                 <div id="search-suggestions" class="search-suggestions hidden" role="listbox"></div>
             </div>
             <div id="active-tags-container" class="map-top-toolbar__tags flex flex-wrap gap-1.5 empty:hidden overflow-hidden"></div>
@@ -238,9 +241,12 @@
                         <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_channels">Система / Каналы</p><div class="flex flex-wrap gap-1.5" id="filter-meta-channels"></div></div>
                         <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_recordist">Автор</p><div class="flex flex-wrap gap-1.5" id="filter-meta-recordist"></div></div>
                         <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_weather">Погода</p><div class="flex flex-wrap gap-1.5" id="filter-meta-weather"></div></div>
+                        <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_license">Лицензия</p><div class="flex flex-wrap gap-1.5" id="filter-meta-license"></div></div>
+                        <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_date">Дата</p><div class="flex flex-wrap gap-1.5" id="filter-meta-date"></div></div>
                     </div>
                 </div>
 
+                <div id="library-active-filters" class="library-active-filters px-4 pt-2 empty:hidden flex flex-wrap gap-1.5 flex-shrink-0 md:hidden"></div>
                 <div id="sounds-list" class="flex-1 overflow-y-auto p-4 flex flex-col gap-2 min-h-0"></div>
             </div>
 
@@ -499,27 +505,6 @@
         </div>
     </div>
 
-    <!-- Модальное окно: Поддержка -->
-    <div id="support-modal" onmousedown="if(event.target === this) window.closeSupportModal()" class="fixed inset-0 z-[260] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-md app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
-            <div class="px-6 py-5 flex justify-between items-center border-b border-slate-100 dark:border-slate-700">
-                <h3 class="text-lg font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-circle-question mr-2 text-blue-500"></i>Поддержка</h3>
-                <button onclick="window.closeSupportModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none">
-                    <i class="fa-solid fa-xmark text-xl pointer-events-none"></i>
-                </button>
-            </div>
-            <div class="p-6 space-y-4">
-                <div class="rounded-2xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 p-4 text-sm text-slate-600 dark:text-slate-300">
-                    Если у вас возникли вопросы по карте, добавлению звуков или настройкам — напишите в чат поддержки или на почту.
-                </div>
-                <button type="button" onclick="window.contactSupport()" class="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
-                    <i class="fa-solid fa-headset"></i>
-                    <span data-lang="support_open">Открыть поддержку</span>
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- Модальное окно: НАСТРОЙКИ -->
     <div id="settings-modal" onmousedown="if(event.target === this) window.closeSettingsModal()" class="fixed inset-0 z-[250] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
         <div id="settings-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto border border-slate-100 dark:border-slate-800">
@@ -583,11 +568,31 @@
                 </div>
                 <div>
                     <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="map_provider"><i class="fa-solid fa-layer-group mr-1"></i> Движок карты</label>
-                    <div class="glass-seg mt-1" id="map-provider-seg">
+                    <div class="glass-seg glass-seg--wrap mt-1" id="map-provider-seg">
                         <button type="button" onclick="window.setMapProvider('yandex')" id="map-provider-yandex-btn" class="glass-seg__btn is-active is-active--accent" data-lang="map_provider_yandex">Яндекс</button>
+                        <button type="button" onclick="window.setMapProvider('ozon')" id="map-provider-ozon-btn" class="glass-seg__btn" data-lang="map_provider_ozon">Ozon Maps</button>
                         <button type="button" onclick="window.setMapProvider('mapbox')" id="map-provider-mapbox-btn" class="glass-seg__btn" data-lang="map_provider_mapbox">OSM 3D</button>
+                        <button type="button" onclick="window.setMapProvider('carto')" id="map-provider-carto-btn" class="glass-seg__btn" data-lang="map_provider_carto">Carto</button>
+                        <button type="button" onclick="window.setMapProvider('opentopo')" id="map-provider-opentopo-btn" class="glass-seg__btn" data-lang="map_provider_opentopo">OpenTopo</button>
+                        <button type="button" onclick="window.setMapProvider('esri')" id="map-provider-esri-btn" class="glass-seg__btn" data-lang="map_provider_esri">Esri Sat</button>
+                        <button type="button" onclick="window.setMapProvider('dgis')" id="map-provider-dgis-btn" class="glass-seg__btn" data-lang="map_provider_dgis">2GIS 3D</button>
+                        <button type="button" onclick="window.setMapProvider('googleearth')" id="map-provider-google-btn" class="glass-seg__btn" data-lang="map_provider_google">Google Earth</button>
                     </div>
-                    <p class="text-[11px] text-slate-400 leading-relaxed mt-2" data-lang="map_provider_osm_hint">Бесплатные векторные карты OpenStreetMap (MapLibre + OpenFreeMap): 3D-здания и наклон камеры, без регистрации и токена.</p>
+                    <p id="map-provider-hint" class="text-[11px] text-slate-400 leading-relaxed mt-2" data-lang="map_provider_yandex_hint">Классическая карта Яндекса — быстрый и стабильный режим по умолчанию.</p>
+                    <div id="dgis-key-wrap" class="hidden mt-3 space-y-1.5">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider" for="dgis-api-key-input">Ключ 2GIS MapGL</label>
+                        <div class="flex gap-2">
+                            <input type="password" id="dgis-api-key-input" autocomplete="off" spellcheck="false" placeholder="API key" class="modal-input flex-1 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-xs">
+                            <button type="button" onclick="window.saveDgisApiKey(document.getElementById('dgis-api-key-input').value)" class="px-3 rounded-xl bg-slate-800 dark:bg-slate-700 text-white text-xs font-bold shrink-0">Сохранить</button>
+                        </div>
+                    </div>
+                    <div id="google-key-wrap" class="hidden mt-3 space-y-1.5">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider" for="google-api-key-input">Ключ Google Maps</label>
+                        <div class="flex gap-2">
+                            <input type="password" id="google-api-key-input" autocomplete="off" spellcheck="false" placeholder="API key" class="modal-input flex-1 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-xs">
+                            <button type="button" onclick="window.saveGoogleMapsApiKey(document.getElementById('google-api-key-input').value)" class="px-3 rounded-xl bg-slate-800 dark:bg-slate-700 text-white text-xs font-bold shrink-0">Сохранить</button>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="map_style"><i class="fa-solid fa-map mr-1"></i> Стиль карты (Фильтр)</label>
@@ -874,7 +879,7 @@
                         <button type="button" id="admin-tab-btn-sounds" onclick="window.switchAdminSection('sounds')" class="admin-subtab-btn active">Записи</button>
                         <button type="button" id="admin-tab-btn-reports" onclick="window.switchAdminSection('reports')" class="admin-subtab-btn">Жалобы <span id="admin-tab-reports-count" class="admin-filter-count"></span></button>
                         <button type="button" id="admin-tab-btn-users" onclick="window.switchAdminSection('users')" class="admin-subtab-btn">Пользователи</button>
-                        <button type="button" id="admin-tab-btn-support" onclick="window.switchAdminSection('support')" class="admin-subtab-btn">Поддержка</button>
+                        <button type="button" id="admin-tab-btn-support" onclick="window.switchAdminSection('support')" class="admin-subtab-btn">Поддержка <span id="admin-tab-support-count" class="admin-filter-count"></span></button>
                     </div>
 
                     <div id="admin-section-sounds" class="space-y-4">
@@ -1781,7 +1786,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260718g"></script>
+    <script type="module" src="./src/main.js?v=20260718j"></script>
 
 </body>
 </html>
