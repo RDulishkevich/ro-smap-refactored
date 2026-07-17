@@ -277,14 +277,19 @@ window.showMarkerHoverCard = function(sound) {
     const desc = (sound.description || '').trim();
     const shortDesc = desc.length > 90 ? `${desc.slice(0, 87)}…` : desc;
 
+    const fillMeta = (durationLabel) => {
+        metaEl.innerHTML = [
+            durationLabel ? `<span><i class="fa-regular fa-clock"></i>${window.escapeHoverText(durationLabel)}</span>` : '',
+            sound.recordist ? `<span><i class="fa-regular fa-user"></i>${window.escapeHoverText(sound.recordist)}</span>` : '',
+            sound.ucsCat ? `<span><i class="fa-solid fa-tag"></i>${window.escapeHoverText(sound.ucsCat)}</span>` : ''
+        ].filter(Boolean).join('');
+    };
+
     ecoEl.className = `marker-hover-card__eco ${eco.cls}`.trim();
     ecoEl.textContent = eco.label;
     titleEl.textContent = sound.title || 'Без названия';
-    metaEl.innerHTML = [
-        sound.duration ? `<span><i class="fa-regular fa-clock"></i>${window.escapeHoverText(sound.duration)}</span>` : '',
-        sound.recordist ? `<span><i class="fa-regular fa-user"></i>${window.escapeHoverText(sound.recordist)}</span>` : '',
-        sound.ucsCat ? `<span><i class="fa-solid fa-tag"></i>${window.escapeHoverText(sound.ucsCat)}</span>` : ''
-    ].filter(Boolean).join('');
+    const knownSecs = window.parseDuration ? window.parseDuration(sound.duration) : 0;
+    fillMeta(knownSecs > 0 ? sound.duration : (sound.duration && sound.duration !== '0:00' ? sound.duration : '…'));
     descEl.textContent = shortDesc;
     descEl.style.display = shortDesc ? '' : 'none';
 
@@ -297,6 +302,22 @@ window.showMarkerHoverCard = function(sound) {
     card.setAttribute('aria-hidden', 'false');
     window.positionMarkerHoverCard();
     requestAnimationFrame(() => card.classList.add('is-visible'));
+
+    // Если в данных 0:00 — пробуем длительность из аудиофайла
+    if (knownSecs <= 0 && sound.url && window.probeAudioDuration) {
+        const sid = sound.id;
+        window.probeAudioDuration(sound.url).then(secs => {
+            if (window.__markerHoverSoundId !== sid) return;
+            const label = window.formatTime ? window.formatTime(secs) : `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`;
+            sound.duration = label;
+            fillMeta(label);
+            // Обновим кэш в soundsData без обязательного sync
+            const live = (window.soundsData || []).find(s => s.id === sid);
+            if (live) live.duration = label;
+        }).catch(() => {
+            if (window.__markerHoverSoundId === sid) fillMeta(sound.duration && sound.duration !== '0:00' ? sound.duration : '');
+        });
+    }
 };
 
 window.bindMarkerHover = function(placemark, soundId) {

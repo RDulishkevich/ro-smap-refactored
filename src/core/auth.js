@@ -1297,11 +1297,16 @@ export function initAuth() {
     };
 
     window.parseDuration = function(durStr) {
-        if(!durStr) return 0;
-        const parts = durStr.split(':').map(Number);
-        if(parts.length === 2) return (parts[0] * 60) + parts[1];
-        if(parts.length === 3) return (parts[0] * 3600) + (parts[1] * 60) + parts[2];
-        return 0;
+        if (durStr == null || durStr === '') return 0;
+        if (typeof durStr === 'number' && isFinite(durStr)) return Math.max(0, durStr);
+        const raw = String(durStr).trim();
+        if (!raw || raw === '0:00') return 0;
+        const parts = raw.split(':').map(p => Number(p));
+        if (parts.some(n => !isFinite(n))) return 0;
+        if (parts.length === 2) return (parts[0] * 60) + parts[1];
+        if (parts.length === 3) return (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+        const asNum = Number(raw);
+        return isFinite(asNum) ? asNum : 0;
     };
 
     window.formatTotalDuration = function(totalSeconds) {
@@ -1367,6 +1372,29 @@ export function initAuth() {
         let totalSecs = 0;
         mySounds.forEach(s => totalSecs += window.parseDuration(s.duration));
         document.getElementById('cabinet-stat-duration').textContent = window.formatTotalDuration(totalSecs);
+
+        // Досчитать длительность для записей с 0:00 (старые загрузки без метаданных)
+        if (window.probeAudioDuration && window.formatTime) {
+            const needProbe = mySounds.filter(s => window.parseDuration(s.duration) <= 0 && s.url);
+            if (needProbe.length) {
+                Promise.all(needProbe.map(async (s) => {
+                    try {
+                        const secs = await window.probeAudioDuration(s.url);
+                        if (secs > 0) {
+                            s.duration = window.formatTime(secs);
+                            return true;
+                        }
+                    } catch (_) {}
+                    return false;
+                })).then((flags) => {
+                    if (!flags.some(Boolean)) return;
+                    let sum = 0;
+                    mySounds.forEach(s => sum += window.parseDuration(s.duration));
+                    const el = document.getElementById('cabinet-stat-duration');
+                    if (el) el.textContent = window.formatTotalDuration(sum);
+                });
+            }
+        }
         
         const list = document.getElementById('cabinet-sounds-list');
         if(mySounds.length === 0) {
@@ -2818,11 +2846,23 @@ export function initAuth() {
         return `<span class="${cls}" title="${title}"><i class="fa-solid ${icon}"></i></span>`;
     };
 
+    window.formatMsgTime = function(iso) {
+        if (!iso) return '';
+        try {
+            const d = new Date(iso);
+            if (isNaN(d)) return '';
+            const now = new Date();
+            const sameDay = d.toDateString() === now.toDateString();
+            if (sameDay) return d.toLocaleTimeString(window.currentLang === 'en' ? 'en-GB' : 'ru-RU', { hour: '2-digit', minute: '2-digit' });
+            return d.toLocaleString(window.currentLang === 'en' ? 'en-GB' : 'ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        } catch (_) { return ''; }
+    };
+
     window.renderMessageBubble = function(m) {
         if (m.deleted) {
             return `<div class="msg-bubble deleted ${m._mine ? 'mine' : ''}" onclick="window.openMessageMenu('${m.id}')">
                 <p class="text-[13px] leading-snug">Сообщение удалено</p>
-                <p class="msg-bubble-foot"><span>${m.date ? new Date(m.date).toLocaleString('ru-RU') : ''}</span>${window.renderMessageTicks(m)}</p>
+                <p class="msg-bubble-foot"><span>${window.formatMsgTime(m.date)}</span>${window.renderMessageTicks(m)}</p>
             </div>`;
         }
         const reply = m.replyTo
@@ -2831,7 +2871,7 @@ export function initAuth() {
         const img = m.image
             ? `<img src="${m.image}" class="msg-bubble-img" alt="" onclick="event.stopPropagation(); window.openMessageImage('${m.id}')">`
             : '';
-        const edited = m.editedAt ? ' · изменено' : '';
+        const edited = m.editedAt ? ' · изм.' : '';
         const reactions = m.reactions && Object.keys(m.reactions).length
             ? `<div class="msg-reactions">${Object.entries(m.reactions).map(([emoji, users]) =>
                 users?.length ? `<span class="msg-reaction-chip">${emoji} ${users.length}</span>` : ''
@@ -2842,7 +2882,7 @@ export function initAuth() {
             ${reply}${img}
             ${m.text ? `<p class="text-[13px] leading-snug">${window.escMsgHtml(m.text)}</p>` : ''}
             ${reactions}
-            <p class="msg-bubble-foot"><span>${m.date ? new Date(m.date).toLocaleString(window.currentLang === 'en' ? 'en-US' : 'ru-RU') : ''}${edited}</span>${window.renderMessageTicks(m)}</p>
+            <p class="msg-bubble-foot"><span>${window.formatMsgTime(m.date)}${edited}</span>${window.renderMessageTicks(m)}</p>
         </div>`;
     };
 

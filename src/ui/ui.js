@@ -3320,11 +3320,39 @@ window.renderDetailsReactions = function(s) {
 };
 
 // Добавление Аудио
+window.probeAudioDuration = function(src) {
+    return new Promise((resolve, reject) => {
+        if (!src) return reject(new Error('no src'));
+        const a = new Audio();
+        a.preload = 'metadata';
+        const done = (fn, val) => {
+            a.onloadedmetadata = null;
+            a.onerror = null;
+            try { a.src = ''; } catch (_) {}
+            fn(val);
+        };
+        a.onloadedmetadata = () => {
+            const secs = a.duration;
+            if (!isFinite(secs) || secs <= 0) done(reject, new Error('bad duration'));
+            else done(resolve, secs);
+        };
+        a.onerror = () => done(reject, new Error('audio error'));
+        a.src = src;
+    });
+};
+
 window.handleAudioFiles = function(files) {
     if(files && files.length > 0 && files[0].type.startsWith('audio/')) {
         window.currentUploadedFile = files[0];
-        window.generateUCSFileName(); 
+        window.generateUCSFileName();
+        if (window.currentUploadedFileUrl && String(window.currentUploadedFileUrl).startsWith('blob:')) {
+            try { URL.revokeObjectURL(window.currentUploadedFileUrl); } catch (_) {}
+        }
         window.currentUploadedFileUrl = URL.createObjectURL(files[0]);
+        window.__uploadedAudioDuration = '0:00';
+        window.probeAudioDuration(window.currentUploadedFileUrl).then(secs => {
+            window.__uploadedAudioDuration = window.formatTime ? window.formatTime(secs) : `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`;
+        }).catch(() => { window.__uploadedAudioDuration = '0:00'; });
         document.getElementById('drop-zone-content').innerHTML = `<span class="text-sm font-bold text-blue-600">Готов к загрузке: ${files[0].name}</span>`;
     }
 }
@@ -3415,6 +3443,13 @@ window.publishSound = async function(targetStatus = 'pending') {
     if (draftBtn) draftBtn.disabled = true;
     window.showToast(targetStatus === 'draft' ? 'Сохранение черновика...' : (isEdit ? 'Сохранение изменений...' : 'Публикация...'));
 
+    if (window.currentUploadedFileUrl && (!window.__uploadedAudioDuration || window.__uploadedAudioDuration === '0:00') && window.probeAudioDuration) {
+        try {
+            const secs = await window.probeAudioDuration(window.currentUploadedFileUrl);
+            window.__uploadedAudioDuration = window.formatTime ? window.formatTime(secs) : `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`;
+        } catch (_) {}
+    }
+
     const soundObj = {
         id: existing ? existing.id : ('u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)),
         title,
@@ -3422,7 +3457,9 @@ window.publishSound = async function(targetStatus = 'pending') {
         ucsCat: val('add-category') || 'AMBIENCE',
         typeTag: val('add-subcat'),
         lat: coords[0], lng: coords[1],
-        duration: existing?.duration || '0:00',
+        duration: (window.__uploadedAudioDuration && window.__uploadedAudioDuration !== '0:00')
+            ? window.__uploadedAudioDuration
+            : (existing?.duration || '0:00'),
         url: window.currentUploadedFileUrl || existing?.url || '',
         semanticTag: existing?.semanticTag || '',
         gear: val('add-recorder'),
