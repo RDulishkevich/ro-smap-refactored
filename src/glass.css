@@ -25,8 +25,8 @@
     --panel-solid: #f4f2ef;
     --panel-border: var(--glass-rim-outer);
     --panel-shadow: var(--glass-elev);
-    --font-ui: "Gilroy", "Satoshi", "Plus Jakarta Sans", system-ui, sans-serif;
-    --font-brand: "Gilroy", "Clash Display", "Satoshi", sans-serif;
+    --font-ui: "Satoshi", "Plus Jakarta Sans", system-ui, sans-serif;
+    --font-brand: "Clash Display", "Satoshi", sans-serif;
     --radius-md: 1.15rem;
     --radius-lg: 1.6rem;
     --radius-xl: 2rem;

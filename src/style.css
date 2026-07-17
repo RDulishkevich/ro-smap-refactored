@@ -11,8 +11,8 @@
     --accent-hover: #e84a2f;
     --accent-soft: rgba(255, 90, 61, 0.14);
     --accent-ink: #e84a2f;
-    --font-ui: "Gilroy", "Satoshi", "Plus Jakarta Sans", system-ui, sans-serif;
-    --font-brand: "Gilroy", "Clash Display", "Satoshi", sans-serif;
+    --font-ui: "Satoshi", "Plus Jakarta Sans", system-ui, sans-serif;
+    --font-brand: "Clash Display", "Satoshi", sans-serif;
     --danger: #c2410c;
     --radius-sm: 0.7rem;
     --radius-md: 1.05rem;
