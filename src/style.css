@@ -608,6 +608,8 @@ body.dark-mode .modal-input::placeholder,
     gap: 0.45rem;
     padding: 0.65rem 0.4rem;
     border-radius: var(--radius-xl, 1.6rem);
+    overflow: hidden;
+    overscroll-behavior: none;
 }
 @media (min-width: 768px) {
     #app-rail.app-rail {
@@ -667,7 +669,8 @@ body.dark-mode .modal-input::placeholder,
 body.dock-view-details #dock-mobile-tabs,
 body.dock-view-analyzers #dock-mobile-tabs,
 body.dock-view-settings #dock-mobile-tabs,
-body.dock-view-cabinet #dock-mobile-tabs {
+body.dock-view-cabinet #dock-mobile-tabs,
+body.dock-view-messages #dock-mobile-tabs {
     display: none !important;
 }
 
@@ -746,17 +749,51 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
     }
 }
 
-#map-top-toolbar #sidebar-search-wrap input {
+#map-top-toolbar #sidebar-search-wrap input,
+#map-top-toolbar .sidebar-search-wrap input {
     border-radius: 999px;
     background: transparent;
     border: none;
+    width: 100%;
+    cursor: text;
 }
-#map-top-toolbar.toolbar-search-hidden #sidebar-search-wrap,
-#map-top-toolbar.toolbar-search-hidden .search-toggle-btn {
+#map-top-toolbar.toolbar-search-hidden #map-search-cluster {
     display: none;
 }
 #map-top-toolbar.toolbar-search-hidden {
     max-width: fit-content;
+}
+
+.map-search-cluster {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    min-width: 2.5rem;
+    max-width: 2.5rem;
+    transition: max-width 180ms ease, flex-grow 180ms ease;
+}
+.map-search-cluster.is-open,
+.map-search-cluster:hover,
+.map-search-cluster:focus-within {
+    flex: 1 1 auto;
+    min-width: 12rem;
+    max-width: 100%;
+}
+.sidebar-search-wrap {
+    display: none;
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+}
+.map-search-cluster.is-open .sidebar-search-wrap,
+.map-search-cluster:hover .sidebar-search-wrap,
+.map-search-cluster:focus-within .sidebar-search-wrap {
+    display: block;
+}
+.map-search-cluster.is-open .search-toggle-btn,
+.map-search-cluster:hover .search-toggle-btn,
+.map-search-cluster:focus-within .search-toggle-btn {
+    display: none;
 }
 
 .search-toggle-btn {
@@ -773,7 +810,17 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
     flex-shrink: 0;
 }
 .search-toggle-btn:hover { color: var(--accent-ink, #e84a2f); }
-#map-top-toolbar.is-search-open .search-toggle-btn { display: none; }
+
+.notif-panel,
+#notif-panel.notif-panel {
+    position: absolute;
+    left: calc(var(--chrome-inset) + var(--rail-w) + 0.55rem);
+    bottom: var(--chrome-inset);
+    width: min(calc(100vw - 5rem), 22rem);
+    max-height: min(70vh, 28rem);
+    border-radius: var(--radius-lg, 1.15rem);
+    z-index: 90;
+}
 
 .search-suggestions {
     position: absolute;
@@ -911,18 +958,24 @@ html.dark .search-suggestions,
 }
 
 #settings-modal-content.settings-in-dock,
-#cabinet-modal-content.cabinet-in-dock {
+#cabinet-modal-content.cabinet-in-dock,
+#messages-modal-content.messages-in-dock {
     width: 100% !important;
     max-width: none !important;
+    height: 100% !important;
+    max-height: none !important;
     border-radius: 0 !important;
     box-shadow: none !important;
     border: none !important;
     transform: none !important;
-    max-height: none !important;
     background: transparent !important;
 }
 #settings-modal-content.settings-in-dock > div:first-child button[onclick*="closeSettingsModal"],
-#cabinet-modal-content.cabinet-in-dock > div:first-child button[onclick*="closeCabinet"] {
+#cabinet-modal-content.cabinet-in-dock > div:first-child button[onclick*="closeCabinet"],
+#messages-modal-content.messages-in-dock .messages-modal-close {
+    display: none;
+}
+#messages-modal-content.messages-in-dock .messages-modal-header {
     display: none;
 }
 

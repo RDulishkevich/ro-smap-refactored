@@ -1974,6 +1974,25 @@ export function initAuth() {
         const opening = panel.classList.contains('hidden');
         panel.classList.toggle('hidden', !opening);
         if (opening) {
+            const anchor = (window.innerWidth < 768)
+                ? document.getElementById('notif-btn-mobile')
+                : document.getElementById('notif-btn');
+            if (anchor) {
+                const r = anchor.getBoundingClientRect();
+                if (window.innerWidth < 768) {
+                    panel.style.left = 'auto';
+                    panel.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
+                    panel.style.bottom = 'auto';
+                    panel.style.top = `${r.bottom + 8}px`;
+                    panel.style.width = `min(calc(100vw - 1.5rem), 22rem)`;
+                } else {
+                    panel.style.left = '';
+                    panel.style.right = '';
+                    panel.style.top = '';
+                    panel.style.bottom = '';
+                    panel.style.width = '';
+                }
+            }
             if (window.playSfx) window.playSfx('open');
             window.renderNotificationsList();
         } else if (window.playSfx) {
@@ -2188,6 +2207,21 @@ export function initAuth() {
     };
 
     window.openMessagesModal = function(peerLogin = null) {
+        if (window.openDockView) {
+            if (window.playSfx) window.playSfx('open');
+            window.openDockView('messages');
+            window.touchMyPresence(true);
+            if (peerLogin) window.openMessageThread(peerLogin);
+            else window.showMessagesConversations();
+            window.ensureSupportWelcome().then(() => {
+                if (peerLogin) {
+                    if (window.__activeMessagePeer === peerLogin) window.openMessageThread(peerLogin, { quiet: true });
+                } else if (!window.__activeMessagePeer) {
+                    window.showMessagesConversations();
+                }
+            });
+            return;
+        }
         const m = document.getElementById('messages-modal');
         const c = document.getElementById('messages-modal-content');
         if (!m || !c) return;
@@ -2198,7 +2232,6 @@ export function initAuth() {
         if (window.playSfx) window.playSfx('open');
         window.touchMyPresence(true);
 
-        // Сразу рисуем список — иначе flex-1 даёт пустую область до завершения async
         if (peerLogin) window.openMessageThread(peerLogin);
         else window.showMessagesConversations();
 
@@ -2218,13 +2251,23 @@ export function initAuth() {
     };
 
     window.closeMessagesModal = function() {
-        const m = document.getElementById('messages-modal');
-        const c = document.getElementById('messages-modal-content');
-        if (!m || !c) return;
-        m.classList.add('opacity-0', 'pointer-events-none');
-        c.classList.add('scale-95');
-        if (window.playSfx) window.playSfx('close');
-        setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
+        const content = document.getElementById('messages-modal-content');
+        const inDock = content && content.classList.contains('messages-in-dock');
+        if (inDock) {
+            if (!window.__skipMessagesDockClose && window.playSfx) window.playSfx('close');
+            if (window.undockMessagesContent) window.undockMessagesContent();
+            if (!window.__skipMessagesDockClose && window.__dockView === 'messages' && window.openDockView) {
+                window.openDockView(window.__sidebarTab || 'library');
+            }
+        } else {
+            const m = document.getElementById('messages-modal');
+            const c = document.getElementById('messages-modal-content');
+            if (!m || !c) return;
+            m.classList.add('opacity-0', 'pointer-events-none');
+            c.classList.add('scale-95');
+            if (window.playSfx) window.playSfx('close');
+            setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
+        }
         window.__activeMessagePeer = null;
         window.cancelMessageReply();
         window.hideEmojiPicker();

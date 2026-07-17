@@ -449,6 +449,7 @@ window.restartOnboarding = function() {
     localStorage.removeItem('rosmap_onboarding_done');
     if (window.closeSettingsModal) window.closeSettingsModal();
     if (window.closeCabinet) window.closeCabinet();
+    if (window.hideDockPanel) window.hideDockPanel();
     window.startOnboarding(0);
 };
 
@@ -1733,7 +1734,7 @@ window.processFilterChange = function(forceOpenDesktopSidebar = false) {
 }
 
 window.hideAllDockPanels = function() {
-    ['sidebar-library', 'sidebar-feed', 'panel-expeditions', 'dock-details', 'dock-analyzers', 'dock-settings', 'dock-cabinet'].forEach(id => {
+    ['sidebar-library', 'sidebar-feed', 'panel-expeditions', 'dock-details', 'dock-analyzers', 'dock-settings', 'dock-cabinet', 'dock-messages', 'dock-help'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.add('hidden');
     });
@@ -1812,27 +1813,68 @@ window.dockCabinetContent = function() {
 };
 
 window.clearRailTabActive = function() {
-    ['rail-library', 'rail-feed', 'rail-expeditions'].forEach(id => {
+    ['rail-library', 'rail-feed', 'rail-expeditions', 'rail-help'].forEach(id => {
         const btn = document.getElementById(id);
         if (!btn) return;
         btn.classList.remove('is-active');
         btn.removeAttribute('aria-current');
     });
-    ['tab-library', 'tab-feed', 'tab-expeditions'].forEach(id => {
+    ['tab-library', 'tab-feed', 'tab-expeditions', 'tab-help'].forEach(id => {
         const btn = document.getElementById(id);
         if (btn) btn.className = 'ui-tab ui-tab--main';
     });
 };
 
+window.undockMessagesContent = function() {
+    const content = document.getElementById('messages-modal-content');
+    const modal = document.getElementById('messages-modal');
+    if (content && modal && content.classList.contains('messages-in-dock')) {
+        content.classList.remove('messages-in-dock');
+        modal.appendChild(content);
+    }
+};
+
+window.dockMessagesContent = function() {
+    const content = document.getElementById('messages-modal-content');
+    const host = document.getElementById('dock-messages-host');
+    if (!content || !host) return;
+    content.classList.add('messages-in-dock');
+    host.appendChild(content);
+};
+
+window.switchHelpTab = function(tab) {
+    const next = tab === 'faq' ? 'faq' : 'support';
+    window.__helpTab = next;
+    const supportBtn = document.getElementById('help-tab-support');
+    const faqBtn = document.getElementById('help-tab-faq');
+    const supportPanel = document.getElementById('help-panel-support');
+    const faqPanel = document.getElementById('help-panel-faq');
+    if (supportBtn) supportBtn.className = next === 'support' ? 'ui-tab ui-tab--filter is-active' : 'ui-tab ui-tab--filter';
+    if (faqBtn) faqBtn.className = next === 'faq' ? 'ui-tab ui-tab--filter is-active' : 'ui-tab ui-tab--filter';
+    if (supportPanel) supportPanel.classList.toggle('hidden', next !== 'support');
+    if (faqPanel) faqPanel.classList.toggle('hidden', next !== 'faq');
+};
+
 window.openDockView = function(view) {
-    const next = ['library', 'feed', 'expeditions', 'details', 'analyzers', 'settings', 'cabinet'].includes(view) ? view : 'library';
+    const prev = window.__dockView;
+    const next = ['library', 'feed', 'expeditions', 'help', 'details', 'analyzers', 'settings', 'cabinet', 'messages'].includes(view) ? view : 'library';
     window.__dockView = next;
-    document.body.classList.remove('dock-view-details', 'dock-view-analyzers', 'dock-view-settings', 'dock-view-cabinet');
+    document.body.classList.remove('dock-view-details', 'dock-view-analyzers', 'dock-view-settings', 'dock-view-cabinet', 'dock-view-messages', 'dock-view-help');
+
+    if (prev === 'messages' && next !== 'messages') {
+        window.__activeMessagePeer = null;
+        if (window.cancelMessageReply) window.cancelMessageReply();
+        if (window.hideEmojiPicker) window.hideEmojiPicker();
+        const input = document.getElementById('messages-compose-input');
+        if (input) input.value = '';
+        window.__messagePendingImage = null;
+    }
 
     window.hideAllDockPanels();
     window.undockDetailsContent();
     window.undockSettingsContent();
     window.undockCabinetContent();
+    window.undockMessagesContent();
 
     const mobileTabs = document.getElementById('dock-mobile-tabs');
 
@@ -1871,6 +1913,27 @@ window.openDockView = function(view) {
         window.clearRailTabActive();
         if (window.refreshCabinetTabs) window.refreshCabinetTabs();
         if (window.switchCabinetTab) window.switchCabinetTab('sounds');
+    } else if (next === 'messages') {
+        document.body.classList.add('dock-view-messages');
+        const panel = document.getElementById('dock-messages');
+        if (panel) panel.classList.remove('hidden');
+        window.dockMessagesContent();
+        window.setDockHeader('Сообщения', 'Чаты и поддержка', true);
+        if (mobileTabs) mobileTabs.classList.add('hidden');
+        window.clearRailTabActive();
+    } else if (next === 'help') {
+        document.body.classList.add('dock-view-help');
+        const panel = document.getElementById('dock-help');
+        if (panel) panel.classList.remove('hidden');
+        window.setDockHeader('Помощь', 'Поддержка и FAQ', false);
+        if (mobileTabs) mobileTabs.classList.remove('hidden');
+        window.__sidebarTab = 'help';
+        window.clearRailTabActive();
+        const railHelp = document.getElementById('rail-help');
+        const tabHelp = document.getElementById('tab-help');
+        if (railHelp) { railHelp.classList.add('is-active'); railHelp.setAttribute('aria-current', 'page'); }
+        if (tabHelp) tabHelp.className = 'ui-tab ui-tab--main is-active';
+        window.switchHelpTab(window.__helpTab || 'support');
     } else {
         if (mobileTabs) mobileTabs.classList.remove('hidden');
         window.__sidebarTab = next;
@@ -1915,9 +1978,15 @@ window.closeDockViewer = function() {
         if (window.collapsePlayerAnalyzers) window.collapsePlayerAnalyzers();
         window.__skipAnalyzerViewRestore = false;
     }
+    if (window.__dockView === 'messages' && window.closeMessagesModal) {
+        window.__skipMessagesDockClose = true;
+        window.closeMessagesModal();
+        window.__skipMessagesDockClose = false;
+    }
     window.undockDetailsContent();
     window.undockSettingsContent();
     window.undockCabinetContent();
+    window.undockMessagesContent();
     const m = document.getElementById('details-modal');
     if (m) {
         m.classList.add('opacity-0', 'pointer-events-none', 'hidden');
@@ -1928,11 +1997,13 @@ window.closeDockViewer = function() {
     if (settingsModal) settingsModal.classList.add('hidden', 'opacity-0', 'pointer-events-none');
     const cabinetModal = document.getElementById('cabinet-modal');
     if (cabinetModal) cabinetModal.classList.add('hidden', 'opacity-0', 'pointer-events-none');
+    const messagesModal = document.getElementById('messages-modal');
+    if (messagesModal) messagesModal.classList.add('hidden', 'opacity-0', 'pointer-events-none');
     window.openDockView(window.__sidebarTab || 'library');
 };
 
 window.switchSidebarTab = function(tab) {
-    const next = ['library', 'feed', 'expeditions'].includes(tab) ? tab : 'library';
+    const next = ['library', 'feed', 'expeditions', 'help'].includes(tab) ? tab : 'library';
     if (window.analyzersOpen) {
         window.__skipAnalyzerViewRestore = true;
         if (window.collapsePlayerAnalyzers) window.collapsePlayerAnalyzers();
@@ -3590,6 +3661,7 @@ window.hideDockPanel = function() {
     if (backdrop) backdrop.classList.remove('visible');
     const playerCard = document.getElementById('player-card');
     if (playerCard) playerCard.style.marginLeft = '';
+    if (window.clearRailTabActive) window.clearRailTabActive();
 };
 
 window.initDockChrome = function() {
@@ -3601,6 +3673,7 @@ window.initDockChrome = function() {
     document.body.classList.add('dock-is-expanded');
     if (s && s.classList.contains('sidebar-hidden')) {
         document.body.classList.add('dock-is-hidden');
+        if (window.clearRailTabActive) window.clearRailTabActive();
     } else {
         document.body.classList.remove('dock-is-hidden');
     }
@@ -3616,16 +3689,16 @@ window.toggleSidebar = function() {
 };
 
 window.toggleSearchBar = function(forceOpen) {
+    const cluster = document.getElementById('map-search-cluster');
     const toolbar = document.getElementById('map-top-toolbar');
-    const wrap = document.getElementById('sidebar-search-wrap');
     const toggle = document.getElementById('search-toggle-btn');
     const input = document.getElementById('search-input');
-    if (!toolbar || !wrap) return;
+    if (!cluster) return;
     const open = typeof forceOpen === 'boolean'
         ? forceOpen
-        : wrap.classList.contains('hidden');
-    wrap.classList.toggle('hidden', !open);
-    toolbar.classList.toggle('is-search-open', open);
+        : !cluster.classList.contains('is-open');
+    cluster.classList.toggle('is-open', open);
+    if (toolbar) toolbar.classList.toggle('is-search-open', open);
     if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (open) {
         if (input) {
@@ -3634,6 +3707,7 @@ window.toggleSearchBar = function(forceOpen) {
         }
     } else {
         window.clearSearchSuggestions();
+        if (input) input.blur();
     }
 };
 

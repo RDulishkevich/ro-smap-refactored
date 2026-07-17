@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260717d">
-    <link rel="stylesheet" href="./src/glass.css?v=20260717d">
+    <link rel="stylesheet" href="./src/style.css?v=20260717e">
+    <link rel="stylesheet" href="./src/glass.css?v=20260717e">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -71,8 +71,8 @@
         </div>
     </div>
 
-    <!-- UI Слои -->
-        <div class="absolute inset-0 pointer-events-none z-10 w-full h-full overflow-x-hidden overflow-y-visible">
+        <!-- UI Слои: overflow-hidden — иначе overflow-x:hidden принудительно включает scroll по Y и сдвигает весь chrome -->
+        <div class="absolute inset-0 pointer-events-none z-10 w-full h-full overflow-hidden">
 
         <!-- Mobile drawer scrim (same stacking context as #sidebar) -->
         <div id="sidebar-backdrop" onclick="window.toggleSidebar()" class="fixed inset-0 z-[55] bg-slate-900/40 backdrop-blur-[2px] opacity-0 pointer-events-none transition-opacity duration-300 md:hidden"></div>
@@ -87,7 +87,7 @@
             <div class="app-rail__brand" title="RO.SMap">
                 <i class="fa-solid fa-map-location-dot"></i>
             </div>
-            <button type="button" id="rail-library" class="app-rail__btn is-active" onclick="window.switchSidebarTab('library')" title="Библиотека" aria-current="page">
+            <button type="button" id="rail-library" class="app-rail__btn" onclick="window.switchSidebarTab('library')" title="Библиотека">
                 <i class="fa-solid fa-layer-group"></i>
             </button>
             <button type="button" id="rail-feed" class="app-rail__btn" onclick="window.switchSidebarTab('feed')" title="Лента">
@@ -95,6 +95,9 @@
             </button>
             <button type="button" id="rail-expeditions" class="app-rail__btn" onclick="window.switchSidebarTab('expeditions')" title="Экспедиции">
                 <i class="fa-solid fa-route"></i>
+            </button>
+            <button type="button" id="rail-help" class="app-rail__btn" onclick="window.switchSidebarTab('help')" title="Помощь">
+                <i class="fa-solid fa-circle-question"></i>
             </button>
 
             <div class="app-rail__spacer" aria-hidden="true"></div>
@@ -111,13 +114,6 @@
                         <i class="fa-solid fa-bell"></i>
                         <span id="notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[1rem] h-[1rem] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center shadow">0</span>
                     </button>
-                    <div id="notif-panel" class="hidden absolute left-full bottom-0 ml-2 w-[min(calc(100vw-5rem),22rem)] max-h-[min(70vh,28rem)] overflow-hidden flex flex-col z-[90]">
-                        <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
-                            <h4 class="text-sm font-bold text-slate-800 dark:text-white" data-lang="notifications_title">Уведомления</h4>
-                            <button onclick="window.markAllNotificationsRead()" class="text-[11px] font-semibold text-accent hover:opacity-80 shrink-0 ml-2">Прочитать все</button>
-                        </div>
-                        <div id="notif-list" class="overflow-y-auto custom-scrollbar flex-1 p-2 space-y-1 min-h-0"></div>
-                    </div>
                 </div>
                 <button type="button" onclick="window.openSettingsPanel()" id="settings-btn" class="app-rail__btn" title="Настройки">
                     <i class="fa-solid fa-gear"></i>
@@ -131,18 +127,29 @@
             </div>
         </nav>
 
+        <!-- Notifications popover (outside rail so it is not clipped / glass-bleed) -->
+        <div id="notif-panel" class="notif-panel hidden pointer-events-auto z-[90] flex flex-col overflow-hidden">
+            <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
+                <h4 class="text-sm font-bold text-slate-800 dark:text-white" data-lang="notifications_title">Уведомления</h4>
+                <button onclick="window.markAllNotificationsRead()" class="text-[11px] font-semibold text-accent hover:opacity-80 shrink-0 ml-2">Прочитать все</button>
+            </div>
+            <div id="notif-list" class="overflow-y-auto custom-scrollbar flex-1 p-2 space-y-1 min-h-0"></div>
+        </div>
+
         <!-- Floating top toolbar: search trigger + chips -->
         <div id="map-top-toolbar" class="map-top-toolbar pointer-events-auto z-[50]">
-            <button type="button" id="search-toggle-btn" class="search-toggle-btn" onclick="window.toggleSearchBar(true)" title="Поиск" aria-expanded="false">
-                <i class="fa-solid fa-magnifying-glass pointer-events-none"></i>
-            </button>
-            <div id="sidebar-search-wrap" class="relative flex-1 min-w-0 hidden">
-                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm"></i>
-                <input type="text" id="search-input" data-lang-placeholder="search_placeholder" placeholder="Поиск звуков, ленты, экспедиций…" class="w-full py-2.5 pl-10 pr-10 text-sm focus:outline-none text-slate-800 dark:text-white" autocomplete="off" aria-autocomplete="list" aria-controls="search-suggestions" role="combobox" aria-expanded="false">
-                <button type="button" id="search-close-btn" class="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200" onclick="window.toggleSearchBar(false)" title="Закрыть поиск" aria-label="Закрыть поиск">
-                    <i class="fa-solid fa-xmark pointer-events-none"></i>
+            <div id="map-search-cluster" class="map-search-cluster">
+                <button type="button" id="search-toggle-btn" class="search-toggle-btn" onclick="window.toggleSearchBar(true)" title="Поиск" aria-expanded="false">
+                    <i class="fa-solid fa-magnifying-glass pointer-events-none"></i>
                 </button>
-                <div id="search-suggestions" class="search-suggestions hidden" role="listbox"></div>
+                <div id="sidebar-search-wrap" class="sidebar-search-wrap relative min-w-0">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm z-[1]"></i>
+                    <input type="text" id="search-input" data-lang-placeholder="search_placeholder" placeholder="Поиск звуков, ленты, экспедиций…" class="w-full py-2.5 pl-10 pr-10 text-sm focus:outline-none text-slate-800 dark:text-white" autocomplete="off" aria-autocomplete="list" aria-controls="search-suggestions" role="combobox" aria-expanded="false">
+                    <button type="button" id="search-close-btn" class="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 z-[1]" onclick="window.toggleSearchBar(false)" title="Закрыть поиск" aria-label="Закрыть поиск">
+                        <i class="fa-solid fa-xmark pointer-events-none"></i>
+                    </button>
+                    <div id="search-suggestions" class="search-suggestions hidden" role="listbox"></div>
+                </div>
             </div>
             <div id="active-tags-container" class="map-top-toolbar__tags flex flex-wrap gap-1.5 empty:hidden max-w-[40%] overflow-hidden"></div>
         </div>
@@ -199,6 +206,7 @@
                 <button onclick="window.switchSidebarTab('library')" id="tab-library" class="ui-tab ui-tab--main is-active" data-lang="sidebar_tab_library"><i class="fa-solid fa-layer-group mr-1"></i>Библиотека</button>
                 <button onclick="window.switchSidebarTab('feed')" id="tab-feed" class="ui-tab ui-tab--main" data-lang="sidebar_tab_feed"><i class="fa-solid fa-newspaper mr-1"></i>Лента</button>
                 <button onclick="window.switchSidebarTab('expeditions')" id="tab-expeditions" class="ui-tab ui-tab--main" data-lang="sidebar_tab_expeditions"><i class="fa-solid fa-route mr-1"></i>Экспедиции</button>
+                <button onclick="window.switchSidebarTab('help')" id="tab-help" class="ui-tab ui-tab--main" data-lang="sidebar_tab_help"><i class="fa-solid fa-circle-question mr-1"></i>Помощь</button>
             </div>
 
             <!-- Библиотека: фильтры + список звуков -->
@@ -305,6 +313,79 @@
             <!-- Profile / cabinet (viewer) -->
             <div id="dock-cabinet" class="hidden flex-1 min-h-0 flex flex-col overflow-hidden">
                 <div id="dock-cabinet-host" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar"></div>
+            </div>
+
+            <!-- Messages (viewer) -->
+            <div id="dock-messages" class="hidden flex-1 min-h-0 flex flex-col overflow-hidden">
+                <div id="dock-messages-host" class="flex-1 min-h-0 flex flex-col overflow-hidden"></div>
+            </div>
+
+            <!-- Help: support + FAQ -->
+            <div id="dock-help" class="hidden flex-1 min-h-0 flex flex-col overflow-hidden">
+                <div class="dock-help-tabs flex border-b border-slate-100/80 dark:border-slate-700/50 flex-shrink-0 px-2 gap-1">
+                    <button type="button" id="help-tab-support" class="ui-tab ui-tab--filter is-active" onclick="window.switchHelpTab('support')" data-lang="cab_tab_support">Поддержка</button>
+                    <button type="button" id="help-tab-faq" class="ui-tab ui-tab--filter" onclick="window.switchHelpTab('faq')" data-lang="cab_tab_faq">FAQ</button>
+                </div>
+                <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 space-y-4">
+                    <div id="help-panel-support" class="space-y-4">
+                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-1">Поддержка и помощь</h4>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Если что-то не работает или нужна помощь с картой — напишите нам.</p>
+                            <button onclick="window.contactSupport()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
+                                <i class="fa-solid fa-circle-question"></i>Связаться с поддержкой
+                            </button>
+                        </div>
+                    </div>
+                    <div id="help-panel-faq" class="hidden space-y-4">
+                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-1">Тур по карте</h4>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Короткий обзор интерфейса — библиотека, плеер, фильтры и навигация.</p>
+                            <button onclick="window.restartOnboarding()" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                                <i class="fa-solid fa-compass"></i>Показать тур по карте
+                            </button>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-2">Как добавить новый звук?</h4>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Нажмите на плюс внизу, войдите в аккаунт и заполните форму.</p>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-2">Как фильтровать звуки?</h4>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Откройте боковую панель → «Библиотека»: внутри есть фильтры «Слои», «Теги» и «Параметры».</p>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-2">Что делать, если звук не воспроизводится?</h4>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Проверьте подключение и попробуйте другой звук или браузер.</p>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-2">Нужна ли регистрация?</h4>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Карту можно смотреть без входа, но добавление звуков доступно только авторизованным пользователям.</p>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-2">Можно ли менять тему и стиль карты?</h4>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Да, это доступно в настройках (шестерёнка в левой панели).</p>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-2">Где посмотреть описание записи?</h4>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Откройте карточку звука или нажмите на название в плеере.</p>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-2">Поддерживается ли 360-звук?</h4>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Да, для некоторых записей доступен режим звуковой сферы.</p>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-2">Можно ли пользоваться на телефоне?</h4>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Да, интерфейс адаптирован и под мобильные устройства.</p>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-2">Куда отправить вопрос?</h4>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Откройте вкладку «Поддержка» или напишите через сообщения.</p>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-2">Кто может видеть мои добавленные записи?</h4>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Записи видны всем пользователям карты, а администраторы могут управлять ими.</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -515,15 +596,11 @@
                     </div>
                 </div>
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4">
-                    <button onclick="window.restartOnboarding()" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors mb-2">
-                        <i class="fa-solid fa-compass"></i>
-                        Показать тур по карте
-                    </button>
-                    <button onclick="window.contactSupport()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
+                    <button onclick="window.switchSidebarTab('help')" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
                         <i class="fa-solid fa-circle-question"></i>
-                        Поддержка и помощь
+                        Открыть раздел «Помощь»
                     </button>
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-2 text-center">Если что-то не работает, напишите нам и мы быстро поможем.</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-2 text-center">Поддержка, FAQ и тур по карте — во вкладке «Помощь».</p>
                 </div>
             </div>
         </div>
@@ -570,8 +647,6 @@
                 <button type="button" onclick="window.switchCabinetTab('analytics')" id="cab-tab-analytics" data-cab-tab="analytics" class="cab-tab" data-lang="cab_tab_analytics">Аналитика</button>
                 <button type="button" onclick="window.switchCabinetTab('settings')" id="cab-tab-settings" data-cab-tab="settings" class="cab-tab" data-lang="cab_tab_settings">Настройки</button>
                 <button type="button" onclick="window.switchCabinetTab('security')" id="cab-tab-security" data-cab-tab="security" class="cab-tab" data-lang="cab_tab_security">Сменить пароль</button>
-                <button type="button" onclick="window.switchCabinetTab('support')" id="cab-tab-support" data-cab-tab="support" class="cab-tab" data-lang="cab_tab_support">Поддержка</button>
-                <button type="button" onclick="window.switchCabinetTab('faq')" id="cab-tab-faq" data-cab-tab="faq" class="cab-tab" data-lang="cab_tab_faq">FAQ</button>
                 <button type="button" onclick="window.switchCabinetTab('admin')" id="cab-tab-admin" data-cab-tab="admin" class="cab-tab cab-tab-admin hidden" data-lang="cab_tab_admin">Админ-панель</button>
             </div>
 
@@ -704,62 +779,6 @@
                         <button onclick="window.changePassword()" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-colors shadow-sm">
                             <i class="fa-solid fa-lock"></i>Сохранить новый пароль
                         </button>
-                    </div>
-                </div>
-
-                <div id="cab-panel-support" data-cab-panel="support" class="hidden space-y-4">
-                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
-                        <h4 class="font-bold text-slate-800 dark:text-white mb-1">Поддержка и помощь</h4>
-                        <p class="text-sm text-slate-600 dark:text-slate-300">Если что-то не работает или нужна помощь с картой — откройте окно поддержки.</p>
-                        <button onclick="window.contactSupport()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
-                            <i class="fa-solid fa-circle-question"></i>Открыть поддержку
-                        </button>
-                    </div>
-                </div>
-
-                <div id="cab-panel-faq" data-cab-panel="faq" class="hidden space-y-4">
-                    <div class="mb-2">
-                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500" data-lang="faq_title">Помощь и FAQ</p>
-                    </div>
-                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
-                        <h4 class="font-bold text-slate-800 dark:text-white mb-2">Как добавить новый звук?</h4>
-                        <p class="text-sm text-slate-600 dark:text-slate-300">Нажмите на плюс внизу, войдите в аккаунт и заполните форму.</p>
-                    </div>
-                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
-                        <h4 class="font-bold text-slate-800 dark:text-white mb-2">Как фильтровать звуки?</h4>
-                        <p class="text-sm text-slate-600 dark:text-slate-300">Откройте боковую панель → «Библиотека»: внутри есть фильтры «Слои», «Теги» и «Параметры».</p>
-                    </div>
-                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
-                        <h4 class="font-bold text-slate-800 dark:text-white mb-2">Что делать, если звук не воспроизводится?</h4>
-                        <p class="text-sm text-slate-600 dark:text-slate-300">Проверьте подключение и попробуйте другой звук или браузер.</p>
-                    </div>
-                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
-                        <h4 class="font-bold text-slate-800 dark:text-white mb-2">Нужна ли регистрация?</h4>
-                        <p class="text-sm text-slate-600 dark:text-slate-300">Карту можно смотреть без входа, но добавление звуков доступно только авторизованным пользователям.</p>
-                    </div>
-                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
-                        <h4 class="font-bold text-slate-800 dark:text-white mb-2">Можно ли менять тему и стиль карты?</h4>
-                        <p class="text-sm text-slate-600 dark:text-slate-300">Да, это доступно в отдельном окне настроек.</p>
-                    </div>
-                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
-                        <h4 class="font-bold text-slate-800 dark:text-white mb-2">Где посмотреть описание записи?</h4>
-                        <p class="text-sm text-slate-600 dark:text-slate-300">Откройте карточку звука или нажмите на название в плеере.</p>
-                    </div>
-                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
-                        <h4 class="font-bold text-slate-800 dark:text-white mb-2">Поддерживается ли 360-звук?</h4>
-                        <p class="text-sm text-slate-600 dark:text-slate-300">Да, для некоторых записей доступен режим звуковой сферы.</p>
-                    </div>
-                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
-                        <h4 class="font-bold text-slate-800 dark:text-white mb-2">Можно ли пользоваться на телефоне?</h4>
-                        <p class="text-sm text-slate-600 dark:text-slate-300">Да, интерфейс адаптирован и под мобильные устройства.</p>
-                    </div>
-                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
-                        <h4 class="font-bold text-slate-800 dark:text-white mb-2">Куда отправить вопрос?</h4>
-                        <p class="text-sm text-slate-600 dark:text-slate-300">Используйте кнопку поддержки в профиле или окно помощи.</p>
-                    </div>
-                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
-                        <h4 class="font-bold text-slate-800 dark:text-white mb-2">Кто может видеть мои добавленные записи?</h4>
-                        <p class="text-sm text-slate-600 dark:text-slate-300">Записи видны всем пользователям карты, а администраторы могут управлять ими.</p>
                     </div>
                 </div>
 
@@ -1147,9 +1166,9 @@
     <!-- Модальное окно сообщений -->
     <div id="messages-modal" onmousedown="if(event.target === this) window.requestCloseMessagesModal()" class="fixed inset-0 z-[225] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
         <div id="messages-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel h-[min(92dvh,640px)] flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
-            <div class="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
+            <div class="messages-modal-header p-4 sm:p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
                 <h3 id="messages-modal-title" class="text-lg font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-envelope mr-2 text-blue-500"></i><span data-lang="messages_title">Сообщения</span></h3>
-                <button onclick="window.requestCloseMessagesModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button onclick="window.requestCloseMessagesModal()" class="messages-modal-close text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div id="messages-conversations" class="overflow-y-auto custom-scrollbar flex-1 p-3 space-y-1 min-h-0"></div>
             <div id="messages-thread" class="hidden flex-1 flex flex-col min-h-0">
@@ -1658,7 +1677,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260717d"></script>
+    <script type="module" src="./src/main.js?v=20260717e"></script>
 
 </body>
 </html>
