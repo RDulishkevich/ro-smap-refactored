@@ -1220,7 +1220,10 @@ window.syncCloudData = async function(newCloudData, fileName = "map_data.json") 
                 if (window.clearAuthSession) window.clearAuthSession();
                 if (window.openAuthModal) window.openAuthModal();
             } else {
-                window.showToast("Синхронизация с облаком не удалась.");
+                const detail = (e && (e.message || e.code)) ? String(e.message || e.code) : '';
+                window.showToast(detail && detail.length < 80
+                    ? `Синхронизация не удалась: ${detail}`
+                    : "Синхронизация с облаком не удалась.");
             }
             return false;
         } finally {

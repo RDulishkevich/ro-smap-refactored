@@ -770,14 +770,15 @@ async function handlePresign(event, body) {
             : `uploads/${payload.login}/${safe.split('/').pop()}`;
     }
 
+    // Не подписываем ACL: браузер шлёт только Content-Type, иначе PUT → 403 SignatureMismatch.
+    // В private-бакете объекты и так непубличные по умолчанию.
+    const hostBucket = key.startsWith('staging/') ? PRIVATE_BUCKET : BUCKET;
     const command = new PutObjectCommand({
-        Bucket: key.startsWith('staging/') ? PRIVATE_BUCKET : BUCKET,
+        Bucket: hostBucket,
         Key: key,
-        ContentType: contentType,
-        ACL: key.startsWith('staging/') || key.startsWith('_auth/') ? 'private' : undefined
+        ContentType: contentType
     });
     const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 900 });
-    const hostBucket = key.startsWith('staging/') ? PRIVATE_BUCKET : BUCKET;
     return respond(200, {
         ok: true,
         uploadUrl,
