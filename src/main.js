@@ -1,3 +1,3 @@
-import { bootstrapApp } from './core/bootstrap.js';
+import { bootstrapApp } from './core/bootstrap.js?v=20260717c';
 
 bootstrapApp();

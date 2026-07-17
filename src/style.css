@@ -602,11 +602,17 @@ body.dark-mode .modal-input::placeholder,
     left: var(--chrome-inset);
     bottom: var(--chrome-inset);
     width: var(--rail-w);
+    display: none;
     flex-direction: column;
     align-items: center;
     gap: 0.45rem;
     padding: 0.65rem 0.4rem;
     border-radius: var(--radius-xl, 1.6rem);
+}
+@media (min-width: 768px) {
+    #app-rail.app-rail {
+        display: flex !important;
+    }
 }
 .app-rail__spacer {
     flex: 1 1 auto;

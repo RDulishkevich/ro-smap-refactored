@@ -2597,8 +2597,8 @@ window.openDetailsModal = function() {
         adminBtn.classList.toggle('flex', !!isAdmin);
     }
 
-    // Desktop: open in viewer dock; mobile: classic modal
-    if (window.innerWidth >= 768 && window.openDockView) {
+    // Always open sound card in the left viewer dock (mobile opens the drawer)
+    if (window.openDockView) {
         window.openDockView('details');
         return;
     }
