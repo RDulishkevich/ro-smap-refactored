@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260717i">
-    <link rel="stylesheet" href="./src/glass.css?v=20260717i">
+    <link rel="stylesheet" href="./src/style.css?v=20260717j">
+    <link rel="stylesheet" href="./src/glass.css?v=20260717j">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -573,6 +573,22 @@
                             </span>
                             <span class="palette-card__name" data-lang="palette_sparrow">Хвоя</span>
                         </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="map_provider"><i class="fa-solid fa-layer-group mr-1"></i> Движок карты</label>
+                    <div class="glass-seg mt-1" id="map-provider-seg">
+                        <button type="button" onclick="window.setMapProvider('yandex')" id="map-provider-yandex-btn" class="glass-seg__btn is-active is-active--accent" data-lang="map_provider_yandex">Яндекс</button>
+                        <button type="button" onclick="window.setMapProvider('mapbox')" id="map-provider-mapbox-btn" class="glass-seg__btn" data-lang="map_provider_mapbox">Mapbox 3D</button>
+                    </div>
+                    <div id="mapbox-token-wrap" class="hidden mt-2 space-y-2">
+                        <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="mapbox_token"><i class="fa-solid fa-key mr-1"></i> Mapbox Access Token</label>
+                        <input id="mapbox-token-input" type="password" autocomplete="off" placeholder="pk.eyJ1..." class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-mono text-xs">
+                        <div class="flex gap-2">
+                            <button type="button" onclick="window.saveMapboxToken(document.getElementById('mapbox-token-input')?.value || '')" class="flex-1 px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-900 text-white transition-colors" data-lang="mapbox_token_save">Сохранить токен</button>
+                            <a href="https://account.mapbox.com/access-tokens/" target="_blank" rel="noopener noreferrer" class="px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" data-lang="mapbox_token_get">Получить</a>
+                        </div>
+                        <p class="text-[11px] text-slate-400 leading-relaxed" data-lang="mapbox_token_hint">Нужен публичный токен Mapbox (pk.…). Стиль Standard с 3D-зданиями, рельефом и наклоном камеры.</p>
                     </div>
                 </div>
                 <div>
@@ -1699,7 +1715,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260717i"></script>
+    <script type="module" src="./src/main.js?v=20260717j"></script>
 
 </body>
 </html>

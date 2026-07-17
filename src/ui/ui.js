@@ -3527,9 +3527,16 @@ window.goBackFromAdd = function() {
 window.setMapStyle = function(style, skipSave = false) {
     const mapContainer = document.getElementById('map');
     window.currentMapStyle = style;
-    if(!mapContainer) return;
-    if (style === 'monochrome') mapContainer.classList.add('map-monochrome');
-    else mapContainer.classList.remove('map-monochrome');
+    if (mapContainer) {
+        if (window.currentMapProvider === 'mapbox') {
+            mapContainer.classList.remove('map-monochrome');
+            if (window.applyMapboxBasemapConfig) window.applyMapboxBasemapConfig();
+        } else if (style === 'monochrome') {
+            mapContainer.classList.add('map-monochrome');
+        } else {
+            mapContainer.classList.remove('map-monochrome');
+        }
+    }
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('mapStyle', style);
     if (window.refreshSettingsUI) window.refreshSettingsUI();
 }
@@ -3650,6 +3657,9 @@ window.setTheme = function(theme, skipSave = false) {
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('theme', theme);
     if (window.refreshSettingsUI) window.refreshSettingsUI();
     if (window.refreshAnalyzersTheme) window.refreshAnalyzersTheme();
+    if (window.currentMapProvider === 'mapbox' && window.applyMapboxBasemapConfig) {
+        window.applyMapboxBasemapConfig();
+    }
 };
 
 window.setColorPalette = function(palette, skipSave = false) {

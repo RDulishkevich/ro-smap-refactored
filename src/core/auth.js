@@ -837,6 +837,7 @@ export function initAuth() {
         if(s.theme) window.setTheme(s.theme, true);
         if(s.palette && window.setColorPalette) window.setColorPalette(s.palette, true);
         if(s.mapStyle) window.setMapStyle(s.mapStyle, true);
+        if(s.mapProvider && window.setMapProvider) window.setMapProvider(s.mapProvider, true);
         if(s.lang) window.setLanguage(s.lang, true);
         if(s.guiScale) window.changeGUISize(s.guiScale, true);
         if (typeof s.uiSounds === 'boolean' && window.setUiSoundsEnabled) {
@@ -971,6 +972,20 @@ export function initAuth() {
             const isMono = window.currentMapStyle === 'monochrome';
             mapNormalBtn.className = isMono ? 'glass-seg__btn' : 'glass-seg__btn is-active is-active--accent';
             mapMonoBtn.className = isMono ? 'glass-seg__btn is-active is-active--accent' : 'glass-seg__btn';
+        }
+
+        const mapYandexBtn = document.getElementById('map-provider-yandex-btn');
+        const mapMapboxBtn = document.getElementById('map-provider-mapbox-btn');
+        if (mapYandexBtn && mapMapboxBtn) {
+            const isMapbox = window.currentMapProvider === 'mapbox';
+            mapYandexBtn.className = isMapbox ? 'glass-seg__btn' : 'glass-seg__btn is-active is-active--accent';
+            mapMapboxBtn.className = isMapbox ? 'glass-seg__btn is-active is-active--accent' : 'glass-seg__btn';
+        }
+        const tokenWrap = document.getElementById('mapbox-token-wrap');
+        if (tokenWrap) tokenWrap.classList.toggle('hidden', window.currentMapProvider !== 'mapbox');
+        const tokenInput = document.getElementById('mapbox-token-input');
+        if (tokenInput && window.getMapboxToken && !tokenInput.matches(':focus')) {
+            tokenInput.value = window.getMapboxToken() || '';
         }
 
         if (langSelect) {

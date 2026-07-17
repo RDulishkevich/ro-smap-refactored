@@ -34,6 +34,14 @@ export function initGlobalState() {
     window.currentTheme = 'light';
     window.currentPalette = 'coral';
     window.currentMapStyle = 'normal';
+    window.currentMapProvider = 'yandex';
+    window.MAPBOX_ACCESS_TOKEN = '';
+    try {
+        const savedProvider = localStorage.getItem('rosmap_map_provider');
+        if (savedProvider === 'mapbox' || savedProvider === 'yandex') {
+            window.currentMapProvider = savedProvider;
+        }
+    } catch (_) {}
     window.mockInterval = null;
     window.simulatedTime = 0;
     window.simulatedDuration = 120;

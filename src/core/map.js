@@ -63,13 +63,88 @@ window.createMapMarkerFromContext = function() {
     if (window.toggleAddModal) window.toggleAddModal(false, window.tempAddCoords);
 };
 
+window.destroyYandexMap = function() {
+    if (window.markerCache) {
+        window.markerCache.forEach((placemark) => {
+            try {
+                if (window.map?.geoObjects) window.map.geoObjects.remove(placemark);
+            } catch (_) {}
+        });
+        window.markerCache.clear();
+    }
+    if (window.map && typeof window.map.destroy === 'function') {
+        try { window.map.destroy(); } catch (_) {}
+    }
+};
+
+window.destroyMainMap = function() {
+    if (window.clearMapRoutes) window.clearMapRoutes();
+    if (window.hideMarkerHoverCard) window.hideMarkerHoverCard(true);
+    if (window.hideMapContextMenu) window.hideMapContextMenu();
+    if (window.destroyMapboxMap) window.destroyMapboxMap();
+    window.destroyYandexMap();
+    window.map = null;
+    window.__mainMapReady = false;
+    const container = document.getElementById('map');
+    if (container) {
+        container.innerHTML = '';
+        container.classList.remove('is-mapbox');
+        container.__longPressBound = false;
+    }
+};
+
+window.startMainMap = function() {
+    const provider = window.currentMapProvider === 'mapbox' ? 'mapbox' : 'yandex';
+    if (provider === 'mapbox') {
+        if (window.initMapboxMap) window.initMapboxMap();
+        return;
+    }
+    if (typeof ymaps !== 'undefined') ymaps.ready(window.initYandexMap);
+};
+
+window.remountMainMap = function() {
+    window.destroyMainMap();
+    window.startMainMap();
+};
+
+window.setMapProvider = function(provider, skipSave = false) {
+    const next = provider === 'mapbox' ? 'mapbox' : 'yandex';
+    const prev = window.currentMapProvider === 'mapbox' ? 'mapbox' : 'yandex';
+    window.currentMapProvider = next;
+    try { localStorage.setItem('rosmap_map_provider', next); } catch (_) {}
+
+    const tokenWrap = document.getElementById('mapbox-token-wrap');
+    if (tokenWrap) tokenWrap.classList.toggle('hidden', next !== 'mapbox');
+
+    if (!skipSave && window.saveUserSettings) window.saveUserSettings('mapProvider', next);
+    if (window.refreshSettingsUI) window.refreshSettingsUI();
+
+    if (!skipSave && prev !== next) {
+        window.remountMainMap();
+    }
+};
+
 window.initMap = function() {
+    window.startMainMap();
+};
+
+window.initYandexMap = function() {
     if (typeof ymaps === 'undefined') return;
+    const container = document.getElementById('map');
+    if (container) {
+        container.innerHTML = '';
+        container.classList.remove('is-mapbox');
+    }
     window.map = new ymaps.Map('map', { center: [47.23371, 39.74427], zoom: 15, controls: ['zoomControl'] });
+    if (container) {
+        if (window.currentMapStyle === 'monochrome') container.classList.add('map-monochrome');
+        else container.classList.remove('map-monochrome');
+    }
     window.walkerLayout = ymaps.templateLayoutFactory.createClass(
         '<div class="walker-marker $[properties.colorClass]"><i class="fa-solid fa-person-walking"></i></div>'
     );
     window.updateMapMarkers();
+    window.__mainMapReady = true;
 
     window.map.events.add('contextmenu', function (e) {
         const coords = e.get('coords');
@@ -152,6 +227,11 @@ window.positionMarkerHoverCard = function() {
     const card = document.getElementById('marker-hover-card');
     if (!card || !window.map || !window.__markerHoverCoords) return;
 
+    if (window.mapboxMap && window.currentMapProvider === 'mapbox') {
+        if (window.positionMapboxHoverCard) window.positionMapboxHoverCard();
+        return;
+    }
+
     try {
         const projection = window.map.options.get('projection');
         const zoom = window.map.getZoom();
@@ -231,11 +311,19 @@ window.bindMarkerHover = function(placemark, soundId) {
 };
 
 window.mapSetView = function(lat, lng, zoom = 15) {
+    if (window.currentMapProvider === 'mapbox' && window.mapboxMap) {
+        if (window.mapboxSetView) window.mapboxSetView(lat, lng, zoom);
+        return;
+    }
     if (!window.map) return;
     window.map.setCenter([lat, lng], zoom, { duration: 800 });
 };
 
 window.mapAddRouteOverlay = function(route, colorClass) {
+    if (window.currentMapProvider === 'mapbox') {
+        if (window.mapboxAddRouteOverlay) window.mapboxAddRouteOverlay(route, colorClass);
+        return;
+    }
     window.clearMapRoutes();
     if (!window.map || !route || route.length < 2 || typeof ymaps === 'undefined') return;
 
@@ -254,6 +342,11 @@ window.mapAddRouteOverlay = function(route, colorClass) {
 };
 
 window.setWalkerPosition = function(coords) {
+    if (window.walkerMapboxMarker && coords) {
+        const ll = window.toLngLat ? window.toLngLat(coords) : [coords[1], coords[0]];
+        if (ll) window.walkerMapboxMarker.setLngLat(ll);
+        return;
+    }
     if (!window.walkerMarker || !coords || !window.walkerMarker.geometry) return;
     window.walkerMarker.geometry.setCoordinates(coords);
 };
@@ -284,9 +377,15 @@ window.initMapLongPress = function() {
             if (moved || !window.map) return;
             let coords;
             try {
-                const projection = window.map.options.get('projection');
-                const globalPixels = window.map.converter.pageToGlobal([start.pageX, start.pageY]);
-                coords = projection.fromGlobalPixels(globalPixels, window.map.getZoom());
+                if (window.mapboxMap && window.currentMapProvider === 'mapbox') {
+                    const rect = container.getBoundingClientRect();
+                    const point = window.mapboxMap.unproject([start.x - rect.left, start.y - rect.top]);
+                    coords = [point.lat, point.lng];
+                } else {
+                    const projection = window.map.options.get('projection');
+                    const globalPixels = window.map.converter.pageToGlobal([start.pageX, start.pageY]);
+                    coords = projection.fromGlobalPixels(globalPixels, window.map.getZoom());
+                }
             } catch (_) { return; }
             if (navigator.vibrate) navigator.vibrate(15);
             window.showMapContextMenu(coords, { clientX: start.x, clientY: start.y, pageX: start.pageX, pageY: start.pageY });
@@ -533,7 +632,11 @@ window.placeLocationPickerMarker = function(coords) {
 }
 
 window.updateMapMarkers = function() {
-    if (!window.map) return;
+    if (window.currentMapProvider === 'mapbox') {
+        if (window.updateMapboxMarkers) window.updateMapboxMarkers();
+        return;
+    }
+    if (!window.map || typeof ymaps === 'undefined') return;
 
     const filtered = window.getFilteredSounds ? window.getFilteredSounds() : window.soundsData || [];
     const currentActiveId = window.currentPlayingId;
@@ -634,6 +737,15 @@ window.getPointAlongRoute = function(route, ratio) {
 }
 
 window.clearMapRoutes = function() {
-    if (window.activePolyline && window.map) { window.map.geoObjects.remove(window.activePolyline); window.activePolyline = null; }
-    if (window.walkerMarker && window.map) { window.map.geoObjects.remove(window.walkerMarker); window.walkerMarker = null; }
+    if (window.mapboxMap || window.walkerMapboxMarker || (window.activePolyline && window.activePolyline.__mapbox)) {
+        if (window.clearMapboxRoutes) window.clearMapboxRoutes();
+    }
+    if (window.activePolyline && window.map?.geoObjects && !window.activePolyline.__mapbox) {
+        try { window.map.geoObjects.remove(window.activePolyline); } catch (_) {}
+        window.activePolyline = null;
+    }
+    if (window.walkerMarker && window.map?.geoObjects && !window.walkerMapboxMarker) {
+        try { window.map.geoObjects.remove(window.walkerMarker); } catch (_) {}
+        window.walkerMarker = null;
+    }
 }

@@ -1,12 +1,13 @@
-import { initGlobalState } from './state.js?v=20260717i';
-import { initAuth } from './auth.js?v=20260717i';
+import { initGlobalState } from './state.js?v=20260717j';
+import { initAuth } from './auth.js?v=20260717j';
 
-import '../ui/ui.js?v=20260717i';
-import './sfx.js?v=20260717i';
-import './audio.js?v=20260717i';
-import './map.js?v=20260717i';
-import './guessr.js?v=20260717i';
-import '../widgets/analytics-widget.js?v=20260717i';
+import '../ui/ui.js?v=20260717j';
+import './sfx.js?v=20260717j';
+import './audio.js?v=20260717j';
+import './map.js?v=20260717j';
+import './mapbox-map.js?v=20260717j';
+import './guessr.js?v=20260717j';
+import '../widgets/analytics-widget.js?v=20260717j';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;
@@ -128,7 +129,9 @@ export function bootstrapApp() {
             });
         }
 
-        if (typeof window.initMap === 'function' && typeof ymaps !== 'undefined') {
+        if (typeof window.startMainMap === 'function') {
+            window.startMainMap();
+        } else if (typeof window.initMap === 'function' && typeof ymaps !== 'undefined') {
             ymaps.ready(window.initMap);
         }
     });
