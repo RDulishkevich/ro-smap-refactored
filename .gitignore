@@ -4,6 +4,8 @@
 # Cloud Function deps / build artifacts
 cloud/api/node_modules/
 cloud/*.zip
+cloud/backups/
 .env
 .env.*
 !.env.example
+

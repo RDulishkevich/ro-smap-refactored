@@ -2,7 +2,8 @@
  * RO.SMap Secure API — Yandex Cloud Function
  *
  * Env:
- *   BUCKET            — Object Storage bucket (default rosmap2026)
+ *   BUCKET            — public Object Storage bucket (default rosmap2026)
+ *   PRIVATE_BUCKET    — private bucket for _auth/ and staging/ (default rosmap2026-private)
  *   AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY — static keys with write access
  *   STORAGE_ENDPOINT  — https://storage.yandexcloud.net
  *   JWT_SECRET        — long random string for session tokens
@@ -10,7 +11,7 @@
  *   ALLOWED_ORIGIN    — CORS origin (default *)
  *
  * Actions (POST JSON { action, ... }):
- *   health | register | login | changePassword | me | sync | presign
+ *   health | register | login | changePassword | me | sync | commit | presign
  */
 
 const crypto = require('crypto');
@@ -18,6 +19,7 @@ const { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } = re
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 const BUCKET = process.env.BUCKET || 'rosmap2026';
+const PRIVATE_BUCKET = process.env.PRIVATE_BUCKET || 'rosmap2026-private';
 const ENDPOINT = process.env.STORAGE_ENDPOINT || 'https://storage.yandexcloud.net';
 const JWT_SECRET = process.env.JWT_SECRET || '';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
@@ -26,6 +28,11 @@ const AUTH_KEY = '_auth/users.json';
 const ALLOWED_JSON = new Set(['map_data.json', 'profiles.json', 'feed.json']);
 const MEDIA_PREFIXES = ['uploads/', 'audio/', 'images/'];
 const TOKEN_TTL_SEC = 60 * 60 * 24 * 14; // 14 days
+
+function bucketForKey(key) {
+    if (key.startsWith('_auth/') || key.startsWith('staging/')) return PRIVATE_BUCKET;
+    return BUCKET;
+}
 
 const s3 = new S3Client({
     region: 'ru-central1',
@@ -152,7 +159,7 @@ async function streamToString(stream) {
 
 async function getJson(key, fallback) {
     try {
-        const res = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+        const res = await s3.send(new GetObjectCommand({ Bucket: bucketForKey(key), Key: key }));
         const text = await streamToString(res.Body);
         const data = JSON.parse(text || 'null');
         return data == null ? fallback : data;
@@ -162,13 +169,18 @@ async function getJson(key, fallback) {
     }
 }
 
-async function putJson(key, data) {
-    await s3.send(new PutObjectCommand({
-        Bucket: BUCKET,
+async function putJson(key, data, { privateObject = false } = {}) {
+    const bucket = bucketForKey(key);
+    const params = {
+        Bucket: bucket,
         Key: key,
         Body: Buffer.from(JSON.stringify(data), 'utf8'),
         ContentType: 'application/json; charset=utf-8'
-    }));
+    };
+    if (privateObject || bucket === PRIVATE_BUCKET || key.startsWith('_auth/') || key.startsWith('staging/')) {
+        params.ACL = 'private';
+    }
+    await s3.send(new PutObjectCommand(params));
 }
 
 async function loadAuthUsers() {
@@ -177,7 +189,7 @@ async function loadAuthUsers() {
 }
 
 async function saveAuthUsers(users) {
-    await putJson(AUTH_KEY, users);
+    await putJson(AUTH_KEY, users, { privateObject: true });
 }
 
 async function ensureAdminUser(users) {
@@ -724,7 +736,10 @@ async function handleCommit(event, body) {
     });
 
     try {
-        await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: stagingKey }));
+        await s3.send(new DeleteObjectCommand({
+            Bucket: PRIVATE_BUCKET,
+            Key: stagingKey
+        }));
     } catch (_) {}
 
     return result;
@@ -756,15 +771,17 @@ async function handlePresign(event, body) {
     }
 
     const command = new PutObjectCommand({
-        Bucket: BUCKET,
+        Bucket: key.startsWith('staging/') ? PRIVATE_BUCKET : BUCKET,
         Key: key,
-        ContentType: contentType
+        ContentType: contentType,
+        ACL: key.startsWith('staging/') || key.startsWith('_auth/') ? 'private' : undefined
     });
     const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 900 });
+    const hostBucket = key.startsWith('staging/') ? PRIVATE_BUCKET : BUCKET;
     return respond(200, {
         ok: true,
         uploadUrl,
-        publicUrl: `${ENDPOINT}/${BUCKET}/${key}`,
+        publicUrl: `${ENDPOINT}/${hostBucket}/${key}`,
         key
     });
 }

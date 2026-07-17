@@ -13,14 +13,16 @@
 | `me` | JWT | проверка сессии / refresh |
 | `changePassword` | JWT | смена пароля |
 | `sync` | JWT | GET→merge→sanitize→PUT JSON |
-| `presign` | JWT | presigned PUT только для `uploads/{login}/...` |
+| `presign` | JWT | presigned PUT для `uploads/{login}/...` и `staging/{login}/...` |
+| `commit` | JWT | взять staging → merge → sanitize → PUT публичный JSON |
 
-Хеши паролей хранятся в бакете в ключе `_auth/users.json` (сделайте объект **private**).
+Хеши паролей и staging живут в **приватном** бакете `rosmap2026-private` (`_auth/users.json`, `staging/...`). Публичный бакет `rosmap2026` — только каталог (map/profiles/feed) и медиа.
 
 ## Переменные окружения функции
 
 ```
 BUCKET=rosmap2026
+PRIVATE_BUCKET=rosmap2026-private
 STORAGE_ENDPOINT=https://storage.yandexcloud.net
 AWS_ACCESS_KEY_ID=...
 AWS_SECRET_ACCESS_KEY=...
@@ -31,10 +33,9 @@ ALLOWED_ORIGIN=*
 
 ## Деплой (консоль или CLI)
 
-1. Создайте статический ключ доступа сервисного аккаунта с ролями:
-   - `storage.editor` на бакет `rosmap2026`
-2. В бакете ограничьте публичную запись (публичное чтение JSON можно оставить).
-3. Загрузите объект `_auth/users.json` как **private** (после первого логина админа файл создастся сам).
+1. Создайте статический ключ доступа сервисного аккаунта с ролями `storage.editor` на оба бакета: `rosmap2026` и `rosmap2026-private`.
+2. Публичный бакет: анонимное чтение JSON; запись только через SA/API.
+3. Приватный бакет: без публичного доступа; `_auth/` и `staging/` только для SA.
 4. Упакуйте функцию:
 
 ```bash

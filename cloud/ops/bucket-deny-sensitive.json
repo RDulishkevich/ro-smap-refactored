@@ -1,0 +1,19 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowPublicReadAll",
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::rosmap2026/*"
+    },
+    {
+      "Sid": "AllowServiceAccountFullObjectAccess",
+      "Effect": "Allow",
+      "Principal": { "CanonicalUser": "aje8erq6r8nblo8bcij1" },
+      "Action": "s3:*",
+      "Resource": ["arn:aws:s3:::rosmap2026", "arn:aws:s3:::rosmap2026/*"]
+    }
+  ]
+}
