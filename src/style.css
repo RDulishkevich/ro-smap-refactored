@@ -806,6 +806,22 @@ body.dock-view-analyzers .dock-header {
     justify-content: center;
     transition: color var(--dur, 200ms) var(--ease-out), background var(--dur, 200ms) var(--ease-out), border-color var(--dur, 200ms) var(--ease-out);
     cursor: pointer;
+    overflow: hidden;
+    padding: 0;
+}
+.profile-btn-avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+#profile-btn.has-avatar,
+#profile-btn-mobile.has-avatar {
+    border-color: rgba(20, 20, 20, 0.08);
+}
+#profile-btn.has-avatar .profile-btn-icon,
+#profile-btn-mobile.has-avatar .profile-btn-icon {
+    display: none;
 }
 .app-rail__btn:hover { color: var(--ink, #141414); background: rgba(20, 20, 20, 0.05); }
 .app-rail__btn.is-active {
@@ -2375,7 +2391,7 @@ textarea.modal-input {
 /* --- ?????? ???????? ???????????? --- */
 .activity-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.5rem;
     padding: 0.55rem 0.7rem;
     border-radius: 0.75rem;
@@ -2975,6 +2991,9 @@ textarea.modal-input {
     body.dock-view-cabinet.cab-mobile-home #dock-mobile-logout { display: inline-flex !important; }
     body.dock-view-cabinet:not(.cab-mobile-home) #dock-mobile-logout { display: none !important; }
     body.dock-view-cabinet.cab-mobile-home .dock-header button[onclick*="hideDockPanel"] {
+        display: inline-flex !important;
+    }
+    #tab-help {
         display: none !important;
     }
     body.dock-view-cabinet #cab-panel-sounds .grid.grid-cols-2 {

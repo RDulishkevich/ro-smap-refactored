@@ -157,6 +157,7 @@ export function initAuth() {
         if (window.refreshNotificationsUI) window.refreshNotificationsUI();
         if (window.refreshMessagesUI) window.refreshMessagesUI();
         if (window.syncAccountChrome) window.syncAccountChrome();
+        if (window.refreshProfileButtonAvatar) window.refreshProfileButtonAvatar();
         const panel = document.getElementById('notif-panel');
         if (panel) panel.classList.add('hidden');
     };
@@ -186,7 +187,8 @@ export function initAuth() {
         if (login !== 'admin') {
             window.currentUser.role = profile.role === 'admin' ? 'admin' : 'user';
         }
-        if (profile.avatar && !window.currentUser.avatar) window.currentUser.avatar = profile.avatar;
+        if (profile.avatar) window.currentUser.avatar = profile.avatar;
+        if (profile.displayName) window.currentUser.username = profile.displayName;
 
         if (window.currentUser.blocked && login !== 'admin') {
             window.currentUser = null;
@@ -197,6 +199,7 @@ export function initAuth() {
         if (window.refreshNotificationsUI) window.refreshNotificationsUI();
         if (window.refreshMessagesUI) window.refreshMessagesUI();
         if (window.__sidebarTab === 'feed' && window.renderSidebarFeed) window.renderSidebarFeed();
+        if (window.refreshProfileButtonAvatar) window.refreshProfileButtonAvatar();
     };
 
     // Единая точка сохранения профиля: патчит currentUser переданными полями и апсертит
@@ -829,6 +832,15 @@ export function initAuth() {
                     fromName: window.currentUser.username
                 });
             }
+            if (newlyAdded.length && window.logUserActivity) {
+                newlyAdded.forEach(p => {
+                    window.logUserActivity({
+                        type: 'expedition_join',
+                        text: `Стал участником экспедиции «${title}»`,
+                        sessionId: sessionObj.id
+                    }, p);
+                });
+            }
         } else {
             window.showToast('Не удалось сохранить экспедицию');
         }
@@ -931,7 +943,11 @@ export function initAuth() {
         if (isHome) {
             if (logout) logout.classList.remove('hidden');
             if (back) back.classList.add('hidden');
-            if (closeBtn) closeBtn.classList.add('hidden');
+            if (closeBtn) {
+                closeBtn.classList.remove('hidden');
+                closeBtn.onclick = () => window.hideDockPanel && window.hideDockPanel();
+                closeBtn.setAttribute('aria-label', 'Закрыть');
+            }
         } else {
             if (logout) logout.classList.add('hidden');
             if (closeBtn) closeBtn.classList.add('hidden');
@@ -1130,8 +1146,13 @@ export function initAuth() {
             window.currentUser = window.currentUser || {};
             if (window.saveMyProfile) window.saveMyProfile({ avatar: e.target.result }).then(() => {
                 if (window.evaluateFieldProgress) window.evaluateFieldProgress();
+                if (window.refreshProfileButtonAvatar) window.refreshProfileButtonAvatar();
             });
-            else { window.currentUser.avatar = e.target.result; localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser)); }
+            else {
+                window.currentUser.avatar = e.target.result;
+                localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser));
+                if (window.refreshProfileButtonAvatar) window.refreshProfileButtonAvatar();
+            }
             window.showToast('Фото профиля обновлено');
         };
         reader.readAsDataURL(file);
@@ -1320,6 +1341,7 @@ export function initAuth() {
             if (avatar) avatar.classList.add('hidden');
             if (fallback) fallback.classList.remove('hidden');
         }
+        if (window.refreshProfileButtonAvatar) window.refreshProfileButtonAvatar();
         
         window.refreshCabinetTabs();
         if (window.refreshCabinetProgressChip) window.refreshCabinetProgressChip();
@@ -1912,25 +1934,141 @@ export function initAuth() {
         }
     };
 
-    // Сводка всех действий пользователя для админа: регистрация, метки, комментарии.
+    // Журнал действий пользователя (для админ-сводки). Пишется в profiles.json.
+    window.logUserActivity = async function(entry, targetLogin = null) {
+        const login = targetLogin
+            || (window.currentUser && (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase()));
+        if (!login || !entry || !entry.type) return false;
+        const updated = [...(window.profilesData || [])];
+        let idx = updated.findIndex(p => p.loginName === login);
+        if (idx < 0) {
+            updated.push({ loginName: login, displayName: login, activityLog: [] });
+            idx = updated.length - 1;
+        }
+        const item = {
+            id: 'act' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+            date: entry.date || new Date().toISOString(),
+            type: entry.type,
+            text: entry.text || '',
+            soundId: entry.soundId || null,
+            sessionId: entry.sessionId || null,
+            questId: entry.questId || null
+        };
+        const log = [item, ...((updated[idx].activityLog || []))].slice(0, 200);
+        updated[idx] = { ...updated[idx], activityLog: log };
+        return await window.syncProfilesData(updated);
+    };
+
+    // Сводка всех действий пользователя для админа.
     window.getUserActivity = function(login) {
         const profile = window.getProfileByLogin ? window.getProfileByLogin(login) : null;
+        const events = [];
+        const push = (e) => {
+            if (!e || !e.type) return;
+            events.push({
+                type: e.type,
+                text: e.text || '',
+                date: e.date || e.createdAt || null,
+                soundId: e.soundId || null,
+                sessionId: e.sessionId || null,
+                questId: e.questId || null
+            });
+        };
+
+        (profile?.activityLog || []).forEach(push);
+
         const sounds = (window.soundsData || []).filter(s => window.matchesRecordist(s, login, profile?.displayName));
-        const comments = [];
+        sounds.forEach(s => {
+            push({
+                type: 'sound_add',
+                text: `Добавил запись «${s.title}»`,
+                date: s.createdAt || s.date || null,
+                soundId: s.id
+            });
+        });
+
         (window.soundsData || []).forEach(s => {
             (s.comments || []).forEach(c => {
                 if (c.authorId === login) {
-                    comments.push({ id: c.id, text: c.text, date: c.date, createdAt: c.createdAt, soundId: s.id, soundTitle: s.title, kind: 'comment' });
+                    push({
+                        type: 'comment',
+                        text: `Написал комментарий к «${s.title}»: «${c.text}»`,
+                        date: c.createdAt || c.date || null,
+                        soundId: s.id
+                    });
                 }
                 (c.replies || []).forEach(r => {
                     if (r.authorId === login) {
-                        comments.push({ id: r.id, text: r.text, date: r.date, createdAt: r.createdAt, soundId: s.id, soundTitle: s.title, kind: 'reply' });
+                        push({
+                            type: 'reply',
+                            text: `Ответил в «${s.title}»: «${r.text}»`,
+                            date: r.createdAt || r.date || null,
+                            soundId: s.id
+                        });
                     }
                 });
+                if ((c.reactedBy || []).includes(login)) {
+                    push({
+                        type: 'reaction',
+                        text: `Поставил реакцию на комментарий к «${s.title}»`,
+                        date: null,
+                        soundId: s.id
+                    });
+                }
+            });
+            if ((s.likedBy || []).includes(login)) {
+                push({
+                    type: 'like',
+                    text: `Лайкнул запись «${s.title}»`,
+                    date: null,
+                    soundId: s.id
+                });
+            }
+            if ((s.dislikedBy || []).includes(login)) {
+                push({
+                    type: 'dislike',
+                    text: `Дизлайкнул запись «${s.title}»`,
+                    date: null,
+                    soundId: s.id
+                });
+            }
+        });
+
+        const completed = profile?.progress?.completedQuests || [];
+        completed.forEach(qid => {
+            const q = (window.QUEST_CATALOG || []).find(x => x.id === qid);
+            const title = q && window.locQuestText ? window.locQuestText(q.title) : qid;
+            push({
+                type: 'quest',
+                text: `Выполнил задание «${title}»`,
+                date: null,
+                questId: qid
             });
         });
-        comments.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-        return { profile, sounds, comments };
+
+        const sessions = window.getSessionsForUser ? window.getSessionsForUser(login) : [];
+        sessions.forEach(s => {
+            if (s.roleLabel === 'Участник') {
+                push({
+                    type: 'expedition_join',
+                    text: `Стал участником экспедиции «${s.title}»`,
+                    date: s.updatedAt || s.createdAt || s.date || null,
+                    sessionId: s.id
+                });
+            }
+        });
+
+        // Дедуп: одинаковый type + soundId/sessionId/questId + text
+        const seen = new Set();
+        const unique = [];
+        events.forEach(e => {
+            const key = [e.type, e.soundId || '', e.sessionId || '', e.questId || '', e.text].join('|');
+            if (seen.has(key)) return;
+            seen.add(key);
+            unique.push(e);
+        });
+        unique.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+        return { profile, sounds, events: unique };
     };
 
     window.openUserActivityModal = function(login) {
@@ -1945,40 +2083,63 @@ export function initAuth() {
         if (title) title.textContent = `Сводка: ${p?.displayName || login}`;
 
         const fmt = iso => {
-            if (!iso) return '—';
-            try { return new Date(iso).toLocaleString('ru-RU'); } catch (e) { return String(iso); }
+            if (!iso) return '';
+            try {
+                const d = new Date(iso);
+                if (isNaN(d)) return String(iso);
+                return d.toLocaleString('ru-RU');
+            } catch (e) { return String(iso); }
+        };
+
+        const icons = {
+            sound_add: 'fa-plus text-blue-500',
+            sound_delete: 'fa-trash text-red-500',
+            reply: 'fa-reply text-indigo-500',
+            comment: 'fa-comment text-slate-500',
+            quest: 'fa-trophy text-amber-500',
+            expedition_join: 'fa-route text-emerald-500',
+            like: 'fa-thumbs-up text-blue-500',
+            dislike: 'fa-thumbs-down text-slate-400',
+            reaction: 'fa-heart text-rose-500'
+        };
+
+        const typeLabels = {
+            sound_add: 'Добавил',
+            sound_delete: 'Удалил',
+            reply: 'Ответил',
+            comment: 'Комментарий',
+            quest: 'Задание',
+            expedition_join: 'Экспедиция',
+            like: 'Лайк',
+            dislike: 'Дизлайк',
+            reaction: 'Реакция'
         };
 
         body.innerHTML = `
             <div class="rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-4 space-y-1.5">
                 <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Логин:</span> @${login}</p>
-                <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Регистрация:</span> ${fmt(p?.joinedAt)}</p>
+                <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Регистрация:</span> ${fmt(p?.joinedAt) || '—'}</p>
                 <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Роль:</span> ${p?.role === 'admin' || login === 'admin' ? 'Администратор' : 'Пользователь'}</p>
                 <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Статус:</span> ${p?.blocked ? 'Заблокирован' : 'Активен'}</p>
                 <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Email:</span> ${p?.email ? (p.emailVerified ? p.email + ' ✓' : p.email) : 'не привязан'}</p>
+                <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Действий:</span> ${data.events.length}</p>
             </div>
             <div>
-                <h5 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Метки (${data.sounds.length})</h5>
-                ${data.sounds.length ? data.sounds.map(s => `
-                    <div class="activity-row" onclick="window.closeUserActivityModal(); window.closeCabinet(); window.selectSound('${s.id}');">
+                <h5 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Лента действий</h5>
+                ${data.events.length ? data.events.map(e => {
+                    const clickable = e.soundId
+                        ? `onclick="window.closeUserActivityModal(); window.closeCabinet(); window.selectSound('${e.soundId}'); window.openDetailsModal && window.openDetailsModal();"`
+                        : '';
+                    return `
+                    <div class="activity-row ${e.soundId ? 'cursor-pointer' : ''}" ${clickable}>
+                        <i class="fa-solid ${icons[e.type] || 'fa-circle-info text-slate-400'} shrink-0 mt-0.5"></i>
                         <div class="min-w-0 flex-1">
-                            <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${s.title}</p>
-                            <p class="text-[10px] text-slate-400">${fmt(s.createdAt) !== '—' ? fmt(s.createdAt) : (s.date || '—')} · ${s.status || 'published'}</p>
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${typeLabels[e.type] || e.type}</p>
+                            <p class="text-xs font-semibold text-slate-700 dark:text-slate-200 leading-snug">${e.text}</p>
+                            ${fmt(e.date) ? `<p class="text-[10px] text-slate-400 mt-0.5">${fmt(e.date)}</p>` : ''}
                         </div>
-                    </div>
-                `).join('') : `<p class="text-xs text-slate-400">Меток пока нет</p>`}
-            </div>
-            <div>
-                <h5 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Комментарии и ответы (${data.comments.length})</h5>
-                ${data.comments.length ? data.comments.map(c => `
-                    <div class="activity-row" onclick="window.closeUserActivityModal(); window.closeCabinet(); window.selectSound('${c.soundId}'); window.openDetailsModal();">
-                        <div class="min-w-0 flex-1">
-                            <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${c.kind === 'reply' ? 'Ответ' : 'Комментарий'} · ${c.soundTitle}</p>
-                            <p class="text-[11px] text-slate-500 truncate">«${c.text}»</p>
-                            <p class="text-[10px] text-slate-400">${fmt(c.createdAt) !== '—' ? fmt(c.createdAt) : (c.date || '—')}</p>
-                        </div>
-                    </div>
-                `).join('') : `<p class="text-xs text-slate-400">Комментариев пока нет</p>`}
+                    </div>`;
+                }).join('') : `<p class="text-xs text-slate-400">Действий пока нет</p>`}
             </div>
         `;
 
@@ -3145,11 +3306,35 @@ export function initAuth() {
     };
 
     // --- Настройки профиля (вкладка "Настройки" кабинета) ---
+    window.refreshProfileButtonAvatar = function() {
+        const src = window.currentUser?.avatar || '';
+        const pairs = [
+            ['profile-btn', 'profile-btn-avatar'],
+            ['profile-btn-mobile', 'profile-btn-mobile-avatar']
+        ];
+        pairs.forEach(([btnId, imgId]) => {
+            const btn = document.getElementById(btnId);
+            const img = document.getElementById(imgId);
+            if (!btn || !img) return;
+            if (src) {
+                img.src = src;
+                img.classList.remove('hidden');
+                btn.classList.add('has-avatar');
+            } else {
+                img.removeAttribute('src');
+                img.classList.add('hidden');
+                btn.classList.remove('has-avatar');
+            }
+        });
+    };
+
     window.fillProfileSettingsForm = function() {
         if (!window.currentUser) return;
+        const nameEl = document.getElementById('profile-display-name');
         const bioEl = document.getElementById('profile-bio');
         const gearEl = document.getElementById('profile-gear');
         const linksEl = document.getElementById('profile-links');
+        if (nameEl) nameEl.value = window.currentUser.username || '';
         if (bioEl) bioEl.value = window.currentUser.bio || '';
         if (gearEl) gearEl.value = (window.currentUser.gear || []).join(', ');
         if (linksEl) linksEl.value = (window.currentUser.links || []).join(', ');
@@ -3157,6 +3342,42 @@ export function initAuth() {
         const emailEl = document.getElementById('profile-email');
         if (emailEl) emailEl.value = window.currentUser.email || '';
         window.refreshEmailVerificationUI();
+    };
+
+    window.saveDisplayNameFromSettings = async function() {
+        if (!window.currentUser) return;
+        const name = (document.getElementById('profile-display-name')?.value || '').trim();
+        if (name.length < 2) { window.showToast('Имя слишком короткое'); return; }
+        if (name.length > 40) { window.showToast('Имя слишком длинное'); return; }
+        const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        try {
+            const usersDb = JSON.parse(localStorage.getItem('rosmap_users_db') || '{}');
+            if (usersDb[login]) {
+                usersDb[login].displayName = name;
+                localStorage.setItem('rosmap_users_db', JSON.stringify(usersDb));
+            }
+        } catch (_) {}
+
+        window.showToast('Сохранение имени...');
+        const ok = await window.saveMyProfile({ username: name });
+        if (ok) {
+            (window.soundsData || []).forEach(s => {
+                if (s.recordistId === login) s.recordist = name;
+            });
+            const cloud = [...(window.cloudDataCache || [])];
+            let cloudChanged = false;
+            cloud.forEach((s, i) => {
+                if (s && s.recordistId === login && s.recordist !== name) {
+                    cloud[i] = { ...s, recordist: name };
+                    cloudChanged = true;
+                }
+            });
+            if (cloudChanged && window.syncCloudData) await window.syncCloudData(cloud);
+            if (window.renderCabinet) window.renderCabinet();
+            window.showToast('Имя обновлено');
+        } else {
+            window.showToast('Не удалось сохранить имя');
+        }
     };
 
     window.saveMyProfileFromSettingsForm = async function() {

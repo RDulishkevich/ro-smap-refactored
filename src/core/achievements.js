@@ -379,6 +379,15 @@ window.evaluateFieldProgress = async function(opts = {}) {
     const changed = newlyCompleted.length > 0 || newlyAchieved.length > 0 || opts.guessrScore != null;
     if (changed) {
         await window.persistMyProgress(prog, { silent: true });
+        if (newlyCompleted.length && window.logUserActivity) {
+            newlyCompleted.forEach(q => {
+                window.logUserActivity({
+                    type: 'quest',
+                    text: `Выполнил задание «${window.locQuestText(q.title)}»`,
+                    questId: q.id
+                }, login);
+            });
+        }
         if (newlyCompleted.length && window.showToast) {
             const q = newlyCompleted[0];
             const more = newlyCompleted.length > 1 ? ` (+${newlyCompleted.length - 1})` : '';

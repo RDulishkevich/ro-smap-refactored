@@ -1195,6 +1195,10 @@ window.deleteSoundFromCloud = async function(id) {
         confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
     });
     if(!confirmed) return;
+    const sound = (window.soundsData || []).find(s => s.id === id);
+    const login = window.currentUser
+        ? (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase())
+        : null;
     window.showToast("Удаление...");
     let updatedCloud = [...window.cloudDataCache];
     const rawIds = window.rawSoundsData.map(s => s.id);
@@ -1206,7 +1210,16 @@ window.deleteSoundFromCloud = async function(id) {
         updatedCloud = updatedCloud.filter(s => s.id !== id);
     }
     const success = await window.syncCloudData(updatedCloud);
-    if(success) window.showToast("Звук успешно удален!");
+    if(success) {
+        window.showToast("Звук успешно удален!");
+        if (login && sound && window.logUserActivity) {
+            window.logUserActivity({
+                type: 'sound_delete',
+                text: `Удалил запись «${sound.title || id}»`,
+                soundId: id
+            }, login);
+        }
+    }
 };
 
 // --- Привязка звука к автору и видимость по статусу модерации ---
@@ -2072,6 +2085,7 @@ window.syncAccountChrome = function() {
     const loggedIn = !!window.currentUser;
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) logoutBtn.classList.toggle('hidden', !loggedIn);
+    if (window.refreshProfileButtonAvatar) window.refreshProfileButtonAvatar();
 };
 
 window.renderSidebarFeed = function() {
@@ -3002,6 +3016,16 @@ window.addComment = async function() {
                 soundId: s.id, soundTitle: s.title
             });
         }
+        if (authorId && window.logUserActivity) {
+            window.logUserActivity({
+                type: replyCtx ? 'reply' : 'comment',
+                text: replyCtx
+                    ? `Ответил в «${s.title}»: «${text}»`
+                    : `Написал комментарий к «${s.title}»: «${text}»`,
+                soundId: s.id,
+                date: createdAt
+            }, authorId);
+        }
     }
 }
 
@@ -3131,6 +3155,13 @@ window.toggleCommentReaction = async function(soundId, commentId) {
             soundTitle: s.title
         });
     }
+    if (adding && window.logUserActivity) {
+        window.logUserActivity({
+            type: 'reaction',
+            text: `Поставил реакцию на комментарий к «${s.title}»`,
+            soundId: s.id
+        }, login);
+    }
 };
 
 // Жалоба на метку или на конкретный комментарий — попадает в очередь модерации
@@ -3222,6 +3253,13 @@ window.toggleSoundReaction = async function(kind) {
                 soundTitle: s.title
             });
         }
+    }
+    if (adding && window.logUserActivity) {
+        window.logUserActivity({
+            type: kind === 'like' ? 'like' : 'dislike',
+            text: kind === 'like' ? `Лайкнул запись «${s.title}»` : `Дизлайкнул запись «${s.title}»`,
+            soundId: s.id
+        }, login);
     }
 };
 
@@ -3398,6 +3436,14 @@ window.publishSound = async function(targetStatus = 'pending') {
     if (success) {
         const msg = soundObj.status === 'draft' ? 'Черновик сохранён!' : (isEdit ? 'Изменения сохранены!' : 'Звук отправлен на модерацию!');
         window.showToast(msg);
+        if (!isEdit && soundObj.status !== 'draft' && window.logUserActivity) {
+            window.logUserActivity({
+                type: 'sound_add',
+                text: `Добавил запись «${soundObj.title}»`,
+                soundId: soundObj.id,
+                date: soundObj.createdAt
+            }, login);
+        }
         if (soundObj.status === 'published' && window.notifyFollowersAboutNewSound) {
             window.notifyFollowersAboutNewSound(soundObj);
         }

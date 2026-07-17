@@ -250,6 +250,8 @@ button.app-rail__btn.hidden,
     height: 3rem;
     border-radius: 1.1rem !important;
     color: var(--ink);
+    overflow: hidden;
+    padding: 0;
 }
 .map-icon-btn:hover { color: var(--accent-ink); }
 
