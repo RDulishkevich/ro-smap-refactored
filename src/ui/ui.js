@@ -3542,7 +3542,7 @@ window.toggleDockExpanded = function(forceExpand) {
     if (playerCard) playerCard.style.marginLeft = '';
 };
 
-.window.initDockChrome = function() {
+window.initDockChrome = function() {
     let expanded = false;
     try { expanded = localStorage.getItem('rosmap-dock-expanded') === '1'; } catch (_) {}
     window.toggleDockExpanded(expanded);

@@ -814,7 +814,7 @@ window.syncAnalyzerAnimation = function() {
     }
 };
 
-.window.collapsePlayerAnalyzers = function() {
+window.collapsePlayerAnalyzers = function() {
     const wasAnalyzerView = window.__dockView === 'analyzers';
     window.analyzersOpen = false;
     window.syncAnalyzerAnimation();
