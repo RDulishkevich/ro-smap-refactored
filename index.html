@@ -97,6 +97,26 @@
             <button type="button" id="rail-expeditions" class="app-rail__btn" onclick="window.switchSidebarTab('expeditions')" title="Экспедиции">
                 <i class="fa-solid fa-route"></i>
             </button>
+
+            <div class="app-rail__spacer" aria-hidden="true"></div>
+
+            <div class="app-rail__account flex flex-col items-center gap-1.5">
+                <div class="relative" id="msg-wrap">
+                    <button type="button" onclick="window.toggleMessagesPanel()" id="msg-btn" class="hidden relative app-rail__btn" title="Сообщения" data-lang-title="messages_title">
+                        <i class="fa-solid fa-envelope"></i>
+                        <span id="msg-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[1rem] h-[1rem] px-0.5 rounded-full bg-blue-500 text-white text-[9px] font-bold flex items-center justify-center shadow">0</span>
+                    </button>
+                </div>
+                <button type="button" onclick="window.openSettingsPanel()" id="settings-btn" class="app-rail__btn" title="Настройки">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+                <button type="button" onclick="window.toggleCabinet()" id="profile-btn" class="app-rail__btn app-rail__btn--accent" title="Личный кабинет" data-lang-title="profile_title">
+                    <i class="fa-solid fa-user-astronaut"></i>
+                </button>
+                <button type="button" onclick="window.logoutUser()" id="logout-btn" class="hidden app-rail__btn app-rail__btn--danger" title="Выйти из аккаунта">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
         </nav>
 
         <!-- Floating top toolbar: search + active filter chips -->
@@ -108,12 +128,12 @@
             <div id="active-tags-container" class="map-top-toolbar__tags flex flex-wrap gap-1.5 empty:hidden max-w-[40%] overflow-hidden"></div>
         </div>
 
-        <!-- Top-right cluster -->
+        <!-- Mobile top-right: notifs + account (desktop account lives in #app-rail) -->
         <div id="map-top-right-controls" class="absolute top-4 right-4 md:top-6 md:right-6 pointer-events-auto z-50 flex items-center gap-2 sm:gap-3">
-            <div class="relative" id="msg-wrap">
-                <button onclick="window.toggleMessagesPanel()" id="msg-btn" class="hidden relative map-icon-btn" title="Сообщения" data-lang-title="messages_title">
+            <div class="relative md:hidden" id="msg-wrap-mobile">
+                <button type="button" onclick="window.toggleMessagesPanel()" id="msg-btn-mobile" class="hidden relative map-icon-btn" title="Сообщения" data-lang-title="messages_title">
                     <i class="fa-solid fa-envelope"></i>
-                    <span id="msg-badge" class="hidden absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center shadow">0</span>
+                    <span id="msg-badge-mobile" class="hidden absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center shadow">0</span>
                 </button>
             </div>
             <div class="relative" id="notif-wrap">
@@ -129,10 +149,10 @@
                     <div id="notif-list" class="overflow-y-auto custom-scrollbar flex-1 p-2 space-y-1 min-h-0"></div>
                 </div>
             </div>
-            <button onclick="window.openSettingsPanel()" id="settings-btn" class="map-icon-btn" title="Настройки">
+            <button onclick="window.openSettingsPanel()" id="settings-btn-mobile" class="map-icon-btn md:hidden" title="Настройки">
                 <i class="fa-solid fa-gear"></i>
             </button>
-            <button onclick="window.toggleCabinet()" id="profile-btn" class="map-icon-btn map-icon-btn--accent" title="Личный кабинет" data-lang-title="profile_title">
+            <button onclick="window.toggleCabinet()" id="profile-btn-mobile" class="map-icon-btn map-icon-btn--accent md:hidden" title="Личный кабинет" data-lang-title="profile_title">
                 <i class="fa-solid fa-user-astronaut"></i>
             </button>
         </div>
@@ -141,9 +161,14 @@
         <div id="sidebar" class="sidebar-panel dock-compact sidebar-hidden pointer-events-auto flex flex-col flex-shrink-0 z-[60]">
             <div class="dock-header p-4 pb-3 border-b border-slate-100/80 dark:border-slate-700/50 shrink-0">
                 <div class="flex justify-between items-start gap-2">
-                    <div class="min-w-0">
-                        <h1 class="brand-title text-xl md:text-2xl text-slate-800 dark:text-white truncate" data-lang="title">Ростовская область</h1>
-                        <p class="brand-sub text-xs md:text-sm mt-0.5 flex items-center gap-2" data-lang="subtitle"><i class="fa-solid fa-map-location-dot text-[#ff5a3d]"></i> Audio Map</p>
+                    <div class="min-w-0 flex items-start gap-2">
+                        <button type="button" id="dock-back-btn" onclick="window.closeDockViewer()" class="hidden dock-back-btn shrink-0" title="Назад" aria-label="Назад">
+                            <i class="fa-solid fa-arrow-left text-sm pointer-events-none"></i>
+                        </button>
+                        <div class="min-w-0">
+                            <h1 id="dock-title" class="brand-title text-xl md:text-2xl text-slate-800 dark:text-white truncate" data-lang="title">Ростовская область</h1>
+                            <p id="dock-subtitle" class="brand-sub text-xs md:text-sm mt-0.5 flex items-center gap-2" data-lang="subtitle"><i class="fa-solid fa-map-location-dot text-[#ff5a3d]"></i> Audio Map</p>
+                        </div>
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
                         <button type="button" id="dock-expand-btn" onclick="window.toggleDockExpanded()" class="dock-expand-btn" title="Расширить панель" aria-pressed="false">
@@ -213,6 +238,57 @@
 
             <!-- Экспедиции -->
             <div id="panel-expeditions" class="hidden flex-1 overflow-y-auto custom-scrollbar px-4 py-4 flex flex-col gap-2 min-h-0"></div>
+
+            <!-- Sound details (viewer) -->
+            <div id="dock-details" class="hidden flex-1 min-h-0 flex flex-col overflow-hidden">
+                <div id="dock-details-host" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar"></div>
+            </div>
+
+            <!-- Analyzers (viewer) -->
+            <div id="dock-analyzers" class="hidden flex-1 min-h-0 overflow-y-auto custom-scrollbar p-3 md:p-4">
+                <div id="player-analyzers" class="hidden pointer-events-auto space-y-4">
+                    <div class="flex items-center justify-between px-0.5">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider"><i class="fa-solid fa-wave-square mr-1 text-[#ff5a3d]"></i><span data-lang="analyzers_title">Анализаторы</span></span>
+                        <span class="text-[9px] font-semibold text-slate-400">Спектр · стерео · громкость</span>
+                    </div>
+                    <div class="analyzer-panel analyzer-panel-sky">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[10px] uppercase text-slate-500 font-bold tracking-widest" data-lang="goniometer_title">Гониометр (Стереокартина)</span>
+                            <span id="goniometer-meta" class="text-[9px] font-mono font-semibold text-sky-600 dark:text-sky-400">L / R</span>
+                        </div>
+                        <div class="goniometer-canvas-wrap">
+                            <canvas id="goniometer-canvas" width="260" height="130"></canvas>
+                        </div>
+                        <div id="stereo-panner-row" class="flex items-center gap-2 mt-3">
+                            <span class="text-[9px] font-bold text-slate-400 w-3 text-center">L</span>
+                            <input type="range" id="stereo-panner-slider" min="-1" max="1" step="0.01" value="0" class="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500" oninput="window.setStereoPan(this.value)">
+                            <span class="text-[9px] font-bold text-slate-400 w-3 text-center">R</span>
+                            <span id="panner-value" class="text-[10px] font-mono font-semibold text-sky-600 dark:text-sky-400 w-12 text-right">C</span>
+                        </div>
+                    </div>
+                    <div class="analyzer-panel analyzer-panel-fuchsia">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[10px] uppercase text-slate-500 font-bold tracking-widest" data-lang="frequency_analyzer_title">Спектрограмма</span>
+                            <span class="text-[9px] font-mono font-semibold text-slate-400">Hz · dB→color</span>
+                        </div>
+                        <div class="spectrum-canvas-wrap relative">
+                            <div id="spectrum-freq-axis" class="spectrum-freq-axis" aria-hidden="true"></div>
+                            <canvas id="spectrum-canvas" width="600" height="130"></canvas>
+                        </div>
+                    </div>
+                    <div class="analyzer-panel analyzer-panel-emerald">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[10px] uppercase text-slate-500 font-bold tracking-widest" data-lang="loudness_meter">Loudness Meter</span>
+                            <span id="loudness-db-label" class="text-[10px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">−∞ dB</span>
+                        </div>
+                        <div id="loudness-meter-v" class="loudness-meter-v" aria-hidden="true"></div>
+                        <div class="flex justify-between items-center mt-1.5 px-0.5">
+                            <span class="text-[8px] font-semibold text-slate-400">RMS · Peak hold</span>
+                            <span id="loudness-meter-meta" class="text-[8px] font-mono font-semibold text-slate-400">2 ch</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Плеер: floating contextual card -->
@@ -269,56 +345,6 @@
                         </div>
                         <div id="player-tags" class="flex flex-wrap gap-1.5 mb-1 mt-0.5"></div>
                         <p id="player-gear" class="text-[9px] text-slate-400 font-semibold truncate"><i class="fa-solid fa-walkie-talkie mr-1"></i>Recorder Name</p>
-                    </div>
-                </div>
-
-                <!-- Анализаторы -->
-                <div id="player-analyzers" class="hidden mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 pointer-events-auto space-y-4">
-                    <div class="flex items-center justify-between px-0.5">
-                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider"><i class="fa-solid fa-wave-square mr-1 text-[#ff5a3d]"></i><span data-lang="analyzers_title">Анализаторы</span></span>
-                        <span class="text-[9px] font-semibold text-slate-400">Спектр · стерео · громкость</span>
-                    </div>
-
-                    <!-- Гониометр (Стереокартина / Lissajous) -->
-                    <div class="analyzer-panel analyzer-panel-sky">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-[10px] uppercase text-slate-500 font-bold tracking-widest" data-lang="goniometer_title">Гониометр (Стереокартина)</span>
-                            <span id="goniometer-meta" class="text-[9px] font-mono font-semibold text-sky-600 dark:text-sky-400">L / R</span>
-                        </div>
-                        <div class="goniometer-canvas-wrap">
-                            <canvas id="goniometer-canvas" width="260" height="130"></canvas>
-                        </div>
-                        <div id="stereo-panner-row" class="flex items-center gap-2 mt-3">
-                            <span class="text-[9px] font-bold text-slate-400 w-3 text-center">L</span>
-                            <input type="range" id="stereo-panner-slider" min="-1" max="1" step="0.01" value="0" class="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500" oninput="window.setStereoPan(this.value)">
-                            <span class="text-[9px] font-bold text-slate-400 w-3 text-center">R</span>
-                            <span id="panner-value" class="text-[10px] font-mono font-semibold text-sky-600 dark:text-sky-400 w-12 text-right">C</span>
-                        </div>
-                    </div>
-
-                    <!-- Спектрограмма (Waterfall, iZotope RX style) -->
-                    <div class="analyzer-panel analyzer-panel-fuchsia">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-[10px] uppercase text-slate-500 font-bold tracking-widest" data-lang="frequency_analyzer_title">Спектрограмма</span>
-                            <span class="text-[9px] font-mono font-semibold text-slate-400">Hz · dB→color</span>
-                        </div>
-                        <div class="spectrum-canvas-wrap relative">
-                            <div id="spectrum-freq-axis" class="spectrum-freq-axis" aria-hidden="true"></div>
-                            <canvas id="spectrum-canvas" width="600" height="130"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- Loudness Meter -->
-                    <div class="analyzer-panel analyzer-panel-emerald">
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-[10px] uppercase text-slate-500 font-bold tracking-widest" data-lang="loudness_meter">Loudness Meter</span>
-                            <span id="loudness-db-label" class="text-[10px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">−∞ dB</span>
-                        </div>
-                        <div id="loudness-meter-v" class="loudness-meter-v" aria-hidden="true"></div>
-                        <div class="flex justify-between items-center mt-1.5 px-0.5">
-                            <span class="text-[8px] font-semibold text-slate-400">RMS · Peak hold</span>
-                            <span id="loudness-meter-meta" class="text-[8px] font-mono font-semibold text-slate-400">2 ch</span>
-                        </div>
                     </div>
                 </div>
 

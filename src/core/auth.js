@@ -156,6 +156,7 @@ export function initAuth() {
         if (window.renderSidebarExpeditions) window.renderSidebarExpeditions();
         if (window.refreshNotificationsUI) window.refreshNotificationsUI();
         if (window.refreshMessagesUI) window.refreshMessagesUI();
+        if (window.syncAccountChrome) window.syncAccountChrome();
         const panel = document.getElementById('notif-panel');
         if (panel) panel.classList.add('hidden');
     };
@@ -2119,17 +2120,24 @@ export function initAuth() {
     window.refreshMessagesUI = function() {
         const btn = document.getElementById('msg-btn');
         const badge = document.getElementById('msg-badge');
-        if (!btn) return;
-        if (!window.currentUser) {
-            btn.classList.add('hidden');
-            return;
-        }
-        btn.classList.remove('hidden');
-        const unread = window.getMyInbox().filter(m => !m.read && !m.deleted).length;
-        if (badge) {
-            badge.textContent = unread > 99 ? '99+' : String(unread);
-            badge.classList.toggle('hidden', unread === 0);
-        }
+        const btnMobile = document.getElementById('msg-btn-mobile');
+        const badgeMobile = document.getElementById('msg-badge-mobile');
+        const apply = (b, badgeEl) => {
+            if (!b) return;
+            if (!window.currentUser) {
+                b.classList.add('hidden');
+                return;
+            }
+            b.classList.remove('hidden');
+            const unread = window.getMyInbox().filter(m => !m.read && !m.deleted).length;
+            if (badgeEl) {
+                badgeEl.textContent = unread > 99 ? '99+' : String(unread);
+                badgeEl.classList.toggle('hidden', unread === 0);
+            }
+        };
+        apply(btn, badge);
+        apply(btnMobile, badgeMobile);
+        if (window.syncAccountChrome) window.syncAccountChrome();
     };
 
     window.toggleMessagesPanel = function() {

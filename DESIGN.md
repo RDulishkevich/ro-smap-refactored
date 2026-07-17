@@ -17,11 +17,12 @@
 
 | Zone | Behavior |
 |------|----------|
-| `#app-rail` | Library / Feed / Expeditions (desktop) |
-| `#sidebar` dock | Always visible on `md+`; mobile drawer via burger |
+| `#app-rail` | Top: Library / Feed / Expeditions · Bottom: Messages / Settings / Profile / Logout |
+| `#sidebar` dock | **Viewer window**: library, feed, expeditions, sound details, analyzers |
 | Compact / Expanded | `#dock-expand-btn` + `localStorage` `rosmap-dock-expanded` |
 | `#map-top-toolbar` | Search + active filter chips |
-| `#player-card` | Floating contextual card beside dock |
+| `#map-top-right-controls` | Notifications (desktop); + account on mobile |
+| `#player-card` | Compact playback chrome (analyzers open in dock) |
 | `#fab-add` | Bottom-right on desktop |
 
 ## Tokens

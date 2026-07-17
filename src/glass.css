@@ -137,8 +137,12 @@ body {
 
 .map-icon-btn.hidden,
 button.map-icon-btn.hidden,
+.app-rail__btn.hidden,
+button.app-rail__btn.hidden,
 #msg-btn.hidden,
-#notif-btn.hidden {
+#notif-btn.hidden,
+#logout-btn.hidden,
+#msg-btn-mobile.hidden {
     display: none !important;
 }
 

@@ -814,7 +814,8 @@ window.syncAnalyzerAnimation = function() {
     }
 };
 
-window.collapsePlayerAnalyzers = function() {
+.window.collapsePlayerAnalyzers = function() {
+    const wasAnalyzerView = window.__dockView === 'analyzers';
     window.analyzersOpen = false;
     window.syncAnalyzerAnimation();
 
@@ -828,6 +829,10 @@ window.collapsePlayerAnalyzers = function() {
     if (btn) btn.classList.remove('active');
     if (icon) icon.className = 'fa-solid fa-chart-simple text-[12px] md:text-[13px] pointer-events-none';
     document.body.classList.remove('player-analyzers-open');
+
+    if (wasAnalyzerView && window.openDockView && !window.__skipAnalyzerViewRestore) {
+        window.openDockView(window.__sidebarTab || 'library');
+    }
 };
 
 window.refreshAnalyzerMetersIfOpen = function() {
@@ -840,7 +845,7 @@ window.togglePlayerAnalyzers = async function() {
     const card = document.getElementById('player-card');
     const btn = document.getElementById('btn-analyzer-toggle');
     const icon = document.getElementById('btn-analyzer-icon');
-    if (!panel || !card) return;
+    if (!panel) return;
 
     window.analyzersOpen = !window.analyzersOpen;
 
@@ -853,10 +858,12 @@ window.togglePlayerAnalyzers = async function() {
         }
 
         panel.classList.remove('hidden');
-        card.classList.add('analyzers-expanded');
+        if (card) card.classList.remove('analyzers-expanded');
         if (btn) btn.classList.add('active');
         if (icon) icon.className = 'fa-solid fa-chevron-down text-[12px] md:text-[13px] pointer-events-none';
         document.body.classList.add('player-analyzers-open');
+
+        if (window.openDockView) window.openDockView('analyzers');
 
         window.buildAnalyzerMetersUI();
         if (window.refreshAnalyzersTheme) window.refreshAnalyzersTheme();

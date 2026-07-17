@@ -608,6 +608,60 @@ body.dark-mode .modal-input::placeholder,
     padding: 0.65rem 0.4rem;
     border-radius: var(--radius-xl, 1.6rem);
 }
+.app-rail__spacer {
+    flex: 1 1 auto;
+    min-height: 0.75rem;
+    width: 1px;
+}
+.app-rail__btn--accent.is-active,
+.app-rail__btn.app-rail__btn--accent:hover {
+    color: var(--accent-ink, #e84a2f);
+}
+.app-rail__btn--danger {
+    color: #b91c1c;
+}
+.app-rail__btn--danger:hover {
+    background: rgba(185, 28, 28, 0.12);
+    color: #991b1b;
+}
+.dark .app-rail__btn--danger { color: #f87171; }
+.dark .app-rail__btn--danger:hover {
+    background: rgba(248, 113, 113, 0.15);
+    color: #fecaca;
+}
+.dock-back-btn {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    border: 1px solid rgba(20, 20, 20, 0.08);
+    background: rgba(20, 20, 20, 0.04);
+    color: var(--ink-muted, #6b7280);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.dark .dock-back-btn {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+}
+#details-modal-content.details-in-dock {
+    width: 100% !important;
+    max-width: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    border: none !important;
+    transform: none !important;
+    max-height: none !important;
+}
+#details-modal-content.details-in-dock .details-gallery {
+    border-radius: 0;
+}
+body.dock-view-details #dock-mobile-tabs,
+body.dock-view-analyzers #dock-mobile-tabs {
+    display: none !important;
+}
 
 .app-rail__brand {
     width: 2.55rem;
