@@ -2662,8 +2662,30 @@ textarea.modal-input {
     align-self: flex-start;
     position: relative;
     cursor: pointer;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: pre-wrap;
 }
 .dark .msg-bubble { background: #1e293b; color: #e2e8f0; }
+.msg-bubble p {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    white-space: pre-wrap;
+    max-width: 100%;
+}
+.messages-compose-input,
+#messages-compose-input.messages-compose-input {
+    resize: none;
+    min-height: 2.5rem;
+    max-height: 7.5rem;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.35;
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+}
 .msg-bubble.mine {
     background: var(--accent);
     color: #fff;
@@ -2990,8 +3012,17 @@ textarea.modal-input {
     }
     body.dock-view-cabinet.cab-mobile-home #dock-mobile-logout { display: inline-flex !important; }
     body.dock-view-cabinet:not(.cab-mobile-home) #dock-mobile-logout { display: none !important; }
-    body.dock-view-cabinet.cab-mobile-home .dock-header button[onclick*="hideDockPanel"] {
+    body.dock-view-cabinet.cab-mobile-home #dock-mobile-close,
+    body.dock-view-cabinet.cab-mobile-home .dock-header #dock-mobile-close {
         display: inline-flex !important;
+        margin-left: 0.25rem;
+    }
+    body.dock-view-cabinet .dock-header-actions {
+        margin-left: auto;
+        justify-content: flex-end;
+    }
+    body.dock-view-cabinet:not(.cab-mobile-home) #dock-mobile-close {
+        display: none !important;
     }
     #tab-help {
         display: none !important;

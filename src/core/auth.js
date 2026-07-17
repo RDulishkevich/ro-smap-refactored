@@ -142,7 +142,15 @@ export function initAuth() {
         window.openCabinet();
     };
 
-    window.logoutUser = function() {
+    window.logoutUser = async function() {
+        const confirmed = await window.CustomUI.open({
+            title: '<i class="fa-solid fa-right-from-bracket mr-2 text-red-500"></i>Выйти из аккаунта?',
+            message: 'Вы уверены, что хотите выйти? Несохранённые данные на этом устройстве могут быть потеряны.',
+            confirmText: 'Выйти',
+            confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
+        });
+        if (!confirmed) return;
+
         window.currentUser = null;
         localStorage.removeItem('rosmap_user');
         window.closeCabinet();
@@ -210,9 +218,9 @@ export function initAuth() {
         Object.assign(window.currentUser, fields);
         localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser));
 
-        const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const login = String(window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase()).toLowerCase();
         const updated = [...(window.profilesData || [])];
-        const idx = updated.findIndex(p => p.loginName === login);
+        const idx = updated.findIndex(p => String(p.loginName || '').toLowerCase() === login);
         const prev = idx >= 0 ? updated[idx] : {};
 
         const record = {
@@ -220,10 +228,10 @@ export function initAuth() {
             loginName: login,
             displayName: window.currentUser.username,
             avatar: window.currentUser.avatar || prev.avatar || '',
-            bio: window.currentUser.bio || '',
-            links: window.currentUser.links || [],
-            gear: window.currentUser.gear || [],
-            badges: window.currentUser.badges || [],
+            bio: fields.bio !== undefined ? (window.currentUser.bio || '') : (window.currentUser.bio ?? prev.bio ?? ''),
+            links: fields.links !== undefined ? (window.currentUser.links || []) : (window.currentUser.links || prev.links || []),
+            gear: fields.gear !== undefined ? (window.currentUser.gear || []) : (window.currentUser.gear || prev.gear || []),
+            badges: window.currentUser.badges || prev.badges || [],
             progress: window.currentUser.progress || prev.progress || { xp: 0, achievements: [], completedQuests: [], guessrBestScore: 0 },
             email: window.currentUser.email || '',
             emailVerified: !!window.currentUser.emailVerified,
@@ -231,11 +239,19 @@ export function initAuth() {
             sessions: prev.sessions || [],
             notifications: fields.notifications !== undefined ? fields.notifications : (prev.notifications || []),
             inbox: fields.inbox !== undefined ? fields.inbox : (prev.inbox || []),
+            activityLog: prev.activityLog || [],
+            typing: prev.typing || null,
             role: fields.role !== undefined ? fields.role : (prev.role || (window.currentUser.role === 'admin' ? 'admin' : 'user')),
             blocked: fields.blocked !== undefined ? !!fields.blocked : !!prev.blocked,
             profileUpdatedAt: new Date().toISOString(),
             lastSeen: new Date().toISOString()
         };
+
+        if (fields.bio !== undefined) record.bio = String(fields.bio || '');
+        if (fields.gear !== undefined) record.gear = Array.isArray(fields.gear) ? fields.gear : [];
+        if (fields.links !== undefined) record.links = Array.isArray(fields.links) ? fields.links : [];
+        if (fields.avatar !== undefined) record.avatar = fields.avatar || '';
+        if (fields.username !== undefined) record.displayName = fields.username;
 
         if (idx >= 0) updated[idx] = record; else updated.push(record);
         return await window.syncProfilesData(updated);
@@ -919,7 +935,7 @@ export function initAuth() {
         if (window.innerWidth >= 768 || window.__dockView !== 'cabinet') return;
         const logout = document.getElementById('dock-mobile-logout');
         const back = document.getElementById('dock-back-btn');
-        const closeBtn = document.querySelector('.dock-header button[onclick*="hideDockPanel"]');
+        const closeBtn = document.getElementById('dock-mobile-close') || document.querySelector('.dock-header button[onclick*="hideDockPanel"]');
         const isHome = !tab || tab === 'sounds';
         const titles = {
             sounds: window.currentLang === 'en' ? 'Profile' : 'Профиль',
@@ -1564,7 +1580,7 @@ export function initAuth() {
 
     window.switchAdminSection = function(section) {
         window.__adminSection = section || 'sounds';
-        ['sounds', 'reports', 'users'].forEach(key => {
+        ['sounds', 'reports', 'users', 'support'].forEach(key => {
             const panel = document.getElementById(`admin-section-${key}`);
             const btn = document.getElementById(`admin-tab-btn-${key}`);
             if (panel) panel.classList.toggle('hidden', key !== window.__adminSection);
@@ -1572,6 +1588,7 @@ export function initAuth() {
         });
         if (window.__adminSection === 'reports') window.renderReportsList();
         if (window.__adminSection === 'users') window.renderAdminUsersList();
+        if (window.__adminSection === 'support') window.renderAdminSupportList();
         if (window.__adminSection === 'sounds') {
             if (window.renderAdminList) window.renderAdminList();
             if (window.renderRegionStats) window.renderRegionStats('admin-stats-grid');
@@ -1765,23 +1782,62 @@ export function initAuth() {
             el.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">Пока нет зарегистрированных профилей.</p>`;
             return;
         }
-        el.innerHTML = profiles.map(p => {
+        el.innerHTML = profiles.filter(p => p.loginName !== window.SUPPORT_LOGIN).map(p => {
             const isAdmin = p.role === 'admin' || p.loginName === 'admin';
             const isBlocked = !!p.blocked;
             const badgeCount = (p.badges || []).length;
+            const safeLogin = String(p.loginName || '').replace(/'/g, "\\'");
+            const safeName = String(p.displayName || p.loginName || '').replace(/'/g, "\\'");
             return `
             <div class="admin-entity-row ${isBlocked ? 'is-muted' : ''}">
-                <div class="admin-entity-main min-w-0 flex-1">
+                <button type="button" class="admin-entity-main min-w-0 flex-1 text-left" onclick="window.openPublicProfile('${safeLogin}', '${safeName}')">
                     <div class="admin-user-row-name flex items-center gap-2">
-                        ${p.avatar ? `<img src="${p.avatar}" class="w-7 h-7 rounded-full object-cover border border-slate-200 dark:border-slate-600" alt="">` : `<i class="fa-solid fa-user-astronaut opacity-60"></i>`}
-                        <span class="truncate">${p.displayName || p.loginName}</span>
+                        ${p.avatar
+                            ? `<img src="${p.avatar}" class="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-600 shrink-0" alt="">`
+                            : `<span class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0"><i class="fa-solid fa-user-astronaut opacity-60 text-sm"></i></span>`}
+                        <span class="truncate font-semibold">${p.displayName || p.loginName}</span>
                         ${isAdmin ? `<span class="pub-status-pill pub-status-pending">Админ</span>` : ''}
                         ${isBlocked ? `<span class="pub-status-pill pub-status-rejected">Блок</span>` : ''}
                     </div>
                     <p class="admin-entity-meta mt-0.5">@${p.loginName}${p.joinedAt ? ' · рег. ' + new Date(p.joinedAt).toLocaleDateString('ru-RU') : ''}${badgeCount ? ` · ${badgeCount} зван.` : ''}</p>
-                </div>
-                <button type="button" onclick="window.openAdminUserActions('${p.loginName}')" class="admin-actions-btn shrink-0"><i class="fa-solid fa-ellipsis"></i> Действия</button>
+                </button>
+                <button type="button" onclick="window.openAdminUserActions('${safeLogin}')" class="admin-actions-btn shrink-0"><i class="fa-solid fa-ellipsis"></i> Действия</button>
             </div>`;
+        }).join('');
+    };
+
+    window.renderAdminSupportList = function() {
+        const el = document.getElementById('admin-support-list');
+        if (!el) return;
+        const supportProfile = window.getProfileByLogin ? window.getProfileByLogin(window.SUPPORT_LOGIN) : null;
+        const byPeer = new Map();
+        (supportProfile?.inbox || []).forEach(msg => {
+            if (!msg.fromId || msg.fromId === window.SUPPORT_LOGIN) return;
+            const prev = byPeer.get(msg.fromId);
+            if (!prev || new Date(msg.date || 0) > new Date(prev.date || 0)) byPeer.set(msg.fromId, msg);
+        });
+        const rows = Array.from(byPeer.entries()).sort((a, b) => new Date(b[1].date || 0) - new Date(a[1].date || 0));
+        if (!rows.length) {
+            el.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">Обращений в поддержку пока нет.</p>`;
+            return;
+        }
+        el.innerHTML = rows.map(([peer, last]) => {
+            const profile = window.getProfileByLogin ? window.getProfileByLogin(peer) : null;
+            const name = profile?.displayName || last.fromName || peer;
+            const unread = !last.read;
+            const preview = last.text || (last.image ? '📷 Фото' : '');
+            const safePeer = String(peer).replace(/'/g, "\\'");
+            return `
+            <button type="button" onclick="window.openMessagesModal('${safePeer}', { asSupport: true })" class="notif-item ${unread ? 'unread' : ''} msg-support-row w-full text-left">
+                <span class="w-9 h-9 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center shrink-0 overflow-hidden">
+                    ${profile?.avatar ? `<img src="${profile.avatar}" class="w-full h-full object-cover" alt="">` : `<i class="fa-solid fa-headset"></i>`}
+                </span>
+                <div class="min-w-0 flex-1">
+                    <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${name}</p>
+                    <p class="text-[11px] text-slate-500 truncate">${preview}</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">${last.date ? new Date(last.date).toLocaleString('ru-RU') : ''}</p>
+                </div>
+            </button>`;
         }).join('');
     };
 
@@ -1791,6 +1847,7 @@ export function initAuth() {
         const isAdmin = p.role === 'admin' || p.loginName === 'admin';
         const isBlocked = !!p.blocked;
         const items = [
+            { icon: 'fa-id-badge', label: 'Открыть профиль', tone: 'primary', onClick: () => window.openPublicProfile(login, p.displayName || login) },
             { icon: 'fa-medal', label: 'Звания', tone: 'warning', onClick: () => window.openBadgeAssignModal(login) },
             { icon: 'fa-chart-simple', label: 'Сводка', tone: 'primary', onClick: () => window.openUserActivityModal(login) }
         ];
@@ -2179,9 +2236,9 @@ export function initAuth() {
         };
 
         targets.forEach(login => {
-            let idx = updated.findIndex(p => p.loginName === login);
+            let idx = updated.findIndex(p => String(p.loginName || '').toLowerCase() === String(login).toLowerCase());
             if (idx < 0) {
-                updated.push({ loginName: login, displayName: login, notifications: [] });
+                updated.push({ loginName: String(login).toLowerCase(), displayName: login, notifications: [] });
                 idx = updated.length - 1;
             }
             const list = [...(updated[idx].notifications || [])];
@@ -2220,6 +2277,8 @@ export function initAuth() {
         if (!window.currentUser) {
             if (btn) btn.classList.add('hidden');
             if (btnMobile) btnMobile.classList.add('hidden');
+            if (badge) badge.classList.add('hidden');
+            if (badgeMobile) badgeMobile.classList.add('hidden');
             const panel = document.getElementById('notif-panel');
             if (panel) panel.classList.add('hidden');
             return;
@@ -2506,16 +2565,17 @@ export function initAuth() {
         window.openMessagesModal();
     };
 
-    window.openMessagesModal = function(peerLogin = null) {
+    window.openMessagesModal = function(peerLogin = null, opts = {}) {
+        const asSupport = !!(opts && opts.asSupport);
         if (window.openDockView) {
             if (window.playSfx) window.playSfx('open');
             window.openDockView('messages');
             window.touchMyPresence(true);
-            if (peerLogin) window.openMessageThread(peerLogin);
+            if (peerLogin) window.openMessageThread(peerLogin, { asSupport });
             else window.showMessagesConversations();
             window.ensureSupportWelcome().then(() => {
                 if (peerLogin) {
-                    if (window.__activeMessagePeer === peerLogin) window.openMessageThread(peerLogin, { quiet: true });
+                    if (window.__activeMessagePeer === peerLogin) window.openMessageThread(peerLogin, { quiet: true, asSupport });
                 } else if (!window.__activeMessagePeer) {
                     window.showMessagesConversations();
                 }
@@ -2532,12 +2592,12 @@ export function initAuth() {
         if (window.playSfx) window.playSfx('open');
         window.touchMyPresence(true);
 
-        if (peerLogin) window.openMessageThread(peerLogin);
+        if (peerLogin) window.openMessageThread(peerLogin, { asSupport });
         else window.showMessagesConversations();
 
         window.ensureSupportWelcome().then(() => {
             if (peerLogin) {
-                if (window.__activeMessagePeer === peerLogin) window.openMessageThread(peerLogin, { quiet: true });
+                if (window.__activeMessagePeer === peerLogin) window.openMessageThread(peerLogin, { quiet: true, asSupport });
             } else if (!window.__activeMessagePeer) {
                 window.showMessagesConversations();
             }
@@ -2624,7 +2684,6 @@ export function initAuth() {
         });
 
         const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
-        const isAdmin = window.isCurrentUserAdmin && window.isCurrentUserAdmin();
 
         (window.profilesData || []).forEach(p => {
             (p.inbox || []).forEach(msg => {
@@ -2636,18 +2695,6 @@ export function initAuth() {
                 }
             });
         });
-
-        // Админ видит обращения в поддержку (сообщения в inbox профиля support)
-        if (isAdmin) {
-            const supportProfile = window.getProfileByLogin ? window.getProfileByLogin(window.SUPPORT_LOGIN) : null;
-            (supportProfile?.inbox || []).forEach(msg => {
-                if (!msg.fromId || msg.fromId === window.SUPPORT_LOGIN) return;
-                const peer = msg.fromId;
-                const synthetic = { ...msg, _supportTicket: true };
-                const prev = byPeer.get(peer);
-                if (!prev || new Date(msg.date) > new Date(prev.date)) byPeer.set(peer, synthetic);
-            });
-        }
 
         // У каждого пользователя всегда есть закреплённый чат с поддержкой
         if (myLogin !== window.SUPPORT_LOGIN && !byPeer.has(window.SUPPORT_LOGIN)) {
@@ -2693,9 +2740,7 @@ export function initAuth() {
             const presence = isSupport
                 ? (window.t ? window.t('support_status') : 'обычно отвечает в течение дня')
                 : (window.formatPresenceLabel ? window.formatPresenceLabel(profile) : (online ? 'в сети' : 'не в сети'));
-            const openFn = (isAdmin && last._supportTicket)
-                ? `window.openSupportTicket('${peer}')`
-                : `window.openMessageThread('${peer}')`;
+            const openFn = `window.openMessageThread('${peer}')`;
             return `
             <button onclick="${openFn}" class="notif-item ${unread ? 'unread' : ''} ${isSupport ? 'msg-support-row' : ''} w-full text-left">
                 <div class="relative shrink-0">${avatar}<span class="msg-online-dot ${online ? 'on' : ''}"></span></div>
@@ -2825,6 +2870,12 @@ export function initAuth() {
             if (nameEl) nameEl.textContent = `Тикет: ${profile?.displayName || peerLogin}`;
             if (statusEl) statusEl.textContent = 'ответ от имени поддержки';
         }
+        if (window.__typingWatchTimer) clearInterval(window.__typingWatchTimer);
+        window.__typingWatchTimer = setInterval(() => {
+            if (!window.__activeMessagePeer) return;
+            if (window.updateTypingIndicator) window.updateTypingIndicator(window.__activeMessagePeer);
+        }, 1500);
+        if (window.updateTypingIndicator) window.updateTypingIndicator(peerLogin);
 
         const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
         let all = [];
@@ -3000,14 +3051,14 @@ export function initAuth() {
         if (peer === window.SUPPORT_LOGIN) return;
         const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
         const updated = [...(window.profilesData || [])];
-        const idx = updated.findIndex(p => p.loginName === myLogin);
+        const idx = updated.findIndex(p => String(p.loginName || '').toLowerCase() === myLogin);
         if (idx < 0) return;
         const nextTyping = isTyping
             ? { to: peer, at: new Date().toISOString() }
             : null;
         const prev = updated[idx].typing;
         if (!isTyping && !prev) return;
-        if (isTyping && prev?.to === peer && prev.at && Date.now() - new Date(prev.at).getTime() < 1800) return;
+        if (isTyping && prev?.to === peer && prev.at && Date.now() - new Date(prev.at).getTime() < 1200) return;
         updated[idx] = { ...updated[idx], typing: nextTyping, lastSeen: new Date().toISOString() };
         window.profilesData = updated;
         window.syncProfilesData(updated).catch(() => {});
@@ -3022,6 +3073,18 @@ export function initAuth() {
             window.__typingIdleTimer = setTimeout(() => window.publishTypingStatus(false), 2800);
         } else {
             window.publishTypingStatus(false);
+        }
+        // auto-grow textarea
+        if (input && input.tagName === 'TEXTAREA') {
+            input.style.height = 'auto';
+            input.style.height = Math.min(120, input.scrollHeight) + 'px';
+        }
+    };
+
+    window.onMessageComposeKeydown = function(event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            window.sendMessageInThread();
         }
     };
 
@@ -3387,8 +3450,17 @@ export function initAuth() {
         const links = (document.getElementById('profile-links')?.value || '').split(',').map(l => l.trim()).filter(Boolean);
         window.showToast('Сохранение профиля...');
         const ok = await window.saveMyProfile({ bio, gear, links });
-        window.showToast(ok ? 'Профиль обновлён' : 'Не удалось сохранить профиль');
-        if (ok && window.evaluateFieldProgress) window.evaluateFieldProgress();
+        if (ok) {
+            window.currentUser.bio = bio;
+            window.currentUser.gear = gear;
+            window.currentUser.links = links;
+            localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser));
+            if (window.fillProfileSettingsForm) window.fillProfileSettingsForm();
+            window.showToast('Профиль обновлён');
+            if (window.evaluateFieldProgress) window.evaluateFieldProgress();
+        } else {
+            window.showToast('Не удалось сохранить профиль');
+        }
     };
 
     // --- Привязка email с кодом подтверждения ---

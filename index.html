@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260717o">
-    <link rel="stylesheet" href="./src/glass.css?v=20260717o">
+    <link rel="stylesheet" href="./src/style.css?v=20260717p">
+    <link rel="stylesheet" href="./src/glass.css?v=20260717p">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -109,7 +109,7 @@
                 <div class="relative" id="notif-wrap">
                     <button type="button" onclick="window.toggleNotificationsPanel(event)" id="notif-btn" class="hidden relative app-rail__btn" title="Уведомления" data-lang-title="notifications_title">
                         <i class="fa-solid fa-bell"></i>
-                        <span id="notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[1rem] h-[1rem] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center shadow">0</span>
+                        <span id="notif-badge" class="hidden absolute -top-1 -right-1 min-w-[1.15rem] h-[1.15rem] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold leading-none flex items-center justify-center shadow">0</span>
                     </button>
                 </div>
                 <button type="button" onclick="window.openSettingsPanel()" id="settings-btn" class="app-rail__btn" title="Настройки">
@@ -160,7 +160,7 @@
             <div class="relative md:hidden" id="notif-wrap-mobile">
                 <button type="button" onclick="window.toggleNotificationsPanel(event)" id="notif-btn-mobile" class="hidden relative map-icon-btn" title="Уведомления" data-lang-title="notifications_title">
                     <i class="fa-solid fa-bell"></i>
-                    <span id="notif-badge-mobile" class="hidden absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow">0</span>
+                    <span id="notif-badge-mobile" class="hidden absolute -top-1 -right-1 min-w-[1.2rem] h-[1.2rem] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none flex items-center justify-center shadow">0</span>
                 </button>
             </div>
             <button onclick="window.openSettingsPanel()" id="settings-btn-mobile" class="map-icon-btn md:hidden" title="Настройки">
@@ -185,9 +185,9 @@
                             <p id="dock-subtitle" class="brand-sub text-xs md:text-sm mt-0.5 flex items-center gap-2" data-lang="subtitle"><i class="fa-solid fa-map-location-dot text-[color:var(--accent)]"></i> Audio Map</p>
                         </div>
                     </div>
-                    <div class="flex items-center gap-1 shrink-0 md:hidden">
+                    <div class="flex items-center gap-1 shrink-0 md:hidden dock-header-actions">
                         <button type="button" id="dock-mobile-logout" onclick="window.logoutUser()" class="hidden px-2 py-1 text-sm font-bold text-red-500">Выйти</button>
-                        <button type="button" onclick="window.hideDockPanel()" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors pointer-events-auto" aria-label="Закрыть">
+                        <button type="button" id="dock-mobile-close" onclick="window.hideDockPanel()" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors pointer-events-auto ml-auto" aria-label="Закрыть">
                             <i class="fa-solid fa-xmark text-lg pointer-events-none"></i>
                         </button>
                     </div>
@@ -861,6 +861,7 @@
                         <button type="button" id="admin-tab-btn-sounds" onclick="window.switchAdminSection('sounds')" class="admin-subtab-btn active">Записи</button>
                         <button type="button" id="admin-tab-btn-reports" onclick="window.switchAdminSection('reports')" class="admin-subtab-btn">Жалобы <span id="admin-tab-reports-count" class="admin-filter-count"></span></button>
                         <button type="button" id="admin-tab-btn-users" onclick="window.switchAdminSection('users')" class="admin-subtab-btn">Пользователи</button>
+                        <button type="button" id="admin-tab-btn-support" onclick="window.switchAdminSection('support')" class="admin-subtab-btn">Поддержка</button>
                     </div>
 
                     <div id="admin-section-sounds" class="space-y-4">
@@ -893,10 +894,18 @@
                         </div>
                         <div id="admin-users-grid" class="space-y-2"></div>
                     </div>
+
+                    <div id="admin-section-support" class="hidden space-y-3">
+                        <div class="flex items-center justify-between">
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"><i class="fa-solid fa-headset mr-1 text-blue-500"></i>Обращения в поддержку</p>
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Ответы отправляются от имени «Поддержка карты».</p>
+                        <div id="admin-support-list" class="space-y-2"></div>
+                    </div>
                 </div>
             </div>
 
-            <div id="cabinet-logout-footer" class="p-6 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700">
+            <div id="cabinet-logout-footer" class="hidden p-6 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700">
                 <button onclick="window.logoutUser()" class="w-full py-3.5 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 dark:bg-slate-700 dark:hover:bg-red-900/30 dark:text-slate-300 dark:hover:text-red-400 font-bold rounded-xl transition-all shadow-sm active:scale-[0.98]">
                     <i class="fa-solid fa-right-from-bracket mr-2"></i>Выйти из аккаунта
                 </button>
@@ -1268,7 +1277,7 @@
                     <button type="button" onclick="window.toggleEmojiPicker()" class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-500 flex items-center justify-center shrink-0" title="Смайлики"><i class="fa-regular fa-face-smile"></i></button>
                     <button type="button" onclick="document.getElementById('messages-photo-input').click()" class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-500 flex items-center justify-center shrink-0" title="Фото"><i class="fa-solid fa-image"></i></button>
                     <input id="messages-photo-input" type="file" accept="image/*" class="hidden" onchange="window.sendMessagePhoto(this.files)">
-                    <input id="messages-compose-input" type="text" placeholder="Написать сообщение..." data-lang-placeholder="msg_write_placeholder" class="modal-input flex-1 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-sm min-w-0" onkeydown="if(event.key==='Enter') window.sendMessageInThread()" oninput="window.onMessageComposeInput()">
+                    <textarea id="messages-compose-input" rows="1" placeholder="Написать сообщение..." data-lang-placeholder="msg_write_placeholder" class="messages-compose-input modal-input flex-1 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-sm min-w-0" onkeydown="window.onMessageComposeKeydown(event)" oninput="window.onMessageComposeInput()"></textarea>
                     <button onclick="window.sendMessageInThread()" class="px-3.5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shrink-0"><i class="fa-solid fa-paper-plane"></i></button>
                 </div>
             </div>
@@ -1749,7 +1758,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260717o"></script>
+    <script type="module" src="./src/main.js?v=20260717p"></script>
 
 </body>
 </html>

@@ -874,33 +874,51 @@ window.__profileScalarRev = function(p) {
     return Number.isFinite(t) ? t : 0;
 };
 
+window.__laterTyping = function(a, b) {
+    // null = явное снятие «печатает»; выбираем более свежий сигнал по at / last clear.
+    const atOf = (t) => (t && t.at ? new Date(t.at).getTime() : (t === null ? 0 : -1));
+    if (a === undefined) return b === undefined ? undefined : b;
+    if (b === undefined) return a;
+    if (!a && !b) return null;
+    if (a && !b) return a;
+    if (!a && b) return b;
+    return atOf(b) >= atOf(a) ? b : a;
+};
+
 window.mergeProfilesArrays = function(fresh = [], proposed = []) {
     const out = new Map();
     (fresh || []).forEach(p => {
-        if (p?.loginName) out.set(p.loginName, { ...p });
+        if (p?.loginName) out.set(String(p.loginName).toLowerCase(), { ...p, loginName: String(p.loginName).toLowerCase() });
     });
     (proposed || []).forEach(p => {
         if (!p?.loginName) return;
-        const cloud = out.get(p.loginName);
+        const login = String(p.loginName).toLowerCase();
+        const cloud = out.get(login);
         if (!cloud) {
-            out.set(p.loginName, { ...p });
+            out.set(login, { ...p, loginName: login });
             return;
         }
         // Скаляры (bio, avatar, badges…) — только если локальная правка новее по profileUpdatedAt.
-        // lastSeen / inbox / notifications / sessions всегда сливаются отдельно, чтобы presence
-        // и сообщения не затирали чужие поля.
+        // lastSeen / inbox / notifications / sessions / typing всегда сливаются отдельно.
         const preferProposedScalars = window.__profileScalarRev(p) > window.__profileScalarRev(cloud);
         const merged = preferProposedScalars ? { ...cloud, ...p } : { ...p, ...cloud };
-        merged.loginName = p.loginName;
+        merged.loginName = login;
         merged.lastSeen = window.__laterIso(cloud.lastSeen, p.lastSeen);
         merged.profileUpdatedAt = window.__laterIso(cloud.profileUpdatedAt, p.profileUpdatedAt);
         merged.inbox = window.__mergeKeyedArrays(cloud.inbox || [], p.inbox || []);
         merged.notifications = window.__mergeKeyedArrays(cloud.notifications || [], p.notifications || []);
-        // Сессии: при явной правке профиля (profileUpdatedAt) берём список целиком,
-        // иначе удаление экспедиции снова «воскреснет» из облака при merge по id.
+        merged.activityLog = window.__mergeKeyedArrays(cloud.activityLog || [], p.activityLog || []);
         merged.sessions = preferProposedScalars
             ? (p.sessions || [])
             : window.__mergeKeyedArrays(cloud.sessions || [], p.sessions || []);
+        // typing: не завязан на profileUpdatedAt — иначе «печатает» пропадает при sync presence
+        if (Object.prototype.hasOwnProperty.call(p, 'typing') || Object.prototype.hasOwnProperty.call(cloud, 'typing')) {
+            if (p.typing === null && (!cloud.typing || new Date(p.lastSeen || 0) >= new Date(cloud.typing?.at || 0))) {
+                merged.typing = null;
+            } else {
+                merged.typing = window.__laterTyping(cloud.typing, p.typing === null ? null : p.typing);
+            }
+        }
         if (!preferProposedScalars) {
             merged.badges = cloud.badges || [];
             merged.bio = cloud.bio;
@@ -912,8 +930,9 @@ window.mergeProfilesArrays = function(fresh = [], proposed = []) {
             merged.role = cloud.role;
             merged.blocked = cloud.blocked;
             merged.displayName = cloud.displayName || p.displayName;
+            merged.progress = cloud.progress || p.progress;
         }
-        out.set(p.loginName, merged);
+        out.set(login, merged);
     });
     return Array.from(out.values());
 };
@@ -1131,8 +1150,17 @@ window.pollLiveCloudData = async function() {
                             quiet: true,
                             asSupport: !!window.__messagingAsSupport
                         });
-                        if (window.updateTypingIndicator) window.updateTypingIndicator(window.__activeMessagePeer);
                     }
+                }
+                if (window.__adminSection === 'support' && window.renderAdminSupportList) {
+                    window.renderAdminSupportList();
+                }
+            }
+            // Индикатор печати — на каждом тике опроса, даже если JSON «тот же» по другим полям
+            if (window.__activeMessagePeer && window.updateTypingIndicator) {
+                const thread = document.getElementById('messages-thread');
+                if (thread && !thread.classList.contains('hidden')) {
+                    window.updateTypingIndicator(window.__activeMessagePeer);
                 }
             }
         }
@@ -1254,7 +1282,8 @@ window.isSoundStatusVisible = function(s) {
 // --- Публичные профили рекордистов (общее облачное хранилище profiles.json) ---
 window.getProfileByLogin = function(login) {
     if (!login) return null;
-    return (window.profilesData || []).find(p => p.loginName === String(login).toLowerCase()) || null;
+    const key = String(login).toLowerCase();
+    return (window.profilesData || []).find(p => String(p.loginName || '').toLowerCase() === key) || null;
 };
 window.getProfileByDisplayName = function(name) {
     if (!name) return null;
@@ -1413,13 +1442,28 @@ window.openPublicProfile = function(login, displayName) {
 
     const avatarEl = document.getElementById('pp-avatar');
     const avatarFallback = document.getElementById('pp-avatar-fallback');
-    const avatarSrc = (profile && profile.avatar) || (isOwn && window.currentUser ? window.currentUser.avatar : '');
+    let avatarSrc = '';
+    if (profile && profile.avatar) avatarSrc = profile.avatar;
+    else if (isOwn && window.currentUser?.avatar) avatarSrc = window.currentUser.avatar;
     if (avatarSrc) {
-        if (avatarEl) { avatarEl.src = avatarSrc; avatarEl.classList.remove('hidden'); }
-        if (avatarFallback) avatarFallback.classList.add('hidden');
+        if (avatarEl) {
+            avatarEl.src = avatarSrc;
+            avatarEl.classList.remove('hidden');
+            avatarEl.style.display = '';
+        }
+        if (avatarFallback) {
+            avatarFallback.classList.add('hidden');
+            avatarFallback.style.display = 'none';
+        }
     } else {
-        if (avatarEl) avatarEl.classList.add('hidden');
-        if (avatarFallback) avatarFallback.classList.remove('hidden');
+        if (avatarEl) {
+            avatarEl.removeAttribute('src');
+            avatarEl.classList.add('hidden');
+        }
+        if (avatarFallback) {
+            avatarFallback.classList.remove('hidden');
+            avatarFallback.style.display = '';
+        }
     }
 
     const badgesEl = document.getElementById('pp-badges');
