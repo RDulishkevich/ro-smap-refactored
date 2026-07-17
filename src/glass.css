@@ -89,7 +89,6 @@ body {
 
 /* Shared glass material */
 .glass-shell,
-#sidebar.sidebar-panel,
 #app-rail.app-rail,
 #map-top-toolbar.map-top-toolbar,
 .map-icon-btn,
@@ -103,12 +102,6 @@ body {
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
 }
 
-#sidebar.sidebar-panel {
-    border-radius: var(--radius-xl);
-    color: var(--ink);
-    border-color: var(--glass-rim-outer) !important;
-}
-
 #app-rail.app-rail {
     border-radius: var(--radius-xl);
     color: var(--ink);
@@ -119,13 +112,17 @@ body {
     color: var(--ink);
 }
 
-/* Player: frosted look without backdrop-filter (keeps analyzer scroll) */
-#player-card.player-shell {
+/* Player + dock: same opaque panel surface (no backdrop-filter on player — keeps scroll) */
+#player-card.player-shell,
+#sidebar.sidebar-panel {
     border-radius: var(--radius-xl);
-    background: var(--glass-fill-strong) !important;
-    background-color: var(--glass-fill-strong) !important;
-    border: 1px solid var(--glass-rim) !important;
+    color: var(--ink);
+    background: var(--panel-solid) !important;
+    background-color: var(--panel-solid) !important;
+    border: 1px solid var(--glass-rim-outer) !important;
     box-shadow: var(--glass-elev), var(--glass-shine) !important;
+}
+#player-card.player-shell {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     overflow-x: hidden !important;
@@ -134,6 +131,10 @@ body {
     overscroll-behavior: contain;
     max-height: min(85vh, calc(100dvh - 1rem - env(safe-area-inset-bottom, 0px))) !important;
 }
+#sidebar.sidebar-panel {
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
+}
 
 .map-icon-btn.hidden,
 button.map-icon-btn.hidden,
@@ -141,6 +142,7 @@ button.map-icon-btn.hidden,
 button.app-rail__btn.hidden,
 #msg-btn.hidden,
 #notif-btn.hidden,
+#notif-btn-mobile.hidden,
 #logout-btn.hidden,
 #msg-btn-mobile.hidden {
     display: none !important;

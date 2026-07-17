@@ -665,7 +665,9 @@ body.dark-mode .modal-input::placeholder,
     border-radius: 0;
 }
 body.dock-view-details #dock-mobile-tabs,
-body.dock-view-analyzers #dock-mobile-tabs {
+body.dock-view-analyzers #dock-mobile-tabs,
+body.dock-view-settings #dock-mobile-tabs,
+body.dock-view-cabinet #dock-mobile-tabs {
     display: none !important;
 }
 
@@ -709,7 +711,7 @@ html.dark .app-rail__btn.is-active,
 #map-top-toolbar.map-top-toolbar {
     position: absolute;
     top: var(--chrome-inset);
-    left: calc(var(--chrome-inset) + var(--rail-w) + var(--chrome-gap) + var(--dock-w-compact) + var(--chrome-gap));
+    left: calc(var(--chrome-inset) + var(--rail-w) + var(--chrome-gap) + var(--dock-w-expanded) + var(--chrome-gap));
     right: calc(var(--chrome-inset) + 11.5rem);
     max-width: 36rem;
     min-height: 3rem;
@@ -720,8 +722,8 @@ html.dark .app-rail__btn.is-active,
     border-radius: 999px;
     z-index: 50;
 }
-body.dock-is-expanded #map-top-toolbar.map-top-toolbar {
-    left: calc(var(--chrome-inset) + var(--rail-w) + var(--chrome-gap) + var(--dock-w-expanded) + var(--chrome-gap));
+body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
+    left: calc(var(--chrome-inset) + var(--rail-w) + var(--chrome-gap));
 }
 @media (min-width: 768px) {
     #map-top-toolbar.map-top-toolbar { display: flex; }
@@ -749,16 +751,70 @@ body.dock-is-expanded #map-top-toolbar.map-top-toolbar {
     background: transparent;
     border: none;
 }
-#map-top-toolbar.toolbar-search-hidden #sidebar-search-wrap {
+#map-top-toolbar.toolbar-search-hidden #sidebar-search-wrap,
+#map-top-toolbar.toolbar-search-hidden .search-toggle-btn {
     display: none;
 }
 #map-top-toolbar.toolbar-search-hidden {
     max-width: fit-content;
 }
 
+.search-toggle-btn {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 999px;
+    border: none;
+    background: transparent;
+    color: var(--ink-muted, #6b7280);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.search-toggle-btn:hover { color: var(--accent-ink, #e84a2f); }
+#map-top-toolbar.is-search-open .search-toggle-btn { display: none; }
+
+.search-suggestions {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 0.4rem);
+    max-height: min(50vh, 20rem);
+    overflow-y: auto;
+    border-radius: 1rem;
+    border: 1px solid rgba(20, 20, 20, 0.1);
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 12px 40px rgba(20, 20, 20, 0.14);
+    z-index: 80;
+    padding: 0.35rem;
+}
+html.dark .search-suggestions,
+.dark .search-suggestions { background: rgba(22, 28, 34, 0.96); border-color: rgba(255,255,255,0.12); }
+.search-suggestion {
+    width: 100%;
+    text-align: left;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: 0.75rem;
+    border: none;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+.search-suggestion:hover,
+.search-suggestion.is-active { background: rgba(255, 90, 61, 0.14); }
+.search-suggestion__icon { width: 1.5rem; text-align: center; color: #e84a2f; margin-top: 0.1rem; }
+.search-suggestion__label { font-size: 0.8125rem; font-weight: 700; line-height: 1.25; }
+.search-suggestion__meta { font-size: 0.6875rem; color: #6b7280; margin-top: 0.1rem; }
+
+.dock-hide-btn,
 .dock-expand-btn {
-    width: 2rem;
     height: 2rem;
+    min-width: 2rem;
+    padding: 0 0.65rem;
     border-radius: 999px;
     border: 1px solid rgba(20, 20, 20, 0.08);
     background: rgba(20, 20, 20, 0.04);
@@ -766,17 +822,29 @@ body.dock-is-expanded #map-top-toolbar.map-top-toolbar {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 0.35rem;
     cursor: pointer;
     transition: color 150ms ease, background 150ms ease;
 }
-.dock-expand-btn:hover,
-.dock-expand-btn[aria-pressed="true"] {
+.dock-hide-btn__label {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+}
+.dock-hide-btn:hover,
+.dock-expand-btn:hover {
     color: var(--accent-ink, #e84a2f);
     background: var(--accent-soft, rgba(255, 90, 61, 0.14));
 }
+.dark .dock-hide-btn,
 .dark .dock-expand-btn {
     border-color: rgba(255, 255, 255, 0.12);
     background: rgba(255, 255, 255, 0.06);
+}
+@media (max-width: 767px) {
+    .dock-hide-btn__label { display: none; }
+    .dock-hide-btn { padding: 0; width: 2rem; }
 }
 
 .dock-filters-open-btn {
@@ -799,11 +867,7 @@ body.dock-is-expanded #map-top-toolbar.map-top-toolbar {
     background: rgba(255, 255, 255, 0.05);
 }
 
-/* Compact: hide full filters, show ????????? chip */
-#sidebar.dock-compact #dock-filters { display: none; }
-#sidebar.dock-expanded .dock-filters-compact { display: none; }
-#sidebar.dock-expanded #dock-filters { display: block; }
-
+/* Dock: always expanded width; hide via .sidebar-hidden */
 #sidebar {
     position: absolute;
     top: 1rem;
@@ -817,17 +881,8 @@ body.dock-is-expanded #map-top-toolbar.map-top-toolbar {
         top: var(--chrome-inset);
         bottom: var(--chrome-inset);
         left: calc(var(--chrome-inset) + var(--rail-w) + var(--chrome-gap));
-        width: var(--dock-w-compact);
-        max-height: none;
-    }
-    #sidebar.dock-expanded {
         width: var(--dock-w-expanded);
-    }
-    /* Desktop: dock always visible ? sidebar-hidden is a no-op */
-    #sidebar.sidebar-hidden {
-        transform: none !important;
-        opacity: 1 !important;
-        pointer-events: auto !important;
+        max-height: none;
     }
 }
 .sidebar-hidden {
@@ -840,19 +895,35 @@ body.dock-is-expanded #map-top-toolbar.map-top-toolbar {
     pointer-events: auto !important;
 }
 
-/* Player sits beside dock on desktop */
+/* Player sits beside dock when visible */
 #player-anchor.player-anchor {
     padding-left: 0;
 }
 @media (min-width: 768px) {
     #player-anchor.player-anchor {
         justify-content: flex-start;
-        padding-left: calc(var(--chrome-inset) + var(--rail-w) + var(--chrome-gap) + var(--dock-w-compact) + var(--chrome-gap));
+        padding-left: calc(var(--chrome-inset) + var(--rail-w) + var(--chrome-gap) + var(--dock-w-expanded) + var(--chrome-gap));
         padding-right: 5.5rem;
     }
-    body.dock-is-expanded #player-anchor.player-anchor {
-        padding-left: calc(var(--chrome-inset) + var(--rail-w) + var(--chrome-gap) + var(--dock-w-expanded) + var(--chrome-gap));
+    body.dock-is-hidden #player-anchor.player-anchor {
+        padding-left: calc(var(--chrome-inset) + var(--rail-w) + var(--chrome-gap));
     }
+}
+
+#settings-modal-content.settings-in-dock,
+#cabinet-modal-content.cabinet-in-dock {
+    width: 100% !important;
+    max-width: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    transform: none !important;
+    max-height: none !important;
+    background: transparent !important;
+}
+#settings-modal-content.settings-in-dock > div:first-child button[onclick*="closeSettingsModal"],
+#cabinet-modal-content.cabinet-in-dock > div:first-child button[onclick*="closeCabinet"] {
+    display: none;
 }
 
 /* ???????? ???????? ?????? */

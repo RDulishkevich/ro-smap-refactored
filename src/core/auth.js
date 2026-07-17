@@ -894,8 +894,13 @@ export function initAuth() {
     };
 
     window.openCabinet = function() {
+        if (window.openDockView) {
+            if (window.playSfx) window.playSfx('open');
+            window.openDockView('cabinet');
+            return;
+        }
         const m = document.getElementById('cabinet-modal');
-        if(m) {
+        if (m) {
             m.classList.remove('hidden');
             void m.offsetWidth;
             m.classList.remove('opacity-0', 'pointer-events-none');
@@ -907,9 +912,22 @@ export function initAuth() {
     };
 
     window.openSettingsPanel = function() {
+        const content = document.getElementById('cabinet-modal-content');
+        if (content && content.classList.contains('cabinet-in-dock') && window.undockCabinetContent) {
+            window.undockCabinetContent();
+        } else if (window.closeCabinet) {
+            const m = document.getElementById('cabinet-modal');
+            if (m && !m.classList.contains('hidden') && !m.classList.contains('opacity-0')) {
+                window.closeCabinet();
+            }
+        }
+        if (window.openDockView) {
+            if (window.playSfx) window.playSfx('open');
+            window.openDockView('settings');
+            return;
+        }
         const m = document.getElementById('settings-modal');
         if (!m) return;
-        if (window.closeCabinet) window.closeCabinet();
         m.classList.remove('hidden');
         void m.offsetWidth;
         m.classList.remove('opacity-0', 'pointer-events-none');
@@ -920,6 +938,13 @@ export function initAuth() {
     };
 
     window.closeSettingsModal = function() {
+        const content = document.getElementById('settings-modal-content');
+        if (content && content.classList.contains('settings-in-dock')) {
+            if (window.playSfx) window.playSfx('close');
+            if (window.undockSettingsContent) window.undockSettingsContent();
+            if (window.openDockView) window.openDockView(window.__sidebarTab || 'library');
+            return;
+        }
         const m = document.getElementById('settings-modal');
         if (!m) return;
         m.classList.add('opacity-0', 'pointer-events-none');
@@ -1073,6 +1098,15 @@ export function initAuth() {
     };
 
     window.closeCabinet = function() {
+        const content = document.getElementById('cabinet-modal-content');
+        if (content && content.classList.contains('cabinet-in-dock')) {
+            if (window.playSfx) window.playSfx('close');
+            if (window.undockCabinetContent) window.undockCabinetContent();
+            if (window.__dockView === 'cabinet' && window.openDockView) {
+                window.openDockView(window.__sidebarTab || 'library');
+            }
+            return;
+        }
         const m = document.getElementById('cabinet-modal');
         if(m) {
             const wasOpen = !m.classList.contains('hidden') && !m.classList.contains('opacity-0');
@@ -1906,19 +1940,27 @@ export function initAuth() {
 
     window.refreshNotificationsUI = function() {
         const btn = document.getElementById('notif-btn');
+        const btnMobile = document.getElementById('notif-btn-mobile');
         const badge = document.getElementById('notif-badge');
-        if (!btn) return;
+        const badgeMobile = document.getElementById('notif-badge-mobile');
         if (!window.currentUser) {
-            btn.classList.add('hidden');
+            if (btn) btn.classList.add('hidden');
+            if (btnMobile) btnMobile.classList.add('hidden');
             const panel = document.getElementById('notif-panel');
             if (panel) panel.classList.add('hidden');
             return;
         }
-        btn.classList.remove('hidden');
+        if (btn) btn.classList.remove('hidden');
+        if (btnMobile) btnMobile.classList.remove('hidden');
         const unread = window.getMyNotifications().filter(n => !n.read).length;
+        const label = unread > 99 ? '99+' : String(unread);
         if (badge) {
-            badge.textContent = unread > 99 ? '99+' : String(unread);
+            badge.textContent = label;
             badge.classList.toggle('hidden', unread === 0);
+        }
+        if (badgeMobile) {
+            badgeMobile.textContent = label;
+            badgeMobile.classList.toggle('hidden', unread === 0);
         }
         if (document.getElementById('notif-panel') && !document.getElementById('notif-panel').classList.contains('hidden')) {
             window.renderNotificationsList();

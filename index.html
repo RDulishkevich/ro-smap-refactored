@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260717c">
-    <link rel="stylesheet" href="./src/glass.css?v=20260717c">
+    <link rel="stylesheet" href="./src/style.css?v=20260717d">
+    <link rel="stylesheet" href="./src/glass.css?v=20260717d">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -106,6 +106,19 @@
                         <span id="msg-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[1rem] h-[1rem] px-0.5 rounded-full bg-blue-500 text-white text-[9px] font-bold flex items-center justify-center shadow">0</span>
                     </button>
                 </div>
+                <div class="relative" id="notif-wrap">
+                    <button type="button" onclick="window.toggleNotificationsPanel()" id="notif-btn" class="hidden relative app-rail__btn" title="Уведомления" data-lang-title="notifications_title">
+                        <i class="fa-solid fa-bell"></i>
+                        <span id="notif-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[1rem] h-[1rem] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center shadow">0</span>
+                    </button>
+                    <div id="notif-panel" class="hidden absolute left-full bottom-0 ml-2 w-[min(calc(100vw-5rem),22rem)] max-h-[min(70vh,28rem)] overflow-hidden flex flex-col z-[90]">
+                        <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
+                            <h4 class="text-sm font-bold text-slate-800 dark:text-white" data-lang="notifications_title">Уведомления</h4>
+                            <button onclick="window.markAllNotificationsRead()" class="text-[11px] font-semibold text-accent hover:opacity-80 shrink-0 ml-2">Прочитать все</button>
+                        </div>
+                        <div id="notif-list" class="overflow-y-auto custom-scrollbar flex-1 p-2 space-y-1 min-h-0"></div>
+                    </div>
+                </div>
                 <button type="button" onclick="window.openSettingsPanel()" id="settings-btn" class="app-rail__btn" title="Настройки">
                     <i class="fa-solid fa-gear"></i>
                 </button>
@@ -118,16 +131,23 @@
             </div>
         </nav>
 
-        <!-- Floating top toolbar: search + active filter chips -->
+        <!-- Floating top toolbar: search trigger + chips -->
         <div id="map-top-toolbar" class="map-top-toolbar pointer-events-auto z-[50]">
-            <div id="sidebar-search-wrap" class="relative flex-1 min-w-0">
+            <button type="button" id="search-toggle-btn" class="search-toggle-btn" onclick="window.toggleSearchBar(true)" title="Поиск" aria-expanded="false">
+                <i class="fa-solid fa-magnifying-glass pointer-events-none"></i>
+            </button>
+            <div id="sidebar-search-wrap" class="relative flex-1 min-w-0 hidden">
                 <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm"></i>
-                <input type="text" id="search-input" data-lang-placeholder="search_placeholder" placeholder="Поиск звуков..." class="w-full py-2.5 pl-10 pr-4 text-sm focus:outline-none text-slate-800 dark:text-white">
+                <input type="text" id="search-input" data-lang-placeholder="search_placeholder" placeholder="Поиск звуков, ленты, экспедиций…" class="w-full py-2.5 pl-10 pr-10 text-sm focus:outline-none text-slate-800 dark:text-white" autocomplete="off" aria-autocomplete="list" aria-controls="search-suggestions" role="combobox" aria-expanded="false">
+                <button type="button" id="search-close-btn" class="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200" onclick="window.toggleSearchBar(false)" title="Закрыть поиск" aria-label="Закрыть поиск">
+                    <i class="fa-solid fa-xmark pointer-events-none"></i>
+                </button>
+                <div id="search-suggestions" class="search-suggestions hidden" role="listbox"></div>
             </div>
             <div id="active-tags-container" class="map-top-toolbar__tags flex flex-wrap gap-1.5 empty:hidden max-w-[40%] overflow-hidden"></div>
         </div>
 
-        <!-- Mobile top-right: notifs + account (desktop account lives in #app-rail) -->
+        <!-- Mobile top-right: messages + profile/settings -->
         <div id="map-top-right-controls" class="absolute top-4 right-4 md:top-6 md:right-6 pointer-events-auto z-50 flex items-center gap-2 sm:gap-3">
             <div class="relative md:hidden" id="msg-wrap-mobile">
                 <button type="button" onclick="window.toggleMessagesPanel()" id="msg-btn-mobile" class="hidden relative map-icon-btn" title="Сообщения" data-lang-title="messages_title">
@@ -135,18 +155,11 @@
                     <span id="msg-badge-mobile" class="hidden absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center shadow">0</span>
                 </button>
             </div>
-            <div class="relative" id="notif-wrap">
-                <button onclick="window.toggleNotificationsPanel()" id="notif-btn" class="hidden relative map-icon-btn" title="Уведомления" data-lang-title="notifications_title">
+            <div class="relative md:hidden" id="notif-wrap-mobile">
+                <button type="button" onclick="window.toggleNotificationsPanel()" id="notif-btn-mobile" class="hidden relative map-icon-btn" title="Уведомления" data-lang-title="notifications_title">
                     <i class="fa-solid fa-bell"></i>
-                    <span id="notif-badge" class="hidden absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow">0</span>
+                    <span id="notif-badge-mobile" class="hidden absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center shadow">0</span>
                 </button>
-                <div id="notif-panel" class="hidden absolute right-0 top-[3.35rem] w-[min(calc(100vw-2rem),22rem)] max-w-[calc(100vw-1.5rem)] max-h-[min(70vh,28rem)] overflow-hidden flex flex-col z-[90]">
-                    <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
-                        <h4 class="text-sm font-bold text-slate-800 dark:text-white" data-lang="notifications_title">Уведомления</h4>
-                        <button onclick="window.markAllNotificationsRead()" class="text-[11px] font-semibold text-accent hover:opacity-80 shrink-0 ml-2">Прочитать все</button>
-                    </div>
-                    <div id="notif-list" class="overflow-y-auto custom-scrollbar flex-1 p-2 space-y-1 min-h-0"></div>
-                </div>
             </div>
             <button onclick="window.openSettingsPanel()" id="settings-btn-mobile" class="map-icon-btn md:hidden" title="Настройки">
                 <i class="fa-solid fa-gear"></i>
@@ -156,8 +169,8 @@
             </button>
         </div>
 
-        <!-- Catalog dock (always on desktop; drawer on mobile) -->
-        <div id="sidebar" class="sidebar-panel dock-compact sidebar-hidden pointer-events-auto flex flex-col flex-shrink-0 z-[60]">
+        <!-- Viewer dock -->
+        <div id="sidebar" class="sidebar-panel dock-expanded sidebar-hidden pointer-events-auto flex flex-col flex-shrink-0 z-[60]">
             <div class="dock-header p-4 pb-3 border-b border-slate-100/80 dark:border-slate-700/50 shrink-0">
                 <div class="flex justify-between items-start gap-2">
                     <div class="min-w-0 flex items-start gap-2">
@@ -170,10 +183,11 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
-                        <button type="button" id="dock-expand-btn" onclick="window.toggleDockExpanded()" class="dock-expand-btn" title="Расширить панель" aria-pressed="false">
-                            <i class="fa-solid fa-arrows-left-right text-sm pointer-events-none"></i>
+                        <button type="button" id="dock-hide-btn" onclick="window.hideDockPanel()" class="dock-hide-btn" title="Скрыть панель" aria-label="Скрыть панель">
+                            <i class="fa-solid fa-chevron-left text-sm pointer-events-none"></i>
+                            <span class="dock-hide-btn__label pointer-events-none">Скрыть панель</span>
                         </button>
-                        <button type="button" onclick="window.toggleSidebar()" class="md:hidden w-8 h-8 flex items-center justify-center rounded-full bg-slate-100/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors pointer-events-auto" aria-label="Закрыть">
+                        <button type="button" onclick="window.hideDockPanel()" class="md:hidden w-8 h-8 flex items-center justify-center rounded-full bg-slate-100/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors pointer-events-auto" aria-label="Закрыть">
                             <i class="fa-solid fa-xmark text-lg pointer-events-none"></i>
                         </button>
                     </div>
@@ -189,12 +203,6 @@
 
             <!-- Библиотека: фильтры + список звуков -->
             <div id="sidebar-library" class="flex flex-col flex-1 min-h-0">
-                <div class="dock-filters-compact px-4 py-2 border-b border-slate-100/80 dark:border-slate-700/50 flex-shrink-0">
-                    <button type="button" id="dock-filters-open" onclick="window.toggleDockExpanded(true)" class="dock-filters-open-btn">
-                        <i class="fa-solid fa-sliders mr-1.5"></i>Фильтры
-                    </button>
-                </div>
-
                 <div id="dock-filters" class="dock-filters">
                     <div class="dock-filter-tabs flex border-b border-slate-100/80 dark:border-slate-700/50 flex-shrink-0 bg-slate-50/50 dark:bg-slate-900/30">
                         <button onclick="window.switchFilterTab('ucs')" id="tab-ucs" class="ui-tab ui-tab--filter is-active" data-lang="filter_tab_ucs"><i class="fa-solid fa-wave-square mr-1"></i>Слои</button>
@@ -287,6 +295,16 @@
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Settings (viewer) -->
+            <div id="dock-settings" class="hidden flex-1 min-h-0 flex flex-col overflow-hidden">
+                <div id="dock-settings-host" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar"></div>
+            </div>
+
+            <!-- Profile / cabinet (viewer) -->
+            <div id="dock-cabinet" class="hidden flex-1 min-h-0 flex flex-col overflow-hidden">
+                <div id="dock-cabinet-host" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar"></div>
             </div>
         </div>
 
@@ -427,7 +445,7 @@
 
     <!-- Модальное окно: НАСТРОЙКИ -->
     <div id="settings-modal" onmousedown="if(event.target === this) window.closeSettingsModal()" class="fixed inset-0 z-[250] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto border border-slate-100 dark:border-slate-800">
+        <div id="settings-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto border border-slate-100 dark:border-slate-800">
             <div class="px-6 py-5 flex justify-between items-center border-b border-slate-100 dark:border-slate-700">
                 <h3 class="text-lg font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-gear mr-2 text-blue-500"></i><span data-lang="settings_title">Настройки</span></h3>
                 <button onclick="window.closeSettingsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none">
@@ -513,7 +531,7 @@
 
     <!-- Модальное окно: ЛИЧНЫЙ КАБИНЕТ -->
     <div id="cabinet-modal" onmousedown="if(event.target === this) window.closeCabinet()" class="fixed inset-0 z-[200] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div class="bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-2xl app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto border border-slate-100 dark:border-slate-800">
+        <div id="cabinet-modal-content" class="bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-2xl app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto border border-slate-100 dark:border-slate-800">
             <div class="px-6 py-5 flex justify-between items-center bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
                 <div class="flex items-center gap-4 min-w-0">
                     <label class="relative cursor-pointer group shrink-0">
@@ -1640,7 +1658,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260717c"></script>
+    <script type="module" src="./src/main.js?v=20260717d"></script>
 
 </body>
 </html>

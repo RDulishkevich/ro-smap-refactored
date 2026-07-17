@@ -1,12 +1,12 @@
-import { initGlobalState } from './state.js?v=20260717c';
-import { initAuth } from './auth.js?v=20260717c';
+import { initGlobalState } from './state.js?v=20260717d';
+import { initAuth } from './auth.js?v=20260717d';
 
-import '../ui/ui.js?v=20260717c';
-import './sfx.js?v=20260717c';
-import './audio.js?v=20260717c';
-import './map.js?v=20260717c';
-import './guessr.js?v=20260717c';
-import '../widgets/analytics-widget.js?v=20260717c';
+import '../ui/ui.js?v=20260717d';
+import './sfx.js?v=20260717d';
+import './audio.js?v=20260717d';
+import './map.js?v=20260717d';
+import './guessr.js?v=20260717d';
+import '../widgets/analytics-widget.js?v=20260717d';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;
@@ -86,10 +86,14 @@ export function bootstrapApp() {
         if (searchInput) {
             let searchTimer = null;
             searchInput.addEventListener('input', () => {
+                if (window.updateSearchSuggestions) window.updateSearchSuggestions(searchInput.value || '');
                 if (searchTimer) clearTimeout(searchTimer);
                 searchTimer = setTimeout(() => {
                     if (window.processFilterChange) window.processFilterChange(false);
                 }, 140);
+            });
+            searchInput.addEventListener('focus', () => {
+                if (window.updateSearchSuggestions) window.updateSearchSuggestions(searchInput.value || '');
             });
         }
 

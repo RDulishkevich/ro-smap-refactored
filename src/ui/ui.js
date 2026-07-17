@@ -1733,7 +1733,7 @@ window.processFilterChange = function(forceOpenDesktopSidebar = false) {
 }
 
 window.hideAllDockPanels = function() {
-    ['sidebar-library', 'sidebar-feed', 'panel-expeditions', 'dock-details', 'dock-analyzers'].forEach(id => {
+    ['sidebar-library', 'sidebar-feed', 'panel-expeditions', 'dock-details', 'dock-analyzers', 'dock-settings', 'dock-cabinet'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.add('hidden');
     });
@@ -1777,16 +1777,63 @@ window.dockDetailsContent = function() {
     host.appendChild(content);
 };
 
+window.undockSettingsContent = function() {
+    const content = document.getElementById('settings-modal-content');
+    const modal = document.getElementById('settings-modal');
+    if (content && modal && content.classList.contains('settings-in-dock')) {
+        content.classList.remove('settings-in-dock');
+        modal.appendChild(content);
+    }
+};
+
+window.dockSettingsContent = function() {
+    const content = document.getElementById('settings-modal-content');
+    const host = document.getElementById('dock-settings-host');
+    if (!content || !host) return;
+    content.classList.add('settings-in-dock');
+    host.appendChild(content);
+};
+
+window.undockCabinetContent = function() {
+    const content = document.getElementById('cabinet-modal-content');
+    const modal = document.getElementById('cabinet-modal');
+    if (content && modal && content.classList.contains('cabinet-in-dock')) {
+        content.classList.remove('cabinet-in-dock');
+        modal.appendChild(content);
+    }
+};
+
+window.dockCabinetContent = function() {
+    const content = document.getElementById('cabinet-modal-content');
+    const host = document.getElementById('dock-cabinet-host');
+    if (!content || !host) return;
+    content.classList.add('cabinet-in-dock');
+    host.appendChild(content);
+};
+
+window.clearRailTabActive = function() {
+    ['rail-library', 'rail-feed', 'rail-expeditions'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.classList.remove('is-active');
+        btn.removeAttribute('aria-current');
+    });
+    ['tab-library', 'tab-feed', 'tab-expeditions'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.className = 'ui-tab ui-tab--main';
+    });
+};
+
 window.openDockView = function(view) {
-    const next = ['library', 'feed', 'expeditions', 'details', 'analyzers'].includes(view) ? view : 'library';
+    const next = ['library', 'feed', 'expeditions', 'details', 'analyzers', 'settings', 'cabinet'].includes(view) ? view : 'library';
     window.__dockView = next;
-    document.body.classList.remove('dock-view-details', 'dock-view-analyzers');
+    document.body.classList.remove('dock-view-details', 'dock-view-analyzers', 'dock-view-settings', 'dock-view-cabinet');
 
     window.hideAllDockPanels();
     window.undockDetailsContent();
+    window.undockSettingsContent();
+    window.undockCabinetContent();
 
-    const searchWrap = document.getElementById('sidebar-search-wrap');
-    const topToolbar = document.getElementById('map-top-toolbar');
     const mobileTabs = document.getElementById('dock-mobile-tabs');
 
     if (next === 'details') {
@@ -1795,22 +1842,37 @@ window.openDockView = function(view) {
         if (panel) panel.classList.remove('hidden');
         window.dockDetailsContent();
         window.setDockHeader('Описание звука', 'Карточка записи', true);
-        if (searchWrap) searchWrap.classList.add('hidden');
-        if (topToolbar) topToolbar.classList.add('toolbar-search-hidden');
         if (mobileTabs) mobileTabs.classList.add('hidden');
-        if (window.toggleDockExpanded) window.toggleDockExpanded(true);
+        window.clearRailTabActive();
     } else if (next === 'analyzers') {
         document.body.classList.add('dock-view-analyzers');
         const panel = document.getElementById('dock-analyzers');
         if (panel) panel.classList.remove('hidden');
         window.setDockHeader('Анализаторы', 'Спектр · стерео · громкость', true);
-        if (searchWrap) searchWrap.classList.add('hidden');
-        if (topToolbar) topToolbar.classList.add('toolbar-search-hidden');
         if (mobileTabs) mobileTabs.classList.add('hidden');
-        if (window.toggleDockExpanded) window.toggleDockExpanded(true);
+        window.clearRailTabActive();
+    } else if (next === 'settings') {
+        document.body.classList.add('dock-view-settings');
+        const panel = document.getElementById('dock-settings');
+        if (panel) panel.classList.remove('hidden');
+        window.dockSettingsContent();
+        window.setDockHeader('Настройки', 'Тема · карта · язык', true);
+        if (mobileTabs) mobileTabs.classList.add('hidden');
+        window.clearRailTabActive();
+        if (window.refreshSettingsUI) window.refreshSettingsUI();
+        if (window.renderRegionStats) window.renderRegionStats('region-stats-grid');
+    } else if (next === 'cabinet') {
+        document.body.classList.add('dock-view-cabinet');
+        const panel = document.getElementById('dock-cabinet');
+        if (panel) panel.classList.remove('hidden');
+        window.dockCabinetContent();
+        window.setDockHeader('Личный кабинет', 'Профиль и записи', true);
+        if (mobileTabs) mobileTabs.classList.add('hidden');
+        window.clearRailTabActive();
+        if (window.refreshCabinetTabs) window.refreshCabinetTabs();
+        if (window.switchCabinetTab) window.switchCabinetTab('sounds');
     } else {
         if (mobileTabs) mobileTabs.classList.remove('hidden');
-        // fall through to switchSidebarTab body without recursion
         window.__sidebarTab = next;
         const btnLib = document.getElementById('tab-library');
         const btnFeed = document.getElementById('tab-feed');
@@ -1822,46 +1884,29 @@ window.openDockView = function(view) {
         const panelFeed = document.getElementById('sidebar-feed');
         const panelExp = document.getElementById('panel-expeditions');
         const activeClass = 'ui-tab ui-tab--main is-active';
-        const inactiveClass = 'ui-tab ui-tab--main';
-        if (btnLib) btnLib.className = inactiveClass;
-        if (btnFeed) btnFeed.className = inactiveClass;
-        if (btnExp) btnExp.className = inactiveClass;
-        [railLib, railFeed, railExp].forEach(btn => {
-            if (!btn) return;
-            btn.classList.remove('is-active');
-            btn.removeAttribute('aria-current');
-        });
+        window.clearRailTabActive();
 
         if (next === 'feed') {
             if (btnFeed) btnFeed.className = activeClass;
             if (railFeed) { railFeed.classList.add('is-active'); railFeed.setAttribute('aria-current', 'page'); }
             if (panelFeed) panelFeed.classList.remove('hidden');
-            if (searchWrap) searchWrap.classList.add('hidden');
-            if (topToolbar) topToolbar.classList.add('toolbar-search-hidden');
             window.setDockHeader('Лента', 'Новости и посты', false);
             if (window.renderSidebarFeed) window.renderSidebarFeed();
         } else if (next === 'expeditions') {
             if (btnExp) btnExp.className = activeClass;
             if (railExp) { railExp.classList.add('is-active'); railExp.setAttribute('aria-current', 'page'); }
             if (panelExp) panelExp.classList.remove('hidden');
-            if (searchWrap) searchWrap.classList.add('hidden');
-            if (topToolbar) topToolbar.classList.add('toolbar-search-hidden');
             window.setDockHeader('Экспедиции', 'Маршруты и сессии', false);
             if (window.renderSidebarExpeditions) window.renderSidebarExpeditions();
         } else {
             if (btnLib) btnLib.className = activeClass;
             if (railLib) { railLib.classList.add('is-active'); railLib.setAttribute('aria-current', 'page'); }
             if (panelLib) panelLib.classList.remove('hidden');
-            if (searchWrap) searchWrap.classList.remove('hidden');
-            if (topToolbar) topToolbar.classList.remove('toolbar-search-hidden');
             window.setDockHeader('Ростовская область', null, false);
         }
     }
 
-    if (window.innerWidth < 768) {
-        const sb = document.getElementById('sidebar');
-        if (sb && sb.classList.contains('sidebar-hidden') && window.toggleSidebar) window.toggleSidebar();
-    }
+    if (window.showDockPanel) window.showDockPanel();
 };
 
 window.closeDockViewer = function() {
@@ -1871,12 +1916,18 @@ window.closeDockViewer = function() {
         window.__skipAnalyzerViewRestore = false;
     }
     window.undockDetailsContent();
+    window.undockSettingsContent();
+    window.undockCabinetContent();
     const m = document.getElementById('details-modal');
     if (m) {
         m.classList.add('opacity-0', 'pointer-events-none', 'hidden');
         const c = document.getElementById('details-modal-content');
         if (c) c.classList.add('scale-95');
     }
+    const settingsModal = document.getElementById('settings-modal');
+    if (settingsModal) settingsModal.classList.add('hidden', 'opacity-0', 'pointer-events-none');
+    const cabinetModal = document.getElementById('cabinet-modal');
+    if (cabinetModal) cabinetModal.classList.add('hidden', 'opacity-0', 'pointer-events-none');
     window.openDockView(window.__sidebarTab || 'library');
 };
 
@@ -3516,73 +3567,254 @@ window.setTheme = function(theme, skipSave = false) {
     if (window.refreshSettingsUI) window.refreshSettingsUI();
     if (window.refreshAnalyzersTheme) window.refreshAnalyzersTheme();
 }
-window.toggleDockExpanded = function(forceExpand) {
+window.showDockPanel = function() {
     const s = document.getElementById('sidebar');
     if (!s) return;
-    const expand = typeof forceExpand === 'boolean'
-        ? forceExpand
-        : !s.classList.contains('dock-expanded');
+    s.classList.remove('sidebar-hidden');
+    s.classList.add('dock-expanded');
+    s.classList.remove('dock-compact');
+    document.body.classList.remove('dock-is-hidden');
+    document.body.classList.add('dock-is-expanded');
+    const backdrop = document.getElementById('sidebar-backdrop');
+    if (backdrop) backdrop.classList.toggle('visible', window.innerWidth < 768);
+    const playerCard = document.getElementById('player-card');
+    if (playerCard) playerCard.style.marginLeft = '';
+};
 
-    s.classList.toggle('dock-expanded', expand);
-    s.classList.toggle('dock-compact', !expand);
-    document.body.classList.toggle('dock-is-expanded', expand);
-
-    const btn = document.getElementById('dock-expand-btn');
-    if (btn) {
-        btn.setAttribute('aria-pressed', expand ? 'true' : 'false');
-        btn.title = expand ? 'Свернуть панель' : 'Расширить панель';
-        const icon = btn.querySelector('i');
-        if (icon) icon.className = expand ? 'fa-solid fa-compress text-sm pointer-events-none' : 'fa-solid fa-arrows-left-right text-sm pointer-events-none';
-    }
-
-    try { localStorage.setItem('rosmap-dock-expanded', expand ? '1' : '0'); } catch (_) {}
-
-    // Clear legacy player margin; layout uses CSS padding on #player-anchor
+window.hideDockPanel = function() {
+    const s = document.getElementById('sidebar');
+    if (!s) return;
+    s.classList.add('sidebar-hidden');
+    document.body.classList.add('dock-is-hidden');
+    const backdrop = document.getElementById('sidebar-backdrop');
+    if (backdrop) backdrop.classList.remove('visible');
     const playerCard = document.getElementById('player-card');
     if (playerCard) playerCard.style.marginLeft = '';
 };
 
 window.initDockChrome = function() {
-    let expanded = false;
-    try { expanded = localStorage.getItem('rosmap-dock-expanded') === '1'; } catch (_) {}
-    window.toggleDockExpanded(expanded);
-    if (window.syncAccountChrome) window.syncAccountChrome();
-
-    const syncDesktopDock = () => {
-        if (window.innerWidth >= 768) {
-            const s = document.getElementById('sidebar');
-            if (s) s.classList.remove('sidebar-hidden');
-            const backdrop = document.getElementById('sidebar-backdrop');
-            if (backdrop) backdrop.classList.remove('visible');
-        }
-    };
-    syncDesktopDock();
-    if (!window.__dockChromeResizeBound) {
-        window.__dockChromeResizeBound = true;
-        window.addEventListener('resize', syncDesktopDock);
+    const s = document.getElementById('sidebar');
+    if (s) {
+        s.classList.add('dock-expanded');
+        s.classList.remove('dock-compact');
     }
+    document.body.classList.add('dock-is-expanded');
+    if (s && s.classList.contains('sidebar-hidden')) {
+        document.body.classList.add('dock-is-hidden');
+    } else {
+        document.body.classList.remove('dock-is-hidden');
+    }
+    if (window.syncAccountChrome) window.syncAccountChrome();
+    if (window.initSearchChrome) window.initSearchChrome();
 };
 
 window.toggleSidebar = function() {
     const s = document.getElementById('sidebar');
     if (!s) return;
+    if (s.classList.contains('sidebar-hidden')) window.showDockPanel();
+    else window.hideDockPanel();
+};
 
-    // Desktop dock is always visible; expand uses #dock-expand-btn
-    if (window.innerWidth >= 768) {
-        s.classList.remove('sidebar-hidden');
-        const backdrop = document.getElementById('sidebar-backdrop');
-        if (backdrop) backdrop.classList.remove('visible');
+window.toggleSearchBar = function(forceOpen) {
+    const toolbar = document.getElementById('map-top-toolbar');
+    const wrap = document.getElementById('sidebar-search-wrap');
+    const toggle = document.getElementById('search-toggle-btn');
+    const input = document.getElementById('search-input');
+    if (!toolbar || !wrap) return;
+    const open = typeof forceOpen === 'boolean'
+        ? forceOpen
+        : wrap.classList.contains('hidden');
+    wrap.classList.toggle('hidden', !open);
+    toolbar.classList.toggle('is-search-open', open);
+    if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) {
+        if (input) {
+            input.focus();
+            window.updateSearchSuggestions(input.value || '');
+        }
+    } else {
+        window.clearSearchSuggestions();
+    }
+};
+
+window.clearSearchSuggestions = function() {
+    const box = document.getElementById('search-suggestions');
+    const input = document.getElementById('search-input');
+    if (box) {
+        box.classList.add('hidden');
+        box.innerHTML = '';
+    }
+    if (input) input.setAttribute('aria-expanded', 'false');
+    window.__searchSuggestionIndex = -1;
+};
+
+window.getSearchSuggestions = function(query) {
+    const q = String(query || '').trim().toLowerCase();
+    if (q.length < 1) return [];
+    const out = [];
+    const seen = new Set();
+    const push = (item) => {
+        const key = `${item.type}:${item.id}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push(item);
+    };
+
+    (window.soundsData || []).forEach(s => {
+        if (out.length >= 14) return;
+        if (window.isSoundStatusVisible && !window.isSoundStatusVisible(s)) return;
+        const hay = `${s.title || ''} ${s.description || ''} ${s.keywords || ''} ${s.recordist || ''} ${s.ecoCategory || ''} ${s.typeTag || ''}`.toLowerCase();
+        if (!hay.includes(q)) return;
+        push({
+            type: 'sound',
+            id: s.id,
+            label: s.title || 'Звук',
+            meta: s.recordist || s.ecoCategory || 'Звук',
+            icon: 'fa-music'
+        });
+    });
+
+    (window.feedPosts || []).filter(p => !p.deleted).forEach(p => {
+        if (out.length >= 14) return;
+        const title = p.title || (p.type === 'article' ? 'Статья' : 'Объявление');
+        const hay = `${title} ${p.body || ''} ${p.text || ''} ${p.excerpt || ''}`.toLowerCase();
+        if (!hay.includes(q)) return;
+        push({
+            type: 'feed',
+            id: p.id,
+            label: title,
+            meta: 'Лента',
+            icon: 'fa-newspaper'
+        });
+    });
+
+    const sessions = window.getAllSessions ? window.getAllSessions() : [];
+    sessions.forEach(s => {
+        if (out.length >= 14) return;
+        const hay = `${s.title || ''} ${s.description || ''} ${s.location || ''} ${s.ownerName || ''}`.toLowerCase();
+        if (!hay.includes(q)) return;
+        push({
+            type: 'expedition',
+            id: s.id,
+            label: s.title || 'Экспедиция',
+            meta: s.ownerName || 'Экспедиция',
+            icon: 'fa-route'
+        });
+    });
+
+    (window.profilesData || []).forEach(p => {
+        if (out.length >= 14) return;
+        const name = p.displayName || p.loginName || '';
+        if (!name || !name.toLowerCase().includes(q)) return;
+        push({
+            type: 'profile',
+            id: p.loginName,
+            label: name,
+            meta: 'Профиль',
+            icon: 'fa-user'
+        });
+    });
+
+    return out.slice(0, 10);
+};
+
+window.updateSearchSuggestions = function(query) {
+    const box = document.getElementById('search-suggestions');
+    const input = document.getElementById('search-input');
+    if (!box) return;
+    const items = window.getSearchSuggestions(query);
+    window.__searchSuggestionIndex = -1;
+    window.__searchSuggestions = items;
+    if (!items.length) {
+        box.classList.add('hidden');
+        box.innerHTML = '';
+        if (input) input.setAttribute('aria-expanded', 'false');
         return;
     }
+    const esc = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    box.innerHTML = items.map((item, i) => `
+        <button type="button" role="option" class="search-suggestion" data-index="${i}" data-type="${esc(item.type)}" data-id="${esc(item.id)}">
+            <span class="search-suggestion__icon"><i class="fa-solid ${item.icon}"></i></span>
+            <span class="min-w-0">
+                <div class="search-suggestion__label">${esc(item.label)}</div>
+                <div class="search-suggestion__meta">${esc(item.meta)}</div>
+            </span>
+        </button>
+    `).join('');
+    box.classList.remove('hidden');
+    if (input) input.setAttribute('aria-expanded', 'true');
+};
 
-    s.classList.toggle('sidebar-hidden');
-    const isHidden = s.classList.contains('sidebar-hidden');
+window.applySearchSuggestion = function(type, id) {
+    window.clearSearchSuggestions();
+    if (type === 'sound') {
+        if (window.selectSound) window.selectSound(id);
+        if (window.openDockView) window.openDockView('library');
+    } else if (type === 'feed') {
+        if (window.switchSidebarTab) window.switchSidebarTab('feed');
+        setTimeout(() => {
+            const el = document.querySelector(`[data-feed-id="${id}"]`) || document.getElementById(`feed-post-${id}`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 80);
+    } else if (type === 'expedition') {
+        if (window.setSidebarSessionFilter) window.setSidebarSessionFilter(id);
+        if (window.switchSidebarTab) window.switchSidebarTab('expeditions');
+    } else if (type === 'profile') {
+        const profile = (window.profilesData || []).find(p => p.loginName === id);
+        if (window.openPublicProfile) window.openPublicProfile(id, profile?.displayName || id);
+    }
+};
 
-    const backdrop = document.getElementById('sidebar-backdrop');
-    if (backdrop) backdrop.classList.toggle('visible', !isHidden);
+window.initSearchChrome = function() {
+    if (window.__searchChromeBound) return;
+    window.__searchChromeBound = true;
+    const input = document.getElementById('search-input');
+    const box = document.getElementById('search-suggestions');
+    if (box) {
+        box.addEventListener('click', (e) => {
+            const btn = e.target.closest('.search-suggestion');
+            if (!btn) return;
+            e.preventDefault();
+            window.applySearchSuggestion(btn.dataset.type, btn.dataset.id);
+        });
+    }
+    if (!input) return;
 
-    const playerCard = document.getElementById('player-card');
-    if (playerCard) playerCard.style.marginLeft = '';
+    input.addEventListener('keydown', (e) => {
+        const suggBox = document.getElementById('search-suggestions');
+        const items = window.__searchSuggestions || [];
+        if (e.key === 'Escape') {
+            if (suggBox && !suggBox.classList.contains('hidden')) {
+                window.clearSearchSuggestions();
+                e.preventDefault();
+            } else {
+                window.toggleSearchBar(false);
+            }
+            return;
+        }
+        if (!items.length || !suggBox || suggBox.classList.contains('hidden')) return;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            const delta = e.key === 'ArrowDown' ? 1 : -1;
+            const next = Math.max(0, Math.min(items.length - 1, (window.__searchSuggestionIndex ?? -1) + delta));
+            window.__searchSuggestionIndex = next;
+            suggBox.querySelectorAll('.search-suggestion').forEach((el, i) => el.classList.toggle('is-active', i === next));
+            return;
+        }
+        if (e.key === 'Enter' && window.__searchSuggestionIndex >= 0) {
+            const item = items[window.__searchSuggestionIndex];
+            if (item) {
+                e.preventDefault();
+                window.applySearchSuggestion(item.type, item.id);
+            }
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        const toolbar = document.getElementById('map-top-toolbar');
+        if (!toolbar || toolbar.contains(e.target)) return;
+        window.clearSearchSuggestions();
+    });
 };
 
 window.initSwipeHandlers = function() {
