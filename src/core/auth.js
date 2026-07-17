@@ -2860,7 +2860,7 @@ export function initAuth() {
 
     window.renderMessageBubble = function(m) {
         if (m.deleted) {
-            return `<div class="msg-bubble deleted ${m._mine ? 'mine' : ''}" onclick="window.openMessageMenu('${m.id}')">
+            return `<div class="msg-bubble deleted ${m._mine ? 'mine' : ''}" data-msg-id="${m.id}">
                 <p class="text-[13px] leading-snug">Сообщение удалено</p>
                 <p class="msg-bubble-foot"><span>${window.formatMsgTime(m.date)}</span>${window.renderMessageTicks(m)}</p>
             </div>`;
@@ -2877,7 +2877,7 @@ export function initAuth() {
                 users?.length ? `<span class="msg-reaction-chip">${emoji} ${users.length}</span>` : ''
             ).join('')}</div>`
             : '';
-        return `<div class="msg-bubble ${m._mine ? 'mine' : ''} ${m._mine ? '' : 'swipe-reply-row'}" data-msg-id="${m.id}" onclick="window.openMessageMenu('${m.id}')">
+        return `<div class="msg-bubble ${m._mine ? 'mine' : ''} ${m._mine ? '' : 'swipe-reply-row'}" data-msg-id="${m.id}">
             ${m._mine ? '' : '<span class="swipe-reply-hint"><i class="fa-solid fa-reply"></i></span>'}
             ${reply}${img}
             ${m.text ? `<p class="text-[13px] leading-snug">${window.escMsgHtml(m.text)}</p>` : ''}
@@ -2945,6 +2945,7 @@ export function initAuth() {
                 ? all.map(m => window.renderMessageBubble(m)).join('')
                 : `<p class="text-xs text-slate-400 text-center py-6">Начните переписку</p>`;
             if (!quiet || nearBottom) list.scrollTop = list.scrollHeight;
+            if (window.bindMessageBubbleMenus) window.bindMessageBubbleMenus(list);
             if (window.bindSwipeReplyRows) window.bindSwipeReplyRows(list, (id) => window.startMessageReply(id));
         }
 
@@ -2999,11 +3000,6 @@ export function initAuth() {
         const found = window.findInboxMessage(msgId);
         if (!found || found.msg.deleted) return;
         const m = found.msg;
-        // Ответ по свайпу — на сообщение собеседника (не своё)
-        const myLogin = window.currentUser
-            ? (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase())
-            : '';
-        if (m.fromId === myLogin) return;
 
         window.__messageReplyTo = {
             id: m.id,
@@ -3224,7 +3220,7 @@ export function initAuth() {
             items.push({ icon: 'fa-reply', label: 'Ответить', onClick: () => window.startMessageReply(msgId) });
             items.push({
                 icon: 'fa-face-smile',
-                label: 'Реакция',
+                label: 'Поставить реакцию',
                 onClick: () => {
                     const reactItems = window.MSG_REACT_EMOJI.map(emoji => ({
                         icon: 'fa-heart',

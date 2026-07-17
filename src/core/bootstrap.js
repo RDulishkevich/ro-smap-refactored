@@ -1,14 +1,14 @@
-import { initGlobalState } from './state.js?v=20260717q';
-import { initAuth } from './auth.js?v=20260717q';
+import { initGlobalState } from './state.js?v=20260717r';
+import { initAuth } from './auth.js?v=20260717r';
 
-import '../ui/ui.js?v=20260717q';
-import './sfx.js?v=20260717q';
-import './audio.js?v=20260717q';
-import './map.js?v=20260717q';
-import './mapbox-map.js?v=20260717q';
-import './achievements.js?v=20260717q';
-import './guessr.js?v=20260717q';
-import '../widgets/analytics-widget.js?v=20260717q';
+import '../ui/ui.js?v=20260717r';
+import './sfx.js?v=20260717r';
+import './audio.js?v=20260717r';
+import './map.js?v=20260717r';
+import './mapbox-map.js?v=20260717r';
+import './achievements.js?v=20260717r';
+import './guessr.js?v=20260717r';
+import '../widgets/analytics-widget.js?v=20260717r';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;
@@ -96,8 +96,22 @@ export function bootstrapApp() {
         });
 
         const searchInput = document.getElementById('search-input');
+        const clearSearchAutofill = () => {
+            if (!searchInput) return;
+            const junk = /novaya[\s_]*zapis/i;
+            if (!searchInput.value || junk.test(searchInput.value.trim())) {
+                searchInput.value = '';
+            }
+        };
         if (searchInput) {
-            searchInput.value = '';
+            clearSearchAutofill();
+            // Блокируем автозаполнение браузера до первого фокуса
+            searchInput.setAttribute('readonly', 'readonly');
+            const unlockSearch = () => {
+                searchInput.removeAttribute('readonly');
+            };
+            searchInput.addEventListener('focus', unlockSearch, { once: true });
+            searchInput.addEventListener('touchstart', unlockSearch, { once: true, passive: true });
             let searchTimer = null;
             searchInput.addEventListener('input', () => {
                 if (window.updateSearchSuggestions) window.updateSearchSuggestions(searchInput.value || '');
@@ -109,6 +123,10 @@ export function bootstrapApp() {
             searchInput.addEventListener('focus', () => {
                 if (window.updateSearchSuggestions) window.updateSearchSuggestions(searchInput.value || '');
             });
+            window.addEventListener('pageshow', clearSearchAutofill);
+            // Chrome иногда подставляет значение после DOMContentLoaded
+            setTimeout(clearSearchAutofill, 0);
+            setTimeout(clearSearchAutofill, 250);
         }
 
         const dropZone = document.getElementById('drop-zone');

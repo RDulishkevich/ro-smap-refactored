@@ -363,6 +363,57 @@ window.handleOnboardingBackdrop = function(e) {
     }
 };
 
+/** Долгое нажатие / ПКМ по пузырю сообщения → меню действий. */
+window.bindMessageBubbleMenus = function(container) {
+    if (!container) return;
+    container.querySelectorAll('.msg-bubble[data-msg-id]').forEach((bubble) => {
+        if (bubble.dataset.menuBound === '1') return;
+        bubble.dataset.menuBound = '1';
+        const msgId = bubble.dataset.msgId;
+        if (!msgId) return;
+
+        bubble.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (bubble.dataset.swipeJustFired === '1') return;
+            if (window.openMessageMenu) window.openMessageMenu(msgId);
+        });
+
+        let pressTimer = null;
+        let startX = 0;
+        let startY = 0;
+        const clearPress = () => {
+            if (pressTimer) {
+                clearTimeout(pressTimer);
+                pressTimer = null;
+            }
+        };
+
+        bubble.addEventListener('touchstart', (e) => {
+            if (!e.touches?.[0]) return;
+            clearPress();
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            pressTimer = setTimeout(() => {
+                pressTimer = null;
+                if (bubble.dataset.swipeJustFired === '1') return;
+                try { if (navigator.vibrate) navigator.vibrate(12); } catch (_) {}
+                if (window.openMessageMenu) window.openMessageMenu(msgId);
+            }, 480);
+        }, { passive: true });
+
+        bubble.addEventListener('touchmove', (e) => {
+            if (!pressTimer || !e.touches?.[0]) return;
+            const dx = Math.abs(e.touches[0].clientX - startX);
+            const dy = Math.abs(e.touches[0].clientY - startY);
+            if (dx > 12 || dy > 12) clearPress();
+        }, { passive: true });
+
+        bubble.addEventListener('touchend', clearPress, { passive: true });
+        bubble.addEventListener('touchcancel', clearPress, { passive: true });
+    });
+};
+
 window.bindSwipeReplyRows = function(container, onReply) {
     if (!container || typeof onReply !== 'function') return;
     container.querySelectorAll('.swipe-reply-row').forEach(row => {

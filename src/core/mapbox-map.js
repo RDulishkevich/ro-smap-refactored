@@ -110,6 +110,11 @@ window.createMapboxMarkerElement = function(sound, colorClass, isSelected) {
         if (window.hideMarkerHoverCard) window.hideMarkerHoverCard(true);
         if (window.selectSound) window.selectSound(sound.id);
     });
+    el.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (window.openMarkerAdminContext) window.openMarkerAdminContext(sound.id, e);
+    });
     el.addEventListener('mouseenter', () => {
         if (window.showMarkerHoverCard) window.showMarkerHoverCard(sound);
     });

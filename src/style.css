@@ -1257,11 +1257,14 @@ html.dark .search-suggestions,
     color: #94a3b8;
 }
 
-/* ??????? ??????? ???????? ? ?????????????? bar ??? ?????? ?????? */
+/* Вкладки кабинета: перенос строк вместо скрытого горизонтального скролла */
 .cabinet-tabs {
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    flex-wrap: wrap;
+    row-gap: 0;
+    overflow-x: visible;
 }
 .cabinet-tabs::-webkit-scrollbar { display: none; height: 0; width: 0; }
 #cabinet-modal-content .custom-scrollbar,
@@ -1279,8 +1282,8 @@ html.dark .search-suggestions,
 }
 .cab-tab {
     flex: 0 0 auto;
-    padding: 0.75rem 0.85rem;
-    font-size: 13px;
+    padding: 0.55rem 0.7rem;
+    font-size: 12px;
     font-weight: 700;
     white-space: nowrap;
     color: #64748b;

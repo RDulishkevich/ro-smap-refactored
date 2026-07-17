@@ -63,6 +63,24 @@ window.createMapMarkerFromContext = function() {
     if (window.toggleAddModal) window.toggleAddModal(false, window.tempAddCoords);
 };
 
+/** ПКМ по метке: админское меню действий (просмотр / изменить / модерация / удалить). */
+window.openMarkerAdminContext = function(soundId, e) {
+    if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) return false;
+    if (e) {
+        try {
+            if (typeof e.preventDefault === 'function') e.preventDefault();
+            if (typeof e.stopPropagation === 'function') e.stopPropagation();
+            const dom = e.get?.('domEvent');
+            if (dom && typeof dom.preventDefault === 'function') dom.preventDefault();
+            if (dom && typeof dom.stopPropagation === 'function') dom.stopPropagation();
+        } catch (_) {}
+    }
+    if (window.hideMapContextMenu) window.hideMapContextMenu();
+    if (window.hideMarkerHoverCard) window.hideMarkerHoverCard(true);
+    if (window.openAdminSoundActions) window.openAdminSoundActions(soundId);
+    return true;
+};
+
 window.destroyYandexMap = function() {
     if (window.markerCache) {
         window.markerCache.forEach((placemark) => {
@@ -706,6 +724,13 @@ window.updateMapMarkers = function() {
                 iconOffset: [-14, -14]
             });
             placemark.events.add('click', () => window.selectSound(sound.id));
+            placemark.events.add('contextmenu', (e) => {
+                try {
+                    e.preventDefault();
+                    e.stopPropagation();
+                } catch (_) {}
+                window.openMarkerAdminContext(sound.id, e);
+            });
             window.bindMarkerHover(placemark, sound.id);
             window.map.geoObjects.add(placemark);
             window.markerCache.set(sound.id, placemark);

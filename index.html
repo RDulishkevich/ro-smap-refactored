@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260717q">
-    <link rel="stylesheet" href="./src/glass.css?v=20260717q">
+    <link rel="stylesheet" href="./src/style.css?v=20260717r">
+    <link rel="stylesheet" href="./src/glass.css?v=20260717r">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -143,7 +143,7 @@
                 <button type="button" id="search-toggle-btn" class="search-toggle-btn" onclick="window.toggleSearchBar(true)" title="Поиск" aria-expanded="false" aria-controls="search-input">
                     <i class="fa-solid fa-magnifying-glass pointer-events-none"></i>
                 </button>
-                <input type="text" id="search-input" data-lang-placeholder="search_placeholder" placeholder="Поиск…" class="search-cluster-input text-sm text-slate-800 dark:text-white" autocomplete="off" aria-autocomplete="list" aria-controls="search-suggestions" role="combobox" aria-expanded="false">
+                <input type="search" id="search-input" name="rosmap-sound-search" data-lang-placeholder="search_placeholder" placeholder="Поиск…" class="search-cluster-input text-sm text-slate-800 dark:text-white" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-autocomplete="list" aria-controls="search-suggestions" role="combobox" aria-expanded="false" value="">
                 <div id="search-suggestions" class="search-suggestions hidden" role="listbox"></div>
             </div>
             <div id="active-tags-container" class="map-top-toolbar__tags flex flex-wrap gap-1.5 empty:hidden overflow-hidden"></div>
@@ -676,7 +676,7 @@
                 </div>
             </div>
 
-            <div id="cabinet-tabs" class="cabinet-tabs flex flex-nowrap bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 px-2 gap-1 overflow-x-auto shrink-0">
+            <div id="cabinet-tabs" class="cabinet-tabs flex flex-wrap bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 px-2 gap-x-1 shrink-0">
                 <button type="button" onclick="window.switchCabinetTab('sounds')" id="cab-tab-sounds" data-cab-tab="sounds" class="cab-tab active" data-lang="cab_tab_sounds">Мои звуки</button>
                 <button type="button" onclick="window.switchCabinetTab('quests')" id="cab-tab-quests" data-cab-tab="quests" class="cab-tab" data-lang="cab_tab_quests">Задания</button>
                 <button type="button" onclick="window.switchCabinetTab('sessions')" id="cab-tab-sessions" data-cab-tab="sessions" class="cab-tab" data-lang="cab_tab_sessions">Экспедиции</button>
@@ -959,12 +959,12 @@
 
                     <div>
                         <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="user_defined">Описание для файла (UserDefined)</label>
-                        <input id="add-user-defined" type="text" value="NovayaZapis" placeholder="Напр. Street Market Rostov Day" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-medium" oninput="window.generateUCSFileName()">
+                        <input id="add-user-defined" type="text" name="rosmap-add-user-defined" value="" placeholder="Напр. Street Market Rostov Day" autocomplete="off" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-medium" oninput="window.generateUCSFileName()">
                     </div>
 
                     <div>
                         <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="display_title">Отображаемое название (Внутреннее)</label>
-                        <input id="add-display-title" type="text" value="Новая запись" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-medium">
+                        <input id="add-display-title" type="text" name="rosmap-add-display-title" value="" placeholder="Новая запись" autocomplete="off" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-medium">
                     </div>
 
                     <div>
@@ -1758,7 +1758,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260717q"></script>
+    <script type="module" src="./src/main.js?v=20260717r"></script>
 
 </body>
 </html>
