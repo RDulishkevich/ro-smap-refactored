@@ -3373,6 +3373,8 @@ window.setTheme = function(theme, skipSave = false) {
         root.classList.remove('dark');
         root.classList.add('light');
     }
+    const themeSwitch = document.getElementById('theme-glass-switch');
+    if (themeSwitch) themeSwitch.setAttribute('aria-checked', theme === 'dark' ? 'true' : 'false');
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('theme', theme);
     if (window.refreshSettingsUI) window.refreshSettingsUI();
     if (window.refreshAnalyzersTheme) window.refreshAnalyzersTheme();

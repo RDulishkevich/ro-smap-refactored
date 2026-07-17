@@ -928,46 +928,39 @@ export function initAuth() {
     };
 
     window.refreshSettingsUI = function() {
-        const themeLightBtn = document.getElementById('theme-light-btn');
-        const themeDarkBtn = document.getElementById('theme-dark-btn');
         const mapNormalBtn = document.getElementById('map-normal-btn');
         const mapMonoBtn = document.getElementById('map-mono-btn');
         const langSelect = document.getElementById('lang-select');
         const scaleButtons = document.querySelectorAll('[data-scale]');
+        const themeSwitch = document.getElementById('theme-glass-switch');
+        const sfxSwitch = document.getElementById('sfx-glass-switch');
 
-        const activeClass = 'flex-1 py-2 text-xs font-bold bg-blue-600 text-white shadow-md rounded-lg transition-all';
-        const inactiveClass = 'flex-1 py-2 text-xs font-bold bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50 rounded-lg transition-all';
-
-        if (themeLightBtn && themeDarkBtn) {
+        if (themeSwitch) {
             const isDark = window.currentTheme === 'dark';
-            themeLightBtn.className = isDark ? inactiveClass : activeClass;
-            themeDarkBtn.className = isDark ? activeClass : inactiveClass;
+            themeSwitch.setAttribute('aria-checked', isDark ? 'true' : 'false');
         }
 
         if (mapNormalBtn && mapMonoBtn) {
             const isMono = window.currentMapStyle === 'monochrome';
-            mapNormalBtn.className = isMono ? inactiveClass : activeClass;
-            mapMonoBtn.className = isMono ? activeClass : inactiveClass;
+            mapNormalBtn.className = isMono ? 'glass-seg__btn' : 'glass-seg__btn is-active is-active--accent';
+            mapMonoBtn.className = isMono ? 'glass-seg__btn is-active is-active--accent' : 'glass-seg__btn';
         }
 
         if (langSelect) {
             langSelect.value = window.currentLang || 'ru';
         }
 
-        const sfxOnBtn = document.getElementById('sfx-on-btn');
-        const sfxOffBtn = document.getElementById('sfx-off-btn');
-        if (sfxOnBtn && sfxOffBtn) {
+        if (sfxSwitch) {
             const on = window.uiSoundsEnabled !== false;
-            sfxOnBtn.className = on ? activeClass : inactiveClass;
-            sfxOffBtn.className = on ? inactiveClass : activeClass;
+            sfxSwitch.setAttribute('aria-checked', on ? 'true' : 'false');
         }
 
         scaleButtons.forEach(btn => {
             const size = btn.getAttribute('data-scale');
             const isActive = (window.currentGuiScale || 'medium') === size;
             btn.className = isActive
-                ? 'p-2.5 text-xs font-bold bg-blue-600 text-white rounded-xl transition-all shadow-md'
-                : 'p-2.5 text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors';
+                ? 'glass-seg__btn is-active is-active--accent'
+                : 'glass-seg__btn';
         });
     };
 

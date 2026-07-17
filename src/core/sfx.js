@@ -189,6 +189,8 @@
         window.uiSoundsEnabled = !!enabled;
         try { localStorage.setItem('rosmap_ui_sounds', enabled ? '1' : '0'); } catch (_) {}
         if (!skipSave && window.saveUserSettings) window.saveUserSettings('uiSounds', !!enabled);
+        const sfxSwitch = document.getElementById('sfx-glass-switch');
+        if (sfxSwitch) sfxSwitch.setAttribute('aria-checked', enabled ? 'true' : 'false');
         if (window.refreshSettingsUI) window.refreshSettingsUI();
         if (enabled) window.playSfx('click', { force: true });
     };

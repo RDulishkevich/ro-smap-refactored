@@ -14,8 +14,8 @@
                 theme: {
                     extend: {
                         fontFamily: {
-                        sans: ['Figtree', 'Segoe UI', 'sans-serif'],
-                        brand: ['Sora', 'Figtree', 'sans-serif'],
+                        sans: ['Gilroy', 'Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+                        brand: ['Gilroy', 'Plus Jakarta Sans', 'system-ui', 'sans-serif'],
                     },
                     colors: {
                         accent: {
@@ -39,7 +39,8 @@
     <!-- React (панель "Статистика региона" рисуется React-компонентом, см. src/widgets/analytics-widget.js) -->
     <script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js" crossorigin></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
-    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Sora:wght@600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.cdnfonts.com/css/gilroy" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="text-slate-800 antialiased relative">
 
@@ -378,24 +379,29 @@
             <div class="p-6 overflow-y-auto custom-scrollbar space-y-6">
                 <div>
                     <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="gui_scale"><i class="fa-solid fa-text-height mr-1"></i> Масштаб интерфейса</label>
-                    <div class="grid grid-cols-3 gap-2" id="scale-buttons">
-                        <button data-scale="small" onclick="window.changeGUISize('small')" class="p-2.5 text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Small</button>
-                        <button data-scale="medium" onclick="window.changeGUISize('medium')" class="p-2.5 text-xs font-bold bg-blue-600 text-white rounded-xl transition-all shadow-md">Medium</button>
-                        <button data-scale="large" onclick="window.changeGUISize('large')" class="p-2.5 text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Large</button>
+                    <div class="glass-seg mt-1" id="scale-buttons">
+                        <button type="button" data-scale="small" onclick="window.changeGUISize('small')" class="glass-seg__btn">Small</button>
+                        <button type="button" data-scale="medium" onclick="window.changeGUISize('medium')" class="glass-seg__btn is-active is-active--accent">Medium</button>
+                        <button type="button" data-scale="large" onclick="window.changeGUISize('large')" class="glass-seg__btn">Large</button>
                     </div>
                 </div>
                 <div>
                     <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="theme"><i class="fa-solid fa-circle-half-stroke mr-1"></i> Тема оформления</label>
-                    <div class="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
-                        <button onclick="window.setTheme('light')" id="theme-light-btn" class="flex-1 py-2 text-xs font-bold bg-white text-slate-800 shadow-sm rounded-lg transition-all"><i class="fa-solid fa-sun mr-1 text-amber-500"></i>Light</button>
-                        <button onclick="window.setTheme('dark')" id="theme-dark-btn" class="flex-1 py-2 text-xs font-bold bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50 rounded-lg transition-all"><i class="fa-solid fa-moon mr-1 text-indigo-400"></i>Dark</button>
+                    <div class="glass-switch-row mt-1">
+                        <div>
+                            <span class="glass-switch-row__label">Тёмная тема</span>
+                            <span class="glass-switch-row__hint">Зернистое стекло под картой</span>
+                        </div>
+                        <button type="button" role="switch" id="theme-glass-switch" class="glass-switch" aria-checked="false" onclick="window.setTheme(window.currentTheme === 'dark' ? 'light' : 'dark')" title="Тема">
+                            <span class="glass-switch__thumb" aria-hidden="true"></span>
+                        </button>
                     </div>
                 </div>
                 <div>
                     <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="map_style"><i class="fa-solid fa-map mr-1"></i> Стиль карты (Фильтр)</label>
-                    <div class="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
-                        <button onclick="window.setMapStyle('normal')" id="map-normal-btn" class="flex-1 py-2 text-xs font-bold bg-blue-600 text-white shadow-md rounded-lg transition-all" data-lang="map_normal">Стандарт</button>
-                        <button onclick="window.setMapStyle('monochrome')" id="map-mono-btn" class="flex-1 py-2 text-xs font-bold bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50 rounded-lg transition-all" data-lang="map_mono">Монохром</button>
+                    <div class="glass-seg mt-1" id="map-style-seg">
+                        <button type="button" onclick="window.setMapStyle('normal')" id="map-normal-btn" class="glass-seg__btn is-active is-active--accent" data-lang="map_normal">Стандарт</button>
+                        <button type="button" onclick="window.setMapStyle('monochrome')" id="map-mono-btn" class="glass-seg__btn" data-lang="map_mono">Монохром</button>
                     </div>
                 </div>
                 <div>
@@ -410,11 +416,15 @@
                 </div>
                 <div>
                     <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="ui_sounds"><i class="fa-solid fa-bell mr-1"></i> Звуки интерфейса</label>
-                    <div class="flex items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
-                        <button type="button" onclick="window.setUiSoundsEnabled(true)" id="sfx-on-btn" class="flex-1 py-2 text-xs font-bold bg-blue-600 text-white shadow-md rounded-lg transition-all" data-lang="ui_sounds_on">Вкл</button>
-                        <button type="button" onclick="window.setUiSoundsEnabled(false)" id="sfx-off-btn" class="flex-1 py-2 text-xs font-bold bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50 rounded-lg transition-all" data-lang="ui_sounds_off">Выкл</button>
+                    <div class="glass-switch-row mt-1">
+                        <div>
+                            <span class="glass-switch-row__label" data-lang="ui_sounds">Звуки интерфейса</span>
+                            <span class="glass-switch-row__hint" data-lang="ui_sounds_hint">Короткие звуки для уведомлений, тостов, окон и действий.</span>
+                        </div>
+                        <button type="button" role="switch" id="sfx-glass-switch" class="glass-switch" aria-checked="true" onclick="window.setUiSoundsEnabled(!(window.uiSoundsEnabled !== false))" title="UI sounds">
+                            <span class="glass-switch__thumb" aria-hidden="true"></span>
+                        </button>
                     </div>
-                    <p class="text-[11px] text-slate-400 mt-2" data-lang="ui_sounds_hint">Короткие звуки для уведомлений, тостов, окон и действий.</p>
                 </div>
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4 space-y-3">
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider"><i class="fa-solid fa-chart-pie mr-1"></i> Статистика региона</p>
