@@ -298,20 +298,12 @@ html.dark #sidebar.sidebar-panel [class*="bg-slate"],
     background-color: rgba(0, 0, 0, 0.22) !important;
 }
 
-#sidebar-search-wrap input {
-    background: var(--glass-fill-soft) !important;
-    border: 1px solid var(--glass-rim) !important;
-    border-radius: var(--radius-pill) !important;
+.map-search-cluster .search-cluster-input {
     color: var(--ink) !important;
-    padding-left: 2.5rem !important;
 }
-#sidebar-search-wrap input:focus {
-    box-shadow: 0 0 0 2px var(--accent) !important;
-}
-#map-top-toolbar #sidebar-search-wrap input {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
+.map-search-cluster:focus-within .search-cluster-input,
+.map-search-cluster.is-open .search-cluster-input {
+    /* caret visible; no extra ring — field is the pill itself */
 }
 
 /* FABs — solid black / glass secondary (refs) */

@@ -3713,19 +3713,25 @@ window.toggleSidebar = function() {
 
 window.toggleSearchBar = function(forceOpen) {
     const cluster = document.getElementById('map-search-cluster');
+    const toolbar = document.getElementById('map-top-toolbar');
     const toggle = document.getElementById('search-toggle-btn');
     const input = document.getElementById('search-input');
     if (!cluster || !input) return;
-    const open = forceOpen !== false;
+    const open = typeof forceOpen === 'boolean'
+        ? forceOpen
+        : !cluster.classList.contains('is-open');
+    cluster.classList.toggle('is-open', open);
+    if (toolbar) toolbar.classList.toggle('is-search-open', open);
+    if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (open) {
-        // Hover CSS opens the field; focus keeps it open and clickable along the full width
-        input.focus();
-        if (toggle) toggle.setAttribute('aria-expanded', 'true');
-        window.updateSearchSuggestions(input.value || '');
+        // Defer focus so width transition can start before caret appears
+        requestAnimationFrame(() => {
+            input.focus();
+            if (window.updateSearchSuggestions) window.updateSearchSuggestions(input.value || '');
+        });
     } else {
         input.blur();
         window.clearSearchSuggestions();
-        if (toggle) toggle.setAttribute('aria-expanded', 'false');
     }
 };
 
@@ -3903,9 +3909,14 @@ window.initSearchChrome = function() {
     });
 
     document.addEventListener('click', (e) => {
+        const cluster = document.getElementById('map-search-cluster');
         const toolbar = document.getElementById('map-top-toolbar');
-        if (!toolbar || toolbar.contains(e.target)) return;
-        window.clearSearchSuggestions();
+        if (cluster && !cluster.contains(e.target)) {
+            window.clearSearchSuggestions();
+            if (cluster.classList.contains('is-open')) window.toggleSearchBar(false);
+        } else if (toolbar && !toolbar.contains(e.target)) {
+            window.clearSearchSuggestions();
+        }
     });
 };
 

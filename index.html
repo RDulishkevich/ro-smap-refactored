@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260717h">
-    <link rel="stylesheet" href="./src/glass.css?v=20260717h">
+    <link rel="stylesheet" href="./src/style.css?v=20260717i">
+    <link rel="stylesheet" href="./src/glass.css?v=20260717i">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -136,19 +136,16 @@
             <div id="notif-list" class="overflow-y-auto custom-scrollbar flex-1 p-2 space-y-1 min-h-0"></div>
         </div>
 
-        <!-- Floating top toolbar: search trigger + chips -->
+        <!-- Floating top toolbar: search morphs from loupe; tags -->
         <div id="map-top-toolbar" class="map-top-toolbar pointer-events-auto z-[50]">
-            <div id="map-search-cluster" class="map-search-cluster">
-                <button type="button" id="search-toggle-btn" class="search-toggle-btn" onclick="window.toggleSearchBar(true)" title="Поиск" aria-expanded="false">
+            <div id="map-search-cluster" class="map-search-cluster" role="search">
+                <button type="button" id="search-toggle-btn" class="search-toggle-btn" onclick="window.toggleSearchBar(true)" title="Поиск" aria-expanded="false" aria-controls="search-input">
                     <i class="fa-solid fa-magnifying-glass pointer-events-none"></i>
                 </button>
-                <div id="sidebar-search-wrap" class="sidebar-search-wrap relative min-w-0">
-                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm z-[1]"></i>
-                    <input type="text" id="search-input" data-lang-placeholder="search_placeholder" placeholder="Поиск звуков, ленты, экспедиций…" class="w-full py-2.5 pl-10 pr-4 text-sm focus:outline-none text-slate-800 dark:text-white" autocomplete="off" aria-autocomplete="list" aria-controls="search-suggestions" role="combobox" aria-expanded="false">
-                    <div id="search-suggestions" class="search-suggestions hidden" role="listbox"></div>
-                </div>
+                <input type="text" id="search-input" data-lang-placeholder="search_placeholder" placeholder="Поиск…" class="search-cluster-input text-sm text-slate-800 dark:text-white" autocomplete="off" aria-autocomplete="list" aria-controls="search-suggestions" role="combobox" aria-expanded="false">
+                <div id="search-suggestions" class="search-suggestions hidden" role="listbox"></div>
             </div>
-            <div id="active-tags-container" class="map-top-toolbar__tags flex flex-wrap gap-1.5 empty:hidden max-w-[40%] overflow-hidden"></div>
+            <div id="active-tags-container" class="map-top-toolbar__tags flex flex-wrap gap-1.5 empty:hidden overflow-hidden"></div>
         </div>
 
         <!-- Mobile top-right: messages + profile/settings -->
@@ -459,7 +456,7 @@
         </div>
 
         <!-- FABs: mobile under profile; desktop bottom-right (map chrome ref) -->
-        <div id="fab-add" class="absolute top-20 right-4 md:top-auto md:bottom-8 md:right-8 pointer-events-auto z-40 flex flex-col gap-3 items-end">
+        <div id="fab-add" class="absolute bottom-24 right-4 md:top-auto md:bottom-8 md:right-8 pointer-events-auto z-40 flex flex-col gap-3 items-end">
             <button id="fab-guessr" onclick="window.openAudioGuessr()" class="map-fab map-fab--secondary w-12 h-12 md:w-14 md:h-14" title="Audio Guessr">
                 <i class="fa-solid fa-headphones text-lg md:text-xl pointer-events-none"></i>
             </button>
@@ -1702,7 +1699,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260717h"></script>
+    <script type="module" src="./src/main.js?v=20260717i"></script>
 
 </body>
 </html>

@@ -1,12 +1,12 @@
-import { initGlobalState } from './state.js?v=20260717h';
-import { initAuth } from './auth.js?v=20260717h';
+import { initGlobalState } from './state.js?v=20260717i';
+import { initAuth } from './auth.js?v=20260717i';
 
-import '../ui/ui.js?v=20260717h';
-import './sfx.js?v=20260717h';
-import './audio.js?v=20260717h';
-import './map.js?v=20260717h';
-import './guessr.js?v=20260717h';
-import '../widgets/analytics-widget.js?v=20260717h';
+import '../ui/ui.js?v=20260717i';
+import './sfx.js?v=20260717i';
+import './audio.js?v=20260717i';
+import './map.js?v=20260717i';
+import './guessr.js?v=20260717i';
+import '../widgets/analytics-widget.js?v=20260717i';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;
