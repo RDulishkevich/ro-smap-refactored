@@ -7,10 +7,10 @@
     --panel-solid: #f7faf8;
     --panel-border: rgba(20, 32, 28, 0.1);
     --panel-shadow: 0 10px 32px rgba(20, 32, 28, 0.12);
-    --accent: #0f766e;
-    --accent-hover: #0d9488;
-    --accent-soft: rgba(15, 118, 110, 0.14);
-    --accent-ink: #0f766e;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --accent-soft: rgba(37, 99, 235, 0.12);
+    --accent-ink: #2563eb;
     --danger: #c2410c;
     --radius-sm: 0.7rem;
     --radius-md: 1.05rem;
@@ -33,10 +33,10 @@ html.dark,
     --panel-solid: #121e1a;
     --panel-border: rgba(255, 255, 255, 0.12);
     --panel-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
-    --accent: #2dd4bf;
-    --accent-hover: #5eead4;
-    --accent-soft: rgba(45, 212, 191, 0.18);
-    --accent-ink: #5eead4;
+    --accent: #60a5fa;
+    --accent-hover: #93c5fd;
+    --accent-soft: rgba(96, 165, 250, 0.18);
+    --accent-ink: #60a5fa;
 }
 
 body {
@@ -76,6 +76,9 @@ body {
     border-radius: var(--radius-md);
     cursor: pointer;
     transition: transform var(--dur-fast) var(--ease-out), color var(--dur-fast) ease;
+}
+.map-icon-btn.hidden {
+    display: none !important;
 }
 .map-icon-btn:hover { transform: translateY(-1px) scale(1.03); }
 .map-icon-btn:active { transform: scale(0.96); }
@@ -234,17 +237,15 @@ html.dark .glass-seg__btn.is-active,
 }
 
 @keyframes map-chrome-in {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 #burger-btn,
-#map-top-right-controls > *,
+#map-top-right-controls > .map-icon-btn,
 #fab-add > * {
     animation: map-chrome-in 0.35s var(--ease-out) both;
 }
-#map-top-right-controls > *:nth-child(2) { animation-delay: 0.04s; }
-#map-top-right-controls > *:nth-child(3) { animation-delay: 0.08s; }
-#map-top-right-controls > *:nth-child(4) { animation-delay: 0.12s; }
+#fab-add > *:nth-child(2) { animation-delay: 0.06s; }
 
 /* Модалки: не вылезают за экран телефона (dvh + safe-area) */
 .app-modal-overlay {

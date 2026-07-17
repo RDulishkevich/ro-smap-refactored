@@ -5,20 +5,21 @@
 :root {
     --ink: #14201c;
     --ink-muted: #5a6b64;
-    --glass-fill: rgba(255, 255, 255, 0.72);
-    --glass-fill-soft: rgba(255, 255, 255, 0.55);
-    --glass-stroke: rgba(255, 255, 255, 0.65);
-    --glass-stroke-outer: rgba(20, 32, 28, 0.1);
-    --glass-shine: inset 0 1px 0 rgba(255, 255, 255, 0.75);
-    --glass-elev: 0 10px 32px rgba(20, 32, 28, 0.12);
+    --glass-fill: rgba(255, 255, 255, 0.78);
+    --glass-fill-soft: rgba(255, 255, 255, 0.58);
+    --glass-stroke: rgba(255, 255, 255, 0.7);
+    --glass-stroke-outer: rgba(15, 23, 42, 0.1);
+    --glass-shine: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    --glass-elev: 0 10px 32px rgba(15, 23, 42, 0.12);
     --glass-blur: 18px;
-    --grain-opacity: 0.035;
-    --accent: #0f766e;
-    --accent-hover: #0d9488;
-    --accent-soft: rgba(15, 118, 110, 0.14);
-    --accent-ink: #0f766e;
+    --grain-opacity: 0.03;
+    /* Blue accent — not green/teal */
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --accent-soft: rgba(37, 99, 235, 0.12);
+    --accent-ink: #2563eb;
     --panel: var(--glass-fill);
-    --panel-solid: #f7faf8;
+    --panel-solid: #f8fafc;
     --panel-border: var(--glass-stroke-outer);
     --panel-shadow: var(--glass-elev);
     --font-ui: "Satoshi", "Gilroy", "Plus Jakarta Sans", system-ui, sans-serif;
@@ -32,22 +33,22 @@
 
 html.dark,
 .dark {
-    --ink: #eef6f1;
-    --ink-muted: #9bb0a6;
-    --glass-fill: rgba(18, 28, 24, 0.78);
-    --glass-fill-soft: rgba(18, 28, 24, 0.62);
+    --ink: #f1f5f9;
+    --ink-muted: #94a3b8;
+    --glass-fill: rgba(30, 41, 59, 0.82);
+    --glass-fill-soft: rgba(30, 41, 59, 0.65);
     --glass-stroke: rgba(255, 255, 255, 0.14);
     --glass-stroke-outer: rgba(255, 255, 255, 0.12);
-    --glass-shine: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    --glass-shine: inset 0 1px 0 rgba(255, 255, 255, 0.14);
     --glass-elev: 0 14px 40px rgba(0, 0, 0, 0.45);
     --glass-blur: 20px;
-    --grain-opacity: 0.045;
-    --accent: #2dd4bf;
-    --accent-hover: #5eead4;
-    --accent-soft: rgba(45, 212, 191, 0.18);
-    --accent-ink: #5eead4;
+    --grain-opacity: 0.04;
+    --accent: #60a5fa;
+    --accent-hover: #93c5fd;
+    --accent-soft: rgba(96, 165, 250, 0.18);
+    --accent-ink: #60a5fa;
     --panel: var(--glass-fill);
-    --panel-solid: #121e1a;
+    --panel-solid: #1e293b;
     --panel-border: var(--glass-stroke-outer);
     --panel-shadow: var(--glass-elev);
 }
@@ -79,7 +80,6 @@ body {
 
 /* ——— Glass shells only (no child position / overflow overrides) ——— */
 #sidebar.sidebar-panel,
-#player-card.player-shell,
 .map-icon-btn,
 #notif-panel {
     background: var(--glass-fill) !important;
@@ -90,13 +90,34 @@ body {
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
 }
 
+/* Player: glass look WITHOUT backdrop-filter on the scroll container
+   (backdrop-filter + overflow-y breaks scroll in Chromium). */
+#player-card.player-shell {
+    border-radius: var(--radius-xl);
+    background: var(--glass-fill) !important;
+    background-color: var(--glass-fill) !important;
+    border: 1px solid var(--glass-stroke-outer) !important;
+    box-shadow: var(--glass-elev), var(--glass-shine) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    max-height: min(85vh, calc(100dvh - 1rem - env(safe-area-inset-bottom, 0px))) !important;
+}
+
 #sidebar.sidebar-panel {
     border-radius: var(--radius-xl);
     color: var(--ink);
 }
 
-#player-card.player-shell {
-    border-radius: var(--radius-xl);
+/* Critical: our display:inline-flex must not defeat Tailwind .hidden */
+.map-icon-btn.hidden,
+button.map-icon-btn.hidden,
+#msg-btn.hidden,
+#notif-btn.hidden {
+    display: none !important;
 }
 
 .map-icon-btn {
@@ -108,6 +129,16 @@ body {
 
 #notif-panel {
     border-radius: var(--radius-lg) !important;
+}
+
+/* Dropdowns must escape clipping / stacking quirks */
+#map-top-right-controls,
+#notif-wrap,
+#msg-wrap {
+    overflow: visible !important;
+}
+#notif-panel {
+    z-index: 90 !important;
 }
 
 /* Modals: readable, lighter blur — do NOT set overflow here */
@@ -157,13 +188,12 @@ html.dark #sidebar.sidebar-panel [class*="bg-slate-900"],
 }
 
 .map-fab--primary {
-    background: color-mix(in srgb, var(--accent) 92%, white 0%) !important;
+    background: var(--accent) !important;
     border: 1px solid rgba(255, 255, 255, 0.22) !important;
     box-shadow: var(--glass-elev) !important;
-    /* no extra backdrop-filter — solid CTA is clearer & cheaper */
 }
 .map-fab--secondary {
-    background: #059669 !important;
+    background: #0f172a !important;
     border: 1px solid rgba(255, 255, 255, 0.18) !important;
     box-shadow: var(--glass-elev) !important;
 }
@@ -201,7 +231,7 @@ html.dark #sidebar.sidebar-panel [class*="bg-slate-900"],
 html.dark #player-card .player-play-btn,
 .dark #player-card .player-play-btn {
     background: var(--accent) !important;
-    color: #0a1210 !important;
+    color: #fff !important;
 }
 #player-card .player-icon-btn {
     background: var(--accent-soft) !important;
@@ -210,8 +240,25 @@ html.dark #player-card .player-play-btn,
     box-shadow: none !important;
 }
 
-#waveform-active { color: var(--accent) !important; }
-#playhead { background: var(--accent) !important; }
+/* Waveform: classic slate / blue — do not force accent green */
+#waveform-bg { color: #f1f5f9; }
+html.dark #waveform-bg,
+.dark #waveform-bg { color: #334155; }
+#waveform-buffered { color: #cbd5e1; }
+html.dark #waveform-buffered,
+.dark #waveform-buffered { color: #475569; }
+#waveform-active { color: #1e293b !important; }
+html.dark #waveform-active,
+.dark #waveform-active { color: #3b82f6 !important; }
+#playhead {
+    background: #94a3b8 !important;
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.2) !important;
+}
+html.dark #playhead,
+.dark #playhead {
+    background: #60a5fa !important;
+    box-shadow: 0 0 4px rgba(59, 130, 246, 0.35) !important;
+}
 #volume-slider { accent-color: var(--accent); }
 
 #toast-message {
@@ -239,7 +286,6 @@ html.dark .app-modal-overlay,
 @media (max-width: 767px) {
     :root { --glass-blur: 14px; }
     #sidebar.sidebar-panel,
-    #player-card.player-shell,
     .map-icon-btn,
     #notif-panel {
         backdrop-filter: blur(14px) saturate(1.15);
@@ -270,7 +316,7 @@ html.dark .app-modal-overlay,
 
 @media (prefers-reduced-motion: reduce) {
     #burger-btn,
-    #map-top-right-controls > *,
+    #map-top-right-controls > .map-icon-btn,
     #fab-add > * {
         animation: none !important;
     }
