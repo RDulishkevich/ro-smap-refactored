@@ -35,7 +35,6 @@ export function initGlobalState() {
     window.currentPalette = 'coral';
     window.currentMapStyle = 'normal';
     window.currentMapProvider = 'yandex';
-    window.MAPBOX_ACCESS_TOKEN = '';
     try {
         const savedProvider = localStorage.getItem('rosmap_map_provider');
         if (savedProvider === 'mapbox' || savedProvider === 'yandex') {

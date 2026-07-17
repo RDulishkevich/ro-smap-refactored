@@ -1528,7 +1528,7 @@ textarea.modal-input {
 .dark #location-picker-map.map-monochrome [class*="-ground-pane"], .dark #location-picker-map.map-monochrome [class*="-copyrights-pane"] { filter: grayscale(100%) invert(90%) brightness(0.8) contrast(1.2); }
 .dark #location-picker-map:not(.map-monochrome) [class*="-ground-pane"], .dark #location-picker-map:not(.map-monochrome) [class*="-copyrights-pane"] { filter: invert(90%) hue-rotate(180deg) brightness(0.8) contrast(1.1); }
 
-/* Mapbox GL JS main map */
+/* MapLibre GL (OpenFreeMap) main map */
 #map.is-mapbox,
 #map.is-mapbox .mapboxgl-map {
     width: 100%;
@@ -1545,77 +1545,6 @@ textarea.modal-input {
     font-size: 10px;
     opacity: 0.85;
 }
-.mapbox-token-placeholder {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    padding: 1.5rem;
-    background:
-        radial-gradient(ellipse at 30% 20%, rgba(56, 189, 248, 0.18), transparent 55%),
-        radial-gradient(ellipse at 70% 80%, rgba(15, 23, 42, 0.12), transparent 50%),
-        linear-gradient(160deg, #e8eef5 0%, #d5dee8 100%);
-}
-.dark .mapbox-token-placeholder {
-    background:
-        radial-gradient(ellipse at 30% 20%, rgba(56, 189, 248, 0.12), transparent 55%),
-        linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
-}
-.mapbox-token-placeholder__card {
-    max-width: 22rem;
-    padding: 1.5rem 1.35rem;
-    border-radius: 1.25rem;
-    background: rgba(255, 255, 255, 0.92);
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
-    text-align: center;
-}
-.dark .mapbox-token-placeholder__card {
-    background: rgba(30, 41, 59, 0.94);
-    border-color: rgba(71, 85, 105, 0.6);
-}
-.mapbox-token-placeholder__icon {
-    font-size: 1.75rem;
-    color: #0ea5e9;
-    margin-bottom: 0.65rem;
-}
-.mapbox-token-placeholder__card h3 {
-    font-family: 'Clash Display', 'Satoshi', sans-serif;
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #0f172a;
-    margin-bottom: 0.5rem;
-}
-.dark .mapbox-token-placeholder__card h3 { color: #f8fafc; }
-.mapbox-token-placeholder__card p {
-    font-size: 0.8125rem;
-    line-height: 1.45;
-    color: #64748b;
-    margin-bottom: 1rem;
-}
-.dark .mapbox-token-placeholder__card p { color: #94a3b8; }
-.mapbox-token-placeholder__card code {
-    font-size: 0.75rem;
-    padding: 0.1rem 0.35rem;
-    border-radius: 0.35rem;
-    background: rgba(14, 165, 233, 0.12);
-    color: #0369a1;
-}
-.mapbox-token-placeholder__btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.65rem 1.1rem;
-    border-radius: 0.85rem;
-    font-size: 0.8125rem;
-    font-weight: 700;
-    color: #fff;
-    background: #0f172a;
-    transition: background 0.2s ease;
-}
-.mapbox-token-placeholder__btn:hover { background: #1e293b; }
-.dark .mapbox-token-placeholder__btn { background: #38bdf8; color: #0f172a; }
-.dark .mapbox-token-placeholder__btn:hover { background: #7dd3fc; }
 
 .meta-group { display: flex; flex-direction: column; gap: 4px; }
 .meta-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; display: flex; align-items: center; }

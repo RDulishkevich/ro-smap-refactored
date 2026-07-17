@@ -1,13 +1,13 @@
-import { initGlobalState } from './state.js?v=20260717j';
-import { initAuth } from './auth.js?v=20260717j';
+import { initGlobalState } from './state.js?v=20260717k';
+import { initAuth } from './auth.js?v=20260717k';
 
-import '../ui/ui.js?v=20260717j';
-import './sfx.js?v=20260717j';
-import './audio.js?v=20260717j';
-import './map.js?v=20260717j';
-import './mapbox-map.js?v=20260717j';
-import './guessr.js?v=20260717j';
-import '../widgets/analytics-widget.js?v=20260717j';
+import '../ui/ui.js?v=20260717k';
+import './sfx.js?v=20260717k';
+import './audio.js?v=20260717k';
+import './map.js?v=20260717k';
+import './mapbox-map.js?v=20260717k';
+import './guessr.js?v=20260717k';
+import '../widgets/analytics-widget.js?v=20260717k';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;

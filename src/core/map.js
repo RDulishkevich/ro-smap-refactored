@@ -114,7 +114,7 @@ window.setMapProvider = function(provider, skipSave = false) {
     try { localStorage.setItem('rosmap_map_provider', next); } catch (_) {}
 
     const tokenWrap = document.getElementById('mapbox-token-wrap');
-    if (tokenWrap) tokenWrap.classList.toggle('hidden', next !== 'mapbox');
+    if (tokenWrap) tokenWrap.classList.add('hidden');
 
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('mapProvider', next);
     if (window.refreshSettingsUI) window.refreshSettingsUI();

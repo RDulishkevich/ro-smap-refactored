@@ -1,80 +1,72 @@
-const MAPBOX_GL_VERSION = '3.9.4';
-const MAPBOX_CSS_URL = `https://api.mapbox.com/mapbox-gl-js/v${MAPBOX_GL_VERSION}/mapbox-gl.css`;
-const MAPBOX_JS_URL = `https://api.mapbox.com/mapbox-gl-js/v${MAPBOX_GL_VERSION}/mapbox-gl.js`;
+const MAPLIBRE_CSS_URL = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css';
+const MAPLIBRE_JS_URL = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js';
 const ROUTE_SOURCE_ID = 'rosmap-route';
 const ROUTE_LAYER_ID = 'rosmap-route-line';
 
-window.loadMapboxGL = function() {
-    if (window.__mapboxGlLoading) return window.__mapboxGlLoading;
-    if (window.mapboxgl) return Promise.resolve(window.mapboxgl);
+/** Free OpenFreeMap styles — no API key / login required */
+window.OPENFREEMAP_STYLES = {
+    normal: 'https://tiles.openfreemap.org/styles/liberty',
+    monochrome: 'https://tiles.openfreemap.org/styles/positron',
+    dark: 'https://tiles.openfreemap.org/styles/dark'
+};
 
-    window.__mapboxGlLoading = new Promise((resolve, reject) => {
-        if (!document.querySelector('link[data-mapbox-css]')) {
+window.getOpenFreeMapStyleUrl = function() {
+    if (window.currentMapStyle === 'monochrome') return window.OPENFREEMAP_STYLES.monochrome;
+    if (window.currentTheme === 'dark') return window.OPENFREEMAP_STYLES.dark;
+    return window.OPENFREEMAP_STYLES.normal;
+};
+
+window.loadMapLibreGL = function() {
+    if (window.__mapLibreLoading) return window.__mapLibreLoading;
+    if (window.maplibregl) {
+        window.mapboxgl = window.maplibregl;
+        return Promise.resolve(window.maplibregl);
+    }
+
+    window.__mapLibreLoading = new Promise((resolve, reject) => {
+        if (!document.querySelector('link[data-maplibre-css]')) {
             const link = document.createElement('link');
             link.rel = 'stylesheet';
-            link.href = MAPBOX_CSS_URL;
-            link.setAttribute('data-mapbox-css', '1');
+            link.href = MAPLIBRE_CSS_URL;
+            link.setAttribute('data-maplibre-css', '1');
             document.head.appendChild(link);
         }
 
-        const existing = document.querySelector('script[data-mapbox-js]');
+        const existing = document.querySelector('script[data-maplibre-js]');
         if (existing) {
             existing.addEventListener('load', () => {
-                if (window.mapboxgl) resolve(window.mapboxgl);
-                else reject(new Error('Mapbox GL failed to load'));
+                if (window.maplibregl) {
+                    window.mapboxgl = window.maplibregl;
+                    resolve(window.maplibregl);
+                } else reject(new Error('MapLibre GL failed to load'));
             });
-            existing.addEventListener('error', () => reject(new Error('Mapbox GL script error')));
+            existing.addEventListener('error', () => reject(new Error('MapLibre GL script error')));
             return;
         }
 
         const script = document.createElement('script');
-        script.src = MAPBOX_JS_URL;
+        script.src = MAPLIBRE_JS_URL;
         script.async = true;
-        script.setAttribute('data-mapbox-js', '1');
+        script.setAttribute('data-maplibre-js', '1');
         script.onload = () => {
-            if (window.mapboxgl) resolve(window.mapboxgl);
-            else reject(new Error('Mapbox GL failed to load'));
+            if (window.maplibregl) {
+                window.mapboxgl = window.maplibregl;
+                resolve(window.maplibregl);
+            } else reject(new Error('MapLibre GL failed to load'));
         };
-        script.onerror = () => reject(new Error('Mapbox GL script error'));
+        script.onerror = () => reject(new Error('MapLibre GL script error'));
         document.head.appendChild(script);
     }).finally(() => {
-        window.__mapboxGlLoading = null;
+        window.__mapLibreLoading = null;
     });
 
-    return window.__mapboxGlLoading;
+    return window.__mapLibreLoading;
 };
 
-window.getMapboxToken = function() {
-    try {
-        const saved = localStorage.getItem('rosmap_mapbox_token');
-        if (saved && saved.trim()) return saved.trim();
-    } catch (_) {}
-    const fallback = String(window.MAPBOX_ACCESS_TOKEN || '').trim();
-    if (fallback && !/ваш_|YOUR_|your_/i.test(fallback)) return fallback;
-    return '';
-};
-
-window.hasValidMapboxToken = function() {
-    const token = window.getMapboxToken();
-    return Boolean(token && token.startsWith('pk.'));
-};
-
-window.saveMapboxToken = function(rawToken) {
-    const token = String(rawToken || '').trim();
-    try {
-        if (token) localStorage.setItem('rosmap_mapbox_token', token);
-        else localStorage.removeItem('rosmap_mapbox_token');
-    } catch (_) {}
-    const input = document.getElementById('mapbox-token-input');
-    if (input && input.value !== token) input.value = token;
-    if (window.showToast) {
-        window.showToast(token ? 'Токен Mapbox сохранён' : 'Токен Mapbox очищен');
-    }
-    if (window.currentMapProvider === 'mapbox') {
-        if (window.hasValidMapboxToken()) window.remountMainMap?.();
-        else if (window.showToast) window.showToast('Укажите действительный Mapbox Access Token (pk.…)');
-    }
-};
+/** @deprecated kept as no-ops so old settings UI / localStorage do not break */
+window.getMapboxToken = function() { return ''; };
+window.hasValidMapboxToken = function() { return true; };
+window.saveMapboxToken = function() {};
 
 window.toLngLat = function(latLng) {
     if (!latLng || latLng.length < 2) return null;
@@ -88,14 +80,21 @@ window.routeToLngLat = function(route) {
 
 window.applyMapboxBasemapConfig = function() {
     const map = window.mapboxMap;
-    if (!map || typeof map.setConfigProperty !== 'function') return;
-    const isMono = window.currentMapStyle === 'monochrome';
-    const isDark = window.currentTheme === 'dark';
-    try {
-        map.setConfigProperty('basemap', 'theme', isMono ? 'monochrome' : 'default');
-        map.setConfigProperty('basemap', 'lightPreset', isDark ? 'night' : 'day');
-        map.setConfigProperty('basemap', 'show3dObjects', true);
-    } catch (_) {}
+    if (!map || typeof map.setStyle !== 'function') return;
+    const nextStyle = window.getOpenFreeMapStyleUrl();
+    if (window.__mapLibreStyleUrl === nextStyle) return;
+    window.__mapLibreStyleUrl = nextStyle;
+    const center = map.getCenter();
+    const zoom = map.getZoom();
+    const pitch = map.getPitch();
+    const bearing = map.getBearing();
+    map.setStyle(nextStyle, { diff: false });
+    map.once('style.load', () => {
+        try {
+            map.jumpTo({ center, zoom, pitch, bearing });
+        } catch (_) {}
+        if (window.updateMapMarkers) window.updateMapMarkers();
+    });
 };
 
 window.createMapboxMarkerElement = function(sound, colorClass, isSelected) {
@@ -306,22 +305,15 @@ window.destroyMapboxMap = function() {
         try { window.mapboxMap.remove(); } catch (_) {}
         window.mapboxMap = null;
     }
+    window.__mapLibreStyleUrl = null;
 };
 
 window.initMapboxMap = async function() {
-    if (!window.hasValidMapboxToken()) {
-        if (window.showToast) {
-            window.showToast('Для Mapbox 3D нужен Access Token (pk.…) — укажите в настройках');
-        }
-        window.renderMapboxTokenPlaceholder();
-        return;
-    }
-
     try {
-        await window.loadMapboxGL();
+        await window.loadMapLibreGL();
     } catch (err) {
         console.warn(err);
-        if (window.showToast) window.showToast('Не удалось загрузить Mapbox GL JS');
+        if (window.showToast) window.showToast('Не удалось загрузить MapLibre GL');
         return;
     }
 
@@ -332,26 +324,19 @@ window.initMapboxMap = async function() {
     container.classList.add('is-mapbox');
     container.classList.remove('map-monochrome');
 
-    window.mapboxgl.accessToken = window.getMapboxToken();
-    const isMono = window.currentMapStyle === 'monochrome';
-    const isDark = window.currentTheme === 'dark';
+    const styleUrl = window.getOpenFreeMapStyleUrl();
+    window.__mapLibreStyleUrl = styleUrl;
 
     window.mapboxMap = new window.mapboxgl.Map({
         container: 'map',
-        style: 'mapbox://styles/mapbox/standard',
+        style: styleUrl,
         center: [39.74427, 47.23371],
         zoom: 15,
         pitch: 58,
         bearing: -18,
         antialias: true,
         attributionControl: true,
-        config: {
-            basemap: {
-                show3dObjects: true,
-                lightPreset: isDark ? 'night' : 'day',
-                theme: isMono ? 'monochrome' : 'default'
-            }
-        }
+        maxPitch: 85
     });
 
     window.mapboxMap.addControl(
@@ -386,18 +371,6 @@ window.initMapboxMap = async function() {
     };
 
     const onReady = () => {
-        try {
-            if (!window.mapboxMap.getSource('mapbox-dem')) {
-                window.mapboxMap.addSource('mapbox-dem', {
-                    type: 'raster-dem',
-                    url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
-                    tileSize: 512,
-                    maxzoom: 14
-                });
-            }
-            window.mapboxMap.setTerrain({ source: 'mapbox-dem', exaggeration: 1.15 });
-        } catch (_) {}
-        window.applyMapboxBasemapConfig();
         if (window.updateMapMarkers) window.updateMapMarkers();
         window.__mainMapReady = true;
     };
@@ -438,30 +411,4 @@ window.initMapboxMap = async function() {
         if (el) el.__longPressBound = false;
         window.initMapLongPress();
     }
-};
-
-window.renderMapboxTokenPlaceholder = function() {
-    const container = document.getElementById('map');
-    if (!container) return;
-    container.classList.add('is-mapbox');
-    container.innerHTML = `
-        <div class="mapbox-token-placeholder">
-            <div class="mapbox-token-placeholder__card">
-                <i class="fa-solid fa-cube mapbox-token-placeholder__icon"></i>
-                <h3>Mapbox 3D</h3>
-                <p>Вставьте публичный Access Token (начинается с <code>pk.</code>) в настройках, чтобы включить карту Standard с 3D-зданиями и рельефом.</p>
-                <button type="button" class="mapbox-token-placeholder__btn" onclick="window.openSettingsForMapbox?.()">Открыть настройки</button>
-            </div>
-        </div>`;
-    window.map = { __provider: 'mapbox-placeholder' };
-    window.__mainMapReady = true;
-};
-
-window.openSettingsForMapbox = function() {
-    if (window.openSettingsPanel) window.openSettingsPanel();
-    setTimeout(() => {
-        const wrap = document.getElementById('mapbox-token-wrap');
-        if (wrap) wrap.classList.remove('hidden');
-        document.getElementById('mapbox-token-input')?.focus();
-    }, 220);
 };

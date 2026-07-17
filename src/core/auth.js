@@ -981,12 +981,6 @@ export function initAuth() {
             mapYandexBtn.className = isMapbox ? 'glass-seg__btn' : 'glass-seg__btn is-active is-active--accent';
             mapMapboxBtn.className = isMapbox ? 'glass-seg__btn is-active is-active--accent' : 'glass-seg__btn';
         }
-        const tokenWrap = document.getElementById('mapbox-token-wrap');
-        if (tokenWrap) tokenWrap.classList.toggle('hidden', window.currentMapProvider !== 'mapbox');
-        const tokenInput = document.getElementById('mapbox-token-input');
-        if (tokenInput && window.getMapboxToken && !tokenInput.matches(':focus')) {
-            tokenInput.value = window.getMapboxToken() || '';
-        }
 
         if (langSelect) {
             langSelect.value = window.currentLang || 'ru';
