@@ -1680,13 +1680,14 @@ window.renderList = function() {
     filtered.forEach(sound => {
         const item = document.createElement('div');
         const isSelected = window.currentPlayingId === sound.id;
-        item.className = `p-3 rounded-2xl border transition-all cursor-pointer flex items-center gap-3 group ${isSelected ? 'bg-slate-50 dark:bg-slate-700/50 shadow-sm' : 'bg-white dark:bg-slate-800 border-slate-100'}`;
+        item.className = `sidebar-sound-row${isSelected ? ' is-active' : ''}`;
         item.onclick = () => window.selectSound(sound.id);
         const thumb = (sound.images && sound.images[0]) || `https://picsum.photos/seed/${sound.id}/72/72`;
+        const playing = isSelected && window.isPlaying;
         item.innerHTML = `
             <img src="${thumb}" alt="" class="sidebar-sound-thumb" loading="lazy" onerror="this.src='https://picsum.photos/seed/${sound.id}/72/72'">
-            <button class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${isSelected && window.isPlaying ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}">
-                ${isSelected && window.isPlaying ? '<i class="fa-solid fa-pause text-xs"></i>' : '<i class="fa-solid fa-play text-xs translate-x-[1px]"></i>'}
+            <button type="button" class="sidebar-sound-row__play${playing ? ' is-playing' : ''}" tabindex="-1">
+                ${playing ? '<i class="fa-solid fa-pause text-xs"></i>' : '<i class="fa-solid fa-play text-xs translate-x-[1px]"></i>'}
             </button>
             <div class="flex-grow min-w-0 text-left">
                 <h3 class="font-semibold text-[13px] truncate text-slate-800 dark:text-white flex items-center gap-1.5">${sound.title}</h3>
@@ -1743,8 +1744,8 @@ window.switchSidebarTab = function(tab) {
     const panelExp = document.getElementById('panel-expeditions');
     const searchWrap = document.getElementById('sidebar-search-wrap');
 
-    const activeClass = 'flex-1 py-3 text-[11px] md:text-[12px] font-bold text-blue-600 border-b-2 border-blue-600 transition-colors';
-    const inactiveClass = 'flex-1 py-3 text-[11px] md:text-[12px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors';
+    const activeClass = 'ui-tab ui-tab--main is-active';
+    const inactiveClass = 'ui-tab ui-tab--main';
 
     if (btnLib) btnLib.className = inactiveClass;
     if (btnFeed) btnFeed.className = inactiveClass;
@@ -2292,8 +2293,8 @@ window.switchFilterTab = function(tab) {
     const panelMeta = document.getElementById('panel-meta');
     if (!btnUcs || !btnTags || !btnMeta) return;
 
-    const activeClass = 'flex-1 py-2.5 text-[11px] md:text-[12px] font-bold text-blue-600 border-b-2 border-blue-600 transition-colors';
-    const inactiveClass = 'flex-1 py-2.5 text-[11px] md:text-[12px] font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors';
+    const activeClass = 'ui-tab ui-tab--filter is-active';
+    const inactiveClass = 'ui-tab ui-tab--filter';
 
     btnUcs.className = inactiveClass;
     btnTags.className = inactiveClass;
