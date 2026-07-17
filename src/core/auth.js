@@ -2153,6 +2153,31 @@ export function initAuth() {
         return (Date.now() - new Date(profile.lastSeen).getTime()) < window.ONLINE_THRESHOLD_MS;
     };
 
+    window.formatPresenceLabel = function(loginOrProfile) {
+        const profile = typeof loginOrProfile === 'string'
+            ? (window.getProfileByLogin ? window.getProfileByLogin(loginOrProfile) : null)
+            : loginOrProfile;
+        const online = window.isUserOnline(profile);
+        if (online) return window.t ? window.t('online') : 'в сети';
+        if (!profile || !profile.lastSeen) return window.t ? window.t('offline') : 'не в сети';
+
+        const seen = new Date(profile.lastSeen);
+        if (isNaN(seen.getTime())) return window.t ? window.t('offline') : 'не в сети';
+
+        const diff = Date.now() - seen.getTime();
+        const lang = window.currentLang === 'en' ? 'en' : 'ru';
+        if (lang === 'en') {
+            if (diff < 60 * 1000) return 'last seen just now';
+            if (diff < 60 * 60 * 1000) return `last seen ${Math.floor(diff / 60000)} min ago`;
+            if (diff < 24 * 60 * 60 * 1000) return `last seen ${Math.floor(diff / 3600000)} h ago`;
+            return `last seen ${seen.toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
+        }
+        if (diff < 60 * 1000) return 'был(а) в сети только что';
+        if (diff < 60 * 60 * 1000) return `был(а) в сети ${Math.floor(diff / 60000)} мин. назад`;
+        if (diff < 24 * 60 * 60 * 1000) return `был(а) в сети ${Math.floor(diff / 3600000)} ч. назад`;
+        return `был(а) в сети ${seen.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
+    };
+
     window.touchMyPresence = async function(force = false) {
         if (!window.currentUser) return;
         const now = Date.now();
@@ -2397,6 +2422,9 @@ export function initAuth() {
             const ticks = last._outgoingHint
                 ? `<span class="msg-ticks msg-ticks--list ${last.read ? 'is-read' : 'is-delivered'}" title="${last.read ? 'Просмотрено' : 'Доставлено'}"><i class="fa-solid ${last.read ? 'fa-check-double' : 'fa-check'}"></i></span>`
                 : '';
+            const presence = isSupport
+                ? (window.t ? window.t('support_status') : 'обычно отвечает в течение дня')
+                : (window.formatPresenceLabel ? window.formatPresenceLabel(profile) : (online ? 'в сети' : 'не в сети'));
             const openFn = (isAdmin && last._supportTicket)
                 ? `window.openSupportTicket('${peer}')`
                 : `window.openMessageThread('${peer}')`;
@@ -2408,6 +2436,7 @@ export function initAuth() {
                         <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${window.escMsgHtml(name)}${isSupport ? ' <span class="text-[9px] text-blue-500 font-bold">PIN</span>' : ''}</p>
                         ${unread ? `<span class="text-[10px] font-bold text-blue-600">${unread}</span>` : ticks}
                     </div>
+                    <p class="text-[10px] ${online ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'} truncate mt-0.5">${window.escMsgHtml(presence)}</p>
                     <p class="text-[11px] text-slate-500 truncate mt-0.5">${window.escMsgHtml(preview)}</p>
                 </div>
             </button>`;
@@ -2426,9 +2455,11 @@ export function initAuth() {
         const online = isSupport ? true : window.isUserOnline(profile);
 
         if (nameEl) nameEl.textContent = name;
-        if (statusEl) statusEl.textContent = isSupport
-            ? (window.t ? window.t('support_status') : 'обычно отвечает в течение дня')
-            : (online ? (window.t ? window.t('online') : 'в сети') : (window.t ? window.t('offline') : 'не в сети'));
+        if (statusEl) {
+            statusEl.textContent = isSupport
+                ? (window.t ? window.t('support_status') : 'обычно отвечает в течение дня')
+                : (window.formatPresenceLabel ? window.formatPresenceLabel(profile) : (online ? 'в сети' : 'не в сети'));
+        }
         if (onlineDot) onlineDot.classList.toggle('hidden', !online);
 
         if (isSupport) {

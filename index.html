@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260717g">
-    <link rel="stylesheet" href="./src/glass.css?v=20260717g">
+    <link rel="stylesheet" href="./src/style.css?v=20260717h">
+    <link rel="stylesheet" href="./src/glass.css?v=20260717h">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -96,9 +96,6 @@
             <button type="button" id="rail-expeditions" class="app-rail__btn" onclick="window.switchSidebarTab('expeditions')" title="Экспедиции">
                 <i class="fa-solid fa-route"></i>
             </button>
-            <button type="button" id="rail-help" class="app-rail__btn" onclick="window.switchSidebarTab('help')" title="Помощь">
-                <i class="fa-solid fa-circle-question"></i>
-            </button>
 
             <div class="app-rail__spacer" aria-hidden="true"></div>
 
@@ -117,6 +114,9 @@
                 </div>
                 <button type="button" onclick="window.openSettingsPanel()" id="settings-btn" class="app-rail__btn" title="Настройки">
                     <i class="fa-solid fa-gear"></i>
+                </button>
+                <button type="button" id="rail-help" class="app-rail__btn" onclick="window.switchSidebarTab('help')" title="Помощь">
+                    <i class="fa-solid fa-circle-question"></i>
                 </button>
                 <button type="button" onclick="window.toggleCabinet()" id="profile-btn" class="app-rail__btn app-rail__btn--accent" title="Личный кабинет" data-lang-title="profile_title">
                     <i class="fa-solid fa-user-astronaut"></i>
@@ -144,10 +144,7 @@
                 </button>
                 <div id="sidebar-search-wrap" class="sidebar-search-wrap relative min-w-0">
                     <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-sm z-[1]"></i>
-                    <input type="text" id="search-input" data-lang-placeholder="search_placeholder" placeholder="Поиск звуков, ленты, экспедиций…" class="w-full py-2.5 pl-10 pr-10 text-sm focus:outline-none text-slate-800 dark:text-white" autocomplete="off" aria-autocomplete="list" aria-controls="search-suggestions" role="combobox" aria-expanded="false">
-                    <button type="button" id="search-close-btn" class="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 z-[1]" onclick="window.toggleSearchBar(false)" title="Закрыть поиск" aria-label="Закрыть поиск">
-                        <i class="fa-solid fa-xmark pointer-events-none"></i>
-                    </button>
+                    <input type="text" id="search-input" data-lang-placeholder="search_placeholder" placeholder="Поиск звуков, ленты, экспедиций…" class="w-full py-2.5 pl-10 pr-4 text-sm focus:outline-none text-slate-800 dark:text-white" autocomplete="off" aria-autocomplete="list" aria-controls="search-suggestions" role="combobox" aria-expanded="false">
                     <div id="search-suggestions" class="search-suggestions hidden" role="listbox"></div>
                 </div>
             </div>
@@ -181,7 +178,7 @@
             <div class="dock-header p-4 pb-3 border-b border-slate-100/80 dark:border-slate-700/50 shrink-0">
                 <div class="flex justify-between items-start gap-2">
                     <div class="min-w-0 flex items-start gap-2">
-                        <button type="button" id="dock-back-btn" onclick="window.closeDockViewer()" class="hidden dock-back-btn shrink-0" title="Назад" aria-label="Назад">
+                        <button type="button" id="dock-back-btn" onclick="window.hideDockPanel()" class="dock-back-btn shrink-0" title="Скрыть панель" aria-label="Скрыть панель">
                             <i class="fa-solid fa-arrow-left text-sm pointer-events-none"></i>
                         </button>
                         <div class="min-w-0">
@@ -189,12 +186,8 @@
                             <p id="dock-subtitle" class="brand-sub text-xs md:text-sm mt-0.5 flex items-center gap-2" data-lang="subtitle"><i class="fa-solid fa-map-location-dot text-[color:var(--accent)]"></i> Audio Map</p>
                         </div>
                     </div>
-                    <div class="flex items-center gap-1 shrink-0">
-                        <button type="button" id="dock-hide-btn" onclick="window.hideDockPanel()" class="dock-hide-btn" title="Скрыть панель" aria-label="Скрыть панель">
-                            <i class="fa-solid fa-chevron-left text-sm pointer-events-none"></i>
-                            <span class="dock-hide-btn__label pointer-events-none">Скрыть панель</span>
-                        </button>
-                        <button type="button" onclick="window.hideDockPanel()" class="md:hidden w-8 h-8 flex items-center justify-center rounded-full bg-slate-100/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors pointer-events-auto" aria-label="Закрыть">
+                    <div class="flex items-center gap-1 shrink-0 md:hidden">
+                        <button type="button" onclick="window.hideDockPanel()" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100/80 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors pointer-events-auto" aria-label="Закрыть">
                             <i class="fa-solid fa-xmark text-lg pointer-events-none"></i>
                         </button>
                     </div>
@@ -1120,6 +1113,7 @@
                     </div>
                     <div class="min-w-0">
                         <h3 id="pp-name" class="text-lg font-bold text-slate-800 dark:text-white leading-tight truncate">Рекордист</h3>
+                        <span id="pp-presence" class="inline-flex items-center gap-1 mt-1 text-[10px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full"><i class="fa-solid fa-circle text-[7px]"></i>—</span>
                         <span id="pp-joined" class="inline-flex items-center gap-1 mt-1 text-[10px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full"><i class="fa-solid fa-calendar-days"></i>—</span>
                         <p id="pp-bio" class="hidden text-sm text-slate-600 dark:text-slate-300 mt-2 leading-relaxed max-w-md"></p>
                         <div id="pp-badges" class="hidden flex flex-wrap gap-1.5 mt-2"></div>
@@ -1708,7 +1702,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260717g"></script>
+    <script type="module" src="./src/main.js?v=20260717h"></script>
 
 </body>
 </html>

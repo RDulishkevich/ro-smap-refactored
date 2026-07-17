@@ -1348,6 +1348,13 @@ window.openPublicProfile = function(login, displayName) {
     const nameEl = document.getElementById('pp-name');
     if (nameEl) nameEl.textContent = finalName;
 
+    const presenceEl = document.getElementById('pp-presence');
+    if (presenceEl) {
+        const online = window.isUserOnline ? window.isUserOnline(profile) : false;
+        const label = window.formatPresenceLabel ? window.formatPresenceLabel(profile) : (online ? 'в сети' : 'не в сети');
+        presenceEl.innerHTML = `<i class="fa-solid fa-circle text-[7px] ${online ? 'text-emerald-500' : 'text-slate-400'}"></i>${label}`;
+    }
+
     const bioEl = document.getElementById('pp-bio');
     if (bioEl) {
         bioEl.textContent = (profile && profile.bio) || '';
@@ -1758,7 +1765,13 @@ window.setDockHeader = function(title, subtitle, showBack) {
             subEl.setAttribute('data-lang', 'subtitle');
         }
     }
-    if (back) back.classList.toggle('hidden', !showBack);
+    // Arrow always visible and always hides the dock
+    if (back) {
+        back.classList.remove('hidden');
+        back.title = 'Скрыть панель';
+        back.setAttribute('aria-label', 'Скрыть панель');
+        back.onclick = () => window.hideDockPanel && window.hideDockPanel();
+    }
 };
 
 window.undockDetailsContent = function() {
@@ -3700,24 +3713,19 @@ window.toggleSidebar = function() {
 
 window.toggleSearchBar = function(forceOpen) {
     const cluster = document.getElementById('map-search-cluster');
-    const toolbar = document.getElementById('map-top-toolbar');
     const toggle = document.getElementById('search-toggle-btn');
     const input = document.getElementById('search-input');
-    if (!cluster) return;
-    const open = typeof forceOpen === 'boolean'
-        ? forceOpen
-        : !cluster.classList.contains('is-open');
-    cluster.classList.toggle('is-open', open);
-    if (toolbar) toolbar.classList.toggle('is-search-open', open);
-    if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (!cluster || !input) return;
+    const open = forceOpen !== false;
     if (open) {
-        if (input) {
-            input.focus();
-            window.updateSearchSuggestions(input.value || '');
-        }
+        // Hover CSS opens the field; focus keeps it open and clickable along the full width
+        input.focus();
+        if (toggle) toggle.setAttribute('aria-expanded', 'true');
+        window.updateSearchSuggestions(input.value || '');
     } else {
+        input.blur();
         window.clearSearchSuggestions();
-        if (input) input.blur();
+        if (toggle) toggle.setAttribute('aria-expanded', 'false');
     }
 };
 

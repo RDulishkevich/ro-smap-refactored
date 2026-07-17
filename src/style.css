@@ -863,13 +863,12 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
     flex: 0 0 auto;
     min-width: 2.5rem;
     max-width: 2.5rem;
-    transition: max-width 180ms ease, flex-grow 180ms ease;
+    transition: max-width 180ms ease, flex 180ms ease, min-width 180ms ease;
 }
-.map-search-cluster.is-open,
 .map-search-cluster:hover,
 .map-search-cluster:focus-within {
     flex: 1 1 auto;
-    min-width: 12rem;
+    min-width: min(100%, 22rem);
     max-width: 100%;
 }
 .sidebar-search-wrap {
@@ -877,13 +876,12 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
     flex: 1 1 auto;
     min-width: 0;
     width: 100%;
+    pointer-events: auto;
 }
-.map-search-cluster.is-open .sidebar-search-wrap,
 .map-search-cluster:hover .sidebar-search-wrap,
 .map-search-cluster:focus-within .sidebar-search-wrap {
     display: block;
 }
-.map-search-cluster.is-open .search-toggle-btn,
 .map-search-cluster:hover .search-toggle-btn,
 .map-search-cluster:focus-within .search-toggle-btn {
     display: none;
