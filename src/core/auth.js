@@ -835,6 +835,7 @@ export function initAuth() {
         if(!window.currentUser || !window.currentUser.settings) return;
         const s = window.currentUser.settings;
         if(s.theme) window.setTheme(s.theme, true);
+        if(s.palette && window.setColorPalette) window.setColorPalette(s.palette, true);
         if(s.mapStyle) window.setMapStyle(s.mapStyle, true);
         if(s.lang) window.setLanguage(s.lang, true);
         if(s.guiScale) window.changeGUISize(s.guiScale, true);
@@ -987,6 +988,12 @@ export function initAuth() {
             btn.className = isActive
                 ? 'glass-seg__btn is-active is-active--accent'
                 : 'glass-seg__btn';
+        });
+
+        document.querySelectorAll('#palette-picker [data-palette-id]').forEach(btn => {
+            const on = btn.getAttribute('data-palette-id') === (window.currentPalette || 'coral');
+            btn.classList.toggle('is-active', on);
+            btn.setAttribute('aria-checked', on ? 'true' : 'false');
         });
     };
 

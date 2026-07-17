@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru" class="light" style="font-size: 16px;">
+<html lang="ru" class="light" data-palette="coral" style="font-size: 16px;">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260717e">
-    <link rel="stylesheet" href="./src/glass.css?v=20260717e">
+    <link rel="stylesheet" href="./src/style.css?v=20260717f">
+    <link rel="stylesheet" href="./src/glass.css?v=20260717f">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -186,7 +186,7 @@
                         </button>
                         <div class="min-w-0">
                             <h1 id="dock-title" class="brand-title text-xl md:text-2xl text-slate-800 dark:text-white truncate" data-lang="title">Ростовская область</h1>
-                            <p id="dock-subtitle" class="brand-sub text-xs md:text-sm mt-0.5 flex items-center gap-2" data-lang="subtitle"><i class="fa-solid fa-map-location-dot text-[#ff5a3d]"></i> Audio Map</p>
+                            <p id="dock-subtitle" class="brand-sub text-xs md:text-sm mt-0.5 flex items-center gap-2" data-lang="subtitle"><i class="fa-solid fa-map-location-dot text-[color:var(--accent)]"></i> Audio Map</p>
                         </div>
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
@@ -263,7 +263,7 @@
             <div id="dock-analyzers" class="hidden flex-1 min-h-0 overflow-y-auto custom-scrollbar p-3 md:p-4">
                 <div id="player-analyzers" class="hidden pointer-events-auto space-y-4">
                     <div class="flex items-center justify-between px-0.5">
-                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider"><i class="fa-solid fa-wave-square mr-1 text-[#ff5a3d]"></i><span data-lang="analyzers_title">Анализаторы</span></span>
+                        <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider"><i class="fa-solid fa-wave-square mr-1 text-[color:var(--accent)]"></i><span data-lang="analyzers_title">Анализаторы</span></span>
                         <span class="text-[9px] font-semibold text-slate-400">Спектр · стерео · громкость</span>
                     </div>
                     <div class="analyzer-panel analyzer-panel-sky">
@@ -400,7 +400,7 @@
                 <div id="waveform-wrapper" class="relative w-full h-12 md:h-16 cursor-pointer group mb-2 mt-4">
                     <div id="waveform-bg" class="absolute inset-0 flex items-center justify-between gap-[2px] text-slate-100 dark:text-slate-700"></div>
                     <div id="waveform-buffered" class="absolute inset-0 flex items-center justify-between gap-[2px] text-slate-300 dark:text-slate-600 pointer-events-none transition-all duration-300 ease-out" style="clip-path: inset(0 100% 0 0);"></div>
-                    <div id="waveform-active" class="absolute inset-0 flex items-center justify-between gap-[2px] text-[#ff5a3d] dark:text-[#ff7a5c] pointer-events-none" style="clip-path: inset(0 100% 0 0);"></div>
+                    <div id="waveform-active" class="absolute inset-0 flex items-center justify-between gap-[2px] pointer-events-none" style="clip-path: inset(0 100% 0 0);"></div>
                     
                     <div id="playhead" class="absolute top-0 bottom-0 w-[1.5px] bg-slate-800 dark:bg-white rounded-full pointer-events-none z-10 shadow-[0_0_4px_rgba(0,0,0,0.2)]" style="left: 0%;"></div>
                     <input type="range" id="audio-timeline" min="0" max="100" value="0" step="0.01" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30 m-0" oninput="window.seekAudio(this.value)">
@@ -551,6 +551,37 @@
                         </div>
                         <button type="button" role="switch" id="theme-glass-switch" class="glass-switch" aria-checked="false" onclick="window.setTheme(window.currentTheme === 'dark' ? 'light' : 'dark')" title="Тема">
                             <span class="glass-switch__thumb" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="color_palette"><i class="fa-solid fa-palette mr-1"></i> Цветовая палитра</label>
+                    <div class="palette-picker mt-1" id="palette-picker" role="radiogroup" aria-label="Цветовая палитра">
+                        <button type="button" role="radio" data-palette-id="coral" onclick="window.setColorPalette('coral')" class="palette-card is-active" aria-checked="true" title="Коралл">
+                            <span class="palette-card__swatches" aria-hidden="true">
+                                <i style="background:#ff5a3d"></i>
+                                <i style="background:#f4f2ef"></i>
+                                <i style="background:#141414"></i>
+                            </span>
+                            <span class="palette-card__name" data-lang="palette_coral">Коралл</span>
+                        </button>
+                        <button type="button" role="radio" data-palette-id="terre" onclick="window.setColorPalette('terre')" class="palette-card" aria-checked="false" title="Терракота">
+                            <span class="palette-card__swatches" aria-hidden="true">
+                                <i style="background:#a13a1e"></i>
+                                <i style="background:#fefaf0"></i>
+                                <i style="background:#88b8ce"></i>
+                                <i style="background:#542916"></i>
+                            </span>
+                            <span class="palette-card__name" data-lang="palette_terre">Терракота</span>
+                        </button>
+                        <button type="button" role="radio" data-palette-id="sparrow" onclick="window.setColorPalette('sparrow')" class="palette-card" aria-checked="false" title="Хвоя">
+                            <span class="palette-card__swatches" aria-hidden="true">
+                                <i style="background:#693d22"></i>
+                                <i style="background:#ede6dd"></i>
+                                <i style="background:#888661"></i>
+                                <i style="background:#2b2c1c"></i>
+                            </span>
+                            <span class="palette-card__name" data-lang="palette_sparrow">Хвоя</span>
                         </button>
                     </div>
                 </div>
@@ -1677,7 +1708,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260717e"></script>
+    <script type="module" src="./src/main.js?v=20260717f"></script>
 
 </body>
 </html>

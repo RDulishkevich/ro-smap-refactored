@@ -1,12 +1,12 @@
-import { initGlobalState } from './state.js?v=20260717e';
-import { initAuth } from './auth.js?v=20260717e';
+import { initGlobalState } from './state.js?v=20260717f';
+import { initAuth } from './auth.js?v=20260717f';
 
-import '../ui/ui.js?v=20260717e';
-import './sfx.js?v=20260717e';
-import './audio.js?v=20260717e';
-import './map.js?v=20260717e';
-import './guessr.js?v=20260717e';
-import '../widgets/analytics-widget.js?v=20260717e';
+import '../ui/ui.js?v=20260717f';
+import './sfx.js?v=20260717f';
+import './audio.js?v=20260717f';
+import './map.js?v=20260717f';
+import './guessr.js?v=20260717f';
+import '../widgets/analytics-widget.js?v=20260717f';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;
@@ -28,6 +28,15 @@ export function bootstrapApp() {
             const savedLang = localStorage.getItem('rosmap_lang');
             if (savedLang && !(window.currentUser?.settings?.lang)) window.setLanguage(savedLang, true);
         } catch (_) {}
+        try {
+            const savedPalette = localStorage.getItem('rosmap_palette');
+            if (savedPalette && !(window.currentUser?.settings?.palette) && window.setColorPalette) {
+                window.setColorPalette(savedPalette, true);
+            }
+        } catch (_) {}
+        if (window.setColorPalette && !document.documentElement.getAttribute('data-palette')) {
+            window.setColorPalette(window.currentPalette || 'coral', true);
+        }
         if (window.applyUILanguage) window.applyUILanguage();
         if (window.initSwipeHandlers) window.initSwipeHandlers();
         if (window.initDockChrome) window.initDockChrome();

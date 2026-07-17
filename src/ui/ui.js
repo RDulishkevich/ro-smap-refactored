@@ -3637,7 +3637,17 @@ window.setTheme = function(theme, skipSave = false) {
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('theme', theme);
     if (window.refreshSettingsUI) window.refreshSettingsUI();
     if (window.refreshAnalyzersTheme) window.refreshAnalyzersTheme();
-}
+};
+
+window.setColorPalette = function(palette, skipSave = false) {
+    const next = ['coral', 'terre', 'sparrow'].includes(palette) ? palette : 'coral';
+    window.currentPalette = next;
+    document.documentElement.setAttribute('data-palette', next);
+    try { localStorage.setItem('rosmap_palette', next); } catch (_) {}
+    if (!skipSave && window.saveUserSettings) window.saveUserSettings('palette', next);
+    if (window.refreshSettingsUI) window.refreshSettingsUI();
+    if (window.refreshAnalyzersTheme) window.refreshAnalyzersTheme();
+};
 window.showDockPanel = function() {
     const s = document.getElementById('sidebar');
     if (!s) return;

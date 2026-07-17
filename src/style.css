@@ -39,6 +39,99 @@ html.dark,
     --accent-ink: #ff7a5c;
 }
 
+html[data-palette="terre"] {
+    --ink: #542916;
+    --ink-muted: #8a6b4a;
+    --surface: #f3ead8;
+    --panel-solid: #fefaf0;
+    --panel-border: rgba(84, 41, 22, 0.12);
+    --accent: #a13a1e;
+    --accent-hover: #862f18;
+    --accent-soft: rgba(161, 58, 30, 0.16);
+    --accent-ink: #a13a1e;
+}
+html.dark[data-palette="terre"],
+html[data-palette="terre"].dark {
+    --ink: #fefaf0;
+    --ink-muted: #d4b896;
+    --surface: #2a150c;
+    --panel-solid: #3a1c0f;
+    --panel-border: rgba(254, 250, 240, 0.14);
+    --accent: #f1c166;
+    --accent-hover: #b79858;
+    --accent-soft: rgba(241, 193, 102, 0.2);
+    --accent-ink: #f1c166;
+}
+
+html[data-palette="sparrow"] {
+    --ink: #2b2c1c;
+    --ink-muted: #6e6c4f;
+    --surface: #e3d9cc;
+    --panel-solid: #ede6dd;
+    --panel-border: rgba(43, 44, 28, 0.12);
+    --accent: #693d22;
+    --accent-hover: #8f6228;
+    --accent-soft: rgba(105, 61, 34, 0.16);
+    --accent-ink: #693d22;
+}
+html.dark[data-palette="sparrow"],
+html[data-palette="sparrow"].dark {
+    --ink: #ede6dd;
+    --ink-muted: #c9aa7d;
+    --surface: #1a1b12;
+    --panel-solid: #2b2c1c;
+    --panel-border: rgba(237, 230, 221, 0.12);
+    --accent: #c9aa7d;
+    --accent-hover: #8f6228;
+    --accent-soft: rgba(201, 170, 125, 0.22);
+    --accent-ink: #c9aa7d;
+}
+
+.palette-picker {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.55rem;
+}
+.palette-card {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.45rem;
+    padding: 0.55rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(20, 20, 20, 0.1);
+    background: rgba(255, 255, 255, 0.45);
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+.palette-card:hover { transform: translateY(-1px); }
+.palette-card.is-active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.palette-card__swatches {
+    display: flex;
+    height: 1.65rem;
+    border-radius: 0.55rem;
+    overflow: hidden;
+}
+.palette-card__swatches i {
+    flex: 1;
+    display: block;
+}
+.palette-card__name {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+html.dark .palette-card,
+.dark .palette-card {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
 body {
     overflow: hidden;
     height: 100vh;

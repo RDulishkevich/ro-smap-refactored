@@ -32,6 +32,7 @@ export function initGlobalState() {
     window.animationFrameId = null;
     window.currentLang = 'ru';
     window.currentTheme = 'light';
+    window.currentPalette = 'coral';
     window.currentMapStyle = 'normal';
     window.mockInterval = null;
     window.simulatedTime = 0;
