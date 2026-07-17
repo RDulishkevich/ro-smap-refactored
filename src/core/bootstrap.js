@@ -1,15 +1,15 @@
-import { initGlobalState } from './state.js?v=20260718c';
-import './api.js?v=20260718c';
-import { initAuth } from './auth.js?v=20260718c';
+import { initGlobalState } from './state.js?v=20260718e';
+import './api.js?v=20260718e';
+import { initAuth } from './auth.js?v=20260718e';
 
-import '../ui/ui.js?v=20260718c';
-import './sfx.js?v=20260718c';
-import './audio.js?v=20260718c';
-import './map.js?v=20260718c';
-import './mapbox-map.js?v=20260718c';
-import './achievements.js?v=20260718c';
-import './guessr.js?v=20260718c';
-import '../widgets/analytics-widget.js?v=20260718c';
+import '../ui/ui.js?v=20260718e';
+import './sfx.js?v=20260718e';
+import './audio.js?v=20260718e';
+import './map.js?v=20260718e';
+import './mapbox-map.js?v=20260718e';
+import './achievements.js?v=20260718e';
+import './guessr.js?v=20260718e';
+import '../widgets/analytics-widget.js?v=20260718e';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;
@@ -47,6 +47,7 @@ export function bootstrapApp() {
             if (window.initDockChrome) window.initDockChrome();
             if (window.setSoundsListLoading) window.setSoundsListLoading(true);
             if (window.initOnboarding) window.initOnboarding();
+            if (window.bindMessagesKeyboardInset) window.bindMessagesKeyboardInset();
             if (window.refreshNotificationsUI) window.refreshNotificationsUI();
             if (window.syncAccountChrome) window.syncAccountChrome();
         };

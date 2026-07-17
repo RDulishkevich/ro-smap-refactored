@@ -732,8 +732,8 @@ body.dark-mode .modal-input::placeholder,
     color: #fecaca;
 }
 .dock-back-btn {
-    width: 2rem;
-    height: 2rem;
+    width: 2.75rem;
+    height: 2.75rem;
     border-radius: 999px;
     border: 1px solid rgba(20, 20, 20, 0.08);
     background: rgba(20, 20, 20, 0.04);
@@ -907,15 +907,15 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
         gap: 0.45rem;
     }
     #map-top-right-controls .map-icon-btn {
-        width: 2.65rem;
-        height: 2.65rem;
+        width: 2.75rem;
+        height: 2.75rem;
         border-radius: 0.95rem !important;
     }
     #burger-btn {
         top: max(1rem, env(safe-area-inset-top, 0px));
         left: max(0.75rem, env(safe-area-inset-left, 0px));
-        width: 2.65rem;
-        height: 2.65rem;
+        width: 2.75rem;
+        height: 2.75rem;
     }
     #sidebar {
         top: max(0.5rem, env(safe-area-inset-top, 0px));
@@ -3078,8 +3078,20 @@ textarea.modal-input {
     body.dock-view-cabinet:not(.cab-mobile-home) #dock-mobile-close {
         display: none !important;
     }
+    .dock-mobile-tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .dock-mobile-tabs::-webkit-scrollbar { display: none; }
     #tab-help {
-        display: none !important;
+        display: inline-flex !important;
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+    body.dock-view-messages.messages-kb-open #messages-compose-bar,
+    body.messages-kb-open #messages-compose-bar {
+        padding-bottom: max(0.75rem, calc(var(--kb-inset, 0px) + env(safe-area-inset-bottom, 0px)));
     }
     body.dock-view-cabinet #cab-panel-sounds .grid.grid-cols-2 {
         display: none;

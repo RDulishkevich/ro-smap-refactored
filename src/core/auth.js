@@ -1434,6 +1434,8 @@ export function initAuth() {
         
         const list = document.getElementById('cabinet-sounds-list');
         if(mySounds.length === 0) {
+            const statusSummaryEl = document.getElementById('cabinet-moderation-summary');
+            if (statusSummaryEl) { statusSummaryEl.classList.add('hidden'); statusSummaryEl.innerHTML = ''; }
             list.innerHTML = `<div class="text-center py-12 text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm"><i class="fa-solid fa-microphone-slash text-4xl mb-3 opacity-30 block"></i><p class="font-medium text-sm">Вы еще не загрузили ни одного звука.</p><p class="text-xs mt-1">Опубликованные вами звуки появятся здесь.</p></div>`;
             return;
         }
@@ -1446,7 +1448,14 @@ export function initAuth() {
         // визита в кабинет (seenByAuthor === false), показываем тост один раз и гасим флаг.
         const unseen = mySounds.filter(s => s.seenByAuthor === false);
         if (unseen.length > 0) {
-            window.showToast(`Обновился статус ${unseen.length} ${unseen.length === 1 ? 'записи' : 'записей'}`);
+            const approved = unseen.filter(s => s.status === 'published').length;
+            const rejected = unseen.filter(s => s.status === 'rejected').length;
+            const parts = [];
+            if (approved) parts.push(`${approved} одобрено`);
+            if (rejected) parts.push(`${rejected} отклонено`);
+            window.showToast(parts.length
+                ? `Статус записей: ${parts.join(', ')}`
+                : `Обновился статус ${unseen.length} ${unseen.length === 1 ? 'записи' : 'записей'}`);
             const updatedCloud = [...window.cloudDataCache];
             unseen.forEach(s => {
                 s.seenByAuthor = true;
@@ -1457,9 +1466,30 @@ export function initAuth() {
             window.syncCloudData(updatedCloud);
         }
 
+        const pendingN = mySounds.filter(s => s.status === 'pending').length;
+        const rejectedN = mySounds.filter(s => s.status === 'rejected').length;
+        const draftN = mySounds.filter(s => s.status === 'draft').length;
+        const statusSummaryEl = document.getElementById('cabinet-moderation-summary');
+        if (statusSummaryEl) {
+            if (pendingN || rejectedN || draftN) {
+                statusSummaryEl.classList.remove('hidden');
+                statusSummaryEl.innerHTML = `
+                    <div class="flex flex-wrap gap-2 text-[11px] font-semibold">
+                        ${pendingN ? `<span class="pub-status-pill pub-status-pending">На модерации: ${pendingN}</span>` : ''}
+                        ${rejectedN ? `<span class="pub-status-pill pub-status-rejected">Отклонено: ${rejectedN}</span>` : ''}
+                        ${draftN ? `<span class="pub-status-pill pub-status-draft">Черновики: ${draftN}</span>` : ''}
+                    </div>
+                    ${rejectedN ? `<p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Исправьте отклонённые записи и отправьте снова на модерацию.</p>` : ''}`;
+            } else {
+                statusSummaryEl.classList.add('hidden');
+                statusSummaryEl.innerHTML = '';
+            }
+        }
+
         list.innerHTML = mySounds.map(s => {
             const isHardcoded = window.rawSoundsData.map(r => r.id).includes(s.id);
             const st = window.STATUS_LABELS[s.status] || window.STATUS_LABELS.published;
+            const canResubmit = s.status === 'rejected' || s.status === 'draft';
             return `
             <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow gap-3">
                 <div class="flex items-center gap-3 overflow-hidden">
@@ -1480,9 +1510,13 @@ export function initAuth() {
                     </div>
                 </div>
                 <div class="flex items-center gap-2 shrink-0 sm:pr-2">
+                    ${canResubmit ? `
+                    <button onclick="window.editSound('${s.id}'); window.closeCabinet();" class="flex-1 sm:flex-none h-9 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-colors shadow-sm font-bold text-xs gap-1.5" title="Исправить и отправить снова">
+                        <i class="fa-solid fa-paper-plane"></i><span>Исправить</span>
+                    </button>` : `
                     <button onclick="window.editSound('${s.id}'); window.closeCabinet();" class="flex-1 sm:flex-none sm:w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-colors shadow-sm font-bold text-xs" title="Редактировать">
                         <i class="fa-solid fa-pen sm:mr-0 mr-1"></i> <span class="sm:hidden">Изменить</span>
-                    </button>
+                    </button>`}
                     <button onclick="window.deleteSoundFromCloud('${s.id}')" class="flex-1 sm:flex-none sm:w-9 h-9 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 flex items-center justify-center transition-colors shadow-sm font-bold text-xs" title="Удалить">
                         <i class="fa-solid fa-trash-can sm:mr-0 mr-1"></i> <span class="sm:hidden">Удалить</span>
                     </button>
@@ -1491,14 +1525,14 @@ export function initAuth() {
         `}).join('');
     };
 
-    // Переключатель "Все записи / На модерации" превращает список в полноценную очередь ревью.
+    // Переключатель очереди: все / pending / rejected
     window.__adminListFilter = window.__adminListFilter || 'all';
     window.setAdminListFilter = function(mode) {
         window.__adminListFilter = mode;
-        const btnAll = document.getElementById('admin-filter-btn-all');
-        const btnPending = document.getElementById('admin-filter-btn-pending');
-        if (btnAll) btnAll.classList.toggle('active', mode === 'all');
-        if (btnPending) btnPending.classList.toggle('active', mode === 'pending');
+        ['all', 'pending', 'rejected'].forEach((m) => {
+            const btn = document.getElementById(`admin-filter-btn-${m}`);
+            if (btn) btn.classList.toggle('active', mode === m);
+        });
         window.renderAdminList();
     };
 
@@ -1508,22 +1542,38 @@ export function initAuth() {
 
         const rawIds = window.rawSoundsData.map(s => s.id);
         const pendingCount = window.soundsData.filter(s => s.status === 'pending').length;
+        const rejectedCount = window.soundsData.filter(s => s.status === 'rejected').length;
         const countEl = document.getElementById('admin-filter-pending-count');
         if (countEl) countEl.textContent = pendingCount;
+        const rejectedCountEl = document.getElementById('admin-filter-rejected-count');
+        if (rejectedCountEl) rejectedCountEl.textContent = rejectedCount;
         if (window.assignArchiveNumbers) window.assignArchiveNumbers();
 
         const filterMode = window.__adminListFilter || 'all';
-        const sounds = filterMode === 'pending' ? window.soundsData.filter(s => s.status === 'pending') : window.soundsData;
+        let sounds = window.soundsData.slice();
+        if (filterMode === 'pending') sounds = sounds.filter(s => s.status === 'pending');
+        else if (filterMode === 'rejected') sounds = sounds.filter(s => s.status === 'rejected');
+
+        // Очередь: сначала самые старые (дольше ждут)
+        if (filterMode === 'pending' || filterMode === 'rejected') {
+            sounds.sort((a, b) => {
+                const ta = new Date(a.createdAt || a.date || 0).getTime();
+                const tb = new Date(b.createdAt || b.date || 0).getTime();
+                return ta - tb;
+            });
+        }
 
         if (!sounds.length) {
-            list.innerHTML = `<div class="text-center py-10 text-slate-400"><i class="fa-solid fa-clipboard-check text-3xl mb-2 opacity-30 block"></i><p class="text-sm font-medium">Очередь модерации пуста.</p></div>`;
+            const emptyMsg = filterMode === 'rejected'
+                ? 'Отклонённых записей нет.'
+                : (filterMode === 'pending' ? 'Очередь модерации пуста.' : 'Записей пока нет.');
+            list.innerHTML = `<div class="text-center py-10 text-slate-400"><i class="fa-solid fa-clipboard-check text-3xl mb-2 opacity-30 block"></i><p class="text-sm font-medium">${emptyMsg}</p></div>`;
             return;
         }
 
         list.innerHTML = sounds.map(s => {
             const isHardcoded = rawIds.includes(s.id);
             const status = s.status || 'published';
-            const isPending = status === 'pending';
             const num = s.archiveNum || '—';
             const statusLabel = ({ published: 'Опубликовано', pending: 'На модерации', rejected: 'Отклонено', draft: 'Черновик' })[status] || status;
             return `
@@ -1572,16 +1622,30 @@ export function initAuth() {
         if (!s) return;
         const status = s.status || 'published';
         const items = [
-            { icon: 'fa-pen', label: 'Изменить', tone: 'primary', onClick: () => { window.closeDetailsModal(); window.editSound(id); } },
-            { icon: 'fa-clock', label: 'Вернуть на модерацию', tone: 'warning', onClick: () => window.setSoundStatus(id, 'pending') },
-            { icon: 'fa-trash', label: 'Удалить', tone: 'danger', onClick: () => window.deleteSoundFromCloud(id) }
+            { icon: 'fa-pen', label: 'Изменить', tone: 'primary', onClick: () => { window.closeDetailsModal(); window.editSound(id); } }
         ];
         if (status === 'pending') {
-            items.splice(1, 1,
+            items.push(
                 { icon: 'fa-check', label: 'Одобрить', tone: 'success', onClick: () => window.setSoundStatus(id, 'published') },
                 { icon: 'fa-xmark', label: 'Отклонить', tone: 'danger', onClick: () => window.setSoundStatus(id, 'rejected') }
             );
+        } else if (status === 'rejected') {
+            items.push(
+                { icon: 'fa-check', label: 'Опубликовать', tone: 'success', onClick: () => window.setSoundStatus(id, 'published') },
+                { icon: 'fa-clock', label: 'Вернуть на модерацию', tone: 'warning', onClick: () => window.setSoundStatus(id, 'pending') }
+            );
+        } else if (status === 'published') {
+            items.push(
+                { icon: 'fa-clock', label: 'Вернуть на модерацию', tone: 'warning', onClick: () => window.setSoundStatus(id, 'pending') },
+                { icon: 'fa-ban', label: 'Отклонить', tone: 'danger', onClick: () => window.setSoundStatus(id, 'rejected') }
+            );
+        } else {
+            items.push(
+                { icon: 'fa-check', label: 'Опубликовать', tone: 'success', onClick: () => window.setSoundStatus(id, 'published') },
+                { icon: 'fa-clock', label: 'На модерацию', tone: 'warning', onClick: () => window.setSoundStatus(id, 'pending') }
+            );
         }
+        items.push({ icon: 'fa-trash', label: 'Удалить', tone: 'danger', onClick: () => window.deleteSoundFromCloud(id) });
         window.ActionSheet.open(items);
     };
 
@@ -1602,7 +1666,11 @@ export function initAuth() {
                 inputPlaceholder: 'Например: неверные координаты записи'
             });
             if (input === false) { window.renderAdminList(); return; }
-            reason = input;
+            reason = String(input || '').trim();
+            if (!reason) {
+                window.showToast('Укажите причину отклонения');
+                return;
+            }
         } else {
             reason = '';
         }
@@ -1616,7 +1684,7 @@ export function initAuth() {
         else updatedCloud.push(s);
         const success = await window.syncCloudData(updatedCloud);
         if (success) {
-            window.showToast('Статус обновлён');
+            window.showToast(status === 'published' ? 'Запись опубликована' : (status === 'rejected' ? 'Запись отклонена' : 'Статус обновлён'));
             window.renderAdminList();
             if (s.recordistId && window.pushNotifications) {
                 const adminLogin = window.currentUser?.loginName || 'admin';
@@ -2669,6 +2737,7 @@ export function initAuth() {
 
     window.openMessagesModal = function(peerLogin = null, opts = {}) {
         const asSupport = !!(opts && opts.asSupport);
+        if (window.bindMessagesKeyboardInset) window.bindMessagesKeyboardInset();
         if (window.openDockView) {
             if (window.playSfx) window.playSfx('open');
             window.openDockView('messages');

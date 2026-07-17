@@ -158,20 +158,38 @@ window.exportSoundsData = function(format, allSounds = false) {
 };
 
 window.onboardingStepsRu = [
-    { target: null, title: 'Добро пожаловать в Audio Map', text: 'Интерактивная карта звуков Ростовской области. Пройдите короткий тур — это займёт меньше минуты.' },
-    { target: '#burger-btn', title: 'Библиотека звуков', text: 'Кнопка меню слева открывает три раздела: Библиотека (поиск и фильтры), Лента с новостями и Экспедиции.' },
-    { target: '#player-card', title: 'Аудиоплеер', text: 'При выборе метки открывается плеер. Здесь можно слушать запись, открыть анализаторы и подробности. Для ambisonics доступно вращение 360°.', showPlayer: true },
-    { target: '#fab-add-sound', title: 'Добавьте свой звук', text: 'Синяя кнопка «+» — загрузка WAV с метаданными. На телефоне удерживайте палец на карте, чтобы быстро поставить метку.' },
-    { target: '#fab-guessr', title: 'Audio Guessr', text: 'Зелёная кнопка с наушниками запускает мини-игру: слушайте звук и угадайте место на карте Ростовской области.' },
-    { target: '#map-top-right-controls', title: 'Сообщения и профиль', text: 'Справа сверху: сообщения, уведомления, настройки и личный кабинет.' }
+    {
+        target: null,
+        title: 'Аудиокарта Ростовской области',
+        text: 'Слушайте полевые записи прямо на карте. Три коротких шага — и вы в деле.'
+    },
+    {
+        mapHint: true,
+        title: 'Нажмите на метку',
+        text: 'Каждая точка на карте — звук. Тапните по маркеру, чтобы послушать запись.'
+    },
+    {
+        target: '#fab-add-sound',
+        title: 'Меню и свои записи',
+        text: 'Меню слева — библиотека и экспедиции. Кнопка «+» — добавить звук. На телефоне удерживайте палец на карте, чтобы поставить метку.'
+    }
 ];
 window.onboardingStepsEn = [
-    { target: null, title: 'Welcome to Audio Map', text: 'An interactive sound map of the Rostov Region. Take a short tour — it takes less than a minute.' },
-    { target: '#burger-btn', title: 'Sound library', text: 'The menu button on the left opens three sections: Library (search and filters), Feed with news, and Expeditions.' },
-    { target: '#player-card', title: 'Audio player', text: 'Selecting a marker opens the player. Listen to the recording, open analyzers and details. Ambisonics supports 360° rotation.', showPlayer: true },
-    { target: '#fab-add-sound', title: 'Add your sound', text: 'The blue “+” button uploads a WAV with metadata. On mobile, long-press the map to place a marker quickly.' },
-    { target: '#fab-guessr', title: 'Audio Guessr', text: 'The green headphones button starts a mini-game: listen to a sound and guess its place on the Rostov Region map.' },
-    { target: '#map-top-right-controls', title: 'Messages and profile', text: 'Top right: messages, notifications, settings, and your profile.' }
+    {
+        target: null,
+        title: 'Rostov Region audio map',
+        text: 'Listen to field recordings right on the map. Three short steps — and you’re in.'
+    },
+    {
+        mapHint: true,
+        title: 'Tap a marker',
+        text: 'Every pin on the map is a sound. Tap a marker to listen.'
+    },
+    {
+        target: '#fab-add-sound',
+        title: 'Menu and your uploads',
+        text: 'The left menu opens the library and expeditions. The “+” button adds a sound. On mobile, long-press the map to place a pin.'
+    }
 ];
 Object.defineProperty(window, 'onboardingSteps', {
     get() { return window.currentLang === 'en' ? window.onboardingStepsEn : window.onboardingStepsRu; }
@@ -216,6 +234,76 @@ window.updateOnboardingStep = function() {
     const nextBtn = document.getElementById('onboarding-next');
     if (nextBtn) nextBtn.textContent = window.__onboardingStep === window.onboardingSteps.length - 1 ? window.t('tour_done') : window.t('tour_next');
 
+    const placeCardCentered = () => {
+        highlight.style.opacity = '0';
+        highlight.style.pointerEvents = 'none';
+        highlight.style.borderRadius = '1.5rem';
+        card.style.left = '50%';
+        card.style.top = '50%';
+        card.style.transform = 'translate(-50%, -50%)';
+    };
+
+    const placeCardNear = (rect, opts = {}) => {
+        const pad = opts.pad ?? 8;
+        highlight.style.opacity = '1';
+        highlight.style.display = 'block';
+        highlight.style.pointerEvents = 'none';
+        highlight.style.borderRadius = opts.round || '1.5rem';
+        highlight.style.left = `${rect.left - pad}px`;
+        highlight.style.top = `${rect.top - pad}px`;
+        highlight.style.width = `${rect.width + pad * 2}px`;
+        highlight.style.height = `${rect.height + pad * 2}px`;
+
+        requestAnimationFrame(() => {
+            const cardRect = card.getBoundingClientRect();
+            const cardWidth = cardRect.width || 320;
+            const cardHeight = cardRect.height || 180;
+            const margin = 16;
+            const topSafe = Math.max(margin, (window.visualViewport && window.visualViewport.offsetTop) || 0);
+
+            let top = rect.bottom + 16;
+            let left = rect.left;
+
+            if (top + cardHeight > window.innerHeight - margin) {
+                top = rect.top - cardHeight - 16;
+            }
+            if (window.innerWidth < 640) {
+                left = (window.innerWidth - cardWidth) / 2;
+            } else {
+                if (left + cardWidth > window.innerWidth - margin) left = window.innerWidth - cardWidth - margin;
+                if (left < margin) left = margin;
+            }
+            if (top < topSafe) {
+                top = Math.max(topSafe, (window.innerHeight - cardHeight) / 2);
+                left = (window.innerWidth - cardWidth) / 2;
+            }
+
+            card.style.left = `${left}px`;
+            card.style.top = `${top}px`;
+            card.style.transform = 'none';
+        });
+    };
+
+    if (step.mapHint) {
+        window.cleanupOnboardingPlayer();
+        const mapEl = document.getElementById('map') || document.getElementById('mapbox-map');
+        const mapRect = mapEl
+            ? mapEl.getBoundingClientRect()
+            : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+        const size = Math.min(132, Math.max(88, mapRect.width * 0.22));
+        const cx = mapRect.left + mapRect.width / 2;
+        const cy = mapRect.top + mapRect.height * 0.42;
+        placeCardNear({
+            left: cx - size / 2,
+            top: cy - size / 2,
+            width: size,
+            height: size,
+            bottom: cy + size / 2,
+            right: cx + size / 2
+        }, { pad: 4, round: '999px' });
+        return;
+    }
+
     if (step.showPlayer) {
         const demo = (window.soundsData || []).find(s => !s.status || s.status === 'published') || (window.soundsData || [])[0];
         if (demo && window.selectSound) {
@@ -227,42 +315,14 @@ window.updateOnboardingStep = function() {
                 if (!el) return;
                 const rect = el.getBoundingClientRect();
                 if (rect.height < 40) return;
-                const pad = 8;
-                highlight.style.opacity = '1';
-                highlight.style.display = 'block';
-                highlight.style.pointerEvents = 'none';
-                highlight.style.left = `${rect.left - pad}px`;
-                highlight.style.top = `${rect.top - pad}px`;
-                highlight.style.width = `${rect.width + pad * 2}px`;
-                highlight.style.height = `${rect.height + pad * 2}px`;
-
-                const cardRect = card.getBoundingClientRect();
-                const cardWidth = cardRect.width || 320;
-                const cardHeight = cardRect.height || 180;
-                let top = rect.top - cardHeight - 16;
-                if (top < 16) top = rect.bottom + 16;
-                let left = (window.innerWidth - cardWidth) / 2;
-                card.style.left = `${left}px`;
-                card.style.top = `${Math.min(top, window.innerHeight - cardHeight - 16)}px`;
-                card.style.transform = 'none';
+                placeCardNear(rect);
             }, 450);
         }
-        highlight.style.opacity = '0';
-        card.style.left = '50%';
-        card.style.top = '50%';
-        card.style.transform = 'translate(-50%, -50%)';
+        placeCardCentered();
         return;
     }
 
     window.cleanupOnboardingPlayer();
-
-    const placeCardCentered = () => {
-        highlight.style.opacity = '0';
-        highlight.style.pointerEvents = 'none';
-        card.style.left = '50%';
-        card.style.top = '50%';
-        card.style.transform = 'translate(-50%, -50%)';
-    };
 
     if (!step.target) {
         placeCardCentered();
@@ -270,49 +330,12 @@ window.updateOnboardingStep = function() {
     }
 
     const el = document.querySelector(step.target);
-    if (!el) {
+    if (!el || el.classList.contains('hidden') || el.offsetParent === null) {
         placeCardCentered();
         return;
     }
 
-    const rect = el.getBoundingClientRect();
-    const pad = 8;
-    highlight.style.opacity = '1';
-    highlight.style.display = 'block';
-    highlight.style.left = `${rect.left - pad}px`;
-    highlight.style.top = `${rect.top - pad}px`;
-    highlight.style.width = `${rect.width + pad * 2}px`;
-    highlight.style.height = `${rect.height + pad * 2}px`;
-
-    // Ждём кадр, чтобы размеры карточки обновились после смены текста
-    requestAnimationFrame(() => {
-        const cardRect = card.getBoundingClientRect();
-        const cardWidth = cardRect.width || 320;
-        const cardHeight = cardRect.height || 180;
-
-        let top = rect.bottom + 16;
-        let left = rect.left;
-
-        if (top + cardHeight > window.innerHeight - 16) {
-            top = rect.top - cardHeight - 16;
-        }
-
-        if (window.innerWidth < 640) {
-            left = (window.innerWidth - cardWidth) / 2;
-        } else {
-            if (left + cardWidth > window.innerWidth - 16) left = window.innerWidth - cardWidth - 16;
-            if (left < 16) left = 16;
-        }
-
-        if (top < 16) {
-            top = Math.max(16, (window.innerHeight - cardHeight) / 2);
-            left = (window.innerWidth - cardWidth) / 2;
-        }
-
-        card.style.left = `${left}px`;
-        card.style.top = `${top}px`;
-        card.style.transform = 'none';
-    });
+    placeCardNear(el.getBoundingClientRect());
 };
 
 window.nextOnboardingStep = function() {
@@ -509,7 +532,58 @@ window.restartOnboarding = function() {
 
 window.initOnboarding = function() {
     if (localStorage.getItem('rosmap_onboarding_done')) return;
-    setTimeout(() => window.startOnboarding(0), 500);
+    const tryStart = () => {
+        if (localStorage.getItem('rosmap_onboarding_done')) return;
+        window.startOnboarding(0);
+    };
+    // Ждём карту/данные, но не дольше ~2.2 с — тур не должен «висеть» на пустом экране
+    if (window.__cloudDataReady && (window.soundsData || []).length) {
+        setTimeout(tryStart, 400);
+        return;
+    }
+    let tries = 0;
+    const timer = setInterval(() => {
+        tries += 1;
+        if (window.__cloudDataReady || tries >= 12) {
+            clearInterval(timer);
+            tryStart();
+        }
+    }, 180);
+};
+
+window.bindMessagesKeyboardInset = function() {
+    const input = document.getElementById('messages-compose-input');
+    if (!input || input.dataset.kbBound === '1') return;
+    input.dataset.kbBound = '1';
+
+    const apply = () => {
+        if (!window.visualViewport) {
+            document.documentElement.style.setProperty('--kb-inset', '0px');
+            document.body.classList.remove('messages-kb-open');
+            return;
+        }
+        const vv = window.visualViewport;
+        const inset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+        document.documentElement.style.setProperty('--kb-inset', `${inset}px`);
+        const open = inset > 48 && document.activeElement === input;
+        document.body.classList.toggle('messages-kb-open', open);
+    };
+
+    input.addEventListener('focus', () => {
+        apply();
+        setTimeout(apply, 80);
+        setTimeout(apply, 320);
+    });
+    input.addEventListener('blur', () => {
+        setTimeout(() => {
+            document.body.classList.remove('messages-kb-open');
+            document.documentElement.style.setProperty('--kb-inset', '0px');
+        }, 80);
+    });
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', apply);
+        window.visualViewport.addEventListener('scroll', apply);
+    }
 };
 
 // ДОБАВЛЕНО: Кастомные UI Окна (для правого клика, подтверждений и текстовых промптов)
@@ -3892,21 +3966,32 @@ window.publishSound = async function(targetStatus = 'pending') {
                 : undefined,
             sessionId: val('add-session') || null,
             createdAt: existing?.createdAt || new Date().toISOString(),
-            // Черновик остаётся черновиком до явной публикации; уже прошедшую модерацию запись
-            // редактирование метаданных не трогает (кнопка "Опубликовать" тут работает как "Сохранить").
-            // Только переход draft -> pending образует настоящую отправку на модерацию.
-            status: targetStatus === 'draft'
-                ? 'draft'
-                : (isEdit ? (existing.status === 'draft' ? 'pending' : (existing.status || 'published')) : 'pending'),
+            // Черновик → draft. Явная публикация / повторная отправка после reject → pending.
+            // Уже published при правке метаданных остаётся published.
+            status: (() => {
+                if (targetStatus === 'draft') return 'draft';
+                if (!isEdit) return 'pending';
+                const prev = existing.status || 'published';
+                if (prev === 'draft' || prev === 'rejected' || prev === 'pending') return 'pending';
+                return prev;
+            })(),
             downloads: existing?.downloads || 0,
             plays: existing?.plays || 0,
             likedBy: existing?.likedBy || [],
             dislikedBy: existing?.dislikedBy || [],
             reports: existing?.reports || [],
-            rejectionReason: existing && existing.status === 'draft' ? '' : (existing?.rejectionReason || ''),
+            rejectionReason: (() => {
+                if (targetStatus === 'draft') return '';
+                if (!isEdit) return '';
+                const prev = existing.status || 'published';
+                // Повторная отправка на модерацию — старую причину сбрасываем
+                if (prev === 'draft' || prev === 'rejected' || prev === 'pending') return '';
+                return existing?.rejectionReason || '';
+            })(),
             seenByAuthor: true
         };
 
+        const wasResubmit = isEdit && (existing.status === 'rejected' || existing.status === 'draft');
         if (window.isSoundwalkPrinciple() && (!soundObj.route || soundObj.route.length < 2)) {
             if (btn) btn.disabled = false;
             if (draftBtn) draftBtn.disabled = false;
@@ -3923,7 +4008,13 @@ window.publishSound = async function(targetStatus = 'pending') {
         if (draftBtn) draftBtn.disabled = false;
 
         if (success) {
-            const msg = soundObj.status === 'draft' ? 'Черновик сохранён!' : (isEdit ? 'Изменения сохранены!' : 'Звук отправлен на модерацию!');
+            const msg = soundObj.status === 'draft'
+                ? 'Черновик сохранён!'
+                : (wasResubmit
+                    ? 'Отправлено на модерацию снова!'
+                    : (isEdit
+                        ? (soundObj.status === 'pending' ? 'Отправлено на модерацию!' : 'Изменения сохранены!')
+                        : 'Звук отправлен на модерацию!'));
             window.showToast(msg);
             if (!isEdit && soundObj.status !== 'draft' && window.logUserActivity) {
                 window.logUserActivity({
@@ -4015,7 +4106,11 @@ window.editSound = function(id) {
     const headerTitle = document.getElementById('add-modal-header-title');
     if (headerTitle) headerTitle.innerHTML = `<i class="fa-solid fa-pen mr-2 text-blue-600"></i>Редактировать запись`;
     const publishText = document.getElementById('publish-btn-text');
-    if (publishText) publishText.textContent = 'Сохранить изменения';
+    if (publishText) {
+        publishText.textContent = (s.status === 'rejected' || s.status === 'draft')
+            ? 'Отправить на модерацию'
+            : 'Сохранить изменения';
+    }
 
     window.toggleAddModal(false, null, true);
 };
