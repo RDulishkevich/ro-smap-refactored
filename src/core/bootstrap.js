@@ -1,15 +1,15 @@
-import { initGlobalState } from './state.js?v=20260717w';
-import './api.js?v=20260717w';
-import { initAuth } from './auth.js?v=20260717w';
+import { initGlobalState } from './state.js?v=20260718c';
+import './api.js?v=20260718c';
+import { initAuth } from './auth.js?v=20260718c';
 
-import '../ui/ui.js?v=20260717w';
-import './sfx.js?v=20260717w';
-import './audio.js?v=20260717w';
-import './map.js?v=20260717w';
-import './mapbox-map.js?v=20260717w';
-import './achievements.js?v=20260717w';
-import './guessr.js?v=20260717w';
-import '../widgets/analytics-widget.js?v=20260717w';
+import '../ui/ui.js?v=20260718c';
+import './sfx.js?v=20260718c';
+import './audio.js?v=20260718c';
+import './map.js?v=20260718c';
+import './mapbox-map.js?v=20260718c';
+import './achievements.js?v=20260718c';
+import './guessr.js?v=20260718c';
+import '../widgets/analytics-widget.js?v=20260718c';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;
@@ -74,12 +74,24 @@ export function bootstrapApp() {
             fetch(`${window.YANDEX_BUCKET_URL}/profiles.json?nocache=${Date.now()}`)
                 .then(res => res.ok ? res.json() : [])
                 .catch(err => { console.warn('Профили пользователей недоступны:', err); return []; }),
+            fetch(`${window.YANDEX_BUCKET_URL}/mail.json?nocache=${Date.now()}`)
+                .then(res => res.ok ? res.json() : [])
+                .catch(() => []),
             fetch(`${window.YANDEX_BUCKET_URL}/feed.json?nocache=${Date.now()}`)
                 .then(res => res.ok ? res.json() : [])
                 .catch(() => [])
-        ]).then(([, cloudData, profiles, feed]) => {
-            window.profilesData = Array.isArray(profiles) ? profiles : [];
-            window.__lastProfilesPollKey = JSON.stringify(window.profilesData);
+        ]).then(([, cloudData, profiles, mail, feed]) => {
+            if (window.applyProfilesAndMailSnapshot) {
+                window.applyProfilesAndMailSnapshot(
+                    Array.isArray(profiles) ? profiles : [],
+                    Array.isArray(mail) ? mail : []
+                );
+            } else {
+                window.profilesData = Array.isArray(profiles) ? profiles : [];
+                window.mailData = Array.isArray(mail) ? mail : [];
+                window.__lastProfilesPollKey = JSON.stringify(window.profilesData);
+                window.__lastMailPollKey = JSON.stringify(window.mailData);
+            }
             window.feedPosts = Array.isArray(feed) ? feed.filter(p => !p.deleted) : [];
             window.__lastFeedPollKey = JSON.stringify(window.feedPosts);
             if (cloudData.length > 0 && window.mergeData) {

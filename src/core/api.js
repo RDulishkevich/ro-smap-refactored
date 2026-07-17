@@ -109,8 +109,21 @@ window.apiSyncJson = async function(fileName, data) {
     return window.apiRequest('commit', { fileName }, { auth: true });
 };
 
-window.apiPresignUpload = function(fileName, contentType) {
-    return window.apiRequest('presign', { fileName, contentType }, { auth: true });
+window.apiPresignUpload = function(fileName, contentType, contentLength) {
+    const payload = { fileName, contentType };
+    if (contentLength > 0) payload.contentLength = contentLength;
+    return window.apiRequest('presign', payload, { auth: true });
+};
+
+window.MAX_IMAGE_UPLOAD_BYTES = 30 * 1024 * 1024;       // 30 MB
+window.MAX_AUDIO_UPLOAD_BYTES = 1024 * 1024 * 1024;     // 1 GB
+
+window.isForbiddenMediaUrl = function(url) {
+    return typeof url === 'string' && /^(data:|blob:)/i.test(url.trim());
+};
+
+window.isHttpMediaUrl = function(url) {
+    return typeof url === 'string' && /^https?:\/\//i.test(url.trim()) && !window.isForbiddenMediaUrl(url);
 };
 
 /** Сжать картинку в JPEG blob (для аватара / вложений в чат). */
@@ -146,15 +159,31 @@ window.compressImageFile = function(file, maxSide = 720, quality = 0.82) {
     });
 };
 
+window.dataUrlToBlob = async function(dataUrl) {
+    const res = await fetch(dataUrl);
+    return res.blob();
+};
+
 /** Presigned PUT в uploads/{login}/… → публичный URL. */
 window.uploadUserMedia = async function(blob, fileName, contentType) {
     const login = window.currentUser?.loginName
         || String(window.currentUser?.username || '').toLowerCase();
     if (!login) throw Object.assign(new Error('unauthorized'), { code: 'unauthorized' });
+    const type = contentType || blob.type || 'application/octet-stream';
+    const size = blob.size || 0;
+    const isImage = /^image\//i.test(type);
+    const isAudio = /^audio\//i.test(type);
+    const max = isImage ? window.MAX_IMAGE_UPLOAD_BYTES : window.MAX_AUDIO_UPLOAD_BYTES;
+    if (size > max) {
+        const mb = Math.round(max / (1024 * 1024));
+        const label = mb >= 1024 ? `${(mb / 1024).toFixed(mb % 1024 === 0 ? 0 : 1)} ГБ` : `${mb} МБ`;
+        throw Object.assign(new Error(isImage ? `Фото больше ${label}` : `Аудио больше ${label}`), {
+            code: 'file_too_large'
+        });
+    }
     const safeName = String(fileName || `file_${Date.now()}`).replace(/[^a-zA-Z0-9._-]/g, '_');
     const key = `uploads/${login}/${safeName}`;
-    const type = contentType || blob.type || 'application/octet-stream';
-    const pre = await window.apiPresignUpload(key, type);
+    const pre = await window.apiPresignUpload(key, type, size);
     const putRes = await fetch(pre.uploadUrl, {
         method: 'PUT',
         headers: { 'Content-Type': type },
@@ -162,6 +191,23 @@ window.uploadUserMedia = async function(blob, fileName, contentType) {
     });
     if (!putRes.ok) throw new Error('Ошибка загрузки файла в облако');
     return pre.publicUrl || `${window.YANDEX_BUCKET_URL}/${key}`;
+};
+
+/** Загрузить картинку (File/Blob/data-URL) → https URL в Object Storage. */
+window.uploadImageToStorage = async function(input, fileNamePrefix = 'img') {
+    let blob = input;
+    if (typeof input === 'string') {
+        if (window.isHttpMediaUrl(input)) return input;
+        if (/^data:/i.test(input)) blob = await window.dataUrlToBlob(input);
+        else throw new Error('bad_image');
+    } else if (input instanceof Blob) {
+        blob = /^image\//i.test(input.type || '')
+            ? (window.compressImageFile ? await window.compressImageFile(input, 1600, 0.82) : input)
+            : input;
+    } else {
+        throw new Error('bad_image');
+    }
+    return window.uploadUserMedia(blob, `${fileNamePrefix}_${Date.now()}.jpg`, 'image/jpeg');
 };
 
 /** Восстановить сессию после перезагрузки (JWT → me). */

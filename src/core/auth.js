@@ -266,7 +266,10 @@ export function initAuth() {
         if (fields.bio !== undefined) record.bio = String(fields.bio || '');
         if (fields.gear !== undefined) record.gear = Array.isArray(fields.gear) ? fields.gear : [];
         if (fields.links !== undefined) record.links = Array.isArray(fields.links) ? fields.links : [];
-        if (fields.avatar !== undefined) record.avatar = fields.avatar || '';
+        if (fields.avatar !== undefined) {
+            const av = fields.avatar || '';
+            record.avatar = (window.isForbiddenMediaUrl && window.isForbiddenMediaUrl(av)) ? '' : av;
+        }
         if (fields.username !== undefined) record.displayName = fields.username;
 
         if (idx >= 0) updated[idx] = record; else updated.push(record);
@@ -781,15 +784,22 @@ export function initAuth() {
 
     window.handleSessionPhotos = function(files) {
         if (!files || !files.length) return;
-        Array.from(files).forEach(file => {
-            if (!file.type.startsWith('image/')) return;
-            const reader = new FileReader();
-            reader.onload = e => {
-                window.__sessionFormPhotos.push(e.target.result);
+        (async () => {
+            window.showToast('Загрузка фото экспедиции...');
+            try {
+                for (const file of Array.from(files)) {
+                    if (!file.type || !file.type.startsWith('image/')) continue;
+                    const url = await window.uploadImageToStorage(file, `session_${Date.now()}`);
+                    window.__sessionFormPhotos = window.__sessionFormPhotos || [];
+                    window.__sessionFormPhotos.push(url);
+                }
                 window.renderSessionPhotosPreview();
-            };
-            reader.readAsDataURL(file);
-        });
+                window.showToast('Фото добавлено');
+            } catch (err) {
+                console.error(err);
+                window.showToast(err.message || 'Не удалось загрузить фото');
+            }
+        })();
     };
 
     window.renderSessionPhotosPreview = function() {
@@ -818,7 +828,8 @@ export function initAuth() {
         const videoLinks = (document.getElementById('session-form-videos')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
         const links = (document.getElementById('session-form-links')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
         const participants = Array.from(document.querySelectorAll('#session-form-participants input:checked')).map(el => el.value);
-        const photos = [...(window.__sessionFormPhotos || [])];
+        const photos = [...(window.__sessionFormPhotos || [])]
+            .filter((u) => window.isHttpMediaUrl ? window.isHttpMediaUrl(u) : (typeof u === 'string' && /^https?:\/\//i.test(u)));
         const routeStops = [...(window.__sessionRouteStops || [])];
 
         const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
@@ -3232,14 +3243,20 @@ export function initAuth() {
 
             const updated = [...(window.profilesData || [])];
             // Снимаем «печатает» в том же write — без отдельной синхронизации перед отправкой.
-            const myIdx = updated.findIndex(p => String(p.loginName || '').toLowerCase() === myLogin);
+            const myIdx = updated.findIndex(p => String(p.loginName || '').toLowerCase() === String(myLogin || '').toLowerCase());
             if (myIdx >= 0 && updated[myIdx].typing) {
                 updated[myIdx] = { ...updated[myIdx], typing: null, lastSeen: new Date().toISOString() };
             }
 
-            let idx = updated.findIndex(p => p.loginName === targetLogin);
+            const targetKey = String(targetLogin || '').toLowerCase();
+            let idx = updated.findIndex(p => String(p.loginName || '').toLowerCase() === targetKey);
             if (idx < 0) {
-                updated.push({ loginName: targetLogin, displayName: targetLogin === window.SUPPORT_LOGIN ? window.SUPPORT_NAME : targetLogin, inbox: [] });
+                updated.push({
+                    loginName: targetKey,
+                    displayName: targetKey === window.SUPPORT_LOGIN ? window.SUPPORT_NAME : targetLogin,
+                    inbox: [],
+                    notifications: []
+                });
                 idx = updated.length - 1;
             }
             const msg = {

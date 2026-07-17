@@ -25,9 +25,20 @@ const JWT_SECRET = process.env.JWT_SECRET || '';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
 const AUTH_KEY = '_auth/users.json';
-const ALLOWED_JSON = new Set(['map_data.json', 'profiles.json', 'feed.json']);
+const ALLOWED_JSON = new Set(['map_data.json', 'profiles.json', 'feed.json', 'mail.json']);
 const MEDIA_PREFIXES = ['uploads/', 'audio/', 'images/'];
 const TOKEN_TTL_SEC = 60 * 60 * 24 * 14; // 14 days
+const MAX_IMAGE_BYTES = 30 * 1024 * 1024;      // 30 MB — фото/обложки с телефона
+const MAX_AUDIO_BYTES = 1024 * 1024 * 1024;    // 1 GB — длинные WAV / амбисоник
+const MAX_JSON_SYNC_BYTES = 2_500_000;
+const MAX_INBOX = 200;
+const MAX_NOTIFICATIONS = 100;
+const MAX_ACTIVITY = 100;
+const MAX_MSG_TEXT = 4000;
+const MAX_BIO = 2000;
+const ALLOWED_MEDIA_CT = /^(image\/(jpeg|jpg|png|webp|gif)|audio\/(mpeg|mp3|wav|x-wav|wave|mp4|aac|ogg|flac|webm|x-m4a)|application\/(json|octet-stream))/i;
+const DATA_OR_BLOB_RE = /^(data:|blob:)/i;
+const HTTP_URL_RE = /^https?:\/\//i;
 
 function bucketForKey(key) {
     if (key.startsWith('_auth/') || key.startsWith('staging/')) return PRIVATE_BUCKET;
@@ -56,6 +67,92 @@ function corsHeaders() {
     };
 }
 
+function isForbiddenMediaUrl(value) {
+    return typeof value === 'string' && DATA_OR_BLOB_RE.test(value.trim());
+}
+
+function sanitizeMediaUrl(value, { allowEmpty = true } = {}) {
+    if (value == null || value === '') return allowEmpty ? '' : null;
+    if (typeof value !== 'string') return allowEmpty ? '' : null;
+    const v = value.trim();
+    if (isForbiddenMediaUrl(v)) return allowEmpty ? '' : null;
+    if (!HTTP_URL_RE.test(v) && !v.startsWith('/')) return allowEmpty ? '' : null;
+    return v.slice(0, 2048);
+}
+
+function stripMailFields(profile = {}) {
+    const {
+        inbox: _i,
+        notifications: _n,
+        activityLog: _a,
+        ...card
+    } = profile;
+    return card;
+}
+
+function extractMailRecord(profile = {}) {
+    const login = String(profile.loginName || '').toLowerCase();
+    return {
+        loginName: login,
+        inbox: Array.isArray(profile.inbox) ? profile.inbox.slice(0, MAX_INBOX) : [],
+        notifications: Array.isArray(profile.notifications) ? profile.notifications.slice(0, MAX_NOTIFICATIONS) : [],
+        activityLog: Array.isArray(profile.activityLog) ? profile.activityLog.slice(0, MAX_ACTIVITY) : []
+    };
+}
+
+function sanitizeMessageMedia(msg) {
+    if (!msg || typeof msg !== 'object') return msg;
+    const out = { ...msg };
+    if (out.image !== undefined) {
+        const url = sanitizeMediaUrl(out.image, { allowEmpty: true });
+        if (url) out.image = url;
+        else delete out.image;
+    }
+    if (typeof out.text === 'string') out.text = out.text.slice(0, MAX_MSG_TEXT);
+    return out;
+}
+
+function sanitizeProfileCard(p) {
+    if (!p || typeof p !== 'object') return p;
+    const out = stripMailFields(p);
+    out.avatar = sanitizeMediaUrl(out.avatar, { allowEmpty: true }) || '';
+    if (typeof out.bio === 'string') out.bio = out.bio.slice(0, MAX_BIO);
+    if (Array.isArray(out.sessions)) {
+        out.sessions = out.sessions.map((s) => {
+            if (!s || typeof s !== 'object') return s;
+            const photos = Array.isArray(s.photos)
+                ? s.photos.map((u) => sanitizeMediaUrl(u, { allowEmpty: false })).filter(Boolean).slice(0, 12)
+                : [];
+            return { ...s, photos };
+        });
+    }
+    return out;
+}
+
+function sanitizeSoundRecord(s) {
+    if (!s || typeof s !== 'object') return s;
+    const out = { ...s };
+    out.url = sanitizeMediaUrl(out.url, { allowEmpty: true }) || '';
+    if (Array.isArray(out.images)) {
+        out.images = out.images
+            .map((u) => sanitizeMediaUrl(u, { allowEmpty: false }))
+            .filter(Boolean)
+            .slice(0, 3);
+    }
+    return out;
+}
+
+function sanitizeMailRecord(row) {
+    if (!row || typeof row !== 'object') return row;
+    const login = String(row.loginName || '').toLowerCase();
+    return {
+        loginName: login,
+        inbox: (Array.isArray(row.inbox) ? row.inbox : []).map(sanitizeMessageMedia).slice(0, MAX_INBOX),
+        notifications: (Array.isArray(row.notifications) ? row.notifications : []).slice(0, MAX_NOTIFICATIONS),
+        activityLog: (Array.isArray(row.activityLog) ? row.activityLog : []).slice(0, MAX_ACTIVITY)
+    };
+}
+
 function respond(statusCode, payload) {
     return {
         statusCode,
@@ -80,16 +177,25 @@ function getHeader(event, name) {
     return key ? headers[key] : '';
 }
 
-function rateLimit(ip, limit = 60, windowMs = 60000) {
+function rateLimit(key, limit = 60, windowMs = 60000) {
     const now = Date.now();
-    const row = rateBucket.get(ip) || { n: 0, t: now };
+    const row = rateBucket.get(key) || { n: 0, t: now };
     if (now - row.t > windowMs) {
         row.n = 0;
         row.t = now;
     }
     row.n += 1;
-    rateBucket.set(ip, row);
+    rateBucket.set(key, row);
     return row.n <= limit;
+}
+
+function actionRateLimit(action, ip, login = '') {
+    const base = String(ip || 'unknown');
+    if (action === 'register' && !rateLimit(`reg:${base}`, 5, 60000)) return false;
+    if (action === 'login' && !rateLimit(`login:${base}`, 30, 60000)) return false;
+    if ((action === 'sync' || action === 'commit') && !rateLimit(`sync:${base}:${login || 'anon'}`, 40, 60000)) return false;
+    if (action === 'presign' && !rateLimit(`presign:${base}:${login || 'anon'}`, 60, 60000)) return false;
+    return true;
 }
 
 function b64url(buf) {
@@ -376,9 +482,16 @@ function mergeProfilesArrays(fresh = [], proposed = []) {
         merged.loginName = login;
         merged.lastSeen = laterIso(cloud.lastSeen, p.lastSeen);
         merged.profileUpdatedAt = laterIso(cloud.profileUpdatedAt, p.profileUpdatedAt);
-        merged.inbox = mergeKeyedArrays(cloud.inbox || [], p.inbox || []);
-        merged.notifications = mergeKeyedArrays(cloud.notifications || [], p.notifications || []);
-        merged.activityLog = mergeKeyedArrays(cloud.activityLog || [], p.activityLog || []);
+        // Почта живёт в mail.json — в profiles оставляем только если ещё не разрезали (миграция).
+        if (Array.isArray(p.inbox) || Array.isArray(cloud.inbox)) {
+            merged.inbox = mergeKeyedArrays(cloud.inbox || [], p.inbox || []);
+        }
+        if (Array.isArray(p.notifications) || Array.isArray(cloud.notifications)) {
+            merged.notifications = mergeKeyedArrays(cloud.notifications || [], p.notifications || []);
+        }
+        if (Array.isArray(p.activityLog) || Array.isArray(cloud.activityLog)) {
+            merged.activityLog = mergeKeyedArrays(cloud.activityLog || [], p.activityLog || []);
+        }
         merged.sessions = preferProposedScalars
             ? (p.sessions || [])
             : mergeKeyedArrays(cloud.sessions || [], p.sessions || []);
@@ -403,6 +516,39 @@ function mergeProfilesArrays(fresh = [], proposed = []) {
             merged.progress = cloud.progress || p.progress;
         }
         out.set(login, merged);
+    });
+    return Array.from(out.values());
+}
+
+function mergeMailArrays(fresh = [], proposed = []) {
+    const out = new Map();
+    (fresh || []).forEach((p) => {
+        if (p?.loginName) out.set(String(p.loginName).toLowerCase(), {
+            loginName: String(p.loginName).toLowerCase(),
+            inbox: Array.isArray(p.inbox) ? p.inbox : [],
+            notifications: Array.isArray(p.notifications) ? p.notifications : [],
+            activityLog: Array.isArray(p.activityLog) ? p.activityLog : []
+        });
+    });
+    (proposed || []).forEach((p) => {
+        if (!p?.loginName) return;
+        const login = String(p.loginName).toLowerCase();
+        const cloud = out.get(login);
+        if (!cloud) {
+            out.set(login, {
+                loginName: login,
+                inbox: Array.isArray(p.inbox) ? p.inbox : [],
+                notifications: Array.isArray(p.notifications) ? p.notifications : [],
+                activityLog: Array.isArray(p.activityLog) ? p.activityLog : []
+            });
+            return;
+        }
+        out.set(login, {
+            loginName: login,
+            inbox: mergeKeyedArrays(cloud.inbox || [], p.inbox || []),
+            notifications: mergeKeyedArrays(cloud.notifications || [], p.notifications || []),
+            activityLog: mergeKeyedArrays(cloud.activityLog || [], p.activityLog || [])
+        });
     });
     return Array.from(out.values());
 }
@@ -436,27 +582,28 @@ function sanitizeInbox(cloudInbox = [], proposedInbox = [], actorLogin) {
 }
 
 function sanitizeProfiles(fresh, merged, user) {
-    if (user.role === 'admin') return merged;
+    if (user.role === 'admin') {
+        return (merged || []).map(sanitizeProfileCard);
+    }
     const freshMap = new Map((fresh || []).map((p) => [String(p.loginName || '').toLowerCase(), p]));
     return (merged || []).map((p) => {
         const login = String(p.loginName || '').toLowerCase();
         const cloud = freshMap.get(login) || {};
         if (login === user.login) {
-            return {
+            return sanitizeProfileCard({
                 ...p,
                 role: cloud.role === 'admin' ? 'admin' : 'user',
                 blocked: !!cloud.blocked,
                 badges: Array.isArray(cloud.badges) ? cloud.badges : (p.badges || []),
                 loginName: login,
-                // Свои bio/avatar/links/gear всегда из proposed (после merge)
                 bio: p.bio,
                 avatar: p.avatar,
                 links: p.links,
                 gear: p.gear,
                 profileUpdatedAt: laterIso(cloud.profileUpdatedAt, p.profileUpdatedAt)
-            };
+            });
         }
-        return {
+        return sanitizeProfileCard({
             ...cloud,
             ...p,
             loginName: login,
@@ -472,46 +619,70 @@ function sanitizeProfiles(fresh, merged, user) {
             displayName: cloud.displayName || p.displayName,
             progress: cloud.progress || p.progress,
             sessions: cloud.sessions || [],
-            inbox: sanitizeInbox(cloud.inbox || [], p.inbox || [], user.login),
-            notifications: mergeKeyedArrays(cloud.notifications || [], (p.notifications || []).filter((n) => {
-                // allow new notifs that reference actor, otherwise keep cloud
-                return !n?.id || (cloud.notifications || []).some((x) => x.id === n.id) || String(n.fromId || '').toLowerCase() === user.login;
-            })),
-            activityLog: cloud.activityLog || [],
             typing: p.typing !== undefined ? laterTyping(cloud.typing, p.typing) : cloud.typing,
             lastSeen: laterIso(cloud.lastSeen, p.lastSeen),
             profileUpdatedAt: cloud.profileUpdatedAt
-        };
+        });
+    });
+}
+
+function sanitizeMail(fresh, merged, user) {
+    if (user.role === 'admin') {
+        return (merged || []).map(sanitizeMailRecord);
+    }
+    const freshMap = new Map((fresh || []).map((p) => [String(p.loginName || '').toLowerCase(), p]));
+    return (merged || []).map((row) => {
+        const login = String(row.loginName || '').toLowerCase();
+        const cloud = freshMap.get(login) || { loginName: login, inbox: [], notifications: [], activityLog: [] };
+        if (login === user.login) {
+            return sanitizeMailRecord({
+                loginName: login,
+                inbox: sanitizeInbox(cloud.inbox || [], row.inbox || [], user.login),
+                notifications: mergeKeyedArrays(cloud.notifications || [], row.notifications || []),
+                activityLog: mergeKeyedArrays(cloud.activityLog || [], row.activityLog || [])
+            });
+        }
+        // Чужой ящик: можно только дописать свои исходящие в inbox получателя + нотифы от себя
+        return sanitizeMailRecord({
+            loginName: login,
+            inbox: sanitizeInbox(cloud.inbox || [], row.inbox || [], user.login),
+            notifications: mergeKeyedArrays(cloud.notifications || [], (row.notifications || []).filter((n) => {
+                return !n?.id || (cloud.notifications || []).some((x) => x.id === n.id) || String(n.fromId || '').toLowerCase() === user.login;
+            })),
+            activityLog: cloud.activityLog || []
+        });
     });
 }
 
 function sanitizeMapData(fresh, merged, user) {
-    if (user.role === 'admin') return merged;
+    if (user.role === 'admin') {
+        return (merged || []).map(sanitizeSoundRecord);
+    }
     const freshMap = new Map((fresh || []).map((s) => [s.id, s]));
     const out = [];
     for (const s of merged || []) {
         const cloud = freshMap.get(s.id);
         if (!cloud) {
             // new record — force ownership
-            out.push({
+            out.push(sanitizeSoundRecord({
                 ...s,
                 recordistId: user.login,
                 recordist: s.recordist || user.displayName || user.login,
                 status: s.status === 'draft' ? 'draft' : 'pending'
-            });
+            }));
             continue;
         }
         if (ownsSound(cloud, user.login)) {
-            out.push({
+            out.push(sanitizeSoundRecord({
                 ...s,
                 recordistId: user.login,
                 // non-admin cannot self-publish
                 status: s.status === 'published' && cloud.status !== 'published' ? 'pending' : s.status
-            });
+            }));
             continue;
         }
         // foreign sound: allow only social fields from actor
-        out.push({
+        out.push(sanitizeSoundRecord({
             ...cloud,
             comments: mergeCommentLists(cloud.comments || [], s.comments || []),
             reports: mergeKeyedArrays(cloud.reports || [], s.reports || []),
@@ -519,11 +690,11 @@ function sanitizeMapData(fresh, merged, user) {
             dislikedBy: Array.isArray(s.dislikedBy) ? s.dislikedBy : (cloud.dislikedBy || []),
             plays: Math.max(cloud.plays || 0, s.plays || 0),
             downloads: Math.max(cloud.downloads || 0, s.downloads || 0)
-        });
+        }));
     }
     // keep any fresh sounds missing from merged (prevent wipe)
     for (const [id, cloud] of freshMap.entries()) {
-        if (!out.some((s) => s.id === id)) out.push(cloud);
+        if (!out.some((s) => s.id === id)) out.push(sanitizeSoundRecord(cloud));
     }
     return out;
 }
@@ -578,13 +749,17 @@ async function handleRegister(body) {
             role: 'user',
             joinedAt: new Date().toISOString(),
             profileUpdatedAt: new Date().toISOString(),
-            notifications: [],
-            inbox: [],
             sessions: [],
             badges: [],
             progress: { xp: 0, achievements: [], completedQuests: [], guessrBestScore: 0 }
         });
         await putJson('profiles.json', profiles);
+    }
+
+    const mail = await getJson('mail.json', []);
+    if (!mail.some((p) => String(p.loginName || '').toLowerCase() === login)) {
+        mail.push({ loginName: login, inbox: [], notifications: [], activityLog: [] });
+        await putJson('mail.json', mail);
     }
 
     const user = { login, displayName, role: 'user' };
@@ -686,7 +861,7 @@ async function handleSync(event, body) {
 
     // Крупные базы не влезают в HTTP-триггер (~3.5MB) — используйте staging+commit
     const approx = Buffer.byteLength(JSON.stringify(proposed), 'utf8');
-    if (approx > 2_500_000) {
+    if (approx > MAX_JSON_SYNC_BYTES) {
         return respond(413, {
             ok: false,
             error: 'payload_too_large',
@@ -701,20 +876,50 @@ async function handleSync(event, body) {
     });
 }
 
+async function migrateMailOutOfProfiles(proposedProfiles, user) {
+    const hasEmbedded = (proposedProfiles || []).some((p) =>
+        (Array.isArray(p.inbox) && p.inbox.length)
+        || (Array.isArray(p.notifications) && p.notifications.length)
+        || (Array.isArray(p.activityLog) && p.activityLog.length)
+        || Object.prototype.hasOwnProperty.call(p, 'inbox')
+        || Object.prototype.hasOwnProperty.call(p, 'notifications')
+        || Object.prototype.hasOwnProperty.call(p, 'activityLog')
+    );
+    if (!hasEmbedded) return;
+
+    const freshMail = await getJson('mail.json', []);
+    const extracted = (proposedProfiles || [])
+        .filter((p) => p?.loginName)
+        .map(extractMailRecord);
+    if (!extracted.length) return;
+
+    let merged = mergeMailArrays(freshMail, extracted);
+    merged = sanitizeMail(freshMail, merged, user);
+    await putJson('mail.json', merged);
+}
+
 async function applyMergeAndSave(fileName, proposed, user) {
+    let nextProposed = proposed;
+    if (fileName === 'profiles.json') {
+        await migrateMailOutOfProfiles(proposed, user);
+        nextProposed = (proposed || []).map(stripMailFields);
+    }
+
     const fresh = await getJson(fileName, []);
-    if (!proposed.length && Array.isArray(fresh) && fresh.length) {
-        return respond(200, { ok: true, skipped: true, count: fresh.length });
+    if (!nextProposed.length && Array.isArray(fresh) && fresh.length) {
+        return respond(200, { ok: true, skipped: true, count: fresh.length, data: fresh });
     }
 
-    let merged = proposed;
+    let merged = nextProposed;
     if (Array.isArray(fresh)) {
-        if (fileName === 'profiles.json') merged = mergeProfilesArrays(fresh, proposed);
-        else if (fileName === 'feed.json') merged = mergeFeedPostsArrays(fresh, proposed);
-        else merged = mergeMapDataArrays(fresh, proposed);
+        if (fileName === 'profiles.json') merged = mergeProfilesArrays(fresh, nextProposed);
+        else if (fileName === 'mail.json') merged = mergeMailArrays(fresh, nextProposed);
+        else if (fileName === 'feed.json') merged = mergeFeedPostsArrays(fresh, nextProposed);
+        else merged = mergeMapDataArrays(fresh, nextProposed);
     }
 
-    if (fileName === 'profiles.json') merged = sanitizeProfiles(fresh, merged, user);
+    if (fileName === 'profiles.json') merged = sanitizeProfiles(fresh, merged, user).map(stripMailFields);
+    else if (fileName === 'mail.json') merged = sanitizeMail(fresh, merged, user);
     else if (fileName === 'feed.json') merged = sanitizeFeed(fresh, merged, user);
     else merged = sanitizeMapData(fresh, merged, user);
 
@@ -722,7 +927,9 @@ async function applyMergeAndSave(fileName, proposed, user) {
     return respond(200, {
         ok: true,
         fileName,
-        count: Array.isArray(merged) ? merged.length : 0
+        count: Array.isArray(merged) ? merged.length : 0,
+        // Клиент использует этот снимок вместо повторного GET (CDN/гонка иначе «теряет» сообщения)
+        data: merged
     });
 }
 
@@ -761,11 +968,15 @@ async function handlePresign(event, body) {
 
     const fileName = String(body.fileName || '').replace(/^\/+/, '');
     const contentType = String(body.contentType || 'application/octet-stream');
+    const contentLength = Number(body.contentLength || 0);
     if (!fileName || fileName.includes('..')) return respond(400, { ok: false, error: 'bad_file' });
+    if (!ALLOWED_MEDIA_CT.test(contentType) && !fileName.startsWith('staging/')) {
+        return respond(400, { ok: false, error: 'bad_content_type' });
+    }
 
     let key;
     // Staging JSON для больших баз (обход лимита тела HTTP-триггера)
-    const stagingMatch = fileName.match(/^staging\/([^/]+)\/(map_data\.json|profiles\.json|feed\.json)$/);
+    const stagingMatch = fileName.match(/^staging\/([^/]+)\/(map_data\.json|profiles\.json|feed\.json|mail\.json)$/);
     if (stagingMatch) {
         if (stagingMatch[1] !== payload.login) return respond(403, { ok: false, error: 'bad_staging_owner' });
         key = fileName;
@@ -778,6 +989,18 @@ async function handlePresign(event, body) {
         key = safe.startsWith(`uploads/${payload.login}/`)
             ? safe
             : `uploads/${payload.login}/${safe.split('/').pop()}`;
+
+        const isImage = /^image\//i.test(contentType);
+        const isAudio = /^audio\//i.test(contentType);
+        const maxBytes = isImage ? MAX_IMAGE_BYTES : (isAudio ? MAX_AUDIO_BYTES : MAX_AUDIO_BYTES);
+        if (contentLength > 0 && contentLength > maxBytes) {
+            return respond(413, {
+                ok: false,
+                error: 'file_too_large',
+                maxBytes,
+                message: isImage ? 'Image must be ≤ 30 MB' : 'Audio must be ≤ 1 GB'
+            });
+        }
     }
 
     // Не подписываем ACL: браузер шлёт только Content-Type, иначе PUT → 403 SignatureMismatch.
@@ -793,7 +1016,9 @@ async function handlePresign(event, body) {
         ok: true,
         uploadUrl,
         publicUrl: `${ENDPOINT}/${hostBucket}/${key}`,
-        key
+        key,
+        maxImageBytes: MAX_IMAGE_BYTES,
+        maxAudioBytes: MAX_AUDIO_BYTES
     });
 }
 
@@ -804,7 +1029,8 @@ exports.handler = async function handler(event = {}) {
     }
 
     const ip = getHeader(event, 'x-forwarded-for') || event.requestContext?.identity?.sourceIp || 'unknown';
-    if (!rateLimit(String(ip).split(',')[0].trim())) {
+    const ipKey = String(ip).split(',')[0].trim();
+    if (!rateLimit(`ip:${ipKey}`, 120, 60000)) {
         return respond(429, { ok: false, error: 'rate_limited' });
     }
 
@@ -815,9 +1041,15 @@ exports.handler = async function handler(event = {}) {
     const body = parseBody(event);
     // Legacy client shape { fileName, contentType } without action → reject (force upgrade)
     const action = body.action || (body.fileName && body.contentType && !body.data ? 'legacy_presign' : '');
+    const tokenPayload = (action === 'sync' || action === 'commit' || action === 'presign' || action === 'me' || action === 'changePassword')
+        ? verifyJwt(extractToken(event, body))
+        : null;
+    if (!actionRateLimit(action, ipKey, tokenPayload?.login || '')) {
+        return respond(429, { ok: false, error: 'rate_limited' });
+    }
 
     try {
-        if (action === 'health') return respond(200, { ok: true, version: 1 });
+        if (action === 'health') return respond(200, { ok: true, version: 2 });
         if (action === 'register') return await handleRegister(body);
         if (action === 'login') return await handleLogin(body);
         if (action === 'changePassword') return await handleChangePassword(event, body);

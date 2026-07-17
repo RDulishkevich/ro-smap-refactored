@@ -17,8 +17,10 @@ export function initGlobalState() {
     window.YANDEX_EMAIL_FUNCTION_URL = '';
     window.cloudDataCache = [];
     window.profilesData = [];
+    window.mailData = [];
     window.feedPosts = [];
     window.__lastFeedPollKey = '';
+    window.__lastMailPollKey = '';
     window.__secureApiEnabled = true;
 
     // 3. Состояния плеера и приложения

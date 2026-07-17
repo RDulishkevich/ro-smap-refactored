@@ -18,6 +18,8 @@
 | Админ-пароль в клиентском JS | `ADMIN_PASSWORD` в env Cloud Function |
 | Анонимный presign → overwrite JSON | `action=sync` + проверка прав на сервере |
 | Роль `admin` из DevTools | роль в JWT, сервер отбрасывает подделки |
+| Аудио/фото как data-URL / blob в JSON | файлы в `uploads/{login}/…`, в JSON только https |
+| Всё в одном `profiles.json` | визитки + отдельный `mail.json` |
 
 Полная инструкция деплоя: [`cloud/api/README.md`](cloud/api/README.md).
 

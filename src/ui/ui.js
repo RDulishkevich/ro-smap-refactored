@@ -973,8 +973,12 @@ window.__putCloudJson = async function(fileName, data) {
         throw new Error('Требуется вход для синхронизации с облаком');
     }
     if (!window.apiSyncJson) throw new Error('Secure API клиент не загружен');
-    await window.apiSyncJson(fileName, data);
-    // Сервер мог sanitize — перечитываем актуальный снимок из бакета
+    const result = await window.apiSyncJson(fileName, data);
+    // Предпочитаем снимок из ответа API — повторный GET из бакета может отдать устаревший кэш.
+    if (result && Array.isArray(result.data)) {
+        window.__lastMergedUpload = { fileName, data: result.data };
+        return true;
+    }
     const freshAfter = await window.fetchCloudJson(fileName);
     if (Array.isArray(freshAfter)) {
         window.__lastMergedUpload = { fileName, data: freshAfter };
@@ -1162,6 +1166,107 @@ window.mergeFeedPostsArrays = function(fresh = [], proposed = []) {
     return Array.from(map.values()).sort((a, b) => stamp(b) - stamp(a));
 };
 
+window.mergeMailArrays = function(fresh = [], proposed = []) {
+    const out = new Map();
+    (fresh || []).forEach(p => {
+        if (!p?.loginName) return;
+        out.set(String(p.loginName).toLowerCase(), {
+            loginName: String(p.loginName).toLowerCase(),
+            inbox: Array.isArray(p.inbox) ? p.inbox : [],
+            notifications: Array.isArray(p.notifications) ? p.notifications : [],
+            activityLog: Array.isArray(p.activityLog) ? p.activityLog : []
+        });
+    });
+    (proposed || []).forEach(p => {
+        if (!p?.loginName) return;
+        const login = String(p.loginName).toLowerCase();
+        const cloud = out.get(login);
+        if (!cloud) {
+            out.set(login, {
+                loginName: login,
+                inbox: Array.isArray(p.inbox) ? p.inbox : [],
+                notifications: Array.isArray(p.notifications) ? p.notifications : [],
+                activityLog: Array.isArray(p.activityLog) ? p.activityLog : []
+            });
+            return;
+        }
+        out.set(login, {
+            loginName: login,
+            inbox: window.__mergeKeyedArrays(cloud.inbox || [], p.inbox || []),
+            notifications: window.__mergeKeyedArrays(cloud.notifications || [], p.notifications || []),
+            activityLog: window.__mergeKeyedArrays(cloud.activityLog || [], p.activityLog || [])
+        });
+    });
+    return Array.from(out.values());
+};
+
+/** Визитки vs почта: inbox/notifications/activityLog → mail.json */
+window.splitProfilesAndMail = function(profiles = []) {
+    const cards = [];
+    const mail = [];
+    (profiles || []).forEach((p) => {
+        if (!p?.loginName) return;
+        const login = String(p.loginName).toLowerCase();
+        const {
+            inbox,
+            notifications,
+            activityLog,
+            ...rest
+        } = p;
+        const card = { ...rest, loginName: login };
+        delete card.inbox;
+        delete card.notifications;
+        delete card.activityLog;
+        cards.push(card);
+        mail.push({
+            loginName: login,
+            inbox: Array.isArray(inbox) ? inbox : [],
+            notifications: Array.isArray(notifications) ? notifications : [],
+            activityLog: Array.isArray(activityLog) ? activityLog : []
+        });
+    });
+    return { cards, mail };
+};
+
+window.hydrateProfilesWithMail = function(profiles = [], mail = []) {
+    const mailMap = new Map((mail || []).map((m) => [String(m.loginName || '').toLowerCase(), m]));
+    const profileLogins = new Set();
+    const hydrated = (profiles || []).map((p) => {
+        const login = String(p.loginName || '').toLowerCase();
+        profileLogins.add(login);
+        const m = mailMap.get(login);
+        // Если mail ещё пуст (миграция), оставляем поля из старого profiles.json
+        return {
+            ...p,
+            loginName: login,
+            inbox: m ? (m.inbox || []) : (p.inbox || []),
+            notifications: m ? (m.notifications || []) : (p.notifications || []),
+            activityLog: m ? (m.activityLog || []) : (p.activityLog || [])
+        };
+    });
+    // Ящики без визитки (редко) — всё равно доступны в памяти через синтетическую запись
+    (mail || []).forEach((m) => {
+        const login = String(m.loginName || '').toLowerCase();
+        if (!login || profileLogins.has(login)) return;
+        hydrated.push({
+            loginName: login,
+            displayName: login,
+            inbox: m.inbox || [],
+            notifications: m.notifications || [],
+            activityLog: m.activityLog || []
+        });
+    });
+    return hydrated;
+};
+
+window.applyProfilesAndMailSnapshot = function(profiles, mail) {
+    window.mailData = Array.isArray(mail) ? mail : (window.mailData || []);
+    window.__lastMailPollKey = JSON.stringify(window.mailData);
+    const cards = Array.isArray(profiles) ? profiles : [];
+    window.profilesData = window.hydrateProfilesWithMail(cards, window.mailData);
+    window.__lastProfilesPollKey = JSON.stringify(cards);
+};
+
 // fileName выбирает JSON-файл в том же бакете: "map_data.json" для звуков (по умолчанию,
 // обратная совместимость со всеми существующими вызовами) или "profiles.json" для публичных
 // профилей рекордистов (см. window.syncProfilesData ниже).
@@ -1191,6 +1296,7 @@ window.syncCloudData = async function(newCloudData, fileName = "map_data.json") 
             let merged = proposed;
             if (Array.isArray(fresh)) {
                 if (fileName === "profiles.json") merged = window.mergeProfilesArrays(fresh, proposed);
+                else if (fileName === "mail.json") merged = window.mergeMailArrays(fresh, proposed);
                 else if (fileName === "feed.json") merged = window.mergeFeedPostsArrays(fresh, proposed);
                 else merged = window.mergeMapDataArrays(fresh, proposed);
             }
@@ -1215,6 +1321,9 @@ window.syncCloudData = async function(newCloudData, fileName = "map_data.json") 
                 window.feedPosts = merged.filter(p => !p.deleted);
                 window.__lastFeedPollKey = JSON.stringify(window.feedPosts);
                 if (window.__sidebarTab === 'feed' && window.renderSidebarFeed) window.renderSidebarFeed();
+            } else if (fileName === "mail.json") {
+                window.mailData = merged;
+                window.__lastMailPollKey = JSON.stringify(merged);
             }
             return true;
         } catch (e) {
@@ -1236,16 +1345,55 @@ window.syncCloudData = async function(newCloudData, fileName = "map_data.json") 
     });
 };
 
-// Профили рекордистов синхронизируются тем же presign+PUT механизмом, но в отдельный файл,
-// чтобы не смешивать "визитки" пользователей с данными звуков.
+// Профили: визитки → profiles.json, почта → mail.json (в памяти всё ещё гидратировано вместе).
 window.syncProfilesData = async function(newProfiles) {
-    const success = await window.syncCloudData(newProfiles, "profiles.json");
+    // Держим write-lock на ВСЮ операцию (mail + cards), иначе poll между двумя sync
+    // успевает затереть свежий inbox устаревшим mail.json из CDN.
+    window.__cloudWriteDepth++;
+    try {
+        const { cards, mail } = window.splitProfilesAndMail(newProfiles);
+        let mergedMail = Array.isArray(window.mailData) && window.mailData.length
+            ? window.mergeMailArrays(window.mailData, mail)
+            : mail;
+
+        const mailKey = JSON.stringify(mail);
+        if (mailKey !== window.__lastMailPollKey) {
+            const mailOk = await window.syncCloudData(mail, "mail.json");
+            if (!mailOk) return false;
+            mergedMail = (window.__lastMergedUpload && window.__lastMergedUpload.fileName === "mail.json"
+                && Array.isArray(window.__lastMergedUpload.data))
+                ? window.__lastMergedUpload.data
+                : mergedMail;
+            window.__lastMailWriteAt = Date.now();
+        }
+
+        const success = await window.syncCloudData(cards, "profiles.json");
+        if (success) {
+            const mergedCards = (window.__lastMergedUpload && window.__lastMergedUpload.fileName === "profiles.json"
+                && Array.isArray(window.__lastMergedUpload.data))
+                ? window.__lastMergedUpload.data
+                : cards;
+            window.applyProfilesAndMailSnapshot(mergedCards, mergedMail);
+            if (window.refreshNotificationsUI) window.refreshNotificationsUI();
+            if (window.refreshMessagesUI) window.refreshMessagesUI();
+        }
+        return success;
+    } finally {
+        window.__cloudWriteDepth = Math.max(0, window.__cloudWriteDepth - 1);
+    }
+};
+
+window.syncMailData = async function(newMail) {
+    const success = await window.syncCloudData(newMail, "mail.json");
     if (success) {
-        const merged = (window.__lastMergedUpload && window.__lastMergedUpload.fileName === "profiles.json")
+        const mergedMail = (window.__lastMergedUpload && window.__lastMergedUpload.fileName === "mail.json")
             ? window.__lastMergedUpload.data
-            : newProfiles;
-        window.profilesData = merged;
-        window.__lastProfilesPollKey = JSON.stringify(merged);
+            : newMail;
+        const cards = (window.profilesData || []).map((p) => {
+            const { inbox, notifications, activityLog, ...card } = p;
+            return card;
+        });
+        window.applyProfilesAndMailSnapshot(cards, mergedMail);
         if (window.refreshNotificationsUI) window.refreshNotificationsUI();
         if (window.refreshMessagesUI) window.refreshMessagesUI();
     }
@@ -1280,11 +1428,14 @@ window.pollLiveCloudData = async function() {
     if (window.__cloudWriteDepth > 0) return;
     window.__pollingInFlight = true;
     try {
-        const [cloudData, profiles, feed] = await Promise.all([
+        const [cloudData, profiles, mail, feed] = await Promise.all([
             fetch(`${window.YANDEX_BUCKET_URL}/map_data.json?nocache=${Date.now()}`)
                 .then(res => res.ok ? res.json() : null)
                 .catch(() => null),
             fetch(`${window.YANDEX_BUCKET_URL}/profiles.json?nocache=${Date.now()}`)
+                .then(res => res.ok ? res.json() : null)
+                .catch(() => null),
+            fetch(`${window.YANDEX_BUCKET_URL}/mail.json?nocache=${Date.now()}`)
                 .then(res => res.ok ? res.json() : null)
                 .catch(() => null),
             fetch(`${window.YANDEX_BUCKET_URL}/feed.json?nocache=${Date.now()}`)
@@ -1316,11 +1467,24 @@ window.pollLiveCloudData = async function() {
             }
         }
 
-        if (Array.isArray(profiles)) {
-            const key = JSON.stringify(profiles);
-            if (key !== window.__lastProfilesPollKey) {
-                window.__lastProfilesPollKey = key;
-                window.profilesData = profiles;
+        const profilesArr = Array.isArray(profiles) ? profiles : null;
+        const mailArr = Array.isArray(mail) ? mail : null;
+        if (profilesArr || mailArr) {
+            const nextProfiles = profilesArr || (window.profilesData || []).map((p) => {
+                const { inbox, notifications, activityLog, ...card } = p;
+                return card;
+            });
+            const nextMail = mailArr || window.mailData || [];
+            // Не откатываем локальную почту устаревшим CDN-снимком (меньше сообщений, чем уже есть).
+            const localMailCount = (window.mailData || []).reduce((n, r) => n + ((r.inbox || []).length), 0);
+            const nextMailCount = (nextMail || []).reduce((n, r) => n + ((r.inbox || []).length), 0);
+            const mailLooksStale = mailArr && localMailCount > 0 && nextMailCount < localMailCount
+                && (Date.now() - (window.__lastMailWriteAt || 0) < 15000);
+            const effectiveMail = mailLooksStale ? (window.mailData || nextMail) : nextMail;
+            const cardsKey = JSON.stringify(nextProfiles);
+            const mailKey = JSON.stringify(effectiveMail);
+            if (cardsKey !== window.__lastProfilesPollKey || mailKey !== window.__lastMailPollKey) {
+                window.applyProfilesAndMailSnapshot(nextProfiles, effectiveMail);
                 if (window.applyProfileToCurrentUser) window.applyProfileToCurrentUser();
                 if (window.refreshNotificationsUI) window.refreshNotificationsUI();
                 if (window.refreshMessagesUI) window.refreshMessagesUI();
@@ -3526,17 +3690,22 @@ window.probeAudioDuration = function(src) {
 
 window.handleAudioFiles = function(files) {
     if(files && files.length > 0 && files[0].type.startsWith('audio/')) {
-        window.currentUploadedFile = files[0];
+        const file = files[0];
+        if (file.size > (window.MAX_AUDIO_UPLOAD_BYTES || 1024 * 1024 * 1024)) {
+            window.showToast('Аудиофайл больше 1 ГБ');
+            return;
+        }
+        window.currentUploadedFile = file;
         window.generateUCSFileName();
         if (window.currentUploadedFileUrl && String(window.currentUploadedFileUrl).startsWith('blob:')) {
             try { URL.revokeObjectURL(window.currentUploadedFileUrl); } catch (_) {}
         }
-        window.currentUploadedFileUrl = URL.createObjectURL(files[0]);
+        window.currentUploadedFileUrl = URL.createObjectURL(file);
         window.__uploadedAudioDuration = '0:00';
         window.probeAudioDuration(window.currentUploadedFileUrl).then(secs => {
             window.__uploadedAudioDuration = window.formatTime ? window.formatTime(secs) : `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`;
         }).catch(() => { window.__uploadedAudioDuration = '0:00'; });
-        document.getElementById('drop-zone-content').innerHTML = `<span class="text-sm font-bold text-blue-600">Готов к загрузке: ${files[0].name}</span>`;
+        document.getElementById('drop-zone-content').innerHTML = `<span class="text-sm font-bold text-blue-600">Готов к загрузке: ${file.name}</span>`;
     }
 }
 
@@ -3562,8 +3731,7 @@ window.generateUCSFileName = function() {
     const rec = window.transliterate(document.getElementById('add-recordist').value || 'Anon').replace(/\s+/g, '');
     if (document.getElementById('add-file-name')) document.getElementById('add-file-name').value = `${subcat}_${userDef}_${rec}_ST.wav`;
 }
-// Фото прикладываются как base64 (как и images у сид-данных) — без отдельного аплоада в бакет,
-// max 3 шт., превью рисуется в тот же .image-preview-grid, что уже был в вёрстке.
+// Фото звука: локальный preview + File; в JSON уходит только https URL после upload.
 window.handleImageFilesWrapper = function(files) {
     if (!files || !files.length) return;
     window.pendingImages = window.pendingImages || [];
@@ -3571,16 +3739,22 @@ window.handleImageFilesWrapper = function(files) {
     if (remaining === 0) { window.showToast('Можно прикрепить максимум 3 фото'); return; }
 
     const toProcess = Array.from(files).slice(0, remaining);
-    let loaded = 0;
     toProcess.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = e => {
-            window.pendingImages.push(e.target.result);
-            loaded++;
-            if (loaded === toProcess.length) window.renderPendingImagesPreview();
-        };
-        reader.readAsDataURL(file);
+        if (!file.type || !file.type.startsWith('image/')) return;
+        if (file.size > (window.MAX_IMAGE_UPLOAD_BYTES || 30 * 1024 * 1024)) {
+            window.showToast('Фото больше 30 МБ — сожмите или выберите другое');
+            return;
+        }
+        const preview = URL.createObjectURL(file);
+        window.pendingImages.push({ preview, file });
     });
+    window.renderPendingImagesPreview();
+};
+
+window.pendingImageSrc = function(item) {
+    if (!item) return '';
+    if (typeof item === 'string') return item;
+    return item.preview || item.url || '';
 };
 
 window.renderPendingImagesPreview = function() {
@@ -3589,9 +3763,9 @@ window.renderPendingImagesPreview = function() {
     const images = window.pendingImages || [];
     if (!images.length) { container.innerHTML = ''; container.classList.add('hidden'); return; }
     container.classList.remove('hidden');
-    container.innerHTML = images.map((src, i) => `
+    container.innerHTML = images.map((item, i) => `
         <div class="relative">
-            <img src="${src}" class="image-thumb">
+            <img src="${window.pendingImageSrc(item)}" class="image-thumb">
             <button type="button" onclick="event.stopPropagation(); window.removePendingImage(${i})" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] shadow-md">
                 <i class="fa-solid fa-xmark"></i>
             </button>
@@ -3601,12 +3775,38 @@ window.renderPendingImagesPreview = function() {
 
 window.removePendingImage = function(index) {
     if (!window.pendingImages) return;
+    const item = window.pendingImages[index];
+    if (item && item.preview && String(item.preview).startsWith('blob:')) {
+        try { URL.revokeObjectURL(item.preview); } catch (_) {}
+    }
     window.pendingImages.splice(index, 1);
     window.renderPendingImagesPreview();
 };
 
+window.resolvePendingImagesForPublish = async function(soundId) {
+    const out = [];
+    const items = window.pendingImages || [];
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (typeof item === 'string') {
+            if (window.isHttpMediaUrl && window.isHttpMediaUrl(item)) {
+                out.push(item);
+            } else if (item.startsWith('data:') && window.uploadImageToStorage) {
+                out.push(await window.uploadImageToStorage(item, `sound_${soundId}_${i}`));
+            }
+            continue;
+        }
+        if (item?.file && window.uploadImageToStorage) {
+            out.push(await window.uploadImageToStorage(item.file, `sound_${soundId}_${i}`));
+        } else if (item?.url && window.isHttpMediaUrl(item.url)) {
+            out.push(item.url);
+        }
+    }
+    return out.slice(0, 3);
+};
+
 // targetStatus: 'pending' (кнопка "Опубликовать") или 'draft' (кнопка "Черновик").
-// Логика перехода статусов при редактировании — см. комментарий у поля status ниже.
+// Логика перехода статусов при редактировании — см. комментарий у поле status ниже.
 window.publishSound = async function(targetStatus = 'pending') {
     if (!window.currentUser) { window.showToast('Войдите, чтобы опубликовать звук'); return; }
 
@@ -3633,88 +3833,119 @@ window.publishSound = async function(targetStatus = 'pending') {
         } catch (_) {}
     }
 
-    const soundObj = {
-        id: existing ? existing.id : ('u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)),
-        title,
-        ecoCategory: val('add-eco') || 'anthrophony',
-        ucsCat: val('add-category') || 'AMBIENCE',
-        typeTag: val('add-subcat'),
-        lat: coords[0], lng: coords[1],
-        duration: (window.__uploadedAudioDuration && window.__uploadedAudioDuration !== '0:00')
-            ? window.__uploadedAudioDuration
-            : (existing?.duration || '0:00'),
-        url: window.currentUploadedFileUrl || existing?.url || '',
-        semanticTag: existing?.semanticTag || '',
-        gear: val('add-recorder'),
-        date: val('add-date'),
-        time: val('add-time'),
-        description: val('add-desc'),
-        comments: existing?.comments || [],
-        keywords: val('add-tags'),
-        micType: val('add-mic'),
-        recPrinciple: val('add-principle'),
-        format: val('add-format'),
-        channels: val('add-channels'),
-        weather: val('add-weather'),
-        location: val('add-loc'),
-        recordist: window.currentUser.username,
-        recordistId: login,
-        license: val('add-license'),
-        fileName: val('add-file-name'),
-        images: (window.pendingImages && window.pendingImages.length) ? [...window.pendingImages] : (existing?.images || []),
-        route: window.isSoundwalkPrinciple()
-            ? ((window.addModalRoute && window.addModalRoute.length > 1) ? [...window.addModalRoute] : (existing?.route || undefined))
-            : undefined,
-        sessionId: val('add-session') || null,
-        createdAt: existing?.createdAt || new Date().toISOString(),
-        // Черновик остаётся черновиком до явной публикации; уже прошедшую модерацию запись
-        // редактирование метаданных не трогает (кнопка "Опубликовать" тут работает как "Сохранить").
-        // Только переход draft -> pending образует настоящую отправку на модерацию.
-        status: targetStatus === 'draft'
-            ? 'draft'
-            : (isEdit ? (existing.status === 'draft' ? 'pending' : (existing.status || 'published')) : 'pending'),
-        downloads: existing?.downloads || 0,
-        plays: existing?.plays || 0,
-        likedBy: existing?.likedBy || [],
-        dislikedBy: existing?.dislikedBy || [],
-        reports: existing?.reports || [],
-        rejectionReason: existing && existing.status === 'draft' ? '' : (existing?.rejectionReason || ''),
-        seenByAuthor: true
-    };
+    const soundId = existing ? existing.id : ('u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7));
 
-    if (window.isSoundwalkPrinciple() && (!soundObj.route || soundObj.route.length < 2)) {
+    let audioUrl = existing?.url || '';
+    try {
+        if (window.currentUploadedFile) {
+            const file = window.currentUploadedFile;
+            if (file.size > (window.MAX_AUDIO_UPLOAD_BYTES || 1024 * 1024 * 1024)) {
+                throw Object.assign(new Error('Аудио больше 1 ГБ'), { code: 'file_too_large' });
+            }
+            window.showToast('Загрузка аудио в облако...');
+            const ext = (String(file.name || '').split('.').pop() || 'wav').replace(/[^a-z0-9]/gi, '') || 'wav';
+            audioUrl = await window.uploadUserMedia(
+                file,
+                `audio_${soundId}.${ext}`,
+                file.type || 'audio/wav'
+            );
+        } else if (window.isForbiddenMediaUrl && window.isForbiddenMediaUrl(audioUrl)) {
+            throw new Error('Выберите аудиофайл для загрузки в облако');
+        } else if (!isEdit && !audioUrl) {
+            throw new Error('Добавьте аудиофайл');
+        }
+
+        window.showToast('Загрузка фото...');
+        const images = await window.resolvePendingImagesForPublish(soundId);
+
+        const soundObj = {
+            id: soundId,
+            title,
+            ecoCategory: val('add-eco') || 'anthrophony',
+            ucsCat: val('add-category') || 'AMBIENCE',
+            typeTag: val('add-subcat'),
+            lat: coords[0], lng: coords[1],
+            duration: (window.__uploadedAudioDuration && window.__uploadedAudioDuration !== '0:00')
+                ? window.__uploadedAudioDuration
+                : (existing?.duration || '0:00'),
+            url: audioUrl,
+            semanticTag: existing?.semanticTag || '',
+            gear: val('add-recorder'),
+            date: val('add-date'),
+            time: val('add-time'),
+            description: val('add-desc'),
+            comments: existing?.comments || [],
+            keywords: val('add-tags'),
+            micType: val('add-mic'),
+            recPrinciple: val('add-principle'),
+            format: val('add-format'),
+            channels: val('add-channels'),
+            weather: val('add-weather'),
+            location: val('add-loc'),
+            recordist: window.currentUser.username,
+            recordistId: login,
+            license: val('add-license'),
+            fileName: val('add-file-name'),
+            images,
+            route: window.isSoundwalkPrinciple()
+                ? ((window.addModalRoute && window.addModalRoute.length > 1) ? [...window.addModalRoute] : (existing?.route || undefined))
+                : undefined,
+            sessionId: val('add-session') || null,
+            createdAt: existing?.createdAt || new Date().toISOString(),
+            // Черновик остаётся черновиком до явной публикации; уже прошедшую модерацию запись
+            // редактирование метаданных не трогает (кнопка "Опубликовать" тут работает как "Сохранить").
+            // Только переход draft -> pending образует настоящую отправку на модерацию.
+            status: targetStatus === 'draft'
+                ? 'draft'
+                : (isEdit ? (existing.status === 'draft' ? 'pending' : (existing.status || 'published')) : 'pending'),
+            downloads: existing?.downloads || 0,
+            plays: existing?.plays || 0,
+            likedBy: existing?.likedBy || [],
+            dislikedBy: existing?.dislikedBy || [],
+            reports: existing?.reports || [],
+            rejectionReason: existing && existing.status === 'draft' ? '' : (existing?.rejectionReason || ''),
+            seenByAuthor: true
+        };
+
+        if (window.isSoundwalkPrinciple() && (!soundObj.route || soundObj.route.length < 2)) {
+            if (btn) btn.disabled = false;
+            if (draftBtn) draftBtn.disabled = false;
+            window.showToast('Для звуковой прогулки нарисуйте маршрут (минимум 2 точки)');
+            return;
+        }
+
+        let updatedCloud = [...window.cloudDataCache];
+        const idx = updatedCloud.findIndex(x => x.id === soundObj.id);
+        if (idx >= 0) updatedCloud[idx] = soundObj; else updatedCloud.push(soundObj);
+
+        const success = await window.syncCloudData(updatedCloud);
         if (btn) btn.disabled = false;
         if (draftBtn) draftBtn.disabled = false;
-        window.showToast('Для звуковой прогулки нарисуйте маршрут (минимум 2 точки)');
-        return;
-    }
 
-    let updatedCloud = [...window.cloudDataCache];
-    const idx = updatedCloud.findIndex(x => x.id === soundObj.id);
-    if (idx >= 0) updatedCloud[idx] = soundObj; else updatedCloud.push(soundObj);
-
-    const success = await window.syncCloudData(updatedCloud);
-    if (btn) btn.disabled = false;
-    if (draftBtn) draftBtn.disabled = false;
-
-    if (success) {
-        const msg = soundObj.status === 'draft' ? 'Черновик сохранён!' : (isEdit ? 'Изменения сохранены!' : 'Звук отправлен на модерацию!');
-        window.showToast(msg);
-        if (!isEdit && soundObj.status !== 'draft' && window.logUserActivity) {
-            window.logUserActivity({
-                type: 'sound_add',
-                text: `Добавил запись «${soundObj.title}»`,
-                soundId: soundObj.id,
-                date: soundObj.createdAt
-            }, login);
+        if (success) {
+            const msg = soundObj.status === 'draft' ? 'Черновик сохранён!' : (isEdit ? 'Изменения сохранены!' : 'Звук отправлен на модерацию!');
+            window.showToast(msg);
+            if (!isEdit && soundObj.status !== 'draft' && window.logUserActivity) {
+                window.logUserActivity({
+                    type: 'sound_add',
+                    text: `Добавил запись «${soundObj.title}»`,
+                    soundId: soundObj.id,
+                    date: soundObj.createdAt
+                }, login);
+            }
+            if (soundObj.status === 'published' && window.notifyFollowersAboutNewSound) {
+                window.notifyFollowersAboutNewSound(soundObj);
+            }
+            if (soundObj.status !== 'draft' && window.evaluateFieldProgress) {
+                window.evaluateFieldProgress();
+            }
+            window.toggleAddModal(true);
         }
-        if (soundObj.status === 'published' && window.notifyFollowersAboutNewSound) {
-            window.notifyFollowersAboutNewSound(soundObj);
-        }
-        if (soundObj.status !== 'draft' && window.evaluateFieldProgress) {
-            window.evaluateFieldProgress();
-        }
-        window.toggleAddModal(true);
+    } catch (err) {
+        console.error(err);
+        if (btn) btn.disabled = false;
+        if (draftBtn) draftBtn.disabled = false;
+        window.showToast(err.message || 'Не удалось сохранить запись');
     }
 };
 

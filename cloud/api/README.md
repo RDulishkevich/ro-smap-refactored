@@ -1,13 +1,13 @@
 # RO.SMap Secure API (Yandex Cloud Functions)
 
 Серверная точка входа для авторизации и записи в Object Storage.
-Клиент больше не может анонимно перезаписывать `map_data.json` / `profiles.json` / `feed.json`.
+Клиент больше не может анонимно перезаписывать JSON-базы.
 
 ## Что делает API
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | проверка живости |
+| `health` | нет | проверка живости (`version: 2`) |
 | `register` | нет | регистрация (пароль → scrypt) |
 | `login` | нет | вход → JWT |
 | `me` | JWT | проверка сессии / refresh |
@@ -16,7 +16,29 @@
 | `presign` | JWT | presigned PUT для `uploads/{login}/...` и `staging/{login}/...` |
 | `commit` | JWT | взять staging → merge → sanitize → PUT публичный JSON |
 
-Хеши паролей и staging живут в **приватном** бакете `rosmap2026-private` (`_auth/users.json`, `staging/...`). Публичный бакет `rosmap2026` — только каталог (map/profiles/feed) и медиа.
+Хеши паролей и staging живут в **приватном** бакете `rosmap2026-private` (`_auth/users.json`, `staging/...`). Публичный бакет `rosmap2026` — каталог и медиа.
+
+## JSON-базы (публичный бакет)
+
+| Файл | Содержимое |
+|------|------------|
+| `map_data.json` | звуки (метаданные + **https** URL аудио/фото) |
+| `profiles.json` | визитки (bio, avatar URL, gear, sessions…) **без** почты |
+| `mail.json` | inbox / notifications / activityLog по `loginName` |
+| `feed.json` | лента |
+
+Медиа только в `uploads/{login}/…` (или legacy `audio/` / `images/`). **data-URL и blob: в базах запрещены** — API вычищает при sync.
+
+## Лимиты
+
+| Что | Лимит |
+|-----|--------|
+| Картинка (presign) | 30 MB |
+| Аудио (presign) | 1 GB |
+| Тело `sync` | ~2.5 MB (иначе staging+commit) |
+| Inbox / notifications | 200 / 100 записей |
+| Текст сообщения | 4000 символов |
+| Rate limit | IP 120/мин; register 5; login 30; sync 40; presign 60 |
 
 ## Переменные окружения функции
 
@@ -33,9 +55,9 @@ ALLOWED_ORIGIN=*
 
 ## Деплой (консоль или CLI)
 
-1. Создайте статический ключ доступа сервисного аккаунта с ролями `storage.editor` на оба бакета: `rosmap2026` и `rosmap2026-private`.
-2. Публичный бакет: анонимное чтение JSON; запись только через SA/API.
-3. Приватный бакет: без публичного доступа; `_auth/` и `staging/` только для SA.
+1. Сервисный аккаунт с ролями `storage.editor` на оба бакета.
+2. Публичный бакет: анонимное чтение JSON/медиа; запись только через SA/API.
+3. Приватный бакет: без публичного доступа.
 4. Упакуйте функцию:
 
 ```bash
@@ -44,21 +66,19 @@ npm install --omit=dev
 zip -r ../rosmap-api.zip index.js package.json node_modules
 ```
 
-5. В Yandex Cloud Functions создайте/обновите функцию (Node.js 18+):
-   - entrypoint: `index.handler`
-   - timeout: 10–30s
-   - memory: 256–512 MB
-   - добавьте env из списка выше
-6. Подключите HTTPS-триггер (API Gateway или invoke URL).
-7. В клиенте `src/core/state.js` укажите URL функции в `YANDEX_FUNCTION_URL`.
+5. Обновите функцию (Node.js 18+), entrypoint `index.handler`, env из списка выше.
+6. В клиенте `src/core/state.js` — `YANDEX_FUNCTION_URL`.
 
-## Миграция пользователей
+## Миграция Stage 2 (profiles → mail)
 
-Старые аккаунты жили только в `localStorage`. При первом входе клиент:
-1. пробует `login` в облаке;
-2. если `no_user`, но пароль совпал локально — вызывает `register` и входит снова.
+Один раз после деплоя API v2:
 
-Админ: логин `admin` + `ADMIN_PASSWORD` из env функции.
+```powershell
+node cloud/ops/split-profiles-mail.mjs --dry-run
+node cloud/ops/split-profiles-mail.mjs
+```
+
+API также умеет лениво вынести почту из `profiles.json` при ближайшем sync, если клиент ещё шлёт старый формат.
 
 ## Важно
 

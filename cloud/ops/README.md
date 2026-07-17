@@ -4,7 +4,7 @@
 
 | Bucket | Public read | Contents |
 |--------|-------------|----------|
-| `rosmap2026` | yes (catalog/media) | `map_data.json`, `profiles.json`, `feed.json`, `uploads/`, `backups/` |
+| `rosmap2026` | yes (catalog/media) | `map_data.json`, `profiles.json`, `mail.json`, `feed.json`, `uploads/`, `backups/` |
 | `rosmap2026-private` | **no** | `_auth/users.json`, `staging/{login}/…`, `_auth/backups/…` |
 
 API env must include `PRIVATE_BUCKET=rosmap2026-private`.
@@ -53,11 +53,21 @@ Do not paste the new password into chat. After you change it in-app, the bootstr
 
 ## Smoke checklist
 
-- [ ] API `health` → ok
+- [ ] API `health` → ok (`version: 2`)
 - [ ] Register new user
 - [ ] Login (admin + normal user)
-- [ ] Publish / edit sound
+- [ ] Publish sound (audio lands in `uploads/…`, not data-URL in JSON)
 - [ ] Message send
+- [ ] `mail.json` exists; `profiles.json` without heavy inbox
 - [ ] Hard refresh — data still there
 - [ ] `https://storage.yandexcloud.net/rosmap2026/_auth/users.json` → 404/403
 - [ ] Private auth not reachable without keys
+
+## Stage 2 migration
+
+```powershell
+node cloud/ops/split-profiles-mail.mjs --dry-run
+node cloud/ops/split-profiles-mail.mjs
+```
+
+Then redeploy API (`cloud/api`) and hard-refresh the site.
