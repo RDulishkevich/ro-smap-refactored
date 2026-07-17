@@ -1624,6 +1624,8 @@ export function initAuth() {
         }).join('');
         if (window.refreshAdminRailBadge) window.refreshAdminRailBadge();
     };
+
+    window.getAdminSoundActionItems = function(soundId) {
         const s = window.soundsData.find(x => x.id === soundId);
         if (!s) return [];
         const status = s.status || 'published';
