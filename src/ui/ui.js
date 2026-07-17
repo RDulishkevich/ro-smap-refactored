@@ -1586,7 +1586,7 @@ window.renderFilterPanels = function() {
                 displayName = window.translations[window.currentLang][`filter_${val}`];
             }
 
-            return `<button onclick="${toggleFn}('${val}')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border flex items-center ${isActive ? 'bg-teal-600 text-white border-teal-600 shadow-sm' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'}">
+            return `<button onclick="${toggleFn}('${val}')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border flex items-center ${isActive ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'}">
                 ${icon ? `<i class="fa-solid ${icon} mr-1 opacity-70"></i>` : ''}${displayName} <span class="ml-1 text-[9px] font-normal opacity-60">(${count})</span>
             </button>`;
         }).join('');
