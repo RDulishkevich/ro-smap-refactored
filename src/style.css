@@ -771,13 +771,15 @@ body.dock-view-details #dock-mobile-tabs,
 body.dock-view-analyzers #dock-mobile-tabs,
 body.dock-view-settings #dock-mobile-tabs,
 body.dock-view-cabinet #dock-mobile-tabs,
-body.dock-view-messages #dock-mobile-tabs {
+body.dock-view-messages #dock-mobile-tabs,
+body.dock-view-expedition #dock-mobile-tabs {
     display: none !important;
 }
 
 /* Avoid a hard full-bleed hairline under dock chrome (reads as a screen-wide bar) */
 body.dock-view-cabinet .dock-header,
 body.dock-view-messages .dock-header,
+body.dock-view-expedition .dock-header,
 body.dock-view-settings .dock-header,
 body.dock-view-details .dock-header,
 body.dock-view-analyzers .dock-header {
@@ -785,6 +787,7 @@ body.dock-view-analyzers .dock-header {
 }
 #cabinet-modal-content.cabinet-in-dock > .border-b,
 #messages-modal-content.messages-in-dock > .border-b,
+#expedition-view-modal-content.expedition-in-dock > .border-b,
 #settings-modal-content.settings-in-dock > .border-b {
     border-bottom-color: color-mix(in srgb, var(--panel-border, #e2e8f0) 70%, transparent);
 }
@@ -1276,7 +1279,8 @@ html.dark .search-suggestions,
 
 #settings-modal-content.settings-in-dock,
 #cabinet-modal-content.cabinet-in-dock,
-#messages-modal-content.messages-in-dock {
+#messages-modal-content.messages-in-dock,
+#expedition-view-modal-content.expedition-in-dock {
     width: 100% !important;
     max-width: none !important;
     height: 100% !important;
@@ -1293,6 +1297,9 @@ html.dark .search-suggestions,
     display: none;
 }
 #messages-modal-content.messages-in-dock .messages-modal-header {
+    display: none;
+}
+#expedition-view-modal-content.expedition-in-dock .expedition-view-header {
     display: none;
 }
 

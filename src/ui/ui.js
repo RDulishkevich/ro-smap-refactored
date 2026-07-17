@@ -2342,12 +2342,61 @@ window.getFilteredSounds = function(forceRefresh = false) {
     return filtered;
 }
 
+window.__listVirt = window.__listVirt || { rowH: 68, overscan: 8, items: [], key: '' };
+
+window.buildSoundListRowHtml = function(sound) {
+    const isSelected = window.currentPlayingId === sound.id;
+    const playing = isSelected && window.isPlaying;
+    const thumb = (sound.images && sound.images[0]) || `https://picsum.photos/seed/${sound.id}/72/72`;
+    const eco = window.translations[window.currentLang][`filter_${sound.ecoCategory}`] || sound.ecoCategory;
+    const esc = window.escMsgHtml || ((t) => String(t ?? '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'));
+    const safeId = String(sound.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    return `
+        <div class="sidebar-sound-row${isSelected ? ' is-active' : ''}" data-sound-id="${esc(sound.id)}" onclick="window.selectSound('${safeId}')">
+            <img src="${esc(thumb)}" alt="" class="sidebar-sound-thumb" loading="lazy" onerror="this.src='https://picsum.photos/seed/${esc(sound.id)}/72/72'">
+            <button type="button" class="sidebar-sound-row__play${playing ? ' is-playing' : ''}" tabindex="-1">
+                ${playing ? '<i class="fa-solid fa-pause text-xs"></i>' : '<i class="fa-solid fa-play text-xs translate-x-[1px]"></i>'}
+            </button>
+            <div class="flex-grow min-w-0 text-left">
+                <h3 class="font-semibold text-[13px] truncate text-slate-800 dark:text-white flex items-center gap-1.5">${esc(sound.title)}</h3>
+                <div class="flex flex-wrap gap-1 mt-1"><span class="text-[8px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 font-bold uppercase tracking-wider">${esc(eco)}</span></div>
+            </div>
+        </div>`;
+};
+
+window.renderListWindow = function(force = false) {
+    const listContainer = document.getElementById('sounds-list');
+    if (!listContainer) return;
+    const items = window.__listVirt.items || [];
+    if (!items.length) return;
+
+    const rowH = window.__listVirt.rowH || 68;
+    const overscan = window.__listVirt.overscan || 8;
+    const scrollTop = listContainer.scrollTop || 0;
+    const viewH = listContainer.clientHeight || 480;
+    const start = Math.max(0, Math.floor(scrollTop / rowH) - overscan);
+    const end = Math.min(items.length, Math.ceil((scrollTop + viewH) / rowH) + overscan);
+    const key = `${start}:${end}:${items.length}:${window.currentPlayingId}:${window.isPlaying ? 1 : 0}`;
+    if (!force && key === window.__listVirt.key) return;
+    window.__listVirt.key = key;
+
+    const topPad = start * rowH;
+    const bottomPad = Math.max(0, (items.length - end) * rowH);
+    const slice = items.slice(start, end);
+    listContainer.innerHTML = `
+        <div class="sounds-list-virt" style="padding-top:${topPad}px;padding-bottom:${bottomPad}px">
+            ${slice.map((sound) => window.buildSoundListRowHtml(sound)).join('')}
+        </div>`;
+};
+
 window.renderList = function() {
     const listContainer = document.getElementById('sounds-list');
-    if(!listContainer) return;
-    listContainer.innerHTML = '';
+    if (!listContainer) return;
     const filtered = window.getFilteredSounds();
-    if(filtered.length === 0) {
+    if (filtered.length === 0) {
+        window.__listVirt.items = [];
+        window.__listVirt.key = '';
         const query = (document.getElementById('search-input')?.value || '').trim();
         const hasFilters = !!(window.activeEcoLayer.size || window.activeUcsCat.size || window.activeUcsSub.size
             || window.activeGenTags.size || window.activePrinciple.size || window.activeGear.size
@@ -2368,27 +2417,24 @@ window.renderList = function() {
         return;
     }
 
-    const frag = document.createDocumentFragment();
-    filtered.forEach(sound => {
-        const item = document.createElement('div');
-        const isSelected = window.currentPlayingId === sound.id;
-        item.dataset.soundId = sound.id;
-        item.className = `sidebar-sound-row${isSelected ? ' is-active' : ''}`;
-        item.onclick = () => window.selectSound(sound.id);
-        const thumb = (sound.images && sound.images[0]) || `https://picsum.photos/seed/${sound.id}/72/72`;
-        const playing = isSelected && window.isPlaying;
-        item.innerHTML = `
-            <img src="${thumb}" alt="" class="sidebar-sound-thumb" loading="lazy" onerror="this.src='https://picsum.photos/seed/${sound.id}/72/72'">
-            <button type="button" class="sidebar-sound-row__play${playing ? ' is-playing' : ''}" tabindex="-1">
-                ${playing ? '<i class="fa-solid fa-pause text-xs"></i>' : '<i class="fa-solid fa-play text-xs translate-x-[1px]"></i>'}
-            </button>
-            <div class="flex-grow min-w-0 text-left">
-                <h3 class="font-semibold text-[13px] truncate text-slate-800 dark:text-white flex items-center gap-1.5">${sound.title}</h3>
-                <div class="flex flex-wrap gap-1 mt-1"><span class="text-[8px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 font-bold uppercase tracking-wider">${window.translations[window.currentLang][`filter_${sound.ecoCategory}`] || sound.ecoCategory}</span></div>
-            </div>`;
-        frag.appendChild(item);
-    });
-    listContainer.appendChild(frag);
+    window.__listVirt.items = filtered;
+    if (!listContainer.__virtBound) {
+        listContainer.__virtBound = true;
+        listContainer.addEventListener('scroll', () => {
+            if (window.__listVirtRaf) return;
+            window.__listVirtRaf = requestAnimationFrame(() => {
+                window.__listVirtRaf = null;
+                window.renderListWindow(false);
+            });
+        }, { passive: true });
+    }
+    // Small lists: render fully without virtual padding overhead
+    if (filtered.length <= 40) {
+        window.__listVirt.key = `full:${filtered.length}:${window.currentPlayingId}:${window.isPlaying ? 1 : 0}`;
+        listContainer.innerHTML = filtered.map((sound) => window.buildSoundListRowHtml(sound)).join('');
+        return;
+    }
+    window.renderListWindow(true);
 };
 
 /** Update play/selection classes without rebuilding the whole library list. */
@@ -2401,9 +2447,11 @@ window.refreshPlayingListRow = function() {
         return;
     }
     const activeId = window.currentPlayingId;
+    let found = false;
     rows.forEach((row) => {
         const id = row.dataset.soundId;
         const isSelected = id === activeId;
+        if (isSelected) found = true;
         const playing = isSelected && window.isPlaying;
         row.classList.toggle('is-active', isSelected);
         const playBtn = row.querySelector('.sidebar-sound-row__play');
@@ -2414,6 +2462,11 @@ window.refreshPlayingListRow = function() {
                 : '<i class="fa-solid fa-play text-xs translate-x-[1px]"></i>';
         }
     });
+    // Active row may be outside the virtual window — refresh window classes via key bust
+    if (!found && (window.__listVirt.items || []).length > 40) {
+        window.__listVirt.key = '';
+        window.renderListWindow(true);
+    }
 };
 
 // ДОБАВЛЕНО: Функции переключения UCS фильтров
@@ -2453,7 +2506,7 @@ window.processFilterChange = function(forceOpenDesktopSidebar = false) {
 }
 
 window.hideAllDockPanels = function() {
-    ['sidebar-library', 'sidebar-feed', 'panel-expeditions', 'dock-details', 'dock-analyzers', 'dock-settings', 'dock-cabinet', 'dock-messages', 'dock-help'].forEach(id => {
+    ['sidebar-library', 'sidebar-feed', 'panel-expeditions', 'dock-details', 'dock-analyzers', 'dock-settings', 'dock-cabinet', 'dock-messages', 'dock-expedition', 'dock-help'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.add('hidden');
     });
@@ -2567,6 +2620,23 @@ window.dockMessagesContent = function() {
     host.appendChild(content);
 };
 
+window.undockExpeditionContent = function() {
+    const content = document.getElementById('expedition-view-modal-content');
+    const modal = document.getElementById('expedition-view-modal');
+    if (content && modal && content.classList.contains('expedition-in-dock')) {
+        content.classList.remove('expedition-in-dock');
+        modal.appendChild(content);
+    }
+};
+
+window.dockExpeditionContent = function() {
+    const content = document.getElementById('expedition-view-modal-content');
+    const host = document.getElementById('dock-expedition-host');
+    if (!content || !host) return;
+    content.classList.add('expedition-in-dock');
+    host.appendChild(content);
+};
+
 window.switchHelpTab = function(tab) {
     const next = tab === 'faq' ? 'faq' : 'support';
     window.__helpTab = next;
@@ -2582,9 +2652,9 @@ window.switchHelpTab = function(tab) {
 
 window.openDockView = function(view) {
     const prev = window.__dockView;
-    const next = ['library', 'feed', 'expeditions', 'help', 'details', 'analyzers', 'settings', 'cabinet', 'messages'].includes(view) ? view : 'library';
+    const next = ['library', 'feed', 'expeditions', 'help', 'details', 'analyzers', 'settings', 'cabinet', 'messages', 'expedition'].includes(view) ? view : 'library';
     window.__dockView = next;
-    document.body.classList.remove('dock-view-details', 'dock-view-analyzers', 'dock-view-settings', 'dock-view-cabinet', 'dock-view-messages', 'dock-view-help');
+    document.body.classList.remove('dock-view-details', 'dock-view-analyzers', 'dock-view-settings', 'dock-view-cabinet', 'dock-view-messages', 'dock-view-expedition', 'dock-view-help');
 
     if (prev === 'messages' && next !== 'messages') {
         window.__activeMessagePeer = null;
@@ -2594,12 +2664,16 @@ window.openDockView = function(view) {
         if (input) input.value = '';
         window.__messagePendingImage = null;
     }
+    if (prev === 'expedition' && next !== 'expedition') {
+        window.__viewingExpeditionId = null;
+    }
 
     window.hideAllDockPanels();
     window.undockDetailsContent();
     window.undockSettingsContent();
     window.undockCabinetContent();
     window.undockMessagesContent();
+    window.undockExpeditionContent();
     document.body.classList.remove('cab-mobile-home');
     document.body.classList.remove('cab-mobile-sounds');
     const mobileLogout = document.getElementById('dock-mobile-logout');
@@ -2656,6 +2730,18 @@ window.openDockView = function(view) {
         window.setDockHeader('Сообщения', 'Чаты и поддержка', true);
         if (mobileTabs) mobileTabs.classList.add('hidden');
         window.clearRailTabActive();
+    } else if (next === 'expedition') {
+        document.body.classList.add('dock-view-expedition');
+        const panel = document.getElementById('dock-expedition');
+        if (panel) panel.classList.remove('hidden');
+        window.dockExpeditionContent();
+        const session = window.__viewingExpeditionId && window.findSessionById
+            ? window.findSessionById(window.__viewingExpeditionId)
+            : null;
+        const title = session?.title || (window.currentLang === 'en' ? 'Expedition' : 'Экспедиция');
+        window.setDockHeader(title, window.currentLang === 'en' ? 'Description' : 'Описание', true);
+        if (mobileTabs) mobileTabs.classList.add('hidden');
+        window.clearRailTabActive();
     } else if (next === 'help') {
         document.body.classList.add('dock-view-help');
         const panel = document.getElementById('dock-help');
@@ -2708,6 +2794,9 @@ window.openDockView = function(view) {
 };
 
 window.closeDockViewer = function() {
+    const returnTab = window.__dockView === 'expedition'
+        ? (window.__sidebarTab || 'expeditions')
+        : (window.__sidebarTab || 'library');
     if (window.analyzersOpen) {
         window.__skipAnalyzerViewRestore = true;
         if (window.collapsePlayerAnalyzers) window.collapsePlayerAnalyzers();
@@ -2718,10 +2807,16 @@ window.closeDockViewer = function() {
         window.closeMessagesModal();
         window.__skipMessagesDockClose = false;
     }
+    if (window.__dockView === 'expedition' && window.closeExpeditionViewModal) {
+        window.__skipExpeditionDockClose = true;
+        window.closeExpeditionViewModal();
+        window.__skipExpeditionDockClose = false;
+    }
     window.undockDetailsContent();
     window.undockSettingsContent();
     window.undockCabinetContent();
     window.undockMessagesContent();
+    window.undockExpeditionContent();
     const m = document.getElementById('details-modal');
     if (m) {
         m.classList.add('opacity-0', 'pointer-events-none', 'hidden');
@@ -2734,7 +2829,9 @@ window.closeDockViewer = function() {
     if (cabinetModal) cabinetModal.classList.add('hidden', 'opacity-0', 'pointer-events-none');
     const messagesModal = document.getElementById('messages-modal');
     if (messagesModal) messagesModal.classList.add('hidden', 'opacity-0', 'pointer-events-none');
-    window.openDockView(window.__sidebarTab || 'library');
+    const expeditionModal = document.getElementById('expedition-view-modal');
+    if (expeditionModal) expeditionModal.classList.add('hidden', 'opacity-0', 'pointer-events-none');
+    window.openDockView(returnTab);
 };
 
 window.switchSidebarTab = function(tab) {
@@ -3500,17 +3597,68 @@ window.downloadSound = function(format) {
     else window.showToast("Файл недоступен для скачивания.");
 }
 
-// Счётчик скачиваний питает блок доверия в публичном профиле ("статистика скачиваний
-// коллегами"). Батчим запись в облако — полный rewrite map_data на каждый клик подвешивал UI.
-window.__flushCounterCloudSync = function() {
+// Счётчик скачиваний / прослушиваний — лёгкий patchSound вместо полного rewrite map_data.
+window.__pendingMetricPatches = window.__pendingMetricPatches || new Map();
+
+window.applySoundSocialFields = function(partial) {
+    if (!partial || !partial.id) return;
+    const patch = {
+        plays: partial.plays,
+        downloads: partial.downloads,
+        likedBy: partial.likedBy,
+        dislikedBy: partial.dislikedBy
+    };
+    const applyTo = (arr) => {
+        if (!Array.isArray(arr)) return;
+        const idx = arr.findIndex((x) => x && x.id === partial.id);
+        if (idx < 0) return;
+        const next = { ...arr[idx] };
+        if (patch.plays != null) next.plays = patch.plays;
+        if (patch.downloads != null) next.downloads = patch.downloads;
+        if (Array.isArray(patch.likedBy)) next.likedBy = patch.likedBy;
+        if (Array.isArray(patch.dislikedBy)) next.dislikedBy = patch.dislikedBy;
+        arr[idx] = next;
+    };
+    applyTo(window.soundsData);
+    applyTo(window.cloudDataCache);
+    if (window.fingerprintDataset && Array.isArray(window.cloudDataCache)) {
+        window.__lastCloudPollKey = window.fingerprintDataset(window.cloudDataCache.filter((s) => s && !s.deleted));
+    }
+};
+
+window.__flushCounterCloudSync = async function() {
     if (window.__counterSyncTimer) {
         clearTimeout(window.__counterSyncTimer);
         window.__counterSyncTimer = null;
     }
     window.__counterSyncDirty = false;
-    if (!window.getAuthToken || !window.getAuthToken()) return;
-    if (!Array.isArray(window.cloudDataCache)) return;
-    window.syncCloudData([...window.cloudDataCache]).catch(() => {});
+    if (!window.getAuthToken || !window.getAuthToken()) {
+        window.__pendingMetricPatches.clear();
+        return;
+    }
+    const entries = [...window.__pendingMetricPatches.entries()];
+    window.__pendingMetricPatches.clear();
+    if (!entries.length) return;
+
+    for (const [soundId, ops] of entries) {
+        const payload = {};
+        if (ops.incPlays) payload.incPlays = ops.incPlays;
+        if (ops.incDownloads) payload.incDownloads = ops.incDownloads;
+        if (!payload.incPlays && !payload.incDownloads) continue;
+        try {
+            const res = await window.apiPatchSound(soundId, payload);
+            if (res && res.sound) window.applySoundSocialFields(res.sound);
+        } catch (err) {
+            // Fallback for undeployed API: one full sync of local cache
+            if (err && (err.code === 'unknown_action' || err.status === 400)) {
+                if (Array.isArray(window.cloudDataCache)) {
+                    await window.syncCloudData([...window.cloudDataCache]).catch(() => {});
+                }
+                return;
+            }
+            console.warn('patchSound metrics failed', err);
+        }
+    }
 };
 
 window.__queueCounterCloudSync = function() {
@@ -3519,23 +3667,24 @@ window.__queueCounterCloudSync = function() {
     window.__counterSyncTimer = setTimeout(() => {
         window.__counterSyncTimer = null;
         window.__flushCounterCloudSync();
-    }, 8000);
+    }, 2500);
 };
 
 window.incrementDownloadCount = function(id) {
     const s = window.soundsData.find(x => x.id === id);
     if (!s) return;
     s.downloads = (s.downloads || 0) + 1;
-    const updatedCloud = [...window.cloudDataCache];
+    const updatedCloud = [...(window.cloudDataCache || [])];
     const idx = updatedCloud.findIndex(x => x.id === id);
     if (idx >= 0) updatedCloud[idx] = { ...updatedCloud[idx], downloads: s.downloads };
-    else updatedCloud.push(s);
+    else updatedCloud.push({ ...s });
     window.cloudDataCache = updatedCloud;
+    const prev = window.__pendingMetricPatches.get(id) || {};
+    window.__pendingMetricPatches.set(id, { ...prev, incDownloads: (prev.incDownloads || 0) + 1 });
     window.__queueCounterCloudSync();
 };
 
-// Счётчик прослушиваний питает вкладку "Аналитика" (спрос по нишам/трекам). Дедуплицируем
-// по браузерной сессии, чтобы повторные клики по одному маркеру не спамили облако запросами.
+// Счётчик прослушиваний — дедуп по сессии браузера.
 window.__playedSoundIds = window.__playedSoundIds || new Set();
 window.trackSoundPlay = function(id) {
     if (window.__playedSoundIds.has(id)) return;
@@ -3543,11 +3692,13 @@ window.trackSoundPlay = function(id) {
     const s = window.soundsData.find(x => x.id === id);
     if (!s) return;
     s.plays = (s.plays || 0) + 1;
-    const updatedCloud = [...window.cloudDataCache];
+    const updatedCloud = [...(window.cloudDataCache || [])];
     const idx = updatedCloud.findIndex(x => x.id === id);
     if (idx >= 0) updatedCloud[idx] = { ...updatedCloud[idx], plays: s.plays };
-    else updatedCloud.push(s);
+    else updatedCloud.push({ ...s });
     window.cloudDataCache = updatedCloud;
+    const prev = window.__pendingMetricPatches.get(id) || {};
+    window.__pendingMetricPatches.set(id, { ...prev, incPlays: (prev.incPlays || 0) + 1 });
     window.__queueCounterCloudSync();
 };
 
@@ -3926,10 +4077,25 @@ window.toggleSoundReaction = async function(kind) {
     if (ti >= 0) target.splice(ti, 1); else target.push(login);
     window.renderDetailsReactions(s);
 
-    const updatedCloud = [...window.cloudDataCache];
-    const idx = updatedCloud.findIndex(x => x.id === s.id);
-    if (idx >= 0) updatedCloud[idx] = s; else updatedCloud.push(s);
-    await window.syncCloudData(updatedCloud);
+    const reactionSet = adding;
+    try {
+        const res = await window.apiPatchSound(s.id, { reaction: kind, reactionSet });
+        if (res && res.sound) {
+            window.applySoundSocialFields(res.sound);
+            const updated = window.soundsData.find(x => x.id === s.id) || s;
+            window.renderDetailsReactions(updated);
+        }
+    } catch (err) {
+        if (err && (err.code === 'unknown_action' || err.status === 400)) {
+            const updatedCloud = [...window.cloudDataCache];
+            const idx = updatedCloud.findIndex(x => x.id === s.id);
+            if (idx >= 0) updatedCloud[idx] = s; else updatedCloud.push(s);
+            await window.syncCloudData(updatedCloud);
+        } else {
+            console.warn('patchSound reaction failed', err);
+            window.showToast('Не удалось сохранить оценку');
+        }
+    }
 
     if (adding && s.recordistId && window.pushNotifications) {
         if (kind === 'like') {

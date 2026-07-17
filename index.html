@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260718l">
-    <link rel="stylesheet" href="./src/glass.css?v=20260718l">
+    <link rel="stylesheet" href="./src/style.css?v=20260718n">
+    <link rel="stylesheet" href="./src/glass.css?v=20260718n">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -320,6 +320,11 @@
             <!-- Messages (viewer) -->
             <div id="dock-messages" class="hidden flex-1 min-h-0 flex flex-col overflow-hidden">
                 <div id="dock-messages-host" class="flex-1 min-h-0 flex flex-col overflow-hidden"></div>
+            </div>
+
+            <!-- Expedition description (viewer) -->
+            <div id="dock-expedition" class="hidden flex-1 min-h-0 flex flex-col overflow-hidden">
+                <div id="dock-expedition-host" class="flex-1 min-h-0 flex flex-col overflow-hidden"></div>
             </div>
 
             <!-- Help: support + FAQ -->
@@ -1321,15 +1326,15 @@
         </div>
     </div>
 
-    <!-- Просмотр экспедиции (только чтение) -->
+    <!-- Просмотр экспедиции (только чтение; в основном окне — через dock) -->
     <div id="expedition-view-modal" onmousedown="if(event.target === this) window.closeExpeditionViewModal()" class="fixed inset-0 z-[216] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="expedition-view-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
-            <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
+        <div id="expedition-view-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto h-[min(92dvh,640px)]">
+            <div class="expedition-view-header p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
                 <h3 id="expedition-view-title" class="text-lg font-bold text-slate-800 dark:text-white truncate pr-2"><i class="fa-solid fa-route mr-2 text-blue-500"></i>Экспедиция</h3>
-                <button onclick="window.closeExpeditionViewModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button type="button" onclick="window.closeExpeditionViewModal()" class="expedition-view-close text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            <div id="expedition-view-body" class="p-5 overflow-y-auto custom-scrollbar flex-1 space-y-3"></div>
-            <div class="p-4 border-t border-slate-100 dark:border-slate-700 shrink-0 flex gap-2">
+            <div id="expedition-view-body" class="p-5 overflow-y-auto custom-scrollbar flex-1 space-y-3 min-h-0"></div>
+            <div class="expedition-view-footer p-4 border-t border-slate-100 dark:border-slate-700 shrink-0 flex gap-2">
                 <button id="expedition-view-filter-btn" onclick="window.applyExpeditionViewFilter()" class="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors">Показать звуки</button>
             </div>
         </div>
@@ -1804,7 +1809,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260718l"></script>
+    <script type="module" src="./src/main.js?v=20260718n"></script>
 
 </body>
 </html>

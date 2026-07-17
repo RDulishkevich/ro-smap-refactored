@@ -584,6 +584,16 @@ export function initAuth() {
             `;
         }
 
+        if (window.openDockView) {
+            if (window.playSfx) window.playSfx('open');
+            // Prefer returning to the expeditions catalog after "Назад".
+            if (window.__sidebarTab !== 'library' && window.__sidebarTab !== 'feed' && window.__sidebarTab !== 'help') {
+                window.__sidebarTab = 'expeditions';
+            }
+            window.openDockView('expedition');
+            return;
+        }
+
         const m = document.getElementById('expedition-view-modal');
         const c = document.getElementById('expedition-view-modal-content');
         if (!m || !c) return;
@@ -591,15 +601,27 @@ export function initAuth() {
         void m.offsetWidth;
         m.classList.remove('opacity-0', 'pointer-events-none');
         c.classList.remove('scale-95');
+        if (window.playSfx) window.playSfx('open');
     };
 
     window.closeExpeditionViewModal = function() {
-        const m = document.getElementById('expedition-view-modal');
-        const c = document.getElementById('expedition-view-modal-content');
-        if (!m || !c) return;
-        m.classList.add('opacity-0', 'pointer-events-none');
-        c.classList.add('scale-95');
-        setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
+        const content = document.getElementById('expedition-view-modal-content');
+        const inDock = content && content.classList.contains('expedition-in-dock');
+        if (inDock) {
+            if (!window.__skipExpeditionDockClose && window.playSfx) window.playSfx('close');
+            if (window.undockExpeditionContent) window.undockExpeditionContent();
+            if (!window.__skipExpeditionDockClose && window.__dockView === 'expedition' && window.openDockView) {
+                window.openDockView(window.__sidebarTab || 'expeditions');
+            }
+        } else {
+            const m = document.getElementById('expedition-view-modal');
+            const c = document.getElementById('expedition-view-modal-content');
+            if (!m || !c) return;
+            m.classList.add('opacity-0', 'pointer-events-none');
+            c.classList.add('scale-95');
+            if (window.playSfx) window.playSfx('close');
+            setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
+        }
         window.__viewingExpeditionId = null;
     };
 

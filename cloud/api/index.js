@@ -11,7 +11,7 @@
  *   ALLOWED_ORIGIN    — CORS origin (default *)
  *
  * Actions (POST JSON { action, ... }):
- *   health | register | login | changePassword | me | sync | commit | presign
+ *   health | register | login | changePassword | me | sync | commit | presign | patchSound
  */
 
 const crypto = require('crypto');
@@ -195,6 +195,7 @@ function actionRateLimit(action, ip, login = '') {
     if (action === 'login' && !rateLimit(`login:${base}`, 30, 60000)) return false;
     if ((action === 'sync' || action === 'commit') && !rateLimit(`sync:${base}:${login || 'anon'}`, 40, 60000)) return false;
     if (action === 'presign' && !rateLimit(`presign:${base}:${login || 'anon'}`, 60, 60000)) return false;
+    if (action === 'patchSound' && !rateLimit(`patch:${base}:${login || 'anon'}`, 90, 60000)) return false;
     return true;
 }
 
@@ -876,6 +877,80 @@ async function handleSync(event, body) {
     });
 }
 
+/**
+ * Lightweight social/metrics patch — avoids rewriting the whole map_data.json from the client.
+ * ops: { incPlays?, incDownloads?, reaction?: 'like'|'dislike', reactionSet?: boolean }
+ */
+async function handlePatchSound(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+
+    const soundId = String(body.soundId || '').trim();
+    if (!soundId) return respond(400, { ok: false, error: 'bad_sound_id' });
+
+    const ops = body.ops && typeof body.ops === 'object' ? body.ops : {};
+    const incPlays = Math.min(20, Math.max(0, Math.floor(Number(ops.incPlays) || 0)));
+    const incDownloads = Math.min(20, Math.max(0, Math.floor(Number(ops.incDownloads) || 0)));
+    const reaction = ops.reaction === 'like' || ops.reaction === 'dislike' ? ops.reaction : null;
+
+    if (!incPlays && !incDownloads && !reaction) {
+        return respond(400, { ok: false, error: 'empty_ops' });
+    }
+
+    const fresh = await getJson('map_data.json', []);
+    if (!Array.isArray(fresh)) return respond(500, { ok: false, error: 'bad_map_data' });
+
+    const idx = fresh.findIndex((s) => s && s.id === soundId);
+    if (idx < 0) return respond(404, { ok: false, error: 'sound_not_found' });
+
+    const prev = fresh[idx];
+    const sound = { ...prev };
+    const login = payload.login;
+
+    if (incPlays) sound.plays = Math.max(0, (sound.plays || 0) + incPlays);
+    if (incDownloads) sound.downloads = Math.max(0, (sound.downloads || 0) + incDownloads);
+
+    if (reaction) {
+        const hadLike = (Array.isArray(prev.likedBy) ? prev.likedBy : []).includes(login);
+        const hadDislike = (Array.isArray(prev.dislikedBy) ? prev.dislikedBy : []).includes(login);
+        let likedBy = (Array.isArray(prev.likedBy) ? prev.likedBy : []).map(String).filter(Boolean);
+        let dislikedBy = (Array.isArray(prev.dislikedBy) ? prev.dislikedBy : []).map(String).filter(Boolean);
+        likedBy = likedBy.filter((x) => x !== login);
+        dislikedBy = dislikedBy.filter((x) => x !== login);
+
+        let addLike = false;
+        let addDislike = false;
+        if (Object.prototype.hasOwnProperty.call(ops, 'reactionSet')) {
+            if (reaction === 'like' && ops.reactionSet) addLike = true;
+            if (reaction === 'dislike' && ops.reactionSet) addDislike = true;
+        } else if (reaction === 'like') {
+            addLike = !hadLike;
+        } else {
+            addDislike = !hadDislike;
+        }
+        if (addLike) likedBy.push(login);
+        if (addDislike) dislikedBy.push(login);
+        sound.likedBy = likedBy;
+        sound.dislikedBy = dislikedBy;
+    }
+
+    const next = sanitizeSoundRecord(sound);
+    fresh[idx] = next;
+    await putJson('map_data.json', fresh);
+
+    return respond(200, {
+        ok: true,
+        soundId,
+        sound: {
+            id: next.id,
+            plays: next.plays || 0,
+            downloads: next.downloads || 0,
+            likedBy: next.likedBy || [],
+            dislikedBy: next.dislikedBy || []
+        }
+    });
+}
+
 async function migrateMailOutOfProfiles(proposedProfiles, user) {
     const hasEmbedded = (proposedProfiles || []).some((p) =>
         (Array.isArray(p.inbox) && p.inbox.length)
@@ -1041,7 +1116,7 @@ exports.handler = async function handler(event = {}) {
     const body = parseBody(event);
     // Legacy client shape { fileName, contentType } without action → reject (force upgrade)
     const action = body.action || (body.fileName && body.contentType && !body.data ? 'legacy_presign' : '');
-    const tokenPayload = (action === 'sync' || action === 'commit' || action === 'presign' || action === 'me' || action === 'changePassword')
+    const tokenPayload = (action === 'sync' || action === 'commit' || action === 'presign' || action === 'me' || action === 'changePassword' || action === 'patchSound')
         ? verifyJwt(extractToken(event, body))
         : null;
     if (!actionRateLimit(action, ipKey, tokenPayload?.login || '')) {
@@ -1049,7 +1124,7 @@ exports.handler = async function handler(event = {}) {
     }
 
     try {
-        if (action === 'health') return respond(200, { ok: true, version: 2 });
+        if (action === 'health') return respond(200, { ok: true, version: 3 });
         if (action === 'register') return await handleRegister(body);
         if (action === 'login') return await handleLogin(body);
         if (action === 'changePassword') return await handleChangePassword(event, body);
@@ -1057,6 +1132,7 @@ exports.handler = async function handler(event = {}) {
         if (action === 'sync') return await handleSync(event, body);
         if (action === 'commit') return await handleCommit(event, body);
         if (action === 'presign') return await handlePresign(event, body);
+        if (action === 'patchSound') return await handlePatchSound(event, body);
         if (action === 'legacy_presign') {
             return respond(401, {
                 ok: false,

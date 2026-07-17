@@ -13,6 +13,7 @@
 | `me` | JWT | проверка сессии / refresh |
 | `changePassword` | JWT | смена пароля |
 | `sync` | JWT | GET→merge→sanitize→PUT JSON |
+| `patchSound` | JWT | лёгкий патч plays/downloads/лайков без полной перезаписи `map_data.json` |
 | `presign` | JWT | presigned PUT для `uploads/{login}/...` и `staging/{login}/...` |
 | `commit` | JWT | взять staging → merge → sanitize → PUT публичный JSON |
 

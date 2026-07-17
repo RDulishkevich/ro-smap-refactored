@@ -113,6 +113,11 @@ window.apiSyncJson = async function(fileName, data) {
     return window.apiRequest('commit', { fileName }, { auth: true });
 };
 
+/** Patch plays / downloads / reactions without rewriting all of map_data.json. */
+window.apiPatchSound = async function(soundId, ops) {
+    return window.apiRequest('patchSound', { soundId, ops }, { auth: true });
+};
+
 window.apiPresignUpload = function(fileName, contentType, contentLength) {
     const payload = { fileName, contentType };
     if (contentLength > 0) payload.contentLength = contentLength;
