@@ -3026,6 +3026,76 @@ window.syncAccountChrome = function() {
     else if (window.refreshAdminRailBadge) window.refreshAdminRailBadge();
 };
 
+window.__feedFilter = window.__feedFilter || 'all';
+
+window.setFeedFilter = function(filter) {
+    window.__feedFilter = filter || 'all';
+    window.renderSidebarFeed();
+};
+
+window.feedRelTime = function(iso) {
+    if (!iso) return '';
+    const d = new Date(iso).getTime();
+    if (!Number.isFinite(d)) return '';
+    const diff = Date.now() - d;
+    if (diff < 60000) return 'только что';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)} мин`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)} ч`;
+    if (diff < 86400000 * 7) return `${Math.floor(diff / 86400000)} д`;
+    return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+};
+
+window.feedEsc = function(t) {
+    return String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+};
+
+window.feedAuthorChip = function(authorId, authorName) {
+    const esc = window.feedEsc;
+    const name = authorName || authorId || 'Админ';
+    const profile = authorId && window.getProfileByLogin ? window.getProfileByLogin(authorId) : null;
+    const initial = String(name).trim().charAt(0).toUpperCase() || '?';
+    const avatar = profile?.avatar
+        ? `<img src="${esc(profile.avatar)}" alt="" class="feed-avatar">`
+        : `<span class="feed-avatar feed-avatar--fallback" aria-hidden="true">${esc(initial)}</span>`;
+    const label = authorId
+        ? `<button type="button" class="feed-author-link" onclick="event.stopPropagation(); window.openPublicProfile('${esc(authorId)}', '${esc(name)}')">${esc(name)}</button>`
+        : `<span class="feed-author-link is-static">${esc(name)}</span>`;
+    return `<span class="feed-author-chip">${avatar}${label}</span>`;
+};
+
+window.openFeedPostMenu = function(postId) {
+    const p = (window.feedPosts || []).find((x) => x.id === postId && !x.deleted);
+    if (!p) return;
+    const isAdmin = window.isCurrentUserAdmin && window.isCurrentUserAdmin();
+    const items = [];
+    if (p.authorId) {
+        items.push({
+            icon: 'fa-id-badge',
+            label: 'Профиль автора',
+            tone: 'primary',
+            onClick: () => window.openPublicProfile(p.authorId, p.authorName || p.authorId)
+        });
+    }
+    if (p.type === 'article') {
+        items.push({ icon: 'fa-book-open', label: 'Читать статью', tone: 'primary', onClick: () => window.openFeedArticle(postId) });
+    }
+    items.push({
+        icon: 'fa-comment',
+        label: window.__feedOpenComments === postId ? 'Скрыть комментарии' : 'Комментарии',
+        onClick: () => window.toggleFeedComments(postId)
+    });
+    if (isAdmin) {
+        items.push({
+            icon: 'fa-thumbtack',
+            label: p.pinned ? 'Открепить' : 'Закрепить',
+            onClick: () => window.toggleFeedPin(postId)
+        });
+        items.push({ icon: 'fa-pen', label: 'Изменить', tone: 'primary', onClick: () => window.openFeedPostEditor(postId) });
+        items.push({ icon: 'fa-trash-can', label: 'Удалить', tone: 'danger', onClick: () => window.deleteFeedPost(postId) });
+    }
+    window.ActionSheet.open(items);
+};
+
 window.renderSidebarFeed = function() {
     const container = document.getElementById('sidebar-feed');
     if (!container) return;
@@ -3034,34 +3104,35 @@ window.renderSidebarFeed = function() {
     const login = window.currentUser
         ? (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase())
         : null;
-    const posts = (window.feedPosts || []).filter(p => !p.deleted)
-        .sort((a, b) => {
-            const ap = a.pinned ? 1 : 0;
-            const bp = b.pinned ? 1 : 0;
-            if (bp !== ap) return bp - ap;
-            return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-        });
+    const filter = window.__feedFilter || 'all';
+    const esc = window.feedEsc;
+    const relTime = window.feedRelTime;
 
-    const published = (window.soundsData || []).filter(s => !s.status || s.status === 'published');
+    let posts = (window.feedPosts || []).filter((p) => p && !p.deleted);
+    posts.sort((a, b) => {
+        const ap = a.pinned ? 1 : 0;
+        const bp = b.pinned ? 1 : 0;
+        if (bp !== ap) return bp - ap;
+        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    });
+    if (filter === 'pinned') posts = posts.filter((p) => p.pinned);
+    else if (filter === 'article') posts = posts.filter((p) => p.type === 'article');
+    else if (filter === 'notice') posts = posts.filter((p) => p.type !== 'article');
+
+    const published = (window.soundsData || []).filter((s) => !s.status || s.status === 'published');
     const recent = [...published]
         .sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''), 'ru'))
-        .slice(0, 4);
-    const ecoLabels = { geophony: 'Геофония', biophony: 'Биофония', anthrophony: 'Антропофония' };
-    const esc = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    const relTime = (iso) => {
-        if (!iso) return '';
-        const d = new Date(iso).getTime();
-        if (!Number.isFinite(d)) return '';
-        const diff = Date.now() - d;
-        if (diff < 60000) return 'только что';
-        if (diff < 3600000) return `${Math.floor(diff / 60000)} мин`;
-        if (diff < 86400000) return `${Math.floor(diff / 3600000)} ч`;
-        return new Date(iso).toLocaleDateString('ru-RU');
-    };
+        .slice(0, 8);
+    const ecoLabels = { geophony: 'Гео', biophony: 'Био', anthrophony: 'Антро' };
 
-    const adminBar = isAdmin
-        ? `<button type="button" onclick="window.openFeedPostEditor()" class="feed-admin-create"><i class="fa-solid fa-plus mr-1.5"></i>Создать пост</button>`
-        : '';
+    const filters = [
+        { id: 'all', label: 'Все' },
+        { id: 'pinned', label: 'Закреп' },
+        { id: 'article', label: 'Статьи' },
+        { id: 'notice', label: 'Новости' }
+    ].map((f) => `
+        <button type="button" class="feed-filter ${filter === f.id ? 'is-active' : ''}" onclick="window.setFeedFilter('${f.id}')">${f.label}</button>
+    `).join('');
 
     const socialBar = (p) => {
         const reacted = !!login && (p.reactedBy || []).includes(login);
@@ -3072,81 +3143,101 @@ window.renderSidebarFeed = function() {
         return `
         <div class="feed-social" onclick="event.stopPropagation()">
             <div class="feed-social__stats">
-                <button type="button" class="feed-social__btn ${reacted ? 'is-active' : ''}" onclick="window.toggleFeedReaction('${p.id}')" title="Нравится">
-                    <i class="fa-solid fa-heart"></i><span>${hearts}</span>
+                <button type="button" class="feed-social__btn ${reacted ? 'is-active' : ''}" onclick="window.toggleFeedReaction('${p.id}')" aria-pressed="${reacted ? 'true' : 'false'}" title="Нравится">
+                    <i class="fa-solid fa-heart"></i><span>${hearts || ''}</span>
                 </button>
-                <button type="button" class="feed-social__btn" onclick="window.toggleFeedComments('${p.id}')" title="Комментарии">
-                    <i class="fa-solid fa-comment"></i><span>${comments}</span>
+                <button type="button" class="feed-social__btn ${open ? 'is-open' : ''}" onclick="window.toggleFeedComments('${p.id}')" title="Комментарии">
+                    <i class="fa-solid fa-comment"></i><span>${comments || ''}</span>
                 </button>
-                <span class="feed-social__btn feed-social__btn--muted" title="Просмотры"><i class="fa-solid fa-eye"></i><span>${views}</span></span>
-                ${isAdmin ? `<button type="button" class="feed-social__btn" onclick="window.toggleFeedPin('${p.id}')" title="${p.pinned ? 'Открепить' : 'Закрепить'}"><i class="fa-solid fa-thumbtack"></i></button>` : ''}
+                <span class="feed-social__btn feed-social__btn--muted" title="Просмотры"><i class="fa-regular fa-eye"></i><span>${views || 0}</span></span>
             </div>
             ${open ? window.renderFeedCommentsBlock(p) : ''}
         </div>`;
     };
 
     const postsHtml = posts.length
-        ? posts.map(p => {
+        ? posts.map((p) => {
             const dateStr = relTime(p.createdAt);
-            const titleStyle = `font-family:${p.titleFont === 'serif' ? 'Georgia, serif' : 'inherit'};font-size:${({ sm: '13px', md: '14px', lg: '16px', xl: '18px' })[p.titleSize] || '14px'}`;
-            const authorBtn = p.authorId
-                ? `<button type="button" class="feed-card__author" onclick="event.stopPropagation(); window.openPublicProfile('${esc(p.authorId)}', '${esc(p.authorName || p.authorId)}')">${esc(p.authorName || 'Админ')}</button>`
-                : esc(p.authorName || 'Админ');
-            const adminActions = isAdmin
-                ? `<div class="flex gap-1 mt-2" onclick="event.stopPropagation()">
-                    <button type="button" onclick="window.openFeedPostEditor('${p.id}')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"><i class="fa-solid fa-pen mr-1"></i>Изменить</button>
-                    <button type="button" onclick="window.deleteFeedPost('${p.id}')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-red-50 dark:bg-red-900/30 text-red-600"><i class="fa-solid fa-trash mr-1"></i>Удалить</button>
-                   </div>`
-                : '';
-            const pinBadge = p.pinned ? `<div class="feed-card__badge feed-card__badge--pin">Закреплено</div>` : '';
+            const titleStyle = `font-family:${p.titleFont === 'serif' ? 'Georgia, "Times New Roman", serif' : 'var(--font-ui, inherit)'};font-size:${({ sm: '0.9375rem', md: '1.05rem', lg: '1.2rem', xl: '1.35rem' })[p.titleSize] || '1.05rem'}`;
+            const typeLabel = p.type === 'article' ? 'Статья' : 'Новость';
+            const typeCls = p.type === 'article' ? 'feed-type--article' : 'feed-type--notice';
+            const head = `
+                <div class="feed-post__head">
+                    <div class="feed-post__meta-row">
+                        ${p.pinned ? '<span class="feed-pin" title="Закреплено"><i class="fa-solid fa-thumbtack"></i></span>' : ''}
+                        <span class="feed-type ${typeCls}">${typeLabel}</span>
+                        <span class="feed-post__dot" aria-hidden="true">·</span>
+                        <span class="feed-post__time">${esc(dateStr)}</span>
+                    </div>
+                    <button type="button" class="feed-post__more comment-menu-btn" onclick="event.stopPropagation(); window.openFeedPostMenu('${p.id}')" title="Действия" aria-label="Действия">
+                        <i class="fa-solid fa-ellipsis"></i>
+                    </button>
+                </div>
+                <div class="feed-post__by">${window.feedAuthorChip(p.authorId, p.authorName)}</div>`;
+
             if (p.type === 'article') {
                 const cover = p.coverImage || (p.html && (p.html.match(/<img[^>]+src="([^"]+)"/) || [])[1]) || '';
-                return `<div class="feed-card feed-card--post${p.pinned ? ' feed-card--pinned' : ''}" data-feed-id="${esc(p.id)}">
-                    ${pinBadge || '<div class="feed-card__badge feed-card__badge--article">Статья</div>'}
-                    <button type="button" onclick="window.openFeedArticle('${p.id}')" class="w-full text-left">
-                        <p class="feed-card__title" style="${titleStyle}">${esc(p.title)}</p>
-                        ${cover ? `<div class="feed-card__cover"><img src="${cover}" alt=""></div>` : ''}
-                        <p class="feed-card__meta">${authorBtn}${dateStr ? ' · ' + dateStr : ''} · Читать</p>
-                    </button>
-                    ${socialBar(p)}
-                    ${adminActions}
-                </div>`;
+                const plain = String(p.html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+                const teaser = plain.length > 140 ? `${plain.slice(0, 140)}…` : plain;
+                return `<article class="feed-post${p.pinned ? ' is-pinned' : ''}" data-feed-id="${esc(p.id)}">
+                    ${cover ? `<button type="button" class="feed-post__cover" onclick="window.openFeedArticle('${p.id}')"><img src="${esc(cover)}" alt=""></button>` : ''}
+                    <div class="feed-post__body">
+                        ${head}
+                        <button type="button" class="feed-post__title-btn" onclick="window.openFeedArticle('${p.id}')">
+                            <h3 class="feed-post__title" style="${titleStyle}">${esc(p.title)}</h3>
+                            ${teaser ? `<p class="feed-post__teaser">${esc(teaser)}</p>` : ''}
+                            <span class="feed-post__read">Читать <i class="fa-solid fa-arrow-right"></i></span>
+                        </button>
+                        ${socialBar(p)}
+                    </div>
+                </article>`;
             }
+
             const noticeW = Math.min(100, Math.max(40, Number(p.imageWidth) || 100));
-            return `<div class="feed-card feed-card--notice${p.pinned ? ' feed-card--pinned' : ''}" data-feed-id="${esc(p.id)}">
-                ${pinBadge || '<div class="feed-card__badge feed-card__badge--notice">Уведомление</div>'}
-                <p class="feed-card__title" style="${titleStyle}">${esc(p.title)}</p>
-                ${p.image ? `<img src="${p.image}" alt="" class="feed-notice-img" style="width:${noticeW}%">` : ''}
-                ${p.body ? `<p class="feed-card__text">${esc(p.body)}</p>` : ''}
-                <p class="feed-card__meta mt-1">${authorBtn}${dateStr ? ' · ' + dateStr : ''}</p>
-                ${socialBar(p)}
-                ${adminActions}
-            </div>`;
+            return `<article class="feed-post feed-post--notice${p.pinned ? ' is-pinned' : ''}" data-feed-id="${esc(p.id)}">
+                <div class="feed-post__body">
+                    ${head}
+                    <h3 class="feed-post__title" style="${titleStyle}">${esc(p.title)}</h3>
+                    ${p.image ? `<img src="${esc(p.image)}" alt="" class="feed-notice-img" style="width:${noticeW}%">` : ''}
+                    ${p.body ? `<p class="feed-post__text">${esc(p.body)}</p>` : ''}
+                    ${socialBar(p)}
+                </div>
+            </article>`;
         }).join('')
-        : `<p class="text-xs text-slate-400 text-center py-3">Пока нет постов в ленте</p>`;
+        : `<div class="feed-empty">
+            <i class="fa-regular fa-newspaper"></i>
+            <p>Пока нет публикаций</p>
+            <p class="feed-empty__hint">${filter === 'all' ? 'Здесь появятся новости и статьи карты' : 'В этом фильтре пусто'}</p>
+            ${isAdmin && filter === 'all' ? '<button type="button" class="feed-admin-create" onclick="window.openFeedPostEditor()"><i class="fa-solid fa-plus"></i> Создать пост</button>' : ''}
+           </div>`;
 
     const recentHtml = recent.length
-        ? recent.map(s => `
-            <button type="button" onclick="window.selectSound('${s.id}')" class="feed-card feed-card--sound w-full text-left">
-                <div class="feed-card__badge">${ecoLabels[s.ecoCategory] || 'Звук'}</div>
-                <p class="feed-card__title">${esc(s.title || 'Без названия')}</p>
-                <p class="feed-card__meta">${[s.recordist, s.duration, s.date].filter(Boolean).join(' · ')}</p>
-            </button>`).join('')
+        ? `<section class="feed-recent" aria-label="Недавние записи">
+            <div class="feed-section-label">С карты</div>
+            <div class="feed-recent__rail">
+                ${recent.map((s) => `
+                    <button type="button" class="feed-recent__item" onclick="window.selectSound('${esc(s.id)}')">
+                        <span class="feed-recent__eco">${ecoLabels[s.ecoCategory] || 'Звук'}</span>
+                        <span class="feed-recent__title">${esc(s.title || 'Без названия')}</span>
+                        <span class="feed-recent__meta">${esc([s.recordist, s.duration].filter(Boolean).join(' · '))}</span>
+                    </button>`).join('')}
+            </div>
+           </section>`
         : '';
 
     container.innerHTML = `
-        ${adminBar}
-        <div class="feed-card feed-card--info">
-            <div class="feed-card__badge feed-card__badge--info">О проекте</div>
-            <p class="feed-card__title">Аудиокарта Ростовской области</p>
-            <p class="feed-card__text">Коллекция полевых звукозаписей: геофония, биофония и антропофония региона.</p>
-        </div>
-        <div>
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-0.5">Лента</p>
-            <div class="flex flex-col gap-2" id="feed-posts-list">${postsHtml}</div>
-        </div>
-        ${recentHtml ? `<div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-0.5">Недавние записи</p><div class="flex flex-col gap-2">${recentHtml}</div></div>` : ''}
-    `;
+        <div class="feed-shell">
+            <header class="feed-head">
+                <div class="feed-head__text">
+                    <h2 class="feed-head__title">Лента</h2>
+                    <p class="feed-head__sub">Новости карты и полевые заметки</p>
+                </div>
+                ${isAdmin ? `<button type="button" class="feed-head__create" onclick="window.openFeedPostEditor()" title="Новый пост"><i class="fa-solid fa-plus"></i></button>` : ''}
+            </header>
+            <div class="feed-filters" role="tablist">${filters}</div>
+            <div class="feed-stream" id="feed-posts-list">${postsHtml}</div>
+            ${recentHtml}
+        </div>`;
 
     requestAnimationFrame(() => {
         if (window.bindFeedViewObserver) window.bindFeedViewObserver();
@@ -3154,23 +3245,154 @@ window.renderSidebarFeed = function() {
 };
 
 window.renderFeedCommentsBlock = function(p) {
-    const esc = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const esc = window.feedEsc;
+    const login = window.currentUser
+        ? (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase())
+        : null;
     const comments = p.comments || [];
     const list = comments.length
-        ? comments.map((c) => `
+        ? comments.map((c) => {
+            const reactedByMe = !!login && (c.reactedBy || []).includes(login);
+            const reactionCount = (c.reactedBy || []).length;
+            const when = c.date || window.feedRelTime(c.createdAt);
+            const profile = c.authorId && window.getProfileByLogin ? window.getProfileByLogin(c.authorId) : null;
+            const avatar = profile?.avatar
+                ? `<img src="${esc(profile.avatar)}" alt="" class="comment-avatar">`
+                : `<span class="comment-avatar comment-avatar-fallback"><i class="fa-solid fa-user"></i></span>`;
+            const name = c.authorId
+                ? `<span class="comment-author-link" onclick="window.openPublicProfile('${esc(c.authorId)}', '${esc(c.author)}')">${esc(c.author || 'Гость')}</span>`
+                : `<span class="font-bold text-slate-700 dark:text-slate-200">${esc(c.author || 'Гость')}</span>`;
+            return `
             <div class="feed-comment">
-                <button type="button" class="feed-comment__author" onclick="window.openPublicProfile('${esc(c.authorId || '')}', '${esc(c.author)}')">${esc(c.author || 'Гость')}</button>
+                <div class="feed-comment__top">
+                    <span class="comment-author-wrap">${avatar}${name}</span>
+                    <div class="feed-comment__tools">
+                        <span class="feed-comment__date">${esc(when)}</span>
+                        <button type="button" class="comment-menu-btn" title="Действия" onclick="window.openFeedCommentMenu('${p.id}', '${esc(c.id)}')">
+                            <i class="fa-solid fa-ellipsis"></i>
+                        </button>
+                    </div>
+                </div>
                 <p class="feed-comment__text">${esc(c.text)}</p>
-            </div>`).join('')
-        : `<p class="text-[11px] text-slate-400 py-1">Нет комментариев — напишите первым</p>`;
+                <button type="button" class="comment-reaction-btn ${reactedByMe ? 'active' : ''}" onclick="window.toggleFeedCommentReaction('${p.id}', '${esc(c.id)}')">
+                    <i class="fa-solid fa-heart"></i>${reactionCount > 0 ? reactionCount : ''}
+                </button>
+            </div>`;
+        }).join('')
+        : `<p class="text-sm text-slate-400 italic px-1">Нет комментариев — напишите первым</p>`;
+
     return `
         <div class="feed-comments">
-            ${list}
+            <div class="feed-comments__list">${list}</div>
             <div class="feed-comments__compose">
                 <input id="feed-comment-input-${esc(p.id)}" type="text" maxlength="500" class="modal-input text-xs" placeholder="Комментарий…" onkeydown="if(event.key==='Enter'){event.preventDefault();window.addFeedComment('${p.id}')}">
-                <button type="button" class="feed-comments__send" onclick="window.addFeedComment('${p.id}')"><i class="fa-solid fa-paper-plane"></i></button>
+                <button type="button" class="feed-comments__send" onclick="window.addFeedComment('${p.id}')" aria-label="Отправить"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
         </div>`;
+};
+
+window.openFeedCommentMenu = function(postId, commentId) {
+    const p = (window.feedPosts || []).find((x) => x.id === postId);
+    if (!p) return;
+    const c = (p.comments || []).find((x) => x.id === commentId);
+    if (!c) return;
+    const login = window.currentUser
+        ? (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase())
+        : null;
+    const isAdmin = window.isCurrentUserAdmin && window.isCurrentUserAdmin();
+    const reacted = !!login && (c.reactedBy || []).includes(login);
+    const items = [];
+    if (c.authorId) {
+        items.push({
+            icon: 'fa-id-badge',
+            label: 'Профиль автора',
+            tone: 'primary',
+            onClick: () => window.openPublicProfile(c.authorId, c.author)
+        });
+    }
+    items.push({
+        icon: 'fa-heart',
+        label: reacted ? 'Убрать реакцию' : 'Поставить реакцию',
+        onClick: () => window.toggleFeedCommentReaction(postId, commentId)
+    });
+    items.push({
+        icon: 'fa-flag',
+        label: 'Пожаловаться',
+        tone: 'warning',
+        onClick: async () => {
+            if (!window.currentUser) {
+                window.showToast('Войдите, чтобы пожаловаться');
+                if (window.openAuthModal) window.openAuthModal();
+                return;
+            }
+            if (window.notifyAdmins) {
+                window.notifyAdmins({
+                    type: 'report',
+                    text: `Жалоба на комментарий в ленте «${p.title || postId}»: ${String(c.text || '').slice(0, 120)}`,
+                    fromId: login,
+                    fromName: window.currentUser.username
+                });
+            }
+            window.showToast('Жалоба отправлена');
+        }
+    });
+    if (isAdmin || (login && c.authorId === login)) {
+        items.push({
+            icon: 'fa-trash-can',
+            label: 'Удалить',
+            tone: 'danger',
+            onClick: () => window.deleteFeedComment(postId, commentId)
+        });
+    }
+    window.ActionSheet.open(items);
+};
+
+window.toggleFeedCommentReaction = async function(postId, commentId) {
+    if (!window.currentUser) {
+        window.showToast('Войдите, чтобы поставить реакцию');
+        if (window.openAuthModal) window.openAuthModal();
+        return;
+    }
+    const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+    const guard = window.spamGuardCheck
+        ? window.spamGuardCheck(`feed-c-react:${login}`, { minIntervalMs: 400, maxPerWindow: 40, windowMs: 60000 })
+        : { ok: true };
+    if (!guard.ok) { window.spamGuardToast(guard); return; }
+    const now = new Date().toISOString();
+    const next = (window.feedPosts || []).map((p) => {
+        if (p.id !== postId) return p;
+        const comments = (p.comments || []).map((c) => {
+            if (c.id !== commentId) return c;
+            const reactedBy = [...(c.reactedBy || [])];
+            const idx = reactedBy.indexOf(login);
+            if (idx >= 0) reactedBy.splice(idx, 1); else reactedBy.push(login);
+            return { ...c, reactedBy, reactedAt: now, updatedAt: now };
+        });
+        return { ...p, comments, updatedAt: now };
+    });
+    window.__feedOpenComments = postId;
+    await window.syncFeedPosts(next);
+};
+
+window.deleteFeedComment = async function(postId, commentId) {
+    const ok = await window.CustomUI.open({
+        title: 'Удалить комментарий?',
+        message: 'Комментарий исчезнет из ленты.',
+        confirmText: 'Удалить',
+        confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl'
+    });
+    if (!ok) return;
+    const next = (window.feedPosts || []).map((p) => {
+        if (p.id !== postId) return p;
+        return {
+            ...p,
+            comments: (p.comments || []).filter((c) => c.id !== commentId),
+            updatedAt: new Date().toISOString()
+        };
+    });
+    window.__feedOpenComments = postId;
+    const success = await window.syncFeedPosts(next);
+    if (success) window.showToast('Комментарий удалён');
 };
 
 window.toggleFeedComments = function(postId) {
@@ -3246,7 +3468,6 @@ window.recordFeedView = async function(postId) {
         const views = Math.max(Number(p.views) || 0, viewedBy.length) + (login ? 0 : 1);
         return { ...p, viewedBy, views: login ? Math.max(views, viewedBy.length) : views, updatedAt: new Date().toISOString() };
     });
-    // Fire-and-forget soft sync — don't block UI
     window.syncFeedPosts(next);
 };
 
