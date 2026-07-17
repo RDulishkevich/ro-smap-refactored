@@ -1,14 +1,15 @@
-import { initGlobalState } from './state.js?v=20260717s';
-import { initAuth } from './auth.js?v=20260717s';
+import { initGlobalState } from './state.js?v=20260717t';
+import './api.js?v=20260717t';
+import { initAuth } from './auth.js?v=20260717t';
 
-import '../ui/ui.js?v=20260717s';
-import './sfx.js?v=20260717s';
-import './audio.js?v=20260717s';
-import './map.js?v=20260717s';
-import './mapbox-map.js?v=20260717s';
-import './achievements.js?v=20260717s';
-import './guessr.js?v=20260717s';
-import '../widgets/analytics-widget.js?v=20260717s';
+import '../ui/ui.js?v=20260717t';
+import './sfx.js?v=20260717t';
+import './audio.js?v=20260717t';
+import './map.js?v=20260717t';
+import './mapbox-map.js?v=20260717t';
+import './achievements.js?v=20260717t';
+import './guessr.js?v=20260717t';
+import '../widgets/analytics-widget.js?v=20260717t';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;
@@ -25,26 +26,34 @@ export function bootstrapApp() {
         if (window.setupAudioEvents) window.setupAudioEvents();
         if (window.updateUcsSubcats) window.updateUcsSubcats();
         if (window.setupAmbisonicSphere) window.setupAmbisonicSphere();
-        if (window.applyUserSettings) window.applyUserSettings();
-        try {
-            const savedLang = localStorage.getItem('rosmap_lang');
-            if (savedLang && !(window.currentUser?.settings?.lang)) window.setLanguage(savedLang, true);
-        } catch (_) {}
-        try {
-            const savedPalette = localStorage.getItem('rosmap_palette');
-            if (savedPalette && !(window.currentUser?.settings?.palette) && window.setColorPalette) {
-                window.setColorPalette(savedPalette, true);
+
+        const finishUiBoot = () => {
+            if (window.applyUserSettings) window.applyUserSettings();
+            try {
+                const savedLang = localStorage.getItem('rosmap_lang');
+                if (savedLang && !(window.currentUser?.settings?.lang)) window.setLanguage(savedLang, true);
+            } catch (_) {}
+            try {
+                const savedPalette = localStorage.getItem('rosmap_palette');
+                if (savedPalette && !(window.currentUser?.settings?.palette) && window.setColorPalette) {
+                    window.setColorPalette(savedPalette, true);
+                }
+            } catch (_) {}
+            if (window.setColorPalette && !document.documentElement.getAttribute('data-palette')) {
+                window.setColorPalette(window.currentPalette || 'coral', true);
             }
-        } catch (_) {}
-        if (window.setColorPalette && !document.documentElement.getAttribute('data-palette')) {
-            window.setColorPalette(window.currentPalette || 'coral', true);
-        }
-        if (window.applyUILanguage) window.applyUILanguage();
-        if (window.initSwipeHandlers) window.initSwipeHandlers();
-        if (window.initDockChrome) window.initDockChrome();
-        if (window.setSoundsListLoading) window.setSoundsListLoading(true);
-        if (window.initOnboarding) window.initOnboarding();
-        if (window.refreshNotificationsUI) window.refreshNotificationsUI();
+            if (window.applyUILanguage) window.applyUILanguage();
+            if (window.initSwipeHandlers) window.initSwipeHandlers();
+            if (window.initDockChrome) window.initDockChrome();
+            if (window.setSoundsListLoading) window.setSoundsListLoading(true);
+            if (window.initOnboarding) window.initOnboarding();
+            if (window.refreshNotificationsUI) window.refreshNotificationsUI();
+            if (window.syncAccountChrome) window.syncAccountChrome();
+        };
+
+        const sessionPromise = (window.restoreAuthSession ? window.restoreAuthSession() : Promise.resolve(false))
+            .catch(() => false)
+            .then(finishUiBoot);
 
         document.addEventListener('click', (e) => {
             const wrap = document.getElementById('notif-wrap');
@@ -58,6 +67,7 @@ export function bootstrapApp() {
         if (window.refreshMessagesUI) window.refreshMessagesUI();
 
         Promise.all([
+            sessionPromise,
             fetch(`${window.YANDEX_BUCKET_URL}/map_data.json?nocache=${Date.now()}`)
                 .then(res => res.ok ? res.json() : [])
                 .catch(err => { console.warn('База данных недоступна или пуста:', err); return []; }),
@@ -67,7 +77,7 @@ export function bootstrapApp() {
             fetch(`${window.YANDEX_BUCKET_URL}/feed.json?nocache=${Date.now()}`)
                 .then(res => res.ok ? res.json() : [])
                 .catch(() => [])
-        ]).then(([cloudData, profiles, feed]) => {
+        ]).then(([, cloudData, profiles, feed]) => {
             window.profilesData = Array.isArray(profiles) ? profiles : [];
             window.__lastProfilesPollKey = JSON.stringify(window.profilesData);
             window.feedPosts = Array.isArray(feed) ? feed.filter(p => !p.deleted) : [];
@@ -105,7 +115,6 @@ export function bootstrapApp() {
         };
         if (searchInput) {
             clearSearchAutofill();
-            // Блокируем автозаполнение браузера до первого фокуса
             searchInput.setAttribute('readonly', 'readonly');
             const unlockSearch = () => {
                 searchInput.removeAttribute('readonly');
@@ -124,7 +133,6 @@ export function bootstrapApp() {
                 if (window.updateSearchSuggestions) window.updateSearchSuggestions(searchInput.value || '');
             });
             window.addEventListener('pageshow', clearSearchAutofill);
-            // Chrome иногда подставляет значение после DOMContentLoaded
             setTimeout(clearSearchAutofill, 0);
             setTimeout(clearSearchAutofill, 250);
         }

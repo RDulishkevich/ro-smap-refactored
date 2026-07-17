@@ -968,17 +968,15 @@ window.fetchCloudJson = async function(fileName) {
 };
 
 window.__putCloudJson = async function(fileName, data) {
-    const presignRes = await fetch(window.YANDEX_FUNCTION_URL, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName, contentType: "application/json" })
-    });
-    if (!presignRes.ok) throw new Error("Ошибка получения ссылки для JSON");
-    const presignData = await presignRes.json();
-    const putRes = await fetch(presignData.uploadUrl, {
-        method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-    });
-    if (!putRes.ok) throw new Error("Ошибка загрузки JSON в облако");
+    // Запись только через Secure API (JWT). Анонимный presign отключён.
+    if (!window.getAuthToken || !window.getAuthToken()) {
+        throw new Error('Требуется вход для синхронизации с облаком');
+    }
+    if (!window.apiSyncJson) throw new Error('Secure API клиент не загружен');
+    const result = await window.apiSyncJson(fileName, data);
+    if (result && Array.isArray(result.data)) {
+        window.__lastMergedUpload = { fileName, data: result.data };
+    }
     return true;
 };
 
@@ -1165,6 +1163,11 @@ window.syncCloudData = async function(newCloudData, fileName = "map_data.json") 
     return window.__enqueueCloudWrite(fileName, async () => {
         window.__cloudWriteDepth++;
         try {
+            if (!window.getAuthToken || !window.getAuthToken()) {
+                window.showToast('Войдите в аккаунт, чтобы сохранить данные в облако');
+                if (window.openAuthModal) window.openAuthModal();
+                return false;
+            }
             await window.__waitCloudReady();
             const fresh = await window.fetchCloudJson(fileName);
             const proposed = Array.isArray(newCloudData) ? newCloudData : [];
@@ -1187,7 +1190,12 @@ window.syncCloudData = async function(newCloudData, fileName = "map_data.json") 
             }
 
             await window.__putCloudJson(fileName, merged);
-            window.__lastMergedUpload = { fileName, data: merged };
+            // Сервер уже сделал merge+sanitize и мог вернуть итоговый снимок
+            if (window.__lastMergedUpload && window.__lastMergedUpload.fileName === fileName && Array.isArray(window.__lastMergedUpload.data)) {
+                merged = window.__lastMergedUpload.data;
+            } else {
+                window.__lastMergedUpload = { fileName, data: merged };
+            }
 
             if (fileName === "map_data.json") {
                 window.mergeData(merged);
@@ -1205,7 +1213,13 @@ window.syncCloudData = async function(newCloudData, fileName = "map_data.json") 
             return true;
         } catch (e) {
             console.error(e);
-            window.showToast("Синхронизация с облаком не удалась.");
+            if (e && (e.code === 'unauthorized' || e.status === 401)) {
+                window.showToast('Сессия истекла — войдите снова');
+                if (window.clearAuthSession) window.clearAuthSession();
+                if (window.openAuthModal) window.openAuthModal();
+            } else {
+                window.showToast("Синхронизация с облаком не удалась.");
+            }
             return false;
         } finally {
             window.__cloudWriteDepth = Math.max(0, window.__cloudWriteDepth - 1);
@@ -1244,8 +1258,9 @@ window.syncFeedPosts = async function(posts) {
 
 window.isCurrentUserAdmin = function() {
     if (!window.currentUser) return false;
+    // Без JWT админские действия всё равно не пройдут на сервере
+    if (window.getAuthToken && !window.getAuthToken()) return false;
     return String(window.currentUser.role || '').toLowerCase() === 'admin'
-        || String(window.currentUser.username || '').toLowerCase() === 'admin'
         || String(window.currentUser.loginName || '').toLowerCase() === 'admin';
 };
 

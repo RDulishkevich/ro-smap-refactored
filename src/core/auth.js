@@ -1,7 +1,16 @@
 export function initAuth() {
-    // Извлекаем пользователя при загрузке
+    // Сессия без JWT больше не считается валидной (иначе роль можно подделать в DevTools).
+    const token = (() => { try { return localStorage.getItem('rosmap_token'); } catch (_) { return null; } })();
     const savedUserStr = localStorage.getItem('rosmap_user');
-    window.currentUser = savedUserStr ? JSON.parse(savedUserStr) : null;
+    if (savedUserStr && token) {
+        try { window.currentUser = JSON.parse(savedUserStr); } catch (_) { window.currentUser = null; }
+    } else {
+        window.currentUser = null;
+        try {
+            localStorage.removeItem('rosmap_user');
+            if (!token) localStorage.removeItem('rosmap_token');
+        } catch (_) {}
+    }
     
     window.authMode = 'login'; // 'login' or 'register'
 
@@ -66,80 +75,78 @@ export function initAuth() {
         }
     };
 
-    window.submitAuth = function() {
+    window.submitAuth = async function() {
         const name = document.getElementById('auth-username').value.trim();
         const pass = document.getElementById('auth-password').value.trim();
 
-        if(!name || !pass) return window.showToast('Заполните все поля!');
+        if (!name || !pass) return window.showToast('Заполните все поля!');
+        if (pass.length < 4) return window.showToast('Пароль слишком короткий (мин. 4)');
 
-        let usersDb = JSON.parse(localStorage.getItem('rosmap_users_db')) || {};
+        const login = name.toLowerCase();
+        const actionBtn = document.getElementById('auth-action-btn');
+        if (actionBtn) actionBtn.disabled = true;
 
-        // Специальный вход для админа
-        if (name.toLowerCase() === 'admin' && pass === 'Скай') {
-            window.currentUser = { username: 'Admin', loginName: 'admin', role: 'admin', settings: { theme: 'light', mapStyle: 'normal', lang: 'ru' } };
-            localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser));
+        const finishOk = async (data, isNewRegistration) => {
+            window.setAuthSession(data.token, data.user);
             window.closeAuthModal();
-            window.showToast('Успешный вход: Админ');
-            window.applyUserSettings();
             if (window.applyProfileToCurrentUser) window.applyProfileToCurrentUser();
+            if (window.currentUser?.blocked) {
+                window.clearAuthSession();
+                return window.showToast('Аккаунт заблокирован администратором');
+            }
+            window.showToast('Успешный вход: ' + (window.currentUser.username || login));
+            window.applyUserSettings();
+            if (isNewRegistration && window.saveMyProfile) {
+                await window.saveMyProfile({ joinedAt: new Date().toISOString() });
+            }
             window.bustFilteredSoundsCache();
             if (window.refreshNotificationsUI) window.refreshNotificationsUI();
             if (window.refreshMessagesUI) window.refreshMessagesUI();
             if (window.ensureSupportWelcome) window.ensureSupportWelcome();
             if (window.touchMyPresence) window.touchMyPresence(true);
+            if (window.syncAccountChrome) window.syncAccountChrome();
             window.openCabinet();
-            return;
-        }
-
-        const userKey = name.toLowerCase();
-
-        let isNewRegistration = false;
-        if (window.authMode === 'register') {
-            if (usersDb[userKey]) {
-                return window.showToast('Логин уже занят!');
-            }
-            usersDb[userKey] = { 
-                password: pass, 
-                displayName: name,
-                settings: { theme: 'light', mapStyle: 'normal', lang: 'ru' } 
-            };
-            localStorage.setItem('rosmap_users_db', JSON.stringify(usersDb));
-            window.showToast('Регистрация успешна!');
-            isNewRegistration = true;
-        }
-
-        // Режим входа
-        if (!usersDb[userKey] || usersDb[userKey].password !== pass) {
-            return window.showToast('Неверный логин или пароль!');
-        }
-
-        window.currentUser = { 
-            username: usersDb[userKey].displayName, 
-            loginName: userKey,
-            role: 'user', 
-            settings: usersDb[userKey].settings 
         };
-        
-        localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser));
-        window.closeAuthModal();
-        if (window.applyProfileToCurrentUser) window.applyProfileToCurrentUser();
 
-        if (window.currentUser.blocked) {
-            window.currentUser = null;
-            localStorage.removeItem('rosmap_user');
-            if (window.refreshNotificationsUI) window.refreshNotificationsUI();
-            return window.showToast('Аккаунт заблокирован администратором');
+        try {
+            if (!window.apiLogin) throw new Error('API недоступен');
+
+            if (window.authMode === 'register') {
+                const reg = await window.apiRegister(login, pass, name);
+                await finishOk(reg, true);
+                return;
+            }
+
+            try {
+                const data = await window.apiLogin(login, pass);
+                await finishOk(data, false);
+                return;
+            } catch (err) {
+                // Миграция со старого localStorage-аккаунта в облако
+                if (err.code === 'no_user') {
+                    let usersDb = {};
+                    try { usersDb = JSON.parse(localStorage.getItem('rosmap_users_db') || '{}'); } catch (_) {}
+                    const local = usersDb[login];
+                    if (local && local.password === pass) {
+                        const reg = await window.apiRegister(login, pass, local.displayName || name);
+                        await finishOk(reg, false);
+                        return;
+                    }
+                }
+                if (err.code === 'blocked') return window.showToast('Аккаунт заблокирован администратором');
+                if (err.code === 'bad_credentials') return window.showToast('Неверный логин или пароль!');
+                if (err.code === 'login_taken') return window.showToast('Логин уже занят!');
+                throw err;
+            }
+        } catch (err) {
+            console.error(err);
+            const msg = err.code === 'server_misconfigured'
+                ? 'Облачный API ещё не настроен (см. cloud/api/README.md)'
+                : (err.message || 'Ошибка входа');
+            window.showToast(msg);
+        } finally {
+            if (actionBtn) actionBtn.disabled = false;
         }
-
-        window.showToast('Успешный вход: ' + window.currentUser.username);
-        window.applyUserSettings();
-        if (isNewRegistration && window.saveMyProfile) window.saveMyProfile({ joinedAt: new Date().toISOString() });
-        window.bustFilteredSoundsCache();
-        if (window.refreshNotificationsUI) window.refreshNotificationsUI();
-        if (window.refreshMessagesUI) window.refreshMessagesUI();
-        if (window.ensureSupportWelcome) window.ensureSupportWelcome();
-        if (window.touchMyPresence) window.touchMyPresence(true);
-        window.openCabinet();
     };
 
     window.logoutUser = async function() {
@@ -152,7 +159,13 @@ export function initAuth() {
         if (!confirmed) return;
 
         window.currentUser = null;
-        localStorage.removeItem('rosmap_user');
+        if (window.clearAuthSession) window.clearAuthSession();
+        else {
+            try {
+                localStorage.removeItem('rosmap_user');
+                localStorage.removeItem('rosmap_token');
+            } catch (_) {}
+        }
         window.closeCabinet();
         window.showToast("Вы вышли из профиля");
         
@@ -199,8 +212,11 @@ export function initAuth() {
         if (profile.displayName) window.currentUser.username = profile.displayName;
 
         if (window.currentUser.blocked && login !== 'admin') {
-            window.currentUser = null;
-            localStorage.removeItem('rosmap_user');
+            if (window.clearAuthSession) window.clearAuthSession();
+            else {
+                window.currentUser = null;
+                localStorage.removeItem('rosmap_user');
+            }
             window.showToast('Аккаунт заблокирован администратором');
         }
 
@@ -1179,7 +1195,7 @@ export function initAuth() {
         reader.readAsDataURL(file);
     };
 
-    window.changePassword = function() {
+    window.changePassword = async function() {
         const currentPassword = document.getElementById('cab-current-password')?.value || '';
         const newPassword = document.getElementById('cab-new-password')?.value || '';
         const confirmPassword = document.getElementById('cab-confirm-password')?.value || '';
@@ -1187,40 +1203,29 @@ export function initAuth() {
         if (!newPassword || !confirmPassword) {
             return window.showToast('Заполните поля нового пароля');
         }
-
+        if (newPassword.length < 4) {
+            return window.showToast('Новый пароль слишком короткий (мин. 4)');
+        }
         if (newPassword !== confirmPassword) {
             return window.showToast('Новые пароли не совпадают');
         }
-
         if (!window.currentUser) {
             return window.showToast('Сначала войдите в профиль');
         }
-
-        const userKey = String(window.currentUser.loginName || window.currentUser.username || '').toLowerCase();
-        let usersDb = JSON.parse(localStorage.getItem('rosmap_users_db')) || {};
-
-        if (window.currentUser.role === 'admin' || userKey === 'admin') {
-            if (currentPassword && currentPassword !== 'Скай') {
-                return window.showToast('Текущий пароль неверен');
-            }
-        } else {
-            if (!usersDb[userKey] || usersDb[userKey].password !== currentPassword) {
-                return window.showToast('Текущий пароль неверен');
-            }
+        if (!window.getAuthToken || !window.getAuthToken()) {
+            return window.showToast('Сессия устарела — войдите снова');
         }
 
-        if (window.currentUser.role !== 'admin' && userKey !== 'admin') {
-            usersDb[userKey] = usersDb[userKey] || {};
-            usersDb[userKey].password = newPassword;
-            localStorage.setItem('rosmap_users_db', JSON.stringify(usersDb));
+        try {
+            await window.apiChangePassword(currentPassword, newPassword);
+            if (document.getElementById('cab-current-password')) document.getElementById('cab-current-password').value = '';
+            if (document.getElementById('cab-new-password')) document.getElementById('cab-new-password').value = '';
+            if (document.getElementById('cab-confirm-password')) document.getElementById('cab-confirm-password').value = '';
+            window.showToast('Пароль успешно обновлён');
+        } catch (err) {
+            if (err.code === 'bad_credentials') return window.showToast('Текущий пароль неверен');
+            window.showToast(err.message || 'Не удалось сменить пароль');
         }
-
-        window.currentUser.password = newPassword;
-        localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser));
-        if (document.getElementById('cab-current-password')) document.getElementById('cab-current-password').value = '';
-        if (document.getElementById('cab-new-password')) document.getElementById('cab-new-password').value = '';
-        if (document.getElementById('cab-confirm-password')) document.getElementById('cab-confirm-password').value = '';
-        window.showToast('Пароль успешно обновлён');
     };
 
     window.closeCabinet = function() {

@@ -11,18 +11,15 @@ export function initGlobalState() {
     window.formatSoundObject = formatSoundObject;
     
     // 2. Константы Облака
+    // YANDEX_FUNCTION_URL — Secure API (auth + sync). См. cloud/api/README.md
     window.YANDEX_BUCKET_URL = 'https://storage.yandexcloud.net/rosmap2026';
     window.YANDEX_FUNCTION_URL = 'https://functions.yandexcloud.net/d4ebp9rd7rd53iso4p8u';
-    // Точка интеграции для реальной отправки писем с кодом подтверждения (см. auth.js
-    // sendVerificationEmail). Пока пусто — код показывается пользователю прямо в интерфейсе
-    // ("демо-режим"). Как только появится облачная функция для отправки почты, достаточно
-    // указать её URL здесь: она получит POST {email, code} и должна вернуть 2xx при успехе.
     window.YANDEX_EMAIL_FUNCTION_URL = '';
     window.cloudDataCache = [];
-    // Публичные профили рекордистов (visitka + гир-лист + бейджи), общий файл в том же бакете.
     window.profilesData = [];
     window.feedPosts = [];
     window.__lastFeedPollKey = '';
+    window.__secureApiEnabled = true;
 
     // 3. Состояния плеера и приложения
     window.map = null;
