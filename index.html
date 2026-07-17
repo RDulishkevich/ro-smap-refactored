@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260718o">
-    <link rel="stylesheet" href="./src/glass.css?v=20260718o">
+    <link rel="stylesheet" href="./src/style.css?v=20260718q">
+    <link rel="stylesheet" href="./src/glass.css?v=20260718q">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -95,6 +95,10 @@
             </button>
             <button type="button" id="rail-expeditions" class="app-rail__btn" onclick="window.switchSidebarTab('expeditions')" title="Экспедиции">
                 <i class="fa-solid fa-route"></i>
+            </button>
+            <button type="button" id="rail-admin" class="app-rail__btn app-rail__btn--admin relative hidden" onclick="window.openAdminPanel()" title="Админ-панель">
+                <i class="fa-solid fa-shield-halved"></i>
+                <span id="rail-admin-badge" class="hidden absolute -top-0.5 -right-0.5 min-w-[1rem] h-[1rem] px-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center shadow">0</span>
             </button>
 
             <div class="app-rail__spacer" aria-hidden="true"></div>
@@ -325,6 +329,78 @@
             <!-- Expedition description (viewer) -->
             <div id="dock-expedition" class="hidden flex-1 min-h-0 flex flex-col overflow-hidden">
                 <div id="dock-expedition-host" class="flex-1 min-h-0 flex flex-col overflow-hidden"></div>
+            </div>
+
+            <!-- Admin panel (rail) -->
+            <div id="dock-admin" class="hidden flex-1 min-h-0 flex flex-col overflow-hidden">
+                <div class="admin-subtabs shrink-0 px-2 pt-2">
+                    <button type="button" id="admin-tab-btn-sounds" onclick="window.switchAdminSection('sounds')" class="admin-subtab-btn active">Записи</button>
+                    <button type="button" id="admin-tab-btn-reports" onclick="window.switchAdminSection('reports')" class="admin-subtab-btn">Жалобы <span id="admin-tab-reports-count" class="admin-filter-count"></span></button>
+                    <button type="button" id="admin-tab-btn-users" onclick="window.switchAdminSection('users')" class="admin-subtab-btn">Люди</button>
+                    <button type="button" id="admin-tab-btn-support" onclick="window.switchAdminSection('support')" class="admin-subtab-btn">Поддержка <span id="admin-tab-support-count" class="admin-filter-count"></span></button>
+                    <button type="button" id="admin-tab-btn-tools" onclick="window.switchAdminSection('tools')" class="admin-subtab-btn">Инструменты</button>
+                    <button type="button" id="admin-tab-btn-console" onclick="window.switchAdminSection('console')" class="admin-subtab-btn">Консоль</button>
+                </div>
+                <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-3 space-y-4">
+                    <div id="admin-section-sounds" class="space-y-4">
+                        <div id="admin-stats-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
+                        <div class="flex gap-2">
+                            <button onclick="window.exportSoundsData('csv', true)" class="flex-1 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                                <i class="fa-solid fa-file-csv mr-1"></i>CSV
+                            </button>
+                            <button onclick="window.exportSoundsData('geojson', true)" class="flex-1 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                                <i class="fa-solid fa-map mr-1"></i>GeoJSON
+                            </button>
+                        </div>
+                        <div class="flex flex-wrap gap-2" id="admin-filter-toggle">
+                            <button onclick="window.setAdminListFilter('all')" id="admin-filter-btn-all" class="admin-filter-btn active">Все</button>
+                            <button onclick="window.setAdminListFilter('pending')" id="admin-filter-btn-pending" class="admin-filter-btn">Модерация <span id="admin-filter-pending-count" class="admin-filter-count">0</span></button>
+                            <button onclick="window.setAdminListFilter('rejected')" id="admin-filter-btn-rejected" class="admin-filter-btn">Отклонённые <span id="admin-filter-rejected-count" class="admin-filter-count">0</span></button>
+                        </div>
+                        <div id="admin-sounds-list" class="space-y-3"></div>
+                    </div>
+
+                    <div id="admin-section-reports" class="hidden space-y-3">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"><i class="fa-solid fa-flag mr-1 text-red-500"></i>Жалобы <span id="admin-reports-count" class="admin-filter-count"></span></p>
+                        <div id="admin-reports-list" class="space-y-2"></div>
+                    </div>
+
+                    <div id="admin-section-users" class="hidden space-y-3">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"><i class="fa-solid fa-users mr-1 text-blue-500"></i>Пользователи</p>
+                        <div id="admin-users-grid" class="space-y-2"></div>
+                    </div>
+
+                    <div id="admin-section-support" class="hidden space-y-3">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"><i class="fa-solid fa-headset mr-1 text-blue-500"></i>Поддержка</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Ответы от имени «Поддержка карты».</p>
+                        <div id="admin-support-list" class="space-y-2"></div>
+                    </div>
+
+                    <div id="admin-section-tools" class="hidden space-y-3">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Операции</p>
+                        <div class="grid grid-cols-1 gap-2">
+                            <button type="button" class="admin-tool-btn" onclick="window.pollLiveCloudData && window.pollLiveCloudData()"><i class="fa-solid fa-cloud-arrow-down"></i> Обновить облако сейчас</button>
+                            <button type="button" class="admin-tool-btn" onclick="window.updateMapMarkers && window.updateMapMarkers()"><i class="fa-solid fa-map-pin"></i> Пересобрать маркеры</button>
+                            <button type="button" class="admin-tool-btn" onclick="window.clearAllSoundFilters && window.clearAllSoundFilters()"><i class="fa-solid fa-filter-circle-xmark"></i> Сбросить фильтры карты</button>
+                            <button type="button" class="admin-tool-btn" onclick="window.setAdminListFilter && (window.setAdminListFilter('pending'), window.switchAdminSection('sounds'))"><i class="fa-solid fa-clock"></i> Очередь модерации</button>
+                            <button type="button" class="admin-tool-btn" onclick="window.switchAdminSection('reports')"><i class="fa-solid fa-flag"></i> Открытые жалобы</button>
+                            <button type="button" class="admin-tool-btn" onclick="window.exportSoundsData && window.exportSoundsData('csv', true)"><i class="fa-solid fa-file-csv"></i> Экспорт CSV</button>
+                            <button type="button" class="admin-tool-btn" onclick="window.apiHealth && window.apiHealth().then(h=>window.showToast('API v'+(h.version||'?')+(h.ok?' ok':' fail')))"><i class="fa-solid fa-heart-pulse"></i> Health API</button>
+                            <button type="button" class="admin-tool-btn" onclick="window.switchAdminSection('console'); document.getElementById('admin-console-input')?.focus()"><i class="fa-solid fa-terminal"></i> Открыть консоль</button>
+                        </div>
+                        <div id="admin-ops-summary" class="text-xs text-slate-500 dark:text-slate-400 space-y-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700"></div>
+                    </div>
+
+                    <div id="admin-section-console" class="hidden flex flex-col min-h-[320px]">
+                        <div class="flex items-center justify-between mb-2">
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500"><i class="fa-solid fa-terminal mr-1"></i>Консоль · 30 команд</p>
+                            <button type="button" class="text-[11px] font-semibold text-slate-400 hover:text-slate-600" onclick="window.adminConsoleClear()">Очистить</button>
+                        </div>
+                        <div id="admin-console-output" class="admin-console-output flex-1 min-h-[220px] mb-2"></div>
+                        <input id="admin-console-input" type="text" class="modal-input text-sm font-mono" placeholder="help · pending · approve &lt;id&gt; · …" onkeydown="window.onAdminConsoleKeydown(event)" autocomplete="off" spellcheck="false">
+                        <p class="text-[10px] text-slate-400 mt-1.5">Enter — выполнить. Список: <button type="button" class="underline" onclick="window.runAdminConsoleCommand('help')">help</button></p>
+                    </div>
+                </div>
             </div>
 
             <!-- Help: support + FAQ -->
@@ -723,7 +799,6 @@
                 <button type="button" onclick="window.switchCabinetTab('analytics')" id="cab-tab-analytics" data-cab-tab="analytics" class="cab-tab" data-lang="cab_tab_analytics">Аналитика</button>
                 <button type="button" onclick="window.switchCabinetTab('settings')" id="cab-tab-settings" data-cab-tab="settings" class="cab-tab" data-lang="cab_tab_settings">Настройки</button>
                 <button type="button" onclick="window.switchCabinetTab('security')" id="cab-tab-security" data-cab-tab="security" class="cab-tab" data-lang="cab_tab_security">Сменить пароль</button>
-                <button type="button" onclick="window.switchCabinetTab('admin')" id="cab-tab-admin" data-cab-tab="admin" class="cab-tab cab-tab-admin hidden" data-lang="cab_tab_admin">Админ-панель</button>
             </div>
 
             <div class="p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0">
@@ -736,7 +811,7 @@
                         <button type="button" class="cabinet-mobile-row" onclick="window.switchCabinetTab('settings')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-gear"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_settings">Настройки</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
                         <button type="button" class="cabinet-mobile-row" onclick="window.hideDockPanel(); window.toggleNotificationsPanel && window.toggleNotificationsPanel();"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-bell"></i></span><span class="cabinet-mobile-row__label" data-lang="notifications_title">Уведомления</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
                         <button type="button" class="cabinet-mobile-row" onclick="window.switchCabinetTab('security')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-lock"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_security">Сменить пароль</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
-                        <button type="button" id="cab-mobile-admin" class="cabinet-mobile-row hidden" onclick="window.switchCabinetTab('admin')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-shield-halved"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_admin">Админ-панель</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
+                        <button type="button" id="cab-mobile-admin" class="cabinet-mobile-row hidden" onclick="window.openAdminPanel()"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-shield-halved"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_admin">Админ-панель</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
                     </div>
                     <div class="grid grid-cols-2 gap-4 mb-4">
                         <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-center items-center text-center">
@@ -890,61 +965,6 @@
                     </div>
                 </div>
 
-                <div id="cab-panel-admin" data-cab-panel="admin" class="hidden space-y-4">
-                    <div class="mb-2">
-                        <p class="text-[11px] font-bold uppercase tracking-wider text-red-500">Администрирование</p>
-                    </div>
-                    <div class="bg-red-50 dark:bg-red-900/20 p-4 rounded-2xl border border-red-100 dark:border-red-900/50 flex flex-col justify-center items-center text-center">
-                        <i class="fa-solid fa-shield-halved text-3xl text-red-500 mb-2"></i>
-                        <span class="text-sm font-bold text-red-700 dark:text-red-400">Панель управления картой</span>
-                    </div>
-                    <div class="admin-subtabs">
-                        <button type="button" id="admin-tab-btn-sounds" onclick="window.switchAdminSection('sounds')" class="admin-subtab-btn active">Записи</button>
-                        <button type="button" id="admin-tab-btn-reports" onclick="window.switchAdminSection('reports')" class="admin-subtab-btn">Жалобы <span id="admin-tab-reports-count" class="admin-filter-count"></span></button>
-                        <button type="button" id="admin-tab-btn-users" onclick="window.switchAdminSection('users')" class="admin-subtab-btn">Пользователи</button>
-                        <button type="button" id="admin-tab-btn-support" onclick="window.switchAdminSection('support')" class="admin-subtab-btn">Поддержка <span id="admin-tab-support-count" class="admin-filter-count"></span></button>
-                    </div>
-
-                    <div id="admin-section-sounds" class="space-y-4">
-                        <div id="admin-stats-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
-                        <div class="flex gap-2">
-                            <button onclick="window.exportSoundsData('csv', true)" class="flex-1 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-                                <i class="fa-solid fa-file-csv mr-1"></i>Экспорт CSV
-                            </button>
-                            <button onclick="window.exportSoundsData('geojson', true)" class="flex-1 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-                                <i class="fa-solid fa-map mr-1"></i>Экспорт GeoJSON
-                            </button>
-                        </div>
-                        <div class="flex flex-wrap gap-2" id="admin-filter-toggle">
-                            <button onclick="window.setAdminListFilter('all')" id="admin-filter-btn-all" class="admin-filter-btn active">Все записи</button>
-                            <button onclick="window.setAdminListFilter('pending')" id="admin-filter-btn-pending" class="admin-filter-btn">На модерации <span id="admin-filter-pending-count" class="admin-filter-count">0</span></button>
-                            <button onclick="window.setAdminListFilter('rejected')" id="admin-filter-btn-rejected" class="admin-filter-btn">Отклонённые <span id="admin-filter-rejected-count" class="admin-filter-count">0</span></button>
-                        </div>
-                        <div id="admin-sounds-list" class="space-y-3"></div>
-                    </div>
-
-                    <div id="admin-section-reports" class="hidden space-y-3">
-                        <div class="flex items-center justify-between">
-                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"><i class="fa-solid fa-flag mr-1 text-red-500"></i>Жалобы <span id="admin-reports-count" class="admin-filter-count"></span></p>
-                        </div>
-                        <div id="admin-reports-list" class="space-y-2"></div>
-                    </div>
-
-                    <div id="admin-section-users" class="hidden space-y-3">
-                        <div class="flex items-center justify-between">
-                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"><i class="fa-solid fa-users mr-1 text-blue-500"></i>Пользователи, роли и блокировки</p>
-                        </div>
-                        <div id="admin-users-grid" class="space-y-2"></div>
-                    </div>
-
-                    <div id="admin-section-support" class="hidden space-y-3">
-                        <div class="flex items-center justify-between">
-                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"><i class="fa-solid fa-headset mr-1 text-blue-500"></i>Обращения в поддержку</p>
-                        </div>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Ответы отправляются от имени «Поддержка карты».</p>
-                        <div id="admin-support-list" class="space-y-2"></div>
-                    </div>
-                </div>
             </div>
 
             <div id="cabinet-logout-footer" class="hidden p-6 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700">
@@ -1197,53 +1217,62 @@
 
     <!-- Модальное окно: ПУБЛИЧНЫЙ ПРОФИЛЬ РЕКОРДИСТА -->
     <div id="public-profile-modal" onmousedown="if(event.target === this) window.closePublicProfileModal()" class="fixed inset-0 z-[240] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="public-profile-modal-content" class="bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-3xl app-modal-panel flex flex-col overflow-hidden min-h-0 transform scale-95 transition-all pointer-events-auto border border-slate-100 dark:border-slate-800">
+        <div id="public-profile-modal-content" class="pp-modal bg-white dark:bg-slate-900 rounded-[1.75rem] shadow-2xl w-full max-w-2xl app-modal-panel flex flex-col overflow-hidden min-h-0 transform scale-95 transition-all pointer-events-auto border border-slate-200/80 dark:border-slate-700">
 
-            <div class="px-6 py-5 flex justify-between items-start gap-4 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
-                <div class="flex items-start gap-4 min-w-0">
-                    <img id="pp-avatar" onclick="window.openProfileAvatarLightbox()" class="hidden w-16 h-16 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-sm shrink-0 cursor-pointer hover:opacity-90 transition-opacity" alt="avatar" title="Открыть фото">
-                    <div id="pp-avatar-fallback" class="w-16 h-16 rounded-full bg-blue-100 dark:bg-slate-700 flex items-center justify-center text-blue-600 dark:text-blue-400 text-2xl shadow-inner shrink-0">
-                        <i class="fa-solid fa-user-astronaut"></i>
+            <div class="pp-hero relative shrink-0">
+                <div class="pp-hero__cover" aria-hidden="true"></div>
+                <button type="button" onclick="window.closePublicProfileModal()" class="pp-hero__close absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-black/25 hover:bg-black/40 text-white flex items-center justify-center transition-colors" aria-label="Закрыть">
+                    <i class="fa-solid fa-xmark pointer-events-none"></i>
+                </button>
+                <div class="pp-hero__body relative px-5 sm:px-6 pb-4 pt-14">
+                    <div class="flex items-end gap-4">
+                        <div class="pp-avatar-wrap shrink-0">
+                            <img id="pp-avatar" onclick="window.openProfileAvatarLightbox()" class="hidden pp-avatar" alt="avatar" title="Открыть фото">
+                            <div id="pp-avatar-fallback" class="pp-avatar pp-avatar--fallback">
+                                <i class="fa-solid fa-user"></i>
+                            </div>
+                        </div>
+                        <div class="min-w-0 flex-1 pb-1">
+                            <h3 id="pp-name" class="text-xl font-bold text-slate-900 dark:text-white leading-tight truncate text-balance">Рекордист</h3>
+                            <div class="flex flex-wrap items-center gap-2 mt-1.5">
+                                <span id="pp-presence" class="pp-meta-chip"><i class="fa-solid fa-circle text-[7px]"></i>—</span>
+                                <span id="pp-joined" class="pp-meta-chip"><i class="fa-solid fa-calendar-days"></i>—</span>
+                                <span id="pp-level-chip" class="hidden pp-meta-chip pp-meta-chip--level"><i class="fa-solid fa-bolt"></i>Ур. 1</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="min-w-0">
-                        <h3 id="pp-name" class="text-lg font-bold text-slate-800 dark:text-white leading-tight truncate">Рекордист</h3>
-                        <span id="pp-presence" class="inline-flex items-center gap-1 mt-1 text-[10px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full"><i class="fa-solid fa-circle text-[7px]"></i>—</span>
-                        <span id="pp-joined" class="inline-flex items-center gap-1 mt-1 text-[10px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full"><i class="fa-solid fa-calendar-days"></i>—</span>
-                        <p id="pp-bio" class="hidden text-sm text-slate-600 dark:text-slate-300 mt-2 leading-relaxed max-w-md"></p>
-                        <div id="pp-badges" class="hidden flex flex-wrap gap-1.5 mt-2"></div>
-                        <span id="pp-level-chip" class="hidden inline-flex items-center gap-1.5 mt-2 text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-2.5 py-1 rounded-full"><i class="fa-solid fa-bolt"></i>Ур. 1</span>
+                    <p id="pp-bio" class="hidden text-sm text-slate-600 dark:text-slate-300 mt-3 leading-relaxed max-w-prose text-pretty"></p>
+                    <div id="pp-badges" class="hidden flex flex-wrap gap-1.5 mt-3"></div>
+                    <div class="pp-actions mt-3 flex flex-wrap items-center gap-2">
                         <div id="pp-follow-stats" class="pp-follow-stats">
                             <button type="button" id="pp-followers-btn" class="pp-follow-stat" onclick="window.openFollowList('followers')"><strong id="pp-followers-count">0</strong> <span data-lang="followers">подписчиков</span></button>
                             <button type="button" id="pp-following-btn" class="pp-follow-stat" onclick="window.openFollowList('following')"><strong id="pp-following-count">0</strong> <span data-lang="following">подписок</span></button>
                         </div>
-                        <button id="pp-follow-btn" onclick="window.toggleFollowFromProfile()" class="hidden mt-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold transition-colors">
-                            Подписаться
-                        </button>
-                        <button id="pp-message-btn" onclick="window.openComposeMessageFromProfile()" class="hidden mt-2 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold transition-colors shadow-sm">
-                            <i class="fa-solid fa-envelope mr-1"></i><span data-lang="write_message">Написать сообщение</span>
-                        </button>
-                        <p id="pp-view-own-note" class="hidden text-[11px] text-blue-600 dark:text-blue-400 font-semibold mt-2"><i class="fa-solid fa-eye mr-1"></i>Так ваш профиль видят другие пользователи</p>
+                        <div class="flex flex-wrap gap-2 ml-auto">
+                            <button id="pp-follow-btn" onclick="window.toggleFollowFromProfile()" class="hidden pp-btn pp-btn--ghost">Подписаться</button>
+                            <button id="pp-message-btn" onclick="window.openComposeMessageFromProfile()" class="hidden pp-btn pp-btn--primary">
+                                <i class="fa-solid fa-envelope"></i><span data-lang="write_message">Написать</span>
+                            </button>
+                        </div>
                     </div>
+                    <p id="pp-view-own-note" class="hidden text-[11px] text-[color:var(--accent)] font-semibold mt-2"><i class="fa-solid fa-eye mr-1"></i>Так ваш профиль видят другие</p>
                 </div>
-                <button onclick="window.closePublicProfileModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors shrink-0 outline-none">
-                    <i class="fa-solid fa-xmark text-xl pointer-events-none"></i>
-                </button>
             </div>
 
-            <div class="p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0 space-y-6">
+            <div class="pp-body p-5 sm:p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0 space-y-5">
 
-                <div class="grid grid-cols-3 gap-3">
-                    <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-center items-center text-center">
-                        <span class="text-2xl font-black text-blue-600 dark:text-blue-400 mb-1" id="pp-stat-count">0</span>
-                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Звуков</span>
+                <div class="pp-stats" role="group" aria-label="Статистика">
+                    <div class="pp-stat">
+                        <span class="pp-stat__value" id="pp-stat-count">0</span>
+                        <span class="pp-stat__label">Звуков</span>
                     </div>
-                    <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-center items-center text-center">
-                        <span class="text-2xl font-black text-indigo-600 dark:text-indigo-400 mb-1" id="pp-stat-duration">0:00</span>
-                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Длительность</span>
+                    <div class="pp-stat">
+                        <span class="pp-stat__value" id="pp-stat-duration">0:00</span>
+                        <span class="pp-stat__label">Длительность</span>
                     </div>
-                    <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-center items-center text-center">
-                        <span class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mb-1" id="pp-stat-downloads">0</span>
-                        <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Скачиваний</span>
+                    <div class="pp-stat">
+                        <span class="pp-stat__value" id="pp-stat-downloads">0</span>
+                        <span class="pp-stat__label">Скачиваний</span>
                     </div>
                 </div>
 
@@ -1251,26 +1280,26 @@
 
                 <div id="pp-achievements" class="hidden"></div>
 
-                <div>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2"><i class="fa-solid fa-walkie-talkie mr-1"></i>Оборудование</p>
+                <section class="pp-section">
+                    <h4 class="pp-section__title"><i class="fa-solid fa-walkie-talkie"></i>Оборудование</h4>
                     <div id="pp-gear" class="flex flex-wrap gap-1.5"></div>
-                </div>
+                </section>
 
-                <div>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2"><i class="fa-solid fa-map-location-dot mr-1"></i>Личная акустическая карта</p>
+                <section class="pp-section">
+                    <h4 class="pp-section__title"><i class="fa-solid fa-map-location-dot"></i>Личная акустическая карта</h4>
                     <div class="profile-mini-map-wrap">
                         <div id="profile-mini-map"></div>
                     </div>
-                </div>
+                </section>
 
-                <div>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2"><i class="fa-solid fa-route mr-1"></i>Экспедиции</p>
+                <section class="pp-section">
+                    <h4 class="pp-section__title"><i class="fa-solid fa-route"></i>Экспедиции</h4>
                     <div id="pp-expeditions" class="space-y-2"></div>
-                </div>
+                </section>
 
-                <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider"><i class="fa-solid fa-record-vinyl mr-1"></i>Портфолио ландшафтов</p>
+                <section class="pp-section">
+                    <div class="flex items-center justify-between mb-2 gap-2">
+                        <h4 class="pp-section__title mb-0"><i class="fa-solid fa-record-vinyl"></i>Портфолио</h4>
                     </div>
                     <div class="flex gap-2 mb-3 overflow-x-auto custom-scrollbar pb-1">
                         <button id="pp-filter-all" onclick="window.setPublicProfileFilter('all')" class="pp-filter-btn active">Все</button>
@@ -1279,7 +1308,7 @@
                         <button id="pp-filter-anthrophony" onclick="window.setPublicProfileFilter('anthrophony')" class="pp-filter-btn">Антропофония</button>
                     </div>
                     <div id="pp-portfolio-grid" class="portfolio-grid"></div>
-                </div>
+                </section>
 
             </div>
         </div>
@@ -1809,7 +1838,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260718o"></script>
+    <script type="module" src="./src/main.js?v=20260718q"></script>
 
 </body>
 </html>

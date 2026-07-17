@@ -967,20 +967,24 @@ export function initAuth() {
     window.refreshCabinetTabs = function() {
         const adminTab = document.getElementById('cab-tab-admin');
         const adminMobile = document.getElementById('cab-mobile-admin');
+        const railAdmin = document.getElementById('rail-admin');
         const roleEl = document.getElementById('cabinet-user-role');
-        const isAdmin = String(window.currentUser?.role || '').toLowerCase() === 'admin' || String(window.currentUser?.username || '').toLowerCase() === 'admin';
+        const isAdmin = window.isCurrentUserAdmin
+            ? window.isCurrentUserAdmin()
+            : (String(window.currentUser?.role || '').toLowerCase() === 'admin' || String(window.currentUser?.username || '').toLowerCase() === 'admin');
 
         if (adminTab) {
-            if (isAdmin) {
-                adminTab.classList.remove('hidden');
-                adminTab.classList.remove('pointer-events-none');
-            } else {
-                adminTab.classList.add('hidden');
-                adminTab.classList.add('pointer-events-none');
-            }
+            adminTab.classList.add('hidden');
+            adminTab.classList.add('pointer-events-none');
         }
         if (adminMobile) {
             adminMobile.classList.toggle('hidden', !isAdmin);
+        }
+        if (railAdmin) {
+            railAdmin.classList.toggle('hidden', !isAdmin);
+            if (!isAdmin && window.__dockView === 'admin' && window.openDockView) {
+                window.openDockView('home');
+            }
         }
 
         if (roleEl) {
@@ -992,6 +996,7 @@ export function initAuth() {
                 roleEl.className = 'text-[11px] font-bold text-slate-400 uppercase tracking-wider';
             }
         }
+        if (window.refreshAdminRailBadge) window.refreshAdminRailBadge();
     };
 
     window.refreshCabinetMobileChrome = function(tab) {
@@ -1353,19 +1358,9 @@ export function initAuth() {
         } else if (tab === 'security') {
             document.body.classList.remove('cab-mobile-home');
         } else if (tab === 'admin') {
-            document.body.classList.remove('cab-mobile-home');
-            const adminBtn = document.getElementById('cab-tab-admin');
-            if (adminBtn && adminBtn.classList.contains('hidden')) {
-                window.switchCabinetTab('sounds');
-                return;
-            }
-            if (window.switchAdminSection) window.switchAdminSection(window.__adminSection || 'sounds');
-            else {
-                window.renderAdminList();
-                window.renderAdminUsersList();
-                window.renderReportsList();
-                if (window.renderRegionStats) window.renderRegionStats('admin-stats-grid');
-            }
+            if (window.openAdminPanel) window.openAdminPanel();
+            else window.switchCabinetTab('sounds');
+            return;
         }
         if (window.refreshCabinetMobileChrome) window.refreshCabinetMobileChrome(tab);
     };
@@ -1606,6 +1601,7 @@ export function initAuth() {
                 ? 'Отклонённых записей нет.'
                 : (filterMode === 'pending' ? 'Очередь модерации пуста.' : 'Записей пока нет.');
             list.innerHTML = `<div class="text-center py-10 text-slate-400"><i class="fa-solid fa-clipboard-check text-3xl mb-2 opacity-30 block"></i><p class="text-sm font-medium">${emptyMsg}</p></div>`;
+            if (window.refreshAdminRailBadge) window.refreshAdminRailBadge();
             return;
         }
 
@@ -1626,9 +1622,8 @@ export function initAuth() {
                 </div>
             `;
         }).join('');
+        if (window.refreshAdminRailBadge) window.refreshAdminRailBadge();
     };
-
-    window.getAdminSoundActionItems = function(soundId) {
         const s = window.soundsData.find(x => x.id === soundId);
         if (!s) return [];
         const status = s.status || 'published';
@@ -1753,9 +1748,20 @@ export function initAuth() {
     // --- Жалобы (на записи и на комментарии) — очередь модерации в админ-панели ---
     window.__adminSection = 'sounds';
 
+    window.openAdminPanel = function(section) {
+        if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) {
+            window.showToast('Нужны права администратора');
+            return;
+        }
+        if (window.openDockView) window.openDockView('admin');
+        if (section) window.switchAdminSection(section);
+        else window.switchAdminSection(window.__adminSection || 'sounds');
+    };
+
     window.switchAdminSection = function(section) {
-        window.__adminSection = section || 'sounds';
-        ['sounds', 'reports', 'users', 'support'].forEach(key => {
+        const allowed = ['sounds', 'reports', 'users', 'support', 'tools', 'console'];
+        window.__adminSection = allowed.includes(section) ? section : 'sounds';
+        allowed.forEach((key) => {
             const panel = document.getElementById(`admin-section-${key}`);
             const btn = document.getElementById(`admin-tab-btn-${key}`);
             if (panel) panel.classList.toggle('hidden', key !== window.__adminSection);
@@ -1768,6 +1774,54 @@ export function initAuth() {
             if (window.renderAdminList) window.renderAdminList();
             if (window.renderRegionStats) window.renderRegionStats('admin-stats-grid');
         }
+        if (window.__adminSection === 'tools') window.renderAdminToolsSummary();
+        if (window.__adminSection === 'console') {
+            const out = document.getElementById('admin-console-output');
+            if (out && !out.childElementCount && window.runAdminConsoleCommand) {
+                window.runAdminConsoleCommand('help');
+            }
+        }
+    };
+
+    window.renderAdminToolsSummary = function() {
+        const el = document.getElementById('admin-ops-summary');
+        if (!el) return;
+        const all = window.soundsData || [];
+        const pending = all.filter((s) => s.status === 'pending').length;
+        const reports = window.getAllReports ? window.getAllReports().filter((r) => r.status !== 'resolved').length : 0;
+        const users = (window.profilesData || []).length;
+        const api = window.__apiHealth;
+        el.innerHTML = `
+            <div>Каталог: <strong>${all.length}</strong> · на модерации <strong>${pending}</strong></div>
+            <div>Жалобы: <strong>${reports}</strong> · пользователи <strong>${users}</strong></div>
+            <div>API: <strong>${api?.ok ? `v${api.version || '?'}` : 'нет данных'}</strong></div>
+        `;
+    };
+
+    window.refreshAdminRailBadge = function() {
+        const badge = document.getElementById('rail-admin-badge');
+        if (!badge) return;
+        if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) {
+            badge.classList.add('hidden');
+            badge.textContent = '0';
+            return;
+        }
+        const pending = (window.soundsData || []).filter((s) => s.status === 'pending').length;
+        const reports = window.getAllReports
+            ? window.getAllReports().filter((r) => r.status !== 'resolved').length
+            : 0;
+        let support = 0;
+        const supportProfile = window.getProfileByLogin ? window.getProfileByLogin(window.SUPPORT_LOGIN) : null;
+        const unreadPeers = new Set();
+        (supportProfile?.inbox || []).forEach((msg) => {
+            if (!msg?.fromId || msg.read || msg.deleted) return;
+            if (String(msg.fromId).toLowerCase() === String(window.SUPPORT_LOGIN || '').toLowerCase()) return;
+            unreadPeers.add(String(msg.fromId).toLowerCase());
+        });
+        support = unreadPeers.size;
+        const total = pending + reports + support;
+        badge.textContent = total > 99 ? '99+' : String(total);
+        badge.classList.toggle('hidden', total === 0);
     };
 
     window.getAllReports = function() {
@@ -1819,6 +1873,7 @@ export function initAuth() {
         const pendingCount = reports.filter(r => r.status !== 'resolved').length;
         if (countEl) countEl.textContent = pendingCount ? `(${pendingCount})` : '';
         if (tabCount) tabCount.textContent = pendingCount ? `(${pendingCount})` : '';
+        if (window.refreshAdminRailBadge) window.refreshAdminRailBadge();
 
         if (!reports.length) {
             container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">Жалоб пока нет.</p>`;
@@ -2043,6 +2098,7 @@ export function initAuth() {
         });
         const n = unreadPeers.size;
         tabCount.textContent = n ? `(${n})` : '';
+        if (window.refreshAdminRailBadge) window.refreshAdminRailBadge();
     };
 
     window.openAdminUserActions = function(login) {
@@ -3366,6 +3422,11 @@ export function initAuth() {
         const text = (input?.value || '').trim();
         const image = window.__messagePendingImage || null;
         if (!text && !image) return;
+        const myLoginGuard = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const guard = window.spamGuardCheck
+            ? window.spamGuardCheck(`msg:${myLoginGuard}`, { minIntervalMs: 900, maxPerWindow: 30, windowMs: 60000 })
+            : { ok: true };
+        if (!guard.ok) { window.spamGuardToast(guard); return; }
         if (window.__typingIdleTimer) clearTimeout(window.__typingIdleTimer);
         window.__sendingMessage = true;
 

@@ -339,7 +339,7 @@ function publicUser(user) {
 
 function recordTime(item) {
     if (!item) return 0;
-    const raw = item.editedAt || item.date || item.createdAt || item.profileUpdatedAt || 0;
+    const raw = item.editedAt || item.reactedAt || item.updatedAt || item.date || item.createdAt || item.profileUpdatedAt || 0;
     const t = new Date(raw).getTime();
     return Number.isFinite(t) ? t : 0;
 }
@@ -418,7 +418,8 @@ function mergeCommentLists(a = [], b = []) {
             ...older,
             ...newer,
             replies: mergeKeyedArrays(older.replies || [], newer.replies || []),
-            reactedBy: Array.from(new Set([...(older.reactedBy || []), ...(newer.reactedBy || [])]))
+            // LWW for hearts — union made un-react impossible
+            reactedBy: Array.isArray(newer.reactedBy) ? [...newer.reactedBy] : [...(older.reactedBy || [])]
         });
     };
     (a || []).forEach(upsert);

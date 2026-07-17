@@ -1129,8 +1129,8 @@ window.__putCloudJson = async function(fileName, data) {
 
 window.__recordTime = function(item) {
     if (!item) return 0;
-    // readAt важнее date: иначе mark-as-read с тем же date проигрывает CDN-снимку без read.
-    const raw = item.editedAt || item.readAt || item.date || item.createdAt || item.profileUpdatedAt || 0;
+    // readAt / reactedAt важнее date: иначе mark-as-read и снятие реакции проигрывают CDN.
+    const raw = item.editedAt || item.reactedAt || item.updatedAt || item.readAt || item.date || item.createdAt || item.profileUpdatedAt || 0;
     const t = new Date(raw).getTime();
     return Number.isFinite(t) ? t : 0;
 };
@@ -1266,7 +1266,8 @@ window.__mergeCommentLists = function(a = [], b = []) {
             ...older,
             ...newer,
             replies: window.__mergeKeyedArrays(older.replies || [], newer.replies || []),
-            reactedBy: Array.from(new Set([...(older.reactedBy || []), ...(newer.reactedBy || [])]))
+            // LWW: newer comment revision wins for reactedBy (union broke un-react)
+            reactedBy: Array.isArray(newer.reactedBy) ? [...newer.reactedBy] : [...(older.reactedBy || [])]
         });
     };
     (a || []).forEach(upsert);
@@ -2525,7 +2526,7 @@ window.processFilterChange = function(forceOpenDesktopSidebar = false) {
 }
 
 window.hideAllDockPanels = function() {
-    ['sidebar-library', 'sidebar-feed', 'panel-expeditions', 'dock-details', 'dock-analyzers', 'dock-settings', 'dock-cabinet', 'dock-messages', 'dock-expedition', 'dock-help'].forEach(id => {
+    ['sidebar-library', 'sidebar-feed', 'panel-expeditions', 'dock-details', 'dock-analyzers', 'dock-settings', 'dock-cabinet', 'dock-messages', 'dock-expedition', 'dock-help', 'dock-admin'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.add('hidden');
     });
@@ -2610,7 +2611,7 @@ window.dockCabinetContent = function() {
 };
 
 window.clearRailTabActive = function() {
-    ['rail-library', 'rail-feed', 'rail-expeditions', 'rail-help'].forEach(id => {
+    ['rail-library', 'rail-feed', 'rail-expeditions', 'rail-help', 'rail-admin'].forEach(id => {
         const btn = document.getElementById(id);
         if (!btn) return;
         btn.classList.remove('is-active');
@@ -2671,9 +2672,9 @@ window.switchHelpTab = function(tab) {
 
 window.openDockView = function(view) {
     const prev = window.__dockView;
-    const next = ['library', 'feed', 'expeditions', 'help', 'details', 'analyzers', 'settings', 'cabinet', 'messages', 'expedition'].includes(view) ? view : 'library';
+    const next = ['library', 'feed', 'expeditions', 'help', 'details', 'analyzers', 'settings', 'cabinet', 'messages', 'expedition', 'admin'].includes(view) ? view : 'library';
     window.__dockView = next;
-    document.body.classList.remove('dock-view-details', 'dock-view-analyzers', 'dock-view-settings', 'dock-view-cabinet', 'dock-view-messages', 'dock-view-expedition', 'dock-view-help');
+    document.body.classList.remove('dock-view-details', 'dock-view-analyzers', 'dock-view-settings', 'dock-view-cabinet', 'dock-view-messages', 'dock-view-expedition', 'dock-view-help', 'dock-view-admin');
 
     if (prev === 'messages' && next !== 'messages') {
         window.__activeMessagePeer = null;
@@ -2774,6 +2775,29 @@ window.openDockView = function(view) {
         if (railHelp) { railHelp.classList.add('is-active'); railHelp.setAttribute('aria-current', 'page'); }
         if (tabHelp) tabHelp.className = 'ui-tab ui-tab--main is-active';
         window.switchHelpTab(window.__helpTab || 'support');
+    } else if (next === 'admin') {
+        if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) {
+            window.showToast('Нужны права администратора');
+            window.openDockView(window.__sidebarTab || 'library');
+            return;
+        }
+        document.body.classList.add('dock-view-admin');
+        const panel = document.getElementById('dock-admin');
+        if (panel) panel.classList.remove('hidden');
+        window.setDockHeader(
+            window.currentLang === 'en' ? 'Admin' : 'Админ-панель',
+            window.currentLang === 'en' ? 'Moderation & tools' : 'Модерация и инструменты',
+            true
+        );
+        if (mobileTabs) mobileTabs.classList.add('hidden');
+        window.clearRailTabActive();
+        const railAdmin = document.getElementById('rail-admin');
+        if (railAdmin) {
+            railAdmin.classList.add('is-active');
+            railAdmin.setAttribute('aria-current', 'page');
+        }
+        if (window.switchAdminSection) window.switchAdminSection(window.__adminSection || 'sounds');
+        if (window.refreshAdminRailBadge) window.refreshAdminRailBadge();
     } else {
         if (mobileTabs) mobileTabs.classList.remove('hidden');
         window.__sidebarTab = next;
@@ -2813,9 +2837,13 @@ window.openDockView = function(view) {
 };
 
 window.closeDockViewer = function() {
-    const returnTab = window.__dockView === 'expedition'
+    let returnTab = window.__dockView === 'expedition'
         ? (window.__sidebarTab || 'expeditions')
         : (window.__sidebarTab || 'library');
+    if (window.openedFromAdmin && window.isCurrentUserAdmin && window.isCurrentUserAdmin()) {
+        returnTab = 'admin';
+        window.openedFromAdmin = false;
+    }
     if (window.analyzersOpen) {
         window.__skipAnalyzerViewRestore = true;
         if (window.collapsePlayerAnalyzers) window.collapsePlayerAnalyzers();
@@ -3767,7 +3795,10 @@ window.renderComments = function(sound) {
         return `<span class="comment-author-wrap">${avatar}${name}</span>`;
     };
 
-    const renderReply = r => `
+    const renderReply = r => {
+        const reactedByMe = !!login && (r.reactedBy || []).includes(login);
+        const reactionCount = (r.reactedBy || []).length;
+        return `
         <div class="comment-reply swipe-reply-row" data-reply-id="${r.id}" data-reply-author="${esc(r.author)}" data-reply-author-id="${esc(r.authorId || '')}">
             <span class="swipe-reply-hint"><i class="fa-solid fa-reply"></i></span>
             <div class="flex justify-between items-start gap-2 mb-1">
@@ -3780,7 +3811,11 @@ window.renderComments = function(sound) {
                 </div>
             </div>
             <p class="text-[12px] text-slate-600 dark:text-slate-300">${r.text}</p>
+            <button onclick="window.toggleCommentReaction('${sound.id}', '${r.id}')" class="comment-reaction-btn ${reactedByMe ? 'active' : ''}">
+                <i class="fa-solid fa-heart"></i>${reactionCount > 0 ? reactionCount : ''}
+            </button>
         </div>`;
+    };
 
     container.innerHTML = sound.comments.map(c => {
         const reactedByMe = !!login && (c.reactedBy || []).includes(login);
@@ -3847,15 +3882,27 @@ window.cancelReplyToComment = function() {
 
 window.addComment = async function() {
     const input = document.getElementById('new-comment-input');
-    if(!input || !input.value.trim() || !window.currentPlayingId) return; 
+    if(!input || !input.value.trim() || !window.currentPlayingId) return;
+    if (!window.currentUser) {
+        window.showToast('Войдите, чтобы оставить комментарий');
+        if (window.openAuthModal) window.openAuthModal();
+        return;
+    }
+    const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+    const guard = window.spamGuardCheck
+        ? window.spamGuardCheck(`comment:${login}`, { minIntervalMs: 2500, maxPerWindow: 8, windowMs: 60000 })
+        : { ok: true };
+    if (!guard.ok) { window.spamGuardToast(guard); return; }
+
     const s = window.soundsData.find(x => x.id === window.currentPlayingId);
     if(s) {
         const now = new Date();
         const dateStr = now.toLocaleDateString(window.currentLang === 'ru' ? 'ru-RU' : 'en-US');
         const createdAt = now.toISOString();
-        const authorName = window.currentUser ? window.currentUser.username : (window.currentLang === 'ru' ? 'Гость' : 'Guest');
-        const authorId = window.currentUser ? (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase()) : null;
+        const authorName = window.currentUser.username;
+        const authorId = login;
         const text = input.value.trim();
+        if (text.length > 2000) { window.showToast('Комментарий слишком длинный'); return; }
         const idBase = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
         const replyCtx = (window.__replyContext && window.__replyContext.soundId === s.id) ? window.__replyContext : null;
@@ -3874,6 +3921,7 @@ window.addComment = async function() {
                     text,
                     date: dateStr,
                     createdAt,
+                    reactedBy: [],
                     replyToId: replyCtx.replyToId,
                     replyToAuthor: replyCtx.replyToAuthor
                 });
@@ -3963,7 +4011,13 @@ window.openReplyMenu = function(soundId, replyId) {
     const items = [];
     if (reply.authorId) items.push({ icon: 'fa-id-badge', label: 'Профиль автора', tone: 'primary', onClick: () => window.openPublicProfile(reply.authorId, reply.author) });
     items.push({ icon: 'fa-reply', label: 'Ответить', tone: 'primary', onClick: () => window.startReplyToComment(soundId, replyId, reply.author, parent.id, reply.authorId) });
-    items.push({ icon: 'fa-flag', label: 'Пожаловаться', tone: 'warning', onClick: () => window.openReportModal('comment', soundId, parent.id) });
+    items.push({ icon: 'fa-flag', label: 'Пожаловаться', tone: 'warning', onClick: () => window.openReportModal('comment', soundId, replyId) });
+    items.push({
+        icon: 'fa-heart',
+        label: 'Реакция',
+        tone: 'primary',
+        onClick: () => window.toggleCommentReaction(soundId, replyId)
+    });
     if (isAdmin) {
         items.push({
             icon: 'fa-trash-can', label: 'Удалить', tone: 'danger',
@@ -4014,15 +4068,31 @@ window.adminDeleteComment = async function(soundId, commentId) {
 
 window.toggleCommentReaction = async function(soundId, commentId) {
     if (!window.currentUser) { window.showToast('Войдите, чтобы поставить реакцию'); if (window.openAuthModal) window.openAuthModal(); return; }
+    const guard = window.spamGuardCheck
+        ? window.spamGuardCheck(`react:${window.currentUser.loginName || 'u'}`, { minIntervalMs: 400, maxPerWindow: 40, windowMs: 60000 })
+        : { ok: true };
+    if (!guard.ok) { window.spamGuardToast(guard); return; }
+
     const s = window.soundsData.find(x => x.id === soundId);
     if (!s) return;
-    const c = (s.comments || []).find(x => x.id === commentId);
+    let c = (s.comments || []).find(x => x.id === commentId);
+    let parent = null;
+    if (!c) {
+        for (const top of (s.comments || [])) {
+            const reply = (top.replies || []).find(x => x.id === commentId);
+            if (reply) { c = reply; parent = top; break; }
+        }
+    }
     if (!c) return;
     const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
     c.reactedBy = c.reactedBy || [];
     const idx = c.reactedBy.indexOf(login);
     const adding = idx < 0;
     if (idx >= 0) c.reactedBy.splice(idx, 1); else c.reactedBy.push(login);
+    // Bump so LWW merge prefers this revision over stale CDN copies
+    c.reactedAt = new Date().toISOString();
+    c.updatedAt = c.reactedAt;
+    if (parent) parent.updatedAt = c.reactedAt;
     window.renderComments(s);
 
     const updatedCloud = [...window.cloudDataCache];
@@ -4054,6 +4124,11 @@ window.toggleCommentReaction = async function(soundId, commentId) {
 window.openReportModal = async function(type, soundId, commentId = null) {
     if (!window.currentUser) { window.showToast('Войдите, чтобы отправить жалобу'); if (window.openAuthModal) window.openAuthModal(); return; }
     if (!soundId) return;
+    const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+    const guard = window.spamGuardCheck
+        ? window.spamGuardCheck(`report:${login}`, { minIntervalMs: 5000, maxPerWindow: 5, windowMs: 60000 })
+        : { ok: true };
+    if (!guard.ok) { window.spamGuardToast(guard); return; }
 
     const reason = await window.CustomUI.open({
         title: '<i class="fa-solid fa-flag mr-2 text-red-500"></i>Пожаловаться',
@@ -4324,6 +4399,11 @@ window.resolvePendingImagesForPublish = async function(soundId) {
 // Логика перехода статусов при редактировании — см. комментарий у поле status ниже.
 window.publishSound = async function(targetStatus = 'pending') {
     if (!window.currentUser) { window.showToast('Войдите, чтобы опубликовать звук'); return; }
+    const loginKey = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+    const guard = window.spamGuardCheck
+        ? window.spamGuardCheck(`publish:${loginKey}`, { minIntervalMs: 4000, maxPerWindow: 6, windowMs: 120000 })
+        : { ok: true };
+    if (!guard.ok) { window.spamGuardToast(guard); return; }
 
     const val = elId => (document.getElementById(elId)?.value || '').trim();
     const coords = window.tempAddCoords || window.parseCoordinateString(val('add-coords'));
