@@ -191,7 +191,18 @@ body.dark-mode .text-slate-600 { color: #cbd5e1; }
 body.dark-mode .bg-white { background-color: #1e293b; }
 body.dark-mode .bg-slate-100 { background-color: #334155; }
 body.dark-mode .bg-slate-50 { background-color: #0f172a; }
-body.dark-mode .modal-input { background-color: #0f172a; border-color: #334155; color: #f1f5f9; }
+body.dark-mode .modal-input,
+.dark .modal-input {
+    background-color: #0f172a;
+    border-color: #334155;
+    color: #f1f5f9;
+    -webkit-text-fill-color: #f1f5f9;
+}
+body.dark-mode .modal-input::placeholder,
+.dark .modal-input::placeholder {
+    color: #94a3b8;
+    opacity: 1;
+}
 
 /* Кастомный скроллбар */
 .custom-scrollbar {
@@ -682,8 +693,41 @@ html.dark,
 .tag-pill { padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 600; border-width: 1px; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: transform 0.1s, opacity 0.2s; }
 .tag-pill:hover { transform: scale(1.05); }
 .tag-pill:active { transform: scale(0.95); }
-.modal-input { width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; font-size: 14px; background: #fff; outline: none; transition: border-color 0.2s; }
+.modal-input {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 14px;
+    line-height: 1.4;
+    background: #fff;
+    outline: none;
+    transition: border-color 0.2s;
+}
+textarea.modal-input {
+    min-height: 88px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+}
 .modal-label { display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px; }
+
+.app-modal-panel button,
+.app-modal-panel input,
+.app-modal-panel select,
+.app-modal-panel textarea {
+    max-width: 100%;
+}
+
+.admin-actions-btn,
+.pp-follow-stat,
+.profile-link-chip,
+.feed-admin-create,
+.sidebar-expedition-add,
+.sidebar-expedition-reset {
+    overflow-wrap: anywhere;
+}
 
 /* Базовые тайлы карты */
 #map [class*="-ground-pane"], #map [class*="-copyrights-pane"] { transition: filter 0.5s ease; }

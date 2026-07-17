@@ -2338,6 +2338,22 @@ window.selectSound = function(id) {
         else if (window.map.setCenter) window.map.setCenter([s.lat, s.lng], 15, { duration: 800 });
     }
 
+    window.__selectSoundToken = (window.__selectSoundToken || 0) + 1;
+    const selectToken = window.__selectSoundToken;
+
+    if (window.animationFrameId) {
+        cancelAnimationFrame(window.animationFrameId);
+        window.animationFrameId = null;
+    }
+    if (window.mockInterval) {
+        clearInterval(window.mockInterval);
+        window.mockInterval = null;
+    }
+    if (window.audioElement) {
+        try { window.audioElement.pause(); } catch (_) {}
+        try { window.audioElement.currentTime = 0; } catch (_) {}
+    }
+    window.isPlaying = false;
     window.currentPlayingId = id;
     window.trackSoundPlay(id);
     window.updateMapMarkers();
@@ -2352,13 +2368,23 @@ window.selectSound = function(id) {
 
     if (s.url) {
         if (window.audioElement) {
-            if (window.audioElement.src !== s.url && !window.audioElement.src.endsWith(s.url)) window.audioElement.src = s.url;
-            if(!window.isPlaying) {
-                const playPromise = window.audioElement.play();
-                if (playPromise !== undefined) {
-                    playPromise.then(() => { window.isPlaying = true; window.startTimelineAnimation(); window.updateUIState(); })
-                               .catch(() => { window.isPlaying = false; window.prepareMockPlayback(s); });
-                }
+            if (window.audioElement.src !== s.url && !window.audioElement.src.endsWith(s.url)) {
+                window.audioElement.src = s.url;
+                try { window.audioElement.load(); } catch (_) {}
+            }
+            const playPromise = window.audioElement.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    if (window.__selectSoundToken !== selectToken || window.currentPlayingId !== id) return;
+                    window.isPlaying = true;
+                    window.startTimelineAnimation();
+                    window.updateUIState();
+                }).catch((err) => {
+                    if (window.__selectSoundToken !== selectToken || window.currentPlayingId !== id) return;
+                    if (err?.name === 'AbortError') return;
+                    window.isPlaying = false;
+                    window.prepareMockPlayback(s);
+                });
             }
         }
     } else {
@@ -2366,6 +2392,7 @@ window.selectSound = function(id) {
         window.prepareMockPlayback(s);
     }
 
+    window.updateUIState();
     if (window.refreshAnalyzerMetersIfOpen) window.refreshAnalyzerMetersIfOpen();
 }
 

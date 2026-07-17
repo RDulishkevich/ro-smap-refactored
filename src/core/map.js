@@ -556,7 +556,7 @@ window.updateMapMarkers = function() {
     });
 
     const createMarkerLayout = (colorClass, id, isSoundwalk, isAmbisonic, isSelected) => {
-        const layoutKey = `${colorClass}|${isSelected ? 'selected' : 'normal'}|${isSoundwalk ? 'sw' : 'n'}|${isAmbisonic ? 'amb' : 'na'}`;
+        const layoutKey = `${id}|${colorClass}|${isSelected ? 'selected' : 'normal'}|${isSoundwalk ? 'sw' : 'n'}|${isAmbisonic ? 'amb' : 'na'}`;
         if (window.markerLayoutCache.has(layoutKey)) return window.markerLayoutCache.get(layoutKey);
         const layout = ymaps.templateLayoutFactory.createClass(
             `<div id="marker-${id}" class="w-6 h-6 md:w-7 md:h-7 custom-marker ${colorClass} ${isSelected ? 'selected' : ''} flex items-center justify-center text-white shadow-lg transition-transform hover:scale-110">
