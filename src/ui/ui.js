@@ -1391,6 +1391,10 @@ window.openPublicProfile = function(login, displayName) {
         badgesEl.classList.toggle('hidden', badges.length === 0);
     }
 
+    if (window.renderProfileAchievements) {
+        window.renderProfileAchievements(finalLogin, profile);
+    }
+
     window.renderPublicFollowUI(finalLogin, isOwn);
 
     const gearEl = document.getElementById('pp-gear');
@@ -3358,6 +3362,9 @@ window.publishSound = async function(targetStatus = 'pending') {
         if (soundObj.status === 'published' && window.notifyFollowersAboutNewSound) {
             window.notifyFollowersAboutNewSound(soundObj);
         }
+        if (soundObj.status !== 'draft' && window.evaluateFieldProgress) {
+            window.evaluateFieldProgress();
+        }
         window.toggleAddModal(true);
     }
 };
@@ -3640,6 +3647,10 @@ window.applyUILanguage = function() {
     if (prev) prev.textContent = window.t('tour_back');
     if (typeof window.__onboardingStep === 'number' && document.getElementById('onboarding-overlay') && !document.getElementById('onboarding-overlay').classList.contains('hidden')) {
         window.updateOnboardingStep();
+    }
+    const questsPanel = document.getElementById('cab-panel-quests');
+    if (questsPanel && !questsPanel.classList.contains('hidden') && window.renderQuestsPanel) {
+        window.renderQuestsPanel();
     }
 };
 window.setTheme = function(theme, skipSave = false) {

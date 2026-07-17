@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260717k">
-    <link rel="stylesheet" href="./src/glass.css?v=20260717k">
+    <link rel="stylesheet" href="./src/style.css?v=20260717l">
+    <link rel="stylesheet" href="./src/glass.css?v=20260717l">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -654,6 +654,7 @@
                         <div class="flex flex-wrap gap-2 mt-2 text-[10px] text-slate-500 dark:text-slate-400">
                             <span id="cabinet-user-joined" class="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full"><i class="fa-solid fa-calendar-days"></i>Дата</span>
                             <span id="cabinet-user-stats" class="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full"><i class="fa-solid fa-microphone"></i>0 звуков</span>
+                            <span id="cabinet-user-level" class="hidden inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-1 rounded-full font-bold"><i class="fa-solid fa-bolt"></i>Lv 1</span>
                         </div>
                     </div>
                 </div>
@@ -672,6 +673,7 @@
 
             <div id="cabinet-tabs" class="cabinet-tabs flex flex-nowrap bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 px-2 gap-1 overflow-x-auto shrink-0">
                 <button type="button" onclick="window.switchCabinetTab('sounds')" id="cab-tab-sounds" data-cab-tab="sounds" class="cab-tab active" data-lang="cab_tab_sounds">Мои звуки</button>
+                <button type="button" onclick="window.switchCabinetTab('quests')" id="cab-tab-quests" data-cab-tab="quests" class="cab-tab" data-lang="cab_tab_quests">Задания</button>
                 <button type="button" onclick="window.switchCabinetTab('sessions')" id="cab-tab-sessions" data-cab-tab="sessions" class="cab-tab" data-lang="cab_tab_sessions">Экспедиции</button>
                 <button type="button" onclick="window.switchCabinetTab('analytics')" id="cab-tab-analytics" data-cab-tab="analytics" class="cab-tab" data-lang="cab_tab_analytics">Аналитика</button>
                 <button type="button" onclick="window.switchCabinetTab('settings')" id="cab-tab-settings" data-cab-tab="settings" class="cab-tab" data-lang="cab_tab_settings">Настройки</button>
@@ -693,6 +695,20 @@
                     </div>
                     <h4 class="text-sm font-bold text-slate-800 dark:text-white mb-2" data-lang="your_recordings">Список ваших записей:</h4>
                     <div id="cabinet-sounds-list" class="space-y-3"></div>
+                </div>
+
+                <div id="cab-panel-quests" data-cab-panel="quests" class="hidden space-y-5">
+                    <div id="cab-quests-hero"></div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 dark:text-white mb-1" data-lang="quests_active"><i class="fa-solid fa-list-check mr-1.5 text-amber-500"></i>Активные задания</h4>
+                        <p class="text-sm text-slate-600 dark:text-slate-300 mb-3" data-lang="quests_active_hint">Выполняйте практику полевой записи — опыт начисляется автоматически.</p>
+                        <div id="cab-quests-list" class="space-y-3"></div>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 dark:text-white mb-1" data-lang="quests_achievements"><i class="fa-solid fa-trophy mr-1.5 text-amber-500"></i>Достижения</h4>
+                        <p class="text-sm text-slate-600 dark:text-slate-300 mb-3" data-lang="quests_achievements_hint">Вехи развития рекордиста. Открытые показываются в публичном профиле.</p>
+                        <div id="cab-achievements-grid" class="ach-grid"></div>
+                    </div>
                 </div>
 
                 <div id="cab-panel-sessions" data-cab-panel="sessions" class="hidden space-y-4">
@@ -1122,6 +1138,7 @@
                         <span id="pp-joined" class="inline-flex items-center gap-1 mt-1 text-[10px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full"><i class="fa-solid fa-calendar-days"></i>—</span>
                         <p id="pp-bio" class="hidden text-sm text-slate-600 dark:text-slate-300 mt-2 leading-relaxed max-w-md"></p>
                         <div id="pp-badges" class="hidden flex flex-wrap gap-1.5 mt-2"></div>
+                        <span id="pp-level-chip" class="hidden inline-flex items-center gap-1.5 mt-2 text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-2.5 py-1 rounded-full"><i class="fa-solid fa-bolt"></i>Ур. 1</span>
                         <div id="pp-follow-stats" class="pp-follow-stats">
                             <button type="button" id="pp-followers-btn" class="pp-follow-stat" onclick="window.openFollowList('followers')"><strong id="pp-followers-count">0</strong> <span data-lang="followers">подписчиков</span></button>
                             <button type="button" id="pp-following-btn" class="pp-follow-stat" onclick="window.openFollowList('following')"><strong id="pp-following-count">0</strong> <span data-lang="following">подписок</span></button>
@@ -1158,6 +1175,8 @@
                 </div>
 
                 <div id="pp-links" class="hidden flex flex-wrap gap-2"></div>
+
+                <div id="pp-achievements" class="hidden"></div>
 
                 <div>
                     <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2"><i class="fa-solid fa-walkie-talkie mr-1"></i>Оборудование</p>
@@ -1707,7 +1726,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260717k"></script>
+    <script type="module" src="./src/main.js?v=20260717l"></script>
 
 </body>
 </html>

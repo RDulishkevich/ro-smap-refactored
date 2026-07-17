@@ -232,5 +232,6 @@
         if (nextBtn) nextBtn.classList.remove('hidden');
         const hint = document.getElementById('guessr-hint');
         if (hint) hint.textContent = 'Красная точка — настоящее место записи';
+        if (window.noteGuessrScore) window.noteGuessrScore(pts);
     };
 })();

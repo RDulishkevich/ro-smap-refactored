@@ -178,6 +178,7 @@ export function initAuth() {
         window.currentUser.links = profile.links || [];
         window.currentUser.gear = profile.gear || [];
         window.currentUser.badges = profile.badges || [];
+        window.currentUser.progress = profile.progress || window.currentUser.progress || window.getEmptyProgress?.() || { xp: 0, achievements: [], completedQuests: [], guessrBestScore: 0 };
         window.currentUser.joinedAt = profile.joinedAt || window.currentUser.joinedAt;
         window.currentUser.email = profile.email || window.currentUser.email || '';
         window.currentUser.emailVerified = !!profile.emailVerified;
@@ -220,6 +221,7 @@ export function initAuth() {
             links: window.currentUser.links || [],
             gear: window.currentUser.gear || [],
             badges: window.currentUser.badges || [],
+            progress: window.currentUser.progress || prev.progress || { xp: 0, achievements: [], completedQuests: [], guessrBestScore: 0 },
             email: window.currentUser.email || '',
             emailVerified: !!window.currentUser.emailVerified,
             joinedAt: window.currentUser.joinedAt || prev.joinedAt || new Date().toISOString(),
@@ -816,6 +818,8 @@ export function initAuth() {
             if (window.renderSessionsPanel) window.renderSessionsPanel();
             if (window.renderSidebarExpeditions) window.renderSidebarExpeditions();
 
+            if (!isEdit && window.evaluateFieldProgress) window.evaluateFieldProgress();
+
             const newlyAdded = participants.filter(p => !prevParticipants.has(p) && p !== login);
             if (newlyAdded.length && window.pushNotifications) {
                 window.pushNotifications(newlyAdded, {
@@ -1062,7 +1066,9 @@ export function initAuth() {
             }
             if (fallback) fallback.classList.add('hidden');
             window.currentUser = window.currentUser || {};
-            if (window.saveMyProfile) window.saveMyProfile({ avatar: e.target.result });
+            if (window.saveMyProfile) window.saveMyProfile({ avatar: e.target.result }).then(() => {
+                if (window.evaluateFieldProgress) window.evaluateFieldProgress();
+            });
             else { window.currentUser.avatar = e.target.result; localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser)); }
             window.showToast('Фото профиля обновлено');
         };
@@ -1153,6 +1159,11 @@ export function initAuth() {
 
         if (tab === 'sounds') {
             window.renderCabinet();
+        } else if (tab === 'quests') {
+            if (window.evaluateFieldProgress) window.evaluateFieldProgress({ refreshUi: false }).then(() => {
+                if (window.renderQuestsPanel) window.renderQuestsPanel();
+            });
+            else if (window.renderQuestsPanel) window.renderQuestsPanel();
         } else if (tab === 'sessions') {
             if (window.renderSessionsPanel) window.renderSessionsPanel();
         } else if (tab === 'analytics') {
@@ -1227,6 +1238,7 @@ export function initAuth() {
         }
         
         window.refreshCabinetTabs();
+        if (window.refreshCabinetProgressChip) window.refreshCabinetProgressChip();
 
         document.getElementById('cabinet-stat-count').textContent = mySounds.length;
         
@@ -3012,6 +3024,7 @@ export function initAuth() {
         window.showToast('Сохранение профиля...');
         const ok = await window.saveMyProfile({ bio, gear, links });
         window.showToast(ok ? 'Профиль обновлён' : 'Не удалось сохранить профиль');
+        if (ok && window.evaluateFieldProgress) window.evaluateFieldProgress();
     };
 
     // --- Привязка email с кодом подтверждения ---
