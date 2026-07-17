@@ -191,11 +191,13 @@ function rateLimit(key, limit = 60, windowMs = 60000) {
 
 function actionRateLimit(action, ip, login = '') {
     const base = String(ip || 'unknown');
-    if (action === 'register' && !rateLimit(`reg:${base}`, 5, 60000)) return false;
-    if (action === 'login' && !rateLimit(`login:${base}`, 30, 60000)) return false;
-    if ((action === 'sync' || action === 'commit') && !rateLimit(`sync:${base}:${login || 'anon'}`, 40, 60000)) return false;
-    if (action === 'presign' && !rateLimit(`presign:${base}:${login || 'anon'}`, 60, 60000)) return false;
-    if (action === 'patchSound' && !rateLimit(`patch:${base}:${login || 'anon'}`, 90, 60000)) return false;
+    const who = login || base;
+    if (action === 'register' && !rateLimit(`reg:${base}`, 8, 60000)) return false;
+    if (action === 'login' && !rateLimit(`login:${base}`, 40, 60000)) return false;
+    // Authenticated write budget — keyed by login so shared NAT doesn't starve one user.
+    if ((action === 'sync' || action === 'commit') && !rateLimit(`sync:${who}`, 120, 60000)) return false;
+    if (action === 'presign' && !rateLimit(`presign:${who}`, 90, 60000)) return false;
+    if (action === 'patchSound' && !rateLimit(`patch:${who}`, 180, 60000)) return false;
     return true;
 }
 
@@ -1105,9 +1107,6 @@ exports.handler = async function handler(event = {}) {
 
     const ip = getHeader(event, 'x-forwarded-for') || event.requestContext?.identity?.sourceIp || 'unknown';
     const ipKey = String(ip).split(',')[0].trim();
-    if (!rateLimit(`ip:${ipKey}`, 120, 60000)) {
-        return respond(429, { ok: false, error: 'rate_limited' });
-    }
 
     if (!JWT_SECRET || !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
         return respond(500, { ok: false, error: 'server_misconfigured' });
@@ -1116,11 +1115,17 @@ exports.handler = async function handler(event = {}) {
     const body = parseBody(event);
     // Legacy client shape { fileName, contentType } without action → reject (force upgrade)
     const action = body.action || (body.fileName && body.contentType && !body.data ? 'legacy_presign' : '');
+
+    // health is free (probe); everything else shares a generous per-IP ceiling
+    if (action !== 'health' && !rateLimit(`ip:${ipKey}`, 360, 60000)) {
+        return respond(429, { ok: false, error: 'rate_limited' });
+    }
+
     const tokenPayload = (action === 'sync' || action === 'commit' || action === 'presign' || action === 'me' || action === 'changePassword' || action === 'patchSound')
         ? verifyJwt(extractToken(event, body))
         : null;
     if (!actionRateLimit(action, ipKey, tokenPayload?.login || '')) {
-        return respond(429, { ok: false, error: 'rate_limited' });
+        return respond(429, { ok: false, error: 'rate_limited', message: 'Too many requests, retry shortly' });
     }
 
     try {

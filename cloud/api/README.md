@@ -39,7 +39,7 @@
 | Тело `sync` | ~2.5 MB (иначе staging+commit) |
 | Inbox / notifications | 200 / 100 записей |
 | Текст сообщения | 4000 символов |
-| Rate limit | IP 120/мин; register 5; login 30; sync 40; presign 60 |
+| Rate limit | IP 360/мин (без health); sync/commit 120; patchSound 180; presign 90 |
 
 ## Переменные окружения функции
 

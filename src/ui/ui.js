@@ -1481,6 +1481,12 @@ window.syncCloudData = async function(newCloudData, fileName = "map_data.json") 
                 window.showToast('Сессия истекла — войдите снова');
                 if (window.clearAuthSession) window.clearAuthSession();
                 if (window.openAuthModal) window.openAuthModal();
+            } else if (e && (e.code === 'rate_limited' || e.status === 429)) {
+                const now = Date.now();
+                if (!window.__lastRateLimitToast || now - window.__lastRateLimitToast > 8000) {
+                    window.__lastRateLimitToast = now;
+                    window.showToast('Слишком много запросов — подождите немного');
+                }
             } else {
                 const detail = (e && (e.message || e.code)) ? String(e.message || e.code) : '';
                 window.showToast(detail && detail.length < 80
@@ -1506,7 +1512,17 @@ window.syncProfilesData = async function(newProfiles) {
             : mail;
 
         const mailKey = window.fingerprintDataset(mail);
-        if (mailKey !== window.__lastMailPollKey) {
+        const cardsKey = window.fingerprintDataset(cards);
+        const mailChanged = mailKey !== window.__lastMailPollKey;
+        const cardsChanged = cardsKey !== window.__lastProfilesPollKey;
+
+        // No-op: avoid burning sync rate limit on identical snapshots.
+        if (!mailChanged && !cardsChanged) {
+            window.applyProfilesAndMailSnapshot(cards, mergedMail);
+            return true;
+        }
+
+        if (mailChanged) {
             const mailOk = await window.syncCloudData(mail, "mail.json");
             if (!mailOk) return false;
             mergedMail = (window.__lastMergedUpload && window.__lastMergedUpload.fileName === "mail.json"
@@ -1516,17 +1532,20 @@ window.syncProfilesData = async function(newProfiles) {
             window.__lastMailWriteAt = Date.now();
         }
 
-        const success = await window.syncCloudData(cards, "profiles.json");
-        if (success) {
+        if (cardsChanged) {
+            const success = await window.syncCloudData(cards, "profiles.json");
+            if (!success) return false;
             const mergedCards = (window.__lastMergedUpload && window.__lastMergedUpload.fileName === "profiles.json"
                 && Array.isArray(window.__lastMergedUpload.data))
                 ? window.__lastMergedUpload.data
                 : cards;
             window.applyProfilesAndMailSnapshot(mergedCards, mergedMail);
-            if (window.refreshNotificationsUI) window.refreshNotificationsUI();
-            if (window.refreshMessagesUI) window.refreshMessagesUI();
+        } else {
+            window.applyProfilesAndMailSnapshot(cards, mergedMail);
         }
-        return success;
+        if (window.refreshNotificationsUI) window.refreshNotificationsUI();
+        if (window.refreshMessagesUI) window.refreshMessagesUI();
+        return true;
     } finally {
         window.__cloudWriteDepth = Math.max(0, window.__cloudWriteDepth - 1);
     }
@@ -3649,10 +3668,27 @@ window.__flushCounterCloudSync = async function() {
             const res = await window.apiPatchSound(soundId, payload);
             if (res && res.sound) window.applySoundSocialFields(res.sound);
         } catch (err) {
-            // Fallback for undeployed API: one full sync of local cache
-            if (err && (err.code === 'unknown_action' || err.status === 400)) {
+            // Only fall back to full sync when the API build is too old (no patchSound).
+            // Never escalate rate_limited → full sync (makes the storm worse).
+            if (err && err.code === 'unknown_action') {
                 if (Array.isArray(window.cloudDataCache)) {
                     await window.syncCloudData([...window.cloudDataCache]).catch(() => {});
+                }
+                return;
+            }
+            if (err && (err.code === 'rate_limited' || err.status === 429)) {
+                // re-queue with longer backoff — don't storm the API
+                const prev = window.__pendingMetricPatches.get(soundId) || {};
+                window.__pendingMetricPatches.set(soundId, {
+                    incPlays: (prev.incPlays || 0) + (payload.incPlays || 0),
+                    incDownloads: (prev.incDownloads || 0) + (payload.incDownloads || 0)
+                });
+                window.__counterSyncDirty = true;
+                if (!window.__counterSyncTimer) {
+                    window.__counterSyncTimer = setTimeout(() => {
+                        window.__counterSyncTimer = null;
+                        window.__flushCounterCloudSync();
+                    }, 15000);
                 }
                 return;
             }
@@ -4086,11 +4122,17 @@ window.toggleSoundReaction = async function(kind) {
             window.renderDetailsReactions(updated);
         }
     } catch (err) {
-        if (err && (err.code === 'unknown_action' || err.status === 400)) {
+        if (err && err.code === 'unknown_action') {
             const updatedCloud = [...window.cloudDataCache];
             const idx = updatedCloud.findIndex(x => x.id === s.id);
             if (idx >= 0) updatedCloud[idx] = s; else updatedCloud.push(s);
             await window.syncCloudData(updatedCloud);
+        } else if (err && (err.code === 'rate_limited' || err.status === 429)) {
+            const now = Date.now();
+            if (!window.__lastRateLimitToast || now - window.__lastRateLimitToast > 8000) {
+                window.__lastRateLimitToast = now;
+                window.showToast('Слишком много запросов — подождите немного');
+            }
         } else {
             console.warn('patchSound reaction failed', err);
             window.showToast('Не удалось сохранить оценку');
