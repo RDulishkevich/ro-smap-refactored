@@ -1,26 +1,26 @@
-import { initGlobalState } from './state.js?v=20260718am';
-import './api.js?v=20260718am';
-import { initAuth } from './auth.js?v=20260718am';
+import { initGlobalState } from './state.js?v=20260718an';
+import './api.js?v=20260718an';
+import { initAuth } from './auth.js?v=20260718an';
 
-import './sfx.js?v=20260718am';
-import './antispam.js?v=20260718am';
-import '../ui/ui.js?v=20260718am';
-import './audio.js?v=20260718am';
-import './map.js?v=20260718am';
-import './mapbox-map.js?v=20260718am';
-import './dgis-map.js?v=20260718am';
-import './google-earth-map.js?v=20260718am';
-import './achievements.js?v=20260718am';
-import './guessr.js?v=20260718am';
-import './admin-console.js?v=20260718am';
-import './support-bot.js?v=20260718am';
-import './events.js?v=20260718am';
-import './ucsName.js?v=20260718am';
-import './wavMeta.js?v=20260718am';
-import './wavReadMeta.js?v=20260718am';
-import '../data/publishRules.js?v=20260718am';
-import '../data/gearCatalog.js?v=20260718am';
-import '../widgets/analytics-widget.js?v=20260718am';
+import './sfx.js?v=20260718an';
+import './antispam.js?v=20260718an';
+import '../ui/ui.js?v=20260718an';
+import './audio.js?v=20260718an';
+import './map.js?v=20260718an';
+import './mapbox-map.js?v=20260718an';
+import './dgis-map.js?v=20260718an';
+import './google-earth-map.js?v=20260718an';
+import './achievements.js?v=20260718an';
+import './guessr.js?v=20260718an';
+import './admin-console.js?v=20260718an';
+import './support-bot.js?v=20260718an';
+import './events.js?v=20260718an';
+import './ucsName.js?v=20260718an';
+import './wavMeta.js?v=20260718an';
+import './wavReadMeta.js?v=20260718an';
+import '../data/publishRules.js?v=20260718an';
+import '../data/gearCatalog.js?v=20260718an';
+import '../widgets/analytics-widget.js?v=20260718an';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;
