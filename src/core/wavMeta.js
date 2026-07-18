@@ -124,8 +124,13 @@ function buildIxml(meta) {
             UCS_SUBCATEGORY_NAME: meta.subCategoryName || '',
             UCS_FXNAME: meta.fxName || '',
             UCS_CREATORID: meta.creatorId || '',
-            UCS_SOURCEID: meta.sourceId || 'ROSMAP',
+            UCS_SOURCEID: meta.projectId || meta.sourceId || 'NONE',
             UCS_FILENAME: meta.fileName || '',
+            // Platform identity — inside file only, never in UCS filename
+            PLATFORM_ID: meta.platformId || 'ROSMAP',
+            SOUND_ID: meta.soundId || '',
+            PROJECT_ID: meta.projectId || meta.sourceId || 'NONE',
+            SESSION_ID: meta.sessionId || '',
             // Content
             TITLE: meta.title || '',
             DISPLAY_TITLE: meta.title || '',
@@ -152,8 +157,6 @@ function buildIxml(meta) {
             RECORDIST: meta.recordist || '',
             RECORDIST_ID: meta.recordistId || meta.creatorId || '',
             DURATION: meta.duration || '',
-            SESSION_ID: meta.sessionId || '',
-            SOUND_ID: meta.soundId || '',
             ROUTE: meta.routeJson || '',
             // Full snapshot for round-trip
             ROSMAP_JSON: payload ? JSON.stringify(payload) : ''

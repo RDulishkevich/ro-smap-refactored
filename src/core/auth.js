@@ -361,6 +361,16 @@ export function initAuth() {
         const s = window.soundsData.find(x => x.id === soundId);
         if (!s) return false;
         s.sessionId = sessionId || null;
+        if (window.buildUcsFileName && window.resolveProjectSourceId) {
+            s.fileName = window.buildUcsFileName({
+                catId: s.typeTag || 'AMBMisc',
+                fxName: s.fxName || s.title || 'Untitled',
+                creatorId: s.recordistId || s.recordist || 'Anon',
+                sourceId: window.resolveProjectSourceId(sessionId),
+                channels: s.channels,
+                location: s.location
+            });
+        }
         const updatedCloud = [...window.cloudDataCache];
         const idx = updatedCloud.findIndex(x => x.id === soundId);
         if (idx >= 0) updatedCloud[idx] = s; else updatedCloud.push(s);
@@ -379,13 +389,32 @@ export function initAuth() {
         const updatedCloud = [...window.cloudDataCache];
         drafts.forEach(s => {
             s.status = 'pending';
+            s.rejectionReason = '';
+            s.seenByAuthor = true;
             const idx = updatedCloud.findIndex(x => x.id === s.id);
             if (idx >= 0) updatedCloud[idx] = s; else updatedCloud.push(s);
         });
 
         window.showToast('Публикация записей экспедиции...');
         const success = await window.syncCloudData(updatedCloud);
-        if (success) { window.showToast(`Отправлено на модерацию: ${drafts.length}`); window.renderSessionsPanel(); }
+        if (success) {
+            window.showToast(`Отправлено на модерацию: ${drafts.length}`);
+            window.renderSessionsPanel();
+            if (window.pushNotifications) {
+                for (const s of drafts) {
+                    window.pushNotifications([login], {
+                        type: 'moderation',
+                        text: `Запись «${s.title}» отправлена на модерацию`,
+                        fromId: null,
+                        fromName: 'RO.SMap',
+                        soundId: s.id,
+                        soundTitle: s.title,
+                        action: 'edit',
+                        moderationStatus: 'pending'
+                    });
+                }
+            }
+        }
     };
 
     window.renderSessionsPanel = function() {
@@ -1480,12 +1509,15 @@ export function initAuth() {
         const sessionOptions = sel => '<option value="">Без сессии</option>' +
             mySessions.map(sess => `<option value="${sess.id}" ${sel === sess.id ? 'selected' : ''}>${sess.title}</option>`).join('');
 
+        const isReturnedDraft = (s) => s.status === 'draft' && !!(s.rejectionReason || '').trim();
+        const isRejectedLike = (s) => s.status === 'rejected' || isReturnedDraft(s);
+
         // "Уведомление о новых статусах": если админ поменял статус записи с момента последнего
         // визита в кабинет (seenByAuthor === false), показываем тост один раз и гасим флаг.
         const unseen = mySounds.filter(s => s.seenByAuthor === false);
         if (unseen.length > 0) {
             const approved = unseen.filter(s => s.status === 'published').length;
-            const rejected = unseen.filter(s => s.status === 'rejected').length;
+            const rejected = unseen.filter(s => isRejectedLike(s)).length;
             const parts = [];
             if (approved) parts.push(`${approved} одобрено`);
             if (rejected) parts.push(`${rejected} отклонено`);
@@ -1503,8 +1535,8 @@ export function initAuth() {
         }
 
         const pendingN = mySounds.filter(s => s.status === 'pending').length;
-        const rejectedN = mySounds.filter(s => s.status === 'rejected').length;
-        const draftN = mySounds.filter(s => s.status === 'draft').length;
+        const rejectedN = mySounds.filter(s => isRejectedLike(s)).length;
+        const draftN = mySounds.filter(s => s.status === 'draft' && !isReturnedDraft(s)).length;
         const statusSummaryEl = document.getElementById('cabinet-moderation-summary');
         if (statusSummaryEl) {
             if (pendingN || rejectedN || draftN) {
@@ -1524,7 +1556,10 @@ export function initAuth() {
 
         list.innerHTML = mySounds.map(s => {
             const isHardcoded = window.rawSoundsData.map(r => r.id).includes(s.id);
-            const st = window.STATUS_LABELS[s.status] || window.STATUS_LABELS.published;
+            const returned = isReturnedDraft(s);
+            const st = returned
+                ? { label: 'Отклонено → черновик', cls: 'pub-status-rejected' }
+                : (window.STATUS_LABELS[s.status] || window.STATUS_LABELS.published);
             const canResubmit = s.status === 'rejected' || s.status === 'draft';
             return `
             <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow gap-3">
@@ -1539,7 +1574,7 @@ export function initAuth() {
                             <span class="text-[10px] text-slate-500 font-mono bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded truncate max-w-[120px] sm:max-w-none">${s.fileName}</span>
                             ${isHardcoded ? `<span class="text-[8px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded uppercase tracking-wider">Вшито</span>` : ''}
                         </div>
-                        ${s.status === 'rejected' && s.rejectionReason ? `<p class="text-[11px] text-red-600 dark:text-red-400 mt-1 leading-snug"><i class="fa-solid fa-circle-exclamation mr-1"></i>${s.rejectionReason}</p>` : ''}
+                        ${isRejectedLike(s) && s.rejectionReason ? `<p class="text-[11px] text-red-600 dark:text-red-400 mt-1 leading-snug"><i class="fa-solid fa-circle-exclamation mr-1"></i>${s.rejectionReason}</p>` : ''}
                         <select onchange="window.assignSoundToSession('${s.id}', this.value)" class="mt-1.5 text-[10px] font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 px-1.5 py-1 max-w-[180px]" title="Привязать к экспедиции">
                             ${sessionOptions(s.sessionId)}
                         </select>
@@ -1577,8 +1612,11 @@ export function initAuth() {
         if(!list) return;
 
         const rawIds = window.rawSoundsData.map(s => s.id);
+        const isReturnedDraft = (s) => s.status === 'draft' && !!(s.rejectionReason || '').trim();
+        const isRejectedLike = (s) => s.status === 'rejected' || isReturnedDraft(s);
+
         const pendingCount = window.soundsData.filter(s => s.status === 'pending').length;
-        const rejectedCount = window.soundsData.filter(s => s.status === 'rejected').length;
+        const rejectedCount = window.soundsData.filter(s => isRejectedLike(s)).length;
         const countEl = document.getElementById('admin-filter-pending-count');
         if (countEl) countEl.textContent = pendingCount;
         const rejectedCountEl = document.getElementById('admin-filter-rejected-count');
@@ -1588,7 +1626,7 @@ export function initAuth() {
         const filterMode = window.__adminListFilter || 'all';
         let sounds = window.soundsData.slice();
         if (filterMode === 'pending') sounds = sounds.filter(s => s.status === 'pending');
-        else if (filterMode === 'rejected') sounds = sounds.filter(s => s.status === 'rejected');
+        else if (filterMode === 'rejected') sounds = sounds.filter(s => isRejectedLike(s));
 
         // Очередь: сначала самые старые (дольше ждут)
         if (filterMode === 'pending' || filterMode === 'rejected') {
@@ -1612,14 +1650,17 @@ export function initAuth() {
             const isHardcoded = rawIds.includes(s.id);
             const status = s.status || 'published';
             const num = s.archiveNum || '—';
-            const statusLabel = ({ published: 'Опубликовано', pending: 'На модерации', rejected: 'Отклонено', draft: 'Черновик' })[status] || status;
+            const returned = status === 'draft' && !!(s.rejectionReason || '').trim();
+            const statusLabel = returned
+                ? 'Отклонено → черновик'
+                : (({ published: 'Опубликовано', pending: 'На модерации', rejected: 'Отклонено', draft: 'Черновик' })[status] || status);
             return `
                 <div class="admin-entity-row">
                     <button type="button" class="admin-entity-main min-w-0 flex-1 text-left" onclick="window.openedFromAdmin=true; window.closeCabinet(); window.selectSound('${s.id}'); window.openDetailsModal();">
                         <p class="admin-entity-num">№ ${num}${isHardcoded ? ' · вшито' : ''} · ID ${s.id}</p>
                         <p class="admin-entity-title">${s.title || 'Без названия'}</p>
                         <p class="admin-entity-meta">${s.fileName || ''} · ${s.recordist || 'Автор'} · ${statusLabel}</p>
-                        ${status === 'rejected' && s.rejectionReason ? `<p class="text-[11px] text-red-500 mt-0.5 line-clamp-2"><i class="fa-solid fa-circle-exclamation mr-1"></i>${s.rejectionReason}</p>` : ''}
+                        ${(status === 'rejected' || returned) && s.rejectionReason ? `<p class="text-[11px] text-red-500 mt-0.5 line-clamp-2"><i class="fa-solid fa-circle-exclamation mr-1"></i>${s.rejectionReason}</p>` : ''}
                     </button>
                     <button type="button" onclick="event.stopPropagation(); window.openAdminSoundActions('${s.id}', event)" class="admin-actions-btn shrink-0"><i class="fa-solid fa-ellipsis"></i> Действия</button>
                 </div>
@@ -1701,10 +1742,11 @@ export function initAuth() {
         if (!s) return;
 
         let reason = s.rejectionReason || '';
+        let nextStatus = status;
         if (status === 'rejected') {
             const input = await window.CustomUI.open({
                 title: '<i class="fa-solid fa-circle-exclamation mr-2 text-red-500"></i>Причина отклонения',
-                message: 'Она будет показана автору записи в его личном кабинете.',
+                message: 'Запись вернётся автору в черновик. Причина будет в уведомлении и в кабинете.',
                 confirmText: 'Отклонить',
                 confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md',
                 showInput: true,
@@ -1716,20 +1758,28 @@ export function initAuth() {
                 window.showToast('Укажите причину отклонения');
                 return;
             }
+            // Returned to author as draft for fixes + resubmit
+            nextStatus = 'draft';
         } else {
             reason = '';
         }
 
-        s.status = status;
+        s.status = nextStatus;
         s.rejectionReason = reason;
         s.seenByAuthor = false;
         const updatedCloud = [...window.cloudDataCache];
         const idx = updatedCloud.findIndex(x => x.id === id);
-        if (idx >= 0) updatedCloud[idx] = { ...updatedCloud[idx], status, rejectionReason: reason, seenByAuthor: false };
+        if (idx >= 0) updatedCloud[idx] = { ...updatedCloud[idx], status: nextStatus, rejectionReason: reason, seenByAuthor: false };
         else updatedCloud.push(s);
         const success = await window.syncCloudData(updatedCloud);
         if (success) {
-            window.showToast(status === 'published' ? 'Запись опубликована' : (status === 'rejected' ? 'Запись отклонена' : 'Статус обновлён'));
+            window.showToast(
+                status === 'published'
+                    ? 'Запись опубликована'
+                    : (status === 'rejected'
+                        ? 'Запись отклонена и возвращена в черновик'
+                        : 'Статус обновлён')
+            );
             window.renderAdminList();
             if (s.recordistId && window.pushNotifications) {
                 const adminLogin = window.currentUser?.loginName || 'admin';
@@ -1740,17 +1790,21 @@ export function initAuth() {
                         fromId: adminLogin,
                         fromName: window.currentUser?.username || 'Администратор',
                         soundId: s.id,
-                        soundTitle: s.title
+                        soundTitle: s.title,
+                        moderationStatus: 'published'
                     });
                     if (window.notifyFollowersAboutNewSound) window.notifyFollowersAboutNewSound(s);
                 } else if (status === 'rejected') {
                     window.pushNotifications([s.recordistId], {
                         type: 'moderation',
-                        text: `Ваша запись «${s.title}» отклонена${reason ? ': ' + reason : ''}`,
+                        text: `Ваша запись «${s.title}» отклонена и возвращена в черновик${reason ? ': ' + reason : ''}`,
                         fromId: adminLogin,
                         fromName: window.currentUser?.username || 'Администратор',
                         soundId: s.id,
-                        soundTitle: s.title
+                        soundTitle: s.title,
+                        action: 'edit',
+                        moderationStatus: 'rejected',
+                        rejectionReason: reason
                     });
                 }
             }
@@ -2520,6 +2574,9 @@ export function initAuth() {
             fromName: payload.fromName || '',
             soundId: payload.soundId || null,
             soundTitle: payload.soundTitle || '',
+            action: payload.action || null,
+            moderationStatus: payload.moderationStatus || null,
+            rejectionReason: payload.rejectionReason || null,
             date: new Date().toISOString(),
             read: false
         };
@@ -2671,9 +2728,18 @@ export function initAuth() {
         if (panel) panel.classList.add('hidden');
 
         if (n.soundId) {
-            window.selectSound(n.soundId);
-            if (n.type === 'comment' || n.type === 'reply' || n.type === 'report' || n.type === 'reaction' || n.type === 'moderation' || n.type === 'like' || n.type === 'dislike') {
-                setTimeout(() => window.openDetailsModal(), 200);
+            const sound = (window.soundsData || []).find((x) => x.id === n.soundId);
+            const openAsEdit = n.action === 'edit'
+                || n.moderationStatus === 'rejected'
+                || n.moderationStatus === 'pending'
+                || (sound && (sound.status === 'draft' || sound.status === 'rejected' || sound.status === 'pending'));
+            if (n.type === 'moderation' && openAsEdit && window.editSound) {
+                window.editSound(n.soundId);
+            } else {
+                window.selectSound(n.soundId);
+                if (n.type === 'comment' || n.type === 'reply' || n.type === 'report' || n.type === 'reaction' || n.type === 'moderation' || n.type === 'like' || n.type === 'dislike' || n.type === 'new_sound') {
+                    setTimeout(() => window.openDetailsModal(), 200);
+                }
             }
         } else if (n.fromId && (n.type === 'message' || n.type === 'reaction')) {
             window.openMessagesModal(n.fromId);

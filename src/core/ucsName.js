@@ -6,8 +6,12 @@
 
 import { sourceIdMap } from '../data/dict.js';
 
-export const UCS_SOURCE_ID = 'ROSMAP';
+/** Platform library tag — embedded in WAV metadata only, never in the UCS filename. */
+export const UCS_PLATFORM_ID = 'ROSMAP';
+/** @deprecated use UCS_PLATFORM_ID — kept for older callers */
+export const UCS_SOURCE_ID = UCS_PLATFORM_ID;
 export const UCS_FXNAME_MAX = 48;
+export const UCS_PROJECT_MAX = 24;
 
 const CYR_MAP = {
     Ё: 'Yo', Й: 'I', Ц: 'Ts', У: 'U', К: 'K', Е: 'E', Н: 'N', Г: 'G', Ш: 'Sh', Щ: 'Sch', З: 'Z', Х: 'H', Ъ: '',
@@ -53,6 +57,21 @@ export function sanitizeUserDataPart(raw) {
     return s;
 }
 
+/**
+ * UCS SourceID = project from expedition/session title.
+ * Without an expedition → NONE. Platform id (ROSMAP) is metadata-only.
+ */
+export function resolveProjectSourceId(sessionId, sessionTitle) {
+    let title = sessionTitle || '';
+    if (!title && sessionId && typeof window !== 'undefined' && window.findSessionById) {
+        const session = window.findSessionById(sessionId);
+        title = session?.title || '';
+    }
+    if (!title) return 'NONE';
+    const project = sanitizeIdBlock(title, 'NONE').slice(0, UCS_PROJECT_MAX);
+    return project || 'NONE';
+}
+
 export function buildUcsFileName(opts = {}) {
     const catId = sanitizeIdBlock(opts.catId || 'AMBMisc', 'AMBMisc');
     const userCat = opts.userCategory
@@ -62,7 +81,10 @@ export function buildUcsFileName(opts = {}) {
 
     const fxName = sanitizeFxName(opts.fxName || 'Untitled');
     const creatorId = sanitizeIdBlock(opts.creatorId || 'Anon', 'Anon');
-    const sourceId = sanitizeIdBlock(opts.sourceId || UCS_SOURCE_ID, UCS_SOURCE_ID);
+    const sourceId = sanitizeIdBlock(
+        opts.sourceId || opts.projectId || 'NONE',
+        'NONE'
+    );
 
     const channelCode = sourceIdMap[opts.channels] || sanitizeUserDataPart(opts.channels) || '';
     const locSlug = sanitizeUserDataPart(opts.location || '').slice(0, 16);
@@ -80,11 +102,14 @@ export function collectUcsNameFromForm() {
         || window.currentUser?.loginName
         || window.currentUser?.username
         || 'Anon';
+    const sessionId = val('add-session');
+    const projectId = resolveProjectSourceId(sessionId);
     return buildUcsFileName({
         catId: val('add-subcat') || 'AMBMisc',
         fxName: val('add-user-defined') || 'Untitled',
         creatorId: recordist,
-        sourceId: UCS_SOURCE_ID,
+        sourceId: projectId,
+        projectId,
         channels: val('add-channels'),
         location: val('add-loc')
     });
@@ -92,7 +117,9 @@ export function collectUcsNameFromForm() {
 
 if (typeof window !== 'undefined') {
     window.UCS_SOURCE_ID = UCS_SOURCE_ID;
+    window.UCS_PLATFORM_ID = UCS_PLATFORM_ID;
     window.sanitizeFxName = sanitizeFxName;
     window.buildUcsFileName = buildUcsFileName;
+    window.resolveProjectSourceId = resolveProjectSourceId;
     window.collectUcsNameFromForm = collectUcsNameFromForm;
 }

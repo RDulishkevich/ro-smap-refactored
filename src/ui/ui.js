@@ -4256,7 +4256,17 @@ window.downloadSound = async function(format) {
         window.showToast('Файл недоступен для скачивания.');
         return;
     }
-    const fileName = s.fileName || `${s.typeTag || 'sound'}_${s.id}.wav`;
+    // Prefer UCS fileName — never fall back to platform soundId in the download name
+    const fileName = s.fileName
+        || (window.buildUcsFileName && window.buildUcsFileName({
+            catId: s.typeTag,
+            fxName: s.title,
+            creatorId: s.recordistId || s.recordist,
+            sourceId: window.resolveProjectSourceId ? window.resolveProjectSourceId(s.sessionId) : 'NONE',
+            channels: s.channels,
+            location: s.location
+        }))
+        || 'recording.wav';
     try {
         const res = await fetch(s.url);
         if (!res.ok) throw new Error('fetch_failed');
@@ -4273,6 +4283,123 @@ window.downloadSound = async function(format) {
     } catch (_) {
         window.open(s.url, '_blank');
         window.incrementDownloadCount(s.id);
+    }
+};
+
+window.__loadJSZip = async function() {
+    if (window.JSZip) return window.JSZip;
+    await new Promise((resolve, reject) => {
+        const existing = document.querySelector('script[data-jszip]');
+        if (existing) {
+            existing.addEventListener('load', () => resolve());
+            existing.addEventListener('error', () => reject(new Error('jszip_load_failed')));
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+        script.async = true;
+        script.dataset.jszip = '1';
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('jszip_load_failed'));
+        document.head.appendChild(script);
+    });
+    if (!window.JSZip) throw new Error('jszip_unavailable');
+    return window.JSZip;
+};
+
+/** Download a ZIP of all published recordings that belong to an expedition/session. */
+window.downloadExpeditionArchive = async function(sessionId) {
+    const id = sessionId || window.__viewingExpeditionId;
+    const session = window.findSessionById ? window.findSessionById(id) : null;
+    if (!session) {
+        window.showToast('Экспедиция не найдена');
+        return;
+    }
+
+    const myLogin = window.currentUser?.loginName || String(window.currentUser?.username || '').toLowerCase();
+    const isOwner = myLogin && session.ownerId && String(session.ownerId).toLowerCase() === myLogin;
+    const isAdmin = window.isCurrentUserAdmin && window.isCurrentUserAdmin();
+
+    const sounds = (window.soundsData || []).filter((s) => {
+        if (s.sessionId !== session.id) return false;
+        if (!s.url || s.url.length < 10 || String(s.url).startsWith('blob:')) return false;
+        if (!s.status || s.status === 'published') return true;
+        return isOwner || isAdmin;
+    });
+
+    if (!sounds.length) {
+        window.showToast('Нет доступных записей для архива');
+        return;
+    }
+
+    const btn = document.getElementById('expedition-view-download-btn');
+    if (btn) btn.disabled = true;
+    window.showToast(`Сборка архива (${sounds.length})…`);
+
+    try {
+        const JSZip = await window.__loadJSZip();
+        const zip = new JSZip();
+        const usedNames = new Set();
+        let added = 0;
+
+        for (const s of sounds) {
+            try {
+                const res = await fetch(s.url);
+                if (!res.ok) continue;
+                const blob = await res.blob();
+                let name = s.fileName
+                    || (window.buildUcsFileName && window.buildUcsFileName({
+                        catId: s.typeTag,
+                        fxName: s.title,
+                        creatorId: s.recordistId || s.recordist,
+                        sourceId: window.resolveProjectSourceId
+                            ? window.resolveProjectSourceId(s.sessionId, session.title)
+                            : 'NONE',
+                        channels: s.channels,
+                        location: s.location
+                    }))
+                    || `recording_${added + 1}.wav`;
+                name = String(name).replace(/[\\/:*?"<>|]+/g, '_');
+                if (usedNames.has(name.toLowerCase())) {
+                    const dot = name.lastIndexOf('.');
+                    const base = dot > 0 ? name.slice(0, dot) : name;
+                    const ext = dot > 0 ? name.slice(dot) : '';
+                    let n = 2;
+                    while (usedNames.has(`${base}_${n}${ext}`.toLowerCase())) n += 1;
+                    name = `${base}_${n}${ext}`;
+                }
+                usedNames.add(name.toLowerCase());
+                zip.file(name, blob);
+                added += 1;
+            } catch (err) {
+                console.warn('expedition archive skip', s.id, err);
+            }
+        }
+
+        if (!added) {
+            window.showToast('Не удалось скачать файлы экспедиции');
+            return;
+        }
+
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const project = window.resolveProjectSourceId
+            ? window.resolveProjectSourceId(session.id, session.title)
+            : 'Expedition';
+        const zipName = `${project}_recordings.zip`;
+        const a = document.createElement('a');
+        const objUrl = URL.createObjectURL(zipBlob);
+        a.href = objUrl;
+        a.download = zipName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(objUrl), 4000);
+        window.showToast(`Архив готов: ${added} файл(ов)`);
+    } catch (err) {
+        console.error(err);
+        window.showToast('Не удалось собрать архив');
+    } finally {
+        if (btn) btn.disabled = false;
     }
 };
 
@@ -5059,7 +5186,7 @@ window.updateUcsSubcats = function(preferredCatId) {
 window.generateUCSFileName = function() {
     const name = window.collectUcsNameFromForm
         ? window.collectUcsNameFromForm()
-        : 'AMBMisc_Untitled_Anon_ROSMAP.wav';
+        : 'AMBMisc_Untitled_Anon_NONE.wav';
     const el = document.getElementById('add-file-name');
     if (el) el.value = name;
 };
@@ -5235,6 +5362,11 @@ window.collectAddFormEmbedMeta = function({ soundId, title, coords, fileName, lo
     const recordist = val('add-recordist') || window.currentUser?.username || login || '';
     const creatorId = login || window.currentUser?.loginName || recordist;
     const fxName = val('add-user-defined') || title || 'Untitled';
+    const sessionId = val('add-session') || null;
+    const projectId = window.resolveProjectSourceId
+        ? window.resolveProjectSourceId(sessionId)
+        : 'NONE';
+    const platformId = window.UCS_PLATFORM_ID || window.UCS_SOURCE_ID || 'ROSMAP';
     const payload = {
         id: soundId,
         title: title || '',
@@ -5259,10 +5391,12 @@ window.collectAddFormEmbedMeta = function({ soundId, title, coords, fileName, lo
         recordist,
         recordistId: creatorId,
         license: val('add-license'),
-        sessionId: val('add-session') || null,
+        sessionId,
+        projectId,
+        platformId,
         duration,
         route: route || undefined,
-        sourceId: window.UCS_SOURCE_ID || 'ROSMAP'
+        sourceId: projectId
     };
 
     return {
@@ -5281,7 +5415,10 @@ window.collectAddFormEmbedMeta = function({ soundId, title, coords, fileName, lo
         category,
         subCategory: catId,
         subCategoryName,
-        sourceId: payload.sourceId,
+        sourceId: projectId,
+        projectId,
+        platformId,
+        sessionId: sessionId || '',
         location: payload.location,
         lat: payload.lat,
         lng: payload.lng,
@@ -5294,7 +5431,6 @@ window.collectAddFormEmbedMeta = function({ soundId, title, coords, fileName, lo
         ecoCategory: payload.ecoCategory,
         weather: payload.weather,
         recPrinciple: payload.recPrinciple,
-        sessionId: payload.sessionId || '',
         duration,
         routeJson: route ? JSON.stringify(route) : '',
         originationDate: date,
@@ -5448,11 +5584,9 @@ window.publishSound = async function(targetStatus = 'pending') {
             dislikedBy: existing?.dislikedBy || [],
             reports: existing?.reports || [],
             rejectionReason: (() => {
-                if (targetStatus === 'draft') return '';
+                // Clear only when sending to moderation; keep reason while editing returned draft
+                if (targetStatus === 'pending') return '';
                 if (!isEdit) return '';
-                const prev = existing.status || 'published';
-                // Повторная отправка на модерацию — старую причину сбрасываем
-                if (prev === 'draft' || prev === 'rejected' || prev === 'pending') return '';
                 return existing?.rejectionReason || '';
             })(),
             seenByAuthor: true
@@ -5489,6 +5623,18 @@ window.publishSound = async function(targetStatus = 'pending') {
                     || 'Координаты {coords} успешно вшиты в метаданные файла.')
                     .replace('{coords}', coordsLabel);
                 window.showToast(metaMsg);
+            }
+            if (soundObj.status === 'pending' && window.pushNotifications) {
+                window.pushNotifications([login], {
+                    type: 'moderation',
+                    text: `Запись «${soundObj.title}» отправлена на модерацию`,
+                    fromId: null,
+                    fromName: 'RO.SMap',
+                    soundId: soundObj.id,
+                    soundTitle: soundObj.title,
+                    action: 'edit',
+                    moderationStatus: 'pending'
+                });
             }
             if (!isEdit && soundObj.status !== 'draft' && window.logUserActivity) {
                 window.logUserActivity({
