@@ -97,7 +97,9 @@ const ok = await window.CustomUI.open({
 // или строка, если showInput: true
 ```
 
-Черновик при закрытии: `confirmDiscardDraft(message)`.
+Черновик при закрытии: `confirmDiscardDraft(message)` / `requestCloseIfDirty(isDirty, message, closeFn)`.
+
+Модалки с вводом (добавление звука, экспедиция, пост, сообщения, ивент, auth, кабинет-профиль, настройки API-ключей, кадрирование, picker координат, CustomUI с `showInput`) **не закрываются кликом по фону без подтверждения**, если форма грязная. Backdrop у текстовых CustomUI-промптов игнорируется.
 
 ---
 

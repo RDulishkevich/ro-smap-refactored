@@ -33,6 +33,24 @@ export function initAuth() {
         setTimeout(() => { if(m.classList.contains('opacity-0')) m.classList.add('hidden') }, 300);
     };
 
+    window.isAuthFormDirty = function() {
+        const name = (document.getElementById('auth-username')?.value || '').trim();
+        const pass = (document.getElementById('auth-password')?.value || '').trim();
+        return !!(name || pass);
+    };
+
+    window.requestCloseAuthModal = async function() {
+        if (window.requestCloseIfDirty) {
+            return window.requestCloseIfDirty(
+                window.isAuthFormDirty,
+                'Введённые данные входа / регистрации будут сброшены.',
+                window.closeAuthModal
+            );
+        }
+        window.closeAuthModal();
+        return true;
+    };
+
     window.switchAuthTab = function(mode) {
         window.authMode = mode;
         const btnLogin = document.getElementById('auth-tab-login');
@@ -1124,6 +1142,7 @@ export function initAuth() {
         if (window.openDockView) {
             if (window.playSfx) window.playSfx('open');
             window.openDockView('settings');
+            setTimeout(() => { if (window.captureSettingsFormSnapshot) window.captureSettingsFormSnapshot(); }, 0);
             return;
         }
         const m = document.getElementById('settings-modal');
@@ -1135,6 +1154,7 @@ export function initAuth() {
         if (window.playSfx) window.playSfx('open');
         window.refreshSettingsUI();
         if (window.renderRegionStats) window.renderRegionStats('region-stats-grid');
+        if (window.captureSettingsFormSnapshot) window.captureSettingsFormSnapshot();
     };
 
     window.closeSettingsModal = function() {
@@ -1143,6 +1163,7 @@ export function initAuth() {
             if (window.playSfx) window.playSfx('close');
             if (window.undockSettingsContent) window.undockSettingsContent();
             if (window.openDockView) window.openDockView(window.__sidebarTab || 'library');
+            window.__settingsFormSnapshot = null;
             return;
         }
         const m = document.getElementById('settings-modal');
@@ -1151,6 +1172,34 @@ export function initAuth() {
         m.firstElementChild.classList.add('scale-95');
         if (window.playSfx) window.playSfx('close');
         setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
+        window.__settingsFormSnapshot = null;
+    };
+
+    window.captureSettingsFormSnapshot = function() {
+        window.__settingsFormSnapshot = {
+            dgis: document.getElementById('dgis-api-key-input')?.value ?? '',
+            google: document.getElementById('google-api-key-input')?.value ?? ''
+        };
+    };
+
+    window.isSettingsFormDirty = function() {
+        const snap = window.__settingsFormSnapshot;
+        if (!snap) return false;
+        const dgis = document.getElementById('dgis-api-key-input')?.value ?? '';
+        const google = document.getElementById('google-api-key-input')?.value ?? '';
+        return dgis !== snap.dgis || google !== snap.google;
+    };
+
+    window.requestCloseSettingsModal = async function() {
+        if (window.requestCloseIfDirty) {
+            return window.requestCloseIfDirty(
+                window.isSettingsFormDirty,
+                'Введённые API-ключи не сохранены.',
+                window.closeSettingsModal
+            );
+        }
+        window.closeSettingsModal();
+        return true;
     };
 
     window.refreshSettingsUI = function() {
@@ -1337,6 +1386,7 @@ export function initAuth() {
             if (window.__dockView === 'cabinet' && window.openDockView) {
                 window.openDockView(window.__sidebarTab || 'library');
             }
+            window.__cabinetFormSnapshot = null;
             return;
         }
         const m = document.getElementById('cabinet-modal');
@@ -1347,6 +1397,48 @@ export function initAuth() {
             if (wasOpen && window.playSfx) window.playSfx('close');
             setTimeout(() => { if(m.classList.contains('opacity-0')) m.classList.add('hidden') }, 300);
         }
+        window.__cabinetFormSnapshot = null;
+    };
+
+    window.captureCabinetFormSnapshot = function() {
+        const val = (id) => document.getElementById(id)?.value ?? '';
+        window.__cabinetFormSnapshot = {
+            name: val('profile-display-name'),
+            email: val('profile-email'),
+            bio: val('profile-bio'),
+            gear: val('profile-gear'),
+            links: val('profile-links')
+        };
+    };
+
+    window.isCabinetFormDirty = function() {
+        const pw = !!(
+            (document.getElementById('cab-current-password')?.value || '').trim()
+            || (document.getElementById('cab-new-password')?.value || '').trim()
+            || (document.getElementById('cab-confirm-password')?.value || '').trim()
+        );
+        if (pw) return true;
+        const snap = window.__cabinetFormSnapshot;
+        if (!snap) return false;
+        const val = (id) => document.getElementById(id)?.value ?? '';
+        return val('profile-display-name') !== snap.name
+            || val('profile-email') !== snap.email
+            || val('profile-bio') !== snap.bio
+            || val('profile-gear') !== snap.gear
+            || val('profile-links') !== snap.links
+            || !!(document.getElementById('email-code-input')?.value || '').trim();
+    };
+
+    window.requestCloseCabinet = async function() {
+        if (window.requestCloseIfDirty) {
+            return window.requestCloseIfDirty(
+                window.isCabinetFormDirty,
+                'Изменения профиля / пароля не сохранены.',
+                window.closeCabinet
+            );
+        }
+        window.closeCabinet();
+        return true;
     };
 
     window.switchCabinetTab = function(tab) {
@@ -1372,6 +1464,9 @@ export function initAuth() {
         if (tab === 'sounds') {
             document.body.classList.add('cab-mobile-home');
             window.renderCabinet();
+        } else if (tab === 'profile') {
+            document.body.classList.remove('cab-mobile-home');
+            if (window.fillProfileSettingsForm) window.fillProfileSettingsForm();
         } else if (tab === 'quests') {
             document.body.classList.remove('cab-mobile-home');
             if (window.evaluateFieldProgress) window.evaluateFieldProgress({ refreshUi: false }).then(() => {
@@ -1746,11 +1841,13 @@ export function initAuth() {
         if (status === 'rejected') {
             const input = await window.CustomUI.open({
                 title: '<i class="fa-solid fa-circle-exclamation mr-2 text-red-500"></i>Причина отклонения',
-                message: 'Запись вернётся автору в черновик. Причина будет в уведомлении и в кабинете.',
+                message: 'Запись вернётся автору в черновик. Выберите пункт правил или напишите причину — она будет в уведомлении и в кабинете. <button type="button" class="text-blue-600 dark:text-blue-400 font-bold hover:underline" onclick="window.openPublishRulesModal()">Открыть правила</button>',
                 confirmText: 'Отклонить',
                 confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md',
                 showInput: true,
-                inputPlaceholder: 'Например: неверные координаты записи'
+                inputRows: 3,
+                inputPlaceholder: 'Или свой текст причины…',
+                suggestions: window.getRejectSuggestionChips ? window.getRejectSuggestionChips() : []
             });
             if (input === false) { window.renderAdminList(); return; }
             reason = String(input || '').trim();
@@ -3919,6 +4016,7 @@ export function initAuth() {
         const emailEl = document.getElementById('profile-email');
         if (emailEl) emailEl.value = window.currentUser.email || '';
         window.refreshEmailVerificationUI();
+        window.captureCabinetFormSnapshot();
     };
 
     window.saveDisplayNameFromSettings = async function() {

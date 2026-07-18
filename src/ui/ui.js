@@ -632,14 +632,22 @@ window.CustomUI = window.CustomUI || {
         const messageEl = document.getElementById('ui-modal-message');
         const btn = document.getElementById('ui-modal-confirm');
         const inputEl = document.getElementById('ui-modal-input');
+        const suggestionsEl = document.getElementById('ui-modal-suggestions');
+        const content = document.getElementById('ui-modal-content');
         const m = document.getElementById('ui-modal-overlay');
-        const content = m ? m.firstElementChild : null;
+
+        this.__showInput = !!opts.showInput;
 
         if (titleEl) titleEl.innerHTML = opts.title || 'Внимание';
         if (messageEl) messageEl.innerHTML = opts.message || '';
         if (btn) {
             btn.textContent = opts.confirmText || 'ОК';
             btn.className = opts.confirmClass || 'px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-md';
+        }
+
+        if (content) {
+            content.classList.toggle('max-w-md', !!(opts.showInput && opts.suggestions && opts.suggestions.length));
+            content.classList.toggle('max-w-sm', !(opts.showInput && opts.suggestions && opts.suggestions.length));
         }
 
         // showInput=true превращает диалог в текстовый промпт (см. createSession/причина отклонения):
@@ -649,10 +657,43 @@ window.CustomUI = window.CustomUI || {
                 inputEl.classList.remove('hidden');
                 inputEl.value = opts.inputValue || '';
                 inputEl.placeholder = opts.inputPlaceholder || '';
+                inputEl.rows = opts.inputRows || (opts.suggestions?.length ? 3 : 2);
                 setTimeout(() => inputEl.focus(), 50);
             } else {
                 inputEl.classList.add('hidden');
                 inputEl.value = '';
+            }
+        }
+
+        if (suggestionsEl) {
+            const chips = Array.isArray(opts.suggestions) ? opts.suggestions : [];
+            if (opts.showInput && chips.length) {
+                suggestionsEl.classList.remove('hidden');
+                suggestionsEl.innerHTML = `
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Подсказки по правилам</p>
+                    <div class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto custom-scrollbar pr-0.5">
+                        ${chips.map((chip, i) => {
+                            const label = String(chip.label || chip.id || `Пункт ${i + 1}`)
+                                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+                            return `<button type="button" data-suggest-idx="${i}" class="ui-suggest-chip">${label}</button>`;
+                        }).join('')}
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-1.5">Нажмите пункт — текст причины подставится; можно дописать своими словами.</p>
+                `;
+                suggestionsEl.querySelectorAll('[data-suggest-idx]').forEach((btnChip) => {
+                    btnChip.addEventListener('click', () => {
+                        const idx = Number(btnChip.getAttribute('data-suggest-idx'));
+                        const chip = chips[idx];
+                        if (!chip || !inputEl) return;
+                        inputEl.value = chip.text || chip.label || '';
+                        inputEl.focus();
+                        suggestionsEl.querySelectorAll('.ui-suggest-chip').forEach((el) => el.classList.remove('is-active'));
+                        btnChip.classList.add('is-active');
+                    });
+                });
+            } else {
+                suggestionsEl.classList.add('hidden');
+                suggestionsEl.innerHTML = '';
             }
         }
 
@@ -670,6 +711,7 @@ window.CustomUI = window.CustomUI || {
         const m = document.getElementById('ui-modal-overlay');
         const content = m ? m.firstElementChild : null;
         const inputEl = document.getElementById('ui-modal-input');
+        const suggestionsEl = document.getElementById('ui-modal-suggestions');
 
         // Если диалог был текстовым промптом и пользователь подтвердил (не отменил) — резолвим
         // значением поля ввода, а не булевым true.
@@ -684,14 +726,63 @@ window.CustomUI = window.CustomUI || {
             setTimeout(() => {
                 if (m.classList.contains('opacity-0')) m.classList.add('hidden');
                 if (inputEl) { inputEl.classList.add('hidden'); inputEl.value = ''; }
+                if (suggestionsEl) { suggestionsEl.classList.add('hidden'); suggestionsEl.innerHTML = ''; }
+                if (content) {
+                    content.classList.add('max-w-sm');
+                    content.classList.remove('max-w-md');
+                }
             }, 300);
         }
+        this.__showInput = false;
         if (this.resolve) {
             const resolve = this.resolve;
             this.resolve = null;
             resolve(value);
         }
     }
+};
+
+/** Backdrop on CustomUI: never dismiss typed prompts; confirm dialogs cancel. */
+window.requestCloseCustomUIBackdrop = function() {
+    if (window.CustomUI && window.CustomUI.__showInput) return;
+    window.CustomUI.close(false);
+};
+
+window.openPublishRulesModal = function(anchorRuleId) {
+    const body = document.getElementById('publish-rules-body');
+    const ver = document.getElementById('publish-rules-version');
+    if (body && window.renderPublishRulesHtml) {
+        body.innerHTML = window.renderPublishRulesHtml();
+    } else if (body) {
+        body.innerHTML = `<p class="text-sm text-slate-500">Правила временно недоступны.</p>`;
+    }
+    if (ver) ver.textContent = `Версия ${window.PUBLISH_RULES_VERSION || '—'}`;
+
+    const m = document.getElementById('publish-rules-modal');
+    const c = document.getElementById('publish-rules-modal-content');
+    if (!m || !c) return;
+    m.classList.remove('hidden');
+    void m.offsetWidth;
+    m.classList.remove('opacity-0', 'pointer-events-none');
+    c.classList.remove('scale-95');
+    if (window.playSfx) window.playSfx('open');
+
+    if (anchorRuleId) {
+        setTimeout(() => {
+            const el = document.getElementById(`rule-${anchorRuleId}`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 80);
+    }
+};
+
+window.closePublishRulesModal = function() {
+    const m = document.getElementById('publish-rules-modal');
+    const c = document.getElementById('publish-rules-modal-content');
+    if (!m || !c) return;
+    m.classList.add('opacity-0', 'pointer-events-none');
+    c.classList.add('scale-95');
+    if (window.playSfx) window.playSfx('close');
+    setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
 };
 
 // Мини-"шторка" со списком действий — переиспользуемая замена контекстного меню по «...»
@@ -705,15 +796,45 @@ window.confirmDiscardDraft = async function(message) {
     });
 };
 
+/** Confirm discard when a typed form is dirty, then run closeFn. Returns false if user cancelled. */
+window.requestCloseIfDirty = async function(isDirtyFn, message, closeFn) {
+    const dirty = typeof isDirtyFn === 'function' ? !!isDirtyFn() : !!isDirtyFn;
+    if (dirty) {
+        const ok = await window.confirmDiscardDraft(message || 'Несохранённые данные будут потеряны.');
+        if (!ok) return false;
+    }
+    if (typeof closeFn === 'function') closeFn();
+    return true;
+};
+
 window.isAddSoundDirty = function() {
     if (window.editingSoundId) return true;
     if (window.currentUploadedFile || window.currentUploadedFileUrl) return true;
     if ((window.pendingImages || []).length) return true;
     if ((window.addModalRoute || []).length) return true;
-    const title = (document.getElementById('add-display-title')?.value || '').trim();
-    const desc = (document.getElementById('add-desc')?.value || '').trim();
-    const userDef = (document.getElementById('add-user-defined')?.value || '').trim();
-    return !!(title || desc || userDef);
+    const val = (id) => (document.getElementById(id)?.value || '').trim();
+    const defaults = {
+        'add-tags': 'City, Field recording',
+        'add-loc': 'Ростов-на-Дону'
+    };
+    const watched = [
+        'add-display-title', 'add-user-defined', 'add-desc', 'add-tags', 'add-loc',
+        'add-date', 'add-time', 'add-recorder', 'add-mic', 'add-recordist', 'add-session'
+    ];
+    return watched.some((id) => {
+        const v = val(id);
+        if (!v) return false;
+        if (defaults[id] && v === defaults[id]) return false;
+        return true;
+    });
+};
+
+window.closeAddModalSafely = async function() {
+    return window.requestCloseIfDirty(
+        window.isAddSoundDirty,
+        'Форма добавления / изменения звука не сохранена.',
+        () => window.toggleAddModal(true)
+    );
 };
 
 window.ActionSheet = {
@@ -940,6 +1061,12 @@ window.openLocationPickerModal = function() {
     const content = document.getElementById('location-picker-modal-content');
     if (!modal || !content) return;
 
+    window.__locationPickerSnapshot = {
+        routeLen: (window.addModalRoute || []).length,
+        stopsLen: (window.__sessionRouteStops || []).length,
+        coords: window.tempAddCoords ? [window.tempAddCoords[0], window.tempAddCoords[1]] : null
+    };
+
     modal.classList.remove('hidden');
     void modal.offsetWidth;
     modal.classList.remove('opacity-0', 'pointer-events-none');
@@ -959,6 +1086,28 @@ window.closeLocationPickerModal = function() {
         if (modal.classList.contains('opacity-0')) modal.classList.add('hidden');
     }, 300);
     window.__sessionRoutePicking = false;
+    window.__locationPickerSnapshot = null;
+};
+
+window.isLocationPickerDirty = function() {
+    const snap = window.__locationPickerSnapshot;
+    if (!snap) return false;
+    const routeLen = (window.addModalRoute || []).length;
+    const stopsLen = (window.__sessionRouteStops || []).length;
+    if (routeLen !== snap.routeLen || stopsLen !== snap.stopsLen) return true;
+    const c = window.tempAddCoords;
+    if (!snap.coords && c) return true;
+    if (snap.coords && c && (snap.coords[0] !== c[0] || snap.coords[1] !== c[1])) return true;
+    if (snap.coords && !c) return true;
+    return false;
+};
+
+window.requestCloseLocationPickerModal = async function() {
+    return window.requestCloseIfDirty(
+        window.isLocationPickerDirty,
+        'Выбранные точки не применены. Закрыть карту?',
+        window.closeLocationPickerModal
+    );
 };
 
 window.applyPickedLocation = function() {
@@ -995,6 +1144,59 @@ window.applyPickedLocation = function() {
 
     window.updateSoundwalkRouteUI();
     window.closeLocationPickerModal();
+};
+
+window.SMARTPHONE_GEAR = 'Smartphone';
+window.SMARTPHONE_MIC = 'Интегрированные';
+window.DEFAULT_GEAR = '';
+window.DEFAULT_MIC = '';
+
+window.setSmartphoneRecording = function(on, { restore = true } = {}) {
+    const enabled = !!on;
+    window.__smartphoneRecording = enabled;
+    const sw = document.getElementById('add-smartphone-switch');
+    if (sw) sw.setAttribute('aria-checked', enabled ? 'true' : 'false');
+
+    const recWrap = document.getElementById('add-recorder-wrap');
+    if (recWrap) recWrap.classList.toggle('hidden', enabled);
+    const micWrap = document.getElementById('add-mic-wrap');
+    if (micWrap) micWrap.classList.toggle('sm:col-span-2', enabled);
+
+    const recEl = document.getElementById('add-recorder');
+    const micEl = document.getElementById('add-mic');
+
+    if (enabled) {
+        if (restore) {
+            window.__prevGearBeforePhone = recEl?.value || '';
+            window.__prevMicBeforePhone = micEl?.value || '';
+        }
+        if (recEl) recEl.value = window.SMARTPHONE_GEAR;
+        if (micEl) micEl.value = window.SMARTPHONE_MIC;
+    } else if (restore) {
+        if (recEl) {
+            const prev = window.__prevGearBeforePhone || '';
+            recEl.value = prev !== window.SMARTPHONE_GEAR ? prev : '';
+        }
+        if (micEl) {
+            const prev = window.__prevMicBeforePhone || '';
+            micEl.value = (prev && prev !== window.SMARTPHONE_MIC) ? prev : '';
+        }
+    }
+};
+
+window.toggleSmartphoneRecording = function() {
+    const sw = document.getElementById('add-smartphone-switch');
+    const next = sw?.getAttribute('aria-checked') !== 'true';
+    window.setSmartphoneRecording(next, { restore: true });
+};
+
+window.syncSmartphoneRecordingFromFields = function() {
+    const gear = document.getElementById('add-recorder')?.value || '';
+    const mic = document.getElementById('add-mic')?.value || '';
+    const on = window.isSmartphoneGear
+        ? window.isSmartphoneGear(gear, mic)
+        : (String(gear).toLowerCase() === 'smartphone' || String(mic).toLowerCase() === 'интегрированный');
+    window.setSmartphoneRecording(on, { restore: false });
 };
 
 window.handlePrincipleChange = function(value) {
@@ -2928,6 +3130,7 @@ window.openDockView = function(view) {
         window.clearRailTabActive();
         if (window.refreshSettingsUI) window.refreshSettingsUI();
         if (window.renderRegionStats) window.renderRegionStats('region-stats-grid');
+        if (window.captureSettingsFormSnapshot) window.captureSettingsFormSnapshot();
     } else if (next === 'cabinet') {
         document.body.classList.add('dock-view-cabinet');
         document.body.classList.add('cab-mobile-home');
@@ -3682,6 +3885,14 @@ window.closeImageCropModal = function() {
     c.classList.add('scale-95');
     setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
     window.__cropCallback = null;
+};
+
+window.requestCloseImageCropModal = async function() {
+    return window.requestCloseIfDirty(
+        () => !!(window.__cropState || window.__cropCallback),
+        'Кадрирование не применено. Закрыть без сохранения?',
+        window.closeImageCropModal
+    );
 };
 
 window.updateImageCropTransform = function() {
@@ -5101,6 +5312,7 @@ window.applyUploadedAudioMeta = function(meta) {
     }
     setIfEmpty('add-recorder', meta.recorder);
     setIfEmpty('add-mic', meta.micType);
+    if (window.syncSmartphoneRecordingFromFields) window.syncSmartphoneRecordingFromFields();
     setSelect('add-format', meta.format);
     setSelect('add-channels', meta.channels);
     setSelect('add-license', meta.license);
@@ -5704,6 +5916,8 @@ window.editSound = function(id) {
     setVal('add-principle', s.recPrinciple || 'Направленная фиксация (Spot)');
     setVal('add-recorder', s.gear || '');
     setVal('add-mic', s.micType || '');
+    window.syncSmartphoneRecordingFromFields();
+    if (window.fillGearDatalists) window.fillGearDatalists();
     setVal('add-format', s.format || '');
     setVal('add-channels', s.channels || 'Stereo XY');
     setVal('add-recordist', s.recordist || (window.currentUser ? window.currentUser.username : ''));
@@ -5769,6 +5983,15 @@ window.resetAddModalToCreateMode = function() {
     const principleEl = document.getElementById('add-principle');
     if (principleEl) principleEl.value = 'Направленная фиксация (Spot)';
 
+    window.__prevGearBeforePhone = '';
+    window.__prevMicBeforePhone = '';
+    const recElGear = document.getElementById('add-recorder');
+    const micElGear = document.getElementById('add-mic');
+    if (recElGear) recElGear.value = '';
+    if (micElGear) micElGear.value = '';
+    window.setSmartphoneRecording(false, { restore: false });
+    if (window.fillGearDatalists) window.fillGearDatalists();
+
     window.populateSessionSelect();
     const draftBtnEl = document.getElementById('draft-btn');
     if (draftBtnEl) draftBtnEl.classList.remove('hidden');
@@ -5811,6 +6034,7 @@ window.toggleAddModal = function(forceClose = false, coords = null, isEdit = fal
         if (window.playSfx) window.playSfx('open');
         window.populateUcsCategorySelect?.();
         window.updateUcsSubcats();
+        if (window.fillGearDatalists) window.fillGearDatalists();
         return;
     }
 
@@ -5824,13 +6048,6 @@ window.toggleAddModal = function(forceClose = false, coords = null, isEdit = fal
     }
     window.resetAddModalToCreateMode();
 }
-window.closeAddModalSafely = async function() {
-    if (window.isAddSoundDirty && window.isAddSoundDirty()) {
-        const ok = await window.confirmDiscardDraft('Форма добавления / изменения звука не сохранена.');
-        if (!ok) return;
-    }
-    window.toggleAddModal(true);
-};
 window.goBackFromAdd = function() {
     return window.closeAddModalSafely();
 };

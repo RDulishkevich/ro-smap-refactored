@@ -478,6 +478,42 @@ window.openEventEditor = function(eventId = null) {
     void m.offsetWidth;
     m.classList.remove('opacity-0', 'pointer-events-none');
     c.classList.remove('scale-95');
+    window.captureEventEditorSnapshot();
+};
+
+window.serializeEventEditorState = function() {
+    const val = (id) => document.getElementById(id)?.value ?? '';
+    const checked = (id) => !!document.getElementById(id)?.checked;
+    return JSON.stringify({
+        id: window.__editingEventId || null,
+        title: val('event-edit-title'),
+        theme: val('event-edit-theme'),
+        description: val('event-edit-description'),
+        type: val('event-edit-type'),
+        status: val('event-edit-status'),
+        starts: val('event-edit-starts'),
+        ends: val('event-edit-ends'),
+        place: val('event-edit-place'),
+        capacity: val('event-edit-capacity'),
+        requireSound: checked('event-edit-require-sound'),
+        pinned: checked('event-edit-pinned'),
+        cover: window.__eventCoverImage || null,
+        prizes: window.__eventEditorPrizes || [],
+        conditions: window.__eventEditorConditions || []
+    });
+};
+
+window.captureEventEditorSnapshot = function() {
+    window.__eventEditorSnapshot = window.serializeEventEditorState();
+};
+
+window.isEventEditorDirty = function() {
+    if (!window.__eventEditorSnapshot) {
+        const title = (document.getElementById('event-edit-title')?.value || '').trim();
+        const desc = (document.getElementById('event-edit-description')?.value || '').trim();
+        return !!(title || desc || window.__editingEventId);
+    }
+    return window.serializeEventEditorState() !== window.__eventEditorSnapshot;
 };
 
 window.closeEventEditor = function() {
@@ -488,6 +524,15 @@ window.closeEventEditor = function() {
     c.classList.add('scale-95');
     setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 280);
     window.__editingEventId = null;
+    window.__eventEditorSnapshot = null;
+};
+
+window.requestCloseEventEditor = async function() {
+    return window.requestCloseIfDirty(
+        window.isEventEditorDirty,
+        'Редактор ивента не сохранён.',
+        window.closeEventEditor
+    );
 };
 
 window.renderEventEditorLists = function() {

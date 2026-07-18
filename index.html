@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260718ad">
-    <link rel="stylesheet" href="./src/glass.css?v=20260718ad">
+    <link rel="stylesheet" href="./src/style.css?v=20260718ah">
+    <link rel="stylesheet" href="./src/glass.css?v=20260718ah">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -458,9 +458,16 @@
                                 <i class="fa-solid fa-compass"></i>Показать тур по карте
                             </button>
                         </div>
+                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-1">Правила публикации и пользования</h4>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Формат WAV, координаты, права, модерация, поведение в каталоге и скачивание.</p>
+                            <button type="button" onclick="window.openPublishRulesModal()" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                                <i class="fa-solid fa-book-open"></i>Открыть правила
+                            </button>
+                        </div>
                         <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
                             <h4 class="font-bold text-slate-800 dark:text-white mb-2">Как добавить новый звук?</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Нажмите на плюс внизу, войдите в аккаунт и заполните форму.</p>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Нажмите на плюс внизу, войдите в аккаунт и заполните форму. Перед отправкой загляните в правила публикации.</p>
                         </div>
                         <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
                             <h4 class="font-bold text-slate-800 dark:text-white mb-2">Как фильтровать звуки?</h4>
@@ -592,11 +599,11 @@
     </div>
 
     <!-- Модальное окно: АВТОРИЗАЦИЯ -->
-    <div id="auth-modal" onmousedown="if(event.target === this) window.closeAuthModal()" class="fixed inset-0 z-[250] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
+    <div id="auth-modal" onmousedown="if(event.target === this) window.requestCloseAuthModal()" class="fixed inset-0 z-[250] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
         <div class="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-sm app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
             <div class="px-6 py-5 flex justify-between items-center border-b border-slate-100 dark:border-slate-700">
                 <h3 class="text-lg font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-right-to-bracket mr-2 text-blue-500"></i>Вход / Регистрация</h3>
-                <button onclick="window.closeAuthModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none">
+                <button onclick="window.requestCloseAuthModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none">
                     <i class="fa-solid fa-xmark text-xl pointer-events-none"></i>
                 </button>
             </div>
@@ -618,11 +625,11 @@
     </div>
 
     <!-- Модальное окно: НАСТРОЙКИ -->
-    <div id="settings-modal" onmousedown="if(event.target === this) window.closeSettingsModal()" class="fixed inset-0 z-[250] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
+    <div id="settings-modal" onmousedown="if(event.target === this) window.requestCloseSettingsModal()" class="fixed inset-0 z-[250] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
         <div id="settings-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto border border-slate-100 dark:border-slate-800">
             <div class="px-6 py-5 flex justify-between items-center border-b border-slate-100 dark:border-slate-700">
                 <h3 class="text-lg font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-gear mr-2 text-blue-500"></i><span data-lang="settings_title">Настройки</span></h3>
-                <button onclick="window.closeSettingsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none">
+                <button onclick="window.requestCloseSettingsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none">
                     <i class="fa-solid fa-xmark text-xl pointer-events-none"></i>
                 </button>
             </div>
@@ -786,7 +793,7 @@
     </div>
 
     <!-- Модальное окно: ЛИЧНЫЙ КАБИНЕТ -->
-    <div id="cabinet-modal" onmousedown="if(event.target === this) window.closeCabinet()" class="fixed inset-0 z-[200] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
+    <div id="cabinet-modal" onmousedown="if(event.target === this) window.requestCloseCabinet()" class="fixed inset-0 z-[200] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
         <div id="cabinet-modal-content" class="bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-2xl app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto border border-slate-100 dark:border-slate-800">
             <div class="px-6 py-5 flex justify-between items-center bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
                 <div class="flex items-center gap-4 min-w-0">
@@ -817,7 +824,7 @@
                     <button onclick="window.openOwnPublicProfile()" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors" title="Смотреть публичный профиль">
                         <i class="fa-solid fa-id-badge"></i><span data-lang="public_profile">Публичный профиль</span>
                     </button>
-                    <button onclick="window.closeCabinet()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors outline-none">
+                    <button onclick="window.requestCloseCabinet()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors outline-none">
                         <i class="fa-solid fa-xmark text-xl pointer-events-none"></i>
                     </button>
                 </div>
@@ -1018,9 +1025,14 @@
                     </button>
                     <h3 id="add-modal-header-title" class="text-xl font-bold text-slate-800 dark:text-white truncate"><i class="fa-solid fa-file-audio mr-2 text-blue-600"></i><span data-lang="add_audio_title">Добавить аудио</span></h3>
                 </div>
-                <button onclick="window.closeAddModalSafely()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors shrink-0 ml-4 outline-none">
-                    <i class="fa-solid fa-xmark text-xl pointer-events-none"></i>
-                </button>
+                <div class="flex items-center gap-1 shrink-0 ml-3">
+                    <button type="button" onclick="window.openPublishRulesModal()" class="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors outline-none w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center" title="Правила добавления и пользования" aria-label="Правила">
+                        <i class="fa-solid fa-book-open pointer-events-none"></i>
+                    </button>
+                    <button onclick="window.closeAddModalSafely()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors outline-none w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center" aria-label="Закрыть">
+                        <i class="fa-solid fa-xmark text-xl pointer-events-none"></i>
+                    </button>
+                </div>
             </div>
 
             <div class="p-6 overflow-y-auto custom-scrollbar flex flex-col gap-6">
@@ -1161,6 +1173,15 @@
 
                 <!-- Блок 4: Technical & Legal -->
                 <div class="space-y-3 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
+                    <div class="glass-switch-row">
+                        <div class="min-w-0">
+                            <span class="glass-switch-row__label">Запись на смартфон</span>
+                            <span class="glass-switch-row__hint">Скрывает рекордер, микрофон — «Интегрированные»</span>
+                        </div>
+                        <button type="button" role="switch" id="add-smartphone-switch" class="glass-switch shrink-0" aria-checked="false" onclick="window.toggleSmartphoneRecording()" title="Запись на смартфон">
+                            <span class="glass-switch__thumb" aria-hidden="true"></span>
+                        </button>
+                    </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div class="sm:col-span-2">
                             <label class="modal-label text-slate-400" data-lang="meta_principle">Принцип записи</label>
@@ -1170,14 +1191,16 @@
                                 <option value="Звуковая прогулка (Soundwalk)">Звуковая прогулка (Soundwalk)</option>
                             </select>
                         </div>
-                        <div>
+                        <div id="add-recorder-wrap">
                             <label class="modal-label text-slate-400" data-lang="rec_model">Рекордер</label>
-                            <input id="add-recorder" type="text" value="Zoom H6" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white py-1.5 text-xs">
+                            <input id="add-recorder" type="text" list="datalist-recorders" value="" autocomplete="off" placeholder="Модель рекордера…" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white py-1.5 text-xs">
                         </div>
-                        <div>
+                        <div id="add-mic-wrap">
                             <label class="modal-label text-slate-400" data-lang="mic_type">Микрофон</label>
-                            <input id="add-mic" type="text" value="Sennheiser NTG3" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white py-1.5 text-xs">
+                            <input id="add-mic" type="text" list="datalist-mics" value="" autocomplete="off" placeholder="Интегрированные или модель…" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white py-1.5 text-xs">
                         </div>
+                        <datalist id="datalist-recorders"></datalist>
+                        <datalist id="datalist-mics"></datalist>
                         <div>
                             <label class="modal-label text-slate-400" data-lang="format">Формат (Только WAV)</label>
                             <select id="add-format" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white appearance-none text-xs font-semibold">
@@ -1231,8 +1254,11 @@
             </div>
 
             <div class="p-6 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700">
-                <p class="text-xs text-slate-500 dark:text-slate-400 text-center mb-3 flex items-center justify-center gap-1.5" data-lang="moderation_notice">
-                    <i class="fa-solid fa-cloud"></i> Точки сохраняются в базу Яндекс.Облака
+                <p class="text-xs text-slate-500 dark:text-slate-400 text-center mb-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+                    <span class="inline-flex items-center gap-1.5" data-lang="moderation_notice"><i class="fa-solid fa-cloud"></i> Точки сохраняются в базу Яндекс.Облака</span>
+                    <button type="button" onclick="window.openPublishRulesModal()" class="inline-flex items-center gap-1.5 font-bold text-blue-600 dark:text-blue-400 hover:underline">
+                        <i class="fa-solid fa-book-open"></i> Правила публикации
+                    </button>
                 </p>
                 <div class="flex gap-3">
                     <button id="draft-btn" onclick="window.publishSound('draft')" class="flex-1 py-3.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-all active:scale-[0.98]">
@@ -1511,11 +1537,11 @@
     </div>
 
     <!-- Event editor (admin) -->
-    <div id="event-editor-modal" onmousedown="if(event.target === this) window.closeEventEditor()" class="fixed inset-0 z-[220] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
+    <div id="event-editor-modal" onmousedown="if(event.target === this) window.requestCloseEventEditor()" class="fixed inset-0 z-[220] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
         <div id="event-editor-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto max-h-[92dvh]">
             <div class="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
                 <h3 id="event-editor-title" class="text-lg font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-calendar-plus mr-2 text-amber-500"></i>Новый ивент</h3>
-                <button type="button" onclick="window.closeEventEditor()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button type="button" onclick="window.requestCloseEventEditor()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div class="p-4 sm:p-5 overflow-y-auto custom-scrollbar flex-1 space-y-3">
                 <div>
@@ -1608,18 +1634,18 @@
                 </div>
             </div>
             <div class="p-4 border-t border-slate-100 dark:border-slate-700 shrink-0 flex gap-2">
-                <button type="button" onclick="window.closeEventEditor()" class="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 text-sm font-bold">Отмена</button>
+                <button type="button" onclick="window.requestCloseEventEditor()" class="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 text-sm font-bold">Отмена</button>
                 <button type="button" onclick="window.saveEventFromEditor()" class="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold">Сохранить</button>
             </div>
         </div>
     </div>
 
     <!-- Кадрирование фото -->
-    <div id="image-crop-modal" onmousedown="if(event.target === this) window.closeImageCropModal()" class="fixed inset-0 z-[260] bg-slate-900/70 backdrop-blur-sm hidden flex items-center justify-center p-3 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
+    <div id="image-crop-modal" onmousedown="if(event.target === this) window.requestCloseImageCropModal()" class="fixed inset-0 z-[260] bg-slate-900/70 backdrop-blur-sm hidden flex items-center justify-center p-3 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
         <div id="image-crop-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.5rem] shadow-2xl w-full max-w-md app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
             <div class="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
                 <h3 class="text-base font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-crop mr-2 text-blue-500"></i>Кадрирование</h3>
-                <button onclick="window.closeImageCropModal()" class="text-slate-400"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button onclick="window.requestCloseImageCropModal()" class="text-slate-400"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div class="p-4 flex-1 overflow-y-auto custom-scrollbar space-y-3">
                 <div id="image-crop-stage" class="image-crop-stage">
@@ -1633,7 +1659,7 @@
                 <p class="text-[11px] text-slate-400">Перетащите фото внутри рамки. Рамка — область, которая попадёт в пост.</p>
             </div>
             <div class="p-4 border-t border-slate-100 dark:border-slate-700 flex gap-2 shrink-0">
-                <button onclick="window.closeImageCropModal()" class="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-sm font-bold text-slate-600 dark:text-slate-200">Отмена</button>
+                <button onclick="window.requestCloseImageCropModal()" class="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-sm font-bold text-slate-600 dark:text-slate-200">Отмена</button>
                 <button onclick="window.applyImageCrop()" class="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-bold">Применить</button>
             </div>
         </div>
@@ -1920,7 +1946,7 @@
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
                         <button type="button" onclick="window.applyPickedLocation()" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-semibold transition-colors">Применить</button>
-                        <button type="button" onclick="window.closeLocationPickerModal()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-semibold transition-colors">
+                        <button type="button" onclick="window.requestCloseLocationPickerModal()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-semibold transition-colors">
                             <i class="fa-solid fa-xmark"></i>
                         </button>
                     </div>
@@ -1964,7 +1990,7 @@
     </div>
 
     <!-- Кастомные UI Модальные окна -->
-    <div id="ui-modal-overlay" class="fixed inset-0 z-[9999] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 app-modal-overlay">
+    <div id="ui-modal-overlay" onmousedown="if(event.target === this) window.requestCloseCustomUIBackdrop()" class="fixed inset-0 z-[9999] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 app-modal-overlay">
         <div id="ui-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-sm app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all">
             <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
                 <h3 id="ui-modal-title" class="font-bold text-slate-800 dark:text-white text-lg">Заголовок</h3>
@@ -1972,13 +1998,33 @@
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
-            <div class="p-6">
+            <div class="p-6 overflow-y-auto custom-scrollbar max-h-[min(70dvh,28rem)]">
                 <p id="ui-modal-message" class="text-sm text-slate-600 dark:text-slate-300 mb-4 leading-relaxed">Текст сообщения</p>
-                <input type="text" id="ui-modal-input" class="hidden modal-input w-full bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white mb-2" onkeydown="if(event.key === 'Enter') window.CustomUI.close(true)" />
+                <div id="ui-modal-suggestions" class="hidden mb-3"></div>
+                <textarea id="ui-modal-input" rows="3" class="hidden modal-input w-full bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white mb-2 resize-y min-h-[2.75rem]"></textarea>
             </div>
             <div class="px-6 py-4 border-t border-slate-100 dark:border-slate-700 flex justify-end gap-3 bg-slate-50 dark:bg-slate-800/50">
                 <button id="ui-modal-cancel" onclick="window.CustomUI.close(false)" class="px-5 py-2.5 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors">Отмена</button>
                 <button id="ui-modal-confirm" onclick="window.CustomUI.close(true)" class="px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-md">ОК</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Правила публикации / пользования -->
+    <div id="publish-rules-modal" onmousedown="if(event.target === this) window.closePublishRulesModal()" class="fixed inset-0 z-[260] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
+        <div id="publish-rules-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto h-[min(92dvh,720px)] border border-slate-100 dark:border-slate-700">
+            <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0 bg-slate-50 dark:bg-slate-800/80">
+                <div class="min-w-0">
+                    <h3 class="text-lg font-bold text-slate-800 dark:text-white truncate"><i class="fa-solid fa-book-open mr-2 text-blue-500"></i>Правила RO.SMap</h3>
+                    <p id="publish-rules-version" class="text-[10px] font-semibold text-slate-400 mt-0.5">Версия —</p>
+                </div>
+                <button type="button" onclick="window.closePublishRulesModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0 w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center" aria-label="Закрыть">
+                    <i class="fa-solid fa-xmark text-lg pointer-events-none"></i>
+                </button>
+            </div>
+            <div id="publish-rules-body" class="p-5 overflow-y-auto custom-scrollbar flex-1 min-h-0 space-y-5"></div>
+            <div class="p-4 border-t border-slate-100 dark:border-slate-700 shrink-0">
+                <button type="button" onclick="window.closePublishRulesModal()" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors">Понятно</button>
             </div>
         </div>
     </div>
@@ -1995,7 +2041,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260718ad"></script>
+    <script type="module" src="./src/main.js?v=20260718ah"></script>
 
 </body>
 </html>

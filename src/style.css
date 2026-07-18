@@ -4220,3 +4220,106 @@ html.dark .feed-post__cover,
 @media (min-width: 768px) {
     .cabinet-mobile-menu { display: none !important; }
 }
+
+/* Publish / community rules modal + reject suggestion chips */
+.publish-rule-section__title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+}
+.dark .publish-rule-section__title { color: #f8fafc; }
+.publish-rule-section__intro {
+    margin-top: 0.35rem;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: #64748b;
+}
+.dark .publish-rule-section__intro { color: #94a3b8; }
+.publish-rule-section__items {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+.publish-rule-item {
+    padding: 0.75rem 0.85rem;
+    border-radius: 0.9rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+.dark .publish-rule-item {
+    background: rgba(15, 23, 42, 0.55);
+    border-color: #334155;
+}
+.publish-rule-item__title {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #1e293b;
+    line-height: 1.35;
+}
+.dark .publish-rule-item__title { color: #e2e8f0; }
+.publish-rule-item__code {
+    display: inline-block;
+    margin-right: 0.25rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 0.35rem;
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    vertical-align: 0.05em;
+    color: #2563eb;
+    background: #eff6ff;
+}
+.dark .publish-rule-item__code {
+    color: #93c5fd;
+    background: rgba(37, 99, 235, 0.2);
+}
+.publish-rule-item__body {
+    margin-top: 0.35rem;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: #475569;
+}
+.dark .publish-rule-item__body { color: #94a3b8; }
+
+.ui-suggest-chip {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    padding: 0.35rem 0.65rem;
+    border-radius: 999px;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: left;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.dark .ui-suggest-chip {
+    border-color: #475569;
+    background: #0f172a;
+    color: #cbd5e1;
+}
+.ui-suggest-chip:hover {
+    border-color: #93c5fd;
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+.dark .ui-suggest-chip:hover {
+    border-color: #3b82f6;
+    background: rgba(37, 99, 235, 0.25);
+    color: #bfdbfe;
+}
+.ui-suggest-chip.is-active {
+    border-color: #2563eb;
+    background: #dbeafe;
+    color: #1e40af;
+}
+.dark .ui-suggest-chip.is-active {
+    border-color: #60a5fa;
+    background: rgba(37, 99, 235, 0.35);
+    color: #eff6ff;
+}
