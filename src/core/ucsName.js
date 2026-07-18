@@ -1,5 +1,5 @@
 /**
- * UCS filename builder (Tim Nielsen convention).
+ * UCS filename builder (Tim Nielsen convention + RO.SMap FXName underscores).
  * CatID_FXName_CreatorID_SourceID[_UserData]
  * @see docs/ucs-naming.md
  */
@@ -7,7 +7,7 @@
 import { sourceIdMap } from '../data/dict.js';
 
 export const UCS_SOURCE_ID = 'ROSMAP';
-export const UCS_FXNAME_MAX = 40;
+export const UCS_FXNAME_MAX = 48;
 
 const CYR_MAP = {
     Ё: 'Yo', Й: 'I', Ц: 'Ts', У: 'U', К: 'K', Е: 'E', Н: 'N', Г: 'G', Ш: 'Sh', Щ: 'Sch', З: 'Z', Х: 'H', Ъ: '',
@@ -22,15 +22,19 @@ function latinize(word) {
     return String(word || '').split('').map((ch) => CYR_MAP[ch] || ch).join('');
 }
 
-/** FXName: spaces OK, underscores forbidden, ASCII-ish for library tools. */
+/** FXName: words separated by underscores (RO.SMap). */
 export function sanitizeFxName(raw, maxLen = UCS_FXNAME_MAX) {
-    let s = String(raw || '').trim();
-    s = s.replace(/_/g, ' ');
-    s = s.replace(/\s+/g, ' ');
-    s = s.replace(/[^a-zA-Z0-9 \-',.]/g, '');
+    let s = latinize(String(raw || '').trim());
+    s = s.replace(/[_]+/g, ' ');
+    s = s.replace(/[^a-zA-Z0-9 \-']/g, ' ');
     s = s.replace(/\s+/g, ' ').trim();
     if (!s) s = 'Untitled';
-    if (s.length > maxLen) s = s.slice(0, maxLen).trim();
+    const words = s.split(' ').filter(Boolean);
+    s = words.join('_');
+    if (s.length > maxLen) {
+        s = s.slice(0, maxLen).replace(/_+$/, '');
+        if (!s) s = 'Untitled';
+    }
     return s;
 }
 
@@ -49,16 +53,6 @@ export function sanitizeUserDataPart(raw) {
     return s;
 }
 
-/**
- * @param {object} opts
- * @param {string} opts.catId
- * @param {string} opts.fxName
- * @param {string} opts.creatorId
- * @param {string} [opts.sourceId]
- * @param {string} [opts.channels]
- * @param {string} [opts.location]
- * @param {string} [opts.userCategory]
- */
 export function buildUcsFileName(opts = {}) {
     const catId = sanitizeIdBlock(opts.catId || 'AMBMisc', 'AMBMisc');
     const userCat = opts.userCategory

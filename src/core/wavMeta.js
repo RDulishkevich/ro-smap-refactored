@@ -55,12 +55,30 @@ function chunk(tag, payload) {
 }
 
 function buildBext(meta) {
-    // EBU Tech 3285 bext chunk (minimum useful fields)
-    const desc = String(meta.description || meta.fxName || '').slice(0, 256);
-    const originator = String(meta.originator || meta.creatorId || '').slice(0, 32);
-    const originatorReference = String(meta.originatorReference || meta.soundId || '').slice(0, 32);
-    const date = String(meta.originationDate || new Date().toISOString().slice(0, 10)).replace(/-/g, '-').slice(0, 10);
+    // EBU Tech 3285 bext — Description packs the richest ASCII summary (256 chars).
+    const packed = [
+        meta.fxName || meta.title || '',
+        meta.location || '',
+        meta.keywords || '',
+        meta.ecoCategory || '',
+        meta.catId || ''
+    ].filter(Boolean).join(' | ');
+    const desc = String(meta.description || packed || meta.fxName || '').slice(0, 256);
+    const originator = String(meta.originator || meta.creatorId || meta.recordist || '').slice(0, 32);
+    const originatorReference = String(meta.originatorReference || meta.soundId || meta.fileName || '').slice(0, 32);
+    const date = String(meta.originationDate || new Date().toISOString().slice(0, 10)).slice(0, 10);
     const time = String(meta.originationTime || '00:00:00').slice(0, 8);
+
+    // Coding history: short ASCII trail of gear / format
+    const history = String([
+        meta.recorder && `Recorder=${meta.recorder}`,
+        meta.micType && `Mic=${meta.micType}`,
+        meta.format && `Format=${meta.format}`,
+        meta.channels && `Channels=${meta.channels}`,
+        meta.fileName && `File=${meta.fileName}`
+    ].filter(Boolean).join('; ')).slice(0, 180);
+
+    const historyBytes = encAscii(history, 190);
 
     const parts = [
         encAscii(desc, 256),
@@ -71,7 +89,7 @@ function buildBext(meta) {
         u32le(0), u32le(0), // TimeReference low/high
         new Uint8Array([0, 0]), // Version
         new Uint8Array(64), // UMID
-        new Uint8Array(190) // Reserved + coding history stub
+        historyBytes
     ];
     return chunk('bext', concatChunks(parts));
 }
@@ -85,6 +103,7 @@ function xmlEscape(s) {
 }
 
 function buildIxml(meta) {
+    const payload = meta.rosmapPayload || null;
     const tags = {
         SPEED: {
             TIMESTAMP_MODE: 'Original',
@@ -92,25 +111,52 @@ function buildIxml(meta) {
         },
         BEXT: {
             BWF_DESCRIPTION: meta.description || meta.fxName || '',
-            BWF_ORIGINATOR: meta.originator || meta.creatorId || '',
-            BWF_ORIGINATOR_REFERENCE: meta.originatorReference || meta.soundId || ''
+            BWF_ORIGINATOR: meta.originator || meta.creatorId || meta.recordist || '',
+            BWF_ORIGINATOR_REFERENCE: meta.originatorReference || meta.soundId || '',
+            BWF_ORIGINATION_DATE: meta.originationDate || '',
+            BWF_ORIGINATION_TIME: meta.originationTime || ''
         },
         USER: {
+            // UCS
             UCS_CATID: meta.catId || '',
             UCS_CATEGORY: meta.category || '',
-            UCS_SUBCATEGORY: meta.subCategory || '',
+            UCS_SUBCATEGORY: meta.subCategory || meta.subCategoryName || '',
+            UCS_SUBCATEGORY_NAME: meta.subCategoryName || '',
             UCS_FXNAME: meta.fxName || '',
             UCS_CREATORID: meta.creatorId || '',
             UCS_SOURCEID: meta.sourceId || 'ROSMAP',
+            UCS_FILENAME: meta.fileName || '',
+            // Content
+            TITLE: meta.title || '',
+            DISPLAY_TITLE: meta.title || '',
+            DESCRIPTION: meta.description || '',
+            NOTE: meta.note || meta.description || '',
+            KEYWORDS: meta.keywords || '',
+            // Place / time
             LOCATION: meta.location || '',
             GPS: meta.lat != null && meta.lng != null ? `${meta.lat},${meta.lng}` : '',
+            LAT: meta.lat != null ? String(meta.lat) : '',
+            LNG: meta.lng != null ? String(meta.lng) : '',
+            DATE: meta.originationDate || '',
+            TIME: meta.originationTime || '',
+            // Classification
+            ECO_CATEGORY: meta.ecoCategory || '',
+            // Tech
             MIC_TYPE: meta.micType || '',
             RECORDER: meta.recorder || '',
+            FORMAT: meta.format || '',
             CHANNELS: meta.channels || '',
+            REC_PRINCIPLE: meta.recPrinciple || '',
+            WEATHER: meta.weather || '',
             LICENSE: meta.license || '',
-            KEYWORDS: meta.keywords || '',
-            ECO_CATEGORY: meta.ecoCategory || '',
-            NOTE: meta.note || meta.description || ''
+            RECORDIST: meta.recordist || '',
+            RECORDIST_ID: meta.recordistId || meta.creatorId || '',
+            DURATION: meta.duration || '',
+            SESSION_ID: meta.sessionId || '',
+            SOUND_ID: meta.soundId || '',
+            ROUTE: meta.routeJson || '',
+            // Full snapshot for round-trip
+            ROSMAP_JSON: payload ? JSON.stringify(payload) : ''
         }
     };
 
@@ -128,20 +174,32 @@ function buildIxml(meta) {
 }
 
 function infoSubchunk(tag, text) {
-    const payload = padEven(encUtf8(String(text || '') + '\0'));
-    // INFO subchunk size is payload length including null, before pad — RIFF uses unpadded size
     const raw = encUtf8(String(text || '') + '\0');
     return concatChunks([fourCC(tag), u32le(raw.length), padEven(raw)]);
 }
 
 function buildListInfo(meta) {
+    const comment = [
+        meta.description || '',
+        meta.weather && `Weather: ${meta.weather}`,
+        meta.recPrinciple && `Principle: ${meta.recPrinciple}`,
+        meta.format && `Format: ${meta.format}`,
+        meta.duration && `Duration: ${meta.duration}`
+    ].filter(Boolean).join(' | ').slice(0, 900);
+
     const body = concatChunks([
         fourCC('INFO'),
-        infoSubchunk('INAM', meta.fxName || meta.title || ''),
-        infoSubchunk('IART', meta.creatorId || meta.originator || ''),
-        infoSubchunk('ICMT', meta.description || ''),
+        infoSubchunk('INAM', meta.title || meta.fxName || ''),
+        infoSubchunk('IART', meta.recordist || meta.creatorId || meta.originator || ''),
+        infoSubchunk('ICMT', comment),
         infoSubchunk('ICOP', meta.license || ''),
-        infoSubchunk('IGNR', meta.category || meta.catId || '')
+        infoSubchunk('IGNR', [meta.category, meta.catId, meta.ecoCategory].filter(Boolean).join(' / ')),
+        infoSubchunk('IKEY', meta.keywords || ''),
+        infoSubchunk('ICRD', meta.originationDate || ''),
+        infoSubchunk('ISBJ', meta.location || ''),
+        infoSubchunk('ISRC', meta.soundId || ''),
+        infoSubchunk('IENG', meta.recorder || ''),
+        infoSubchunk('ITCH', meta.micType || '')
     ]);
     return concatChunks([fourCC('LIST'), u32le(body.length), body]);
 }

@@ -4913,7 +4913,7 @@ window.probeAudioDuration = function(src) {
 };
 
 window.handleAudioFiles = function(files) {
-    if(files && files.length > 0 && files[0].type.startsWith('audio/')) {
+    if (files && files.length > 0 && files[0].type.startsWith('audio/')) {
         const file = files[0];
         if (file.size > (window.MAX_AUDIO_UPLOAD_BYTES || 1024 * 1024 * 1024)) {
             window.showToast('Аудиофайл больше 1 ГБ');
@@ -4930,24 +4930,131 @@ window.handleAudioFiles = function(files) {
             window.__uploadedAudioDuration = window.formatTime ? window.formatTime(secs) : `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`;
         }).catch(() => { window.__uploadedAudioDuration = '0:00'; });
         document.getElementById('drop-zone-content').innerHTML = `<span class="text-sm font-bold text-blue-600">Готов к загрузке: ${file.name}</span>`;
+
+        if (window.readWavFileMetadata) {
+            window.readWavFileMetadata(file).then((meta) => {
+                window.applyUploadedAudioMeta(meta);
+            }).catch((err) => console.warn(err));
+        }
     }
-}
+};
+
+/** Apply full add-form fields parsed from uploaded WAV + filename / ROSMAP_JSON. */
+window.applyUploadedAudioMeta = function(meta) {
+    if (!meta) return;
+    const setIfEmpty = (id, value, force = false) => {
+        const el = document.getElementById(id);
+        if (!el || value == null || value === '') return;
+        if (!force && (el.value || '').trim()) return;
+        el.value = value;
+    };
+    const setSelect = (id, value, force = false) => {
+        if (value == null || value === '') return;
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (!force && (el.value || '').trim()) return;
+        if ([...el.options].some((o) => o.value === value)) el.value = value;
+    };
+
+    if (meta.date) setIfEmpty('add-date', meta.date, true);
+    if (meta.time) setIfEmpty('add-time', meta.time, true);
+    if (meta.keywords) {
+        const tagsEl = document.getElementById('add-tags');
+        const cur = (tagsEl?.value || '').trim();
+        if (!cur || cur === 'City, Field recording') setIfEmpty('add-tags', meta.keywords, true);
+    }
+    if (meta.location) setIfEmpty('add-loc', meta.location);
+    if (meta.description) setIfEmpty('add-desc', meta.description);
+    if (meta.title) setIfEmpty('add-display-title', meta.title);
+    setSelect('add-eco', meta.ecoCategory);
+    setSelect('add-weather', meta.weather);
+    setSelect('add-principle', meta.recPrinciple);
+    if (meta.recPrinciple && window.handlePrincipleChange) {
+        window.handlePrincipleChange(meta.recPrinciple);
+    }
+    setIfEmpty('add-recorder', meta.recorder);
+    setIfEmpty('add-mic', meta.micType);
+    setSelect('add-format', meta.format);
+    setSelect('add-channels', meta.channels);
+    setSelect('add-license', meta.license);
+    setIfEmpty('add-recordist', meta.recordist);
+    setSelect('add-session', meta.sessionId);
+
+    if (Number.isFinite(meta.lat) && Number.isFinite(meta.lng)) {
+        window.tempAddCoords = [meta.lat, meta.lng];
+        const coordsEl = document.getElementById('add-coords');
+        if (coordsEl && !(coordsEl.value || '').trim()) {
+            coordsEl.value = `${meta.lat}, ${meta.lng}`;
+        }
+    }
+
+    if (meta.category || meta.catId) {
+        const looked = meta.catId && window.ucsByCatId ? window.ucsByCatId[meta.catId] : null;
+        const category = meta.category || looked?.category || '';
+        window.populateUcsCategorySelect(category || undefined);
+        if (category) {
+            const catEl = document.getElementById('add-category');
+            if (catEl && [...catEl.options].some((o) => o.value === category)) {
+                catEl.value = category;
+            }
+        }
+        window.updateUcsSubcats(meta.catId || undefined);
+    }
+
+    if (meta.fxName) {
+        const fxEl = document.getElementById('add-user-defined');
+        if (fxEl) {
+            fxEl.value = window.sanitizeFxName ? window.sanitizeFxName(meta.fxName) : meta.fxName;
+            fxEl.dataset.auto = '0';
+            window.__fxNameManual = true;
+        }
+        const titleEl = document.getElementById('add-display-title');
+        if (titleEl && !(titleEl.value || '').trim()) {
+            titleEl.value = meta.title || String(meta.fxName).replace(/_/g, ' ');
+        }
+    } else if ((document.getElementById('add-desc')?.value || '').trim()) {
+        window.__fxNameManual = false;
+        const fxEl = document.getElementById('add-user-defined');
+        if (fxEl) fxEl.dataset.auto = '1';
+        window.scheduleFxNameAutoTranslate();
+    }
+
+    window.generateUCSFileName();
+    if (meta.catId || meta.fxName || meta.rosmapPayload) {
+        window.showToast('Метаданные / UCS из файла подставлены');
+    }
+};
+
+window.populateUcsCategorySelect = function(preferred) {
+    const cat = document.getElementById('add-category');
+    if (!cat) return;
+    const cats = window.ucsCategories || Object.keys(window.ucsStructure || {}).sort();
+    const prev = preferred || cat.value || 'AMBIENCE';
+    cat.innerHTML = cats.map((c) => `<option value="${c}">${c}</option>`).join('');
+    if (cats.includes(prev)) cat.value = prev;
+    else if (cats.includes('AMBIENCE')) cat.value = 'AMBIENCE';
+    else if (cats[0]) cat.value = cats[0];
+};
 
 // ДОБАВЛЕНО: Обновление выпадающего списка субкатегорий в модалке Add
-window.updateUcsSubcats = function() {
+window.updateUcsSubcats = function(preferredCatId) {
     const cat = document.getElementById('add-category');
     const subcatSelect = document.getElementById('add-subcat');
     if (!cat || !subcatSelect) return;
+
+    if (!cat.options.length) window.populateUcsCategorySelect();
 
     const selectedCat = cat.value || 'AMBIENCE';
     const structure = window.ucsStructure || {};
     const options = structure[selectedCat] || [];
 
-    subcatSelect.innerHTML = options.map(sub => `<option value="${sub.id}">${sub.name}</option>`).join('');
+    const prev = preferredCatId || subcatSelect.value;
+    subcatSelect.innerHTML = options.map((sub) => `<option value="${sub.id}">${sub.name}</option>`).join('');
+    if (prev && options.some((o) => o.id === prev)) subcatSelect.value = prev;
     if (typeof window.generateUCSFileName === 'function') {
         window.generateUCSFileName();
     }
-}
+};
 
 window.generateUCSFileName = function() {
     const name = window.collectUcsNameFromForm
@@ -4959,6 +5066,7 @@ window.generateUCSFileName = function() {
 
 window.__fxNameManual = false;
 window.__fxNameTranslateTimer = null;
+window.__fxNameTranslateSeq = 0;
 
 window.markFxNameManual = function() {
     window.__fxNameManual = true;
@@ -4969,9 +5077,11 @@ window.markFxNameManual = function() {
 window.scheduleFxNameAutoTranslate = function() {
     if (window.__fxNameManual) return;
     clearTimeout(window.__fxNameTranslateTimer);
+    const fxEl = document.getElementById('add-user-defined');
+    if (fxEl) fxEl.classList.add('opacity-60');
     window.__fxNameTranslateTimer = setTimeout(() => {
         window.translateFxNameFromDescription({ silent: true, onlyIfAuto: true });
-    }, 600);
+    }, 320);
 };
 
 window.translateFxNameFromDescription = async function(opts = {}) {
@@ -4980,11 +5090,16 @@ window.translateFxNameFromDescription = async function(opts = {}) {
     if (!descEl || !fxEl) return;
     const desc = (descEl.value || '').trim();
     if (!desc) {
+        fxEl.classList.remove('opacity-60');
         if (!opts.silent) window.showToast('Сначала заполните описание');
         return;
     }
-    if (opts.onlyIfAuto && (window.__fxNameManual || fxEl.dataset.auto === '0')) return;
+    if (opts.onlyIfAuto && (window.__fxNameManual || fxEl.dataset.auto === '0')) {
+        fxEl.classList.remove('opacity-60');
+        return;
+    }
     if (!window.currentUser) {
+        fxEl.classList.remove('opacity-60');
         if (!opts.silent) {
             window.showToast('Войдите, чтобы перевести');
             if (window.openAuthModal) window.openAuthModal();
@@ -4992,12 +5107,17 @@ window.translateFxNameFromDescription = async function(opts = {}) {
         return;
     }
     if (!window.apiTranslate) {
+        fxEl.classList.remove('opacity-60');
         if (!opts.silent) window.showToast('Перевод недоступен');
         return;
     }
+    const seq = ++window.__fxNameTranslateSeq;
+    fxEl.classList.add('opacity-60');
     try {
         if (!opts.silent) window.showToast('Перевод…');
         const [en] = await window.apiTranslate(desc.slice(0, 500));
+        if (seq !== window.__fxNameTranslateSeq) return;
+        if (opts.onlyIfAuto && (window.__fxNameManual || fxEl.dataset.auto === '0')) return;
         const fx = window.sanitizeFxName ? window.sanitizeFxName(en) : String(en || '').slice(0, 40);
         if (!fx || fx === 'Untitled') {
             if (!opts.silent) window.showToast('Не удалось получить английское имя');
@@ -5016,6 +5136,8 @@ window.translateFxNameFromDescription = async function(opts = {}) {
                 : (err.message || 'Ошибка перевода');
             window.showToast(msg);
         }
+    } finally {
+        if (seq === window.__fxNameTranslateSeq) fxEl.classList.remove('opacity-60');
     }
 };
 // Фото звука: локальный preview + File; в JSON уходит только https URL после upload.
@@ -5092,6 +5214,95 @@ window.resolvePendingImagesForPublish = async function(soundId) {
     return out.slice(0, 3);
 };
 
+/** Snapshot of the add-sound form for BWF / iXML / LIST INFO embedding. */
+window.collectAddFormEmbedMeta = function({ soundId, title, coords, fileName, login } = {}) {
+    const val = (elId) => (document.getElementById(elId)?.value || '').trim();
+    const catId = val('add-subcat');
+    const category = val('add-category');
+    const looked = catId && window.ucsByCatId ? window.ucsByCatId[catId] : null;
+    const subOpts = (window.ucsStructure && window.ucsStructure[category]) || [];
+    const subRow = subOpts.find((s) => s.id === catId);
+    const subCategoryName = subRow?.name || looked?.subCategory || catId;
+    const date = (val('add-date') || '').slice(0, 10) || new Date().toISOString().slice(0, 10);
+    const timeRaw = val('add-time');
+    const time = !timeRaw ? '00:00:00' : (timeRaw.length === 5 ? `${timeRaw}:00` : timeRaw.slice(0, 8));
+    const route = window.isSoundwalkPrinciple && window.isSoundwalkPrinciple()
+        ? ((window.addModalRoute && window.addModalRoute.length > 1) ? window.addModalRoute : null)
+        : null;
+    const duration = (window.__uploadedAudioDuration && window.__uploadedAudioDuration !== '0:00')
+        ? window.__uploadedAudioDuration
+        : '';
+    const recordist = val('add-recordist') || window.currentUser?.username || login || '';
+    const creatorId = login || window.currentUser?.loginName || recordist;
+    const fxName = val('add-user-defined') || title || 'Untitled';
+    const payload = {
+        id: soundId,
+        title: title || '',
+        fxName,
+        fileName: fileName || val('add-file-name'),
+        description: val('add-desc'),
+        ecoCategory: val('add-eco'),
+        ucsCat: category,
+        typeTag: catId,
+        keywords: val('add-tags'),
+        location: val('add-loc'),
+        lat: coords?.[0],
+        lng: coords?.[1],
+        date,
+        time,
+        weather: val('add-weather'),
+        recPrinciple: val('add-principle'),
+        gear: val('add-recorder'),
+        micType: val('add-mic'),
+        format: val('add-format'),
+        channels: val('add-channels'),
+        recordist,
+        recordistId: creatorId,
+        license: val('add-license'),
+        sessionId: val('add-session') || null,
+        duration,
+        route: route || undefined,
+        sourceId: window.UCS_SOURCE_ID || 'ROSMAP'
+    };
+
+    return {
+        soundId,
+        title: title || '',
+        fxName,
+        fileName: payload.fileName,
+        description: payload.description,
+        note: payload.description,
+        originator: recordist,
+        creatorId,
+        recordist,
+        recordistId: creatorId,
+        originatorReference: soundId,
+        catId,
+        category,
+        subCategory: catId,
+        subCategoryName,
+        sourceId: payload.sourceId,
+        location: payload.location,
+        lat: payload.lat,
+        lng: payload.lng,
+        micType: payload.micType,
+        recorder: payload.gear,
+        format: payload.format,
+        channels: payload.channels,
+        license: payload.license,
+        keywords: payload.keywords,
+        ecoCategory: payload.ecoCategory,
+        weather: payload.weather,
+        recPrinciple: payload.recPrinciple,
+        sessionId: payload.sessionId || '',
+        duration,
+        routeJson: route ? JSON.stringify(route) : '',
+        originationDate: date,
+        originationTime: time,
+        rosmapPayload: payload
+    };
+};
+
 // targetStatus: 'pending' (кнопка "Опубликовать") или 'draft' (кнопка "Черновик").
 // Логика перехода статусов при редактировании — см. комментарий у поле status ниже.
 window.publishSound = async function(targetStatus = 'pending') {
@@ -5146,31 +5357,20 @@ window.publishSound = async function(targetStatus = 'pending') {
             if (window.embedWavMetadata) {
                 try {
                     window.showToast('Вшивание метаданных…');
-                    const embedResult = await window.embedWavMetadata(file, {
-                        soundId,
-                        fxName: val('add-user-defined') || title,
-                        title,
-                        description: val('add-desc'),
-                        originator: window.currentUser.username || login,
-                        creatorId: login,
-                        originatorReference: soundId,
-                        catId: val('add-subcat'),
-                        category: val('add-category'),
-                        subCategory: val('add-subcat'),
-                        sourceId: window.UCS_SOURCE_ID || 'ROSMAP',
-                        location: val('add-loc'),
-                        lat: coords?.[0],
-                        lng: coords?.[1],
-                        micType: val('add-mic'),
-                        recorder: val('add-recorder'),
-                        channels: val('add-channels'),
-                        license: val('add-license'),
-                        keywords: val('add-tags'),
-                        ecoCategory: val('add-eco'),
-                        note: val('add-desc'),
-                        originationDate: (val('add-date') || '').slice(0, 10) || new Date().toISOString().slice(0, 10),
-                        originationTime: (val('add-time') || '00:00:00').slice(0, 8)
-                    }, ucsName);
+                    const embedMeta = window.collectAddFormEmbedMeta
+                        ? window.collectAddFormEmbedMeta({ soundId, title, coords, fileName: ucsName, login })
+                        : null;
+                    const embedResult = await window.embedWavMetadata(
+                        file,
+                        embedMeta || {
+                            soundId,
+                            title,
+                            fxName: val('add-user-defined') || title,
+                            description: val('add-desc'),
+                            creatorId: login
+                        },
+                        ucsName
+                    );
                     if (embedResult.embedded && embedResult.file) {
                         file = embedResult.file;
                         metaEmbedded = true;
@@ -5429,6 +5629,8 @@ window.resetAddModalToCreateMode = function() {
     window.__fxNameManual = false;
     const fxEl = document.getElementById('add-user-defined');
     if (fxEl) fxEl.dataset.auto = '1';
+    window.populateUcsCategorySelect?.();
+    window.updateUcsSubcats?.();
     if (window.generateUCSFileName) window.generateUCSFileName();
 };
 
@@ -5461,6 +5663,7 @@ window.toggleAddModal = function(forceClose = false, coords = null, isEdit = fal
         }
 
         if (window.playSfx) window.playSfx('open');
+        window.populateUcsCategorySelect?.();
         window.updateUcsSubcats();
         return;
     }

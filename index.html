@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260718aa">
-    <link rel="stylesheet" href="./src/glass.css?v=20260718aa">
+    <link rel="stylesheet" href="./src/style.css?v=20260718ac">
+    <link rel="stylesheet" href="./src/glass.css?v=20260718ac">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -1054,11 +1054,11 @@
                         <div class="flex items-center justify-between gap-2 mb-1">
                             <label class="modal-label text-slate-500 dark:text-slate-400 mb-0" data-lang="user_defined">FXName (EN)</label>
                             <button type="button" id="add-translate-fxname-btn" onclick="window.translateFxNameFromDescription()" class="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline shrink-0">
-                                <i class="fa-solid fa-language mr-1"></i><span data-lang="translate_fxname">Перевести из описания</span>
+                                <i class="fa-solid fa-language mr-1"></i><span data-lang="translate_fxname">Обновить перевод</span>
                             </button>
                         </div>
                         <input id="add-user-defined" type="text" name="rosmap-add-user-defined" value="" placeholder="e.g. Street Market Rostov Day" autocomplete="off" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-medium" oninput="window.markFxNameManual(); window.generateUCSFileName()">
-                        <p class="text-[10px] text-slate-400 mt-1" data-lang="fxname_hint">Краткое английское имя для UCS (без _). Автоиз описания или вручную.</p>
+                        <p class="text-[10px] text-slate-400 mt-1" data-lang="fxname_hint">Английское имя для UCS: слова через _. Переводится из описания автоматически.</p>
                     </div>
 
                     <div>
@@ -1087,13 +1087,7 @@
                         <div>
                             <label class="modal-label text-slate-400" data-lang="ucs_category">Категория (UCS):</label>
                             <select id="add-category" onchange="window.updateUcsSubcats()" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white appearance-none font-semibold text-xs">
-                                <option value="AMBIENCE" selected>AMBIENCE (Окружение)</option>
-                                <option value="WATER">WATER (Вода)</option>
-                                <option value="WEATHER">WEATHER (Погода)</option>
-                                <option value="ANIMALS">ANIMALS (Животные)</option>
-                                <option value="HUMAN">HUMAN (Люди)</option>
-                                <option value="INDUSTRIAL">INDUSTRIAL (Индустрия)</option>
-                                <option value="VEHICLES">VEHICLES (Транспорт)</option>
+                                <!-- UCS 8.2.1 categories: populateUcsCategorySelect() -->
                             </select>
                         </div>
                     </div>
@@ -1998,7 +1992,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260718aa"></script>
+    <script type="module" src="./src/main.js?v=20260718ac"></script>
 
 </body>
 </html>

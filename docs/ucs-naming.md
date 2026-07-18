@@ -1,6 +1,6 @@
 # UCS naming in RO.SMap
 
-Based on the Universal Category System file naming convention (Tim Nielsen et al.).
+Based on the Universal Category System file naming convention (Tim Nielsen et al.), UCS **8.2.1** catalog (82 categories / 752 CatIDs).
 
 Official references:
 
@@ -10,25 +10,15 @@ Official references:
 ## Required shape
 
 ```
-CatID_FXName_CreatorID_SourceID
+CatID_FXName_CreatorID_SourceID[_UserData]
 ```
-
-Optional full form:
-
-```
-CatID(-UserCategory)_(VendorCategory-)FXName_CreatorID_SourceID_UserData
-```
-
-- Underscores `_` separate **blocks only** — do not use `_` inside FXName.
-- Spaces are allowed inside FXName.
-- The only strict UCS requirement is a valid **CatID** at the start of the filename.
 
 ## RO.SMap mapping
 
 | Block | Value |
 |-------|--------|
-| CatID | Subcategory select (`#add-subcat`, e.g. `AMBCity`) |
-| FXName | English short title (`#add-user-defined`), auto-translated from description via Yandex Translate |
+| CatID | Full UCS 8.2.1 subcategory (`#add-subcat`) |
+| FXName | English short title; **words joined with `_`** (auto-translated from description) |
 | CreatorID | Recordist / login (latin, no spaces) |
 | SourceID | Always `ROSMAP` |
 | UserData | `{channelCode}-{locationSlug}` e.g. `XY-Rostov` |
@@ -36,7 +26,9 @@ CatID(-UserCategory)_(VendorCategory-)FXName_CreatorID_SourceID_UserData
 Example:
 
 ```
-AMBCity_Rostov Market Day Crowd_romaflay_ROSMAP_XY-Rostov.wav
+AMBCity_Rostov_Market_Day_Crowd_romaflay_ROSMAP_XY-Rostov.wav
 ```
 
-Cloud object keys stay `uploads/{login}/audio_{soundId}.wav`. The UCS name is stored in `fileName`, used as download name, and embedded into WAV metadata (bext / iXML) on publish.
+On upload, the app reads bext / iXML / filename: date, time, keywords, CatID and FXName are applied to the form when present (otherwise date/time from file `lastModified`).
+
+Cloud object keys stay `uploads/{login}/audio_{soundId}.wav`. The UCS name is stored in `fileName`, used as download name, and on publish the full add-sound form snapshot is embedded into WAV metadata (bext + Open iXML `USER`/`ROSMAP_JSON` + LIST INFO): title, description, UCS, tags, place/GPS, date/time, weather, principle, gear/mic/format/channels, license, recordist, duration, session, route.

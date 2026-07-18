@@ -1,9 +1,12 @@
-import { ucsStructure, sourceIdMap, translations } from '../data/dict.js';
+import { sourceIdMap, translations } from '../data/dict.js';
+import { ucsStructure, ucsByCatId, ucsCategories } from '../data/ucsCatalog.js';
 import { transliterate, rawSoundsData, formatSoundObject } from '../data/sounds.js';
 
 export function initGlobalState() {
     // 1. Прокидываем данные и словари в глобальную область
     window.ucsStructure = ucsStructure;
+    window.ucsByCatId = ucsByCatId;
+    window.ucsCategories = ucsCategories;
     window.sourceIdMap = sourceIdMap;
     window.translations = translations;
     window.transliterate = transliterate;
