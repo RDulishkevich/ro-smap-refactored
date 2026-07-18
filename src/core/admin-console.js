@@ -261,7 +261,7 @@ window.runAdminConsoleCommand = async function(raw) {
             }
             case 'version': {
                 const h = window.__apiHealth || {};
-                window.adminConsoleLog(`client cache 20260718z · api ${h.version ?? '?'}`);
+                window.adminConsoleLog(`client cache 20260718aa · api ${h.version ?? '?'}`);
                 break;
             }
             case 'stats':

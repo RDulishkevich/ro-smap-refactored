@@ -5174,8 +5174,8 @@ window.publishSound = async function(targetStatus = 'pending') {
                     if (embedResult.embedded && embedResult.file) {
                         file = embedResult.file;
                         metaEmbedded = true;
-                    } else if (embedResult.skipped === 'too_large') {
-                        window.showToast('Файл > 64 МБ — метаданные только в карточке');
+                    } else if (embedResult.skipped === 'not_wav') {
+                        window.showToast('Метаданные вшиваются только в WAV');
                     }
                 } catch (metaErr) {
                     console.warn('WAV metadata embed failed', metaErr);

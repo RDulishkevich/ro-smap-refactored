@@ -39,4 +39,4 @@ Example:
 AMBCity_Rostov Market Day Crowd_romaflay_ROSMAP_XY-Rostov.wav
 ```
 
-Cloud object keys stay `uploads/{login}/audio_{soundId}.wav`. The UCS name is stored in `fileName`, used as download name, and embedded into WAV metadata (bext / iXML) when the file is ≤ 64 MB.
+Cloud object keys stay `uploads/{login}/audio_{soundId}.wav`. The UCS name is stored in `fileName`, used as download name, and embedded into WAV metadata (bext / iXML) on publish.

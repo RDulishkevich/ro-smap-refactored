@@ -3,8 +3,6 @@
  * Inserts metadata chunks before the `data` chunk.
  */
 
-export const WAV_META_MAX_BYTES = 64 * 1024 * 1024;
-
 function encAscii(str, len) {
     const out = new Uint8Array(len);
     const s = String(str || '');
@@ -237,12 +235,10 @@ export function embedWavMetadataBuffer(buffer, meta = {}) {
  */
 export async function embedWavMetadata(file, meta = {}, fileName = '') {
     if (!file) return { file: null, embedded: false, skipped: 'no_file' };
-    const size = file.size || 0;
     const name = fileName || file.name || 'audio.wav';
     const isWav = /\.wav$/i.test(name) || file.type === 'audio/wav' || file.type === 'audio/x-wav';
 
     if (!isWav) return { file, embedded: false, skipped: 'not_wav' };
-    if (size > WAV_META_MAX_BYTES) return { file, embedded: false, skipped: 'too_large' };
 
     const buf = await file.arrayBuffer();
     const outBuf = embedWavMetadataBuffer(buf, meta);
@@ -251,7 +247,6 @@ export async function embedWavMetadata(file, meta = {}, fileName = '') {
 }
 
 if (typeof window !== 'undefined') {
-    window.WAV_META_MAX_BYTES = WAV_META_MAX_BYTES;
     window.embedWavMetadata = embedWavMetadata;
     window.embedWavMetadataBuffer = embedWavMetadataBuffer;
 }
