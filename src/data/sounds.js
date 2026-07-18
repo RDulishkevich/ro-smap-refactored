@@ -83,6 +83,8 @@ export const formatSoundObject = function(s) {
         tagArray: tagsList,
         comments: (s.comments || []).map(normalizeComment),
         images: s.images || [],
+        customGearConfig: s.customGearConfig || '',
+        gearConfigImages: Array.isArray(s.gearConfigImages) ? s.gearConfigImages : [],
         // Публикации без статуса (весь вшитый демо-контент) считаются опубликованными —
         // обратная совместимость. Новые загрузки получают 'pending' (или 'draft' — см. publishSound).
         status: s.status || 'published',

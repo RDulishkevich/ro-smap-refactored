@@ -811,6 +811,7 @@ window.isAddSoundDirty = function() {
     if (window.editingSoundId) return true;
     if (window.currentUploadedFile || window.currentUploadedFileUrl) return true;
     if ((window.pendingImages || []).length) return true;
+    if ((window.pendingGearConfigImages || []).length) return true;
     if ((window.addModalRoute || []).length) return true;
     const val = (id) => (document.getElementById(id)?.value || '').trim();
     const defaults = {
@@ -819,7 +820,8 @@ window.isAddSoundDirty = function() {
     };
     const watched = [
         'add-display-title', 'add-user-defined', 'add-desc', 'add-tags', 'add-loc',
-        'add-date', 'add-time', 'add-recorder', 'add-mic', 'add-recordist', 'add-session'
+        'add-date', 'add-time', 'add-recorder', 'add-mic', 'add-recordist', 'add-session',
+        'add-custom-gear'
     ];
     return watched.some((id) => {
         const v = val(id);
@@ -1197,6 +1199,111 @@ window.syncSmartphoneRecordingFromFields = function() {
         ? window.isSmartphoneGear(gear, mic)
         : (String(gear).toLowerCase() === 'smartphone' || String(mic).toLowerCase() === 'интегрированный');
     window.setSmartphoneRecording(on, { restore: false });
+};
+
+window.MAX_GEAR_CONFIG_IMAGES = 3;
+
+window.setCustomGearConfig = function(on) {
+    const enabled = !!on;
+    window.__customGearConfig = enabled;
+    const sw = document.getElementById('add-custom-gear-switch');
+    if (sw) sw.setAttribute('aria-checked', enabled ? 'true' : 'false');
+    const panel = document.getElementById('add-custom-gear-panel');
+    if (panel) panel.classList.toggle('hidden', !enabled);
+    if (!enabled) {
+        const ta = document.getElementById('add-custom-gear');
+        if (ta) ta.value = '';
+        window.clearPendingGearConfigImages();
+    }
+};
+
+window.toggleCustomGearConfig = function() {
+    const sw = document.getElementById('add-custom-gear-switch');
+    const next = sw?.getAttribute('aria-checked') !== 'true';
+    window.setCustomGearConfig(next);
+};
+
+window.clearPendingGearConfigImages = function() {
+    (window.pendingGearConfigImages || []).forEach((item) => {
+        if (item && item.preview && String(item.preview).startsWith('blob:')) {
+            try { URL.revokeObjectURL(item.preview); } catch (_) {}
+        }
+    });
+    window.pendingGearConfigImages = [];
+    window.renderPendingGearConfigImagesPreview();
+};
+
+window.handleGearConfigImageFiles = function(files) {
+    if (!files || !files.length) return;
+    window.pendingGearConfigImages = window.pendingGearConfigImages || [];
+    const max = window.MAX_GEAR_CONFIG_IMAGES || 3;
+    const remaining = Math.max(0, max - window.pendingGearConfigImages.length);
+    if (remaining === 0) {
+        window.showToast(`Можно прикрепить максимум ${max} фото конфигурации`);
+        return;
+    }
+    Array.from(files).slice(0, remaining).forEach((file) => {
+        if (!file.type || !file.type.startsWith('image/')) return;
+        if (file.size > (window.MAX_IMAGE_UPLOAD_BYTES || 30 * 1024 * 1024)) {
+            window.showToast('Фото больше 30 МБ — сожмите или выберите другое');
+            return;
+        }
+        window.pendingGearConfigImages.push({ preview: URL.createObjectURL(file), file });
+    });
+    window.renderPendingGearConfigImagesPreview();
+    const input = document.getElementById('gear-config-image-input');
+    if (input) input.value = '';
+};
+
+window.renderPendingGearConfigImagesPreview = function() {
+    const container = document.getElementById('gear-config-image-preview');
+    if (!container) return;
+    const images = window.pendingGearConfigImages || [];
+    if (!images.length) {
+        container.innerHTML = '';
+        container.classList.add('hidden');
+        return;
+    }
+    container.classList.remove('hidden');
+    container.innerHTML = images.map((item, i) => `
+        <div class="relative">
+            <img src="${window.pendingImageSrc(item)}" class="image-thumb">
+            <button type="button" onclick="event.stopPropagation(); window.removePendingGearConfigImage(${i})" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] shadow-md">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+    `).join('');
+};
+
+window.removePendingGearConfigImage = function(index) {
+    if (!window.pendingGearConfigImages) return;
+    const item = window.pendingGearConfigImages[index];
+    if (item && item.preview && String(item.preview).startsWith('blob:')) {
+        try { URL.revokeObjectURL(item.preview); } catch (_) {}
+    }
+    window.pendingGearConfigImages.splice(index, 1);
+    window.renderPendingGearConfigImagesPreview();
+};
+
+window.resolvePendingGearConfigImagesForPublish = async function(soundId) {
+    const out = [];
+    const items = window.pendingGearConfigImages || [];
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (typeof item === 'string') {
+            if (window.isHttpMediaUrl && window.isHttpMediaUrl(item)) out.push(item);
+            else if (item.startsWith('data:') && window.uploadImageToStorage) {
+                out.push(await window.uploadImageToStorage(item, `gear_${soundId}_${i}`));
+            }
+            continue;
+        }
+        if (item?.file && window.uploadImageToStorage) {
+            out.push(await window.uploadImageToStorage(item.file, `gear_${soundId}_${i}`));
+        } else if (item?.url && window.isHttpMediaUrl(item.url)) {
+            out.push(item.url);
+        }
+    }
+    return out.slice(0, window.MAX_GEAR_CONFIG_IMAGES || 3);
 };
 
 window.handlePrincipleChange = function(value) {
@@ -2736,7 +2843,7 @@ window.getFilteredSounds = function(forceRefresh = false) {
 
     const filtered = window.soundsData.filter(s => {
         const tagHay = Array.isArray(s.tagArray) ? s.tagArray.join(' ') : '';
-        const searchTarget = `${s.title} ${s.description} ${s.keywords} ${tagHay} ${s.ecoCategory} ${s.ucsCat} ${s.typeTag} ${s.recPrinciple} ${s.gear} ${s.micType} ${s.recordist} ${s.weather} ${s.date} ${s.license} ${s.channels}`.toLowerCase();
+        const searchTarget = `${s.title} ${s.description} ${s.keywords} ${tagHay} ${s.ecoCategory} ${s.ucsCat} ${s.typeTag} ${s.recPrinciple} ${s.gear} ${s.micType} ${s.customGearConfig || ''} ${s.recordist} ${s.weather} ${s.date} ${s.license} ${s.channels}`.toLowerCase();
         const searchMatch = !query || searchTarget.includes(query);
 
         const ecoMatch = window.activeEcoLayer.size === 0 || window.activeEcoLayer.has(s.ecoCategory);
@@ -4368,7 +4475,8 @@ window.openDetailsModal = function() {
     const images = (s.images && s.images.length)
         ? s.images
         : [`https://picsum.photos/seed/${s.id}/800/500`];
-    window.__detailsGalleryImages = images;
+    const gearImgs = Array.isArray(s.gearConfigImages) ? s.gearConfigImages.filter(Boolean) : [];
+    window.__detailsGalleryImages = gearImgs.length ? [...images, ...gearImgs] : images;
     window.__detailsGalleryIndex = 0;
     window.renderDetailsGallery();
 
@@ -4389,6 +4497,28 @@ window.openDetailsModal = function() {
 
     safeText('det-location', s.location || 'Ростовская область');
     safeText('det-coords', `${Number(s.lat).toFixed(4)}, ${Number(s.lng).toFixed(4)}`);
+    safeText('det-weather', s.weather || '—');
+    safeText('det-principle', s.recPrinciple || '—');
+    safeText('det-recorder', s.gear || '—');
+    safeText('det-mic', s.micType || '—');
+    safeText('det-format', s.format || '—');
+    safeText('det-channels', s.channels || '—');
+    safeText('det-license', s.license || '—');
+    const dtParts = [s.date, s.time].filter(Boolean).join(' · ');
+    safeText('det-datetime', dtParts || '—');
+
+    const customGearWrap = document.getElementById('det-custom-gear-wrap');
+    const customGearEl = document.getElementById('det-custom-gear');
+    const customGearText = String(s.customGearConfig || '').trim();
+    if (customGearWrap && customGearEl) {
+        if (customGearText) {
+            customGearWrap.classList.remove('hidden');
+            customGearEl.textContent = customGearText;
+        } else {
+            customGearWrap.classList.add('hidden');
+            customGearEl.textContent = '';
+        }
+    }
 
     const recordistEl = document.getElementById('det-recordist');
     if (recordistEl) {
@@ -5598,6 +5728,7 @@ window.collectAddFormEmbedMeta = function({ soundId, title, coords, fileName, lo
         recPrinciple: val('add-principle'),
         gear: val('add-recorder'),
         micType: val('add-mic'),
+        customGearConfig: window.__customGearConfig ? val('add-custom-gear') : '',
         format: val('add-format'),
         channels: val('add-channels'),
         recordist,
@@ -5636,6 +5767,7 @@ window.collectAddFormEmbedMeta = function({ soundId, title, coords, fileName, lo
         lng: payload.lng,
         micType: payload.micType,
         recorder: payload.gear,
+        customGearConfig: payload.customGearConfig,
         format: payload.format,
         channels: payload.channels,
         license: payload.license,
@@ -5746,6 +5878,12 @@ window.publishSound = async function(targetStatus = 'pending') {
 
         window.showToast('Загрузка фото...');
         const images = await window.resolvePendingImagesForPublish(soundId);
+        const gearConfigImages = window.__customGearConfig
+            ? await window.resolvePendingGearConfigImagesForPublish(soundId)
+            : [];
+        const customGearConfig = window.__customGearConfig
+            ? val('add-custom-gear')
+            : '';
 
         const soundObj = {
             id: soundId,
@@ -5766,6 +5904,8 @@ window.publishSound = async function(targetStatus = 'pending') {
             comments: existing?.comments || [],
             keywords: val('add-tags'),
             micType: val('add-mic'),
+            customGearConfig,
+            gearConfigImages,
             recPrinciple: val('add-principle'),
             format: val('add-format'),
             channels: val('add-channels'),
@@ -5891,6 +6031,7 @@ window.editSound = function(id) {
 
     window.editingSoundId = id;
     window.pendingImages = Array.isArray(s.images) ? [...s.images] : [];
+    window.pendingGearConfigImages = Array.isArray(s.gearConfigImages) ? [...s.gearConfigImages] : [];
     window.currentUploadedFile = null;
     window.currentUploadedFileUrl = s.url || '';
     window.tempAddCoords = [s.lat, s.lng];
@@ -5918,6 +6059,10 @@ window.editSound = function(id) {
     setVal('add-mic', s.micType || '');
     window.syncSmartphoneRecordingFromFields();
     if (window.fillGearDatalists) window.fillGearDatalists();
+    const hasCustomGear = !!(String(s.customGearConfig || '').trim() || (s.gearConfigImages || []).length);
+    window.setCustomGearConfig(hasCustomGear);
+    setVal('add-custom-gear', s.customGearConfig || '');
+    window.renderPendingGearConfigImagesPreview();
     setVal('add-format', s.format || '');
     setVal('add-channels', s.channels || 'Stereo XY');
     setVal('add-recordist', s.recordist || (window.currentUser ? window.currentUser.username : ''));
@@ -5955,6 +6100,8 @@ window.editSound = function(id) {
 window.resetAddModalToCreateMode = function() {
     window.editingSoundId = null;
     window.pendingImages = [];
+    window.clearPendingGearConfigImages();
+    window.setCustomGearConfig(false);
     window.currentUploadedFile = null;
     window.currentUploadedFileUrl = '';
     window.tempAddCoords = null;
@@ -5972,7 +6119,7 @@ window.resetAddModalToCreateMode = function() {
     const imgContainer = document.getElementById('image-preview-container');
     if (imgContainer) { imgContainer.innerHTML = ''; imgContainer.classList.add('hidden'); }
 
-    ['add-user-defined', 'add-display-title', 'add-desc', 'add-tags', 'add-loc', 'add-coords', 'add-date', 'add-time'].forEach(id => {
+    ['add-user-defined', 'add-display-title', 'add-desc', 'add-tags', 'add-loc', 'add-coords', 'add-date', 'add-time', 'add-custom-gear'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });

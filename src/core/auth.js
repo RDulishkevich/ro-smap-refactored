@@ -1744,7 +1744,11 @@ export function initAuth() {
         list.innerHTML = sounds.map(s => {
             const isHardcoded = rawIds.includes(s.id);
             const status = s.status || 'published';
-            const num = s.archiveNum || '—';
+            const publicId = String(s.publicId || s.archiveNum || s.id || '—');
+            const internalId = String(s.id || '—');
+            const idLine = (publicId !== internalId)
+                ? `№ ${publicId}${isHardcoded ? ' · вшито' : ''} · ID ${internalId}`
+                : `ID ${internalId}${isHardcoded ? ' · вшито' : ''}`;
             const returned = status === 'draft' && !!(s.rejectionReason || '').trim();
             const statusLabel = returned
                 ? 'Отклонено → черновик'
@@ -1752,7 +1756,7 @@ export function initAuth() {
             return `
                 <div class="admin-entity-row">
                     <button type="button" class="admin-entity-main min-w-0 flex-1 text-left" onclick="window.openedFromAdmin=true; window.closeCabinet(); window.selectSound('${s.id}'); window.openDetailsModal();">
-                        <p class="admin-entity-num">№ ${num}${isHardcoded ? ' · вшито' : ''} · ID ${s.id}</p>
+                        <p class="admin-entity-num">${idLine}</p>
                         <p class="admin-entity-title">${s.title || 'Без названия'}</p>
                         <p class="admin-entity-meta">${s.fileName || ''} · ${s.recordist || 'Автор'} · ${statusLabel}</p>
                         ${(status === 'rejected' || returned) && s.rejectionReason ? `<p class="text-[11px] text-red-500 mt-0.5 line-clamp-2"><i class="fa-solid fa-circle-exclamation mr-1"></i>${s.rejectionReason}</p>` : ''}

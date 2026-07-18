@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260718ah">
-    <link rel="stylesheet" href="./src/glass.css?v=20260718ah">
+    <link rel="stylesheet" href="./src/style.css?v=20260718aj">
+    <link rel="stylesheet" href="./src/glass.css?v=20260718aj">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -1182,6 +1182,29 @@
                             <span class="glass-switch__thumb" aria-hidden="true"></span>
                         </button>
                     </div>
+                    <div class="glass-switch-row">
+                        <div class="min-w-0">
+                            <span class="glass-switch-row__label">Иная конфигурация</span>
+                            <span class="glass-switch-row__hint">Описание своей схемы и фото установки</span>
+                        </div>
+                        <button type="button" role="switch" id="add-custom-gear-switch" class="glass-switch shrink-0" aria-checked="false" onclick="window.toggleCustomGearConfig()" title="Иная конфигурация">
+                            <span class="glass-switch__thumb" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                    <div id="add-custom-gear-panel" class="hidden space-y-3 pt-1">
+                        <div>
+                            <label class="modal-label text-slate-400" for="add-custom-gear">Описание конфигурации</label>
+                            <textarea id="add-custom-gear" rows="3" maxlength="800" placeholder="Например: Zoom F3 + 2× Minimics Basic, ORTF на стереопланке, ветрозащита VETER…" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white py-2 text-xs resize-y min-h-[4.5rem]"></textarea>
+                        </div>
+                        <div class="border-2 border-dashed border-slate-200 dark:border-slate-600 rounded-xl p-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors" onclick="document.getElementById('gear-config-image-input').click()">
+                            <input type="file" id="gear-config-image-input" accept="image/*" multiple class="hidden" onclick="event.stopPropagation()" onchange="window.handleGearConfigImageFiles(this.files)">
+                            <div class="flex flex-col items-center justify-center text-center text-slate-500 dark:text-slate-400">
+                                <i class="fa-solid fa-camera text-xl mb-1.5 opacity-70"></i>
+                                <span class="text-[11px] font-bold">Фото конфигурации (до 3 шт.)</span>
+                            </div>
+                            <div id="gear-config-image-preview" class="image-preview-grid hidden mt-2.5"></div>
+                        </div>
+                    </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div class="sm:col-span-2">
                             <label class="modal-label text-slate-400" data-lang="meta_principle">Принцип записи</label>
@@ -1851,6 +1874,10 @@
                         <span class="meta-label" data-lang="mic_type"><i class="fa-solid fa-microphone-lines"></i> Микрофон</span>
                         <span class="meta-value" id="det-mic">Binaural</span>
                     </div>
+                    <div id="det-custom-gear-wrap" class="meta-group hidden">
+                        <span class="meta-label"><i class="fa-solid fa-screwdriver-wrench"></i> Иная конфигурация</span>
+                        <span class="meta-value whitespace-pre-wrap" id="det-custom-gear"></span>
+                    </div>
                     <div class="meta-group">
                         <span class="meta-label" data-lang="format"><i class="fa-solid fa-file-waveform"></i> Формат</span>
                         <span class="meta-value" id="det-format">WAV 96kHz / 24-bit</span>
@@ -2041,7 +2068,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260718ah"></script>
+    <script type="module" src="./src/main.js?v=20260718aj"></script>
 
 </body>
 </html>
