@@ -3738,11 +3738,23 @@ html.dark .feed-post__cover,
     color: #475569;
 }
 .dark .event-admin-bar button { background: #0f172a; border-color: #334155; color: #cbd5e1; }
+.event-editor-prize {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.35rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+.dark .event-editor-prize { border-color: #1e293b; }
 .event-editor-row {
     display: grid;
     grid-template-columns: 4.5rem 1fr 1fr auto;
     gap: 0.35rem;
     align-items: center;
+}
+.event-editor-row--rewards {
+    grid-template-columns: 5.5rem 1fr;
 }
 .event-editor-row button {
     border: none;
@@ -3751,6 +3763,12 @@ html.dark .feed-post__cover,
     cursor: pointer;
     padding: 0.35rem;
 }
+.event-prize-reward {
+    color: #d97706;
+    font-weight: 600;
+    font-size: 0.7rem;
+}
+.dark .event-prize-reward { color: #fbbf24; }
 .event-part-row {
     display: flex;
     align-items: center;

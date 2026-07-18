@@ -124,6 +124,17 @@ window.apiPresignUpload = function(fileName, contentType, contentLength) {
     return window.apiRequest('presign', payload, { auth: true });
 };
 
+/** Yandex Translate via Secure API. Returns array of translated strings. */
+window.apiTranslate = async function(texts, opts = {}) {
+    const list = Array.isArray(texts) ? texts : [texts];
+    const data = await window.apiRequest('translate', {
+        texts: list,
+        sourceLanguageCode: opts.sourceLanguageCode || 'ru',
+        targetLanguageCode: opts.targetLanguageCode || 'en'
+    }, { auth: true });
+    return data.translations || [];
+};
+
 window.MAX_IMAGE_UPLOAD_BYTES = 30 * 1024 * 1024;       // 30 MB
 window.MAX_AUDIO_UPLOAD_BYTES = 1024 * 1024 * 1024;     // 1 GB
 

@@ -9,9 +9,11 @@
  *   JWT_SECRET        — long random string for session tokens
  *   ADMIN_PASSWORD    — bootstrap / admin login password (NOT shipped to client)
  *   ALLOWED_ORIGIN    — CORS origin (default *)
+ *   YC_TRANSLATE_API_KEY — Yandex Cloud Translate API key (Api-Key …)
+ *   YC_FOLDER_ID      — folder id (required with some key types)
  *
  * Actions (POST JSON { action, ... }):
- *   health | register | login | changePassword | me | sync | commit | presign | patchSound
+ *   health | register | login | changePassword | me | sync | commit | presign | patchSound | translate
  */
 
 const crypto = require('crypto');
@@ -24,6 +26,8 @@ const ENDPOINT = process.env.STORAGE_ENDPOINT || 'https://storage.yandexcloud.ne
 const JWT_SECRET = process.env.JWT_SECRET || '';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
+const YC_TRANSLATE_API_KEY = process.env.YC_TRANSLATE_API_KEY || '';
+const YC_FOLDER_ID = process.env.YC_FOLDER_ID || '';
 const AUTH_KEY = '_auth/users.json';
 const ALLOWED_JSON = new Set(['map_data.json', 'profiles.json', 'feed.json', 'mail.json', 'events.json']);
 const MEDIA_PREFIXES = ['uploads/', 'audio/', 'images/'];
@@ -198,6 +202,7 @@ function actionRateLimit(action, ip, login = '') {
     if ((action === 'sync' || action === 'commit') && !rateLimit(`sync:${who}`, 120, 60000)) return false;
     if (action === 'presign' && !rateLimit(`presign:${who}`, 90, 60000)) return false;
     if (action === 'patchSound' && !rateLimit(`patch:${who}`, 180, 60000)) return false;
+    if (action === 'translate' && !rateLimit(`translate:${who}`, 40, 60000)) return false;
     return true;
 }
 
@@ -1214,6 +1219,57 @@ async function handlePresign(event, body) {
     });
 }
 
+async function handleTranslate(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    if (!YC_TRANSLATE_API_KEY) {
+        return respond(503, { ok: false, error: 'translate_unconfigured', message: 'YC_TRANSLATE_API_KEY is not set' });
+    }
+
+    let texts = body.texts;
+    if (typeof texts === 'string') texts = [texts];
+    if (!Array.isArray(texts) || !texts.length) {
+        return respond(400, { ok: false, error: 'bad_texts' });
+    }
+    texts = texts.map((t) => String(t || '').slice(0, 2000)).filter(Boolean).slice(0, 8);
+    if (!texts.length) return respond(400, { ok: false, error: 'bad_texts' });
+
+    const totalLen = texts.reduce((n, t) => n + t.length, 0);
+    if (totalLen > 8000) return respond(400, { ok: false, error: 'texts_too_long' });
+
+    const sourceLanguageCode = String(body.sourceLanguageCode || 'ru').slice(0, 8);
+    const targetLanguageCode = String(body.targetLanguageCode || 'en').slice(0, 8);
+
+    const reqBody = {
+        sourceLanguageCode,
+        targetLanguageCode,
+        texts
+    };
+    if (YC_FOLDER_ID) reqBody.folderId = YC_FOLDER_ID;
+
+    const res = await fetch('https://translate.api.cloud.yandex.net/translate/v2/translate', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Api-Key ${YC_TRANSLATE_API_KEY}`
+        },
+        body: JSON.stringify(reqBody)
+    });
+
+    let data = null;
+    try { data = await res.json(); } catch (_) { data = null; }
+    if (!res.ok) {
+        return respond(502, {
+            ok: false,
+            error: 'translate_failed',
+            message: (data && (data.message || data.error)) || `Yandex Translate HTTP ${res.status}`
+        });
+    }
+
+    const translations = (data?.translations || []).map((t) => t.text || '');
+    return respond(200, { ok: true, translations, sourceLanguageCode, targetLanguageCode });
+}
+
 exports.handler = async function handler(event = {}) {
     const method = (event.httpMethod || event.requestContext?.http?.method || 'POST').toUpperCase();
     if (method === 'OPTIONS') {
@@ -1236,7 +1292,7 @@ exports.handler = async function handler(event = {}) {
         return respond(429, { ok: false, error: 'rate_limited' });
     }
 
-    const tokenPayload = (action === 'sync' || action === 'commit' || action === 'presign' || action === 'me' || action === 'changePassword' || action === 'patchSound')
+    const tokenPayload = (action === 'sync' || action === 'commit' || action === 'presign' || action === 'me' || action === 'changePassword' || action === 'patchSound' || action === 'translate')
         ? verifyJwt(extractToken(event, body))
         : null;
     if (!actionRateLimit(action, ipKey, tokenPayload?.login || '')) {
@@ -1244,7 +1300,7 @@ exports.handler = async function handler(event = {}) {
     }
 
     try {
-        if (action === 'health') return respond(200, { ok: true, version: 4 });
+        if (action === 'health') return respond(200, { ok: true, version: 5 });
         if (action === 'register') return await handleRegister(body);
         if (action === 'login') return await handleLogin(body);
         if (action === 'changePassword') return await handleChangePassword(event, body);
@@ -1253,6 +1309,7 @@ exports.handler = async function handler(event = {}) {
         if (action === 'commit') return await handleCommit(event, body);
         if (action === 'presign') return await handlePresign(event, body);
         if (action === 'patchSound') return await handlePatchSound(event, body);
+        if (action === 'translate') return await handleTranslate(event, body);
         if (action === 'legacy_presign') {
             return respond(401, {
                 ok: false,

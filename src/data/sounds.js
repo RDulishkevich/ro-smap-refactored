@@ -1,4 +1,4 @@
-import { sourceIdMap } from './dict.js';
+import { buildUcsFileName, UCS_SOURCE_ID } from '../core/ucsName.js';
 
 export const transliterate = function(word) {
     const a = {"Ё":"Yo","Й":"I","Ц":"Ts","У":"U","К":"K","Е":"E","Н":"N","Г":"G","Ш":"Sh","Щ":"Sch","З":"Z","Х":"H","Ъ":"","ё":"yo","й":"i","ц":"ts","у":"u","к":"k","е":"e","н":"n","г":"g","ш":"sh","щ":"sch","з":"z","х":"h","ъ":"","Ф":"F","Ы":"I","В":"V","А":"A","П":"P","Р":"R","О":"O","Л":"L","Д":"D","Ж":"Zh","Э":"E","ф":"f","ы":"i","в":"v","а":"a","п":"p","р":"r","о":"o","л":"l","д":"d","ж":"zh","э":"e","Я":"Ya","Ч":"Ch","С":"S","М":"M","И":"I","Т":"T","Ь":"","Б":"B","Ю":"Yu","я":"ya","ч":"ch","с":"s","м":"m","и":"i","т":"t","ь":"","б":"b","ю":"yu", " ":"_"};
@@ -59,9 +59,14 @@ const normalizeComment = c => ({
 export const formatSoundObject = function(s) {
     const keywordsStr = s.keywords || `soundscape, rostov`;
     const tagsList = keywordsStr.split(',').map(t => t.trim()).filter(Boolean);
-    const cleanTitle = transliterate(s.title || 'Sound').substring(0, 20);
-    const cleanRecordist = transliterate(s.recordist || 'Ivan').replace(/\s+/g, '');
-    const mappedSourceID = sourceIdMap[s.channels] || 'ST';
+    const fallbackName = buildUcsFileName({
+        catId: s.typeTag || 'AMBMisc',
+        fxName: s.title || 'Sound',
+        creatorId: s.recordistId || s.recordist || 'Anon',
+        sourceId: UCS_SOURCE_ID,
+        channels: s.channels,
+        location: s.location
+    });
     return {
         ...s,
         time: s.time || '14:30',
@@ -70,7 +75,7 @@ export const formatSoundObject = function(s) {
         recPrinciple: s.recPrinciple || 'Направленная фиксация (Spot)',
         format: s.format || 'WAV 96kHz / 24-bit',
         channels: s.channels || 'Stereo XY',
-        fileName: s.fileName || `${s.typeTag}_${cleanTitle}_${cleanRecordist}_${mappedSourceID}.wav`,
+        fileName: s.fileName || fallbackName,
         recordist: s.recordist || 'Автор',
         recordistId: s.recordistId || null,
         license: s.license || 'CC BY 4.0',

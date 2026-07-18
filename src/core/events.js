@@ -207,11 +207,27 @@ window.renderEventDetail = function(e) {
         : '<p class="text-[11px] text-slate-400">Без особых условий</p>';
 
     const prizes = (e.prizes || []).length
-        ? `<ul class="event-detail__list">${e.prizes.map((p) => `<li><strong>${esc(p.place || '')}.</strong> ${esc(p.title || '')}${p.description ? ` — ${esc(p.description)}` : ''}</li>`).join('')}</ul>`
+        ? `<ul class="event-detail__list">${e.prizes.map((p) => {
+            const bits = [];
+            if (Number(p.xp) > 0) bits.push(`+${Number(p.xp)} XP`);
+            if (p.achievementId) {
+                const achTitle = window.getAchievementTitle
+                    ? window.getAchievementTitle(p.achievementId)
+                    : p.achievementId;
+                bits.push(achTitle);
+            }
+            const reward = bits.length ? ` <span class="event-prize-reward">(${esc(bits.join(' · '))})</span>` : '';
+            return `<li><strong>${esc(p.place || '')}.</strong> ${esc(p.title || '')}${p.description ? ` — ${esc(p.description)}` : ''}${reward}</li>`;
+        }).join('')}</ul>`
         : '';
 
     const winners = (e.winners || []).length
-        ? `<div class="event-detail__block"><h5>Победители</h5><ul class="event-detail__list">${e.winners.map((w) => `<li>#${esc(w.place)} · ${esc(w.login)}${w.prizeTitle ? ` · ${esc(w.prizeTitle)}` : ''}</li>`).join('')}</ul></div>`
+        ? `<div class="event-detail__block"><h5>Победители</h5><ul class="event-detail__list">${e.winners.map((w) => {
+            const bits = [];
+            if (Number(w.xpGranted) > 0) bits.push(`+${Number(w.xpGranted)} XP`);
+            if (w.achievementId) bits.push(window.getAchievementTitle ? window.getAchievementTitle(w.achievementId) : w.achievementId);
+            return `<li>#${esc(w.place)} · ${esc(w.login)}${w.prizeTitle ? ` · ${esc(w.prizeTitle)}` : ''}${bits.length ? ` · ${esc(bits.join(' · '))}` : ''}</li>`;
+        }).join('')}</ul></div>`
         : '';
 
     let rsvpHtml = '';
@@ -421,7 +437,15 @@ window.openEventEditor = function(eventId = null) {
     }
     window.__editingEventId = eventId;
     const e = eventId ? window.getActiveEvents().find((x) => x.id === eventId) : null;
-    window.__eventEditorPrizes = e?.prizes ? e.prizes.map((p) => ({ ...p })) : [{ place: '1', title: '', description: '' }];
+    window.__eventEditorPrizes = e?.prizes
+        ? e.prizes.map((p) => ({
+            place: p.place || '',
+            title: p.title || '',
+            description: p.description || '',
+            xp: Number(p.xp) || 0,
+            achievementId: p.achievementId || ''
+        }))
+        : [{ place: '1', title: '', description: '', xp: 0, achievementId: '' }];
     window.__eventEditorConditions = e?.conditions ? e.conditions.map((c) => ({ ...c })) : [];
     window.__eventCoverImage = e?.coverImage || null;
 
@@ -470,13 +494,30 @@ window.renderEventEditorLists = function() {
     const prizesEl = document.getElementById('event-edit-prizes');
     const condEl = document.getElementById('event-edit-conditions');
     if (prizesEl) {
-        prizesEl.innerHTML = (window.__eventEditorPrizes || []).map((p, i) => `
-            <div class="event-editor-row">
-                <input class="modal-input text-xs" placeholder="Место" value="${String(p.place || '').replace(/"/g, '&quot;')}" oninput="window.__eventEditorPrizes[${i}].place=this.value">
-                <input class="modal-input text-xs" placeholder="Приз" value="${String(p.title || '').replace(/"/g, '&quot;')}" oninput="window.__eventEditorPrizes[${i}].title=this.value">
-                <input class="modal-input text-xs" placeholder="Описание" value="${String(p.description || '').replace(/"/g, '&quot;')}" oninput="window.__eventEditorPrizes[${i}].description=this.value">
-                <button type="button" onclick="window.__eventEditorPrizes.splice(${i},1);window.renderEventEditorLists()"><i class="fa-solid fa-xmark"></i></button>
-            </div>`).join('');
+        const achOpts = (window.ACHIEVEMENT_CATALOG || []).map((a) => {
+            const label = window.locQuestText ? window.locQuestText(a.title) : (a.title?.ru || a.id);
+            return { id: a.id, label };
+        });
+        prizesEl.innerHTML = (window.__eventEditorPrizes || []).map((p, i) => {
+            const achSelect = `
+                <select class="modal-input text-xs" onchange="window.__eventEditorPrizes[${i}].achievementId=this.value">
+                    <option value="">Без достижения</option>
+                    ${achOpts.map((a) => `<option value="${a.id}" ${p.achievementId === a.id ? 'selected' : ''}>${String(a.label).replace(/</g, '')}</option>`).join('')}
+                </select>`;
+            return `
+            <div class="event-editor-prize">
+                <div class="event-editor-row">
+                    <input class="modal-input text-xs" placeholder="Место" value="${String(p.place || '').replace(/"/g, '&quot;')}" oninput="window.__eventEditorPrizes[${i}].place=this.value">
+                    <input class="modal-input text-xs" placeholder="Приз" value="${String(p.title || '').replace(/"/g, '&quot;')}" oninput="window.__eventEditorPrizes[${i}].title=this.value">
+                    <input class="modal-input text-xs" placeholder="Описание" value="${String(p.description || '').replace(/"/g, '&quot;')}" oninput="window.__eventEditorPrizes[${i}].description=this.value">
+                    <button type="button" onclick="window.__eventEditorPrizes.splice(${i},1);window.renderEventEditorLists()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="event-editor-row event-editor-row--rewards">
+                    <input class="modal-input text-xs" type="number" min="0" step="1" placeholder="XP" value="${Number(p.xp) || 0}" oninput="window.__eventEditorPrizes[${i}].xp=Math.max(0,Number(this.value)||0)">
+                    ${achSelect}
+                </div>
+            </div>`;
+        }).join('');
     }
     if (condEl) {
         condEl.innerHTML = (window.__eventEditorConditions || []).map((c, i) => `
@@ -492,7 +533,13 @@ window.renderEventEditorLists = function() {
 };
 
 window.addEventPrizeRow = function() {
-    window.__eventEditorPrizes.push({ place: String((window.__eventEditorPrizes.length || 0) + 1), title: '', description: '' });
+    window.__eventEditorPrizes.push({
+        place: String((window.__eventEditorPrizes.length || 0) + 1),
+        title: '',
+        description: '',
+        xp: 0,
+        achievementId: ''
+    });
     window.renderEventEditorLists();
 };
 
@@ -553,12 +600,38 @@ window.updateParticipantScore = async function(eventId, login, score) {
 window.setEventWinner = async function(eventId, login) {
     const e = window.getActiveEvents().find((x) => x.id === eventId);
     if (!e) return;
+    const already = (e.winners || []).find((w) => w.login === login);
+    if (already) {
+        window.showToast('Этот участник уже в победителях');
+        return;
+    }
     const place = String(((e.winners || []).length || 0) + 1);
     const prize = (e.prizes || []).find((p) => String(p.place) === place);
-    const winners = [...(e.winners || []).filter((w) => w.login !== login), { login, place, prizeTitle: prize?.title || '' }];
+    let xpGranted = 0;
+    let achievementId = '';
+    if (prize && window.grantEventPrizeToUser) {
+        const grant = await window.grantEventPrizeToUser(login, prize);
+        if (grant?.ok) {
+            xpGranted = grant.xpGranted || 0;
+            achievementId = grant.achievementGranted || prize.achievementId || '';
+        } else if (grant && !grant.skipped) {
+            window.showToast(grant.reason === 'no_profile' ? 'Профиль победителя не найден' : 'Не удалось начислить приз');
+        }
+    }
+    const winnerRow = {
+        login,
+        place,
+        prizeTitle: prize?.title || '',
+        xpGranted,
+        achievementId
+    };
+    const winners = [...(e.winners || []), winnerRow];
     const next = (window.eventsData || []).map((ev) => ev.id === eventId ? { ...ev, winners, updatedAt: new Date().toISOString() } : ev);
     await window.syncEventsData(next);
-    window.showToast(`Победитель #${place}: ${login}`);
+    const bits = [`Победитель #${place}: ${login}`];
+    if (winnerRow.xpGranted) bits.push(`+${winnerRow.xpGranted} XP`);
+    if (winnerRow.achievementId) bits.push(window.getAchievementTitle?.(winnerRow.achievementId) || winnerRow.achievementId);
+    window.showToast(bits.join(' · '));
     window.renderEventParticipantsEditor(window.getActiveEvents().find((x) => x.id === eventId));
 };
 
@@ -592,7 +665,15 @@ window.saveEventFromEditor = async function() {
             label: c.label || c.kind,
             value: c.value || ''
         })),
-        prizes: (window.__eventEditorPrizes || []).filter((p) => p.title || p.place),
+        prizes: (window.__eventEditorPrizes || [])
+            .filter((p) => p.title || p.place || Number(p.xp) > 0 || p.achievementId)
+            .map((p) => ({
+                place: String(p.place || '').trim(),
+                title: String(p.title || '').trim(),
+                description: String(p.description || '').trim(),
+                xp: Math.max(0, Math.floor(Number(p.xp) || 0)),
+                achievementId: String(p.achievementId || '').trim()
+            })),
         capacity: Number(document.getElementById('event-edit-capacity')?.value) || undefined,
         requireSound: !!document.getElementById('event-edit-require-sound')?.checked,
         allowGuestRsvp: false,

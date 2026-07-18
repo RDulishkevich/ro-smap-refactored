@@ -7,7 +7,7 @@
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | проверка живости (`version: 4`) |
+| `health` | нет | проверка живости (`version: 5`) |
 | `register` | нет | регистрация (пароль → scrypt) |
 | `login` | нет | вход → JWT |
 | `me` | JWT | проверка сессии / refresh |
@@ -16,6 +16,7 @@
 | `patchSound` | JWT | лёгкий патч plays/downloads/лайков без полной перезаписи `map_data.json` |
 | `presign` | JWT | presigned PUT для `uploads/{login}/...` и `staging/{login}/...` |
 | `commit` | JWT | взять staging → merge → sanitize → PUT публичный JSON |
+| `translate` | JWT | Yandex Translate RU→EN (UCS FXName); env `YC_TRANSLATE_API_KEY`, `YC_FOLDER_ID` |
 
 Хеши паролей и staging живут в **приватном** бакете `rosmap2026-private` (`_auth/users.json`, `staging/...`). Публичный бакет `rosmap2026` — каталог и медиа.
 
@@ -40,7 +41,7 @@
 | Тело `sync` | ~2.5 MB (иначе staging+commit) |
 | Inbox / notifications | 200 / 100 записей |
 | Текст сообщения | 4000 символов |
-| Rate limit | IP 360/мин (без health); sync/commit 120; patchSound 180; presign 90 |
+| Rate limit | IP 360/мин (без health); sync/commit 120; patchSound 180; presign 90; translate 40 |
 
 ## Переменные окружения функции
 
@@ -53,7 +54,11 @@ AWS_SECRET_ACCESS_KEY=...
 JWT_SECRET=<длинная случайная строка>
 ADMIN_PASSWORD=<пароль админа, НЕ хранить в клиенте>
 ALLOWED_ORIGIN=*
+YC_TRANSLATE_API_KEY=<ключ Translate API>
+YC_FOLDER_ID=<folder id, если требуется для ключа>
 ```
+
+После добавления Translate env — передеплой функции (`health.version` должен стать `5`). Без ключа `translate` отвечает `503 translate_unconfigured`.
 
 ## Деплой (консоль или CLI)
 

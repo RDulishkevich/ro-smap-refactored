@@ -536,3 +536,52 @@ window.noteGuessrScore = async function(points) {
     if (!window.currentUser || !points) return;
     await window.evaluateFieldProgress({ guessrScore: points });
 };
+
+/**
+ * Админ: начислить XP / открыть достижение победителю ивента.
+ * Идемпотентность — на стороне setEventWinner (xpGranted в winners[]).
+ */
+window.grantEventPrizeToUser = async function(login, prize = {}) {
+    if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) return { ok: false, reason: 'not_admin' };
+    const loginNorm = String(login || '').toLowerCase();
+    if (!loginNorm) return { ok: false, reason: 'no_login' };
+
+    const xpAdd = Math.max(0, Math.floor(Number(prize.xp) || 0));
+    const achievementId = String(prize.achievementId || '').trim();
+    if (!xpAdd && !achievementId) return { ok: true, skipped: true };
+
+    const updated = [...(window.profilesData || [])];
+    const idx = updated.findIndex((p) => String(p.loginName || '').toLowerCase() === loginNorm);
+    if (idx < 0) return { ok: false, reason: 'no_profile' };
+
+    const prev = updated[idx].progress || { xp: 0, achievements: [], completedQuests: [], guessrBestScore: 0 };
+    const achievements = Array.from(new Set([...(prev.achievements || [])]));
+    let achGranted = false;
+    if (achievementId && !achievements.includes(achievementId)) {
+        achievements.push(achievementId);
+        achGranted = true;
+    }
+    const nextXp = Math.max(0, (Number(prev.xp) || 0) + xpAdd);
+    const next = {
+        xp: nextXp,
+        level: window.xpToLevel ? window.xpToLevel(nextXp) : 1,
+        achievements,
+        completedQuests: [...(prev.completedQuests || [])],
+        guessrBestScore: Math.max(0, Number(prev.guessrBestScore) || 0),
+        updatedAt: new Date().toISOString()
+    };
+    updated[idx] = { ...updated[idx], progress: next, profileUpdatedAt: new Date().toISOString() };
+    window.profilesData = updated;
+
+    const me = window.currentUser?.loginName || String(window.currentUser?.username || '').toLowerCase();
+    if (me === loginNorm) window.currentUser.progress = next;
+
+    const ok = await window.syncProfilesData(updated);
+    return { ok: !!ok, xpGranted: xpAdd, achievementGranted: achGranted ? achievementId : '' };
+};
+
+window.getAchievementTitle = function(id) {
+    const a = (window.ACHIEVEMENT_CATALOG || []).find((x) => x.id === id);
+    if (!a) return id || '';
+    return window.locQuestText ? window.locQuestText(a.title) : (a.title?.ru || a.title?.en || id);
+};

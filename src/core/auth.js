@@ -1621,7 +1621,7 @@ export function initAuth() {
                         <p class="admin-entity-meta">${s.fileName || ''} · ${s.recordist || 'Автор'} · ${statusLabel}</p>
                         ${status === 'rejected' && s.rejectionReason ? `<p class="text-[11px] text-red-500 mt-0.5 line-clamp-2"><i class="fa-solid fa-circle-exclamation mr-1"></i>${s.rejectionReason}</p>` : ''}
                     </button>
-                    <button type="button" onclick="event.stopPropagation(); window.openAdminSoundActions('${s.id}')" class="admin-actions-btn shrink-0"><i class="fa-solid fa-ellipsis"></i> Действия</button>
+                    <button type="button" onclick="event.stopPropagation(); window.openAdminSoundActions('${s.id}', event)" class="admin-actions-btn shrink-0"><i class="fa-solid fa-ellipsis"></i> Действия</button>
                 </div>
             `;
         }).join('');
@@ -1648,16 +1648,17 @@ export function initAuth() {
         return items;
     };
 
-    window.openAdminSoundActions = function(soundId) {
+    window.openAdminSoundActions = function(soundId, ev) {
         const items = window.getAdminSoundActionItems(soundId);
         const s = (window.soundsData || []).find((x) => x.id === soundId);
         if (items.length) {
-            if (window.openActionsMenu) window.openActionsMenu(items, { title: s?.title || 'Запись' });
+            const opts = { title: s?.title || 'Запись', event: ev || (typeof event !== 'undefined' ? event : null) };
+            if (window.openActionsMenu) window.openActionsMenu(items, opts);
             else window.ActionSheet.open(items);
         }
     };
 
-    window.openDetailsAdminActions = function() {
+    window.openDetailsAdminActions = function(ev) {
         const id = window.currentPlayingId;
         if (!id) return;
         const s = window.soundsData.find(x => x.id === id);
@@ -1688,7 +1689,8 @@ export function initAuth() {
             );
         }
         items.push({ icon: 'fa-trash', label: 'Удалить', tone: 'danger', onClick: () => window.deleteSoundFromCloud(id) });
-        if (window.openActionsMenu) window.openActionsMenu(items, { title: s.title || 'Запись' });
+        const opts = { title: s.title || 'Запись', event: ev || (typeof event !== 'undefined' ? event : null), anchor: document.getElementById('details-admin-actions-btn') };
+        if (window.openActionsMenu) window.openActionsMenu(items, opts);
         else window.ActionSheet.open(items);
     };
 
@@ -1908,7 +1910,7 @@ export function initAuth() {
                     <p class="admin-entity-meta">От ${r.reporterName || 'аноним'} · ${dateStr}</p>
                     <p class="text-[11px] text-red-500 dark:text-red-400 mt-1 line-clamp-2"><i class="fa-solid fa-quote-left mr-1 opacity-60"></i>${reasonShort}</p>
                 </button>
-                <button type="button" onclick="event.stopPropagation(); window.openAdminReportActions('${r.soundId}', '${r.id}')" class="admin-actions-btn shrink-0"><i class="fa-solid fa-ellipsis"></i> Действия</button>
+                <button type="button" onclick="event.stopPropagation(); window.openAdminReportActions('${r.soundId}', '${r.id}', event)" class="admin-actions-btn shrink-0"><i class="fa-solid fa-ellipsis"></i> Действия</button>
             </div>`;
         }).join('');
     };
@@ -1960,7 +1962,7 @@ export function initAuth() {
         window.__activeReport = null;
     };
 
-    window.openAdminReportActions = function(soundId, reportId) {
+    window.openAdminReportActions = function(soundId, reportId, ev) {
         const s = window.soundsData.find(x => x.id === soundId);
         const r = s ? (s.reports || []).find(x => x.id === reportId) : null;
         if (!r) return;
@@ -1974,7 +1976,8 @@ export function initAuth() {
         if (r.status !== 'resolved') {
             items.push({ icon: 'fa-check', label: 'Отметить решённой', tone: 'success', onClick: () => window.resolveReport(soundId, reportId) });
         }
-        if (window.openActionsMenu) window.openActionsMenu(items, { title: `Жалоба № ${r.number || '—'}` });
+        const opts = { title: `Жалоба № ${r.number || '—'}`, event: ev || (typeof event !== 'undefined' ? event : null) };
+        if (window.openActionsMenu) window.openActionsMenu(items, opts);
         else window.ActionSheet.open(items);
     };
 
@@ -2046,7 +2049,7 @@ export function initAuth() {
                     </div>
                     <p class="admin-entity-meta mt-0.5">@${p.loginName}${p.joinedAt ? ' · рег. ' + new Date(p.joinedAt).toLocaleDateString('ru-RU') : ''}${badgeCount ? ` · ${badgeCount} зван.` : ''}</p>
                 </button>
-                <button type="button" onclick="window.openAdminUserActions('${safeLogin}')" class="admin-actions-btn shrink-0"><i class="fa-solid fa-ellipsis"></i> Действия</button>
+                <button type="button" onclick="window.openAdminUserActions('${safeLogin}', event)" class="admin-actions-btn shrink-0"><i class="fa-solid fa-ellipsis"></i> Действия</button>
             </div>`;
         }).join('');
     };
@@ -2125,7 +2128,7 @@ export function initAuth() {
         if (window.refreshAdminRailBadge) window.refreshAdminRailBadge();
     };
 
-    window.openAdminUserActions = function(login) {
+    window.openAdminUserActions = function(login, ev) {
         const p = window.getProfileByLogin ? window.getProfileByLogin(login) : null;
         if (!p) return;
         const isAdmin = p.role === 'admin' || p.loginName === 'admin';
@@ -2139,7 +2142,8 @@ export function initAuth() {
             items.push({ icon: 'fa-user-shield', label: isAdmin ? 'Снять админа' : 'Сделать админом', tone: 'primary', onClick: () => window.setUserAdminRole(login, !isAdmin) });
             items.push({ icon: 'fa-ban', label: isBlocked ? 'Разблокировать' : 'Заблокировать', tone: isBlocked ? 'success' : 'danger', onClick: () => window.setUserBlocked(login, !isBlocked) });
         }
-        if (window.openActionsMenu) window.openActionsMenu(items, { title: p.displayName || login });
+        const opts = { title: p.displayName || login, event: ev || (typeof event !== 'undefined' ? event : null) };
+        if (window.openActionsMenu) window.openActionsMenu(items, opts);
         else window.ActionSheet.open(items);
     };
 
@@ -3614,8 +3618,13 @@ export function initAuth() {
                         onClick: () => window.toggleMessageReaction(msgId, emoji)
                     }));
                     setTimeout(() => {
+                        const reactOpts = {
+                            title: 'Реакция',
+                            clientX: position?.clientX,
+                            clientY: position?.clientY
+                        };
                         if (window.openActionsMenu) {
-                            window.openActionsMenu(reactItems, { title: 'Реакция' });
+                            window.openActionsMenu(reactItems, reactOpts);
                         } else if (window.ActionSheet) {
                             window.ActionSheet.open(reactItems);
                         }
@@ -3639,10 +3648,13 @@ export function initAuth() {
         }
         if (!items.length) return;
 
+        const menuOpts = {
+            title: isMine ? 'Ваше сообщение' : (m.fromName || 'Сообщение'),
+            clientX: position?.clientX,
+            clientY: position?.clientY
+        };
         if (window.openActionsMenu) {
-            window.openActionsMenu(items, {
-                title: isMine ? 'Ваше сообщение' : (m.fromName || 'Сообщение')
-            });
+            window.openActionsMenu(items, menuOpts);
         } else if (window.ActionSheet) {
             window.ActionSheet.open(items);
         }

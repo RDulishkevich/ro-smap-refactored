@@ -11,7 +11,7 @@
 1. **Не дублировать UI.** Перед новым блоком найди ближайший существующий аналог и скопируй его логику/классы.
 2. **Один паттерн — одна задача.**
    - Подтверждение / ввод текста → `CustomUI`
-   - Меню действий (⋯ / ПКМ / long-press) → `openActionsMenu` → ActionSheet
+   - Меню действий (⋯ / ПКМ / long-press) → `openActionsMenu` → **CtxPopup** у курсора/якоря
    - Короткий фидбек → `showToast`
    - Полноценная форма → модалка `app-modal-*` или секция dock
 3. **Комментарии везде одной логикой.** Эталон — комментарии к звуку в карточке метки. Лента и другие места — тот же смысл, можно компактнее, но не «другая вселенная».
@@ -32,7 +32,8 @@
 | Правая панель | Desktop-ивенты | `#events-panel` |
 | Bottom / fullscreen sheet | Mobile-аналог правой панели | `#events-sheet` |
 | Модалка по центру | Редакторы, авторизация, статьи | `#feed-post-modal`, `#auth-modal`… |
-| ActionSheet | Список действий по «⋯» | `#action-sheet-overlay` |
+| ActionSheet | Длинный список выбора (подписчики и т.п.) | `#action-sheet-overlay` |
+| CtxPopup | Меню действий у курсора (⋯ / ПКМ) | `#ctx-popup-overlay` |
 | Toast | Короткое сообщение | `#toast-message` |
 | CustomUI | Confirm / prompt | `#ui-modal-overlay` |
 
@@ -76,8 +77,8 @@
 | 260 | Crop изображения |
 | 300 | Toast |
 | 400 | Онбординг |
-| 9997 | CtxPopup (карта) |
-| 9998 | ActionSheet |
+| 9997 | CtxPopup (⋯ / ПКМ) |
+| 9998 | ActionSheet (длинные списки) |
 | 9999 | CustomUI |
 | 99999 | Lightbox |
 
@@ -100,29 +101,35 @@ const ok = await window.CustomUI.open({
 
 ---
 
-## 4. ActionSheet (меню «⋯» и ПКМ)
+## 4. CtxPopup (меню «⋯» и ПКМ)
 
-**Единый API:** `window.openActionsMenu(items, { title?, subtitle? })`.
+**Единый API:** `window.openActionsMenu(items, { title?, subtitle?, clientX?, clientY?, event?, anchor? })`.
 
-Это канон для любого списка действий:
+Это канон для любого **контекстного** списка действий у курсора/кнопки:
 - кнопка «⋯» (лента, комментарии, админ-строки);
 - ПКМ / long-press по метке на карте;
 - ПКМ / long-press по сообщению;
 - ПКМ по пустой карте («Добавить запись»).
 
-Внутри всегда открывается `#action-sheet-overlay` (шторка на mobile, компактная панель на desktop). Не использовать параллельно `CtxPopup` / самодельные dropdown’ы для тех же задач.
+Внутри открывается `#ctx-popup-menu` рядом с курсором или якорем. Не изобретать самодельные dropdown’ы для тех же задач.
 
 ```js
 window.openActionsMenu([
   { icon: 'fa-user', label: 'Профиль', tone: 'primary', onClick: () => { … } },
   { icon: 'fa-flag', label: 'Пожаловаться', tone: 'warning', onClick: () => { … } },
   { icon: 'fa-trash', label: 'Удалить', tone: 'danger', onClick: () => { … } },
-], { title: 'Заголовок', subtitle: 'опционально' });
+], {
+  title: 'Заголовок',
+  subtitle: 'опционально',
+  event,                 // предпочтительно: клик / ПКМ
+  // или clientX / clientY
+  // или anchor: HTMLElement | selector
+});
 ```
 
-Низкоуровнево: `ActionSheet.open(items, opts)` — то же самое без закрытия других меню. Предпочитай `openActionsMenu`.
+Низкоуровнево: `CtxPopup.open({ title, subtitle, items, clientX, clientY })`. Предпочитай `openActionsMenu` — он закрывает ActionSheet и нормализует координаты.
 
-Для якоря у курсора **не** нужен отдельный UI: один ActionSheet везде. `CtxPopup` оставлен как legacy и не должен использоваться в новых фичах.
+**ActionSheet** (`ActionSheet.open`) — только для **длинных списков выбора** (подписчики/подписки и подобные picker’ы), не для «⋯» / ПКМ.
 
 ---
 
@@ -211,7 +218,7 @@ Body-флаги: `dock-is-hidden`, `dock-view-details`, `events-panel-open`, `ev
 1. Без логина → toast + `openAuthModal`.
 2. `spamGuardCheck('comment:${login}', { minIntervalMs: 2500, maxPerWindow: 8, … })`.
 3. Автор кликабелен → `openPublicProfile(authorId, author)`.
-4. Меню «⋯» → ActionSheet: профиль / ответить / реакция / пожаловаться / (админ) удалить.
+4. Меню «⋯» → `openActionsMenu` → CtxPopup: профиль / ответить / реакция / пожаловаться / (админ) удалить.
 5. ♥ — toggle в `reactedBy` + bump `reactedAt`/`updatedAt`, не «навсегда union без снятия».
 6. После успеха — toast (по ситуации) и sync через существующий пайплайн звука.
 7. Empty state: короткая muted-строка («Нет комментариев» / «напишите первым»).
@@ -224,19 +231,19 @@ Body-флаги: `dock-is-hidden`, `dock-view-details`, `events-panel-open`, `ev
 
 - аватар + автор → `openPublicProfile`;
 - ♥ на комментарии (`toggleFeedCommentReaction`, LWW);
-- меню «⋯» → `ActionSheet` (`openFeedCommentMenu`);
+- меню «⋯» → `openActionsMenu` → CtxPopup (`openFeedCommentMenu`);
 - compose: `modal-input` + send;
 - auth + antispam как у звука.
 
-Отличия от карточки метки (намеренно): без вложенных replies/swipe — плоский тред под постом. Пост-меню админа тоже через ActionSheet (`openFeedPostMenu`).
+Отличия от карточки метки (намеренно): без вложенных replies/swipe — плоский тред под постом. Пост-меню админа тоже через CtxPopup (`openFeedPostMenu`).
 
 | Фича | Делать так |
 |------|------------|
 | ♥ на комменте | `toggleFeedCommentReaction` / как `toggleCommentReaction` |
-| «⋯» | `ActionSheet.open` |
+| «⋯» | `openActionsMenu` → CtxPopup |
 | Persist | `syncFeedPosts` + `__mergeCommentLists` |
 
-**Запрещено:** свой HTML «чат» с другими отступами, свои confirm’ы вместо ActionSheet, запись комментария без antispam, показ сырого `innerHTML` текста пользователя без escape.
+**Запрещено:** свой HTML «чат» с другими отступами, свои confirm’ы вместо CustomUI, запись комментария без antispam, показ сырого `innerHTML` текста пользователя без escape.
 
 ---
 
@@ -247,6 +254,7 @@ Body-флаги: `dock-is-hidden`, `dock-view-details`, `events-panel-open`, `ev
 | ♥ на посте ленты | `toggleFeedReaction` — auth + antispam + `reactedBy`/`reactedAt` |
 | Просмотр поста | `recordFeedView` — один раз на login за сессию + sync |
 | RSVP ивента | `rsvpEvent` — auth + antispam + participant row + `syncEventsData` |
+| Приз ивента | `prizes[]`: `place`, `title`, `description`, `xp`, `achievementId`; выдача в `setEventWinner` → `grantEventPrizeToUser` |
 
 Всегда: **сначала локальный optimistic/state map → sync → при успехе toast/перерисовка**.
 
@@ -298,7 +306,7 @@ window.showToast('…', { silent: true }); // без звука
 |------|--------|---------|
 | Навигация | `#dock-mobile-tabs`, burger | `#app-rail` + dock |
 | Ивенты | sheet `#events-sheet` | панель `#events-panel` |
-| ActionSheet | снизу | по центру |
+| CtxPopup / ActionSheet | у курсора / снизу (picker) | у курсора / по центру (picker) |
 | Модалки | ближе к верху, учитывай safe-area / dvh | по центру |
 | Player padding | обычный | справа запас под events panel при `body.events-panel-open` |
 
@@ -321,7 +329,7 @@ window.showToast('…', { silent: true }); // без звука
 - [ ] Open/close через стандартный opacity/scale/hidden?
 - [ ] Поля через `modal-label` + `modal-input`?
 - [ ] Списки — `admin-entity-row` или card раздела?
-- [ ] Меню действий — ActionSheet?
+- [ ] Меню действий — CtxPopup через `openActionsMenu` (с координатами)?
 - [ ] Confirm — CustomUI?
 - [ ] Фидбек — toast?
 - [ ] Нужен ли login / admin / antispam?
@@ -338,7 +346,8 @@ window.showToast('…', { silent: true }); // без звука
 |-------|--------|
 | Toast | `showToast(msg)` |
 | Confirm / prompt | `CustomUI.open(opts)` |
-| Меню ⋯ | `ActionSheet.open(items)` |
+| Меню ⋯ / ПКМ | `openActionsMenu(items, { title, event \| clientX/Y \| anchor })` → CtxPopup |
+| Длинный picker | `ActionSheet.open(items, opts)` |
 | Логин | `openAuthModal()` |
 | Dock | `openDockView(view)` / `switchSidebarTab(tab)` |
 | Коммент к звуку | `addComment` / `renderComments` / `toggleCommentReaction` |
@@ -355,7 +364,8 @@ window.showToast('…', { silent: true }); // без звука
 ## 17. Для людей (коротко)
 
 - **Окно по центру** = модалка (редактор, вход, статья).
-- **Шторка снизу / список кнопок** = ActionSheet (три точки).
+- **Меню у курсора (⋯ / ПКМ)** = CtxPopup через `openActionsMenu`.
+- **Шторка снизу / длинный список выбора** = ActionSheet (подписчики и т.п.).
 - **Левая большая панель** = dock (библиотека, лента, админка).
 - **Правая узкая панель** = ивенты (на телефоне — отдельная шторка).
 - **Всплывающая строка сверху** = toast («сохранено», «войдите»).

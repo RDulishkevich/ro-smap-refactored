@@ -9,12 +9,36 @@ window.hideMapContextMenu = function() {
 };
 
 window.showMapContextMenu = function(coords, position) {
-    if (window.CtxPopup) window.CtxPopup.close();
-
     window.tempAddCoords = [coords[0], coords[1]];
     const lat = Number(coords[0]).toFixed(5);
     const lng = Number(coords[1]).toFixed(5);
     if (window.hideMarkerHoverCard) window.hideMarkerHoverCard(true);
+
+    let clientX = 24;
+    let clientY = 24;
+    if (position && typeof position === 'object' && !Array.isArray(position)) {
+        if (typeof position.clientX === 'number' && !Number.isNaN(position.clientX)) {
+            clientX = position.clientX;
+            clientY = typeof position.clientY === 'number' ? position.clientY : clientY;
+        } else if (typeof position.pageX === 'number') {
+            clientX = position.pageX - (window.scrollX || 0);
+            clientY = (typeof position.pageY === 'number' ? position.pageY : clientY) - (window.scrollY || 0);
+        } else if (typeof position.x === 'number') {
+            const mapContainer = window.map?.container?.getElement?.();
+            const mapRect = mapContainer?.getBoundingClientRect?.();
+            if (mapRect) {
+                clientX = mapRect.left + (position.x || 0);
+                clientY = mapRect.top + (position.y || 0);
+            }
+        }
+    } else if (Array.isArray(position)) {
+        const mapContainer = window.map?.container?.getElement?.();
+        const mapRect = mapContainer?.getBoundingClientRect?.();
+        if (mapRect) {
+            clientX = mapRect.left + (position[0] || 0);
+            clientY = mapRect.top + (position[1] || 0);
+        }
+    }
 
     const items = [
         {
@@ -25,23 +49,19 @@ window.showMapContextMenu = function(coords, position) {
         }
     ];
     if (window.openActionsMenu) {
-        window.openActionsMenu(items, { title: 'Карта', subtitle: `${lat}, ${lng}` });
+        window.openActionsMenu(items, {
+            title: 'Карта',
+            subtitle: `${lat}, ${lng}`,
+            clientX,
+            clientY
+        });
         return;
     }
 
-    // fallback: legacy floating menu
     const menu = document.getElementById('map-context-menu');
     const coordsLabel = document.getElementById('map-context-menu-coords');
     if (!menu || !coordsLabel) return;
     coordsLabel.textContent = `${lat}, ${lng}`;
-    let x = 12;
-    let y = 12;
-    if (position && typeof position === 'object' && !Array.isArray(position)) {
-        if (typeof position.clientX === 'number' && !Number.isNaN(position.clientX)) {
-            x = position.clientX;
-            y = typeof position.clientY === 'number' ? position.clientY : y;
-        }
-    }
     const menuWidth = 208;
     const menuHeight = 92;
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
@@ -49,8 +69,8 @@ window.showMapContextMenu = function(coords, position) {
     const maxLeft = Math.max(12, viewportWidth - menuWidth - 12);
     const maxTop = Math.max(12, viewportHeight - menuHeight - 12);
     menu.style.position = 'fixed';
-    menu.style.left = `${Math.min(maxLeft, Math.max(12, x))}px`;
-    menu.style.top = `${Math.min(maxTop, Math.max(12, y))}px`;
+    menu.style.left = `${Math.min(maxLeft, Math.max(12, clientX))}px`;
+    menu.style.top = `${Math.min(maxTop, Math.max(12, clientY))}px`;
     menu.classList.remove('hidden');
 };
 
@@ -59,7 +79,7 @@ window.createMapMarkerFromContext = function() {
     if (window.toggleAddModal) window.toggleAddModal(false, window.tempAddCoords);
 };
 
-/** ПКМ / долгое нажатие по метке: то же ActionSheet, что и у кнопок «⋯». */
+/** ПКМ / долгое нажатие по метке: CtxPopup, как у кнопок «⋯». */
 window.openMarkerAdminContext = function(soundId, e) {
     if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) return false;
     if (e) {
@@ -71,7 +91,6 @@ window.openMarkerAdminContext = function(soundId, e) {
             if (dom && typeof dom.stopPropagation === 'function') dom.stopPropagation();
         } catch (_) {}
     }
-    if (window.hideMapContextMenu) window.hideMapContextMenu();
     if (window.hideMarkerHoverCard) window.hideMarkerHoverCard(true);
 
     const s = (window.soundsData || []).find(x => x.id === soundId);
@@ -80,10 +99,16 @@ window.openMarkerAdminContext = function(soundId, e) {
     const items = window.getAdminSoundActionItems(soundId);
     if (!items.length) return false;
 
+    const point = window.eventClientPoint
+        ? window.eventClientPoint(e)
+        : { clientX: 24, clientY: 24 };
+
     if (window.openActionsMenu) {
         window.openActionsMenu(items, {
             title: s.title || 'Метка',
-            subtitle: `${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`
+            subtitle: `${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`,
+            clientX: point.clientX,
+            clientY: point.clientY
         });
     } else if (window.openAdminSoundActions) {
         window.openAdminSoundActions(soundId);

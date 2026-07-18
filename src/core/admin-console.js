@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Admin console — command palette for operators (~70 commands).
  * Commands stay inside the admin dock (no section jumps / no forced navigation).
  */
@@ -261,7 +261,7 @@ window.runAdminConsoleCommand = async function(raw) {
             }
             case 'version': {
                 const h = window.__apiHealth || {};
-                window.adminConsoleLog(`client cache 20260718x · api ${h.version ?? '?'}`);
+                window.adminConsoleLog(`client cache 20260718z · api ${h.version ?? '?'}`);
                 break;
             }
             case 'stats':

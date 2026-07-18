@@ -771,19 +771,52 @@ window.ActionSheet = {
 
 /**
  * Единая точка входа для меню действий (⋯, ПКМ по метке, сообщения, админка).
- * Всегда открывает ActionSheet — один UX везде.
+ * Открывает CtxPopup у курсора / якоря — как ПКМ по карте.
  */
 window.openActionsMenu = function(items, opts = {}) {
     if (!Array.isArray(items) || !items.length) return;
-    try { if (window.CtxPopup) window.CtxPopup.close(); } catch (_) {}
-    try {
-        const menu = document.getElementById('map-context-menu');
-        if (menu) {
-            menu.classList.add('hidden');
-            menu.style.left = '-9999px';
-            menu.style.top = '-9999px';
+    try { if (window.ActionSheet) window.ActionSheet.close(); } catch (_) {}
+
+    let clientX = Number(opts.clientX);
+    let clientY = Number(opts.clientY);
+
+    if ((!Number.isFinite(clientX) || !Number.isFinite(clientY)) && opts.event) {
+        const point = window.eventClientPoint
+            ? window.eventClientPoint(opts.event)
+            : null;
+        if (point && Number.isFinite(point.clientX)) {
+            clientX = point.clientX;
+            clientY = point.clientY;
+        } else if (Number.isFinite(opts.event.clientX)) {
+            clientX = opts.event.clientX;
+            clientY = opts.event.clientY;
         }
-    } catch (_) {}
+    }
+
+    if ((!Number.isFinite(clientX) || !Number.isFinite(clientY)) && opts.anchor) {
+        const el = typeof opts.anchor === 'string'
+            ? document.querySelector(opts.anchor)
+            : opts.anchor;
+        if (el && typeof el.getBoundingClientRect === 'function') {
+            const r = el.getBoundingClientRect();
+            clientX = r.left + (r.width / 2);
+            clientY = r.bottom + 6;
+        }
+    }
+
+    if (!Number.isFinite(clientX)) clientX = Math.min((window.innerWidth || 320) - 24, 96);
+    if (!Number.isFinite(clientY)) clientY = Math.min((window.innerHeight || 480) - 24, 120);
+
+    if (window.CtxPopup) {
+        window.CtxPopup.open({
+            title: opts.title || '',
+            subtitle: opts.subtitle || '',
+            items,
+            clientX,
+            clientY
+        });
+        return;
+    }
     if (window.ActionSheet) window.ActionSheet.open(items, opts);
 };
 
@@ -792,7 +825,13 @@ window.CtxPopup = {
     _actions: [],
     _bound: false,
     open: function({ title = '', subtitle = '', items = [], clientX = 12, clientY = 12 } = {}) {
-        if (window.hideMapContextMenu) window.hideMapContextMenu();
+        // Скрыть legacy map-context-menu, не трогая текущий popup до перерисовки
+        const legacy = document.getElementById('map-context-menu');
+        if (legacy) {
+            legacy.classList.add('hidden');
+            legacy.style.left = '-9999px';
+            legacy.style.top = '-9999px';
+        }
         const menu = document.getElementById('ctx-popup-menu');
         const itemsEl = document.getElementById('ctx-popup-items');
         const header = document.getElementById('ctx-popup-header');
@@ -821,8 +860,9 @@ window.CtxPopup = {
             const tone = item.tone || (item.danger ? 'danger' : '');
             const iconTone = toneColor[tone] || 'text-slate-400';
             const textTone = tone === 'danger' ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-200';
+            const icon = String(item.icon || 'fa-circle').replace(/^fa-(solid|regular|brands)\s+/, '');
             return `<button type="button" onclick="window.CtxPopup.trigger(${i})" class="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold ${textTone} hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left">
-                <i class="fa-solid ${item.icon || 'fa-circle'} ${iconTone} w-4 text-center"></i>
+                <i class="fa-solid ${icon} ${iconTone} w-4 text-center"></i>
                 <span class="truncate">${item.label}</span>
             </button>`;
         }).join('');
@@ -2072,26 +2112,20 @@ window.openFollowList = function(kind) {
         window.showToast(kind === 'followers' ? 'Пока нет подписчиков' : 'Пока нет подписок');
         return;
     }
-    if (window.openActionsMenu) {
-        window.openActionsMenu(list.map(l => {
-            const p = window.getProfileByLogin(l);
-            return {
-                icon: 'fa-user',
-                label: p?.displayName || l,
-                tone: 'primary',
-                onClick: () => window.openPublicProfile(l, p?.displayName || l)
-            };
-        }), { title: kind === 'followers' ? 'Подписчики' : 'Подписки' });
-    } else {
-        window.ActionSheet.open(list.map(l => {
-            const p = window.getProfileByLogin(l);
-            return {
-                icon: 'fa-user',
-                label: p?.displayName || l,
-                tone: 'primary',
-                onClick: () => window.openPublicProfile(l, p?.displayName || l)
-            };
-        }));
+    const followItems = list.map(l => {
+        const p = window.getProfileByLogin(l);
+        return {
+            icon: 'fa-user',
+            label: p?.displayName || l,
+            tone: 'primary',
+            onClick: () => window.openPublicProfile(l, p?.displayName || l)
+        };
+    });
+    // Список выбора людей — ActionSheet (не контекстное меню у курсора).
+    if (window.ActionSheet) {
+        window.ActionSheet.open(followItems, { title: kind === 'followers' ? 'Подписчики' : 'Подписки' });
+    } else if (window.openActionsMenu) {
+        window.openActionsMenu(followItems, { title: kind === 'followers' ? 'Подписчики' : 'Подписки' });
     }
 };
 
@@ -3105,7 +3139,7 @@ window.feedAuthorChip = function(authorId, authorName) {
     return `<span class="feed-author-chip">${avatar}${label}</span>`;
 };
 
-window.openFeedPostMenu = function(postId) {
+window.openFeedPostMenu = function(postId, ev) {
     const p = (window.feedPosts || []).find((x) => x.id === postId && !x.deleted);
     if (!p) return;
     const isAdmin = window.isCurrentUserAdmin && window.isCurrentUserAdmin();
@@ -3140,11 +3174,16 @@ window.openFeedPostMenu = function(postId) {
         items.push({ icon: 'fa-pen', label: 'Изменить', tone: 'primary', onClick: () => window.openFeedPostEditor(postId) });
         items.push({ icon: 'fa-trash-can', label: 'Удалить', tone: 'danger', onClick: () => window.deleteFeedPost(postId) });
     }
-    if (window.openActionsMenu) {
-        window.openActionsMenu(items, { title: p.title || 'Пост', subtitle: p.type === 'article' ? 'Статья' : 'Новость' });
-    } else {
-        window.ActionSheet.open(items);
-    }
+    const opts = {
+        title: p.title || 'Пост',
+        subtitle: p.type === 'article' ? 'Статья' : 'Новость',
+        event: ev
+    };
+    if (!ev && typeof event !== 'undefined') opts.event = event;
+    if (window.openActionsMenu) window.openActionsMenu(items, opts);
+    else if (window.CtxPopup) {
+        window.CtxPopup.open({ ...opts, items, clientX: 80, clientY: 120 });
+    } else window.ActionSheet.open(items);
 };
 
 window.renderSidebarFeed = function() {
@@ -3220,7 +3259,7 @@ window.renderSidebarFeed = function() {
                         <span class="feed-post__dot" aria-hidden="true">·</span>
                         <span class="feed-post__time">${esc(dateStr)}</span>
                     </div>
-                    <button type="button" class="feed-post__more comment-menu-btn" onclick="event.stopPropagation(); window.openFeedPostMenu('${p.id}')" title="Действия" aria-label="Действия">
+                    <button type="button" class="feed-post__more comment-menu-btn" onclick="event.stopPropagation(); window.openFeedPostMenu('${p.id}', event)" title="Действия" aria-label="Действия">
                         <i class="fa-solid fa-ellipsis"></i>
                     </button>
                 </div>
@@ -3320,7 +3359,7 @@ window.renderFeedCommentsBlock = function(p) {
                     <span class="comment-author-wrap">${avatar}${name}</span>
                     <div class="feed-comment__tools">
                         <span class="feed-comment__date">${esc(when)}</span>
-                        <button type="button" class="comment-menu-btn" title="Действия" onclick="window.openFeedCommentMenu('${p.id}', '${esc(c.id)}')">
+                        <button type="button" class="comment-menu-btn" title="Действия" onclick="window.openFeedCommentMenu('${p.id}', '${esc(c.id)}', event)">
                             <i class="fa-solid fa-ellipsis"></i>
                         </button>
                     </div>
@@ -3343,7 +3382,7 @@ window.renderFeedCommentsBlock = function(p) {
         </div>`;
 };
 
-window.openFeedCommentMenu = function(postId, commentId) {
+window.openFeedCommentMenu = function(postId, commentId, ev) {
     const p = (window.feedPosts || []).find((x) => x.id === postId);
     if (!p) return;
     const c = (p.comments || []).find((x) => x.id === commentId);
@@ -3396,7 +3435,7 @@ window.openFeedCommentMenu = function(postId, commentId) {
             onClick: () => window.deleteFeedComment(postId, commentId)
         });
     }
-    if (window.openActionsMenu) window.openActionsMenu(items, { title: c.author || 'Комментарий' });
+    if (window.openActionsMenu) window.openActionsMenu(items, { title: c.author || 'Комментарий', event: ev || (typeof event !== 'undefined' ? event : null) });
     else window.ActionSheet.open(items);
 };
 
@@ -4210,15 +4249,32 @@ window.closeDetailsModal = function() {
     }
 }
 
-window.downloadSound = function(format) {
+window.downloadSound = async function(format) {
     const s = window.soundsData.find(x => x.id === window.currentPlayingId);
-    if(!s) return;
-    if (s.url && s.url.length > 10 && !s.url.startsWith('blob:')) {
+    if (!s) return;
+    if (!s.url || s.url.length < 10 || s.url.startsWith('blob:')) {
+        window.showToast('Файл недоступен для скачивания.');
+        return;
+    }
+    const fileName = s.fileName || `${s.typeTag || 'sound'}_${s.id}.wav`;
+    try {
+        const res = await fetch(s.url);
+        if (!res.ok) throw new Error('fetch_failed');
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        const objUrl = URL.createObjectURL(blob);
+        a.href = objUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(objUrl), 2000);
+        window.incrementDownloadCount(s.id);
+    } catch (_) {
         window.open(s.url, '_blank');
         window.incrementDownloadCount(s.id);
     }
-    else window.showToast("Файл недоступен для скачивания.");
-}
+};
 
 // Счётчик скачиваний / прослушиваний — лёгкий patchSound вместо полного rewrite map_data.
 window.__pendingMetricPatches = window.__pendingMetricPatches || new Map();
@@ -4381,7 +4437,7 @@ window.renderComments = function(sound) {
                 <span class="text-[12px]">${renderAuthor(r.author, r.authorId)}</span>
                 <div class="flex items-center gap-1 shrink-0">
                     <span class="text-[9px] text-slate-400">${r.date}</span>
-                    <button onclick="window.openReplyMenu('${sound.id}', '${r.id}')" class="comment-menu-btn" title="Действия">
+                    <button onclick="window.openReplyMenu('${sound.id}', '${r.id}', event)" class="comment-menu-btn" title="Действия">
                         <i class="fa-solid fa-ellipsis"></i>
                     </button>
                 </div>
@@ -4403,7 +4459,7 @@ window.renderComments = function(sound) {
                 <span class="text-[13px]">${renderAuthor(c.author, c.authorId)}</span>
                 <div class="flex items-center gap-1.5 shrink-0">
                     <span class="text-[10px] text-slate-400">${c.date}</span>
-                    <button onclick="window.openCommentMenu('${sound.id}', '${c.id}')" class="comment-menu-btn" title="Действия">
+                    <button onclick="window.openCommentMenu('${sound.id}', '${c.id}', event)" class="comment-menu-btn" title="Действия">
                         <i class="fa-solid fa-ellipsis"></i>
                     </button>
                 </div>
@@ -4539,7 +4595,7 @@ window.addComment = async function() {
 }
 
 // Меню «...» у комментария — профиль автора / ответить / реакция / пожаловаться.
-window.openCommentMenu = function(soundId, commentId) {
+window.openCommentMenu = function(soundId, commentId, ev) {
     const s = window.soundsData.find(x => x.id === soundId);
     if (!s) return;
     const c = (s.comments || []).find(x => x.id === commentId);
@@ -4567,12 +4623,12 @@ window.openCommentMenu = function(soundId, commentId) {
             });
         }
     }
-    if (window.openActionsMenu) window.openActionsMenu(items, { title: c.author || 'Комментарий' });
+    if (window.openActionsMenu) window.openActionsMenu(items, { title: c.author || 'Комментарий', event: ev || (typeof event !== 'undefined' ? event : null) });
     else window.ActionSheet.open(items);
 };
 
 // Меню у вложенного ответа — чтобы можно было ответить тому, кто ответил вам.
-window.openReplyMenu = function(soundId, replyId) {
+window.openReplyMenu = function(soundId, replyId, ev) {
     const s = window.soundsData.find(x => x.id === soundId);
     if (!s) return;
     let parent = null;
@@ -4622,7 +4678,7 @@ window.openReplyMenu = function(soundId, replyId) {
             });
         }
     }
-    if (window.openActionsMenu) window.openActionsMenu(items, { title: reply.author || 'Ответ' });
+    if (window.openActionsMenu) window.openActionsMenu(items, { title: reply.author || 'Ответ', event: ev || (typeof event !== 'undefined' ? event : null) });
     else window.ActionSheet.open(items);
 };
 
@@ -4894,11 +4950,74 @@ window.updateUcsSubcats = function() {
 }
 
 window.generateUCSFileName = function() {
-    const subcat = document.getElementById('add-subcat') ? document.getElementById('add-subcat').value : 'USER';
-    const userDef = window.transliterate(document.getElementById('add-user-defined').value || 'NewSound').replace(/\s+/g, '_');
-    const rec = window.transliterate(document.getElementById('add-recordist').value || 'Anon').replace(/\s+/g, '');
-    if (document.getElementById('add-file-name')) document.getElementById('add-file-name').value = `${subcat}_${userDef}_${rec}_ST.wav`;
-}
+    const name = window.collectUcsNameFromForm
+        ? window.collectUcsNameFromForm()
+        : 'AMBMisc_Untitled_Anon_ROSMAP.wav';
+    const el = document.getElementById('add-file-name');
+    if (el) el.value = name;
+};
+
+window.__fxNameManual = false;
+window.__fxNameTranslateTimer = null;
+
+window.markFxNameManual = function() {
+    window.__fxNameManual = true;
+    const el = document.getElementById('add-user-defined');
+    if (el) el.dataset.auto = '0';
+};
+
+window.scheduleFxNameAutoTranslate = function() {
+    if (window.__fxNameManual) return;
+    clearTimeout(window.__fxNameTranslateTimer);
+    window.__fxNameTranslateTimer = setTimeout(() => {
+        window.translateFxNameFromDescription({ silent: true, onlyIfAuto: true });
+    }, 600);
+};
+
+window.translateFxNameFromDescription = async function(opts = {}) {
+    const descEl = document.getElementById('add-desc');
+    const fxEl = document.getElementById('add-user-defined');
+    if (!descEl || !fxEl) return;
+    const desc = (descEl.value || '').trim();
+    if (!desc) {
+        if (!opts.silent) window.showToast('Сначала заполните описание');
+        return;
+    }
+    if (opts.onlyIfAuto && (window.__fxNameManual || fxEl.dataset.auto === '0')) return;
+    if (!window.currentUser) {
+        if (!opts.silent) {
+            window.showToast('Войдите, чтобы перевести');
+            if (window.openAuthModal) window.openAuthModal();
+        }
+        return;
+    }
+    if (!window.apiTranslate) {
+        if (!opts.silent) window.showToast('Перевод недоступен');
+        return;
+    }
+    try {
+        if (!opts.silent) window.showToast('Перевод…');
+        const [en] = await window.apiTranslate(desc.slice(0, 500));
+        const fx = window.sanitizeFxName ? window.sanitizeFxName(en) : String(en || '').slice(0, 40);
+        if (!fx || fx === 'Untitled') {
+            if (!opts.silent) window.showToast('Не удалось получить английское имя');
+            return;
+        }
+        fxEl.value = fx;
+        fxEl.dataset.auto = '1';
+        window.__fxNameManual = false;
+        window.generateUCSFileName();
+        if (!opts.silent) window.showToast('FXName обновлён');
+    } catch (err) {
+        console.warn(err);
+        if (!opts.silent) {
+            const msg = err?.code === 'translate_unconfigured'
+                ? 'Переводчик не настроен на сервере'
+                : (err.message || 'Ошибка перевода');
+            window.showToast(msg);
+        }
+    }
+};
 // Фото звука: локальный preview + File; в JSON уходит только https URL после upload.
 window.handleImageFilesWrapper = function(files) {
     if (!files || !files.length) return;
@@ -5009,19 +5128,68 @@ window.publishSound = async function(targetStatus = 'pending') {
     const soundId = existing ? existing.id : ('u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7));
 
     let audioUrl = existing?.url || '';
+    let metaEmbedded = false;
     try {
         if (window.currentUploadedFile) {
-            const file = window.currentUploadedFile;
+            let file = window.currentUploadedFile;
             if (file.size > (window.MAX_AUDIO_UPLOAD_BYTES || 1024 * 1024 * 1024)) {
                 throw Object.assign(new Error('Аудио больше 1 ГБ'), { code: 'file_too_large' });
             }
+
+            const ucsName = val('add-file-name')
+                || (window.collectUcsNameFromForm && window.collectUcsNameFromForm())
+                || `audio_${soundId}.wav`;
+            if (document.getElementById('add-file-name')) {
+                document.getElementById('add-file-name').value = ucsName;
+            }
+
+            if (window.embedWavMetadata) {
+                try {
+                    window.showToast('Вшивание метаданных…');
+                    const embedResult = await window.embedWavMetadata(file, {
+                        soundId,
+                        fxName: val('add-user-defined') || title,
+                        title,
+                        description: val('add-desc'),
+                        originator: window.currentUser.username || login,
+                        creatorId: login,
+                        originatorReference: soundId,
+                        catId: val('add-subcat'),
+                        category: val('add-category'),
+                        subCategory: val('add-subcat'),
+                        sourceId: window.UCS_SOURCE_ID || 'ROSMAP',
+                        location: val('add-loc'),
+                        lat: coords?.[0],
+                        lng: coords?.[1],
+                        micType: val('add-mic'),
+                        recorder: val('add-recorder'),
+                        channels: val('add-channels'),
+                        license: val('add-license'),
+                        keywords: val('add-tags'),
+                        ecoCategory: val('add-eco'),
+                        note: val('add-desc'),
+                        originationDate: (val('add-date') || '').slice(0, 10) || new Date().toISOString().slice(0, 10),
+                        originationTime: (val('add-time') || '00:00:00').slice(0, 8)
+                    }, ucsName);
+                    if (embedResult.embedded && embedResult.file) {
+                        file = embedResult.file;
+                        metaEmbedded = true;
+                    } else if (embedResult.skipped === 'too_large') {
+                        window.showToast('Файл > 64 МБ — метаданные только в карточке');
+                    }
+                } catch (metaErr) {
+                    console.warn('WAV metadata embed failed', metaErr);
+                }
+            }
+
             window.showToast('Загрузка аудио в облако...');
-            const ext = (String(file.name || '').split('.').pop() || 'wav').replace(/[^a-z0-9]/gi, '') || 'wav';
+            const ext = (String(ucsName || file.name || '').split('.').pop() || 'wav').replace(/[^a-z0-9]/gi, '') || 'wav';
             audioUrl = await window.uploadUserMedia(
                 file,
                 `audio_${soundId}.${ext}`,
                 file.type || 'audio/wav'
             );
+            window.currentUploadedFile = file;
         } else if (window.isForbiddenMediaUrl && window.isForbiddenMediaUrl(audioUrl)) {
             throw new Error('Выберите аудиофайл для загрузки в облако');
         } else if (!isEdit && !audioUrl) {
@@ -5115,6 +5283,13 @@ window.publishSound = async function(targetStatus = 'pending') {
                         ? (soundObj.status === 'pending' ? 'Отправлено на модерацию!' : 'Изменения сохранены!')
                         : 'Звук отправлен на модерацию!'));
             window.showToast(msg);
+            if (metaEmbedded) {
+                const coordsLabel = `${Number(soundObj.lat).toFixed(5)}, ${Number(soundObj.lng).toFixed(5)}`;
+                const metaMsg = (window.translations?.[window.currentLang || 'ru']?.meta_embedded
+                    || 'Координаты {coords} успешно вшиты в метаданные файла.')
+                    .replace('{coords}', coordsLabel);
+                window.showToast(metaMsg);
+            }
             if (!isEdit && soundObj.status !== 'draft' && window.logUserActivity) {
                 window.logUserActivity({
                     type: 'sound_add',
@@ -5167,6 +5342,9 @@ window.editSound = function(id) {
     setVal('add-user-defined', s.title || '');
     setVal('add-display-title', s.title || '');
     setVal('add-desc', s.description || '');
+    window.__fxNameManual = true;
+    const fxEl = document.getElementById('add-user-defined');
+    if (fxEl) fxEl.dataset.auto = '0';
     setVal('add-eco', s.ecoCategory || 'anthrophony');
     setVal('add-category', s.ucsCat || 'AMBIENCE');
     window.updateUcsSubcats();
@@ -5248,6 +5426,10 @@ window.resetAddModalToCreateMode = function() {
     window.populateSessionSelect();
     const draftBtnEl = document.getElementById('draft-btn');
     if (draftBtnEl) draftBtnEl.classList.remove('hidden');
+    window.__fxNameManual = false;
+    const fxEl = document.getElementById('add-user-defined');
+    if (fxEl) fxEl.dataset.auto = '1';
+    if (window.generateUCSFileName) window.generateUCSFileName();
 };
 
 // ИЗМЕНЕНО: Принимаем координаты при клике ПКМ; isEdit=true пропускает сброс в режим "создания",

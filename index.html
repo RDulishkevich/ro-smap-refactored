@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260718x">
-    <link rel="stylesheet" href="./src/glass.css?v=20260718x">
+    <link rel="stylesheet" href="./src/style.css?v=20260718z">
+    <link rel="stylesheet" href="./src/glass.css?v=20260718z">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -1051,8 +1051,14 @@
                     </div>
 
                     <div>
-                        <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="user_defined">Описание для файла (UserDefined)</label>
-                        <input id="add-user-defined" type="text" name="rosmap-add-user-defined" value="" placeholder="Напр. Street Market Rostov Day" autocomplete="off" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-medium" oninput="window.generateUCSFileName()">
+                        <div class="flex items-center justify-between gap-2 mb-1">
+                            <label class="modal-label text-slate-500 dark:text-slate-400 mb-0" data-lang="user_defined">FXName (EN)</label>
+                            <button type="button" id="add-translate-fxname-btn" onclick="window.translateFxNameFromDescription()" class="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline shrink-0">
+                                <i class="fa-solid fa-language mr-1"></i><span data-lang="translate_fxname">Перевести из описания</span>
+                            </button>
+                        </div>
+                        <input id="add-user-defined" type="text" name="rosmap-add-user-defined" value="" placeholder="e.g. Street Market Rostov Day" autocomplete="off" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-medium" oninput="window.markFxNameManual(); window.generateUCSFileName()">
+                        <p class="text-[10px] text-slate-400 mt-1" data-lang="fxname_hint">Краткое английское имя для UCS (без _). Автоиз описания или вручную.</p>
                     </div>
 
                     <div>
@@ -1062,7 +1068,7 @@
 
                     <div>
                         <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="sound_desc">Описание звука</label>
-                        <textarea id="add-desc" rows="3" placeholder="Опишите звуковое окружение..." class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 h-20 resize-none leading-relaxed text-sm"></textarea>
+                        <textarea id="add-desc" rows="3" placeholder="Опишите звуковое окружение..." class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 h-20 resize-none leading-relaxed text-sm" oninput="window.scheduleFxNameAutoTranslate()"></textarea>
                     </div>
                 </div>
 
@@ -1762,7 +1768,7 @@
                     </div>
                     
                     <div id="details-download-group" class="flex flex-col sm:flex-row gap-2 flex-shrink-0">
-                        <button id="details-admin-actions-btn" onclick="window.openDetailsAdminActions()" class="hidden bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md hover:bg-amber-600 transition-all active:scale-95 items-center justify-center gap-2">
+                        <button id="details-admin-actions-btn" onclick="window.openDetailsAdminActions(event)" class="hidden bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md hover:bg-amber-600 transition-all active:scale-95 items-center justify-center gap-2">
                             <i class="fa-solid fa-ellipsis"></i> Действия
                         </button>
                         <button onclick="window.downloadSound('wav')" class="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md hover:bg-blue-700 transition-all active:scale-95 flex items-center justify-center gap-2">
@@ -1992,7 +1998,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260718x"></script>
+    <script type="module" src="./src/main.js?v=20260718z"></script>
 
 </body>
 </html>
