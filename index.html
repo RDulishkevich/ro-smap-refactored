@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260718aj">
-    <link rel="stylesheet" href="./src/glass.css?v=20260718aj">
+    <link rel="stylesheet" href="./src/style.css?v=20260718al">
+    <link rel="stylesheet" href="./src/glass.css?v=20260718al">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -1214,16 +1214,26 @@
                                 <option value="Звуковая прогулка (Soundwalk)">Звуковая прогулка (Soundwalk)</option>
                             </select>
                         </div>
-                        <div id="add-recorder-wrap">
-                            <label class="modal-label text-slate-400" data-lang="rec_model">Рекордер</label>
-                            <input id="add-recorder" type="text" list="datalist-recorders" value="" autocomplete="off" placeholder="Модель рекордера…" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white py-1.5 text-xs">
+                        <div id="add-recorder-wrap" class="gear-combo" data-gear-combo="recorder">
+                            <label class="modal-label text-slate-400" for="add-recorder" data-lang="rec_model">Рекордер</label>
+                            <div class="gear-combo__control">
+                                <input id="add-recorder" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="add-recorder-list" aria-haspopup="listbox" value="" autocomplete="off" spellcheck="false" placeholder="Выберите или впишите модель…" class="modal-input gear-combo__input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white py-1.5 text-xs">
+                                <button type="button" class="gear-combo__toggle" tabindex="-1" aria-label="Открыть список рекордеров" data-gear-combo-toggle="recorder">
+                                    <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                                </button>
+                                <div id="add-recorder-list" class="gear-combo__list hidden" role="listbox" hidden></div>
+                            </div>
                         </div>
-                        <div id="add-mic-wrap">
-                            <label class="modal-label text-slate-400" data-lang="mic_type">Микрофон</label>
-                            <input id="add-mic" type="text" list="datalist-mics" value="" autocomplete="off" placeholder="Интегрированные или модель…" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white py-1.5 text-xs">
+                        <div id="add-mic-wrap" class="gear-combo" data-gear-combo="mic">
+                            <label class="modal-label text-slate-400" for="add-mic" data-lang="mic_type">Микрофон</label>
+                            <div class="gear-combo__control">
+                                <input id="add-mic" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="add-mic-list" aria-haspopup="listbox" value="" autocomplete="off" spellcheck="false" placeholder="Выберите или впишите модель…" class="modal-input gear-combo__input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white py-1.5 text-xs">
+                                <button type="button" class="gear-combo__toggle" tabindex="-1" aria-label="Открыть список микрофонов" data-gear-combo-toggle="mic">
+                                    <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                                </button>
+                                <div id="add-mic-list" class="gear-combo__list hidden" role="listbox" hidden></div>
+                            </div>
                         </div>
-                        <datalist id="datalist-recorders"></datalist>
-                        <datalist id="datalist-mics"></datalist>
                         <div>
                             <label class="modal-label text-slate-400" data-lang="format">Формат (Только WAV)</label>
                             <select id="add-format" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white appearance-none text-xs font-semibold">
@@ -2068,7 +2078,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260718aj"></script>
+    <script type="module" src="./src/main.js?v=20260718al"></script>
 
 </body>
 </html>

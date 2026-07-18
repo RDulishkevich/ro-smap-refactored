@@ -1,6 +1,7 @@
 /**
- * Field recorders (decks only) and microphones for add-sound datalists.
+ * Field recorders (decks only) and microphones for add-sound comboboxes.
  * Mic list starts with «Интегрированные» (priority / smartphone built-in).
+ * Comboboxes: pick from catalog or type a custom value.
  */
 
 export const FIELD_RECORDERS = [
@@ -289,18 +290,350 @@ export const FIELD_MICROPHONES = [
     'Geospace GS-20DX geophone'
 ];
 
+const GEAR_COMBO = {
+    recorder: {
+        inputId: 'add-recorder',
+        listId: 'add-recorder-list',
+        options: () => FIELD_RECORDERS,
+        emptyLabel: 'Нет совпадений — можно вписать своё'
+    },
+    mic: {
+        inputId: 'add-mic',
+        listId: 'add-mic-list',
+        options: () => FIELD_MICROPHONES,
+        emptyLabel: 'Нет совпадений — можно вписать своё'
+    }
+};
+
+const gearComboState = {
+    openKey: null,
+    activeIndex: -1,
+    filtered: [],
+    bound: false
+};
+
+function escHtml(s) {
+    return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function normalizeGearQuery(q) {
+    return String(q || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function filterGearOptions(options, query) {
+    const q = normalizeGearQuery(query);
+    let list;
+    if (!q) list = options.slice();
+    else {
+        const starts = [];
+        const contains = [];
+        for (const opt of options) {
+            const n = normalizeGearQuery(opt);
+            if (n.startsWith(q)) starts.push(opt);
+            else if (n.includes(q)) contains.push(opt);
+        }
+        list = starts.concat(contains);
+    }
+    const MAX = 60;
+    return list.length > MAX ? list.slice(0, MAX) : list;
+}
+
+function getGearComboEls(key) {
+    const cfg = GEAR_COMBO[key];
+    if (!cfg) return null;
+    const input = document.getElementById(cfg.inputId);
+    const list = document.getElementById(cfg.listId);
+    const wrap = input?.closest('.gear-combo');
+    const control = wrap?.querySelector('.gear-combo__control');
+    if (!input || !list || !control) return null;
+    return { cfg, input, list, wrap, control };
+}
+
+function positionGearComboList(key) {
+    const els = getGearComboEls(key);
+    if (!els) return;
+    const { input, list, control } = els;
+    const rect = control.getBoundingClientRect();
+    const vw = window.innerWidth || document.documentElement.clientWidth;
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    const maxH = Math.min(280, Math.max(140, vh - 24));
+    const spaceBelow = vh - rect.bottom - 10;
+    const spaceAbove = rect.top - 10;
+    const openUp = spaceBelow < 160 && spaceAbove > spaceBelow;
+    const height = Math.min(maxH, openUp ? spaceAbove : spaceBelow);
+    const width = Math.min(Math.max(rect.width, 220), vw - 16);
+    let left = rect.left;
+    if (left + width > vw - 8) left = Math.max(8, vw - width - 8);
+    if (left < 8) left = 8;
+    list.style.position = 'fixed';
+    list.style.left = `${Math.round(left)}px`;
+    list.style.width = `${Math.round(width)}px`;
+    list.style.maxHeight = `${Math.round(Math.max(120, height))}px`;
+    list.style.zIndex = '320';
+    if (openUp) {
+        list.style.top = 'auto';
+        list.style.bottom = `${Math.round(vh - rect.top + 6)}px`;
+    } else {
+        list.style.bottom = 'auto';
+        list.style.top = `${Math.round(rect.bottom + 6)}px`;
+    }
+    void input;
+}
+
+function renderGearComboList(key, { keepActive = false } = {}) {
+    const els = getGearComboEls(key);
+    if (!els) return;
+    const { cfg, input, list } = els;
+    const query = input.value;
+    const filtered = filterGearOptions(cfg.options(), query);
+    gearComboState.filtered = filtered;
+    if (!keepActive) gearComboState.activeIndex = filtered.length ? 0 : -1;
+    else if (gearComboState.activeIndex >= filtered.length) {
+        gearComboState.activeIndex = filtered.length ? filtered.length - 1 : -1;
+    }
+
+    const qNorm = normalizeGearQuery(query);
+    const exact = filtered.some((o) => normalizeGearQuery(o) === qNorm);
+    const custom = qNorm && !exact ? String(query).trim() : '';
+
+    if (!filtered.length && !custom) {
+        list.innerHTML = `<div class="gear-combo__empty">${escHtml(cfg.emptyLabel)}</div>`;
+        return;
+    }
+
+    const items = filtered.map((opt, i) => {
+        const active = i === gearComboState.activeIndex ? ' is-active' : '';
+        return `<button type="button" class="gear-combo__option${active}" role="option" data-idx="${i}" data-value="${escHtml(opt)}" aria-selected="${i === gearComboState.activeIndex ? 'true' : 'false'}">${escHtml(opt)}</button>`;
+    }).join('');
+
+    const customRow = custom
+        ? `<button type="button" class="gear-combo__option gear-combo__option--custom${gearComboState.activeIndex < 0 ? ' is-active' : ''}" role="option" data-custom="1" data-value="${escHtml(custom)}">
+            <span class="gear-combo__option-kicker">Своё значение</span>
+            <span class="gear-combo__option-label">${escHtml(custom)}</span>
+           </button>`
+        : '';
+
+    list.innerHTML = customRow + items;
+    // Event delegation — one listener, not N per option
+    if (!list._gearComboDelegated) {
+        list._gearComboDelegated = true;
+        list.addEventListener('mousedown', (e) => {
+            if (e.target?.closest?.('.gear-combo__option')) e.preventDefault();
+        });
+        list.addEventListener('click', (e) => {
+            const btn = e.target?.closest?.('.gear-combo__option');
+            if (!btn) return;
+            const openKey = gearComboState.openKey;
+            if (!openKey) return;
+            pickGearComboValue(openKey, btn.getAttribute('data-value') || '');
+        });
+    }
+
+    const activeBtn = list.querySelector('.gear-combo__option.is-active');
+    if (activeBtn && typeof activeBtn.scrollIntoView === 'function') {
+        activeBtn.scrollIntoView({ block: 'nearest' });
+    }
+}
+
+function mountGearComboList(key, list, control) {
+    if (!list || !control) return;
+    if (!list._gearComboHome) {
+        list._gearComboHome = { parent: control, next: list.nextSibling };
+    }
+    if (list.parentElement !== document.body) {
+        document.body.appendChild(list);
+    }
+}
+
+function unmountGearComboList(list) {
+    if (!list?._gearComboHome) return;
+    const { parent, next } = list._gearComboHome;
+    if (!parent || list.parentElement === parent) return;
+    if (next && next.parentNode === parent) parent.insertBefore(list, next);
+    else parent.appendChild(list);
+}
+
+function setGearComboOpen(key, open) {
+    const els = getGearComboEls(key);
+    if (!els) return;
+    const { input, list, wrap, control } = els;
+    if (open) {
+        if (gearComboState.openKey && gearComboState.openKey !== key) {
+            setGearComboOpen(gearComboState.openKey, false);
+        }
+        gearComboState.openKey = key;
+        mountGearComboList(key, list, control);
+        list.hidden = false;
+        list.classList.remove('hidden');
+        wrap?.classList.add('is-open');
+        input.setAttribute('aria-expanded', 'true');
+        renderGearComboList(key);
+        positionGearComboList(key);
+    } else {
+        if (gearComboState.openKey === key) gearComboState.openKey = null;
+        list.hidden = true;
+        list.classList.add('hidden');
+        wrap?.classList.remove('is-open');
+        input.setAttribute('aria-expanded', 'false');
+        gearComboState.activeIndex = -1;
+        gearComboState.filtered = [];
+        unmountGearComboList(list);
+    }
+}
+
+function pickGearComboValue(key, value) {
+    const els = getGearComboEls(key);
+    if (!els) return;
+    els.input.value = value;
+    els.input.dispatchEvent(new Event('input', { bubbles: true }));
+    els.input.dispatchEvent(new Event('change', { bubbles: true }));
+    setGearComboOpen(key, false);
+    if (key === 'recorder' || key === 'mic') {
+        if (typeof window.syncSmartphoneRecordingFromFields === 'function') {
+            window.syncSmartphoneRecordingFromFields();
+        }
+    }
+}
+
+export function closeGearCombo(key) {
+    if (key) setGearComboOpen(key, false);
+    else if (gearComboState.openKey) setGearComboOpen(gearComboState.openKey, false);
+}
+
+export function toggleGearCombo(key) {
+    const open = gearComboState.openKey !== key;
+    setGearComboOpen(key, open);
+    if (open) {
+        const els = getGearComboEls(key);
+        els?.input.focus();
+    }
+}
+
+function onGearComboKeydown(key, e) {
+    const els = getGearComboEls(key);
+    if (!els) return;
+    const isOpen = gearComboState.openKey === key;
+
+    if (e.key === 'Escape') {
+        if (isOpen) {
+            e.preventDefault();
+            setGearComboOpen(key, false);
+        }
+        return;
+    }
+
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!isOpen) {
+            setGearComboOpen(key, true);
+            return;
+        }
+        const count = gearComboState.filtered.length;
+        if (!count) return;
+        if (e.key === 'ArrowDown') {
+            gearComboState.activeIndex = (gearComboState.activeIndex + 1) % count;
+        } else {
+            gearComboState.activeIndex = gearComboState.activeIndex <= 0
+                ? count - 1
+                : gearComboState.activeIndex - 1;
+        }
+        renderGearComboList(key, { keepActive: true });
+        return;
+    }
+
+    if (e.key === 'Enter' && isOpen) {
+        const idx = gearComboState.activeIndex;
+        if (idx >= 0 && gearComboState.filtered[idx]) {
+            e.preventDefault();
+            pickGearComboValue(key, gearComboState.filtered[idx]);
+        } else {
+            setGearComboOpen(key, false);
+        }
+    }
+}
+
+function bindGearCombosOnce() {
+    if (gearComboState.bound) return;
+    gearComboState.bound = true;
+    let repositionRaf = 0;
+    const scheduleReposition = () => {
+        if (!gearComboState.openKey) return;
+        if (repositionRaf) return;
+        repositionRaf = requestAnimationFrame(() => {
+            repositionRaf = 0;
+            if (gearComboState.openKey) positionGearComboList(gearComboState.openKey);
+        });
+    };
+
+    Object.keys(GEAR_COMBO).forEach((key) => {
+        const els = getGearComboEls(key);
+        if (!els) return;
+        const { input } = els;
+        // Open on typing / arrows / toggle — not on mere focus (avoids lag when tabbing fields)
+        input.addEventListener('input', () => {
+            if (gearComboState.openKey !== key) setGearComboOpen(key, true);
+            else {
+                renderGearComboList(key);
+                positionGearComboList(key);
+            }
+            if (key === 'recorder' || key === 'mic') {
+                if (typeof window.syncSmartphoneRecordingFromFields === 'function') {
+                    window.syncSmartphoneRecordingFromFields();
+                }
+            }
+        });
+        input.addEventListener('keydown', (e) => onGearComboKeydown(key, e));
+        input.addEventListener('blur', () => {
+            setTimeout(() => {
+                if (document.activeElement === input) return;
+                if (gearComboState.openKey === key) setGearComboOpen(key, false);
+            }, 120);
+        });
+    });
+
+    document.addEventListener('click', (e) => {
+        const openKey = gearComboState.openKey;
+        if (!openKey) return;
+        const t = e.target;
+        if (t?.closest?.(`[data-gear-combo="${openKey}"]`)) return;
+        if (t?.closest?.(`#${GEAR_COMBO[openKey].listId}`)) return;
+        setGearComboOpen(openKey, false);
+    });
+
+    document.addEventListener('click', (e) => {
+        const btn = e.target?.closest?.('[data-gear-combo-toggle]');
+        if (!btn) return;
+        e.preventDefault();
+        const key = btn.getAttribute('data-gear-combo-toggle');
+        if (key) toggleGearCombo(key);
+    });
+
+    window.addEventListener('resize', scheduleReposition, { passive: true });
+
+    document.addEventListener('scroll', (e) => {
+        if (!gearComboState.openKey) return;
+        const list = document.getElementById(GEAR_COMBO[gearComboState.openKey]?.listId);
+        if (list && e.target && (list === e.target || list.contains(e.target))) return;
+        scheduleReposition();
+    }, true);
+}
+
+/** Init / refresh gear comboboxes (recorder + mic). Keeps free-text entry. */
 export function fillGearDatalists() {
-    const recList = document.getElementById('datalist-recorders');
-    const micList = document.getElementById('datalist-mics');
-    if (recList) {
-        recList.innerHTML = FIELD_RECORDERS.map((v) => `<option value="${String(v).replace(/"/g, '&quot;')}"></option>`).join('');
-        recList.dataset.filled = '1';
-    }
-    if (micList) {
-        // «Интегрированные» already first — keep order stable for priority
-        micList.innerHTML = FIELD_MICROPHONES.map((v) => `<option value="${String(v).replace(/"/g, '&quot;')}"></option>`).join('');
-        micList.dataset.filled = '1';
-    }
+    bindGearCombosOnce();
+    Object.keys(GEAR_COMBO).forEach((key) => {
+        const els = getGearComboEls(key);
+        if (!els) return;
+        els.wrap?.classList.add('gear-combo--ready');
+        if (gearComboState.openKey === key) {
+            renderGearComboList(key);
+            positionGearComboList(key);
+        }
+    });
 }
 
 export function isSmartphoneGear(gear, mic) {
@@ -315,5 +648,7 @@ if (typeof window !== 'undefined') {
     window.FIELD_RECORDERS = FIELD_RECORDERS;
     window.FIELD_MICROPHONES = FIELD_MICROPHONES;
     window.fillGearDatalists = fillGearDatalists;
+    window.toggleGearCombo = toggleGearCombo;
+    window.closeGearCombo = closeGearCombo;
     window.isSmartphoneGear = isSmartphoneGear;
 }

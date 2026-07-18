@@ -1174,6 +1174,7 @@ window.setSmartphoneRecording = function(on, { restore = true } = {}) {
         }
         if (recEl) recEl.value = window.SMARTPHONE_GEAR;
         if (micEl) micEl.value = window.SMARTPHONE_MIC;
+        if (window.closeGearCombo) window.closeGearCombo('recorder');
     } else if (restore) {
         if (recEl) {
             const prev = window.__prevGearBeforePhone || '';
@@ -1347,6 +1348,32 @@ window.assignArchiveNumbers = function() {
         if (!s.publicId) s.publicId = String(s.id || '').trim();
         s.archiveNum = String(s.publicId || s.id || '—');
     });
+};
+
+/** Short numeric marker id (6 digits). Unique against local + cloud caches. */
+window.generateSoundId = function() {
+    const used = new Set();
+    const take = (arr) => {
+        (arr || []).forEach((s) => {
+            if (!s) return;
+            if (s.id != null && s.id !== '') used.add(String(s.id));
+            if (s.publicId != null && s.publicId !== '') used.add(String(s.publicId));
+        });
+    };
+    take(window.soundsData);
+    take(window.cloudDataCache);
+
+    for (let i = 0; i < 48; i++) {
+        const id = String(100000 + Math.floor(Math.random() * 900000));
+        if (!used.has(id)) return id;
+    }
+    // Extremely unlikely fallback — still numeric, slightly longer
+    let n = Date.now() % 1000000;
+    for (let i = 0; i < 1000; i++) {
+        const id = String(100000 + ((n + i) % 900000));
+        if (!used.has(id)) return id;
+    }
+    return String(Date.now() % 10000000);
 };
 
 window.getSoundDisplayId = function(soundOrId) {
@@ -5816,7 +5843,8 @@ window.publishSound = async function(targetStatus = 'pending') {
         } catch (_) {}
     }
 
-    const soundId = existing ? existing.id : ('u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7));
+    const soundId = existing ? existing.id : (window.generateSoundId ? window.generateSoundId() : String(100000 + Math.floor(Math.random() * 900000)));
+    const publicId = existing?.publicId || soundId;
 
     let audioUrl = existing?.url || '';
     let metaEmbedded = false;
@@ -5887,6 +5915,7 @@ window.publishSound = async function(targetStatus = 'pending') {
 
         const soundObj = {
             id: soundId,
+            publicId,
             title,
             ecoCategory: val('add-eco') || 'anthrophony',
             ucsCat: val('add-category') || 'AMBIENCE',
@@ -6179,8 +6208,7 @@ window.toggleAddModal = function(forceClose = false, coords = null, isEdit = fal
         }
 
         if (window.playSfx) window.playSfx('open');
-        window.populateUcsCategorySelect?.();
-        window.updateUcsSubcats();
+        // resetAddModalToCreateMode already filled UCS/gear — only ensure combo binds
         if (window.fillGearDatalists) window.fillGearDatalists();
         return;
     }
@@ -6191,10 +6219,13 @@ window.toggleAddModal = function(forceClose = false, coords = null, isEdit = fal
         if (window.playSfx) window.playSfx('close');
         setTimeout(() => {
             if (m.classList.contains('opacity-0')) m.classList.add('hidden');
-        }, 300);
+            // Defer heavy reset until after close animation (keeps close smooth)
+            window.resetAddModalToCreateMode();
+        }, 180);
+        return;
     }
     window.resetAddModalToCreateMode();
-}
+};
 window.goBackFromAdd = function() {
     return window.closeAddModalSafely();
 };
