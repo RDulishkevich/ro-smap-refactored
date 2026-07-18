@@ -718,19 +718,31 @@ window.isAddSoundDirty = function() {
 
 window.ActionSheet = {
     _actions: [],
-    open: function(items) {
+    open: function(items, opts = {}) {
+        if (!Array.isArray(items) || !items.length) return;
         this._actions = items.map(i => i.onClick);
         const container = document.getElementById('action-sheet-items');
         const overlay = document.getElementById('action-sheet-overlay');
         const content = document.getElementById('action-sheet-content');
         if (!container || !overlay || !content) return;
 
-        container.innerHTML = items.map((item, i) => {
+        const esc = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const title = opts.title || '';
+        const subtitle = opts.subtitle || '';
+        const headerHtml = (title || subtitle)
+            ? `<div class="action-sheet-header px-4 pt-3.5 pb-2.5 border-b border-slate-100 dark:border-slate-700">
+                ${title ? `<p class="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">${esc(title)}</p>` : ''}
+                ${subtitle ? `<p class="text-[11px] text-slate-400 font-mono mt-0.5 truncate">${esc(subtitle)}</p>` : ''}
+               </div>`
+            : '';
+
+        container.innerHTML = headerHtml + items.map((item, i) => {
             const tone = item.tone || (item.danger ? 'danger' : '');
             const toneCls = tone ? `action-sheet-item--${tone}` : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700';
+            const icon = String(item.icon || 'fa-circle').replace(/^fa-(solid|regular|brands)\s+/, '');
             return `
-            <button onclick="window.ActionSheet.trigger(${i})" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors text-left ${toneCls}">
-                <i class="fa-solid ${item.icon} w-4 text-center opacity-70"></i>${item.label}
+            <button type="button" onclick="window.ActionSheet.trigger(${i})" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors text-left ${toneCls}">
+                <i class="fa-solid ${icon} w-4 text-center opacity-70"></i>${esc(item.label)}
             </button>`;
         }).join('');
 
@@ -755,6 +767,24 @@ window.ActionSheet = {
         if (!fromTrigger && window.playSfx) window.playSfx('close');
         setTimeout(() => { if (overlay.classList.contains('opacity-0')) overlay.classList.add('hidden'); }, 300);
     }
+};
+
+/**
+ * Единая точка входа для меню действий (⋯, ПКМ по метке, сообщения, админка).
+ * Всегда открывает ActionSheet — один UX везде.
+ */
+window.openActionsMenu = function(items, opts = {}) {
+    if (!Array.isArray(items) || !items.length) return;
+    try { if (window.CtxPopup) window.CtxPopup.close(); } catch (_) {}
+    try {
+        const menu = document.getElementById('map-context-menu');
+        if (menu) {
+            menu.classList.add('hidden');
+            menu.style.left = '-9999px';
+            menu.style.top = '-9999px';
+        }
+    } catch (_) {}
+    if (window.ActionSheet) window.ActionSheet.open(items, opts);
 };
 
 /** Всплывающее контекстное меню у курсора (как ПКМ по карте), без модальной шторки. */
@@ -2042,15 +2072,27 @@ window.openFollowList = function(kind) {
         window.showToast(kind === 'followers' ? 'Пока нет подписчиков' : 'Пока нет подписок');
         return;
     }
-    window.ActionSheet.open(list.map(l => {
-        const p = window.getProfileByLogin(l);
-        return {
-            icon: 'fa-user',
-            label: p?.displayName || l,
-            tone: 'primary',
-            onClick: () => window.openPublicProfile(l, p?.displayName || l)
-        };
-    }));
+    if (window.openActionsMenu) {
+        window.openActionsMenu(list.map(l => {
+            const p = window.getProfileByLogin(l);
+            return {
+                icon: 'fa-user',
+                label: p?.displayName || l,
+                tone: 'primary',
+                onClick: () => window.openPublicProfile(l, p?.displayName || l)
+            };
+        }), { title: kind === 'followers' ? 'Подписчики' : 'Подписки' });
+    } else {
+        window.ActionSheet.open(list.map(l => {
+            const p = window.getProfileByLogin(l);
+            return {
+                icon: 'fa-user',
+                label: p?.displayName || l,
+                tone: 'primary',
+                onClick: () => window.openPublicProfile(l, p?.displayName || l)
+            };
+        }));
+    }
 };
 
 window.notifyFollowersAboutNewSound = function(sound) {
@@ -3084,6 +3126,11 @@ window.openFeedPostMenu = function(postId) {
         label: window.__feedOpenComments === postId ? 'Скрыть комментарии' : 'Комментарии',
         onClick: () => window.toggleFeedComments(postId)
     });
+    items.push({
+        icon: 'fa-heart',
+        label: 'Нравится',
+        onClick: () => window.toggleFeedReaction(postId)
+    });
     if (isAdmin) {
         items.push({
             icon: 'fa-thumbtack',
@@ -3093,7 +3140,11 @@ window.openFeedPostMenu = function(postId) {
         items.push({ icon: 'fa-pen', label: 'Изменить', tone: 'primary', onClick: () => window.openFeedPostEditor(postId) });
         items.push({ icon: 'fa-trash-can', label: 'Удалить', tone: 'danger', onClick: () => window.deleteFeedPost(postId) });
     }
-    window.ActionSheet.open(items);
+    if (window.openActionsMenu) {
+        window.openActionsMenu(items, { title: p.title || 'Пост', subtitle: p.type === 'article' ? 'Статья' : 'Новость' });
+    } else {
+        window.ActionSheet.open(items);
+    }
 };
 
 window.renderSidebarFeed = function() {
@@ -3193,12 +3244,11 @@ window.renderSidebarFeed = function() {
                 </article>`;
             }
 
-            const noticeW = Math.min(100, Math.max(40, Number(p.imageWidth) || 100));
             return `<article class="feed-post feed-post--notice${p.pinned ? ' is-pinned' : ''}" data-feed-id="${esc(p.id)}">
                 <div class="feed-post__body">
                     ${head}
                     <h3 class="feed-post__title" style="${titleStyle}">${esc(p.title)}</h3>
-                    ${p.image ? `<img src="${esc(p.image)}" alt="" class="feed-notice-img" style="width:${noticeW}%">` : ''}
+                    ${p.image ? `<div class="feed-post__media"><img src="${esc(p.image)}" alt=""></div>` : ''}
                     ${p.body ? `<p class="feed-post__text">${esc(p.body)}</p>` : ''}
                     ${socialBar(p)}
                 </div>
@@ -3227,14 +3277,16 @@ window.renderSidebarFeed = function() {
 
     container.innerHTML = `
         <div class="feed-shell">
-            <header class="feed-head">
-                <div class="feed-head__text">
-                    <h2 class="feed-head__title">Лента</h2>
-                    <p class="feed-head__sub">Новости карты и полевые заметки</p>
-                </div>
-                ${isAdmin ? `<button type="button" class="feed-head__create" onclick="window.openFeedPostEditor()" title="Новый пост"><i class="fa-solid fa-plus"></i></button>` : ''}
-            </header>
-            <div class="feed-filters" role="tablist">${filters}</div>
+            <div class="feed-toolbar">
+                <header class="feed-head">
+                    <div class="feed-head__text">
+                        <h2 class="feed-head__title">Лента</h2>
+                        <p class="feed-head__sub">Новости карты и полевые заметки</p>
+                    </div>
+                    ${isAdmin ? `<button type="button" class="feed-head__create" onclick="window.openFeedPostEditor()" title="Новый пост"><i class="fa-solid fa-plus"></i></button>` : ''}
+                </header>
+                <div class="feed-filters" role="tablist">${filters}</div>
+            </div>
             <div class="feed-stream" id="feed-posts-list">${postsHtml}</div>
             ${recentHtml}
         </div>`;
@@ -3344,7 +3396,8 @@ window.openFeedCommentMenu = function(postId, commentId) {
             onClick: () => window.deleteFeedComment(postId, commentId)
         });
     }
-    window.ActionSheet.open(items);
+    if (window.openActionsMenu) window.openActionsMenu(items, { title: c.author || 'Комментарий' });
+    else window.ActionSheet.open(items);
 };
 
 window.toggleFeedCommentReaction = async function(postId, commentId) {
@@ -4514,7 +4567,8 @@ window.openCommentMenu = function(soundId, commentId) {
             });
         }
     }
-    window.ActionSheet.open(items);
+    if (window.openActionsMenu) window.openActionsMenu(items, { title: c.author || 'Комментарий' });
+    else window.ActionSheet.open(items);
 };
 
 // Меню у вложенного ответа — чтобы можно было ответить тому, кто ответил вам.
@@ -4568,7 +4622,8 @@ window.openReplyMenu = function(soundId, replyId) {
             });
         }
     }
-    window.ActionSheet.open(items);
+    if (window.openActionsMenu) window.openActionsMenu(items, { title: reply.author || 'Ответ' });
+    else window.ActionSheet.open(items);
 };
 
 window.adminDeleteComment = async function(soundId, commentId) {

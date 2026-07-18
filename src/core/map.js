@@ -9,56 +9,49 @@ window.hideMapContextMenu = function() {
 };
 
 window.showMapContextMenu = function(coords, position) {
-    const menu = document.getElementById('map-context-menu');
-    const coordsLabel = document.getElementById('map-context-menu-coords');
-    if (!menu || !coordsLabel) return;
-
     if (window.CtxPopup) window.CtxPopup.close();
 
     window.tempAddCoords = [coords[0], coords[1]];
-    coordsLabel.textContent = `${Number(coords[0]).toFixed(5)}, ${Number(coords[1]).toFixed(5)}`;
+    const lat = Number(coords[0]).toFixed(5);
+    const lng = Number(coords[1]).toFixed(5);
+    if (window.hideMarkerHoverCard) window.hideMarkerHoverCard(true);
 
-    // position: fixed — координаты в системе viewport (clientX/clientY), без scrollX/scrollY.
+    const items = [
+        {
+            icon: 'fa-plus',
+            label: 'Добавить запись здесь',
+            tone: 'primary',
+            onClick: () => window.createMapMarkerFromContext()
+        }
+    ];
+    if (window.openActionsMenu) {
+        window.openActionsMenu(items, { title: 'Карта', subtitle: `${lat}, ${lng}` });
+        return;
+    }
+
+    // fallback: legacy floating menu
+    const menu = document.getElementById('map-context-menu');
+    const coordsLabel = document.getElementById('map-context-menu-coords');
+    if (!menu || !coordsLabel) return;
+    coordsLabel.textContent = `${lat}, ${lng}`;
     let x = 12;
     let y = 12;
-
     if (position && typeof position === 'object' && !Array.isArray(position)) {
         if (typeof position.clientX === 'number' && !Number.isNaN(position.clientX)) {
             x = position.clientX;
             y = typeof position.clientY === 'number' ? position.clientY : y;
-        } else if (typeof position.pageX === 'number' && !Number.isNaN(position.pageX)) {
-            x = position.pageX - (window.scrollX || 0);
-            y = (typeof position.pageY === 'number' ? position.pageY : y) - (window.scrollY || 0);
-        } else if (typeof position.x === 'number') {
-            // Координаты относительно контейнера карты (ymaps position)
-            const mapContainer = window.map?.container?.getElement?.();
-            const mapRect = mapContainer?.getBoundingClientRect?.();
-            if (mapRect) {
-                x = mapRect.left + (position.x || 0);
-                y = mapRect.top + (position.y || 0);
-            }
-        }
-    } else if (Array.isArray(position)) {
-        const mapContainer = window.map?.container?.getElement?.();
-        const mapRect = mapContainer?.getBoundingClientRect?.();
-        if (mapRect) {
-            x = mapRect.left + (position[0] || 0);
-            y = mapRect.top + (position[1] || 0);
         }
     }
-
     const menuWidth = 208;
     const menuHeight = 92;
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
     const maxLeft = Math.max(12, viewportWidth - menuWidth - 12);
     const maxTop = Math.max(12, viewportHeight - menuHeight - 12);
-
     menu.style.position = 'fixed';
     menu.style.left = `${Math.min(maxLeft, Math.max(12, x))}px`;
     menu.style.top = `${Math.min(maxTop, Math.max(12, y))}px`;
     menu.classList.remove('hidden');
-    if (window.hideMarkerHoverCard) window.hideMarkerHoverCard(true);
 };
 
 window.createMapMarkerFromContext = function() {
@@ -66,7 +59,7 @@ window.createMapMarkerFromContext = function() {
     if (window.toggleAddModal) window.toggleAddModal(false, window.tempAddCoords);
 };
 
-/** ПКМ по метке: всплывающее меню админ-действий (как ПКМ по пустой карте). */
+/** ПКМ / долгое нажатие по метке: то же ActionSheet, что и у кнопок «⋯». */
 window.openMarkerAdminContext = function(soundId, e) {
     if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) return false;
     if (e) {
@@ -84,17 +77,13 @@ window.openMarkerAdminContext = function(soundId, e) {
     const s = (window.soundsData || []).find(x => x.id === soundId);
     if (!s || !window.getAdminSoundActionItems) return false;
 
-    const point = window.eventClientPoint
-        ? window.eventClientPoint(e)
-        : { clientX: 24, clientY: 24 };
+    const items = window.getAdminSoundActionItems(soundId);
+    if (!items.length) return false;
 
-    if (window.CtxPopup) {
-        window.CtxPopup.open({
+    if (window.openActionsMenu) {
+        window.openActionsMenu(items, {
             title: s.title || 'Метка',
-            subtitle: `${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`,
-            items: window.getAdminSoundActionItems(soundId),
-            clientX: point.clientX,
-            clientY: point.clientY
+            subtitle: `${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`
         });
     } else if (window.openAdminSoundActions) {
         window.openAdminSoundActions(soundId);

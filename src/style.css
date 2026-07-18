@@ -387,24 +387,40 @@ html.dark .glass-seg__btn.is-active,
 }
 .admin-subtabs {
     display: flex;
-    gap: 0.35rem;
-    padding: 0.25rem;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    padding: 0.3rem;
     background: #f1f5f9;
     border-radius: 0.9rem;
-    overflow-x: auto;
+    overflow-x: visible;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.admin-subtabs::-webkit-scrollbar {
+    display: none;
+    height: 0;
+    width: 0;
 }
 .dark .admin-subtabs { background: #0f172a; }
 .admin-subtab-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
     flex: 0 0 auto;
     min-width: 0;
-    padding: 0.55rem 0.65rem;
+    padding: 0.5rem 0.65rem;
     border-radius: 0.7rem;
     font-size: 11px;
     font-weight: 700;
+    line-height: 1.2;
     color: #64748b;
-    transition: all 0.15s ease;
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
     white-space: nowrap;
+    border: none;
+    background: transparent;
+    cursor: pointer;
 }
 .admin-subtab-btn.active {
     background: #fff;
@@ -414,6 +430,33 @@ html.dark .glass-seg__btn.is-active,
 .dark .admin-subtab-btn.active {
     background: #1e293b;
     color: #f8fafc;
+}
+.admin-subtab-btn .admin-filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.1rem;
+    height: 1.1rem;
+    padding: 0 0.35rem;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.1);
+    color: #475569;
+    font-size: 0.625rem;
+    font-weight: 800;
+    line-height: 1;
+    flex-shrink: 0;
+}
+.dark .admin-subtab-btn .admin-filter-count {
+    background: rgba(255, 255, 255, 0.12);
+    color: #cbd5e1;
+}
+.admin-subtab-btn.active .admin-filter-count {
+    background: var(--accent-soft, rgba(255, 90, 61, 0.16));
+    color: var(--accent-ink, #e84a2f);
+}
+.admin-filter-count:empty,
+.admin-filter-count[hidden] {
+    display: none !important;
 }
 .app-rail__btn--admin.is-active {
     color: #dc2626;
@@ -1561,11 +1604,22 @@ html.dark .search-suggestions,
     font-size: 0.65rem;
     font-weight: 700;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.25;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: #94a3b8;
+    white-space: normal;
+}
+#admin-stats-grid .stat-value {
+    font-size: clamp(0.7rem, 2.4vw, 1rem);
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
 }
 
 /* Вкладки кабинета: перенос строк вместо скрытого горизонтального скролла */
@@ -2654,6 +2708,8 @@ textarea.modal-input {
     font-size: 0.65rem;
     font-weight: 800;
 }
+.admin-filter-count:empty,
+.admin-filter-count[hidden] { display: none !important; }
 .admin-filter-btn.active .admin-filter-count { background: rgba(185, 28, 28, 0.18); }
 
 /* --- ??????????/???????/?????? ? ???????? ??????? ????? --- */
@@ -2811,7 +2867,10 @@ textarea.modal-input {
     align-items: flex-start;
     justify-content: space-between;
     gap: 0.75rem;
-    padding: 0.85rem 1rem 0.55rem;
+    padding: 0.85rem 1rem 0.45rem;
+    background: var(--panel-solid, #f4f2ef);
+}
+.feed-toolbar {
     position: sticky;
     top: 0;
     z-index: 2;
@@ -2849,24 +2908,28 @@ textarea.modal-input {
 .feed-head__create:hover { background: var(--accent, #ff5a3d); transform: scale(1.04); }
 .feed-filters {
     display: flex;
-    gap: 0.3rem;
-    padding: 0 1rem 0.75rem;
-    overflow-x: auto;
-    scrollbar-width: none;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    padding: 0.15rem 1rem 0.95rem;
+    overflow: visible;
 }
-.feed-filters::-webkit-scrollbar { display: none; }
 .feed-filter {
     flex: 0 0 auto;
     border: 1px solid var(--glass-rim-outer, rgba(20,20,20,0.08));
-    background: transparent;
+    background: color-mix(in srgb, var(--panel-solid, #fff) 70%, #fff);
     color: var(--ink-muted, #6b7280);
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     font-weight: 700;
-    letter-spacing: 0.02em;
-    padding: 0.4rem 0.7rem;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    padding: 0.45rem 0.8rem;
     border-radius: var(--radius-pill, 999px);
     cursor: pointer;
     transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+html.dark .feed-filter,
+.dark .feed-filter {
+    background: color-mix(in srgb, var(--panel-solid, #161c22) 85%, #0b1014);
 }
 .feed-filter.is-active {
     background: var(--accent-soft, rgba(255,90,61,0.14));
@@ -2880,8 +2943,8 @@ textarea.modal-input {
 .feed-stream {
     display: flex;
     flex-direction: column;
-    gap: 0.65rem;
-    padding: 0 0.85rem 1rem;
+    gap: 0.75rem;
+    padding: 0.15rem 0.85rem 1.25rem;
 }
 .feed-post {
     border: 1px solid var(--glass-rim-outer, rgba(20,20,20,0.08));
@@ -2895,11 +2958,12 @@ html.dark .feed-post,
     background: color-mix(in srgb, var(--panel-solid, #161c22) 80%, #0b1014);
 }
 .feed-post:hover {
-    border-color: color-mix(in srgb, var(--accent) 35%, var(--glass-rim-outer));
+    border-color: color-mix(in srgb, var(--ink) 14%, var(--glass-rim-outer));
     box-shadow: 0 8px 24px rgba(20, 20, 20, 0.06);
 }
 .feed-post.is-pinned {
-    border-color: color-mix(in srgb, var(--accent) 45%, var(--glass-rim-outer));
+    border-color: var(--glass-rim-outer, rgba(20,20,20,0.08));
+    box-shadow: inset 3px 0 0 var(--accent, #ff5a3d);
 }
 .feed-post__cover {
     display: block;
@@ -2928,6 +2992,19 @@ html.dark .feed-post__cover,
     .feed-post__cover:hover img { transform: none; }
 }
 .feed-post__body { padding: 0.75rem 0.85rem 0.7rem; }
+.feed-post__media {
+    margin: 0.55rem 0 0.4rem;
+    border-radius: 0.85rem;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--ink) 6%, transparent);
+    aspect-ratio: 4 / 3;
+}
+.feed-post__media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
 .feed-post__head {
     display: flex;
     align-items: flex-start;
@@ -3218,7 +3295,7 @@ html.dark .feed-post__cover,
 
 .feed-notice-img {
     display: block;
-    max-width: min(100%, 280px);
+    max-width: 100%;
     max-height: 180px;
     width: auto;
     height: auto;
@@ -3228,6 +3305,7 @@ html.dark .feed-post__cover,
     background: #f1f5f9;
 }
 .dark .feed-notice-img { background: #0f172a; }
+/* In-feed media uses .feed-post__media; keep .feed-notice-img for editor preview only */
 .feed-notice-preview-img {
     display: block;
     max-width: 100%;

@@ -1650,7 +1650,11 @@ export function initAuth() {
 
     window.openAdminSoundActions = function(soundId) {
         const items = window.getAdminSoundActionItems(soundId);
-        if (items.length) window.ActionSheet.open(items);
+        const s = (window.soundsData || []).find((x) => x.id === soundId);
+        if (items.length) {
+            if (window.openActionsMenu) window.openActionsMenu(items, { title: s?.title || 'Запись' });
+            else window.ActionSheet.open(items);
+        }
     };
 
     window.openDetailsAdminActions = function() {
@@ -1684,7 +1688,8 @@ export function initAuth() {
             );
         }
         items.push({ icon: 'fa-trash', label: 'Удалить', tone: 'danger', onClick: () => window.deleteSoundFromCloud(id) });
-        window.ActionSheet.open(items);
+        if (window.openActionsMenu) window.openActionsMenu(items, { title: s.title || 'Запись' });
+        else window.ActionSheet.open(items);
     };
 
     // Смена статуса модерации прямо из списка админки (без открытия полной формы редактирования).
@@ -1878,7 +1883,10 @@ export function initAuth() {
         const reports = window.getAllReports();
         const pendingCount = reports.filter(r => r.status !== 'resolved').length;
         if (countEl) countEl.textContent = pendingCount ? `(${pendingCount})` : '';
-        if (tabCount) tabCount.textContent = pendingCount ? `(${pendingCount})` : '';
+        if (tabCount) {
+            tabCount.textContent = pendingCount ? String(pendingCount) : '';
+            tabCount.hidden = !pendingCount;
+        }
         if (window.refreshAdminRailBadge) window.refreshAdminRailBadge();
 
         if (!reports.length) {
@@ -1966,7 +1974,8 @@ export function initAuth() {
         if (r.status !== 'resolved') {
             items.push({ icon: 'fa-check', label: 'Отметить решённой', tone: 'success', onClick: () => window.resolveReport(soundId, reportId) });
         }
-        window.ActionSheet.open(items);
+        if (window.openActionsMenu) window.openActionsMenu(items, { title: `Жалоба № ${r.number || '—'}` });
+        else window.ActionSheet.open(items);
     };
 
     window.openReportDetailActions = function() {
@@ -2100,6 +2109,7 @@ export function initAuth() {
         if (!tabCount) return;
         if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) {
             tabCount.textContent = '';
+            tabCount.hidden = true;
             return;
         }
         const supportProfile = window.getProfileByLogin ? window.getProfileByLogin(window.SUPPORT_LOGIN) : null;
@@ -2110,7 +2120,8 @@ export function initAuth() {
             unreadPeers.add(String(msg.fromId).toLowerCase());
         });
         const n = unreadPeers.size;
-        tabCount.textContent = n ? `(${n})` : '';
+        tabCount.textContent = n ? String(n) : '';
+        tabCount.hidden = !n;
         if (window.refreshAdminRailBadge) window.refreshAdminRailBadge();
     };
 
@@ -2128,7 +2139,8 @@ export function initAuth() {
             items.push({ icon: 'fa-user-shield', label: isAdmin ? 'Снять админа' : 'Сделать админом', tone: 'primary', onClick: () => window.setUserAdminRole(login, !isAdmin) });
             items.push({ icon: 'fa-ban', label: isBlocked ? 'Разблокировать' : 'Заблокировать', tone: isBlocked ? 'success' : 'danger', onClick: () => window.setUserBlocked(login, !isBlocked) });
         }
-        window.ActionSheet.open(items);
+        if (window.openActionsMenu) window.openActionsMenu(items, { title: p.displayName || login });
+        else window.ActionSheet.open(items);
     };
 
     window.__badgeAssignLogin = null;
@@ -3601,16 +3613,10 @@ export function initAuth() {
                         label: emoji,
                         onClick: () => window.toggleMessageReaction(msgId, emoji)
                     }));
-                    const point = position || { clientX: 24, clientY: 24 };
                     setTimeout(() => {
-                        if (window.CtxPopup) {
-                            window.CtxPopup.open({
-                                title: 'Реакция',
-                                items: reactItems,
-                                clientX: point.clientX,
-                                clientY: point.clientY
-                            });
-                        } else {
+                        if (window.openActionsMenu) {
+                            window.openActionsMenu(reactItems, { title: 'Реакция' });
+                        } else if (window.ActionSheet) {
                             window.ActionSheet.open(reactItems);
                         }
                     }, 40);
@@ -3633,15 +3639,11 @@ export function initAuth() {
         }
         if (!items.length) return;
 
-        const point = position || { clientX: 24, clientY: 24 };
-        if (window.CtxPopup) {
-            window.CtxPopup.open({
-                title: isMine ? 'Ваше сообщение' : (m.fromName || 'Сообщение'),
-                items,
-                clientX: point.clientX,
-                clientY: point.clientY
+        if (window.openActionsMenu) {
+            window.openActionsMenu(items, {
+                title: isMine ? 'Ваше сообщение' : (m.fromName || 'Сообщение')
             });
-        } else {
+        } else if (window.ActionSheet) {
             window.ActionSheet.open(items);
         }
     };

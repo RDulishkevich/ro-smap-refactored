@@ -30,8 +30,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260718u">
-    <link rel="stylesheet" href="./src/glass.css?v=20260718u">
+    <link rel="stylesheet" href="./src/style.css?v=20260718x">
+    <link rel="stylesheet" href="./src/glass.css?v=20260718x">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -352,11 +352,11 @@
 
             <!-- Admin panel (rail) -->
             <div id="dock-admin" class="hidden flex-1 min-h-0 flex flex-col overflow-hidden">
-                <div class="admin-subtabs shrink-0 px-2 pt-2">
+                <div class="admin-subtabs shrink-0 mx-2 mt-2">
                     <button type="button" id="admin-tab-btn-sounds" onclick="window.switchAdminSection('sounds')" class="admin-subtab-btn active">Записи</button>
-                    <button type="button" id="admin-tab-btn-reports" onclick="window.switchAdminSection('reports')" class="admin-subtab-btn">Жалобы <span id="admin-tab-reports-count" class="admin-filter-count"></span></button>
+                    <button type="button" id="admin-tab-btn-reports" onclick="window.switchAdminSection('reports')" class="admin-subtab-btn">Жалобы <span id="admin-tab-reports-count" class="admin-filter-count" hidden></span></button>
                     <button type="button" id="admin-tab-btn-users" onclick="window.switchAdminSection('users')" class="admin-subtab-btn">Люди</button>
-                    <button type="button" id="admin-tab-btn-support" onclick="window.switchAdminSection('support')" class="admin-subtab-btn">Поддержка <span id="admin-tab-support-count" class="admin-filter-count"></span></button>
+                    <button type="button" id="admin-tab-btn-support" onclick="window.switchAdminSection('support')" class="admin-subtab-btn">Поддержка <span id="admin-tab-support-count" class="admin-filter-count" hidden></span></button>
                     <button type="button" id="admin-tab-btn-events" onclick="window.switchAdminSection('events')" class="admin-subtab-btn">Ивенты</button>
                     <button type="button" id="admin-tab-btn-tools" onclick="window.switchAdminSection('tools')" class="admin-subtab-btn">Инструменты</button>
                     <button type="button" id="admin-tab-btn-console" onclick="window.switchAdminSection('console')" class="admin-subtab-btn">Консоль</button>
@@ -1992,7 +1992,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260718u"></script>
+    <script type="module" src="./src/main.js?v=20260718x"></script>
 
 </body>
 </html>

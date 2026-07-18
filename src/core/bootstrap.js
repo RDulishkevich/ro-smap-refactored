@@ -1,21 +1,21 @@
-import { initGlobalState } from './state.js?v=20260718u';
-import './api.js?v=20260718u';
-import { initAuth } from './auth.js?v=20260718u';
+import { initGlobalState } from './state.js?v=20260718x';
+import './api.js?v=20260718x';
+import { initAuth } from './auth.js?v=20260718x';
 
-import './sfx.js?v=20260718u';
-import './antispam.js?v=20260718u';
-import '../ui/ui.js?v=20260718u';
-import './audio.js?v=20260718u';
-import './map.js?v=20260718u';
-import './mapbox-map.js?v=20260718u';
-import './dgis-map.js?v=20260718u';
-import './google-earth-map.js?v=20260718u';
-import './achievements.js?v=20260718u';
-import './guessr.js?v=20260718u';
-import './admin-console.js?v=20260718u';
-import './support-bot.js?v=20260718u';
-import './events.js?v=20260718u';
-import '../widgets/analytics-widget.js?v=20260718u';
+import './sfx.js?v=20260718x';
+import './antispam.js?v=20260718x';
+import '../ui/ui.js?v=20260718x';
+import './audio.js?v=20260718x';
+import './map.js?v=20260718x';
+import './mapbox-map.js?v=20260718x';
+import './dgis-map.js?v=20260718x';
+import './google-earth-map.js?v=20260718x';
+import './achievements.js?v=20260718x';
+import './guessr.js?v=20260718x';
+import './admin-console.js?v=20260718x';
+import './support-bot.js?v=20260718x';
+import './events.js?v=20260718x';
+import '../widgets/analytics-widget.js?v=20260718x';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;

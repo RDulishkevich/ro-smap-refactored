@@ -11,7 +11,7 @@
 1. **Не дублировать UI.** Перед новым блоком найди ближайший существующий аналог и скопируй его логику/классы.
 2. **Один паттерн — одна задача.**
    - Подтверждение / ввод текста → `CustomUI`
-   - Меню «⋯» → `ActionSheet`
+   - Меню действий (⋯ / ПКМ / long-press) → `openActionsMenu` → ActionSheet
    - Короткий фидбек → `showToast`
    - Полноценная форма → модалка `app-modal-*` или секция dock
 3. **Комментарии везде одной логикой.** Эталон — комментарии к звуку в карточке метки. Лента и другие места — тот же смысл, можно компактнее, но не «другая вселенная».
@@ -100,23 +100,29 @@ const ok = await window.CustomUI.open({
 
 ---
 
-## 4. ActionSheet (меню «⋯»)
+## 4. ActionSheet (меню «⋯» и ПКМ)
 
-Это **не** контекстное меню карты и не CustomUI.
+**Единый API:** `window.openActionsMenu(items, { title?, subtitle? })`.
+
+Это канон для любого списка действий:
+- кнопка «⋯» (лента, комментарии, админ-строки);
+- ПКМ / long-press по метке на карте;
+- ПКМ / long-press по сообщению;
+- ПКМ по пустой карте («Добавить запись»).
+
+Внутри всегда открывается `#action-sheet-overlay` (шторка на mobile, компактная панель на desktop). Не использовать параллельно `CtxPopup` / самодельные dropdown’ы для тех же задач.
 
 ```js
-window.ActionSheet.open([
-  { icon: 'fa-solid fa-user', label: 'Профиль', onClick: () => { … } },
-  { icon: 'fa-solid fa-flag', label: 'Пожаловаться', tone: 'warning', onClick: () => { … } },
-  { icon: 'fa-solid fa-trash', label: 'Удалить', tone: 'danger', onClick: () => { … } },
-]);
+window.openActionsMenu([
+  { icon: 'fa-user', label: 'Профиль', tone: 'primary', onClick: () => { … } },
+  { icon: 'fa-flag', label: 'Пожаловаться', tone: 'warning', onClick: () => { … } },
+  { icon: 'fa-trash', label: 'Удалить', tone: 'danger', onClick: () => { … } },
+], { title: 'Заголовок', subtitle: 'опционально' });
 ```
 
-- Mobile: шторка снизу.
-- Desktop: компактная панель по центру.
-- Для якоря у курсора на карте — `CtxPopup`, не ActionSheet.
+Низкоуровнево: `ActionSheet.open(items, opts)` — то же самое без закрытия других меню. Предпочитай `openActionsMenu`.
 
-Эталон вызова: `openCommentMenu` / `openReplyMenu` в `src/ui/ui.js`.
+Для якоря у курсора **не** нужен отдельный UI: один ActionSheet везде. `CtxPopup` оставлен как legacy и не должен использоваться в новых фичах.
 
 ---
 
