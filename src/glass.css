@@ -456,7 +456,10 @@ html.dark #playhead,
     border-bottom-color: var(--accent) !important;
 }
 
-.app-modal-overlay {
+.app-modal-overlay,
+.app-modal-overlay.backdrop-blur-none,
+.app-modal-overlay.backdrop-blur-sm,
+.app-modal-overlay.backdrop-blur-md {
     background: rgba(20, 20, 20, 0.48) !important;
     /* Blurring the live map is the main desktop hitch — keep a solid dim instead */
     backdrop-filter: none !important;
