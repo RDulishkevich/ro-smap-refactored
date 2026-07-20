@@ -1,26 +1,27 @@
-import { initGlobalState } from './state.js?v=20260720a';
-import './api.js?v=20260720a';
-import { initAuth } from './auth.js?v=20260720a';
+import { initGlobalState } from './state.js?v=20260720b';
+import './api.js?v=20260720b';
+import { initAuth } from './auth.js?v=20260720b';
 
-import './sfx.js?v=20260720a';
-import './antispam.js?v=20260720a';
-import '../ui/ui.js?v=20260720a';
-import './audio.js?v=20260720a';
-import './map.js?v=20260720a';
-import './mapbox-map.js?v=20260720a';
-import './dgis-map.js?v=20260720a';
-import './google-earth-map.js?v=20260720a';
-import './achievements.js?v=20260720a';
-import './guessr.js?v=20260720a';
-import './admin-console.js?v=20260720a';
-import './support-bot.js?v=20260720a';
-import './events.js?v=20260720a';
-import './ucsName.js?v=20260720a';
-import './wavMeta.js?v=20260720a';
-import './wavReadMeta.js?v=20260720a';
-import '../data/publishRules.js?v=20260720a';
-import '../data/gearCatalog.js?v=20260720a';
-import '../widgets/analytics-widget.js?v=20260720a';
+import './sfx.js?v=20260720b';
+import './antispam.js?v=20260720b';
+import '../ui/ui.js?v=20260720b';
+import './audio.js?v=20260720b';
+import './map.js?v=20260720b';
+import './mapbox-map.js?v=20260720b';
+import './dgis-map.js?v=20260720b';
+import './google-earth-map.js?v=20260720b';
+import './achievements.js?v=20260720b';
+import './guessr.js?v=20260720b';
+import './admin-console.js?v=20260720b';
+import './support-bot.js?v=20260720b';
+import './pwa.js?v=20260720b';
+import './events.js?v=20260720b';
+import './ucsName.js?v=20260720b';
+import './wavMeta.js?v=20260720b';
+import './wavReadMeta.js?v=20260720b';
+import '../data/publishRules.js?v=20260720b';
+import '../data/gearCatalog.js?v=20260720b';
+import '../widgets/analytics-widget.js?v=20260720b';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;
@@ -62,6 +63,7 @@ export function bootstrapApp() {
             if (window.bindMessagesKeyboardInset) window.bindMessagesKeyboardInset();
             if (window.refreshNotificationsUI) window.refreshNotificationsUI();
             if (window.syncAccountChrome) window.syncAccountChrome();
+            if (window.initPolevkaPwa) window.initPolevkaPwa();
         };
 
         const sessionPromise = (window.restoreAuthSession ? window.restoreAuthSession() : Promise.resolve(false))

@@ -6,9 +6,15 @@
     <title>Полёвка — аудиокарта Ростовской области</title>
     <meta name="application-name" content="Полёвка">
     <meta name="apple-mobile-web-app-title" content="Полёвка">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#ff5a3d">
+    <meta name="description" content="Аудиокарта Ростовской области: звуки мест, лента и карта.">
+    <link rel="manifest" href="./manifest.webmanifest">
     <link rel="icon" href="./favicon.png" type="image/png">
     <link rel="shortcut icon" href="./favicon.png" type="image/png">
-    <link rel="apple-touch-icon" href="./favicon.png">
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" sizes="180x180">
     
     <!-- Tailwind CSS & Config -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -35,8 +41,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260720a">
-    <link rel="stylesheet" href="./src/glass.css?v=20260720a">
+    <link rel="stylesheet" href="./src/style.css?v=20260720b">
+    <link rel="stylesheet" href="./src/glass.css?v=20260720b">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -464,6 +470,13 @@
                             </button>
                         </div>
                         <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-1">Добавить на экран «Домой»</h4>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">На iPhone: Safari → «Поделиться» → «На экран „Домой“». На Android часто появляется кнопка установки.</p>
+                            <button type="button" id="btn-add-to-home" onclick="window.openAddToHomeScreenHelp()" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                                <i class="fa-solid fa-mobile-screen-button"></i>Как добавить на Домой
+                            </button>
+                        </div>
+                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
                             <h4 class="font-bold text-slate-800 dark:text-white mb-1">Правила публикации и пользования</h4>
                             <p class="text-sm text-slate-600 dark:text-slate-300">Формат WAV, координаты, права, модерация, поведение в каталоге и скачивание.</p>
                             <button type="button" onclick="window.openPublishRulesModal()" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
@@ -500,7 +513,7 @@
                         </div>
                         <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
                             <h4 class="font-bold text-slate-800 dark:text-white mb-2">Можно ли пользоваться на телефоне?</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Да, интерфейс адаптирован и под мобильные устройства.</p>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Да, интерфейс адаптирован и под мобильные устройства. На iPhone можно добавить ярлык: Safari → «Поделиться» → «На экран „Домой“».</p>
                         </div>
                         <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
                             <h4 class="font-bold text-slate-800 dark:text-white mb-2">Куда отправить вопрос?</h4>
@@ -782,6 +795,10 @@
                     <button onclick="window.closeSettingsModal(); window.restartOnboarding();" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
                         <i class="fa-solid fa-compass"></i>
                         Пройти тур по карте
+                    </button>
+                    <button type="button" id="btn-add-to-home-settings" onclick="window.closeSettingsModal(); window.openAddToHomeScreenHelp();" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                        <i class="fa-solid fa-mobile-screen-button"></i>
+                        На экран «Домой»
                     </button>
                     <button onclick="window.closeSettingsModal(); if(window.openSupportModal) window.openSupportModal(); else if(window.openMessagesModal) window.openMessagesModal(window.SUPPORT_LOGIN || 'support');" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
                         <i class="fa-solid fa-headset"></i>
@@ -2083,7 +2100,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260720a"></script>
+    <script type="module" src="./src/main.js?v=20260720b"></script>
 
 </body>
 </html>
