@@ -1693,6 +1693,15 @@ export function initAuth() {
 
     // Переключатель очереди: все / pending / rejected
     window.__adminListFilter = window.__adminListFilter || 'all';
+    window.__adminSearch = window.__adminSearch || { sounds: '', reports: '', support: '', events: '' };
+    window.setAdminSearchQuery = function(section, value) {
+        if (!window.__adminSearch) window.__adminSearch = { sounds: '', reports: '', support: '', events: '' };
+        window.__adminSearch[section] = String(value || '').trim().toLowerCase();
+        if (section === 'sounds' && window.renderAdminList) window.renderAdminList();
+        else if (section === 'reports' && window.renderReportsList) window.renderReportsList();
+        else if (section === 'support' && window.renderAdminSupportList) window.renderAdminSupportList();
+        else if (section === 'events' && window.renderAdminEventsList) window.renderAdminEventsList();
+    };
     window.setAdminListFilter = function(mode) {
         window.__adminListFilter = mode;
         ['all', 'pending', 'rejected'].forEach((m) => {
@@ -1723,6 +1732,17 @@ export function initAuth() {
         if (filterMode === 'pending') sounds = sounds.filter(s => s.status === 'pending');
         else if (filterMode === 'rejected') sounds = sounds.filter(s => isRejectedLike(s));
 
+        const q = (window.__adminSearch?.sounds || '').trim().toLowerCase();
+        if (q) {
+            sounds = sounds.filter((s) => {
+                const hay = [
+                    s.title, s.fileName, s.recordist, s.recordistId, s.id, s.publicId, s.archiveNum,
+                    s.description, s.location, s.status, s.rejectionReason, s.keywords
+                ].map((x) => String(x || '').toLowerCase()).join(' ');
+                return hay.includes(q);
+            });
+        }
+
         // Очередь: сначала самые старые (дольше ждут)
         if (filterMode === 'pending' || filterMode === 'rejected') {
             sounds.sort((a, b) => {
@@ -1733,9 +1753,11 @@ export function initAuth() {
         }
 
         if (!sounds.length) {
-            const emptyMsg = filterMode === 'rejected'
-                ? 'Отклонённых записей нет.'
-                : (filterMode === 'pending' ? 'Очередь модерации пуста.' : 'Записей пока нет.');
+            const emptyMsg = q
+                ? 'Ничего не найдено по запросу.'
+                : (filterMode === 'rejected'
+                    ? 'Отклонённых записей нет.'
+                    : (filterMode === 'pending' ? 'Очередь модерации пуста.' : 'Записей пока нет.'));
             list.innerHTML = `<div class="text-center py-10 text-slate-400"><i class="fa-solid fa-clipboard-check text-3xl mb-2 opacity-30 block"></i><p class="text-sm font-medium">${emptyMsg}</p></div>`;
             if (window.refreshAdminRailBadge) window.refreshAdminRailBadge();
             return;
@@ -1835,19 +1857,27 @@ export function initAuth() {
     };
 
     // Смена статуса модерации прямо из списка админки (без открытия полной формы редактирования).
-    // При отклонении запрашиваем причину — она попадёт в дэшборд автора как уведомление.
+    // При отклонении и при возврате на модерацию всегда запрашиваем причину.
     window.setSoundStatus = async function(id, status) {
         const s = window.soundsData.find(x => x.id === id);
         if (!s) return;
 
         let reason = s.rejectionReason || '';
         let nextStatus = status;
-        if (status === 'rejected') {
+        const needsReason = status === 'rejected' || status === 'pending';
+        if (needsReason) {
+            const isReject = status === 'rejected';
             const input = await window.CustomUI.open({
-                title: '<i class="fa-solid fa-circle-exclamation mr-2 text-red-500"></i>Причина отклонения',
-                message: 'Запись вернётся автору в черновик. Выберите пункт правил или напишите причину — она будет в уведомлении и в кабинете. <button type="button" class="text-blue-600 dark:text-blue-400 font-bold hover:underline" onclick="window.openPublishRulesModal()">Открыть правила</button>',
-                confirmText: 'Отклонить',
-                confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md',
+                title: isReject
+                    ? '<i class="fa-solid fa-circle-exclamation mr-2 text-red-500"></i>Причина отклонения'
+                    : '<i class="fa-solid fa-clock mr-2 text-amber-500"></i>Причина возврата на модерацию',
+                message: isReject
+                    ? 'Запись вернётся автору в черновик. Выберите пункт правил или напишите причину — она будет в уведомлении и в кабинете. <button type="button" class="text-blue-600 dark:text-blue-400 font-bold hover:underline" onclick="window.openPublishRulesModal()">Открыть правила</button>'
+                    : 'Укажите, зачем запись снова в очереди модерации — причина сохранится в карточке и уйдёт автору при необходимости. <button type="button" class="text-blue-600 dark:text-blue-400 font-bold hover:underline" onclick="window.openPublishRulesModal()">Открыть правила</button>',
+                confirmText: isReject ? 'Отклонить' : 'На модерацию',
+                confirmClass: isReject
+                    ? 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
+                    : 'px-5 py-2.5 text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-colors shadow-md',
                 showInput: true,
                 inputRows: 3,
                 inputPlaceholder: 'Или свой текст причины…',
@@ -1856,11 +1886,11 @@ export function initAuth() {
             if (input === false) { window.renderAdminList(); return; }
             reason = String(input || '').trim();
             if (!reason) {
-                window.showToast('Укажите причину отклонения');
+                window.showToast(isReject ? 'Укажите причину отклонения' : 'Укажите причину возврата на модерацию');
                 return;
             }
             // Returned to author as draft for fixes + resubmit
-            nextStatus = 'draft';
+            if (isReject) nextStatus = 'draft';
         } else {
             reason = '';
         }
@@ -1879,7 +1909,7 @@ export function initAuth() {
                     ? 'Запись опубликована'
                     : (status === 'rejected'
                         ? 'Запись отклонена и возвращена в черновик'
-                        : 'Статус обновлён')
+                        : (status === 'pending' ? 'Запись возвращена на модерацию' : 'Статус обновлён'))
             );
             window.renderAdminList();
             if (s.recordistId && window.pushNotifications) {
@@ -1905,6 +1935,18 @@ export function initAuth() {
                         soundTitle: s.title,
                         action: 'edit',
                         moderationStatus: 'rejected',
+                        rejectionReason: reason
+                    });
+                } else if (status === 'pending') {
+                    window.pushNotifications([s.recordistId], {
+                        type: 'moderation',
+                        text: `Ваша запись «${s.title}» снова на модерации${reason ? ': ' + reason : ''}`,
+                        fromId: adminLogin,
+                        fromName: window.currentUser?.username || 'Администратор',
+                        soundId: s.id,
+                        soundTitle: s.title,
+                        action: 'edit',
+                        moderationStatus: 'pending',
                         rejectionReason: reason
                     });
                 }
@@ -2037,7 +2079,7 @@ export function initAuth() {
         if (!container) return;
 
         window.assignMissingReportNumbers();
-        const reports = window.getAllReports();
+        let reports = window.getAllReports();
         const pendingCount = reports.filter(r => r.status !== 'resolved').length;
         if (countEl) countEl.textContent = pendingCount ? `(${pendingCount})` : '';
         if (tabCount) {
@@ -2046,8 +2088,18 @@ export function initAuth() {
         }
         if (window.refreshAdminRailBadge) window.refreshAdminRailBadge();
 
+        const q = (window.__adminSearch?.reports || '').trim().toLowerCase();
+        if (q) {
+            reports = reports.filter((r) => {
+                const hay = [
+                    r.number, r.id, r.soundId, r.soundTitle, r.reason, r.reporterName, r.reporterId, r.type, r.status, r.commentId
+                ].map((x) => String(x || '').toLowerCase()).join(' ');
+                return hay.includes(q);
+            });
+        }
+
         if (!reports.length) {
-            container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">Жалоб пока нет.</p>`;
+            container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">${q ? 'Ничего не найдено по запросу.' : 'Жалоб пока нет.'}</p>`;
             return;
         }
 
@@ -2227,15 +2279,25 @@ export function initAuth() {
             if (bUnread !== aUnread) return bUnread - aUnread;
             return new Date(b[1].date || 0) - new Date(a[1].date || 0);
         });
-        if (!rows.length) {
+        const q = (window.__adminSearch?.support || '').trim().toLowerCase();
+        const filteredRows = q
+            ? rows.filter(([peer, last]) => {
+                const profile = window.getProfileByLogin ? window.getProfileByLogin(peer) : null;
+                const hay = [
+                    peer, last.fromName, last.fromId, last.text, profile?.displayName, profile?.loginName
+                ].map((x) => String(x || '').toLowerCase()).join(' ');
+                return hay.includes(q);
+            })
+            : rows;
+        if (!filteredRows.length) {
             el.innerHTML = `<div class="text-center py-8 px-3">
                 <i class="fa-solid fa-headset text-2xl text-slate-300 dark:text-slate-600 mb-3 block"></i>
-                <p class="text-xs font-semibold text-slate-500">Обращений пока нет</p>
-                <p class="text-[11px] text-slate-400 mt-1">Пользователи пишут из Сообщений или раздела «Помощь» в настройках.</p>
+                <p class="text-xs font-semibold text-slate-500">${q ? 'Ничего не найдено по запросу.' : 'Обращений пока нет'}</p>
+                ${q ? '' : '<p class="text-[11px] text-slate-400 mt-1">Пользователи пишут из Сообщений или раздела «Помощь» в настройках.</p>'}
             </div>`;
             return;
         }
-        el.innerHTML = rows.map(([peer, last]) => {
+        el.innerHTML = filteredRows.map(([peer, last]) => {
             const profile = window.getProfileByLogin ? window.getProfileByLogin(peer) : null;
             const name = profile?.displayName || last.fromName || peer;
             const unread = !last.read;

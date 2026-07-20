@@ -744,9 +744,20 @@ window.saveEventFromEditor = async function() {
 window.renderAdminEventsList = function() {
     const el = document.getElementById('admin-events-list');
     if (!el) return;
-    const list = window.getActiveEvents().slice().sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+    let list = window.getActiveEvents().slice().sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+    const q = (window.__adminSearch?.events || '').trim().toLowerCase();
+    if (q) {
+        list = list.filter((e) => {
+            const st = window.normalizeEventStatus(e);
+            const hay = [
+                e.title, e.id, e.type, e.description, e.place, st,
+                window.EVENT_STATUS_LABELS?.[st], window.EVENT_TYPE_LABELS?.[e.type]
+            ].map((x) => String(x || '').toLowerCase()).join(' ');
+            return hay.includes(q);
+        });
+    }
     if (!list.length) {
-        el.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">Ивентов пока нет</p>';
+        el.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">${q ? 'Ничего не найдено по запросу.' : 'Ивентов пока нет'}</p>`;
         return;
     }
     el.innerHTML = list.map((e) => {

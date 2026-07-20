@@ -158,6 +158,9 @@ function buildIxml(meta) {
             RECORDIST_ID: meta.recordistId || meta.creatorId || '',
             DURATION: meta.duration || '',
             ROUTE: meta.routeJson || '',
+            SESSION_TITLE: meta.sessionTitle || '',
+            IMAGE_URLS: meta.imageUrls || '',
+            IMAGES_JSON: meta.imagesJson || '',
             // Full snapshot for round-trip
             ROSMAP_JSON: payload ? JSON.stringify(payload) : ''
         }
@@ -184,10 +187,12 @@ function infoSubchunk(tag, text) {
 function buildListInfo(meta) {
     const comment = [
         meta.description || '',
+        meta.sessionTitle && `Expedition: ${meta.sessionTitle}`,
         meta.weather && `Weather: ${meta.weather}`,
         meta.recPrinciple && `Principle: ${meta.recPrinciple}`,
         meta.format && `Format: ${meta.format}`,
-        meta.duration && `Duration: ${meta.duration}`
+        meta.duration && `Duration: ${meta.duration}`,
+        meta.imageUrls && `Photos: ${String(meta.imageUrls).replace(/\n/g, ' | ')}`
     ].filter(Boolean).join(' | ').slice(0, 900);
 
     const body = concatChunks([

@@ -3088,12 +3088,20 @@ window.setDockHeader = function(title, subtitle, showBack) {
             subEl.setAttribute('data-lang', 'subtitle');
         }
     }
-    // Arrow always visible and always hides the dock
     if (back) {
         back.classList.remove('hidden');
-        back.title = 'Скрыть панель';
-        back.setAttribute('aria-label', 'Скрыть панель');
-        back.onclick = () => window.hideDockPanel && window.hideDockPanel();
+        if (showBack) {
+            back.title = 'Назад';
+            back.setAttribute('aria-label', 'Назад');
+            back.onclick = () => {
+                if (window.closeDockViewer) window.closeDockViewer();
+                else if (window.hideDockPanel) window.hideDockPanel();
+            };
+        } else {
+            back.title = 'Скрыть панель';
+            back.setAttribute('aria-label', 'Скрыть панель');
+            back.onclick = () => window.hideDockPanel && window.hideDockPanel();
+        }
     }
 };
 
@@ -3211,6 +3219,13 @@ window.switchHelpTab = function(tab) {
 window.openDockView = function(view) {
     const prev = window.__dockView;
     const next = ['library', 'feed', 'expeditions', 'help', 'details', 'analyzers', 'settings', 'cabinet', 'messages', 'expedition', 'admin'].includes(view) ? view : 'library';
+    const nested = ['details', 'analyzers', 'settings', 'cabinet', 'messages', 'expedition'];
+    const roots = ['library', 'feed', 'expeditions', 'help', 'admin'];
+    if (nested.includes(next) && roots.includes(prev)) {
+        window.__dockReturnView = prev;
+    } else if (roots.includes(next)) {
+        window.__dockReturnView = null;
+    }
     window.__dockView = next;
     document.body.classList.remove('dock-view-details', 'dock-view-analyzers', 'dock-view-settings', 'dock-view-cabinet', 'dock-view-messages', 'dock-view-expedition', 'dock-view-help', 'dock-view-admin');
 
@@ -3326,7 +3341,7 @@ window.openDockView = function(view) {
         window.setDockHeader(
             window.currentLang === 'en' ? 'Admin' : 'Админ-панель',
             window.currentLang === 'en' ? 'Moderation & tools' : 'Модерация и инструменты',
-            true
+            false
         );
         if (mobileTabs) mobileTabs.classList.add('hidden');
         window.clearRailTabActive();
@@ -3376,13 +3391,17 @@ window.openDockView = function(view) {
 };
 
 window.closeDockViewer = function() {
-    let returnTab = window.__dockView === 'expedition'
-        ? (window.__sidebarTab || 'expeditions')
-        : (window.__sidebarTab || 'library');
+    let returnTab = window.__dockReturnView
+        || (window.__dockView === 'expedition' ? (window.__sidebarTab || 'expeditions') : null)
+        || (window.__sidebarTab || 'library');
     if (window.openedFromAdmin && window.isCurrentUserAdmin && window.isCurrentUserAdmin()) {
         returnTab = 'admin';
         window.openedFromAdmin = false;
     }
+    if (returnTab === 'admin' || window.__dockReturnView === 'admin') {
+        returnTab = 'admin';
+    }
+    window.__dockReturnView = null;
     if (window.analyzersOpen) {
         window.__skipAnalyzerViewRestore = true;
         if (window.collapsePlayerAnalyzers) window.collapsePlayerAnalyzers();
@@ -4495,6 +4514,53 @@ window.selectSound = function(id) {
     if (window.refreshAnalyzerMetersIfOpen) window.refreshAnalyzerMetersIfOpen();
 }
 
+window.openDetailsMetaFilterSheet = function(kind, value, label) {
+    const v = String(value || '').trim();
+    if (!v || v === '—') return;
+    const title = label || v;
+    const items = [{
+        icon: 'fa-filter',
+        label: kind === 'description' || kind === 'search'
+            ? 'Искать по этому тексту'
+            : `Фильтр: ${String(title).slice(0, 48)}`,
+        tone: 'primary',
+        onClick: () => window.applyDetailsMetaFilter(kind, v)
+    }];
+    if (window.ActionSheet) window.ActionSheet.open(items, { title: String(title).slice(0, 80) });
+    else window.applyDetailsMetaFilter(kind, v);
+};
+
+window.applyDetailsMetaFilter = function(kind, value) {
+    const v = String(value || '').trim();
+    if (!v) return;
+    if (window.clearAllSoundFilters) window.clearAllSoundFilters(true);
+
+    const setSearch = (text) => {
+        const input = document.getElementById('search-input');
+        if (input) {
+            input.value = text;
+            if (window.syncSearchClearBtn) window.syncSearchClearBtn();
+        }
+    };
+
+    if (kind === 'gear' && window.activeGear) window.activeGear.add(v);
+    else if (kind === 'mic' && window.activeMic) window.activeMic.add(v);
+    else if (kind === 'weather' && window.activeWeather) window.activeWeather.add(v);
+    else if (kind === 'recordist' && window.activeRecordist) window.activeRecordist.add(v);
+    else if (kind === 'principle' && window.activePrinciple) window.activePrinciple.add(v);
+    else if (kind === 'license' && window.activeLicense) window.activeLicense.add(v);
+    else if (kind === 'channels' && window.activeChannels) window.activeChannels.add(v);
+    else if (kind === 'date' && window.activeDate) window.activeDate.add(v);
+    else setSearch(v);
+
+    if (window.renderActiveTags) window.renderActiveTags();
+    if (window.updateFilterLists) window.updateFilterLists();
+    if (window.processFilterChange) window.processFilterChange(false);
+    else if (window.renderList) window.renderList();
+    if (window.openDockView) window.openDockView('library');
+    if (window.showToast) window.showToast('Фильтр применён');
+};
+
 window.openDetailsModal = function() {
     const s = window.soundsData.find(x => x.id === window.currentPlayingId);
     if (!s) return;
@@ -4515,11 +4581,32 @@ window.openDetailsModal = function() {
     const idEl = document.getElementById('details-sound-id');
     if (idEl) idEl.textContent = `ID · ${window.getSoundDisplayId ? window.getSoundDisplayId(s) : s.id}`;
     if (fileEl) fileEl.innerHTML = `<i class="fa-solid fa-file-waveform mr-1"></i>${s.archiveNum || s.id}_${s.fileName}`;
-    if (descEl) descEl.textContent = s.description;
+    // description wired below with ActionSheet filter action
 
     const safeText = (id, txt) => {
         const el = document.getElementById(id);
         if (el) el.textContent = txt;
+    };
+
+    const wireMetaFilter = (id, kind, value, label) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const v = String(value || '').trim();
+        const empty = !v || v === '—';
+        el.classList.toggle('meta-value--action', !empty);
+        el.classList.toggle('cursor-pointer', !empty);
+        if (empty) {
+            el.onclick = null;
+            el.title = '';
+            el.removeAttribute('role');
+            return;
+        }
+        el.title = 'Фильтр по этому значению';
+        el.setAttribute('role', 'button');
+        el.onclick = (ev) => {
+            ev.stopPropagation();
+            if (window.openDetailsMetaFilterSheet) window.openDetailsMetaFilterSheet(kind, v, label || v);
+        };
     };
 
     safeText('det-location', s.location || 'Ростовская область');
@@ -4534,6 +4621,53 @@ window.openDetailsModal = function() {
     const dtParts = [s.date, s.time].filter(Boolean).join(' · ');
     safeText('det-datetime', dtParts || '—');
 
+    wireMetaFilter('det-location', 'location', s.location, s.location);
+    wireMetaFilter('det-weather', 'weather', s.weather, s.weather);
+    wireMetaFilter('det-principle', 'principle', s.recPrinciple, s.recPrinciple);
+    wireMetaFilter('det-recorder', 'gear', s.gear, s.gear);
+    wireMetaFilter('det-mic', 'mic', s.micType, s.micType);
+    wireMetaFilter('det-format', 'format', s.format, s.format);
+    wireMetaFilter('det-channels', 'channels', s.channels, s.channels);
+    wireMetaFilter('det-license', 'license', s.license, s.license);
+    wireMetaFilter('det-datetime', 'date', s.date, s.date);
+
+    const keywordsEl = document.getElementById('det-keywords');
+    if (keywordsEl) {
+        const tags = String(s.keywords || '')
+            .split(/[,;]+/)
+            .map((t) => t.trim())
+            .filter(Boolean);
+        keywordsEl.innerHTML = tags.length
+            ? tags.map((tag) => {
+                const esc = String(tag).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+                return `<button type="button" class="details-keyword-chip" data-tag="${esc}">${esc}</button>`;
+            }).join('')
+            : '<span class="text-slate-400 text-xs">—</span>';
+        keywordsEl.querySelectorAll('[data-tag]').forEach((btn) => {
+            btn.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                const tag = btn.getAttribute('data-tag') || '';
+                if (window.openDetailsMetaFilterSheet) window.openDetailsMetaFilterSheet('keyword', tag, tag);
+            });
+        });
+    }
+
+    if (descEl) {
+        descEl.textContent = s.description || '';
+        const hasDesc = !!(s.description || '').trim();
+        descEl.classList.toggle('meta-value--action', hasDesc);
+        descEl.classList.toggle('cursor-pointer', hasDesc);
+        descEl.title = hasDesc ? 'Действия с описанием' : '';
+        descEl.onclick = hasDesc
+            ? (ev) => {
+                ev.stopPropagation();
+                if (window.openDetailsMetaFilterSheet) {
+                    window.openDetailsMetaFilterSheet('description', s.description, 'Описание');
+                }
+            }
+            : null;
+    }
+
     const customGearWrap = document.getElementById('det-custom-gear-wrap');
     const customGearEl = document.getElementById('det-custom-gear');
     const customGearText = String(s.customGearConfig || '').trim();
@@ -4541,6 +4675,7 @@ window.openDetailsModal = function() {
         if (customGearText) {
             customGearWrap.classList.remove('hidden');
             customGearEl.textContent = customGearText;
+            wireMetaFilter('det-custom-gear', 'search', customGearText, 'Иная конфигурация');
         } else {
             customGearWrap.classList.add('hidden');
             customGearEl.textContent = '';
@@ -4550,17 +4685,69 @@ window.openDetailsModal = function() {
     const recordistEl = document.getElementById('det-recordist');
     if (recordistEl) {
         recordistEl.textContent = s.recordist || 'Автор';
-        recordistEl.classList.add('cursor-pointer', 'text-blue-600', 'dark:text-blue-400', 'hover:underline');
-        recordistEl.title = 'Открыть публичный профиль';
-        recordistEl.onclick = () => window.openPublicProfile(s.recordistId, s.recordist);
+        recordistEl.classList.add('cursor-pointer', 'meta-value--action');
+        recordistEl.title = 'Автор записи';
+        recordistEl.onclick = (ev) => {
+            ev.stopPropagation();
+            if (window.ActionSheet) {
+                window.ActionSheet.open([
+                    {
+                        icon: 'fa-id-badge',
+                        label: 'Открыть профиль',
+                        tone: 'primary',
+                        onClick: () => window.openPublicProfile(s.recordistId, s.recordist)
+                    },
+                    {
+                        icon: 'fa-filter',
+                        label: 'Искать по этому автору',
+                        onClick: () => window.applyDetailsMetaFilter && window.applyDetailsMetaFilter('recordist', s.recordist)
+                    }
+                ], { title: s.recordist || 'Автор' });
+            } else {
+                window.openPublicProfile(s.recordistId, s.recordist);
+            }
+        };
     }
 
     const expEl = document.getElementById('det-expedition');
     if (expEl) {
         const session = s.sessionId && window.findSessionById ? window.findSessionById(s.sessionId) : null;
-        if (session) {
-            expEl.innerHTML = `<span class="cursor-pointer text-blue-600 dark:text-blue-400 hover:underline" onclick="window.openExpeditionViewModal('${session.id}')">${session.title}</span>`;
-            expEl.title = 'Открыть описание экспедиции';
+        const sessionTitle = session?.title || s.sessionTitle || '';
+        if (session || sessionTitle) {
+            const label = session?.title || sessionTitle;
+            expEl.innerHTML = '';
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'meta-value--action cursor-pointer text-left text-blue-600 dark:text-blue-400 hover:underline';
+            btn.textContent = label;
+            btn.onclick = (ev) => {
+                ev.stopPropagation();
+                const items = [];
+                if (session) {
+                    items.push({
+                        icon: 'fa-route',
+                        label: 'Открыть экспедицию',
+                        tone: 'primary',
+                        onClick: () => window.openExpeditionViewModal(session.id)
+                    });
+                }
+                items.push({
+                    icon: 'fa-filter',
+                    label: 'Показать звуки этой экспедиции',
+                    onClick: () => {
+                        if (s.sessionId && window.setSidebarSessionFilter) {
+                            window.setSidebarSessionFilter(s.sessionId);
+                        } else if (window.applyDetailsMetaFilter) {
+                            window.applyDetailsMetaFilter('search', label);
+                        }
+                        if (window.openDockView) window.openDockView('expeditions');
+                    }
+                });
+                if (window.ActionSheet) window.ActionSheet.open(items, { title: label });
+                else if (session) window.openExpeditionViewModal(session.id);
+            };
+            expEl.appendChild(btn);
+            expEl.title = 'Экспедиция';
         } else {
             expEl.textContent = '—';
             expEl.title = '';
@@ -5711,8 +5898,9 @@ window.resolvePendingImagesForPublish = async function(soundId) {
 };
 
 /** Snapshot of the add-sound form for BWF / iXML / LIST INFO embedding. */
-window.collectAddFormEmbedMeta = function({ soundId, title, coords, fileName, login } = {}) {
+window.collectAddFormEmbedMeta = function({ soundId, title, coords, fileName, login, images, gearConfigImages } = {}) {
     const val = (elId) => (document.getElementById(elId)?.value || '').trim();
+    const opts = { images, gearConfigImages };
     const catId = val('add-subcat');
     const category = val('add-category');
     const looked = catId && window.ucsByCatId ? window.ucsByCatId[catId] : null;
@@ -5732,6 +5920,8 @@ window.collectAddFormEmbedMeta = function({ soundId, title, coords, fileName, lo
     const creatorId = login || window.currentUser?.loginName || recordist;
     const fxName = val('add-user-defined') || title || 'Untitled';
     const sessionId = val('add-session') || null;
+    const session = sessionId && window.findSessionById ? window.findSessionById(sessionId) : null;
+    const sessionTitle = session?.title || '';
     const projectId = window.resolveProjectSourceId
         ? window.resolveProjectSourceId(sessionId)
         : 'NONE';
@@ -5762,12 +5952,20 @@ window.collectAddFormEmbedMeta = function({ soundId, title, coords, fileName, lo
         recordistId: creatorId,
         license: val('add-license'),
         sessionId,
+        sessionTitle,
         projectId,
         platformId,
         duration,
         route: route || undefined,
-        sourceId: projectId
+        sourceId: projectId,
+        images: Array.isArray(opts.images) ? opts.images : undefined,
+        gearConfigImages: Array.isArray(opts.gearConfigImages) ? opts.gearConfigImages : undefined
     };
+
+    const imageUrls = [
+        ...(Array.isArray(opts.images) ? opts.images : []),
+        ...(Array.isArray(opts.gearConfigImages) ? opts.gearConfigImages : [])
+    ].filter(Boolean);
 
     return {
         soundId,
@@ -5789,6 +5987,7 @@ window.collectAddFormEmbedMeta = function({ soundId, title, coords, fileName, lo
         projectId,
         platformId,
         sessionId: sessionId || '',
+        sessionTitle,
         location: payload.location,
         lat: payload.lat,
         lng: payload.lng,
@@ -5806,6 +6005,8 @@ window.collectAddFormEmbedMeta = function({ soundId, title, coords, fileName, lo
         routeJson: route ? JSON.stringify(route) : '',
         originationDate: date,
         originationTime: time,
+        imageUrls: imageUrls.join('\n'),
+        imagesJson: imageUrls.length ? JSON.stringify(imageUrls) : '',
         rosmapPayload: payload
     };
 };
@@ -5849,6 +6050,18 @@ window.publishSound = async function(targetStatus = 'pending') {
     let audioUrl = existing?.url || '';
     let metaEmbedded = false;
     try {
+        window.showToast('Загрузка фото...');
+        const images = await window.resolvePendingImagesForPublish(soundId);
+        const gearConfigImages = window.__customGearConfig
+            ? await window.resolvePendingGearConfigImagesForPublish(soundId)
+            : [];
+        const customGearConfig = window.__customGearConfig
+            ? val('add-custom-gear')
+            : '';
+        const sessionId = val('add-session') || null;
+        const session = sessionId && window.findSessionById ? window.findSessionById(sessionId) : null;
+        const sessionTitle = session?.title || existing?.sessionTitle || '';
+
         if (window.currentUploadedFile) {
             let file = window.currentUploadedFile;
             if (file.size > (window.MAX_AUDIO_UPLOAD_BYTES || 1024 * 1024 * 1024)) {
@@ -5866,7 +6079,15 @@ window.publishSound = async function(targetStatus = 'pending') {
                 try {
                     window.showToast('Вшивание метаданных…');
                     const embedMeta = window.collectAddFormEmbedMeta
-                        ? window.collectAddFormEmbedMeta({ soundId, title, coords, fileName: ucsName, login })
+                        ? window.collectAddFormEmbedMeta({
+                            soundId,
+                            title,
+                            coords,
+                            fileName: ucsName,
+                            login,
+                            images,
+                            gearConfigImages
+                        })
                         : null;
                     const embedResult = await window.embedWavMetadata(
                         file,
@@ -5875,7 +6096,9 @@ window.publishSound = async function(targetStatus = 'pending') {
                             title,
                             fxName: val('add-user-defined') || title,
                             description: val('add-desc'),
-                            creatorId: login
+                            creatorId: login,
+                            sessionTitle,
+                            imageUrls: [...images, ...gearConfigImages].filter(Boolean).join('\n')
                         },
                         ucsName
                     );
@@ -5903,15 +6126,6 @@ window.publishSound = async function(targetStatus = 'pending') {
         } else if (!isEdit && !audioUrl) {
             throw new Error('Добавьте аудиофайл');
         }
-
-        window.showToast('Загрузка фото...');
-        const images = await window.resolvePendingImagesForPublish(soundId);
-        const gearConfigImages = window.__customGearConfig
-            ? await window.resolvePendingGearConfigImagesForPublish(soundId)
-            : [];
-        const customGearConfig = window.__customGearConfig
-            ? val('add-custom-gear')
-            : '';
 
         const soundObj = {
             id: soundId,
@@ -5948,7 +6162,8 @@ window.publishSound = async function(targetStatus = 'pending') {
             route: window.isSoundwalkPrinciple()
                 ? ((window.addModalRoute && window.addModalRoute.length > 1) ? [...window.addModalRoute] : (existing?.route || undefined))
                 : undefined,
-            sessionId: val('add-session') || null,
+            sessionId,
+            sessionTitle: sessionTitle || null,
             createdAt: existing?.createdAt || new Date().toISOString(),
             // Черновик → draft. Явная публикация / повторная отправка после reject → pending.
             // Уже published при правке метаданных остаётся published.
@@ -6221,10 +6436,18 @@ window.toggleAddModal = function(forceClose = false, coords = null, isEdit = fal
             if (m.classList.contains('opacity-0')) m.classList.add('hidden');
             // Defer heavy reset until after close animation (keeps close smooth)
             window.resetAddModalToCreateMode();
+            if (window.openedFromAdmin && window.isCurrentUserAdmin && window.isCurrentUserAdmin()) {
+                window.openedFromAdmin = false;
+                if (window.openAdminPanel) window.openAdminPanel(window.__adminSection || 'sounds');
+            }
         }, 180);
         return;
     }
     window.resetAddModalToCreateMode();
+    if (window.openedFromAdmin && window.isCurrentUserAdmin && window.isCurrentUserAdmin()) {
+        window.openedFromAdmin = false;
+        if (window.openAdminPanel) window.openAdminPanel(window.__adminSection || 'sounds');
+    }
 };
 window.goBackFromAdd = function() {
     return window.closeAddModalSafely();

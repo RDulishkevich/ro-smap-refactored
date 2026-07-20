@@ -21,7 +21,9 @@
 - `rejectionReason` — текст причины (живёт, пока автор не отправит снова на модерацию)
 - `seenByAuthor` — `false` после решения модератора; кабинет показывает toast и гасит флаг
 - `sessionId` — привязка к экспедиции (проекту)
+- `sessionTitle` — денормализованное название экспедиции (для карточки и WAV, если профиль недоступен)
 - `fileName` — UCS-имя для скачивания (не ключ в Object Storage)
+- `images` / `gearConfigImages` — URL фото; при публикации WAV URL также пишутся в iXML (`IMAGE_URLS` / `IMAGES_JSON`) и LIST INFO comment
 
 Ключ в облаке: `uploads/{login}/audio_{soundId}.wav` — платформенный id только в пути хранилища и в метаданных файла, **не** в UCS-имени.
 
@@ -66,11 +68,13 @@ CatID_FXName_CreatorID_SourceID[_UserData].wav
 
 ### Внутри WAV (не в имени)
 
-При публикации WAV:
+При публикации WAV (фото загружаются **до** embed, чтобы URL попали в файл):
 
 - bext: описание, originator, **OriginatorReference ≈ soundId**, дата/время, coding history
-- iXML `USER`: поля формы + `SOUND_ID`, `PLATFORM_ID` (`ROSMAP`), `PROJECT_ID`, `SESSION_ID`, `ROSMAP_JSON`
-- LIST INFO: title, author, comment, license, keywords…
+- iXML `USER`: поля формы + `SOUND_ID`, `PLATFORM_ID` (`ROSMAP`), `PROJECT_ID`, `SESSION_ID`, `SESSION_TITLE`, `IMAGE_URLS`, `IMAGES_JSON`, `ROSMAP_JSON`
+- LIST INFO: title, author, comment (в т.ч. expedition + photo URLs), license, keywords…
+
+В форме добавления — **одна** кнопка «Правила» (в шапке модалки).
 
 Повторная загрузка такого файла может восстановить поля формы через `applyUploadedAudioMeta`.
 
@@ -89,14 +93,15 @@ CatID_FXName_CreatorID_SourceID[_UserData].wav
 
 ## 5. Модерация (админ)
 
-Очередь: админ-панель → звуки (`renderAdminList`), фильтры `all` / `pending` / `rejected`.
+Очередь: админ-панель → звуки (`renderAdminList`), фильтры `all` / `pending` / `rejected`, строка поиска `setAdminSearchQuery('sounds'|…)`.
 
 Действия: `setSoundStatus(id, status)` в `src/core/auth.js`.
 
 | Действие | Результат |
 |----------|-----------|
 | Одобрить → `published` | `rejectionReason` очищается; уведомление автору; подписчикам — `new_sound` |
-| Отклонить → запрос причины | Статус становится **`draft`**, причина в `rejectionReason`; уведомление с текстом причины; клик → `editSound` |
+| Отклонить → **всегда** CustomUI с причиной | Статус становится **`draft`**, причина в `rejectionReason`; уведомление с текстом причины; клик → `editSound` |
+| Вернуть / на модерацию → **всегда** CustomUI с причиной | Статус `pending`, причина сохраняется; уведомление автору |
 | На модерацию → `pending` | Из админ-меню / повторная отправка автором |
 
 Консоль: `approve`, `reject`, `status` → тот же `setSoundStatus`.

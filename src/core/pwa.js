@@ -109,6 +109,11 @@ window.maybeHintAddToHomeScreen = function maybeHintAddToHomeScreen() {
 };
 
 window.initPolevkaPwa = function initPolevkaPwa() {
+    try {
+        if (window.isPolevkaStandalone && window.isPolevkaStandalone()) {
+            document.documentElement.classList.add('is-standalone');
+        }
+    } catch (_) {}
     window.bindPolevkaInstallPrompt();
     window.registerPolevkaServiceWorker();
     window.maybeHintAddToHomeScreen();

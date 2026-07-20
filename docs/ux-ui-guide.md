@@ -131,7 +131,7 @@ window.openActionsMenu([
 
 Низкоуровнево: `CtxPopup.open({ title, subtitle, items, clientX, clientY })`. Предпочитай `openActionsMenu` — он закрывает ActionSheet и нормализует координаты.
 
-**ActionSheet** (`ActionSheet.open`) — только для **длинных списков выбора** (подписчики/подписки и подобные picker’ы), не для «⋯» / ПКМ.
+**ActionSheet** (`ActionSheet.open`) — для **длинных списков выбора** (подписчики/подписки) и для **коротких picker-действий** у метаданных карточки звука (клик по полю → «Искать по этому фильтру»). Не для «⋯» / ПКМ — там CtxPopup.
 
 ---
 
@@ -142,12 +142,15 @@ window.openActionsMenu([
 | `openDockView(view)` | Показать секцию dock (`library`, `feed`, `details`, `admin`…) |
 | `switchSidebarTab(tab)` | Вкладки каталога: `library` \| `feed` \| `expeditions` \| `help` |
 | `showDockPanel` / `hideDockPanel` | Показать/скрыть `#sidebar` |
-| `setDockHeader(title, subtitle, showBack)` | Заголовок dock |
-| `switchAdminSection(section)` | Подвкладки админки |
+| `setDockHeader(title, subtitle, showBack)` | Заголовок dock: `showBack=true` → стрелка вызывает `closeDockViewer` (возврат на `__dockReturnView` / админку); `false` → скрыть панель |
+| `closeDockViewer` | Выйти из вложенного вида (детали, настройки…) на предыдущую вкладку |
+| `switchAdminSection(section)` | Подвкладки админки; поиск: `#admin-search-*` → `setAdminSearchQuery` |
 
 На desktop детали/настройки/кабинет часто **встраиваются в dock**. На mobile — отдельные полноэкранные/оверлейные режимы. Не ломай это разделение.
 
-Body-флаги: `dock-is-hidden`, `dock-view-details`, `events-panel-open`, `events-open` — используй существующие, не плоди новые без причины.
+Вложенные виды (`details`, `settings`, …) запоминают корень в `__dockReturnView`. Из админки (`openedFromAdmin` / return=`admin`) стрелка «назад» возвращает в ту же подвкладку (`__adminSection`).
+
+Карточка звука: клик по метаданным / описанию / тегам → **ActionSheet** → `applyDetailsMetaFilter` (поиск или фильтр библиотеки).
 
 ---
 

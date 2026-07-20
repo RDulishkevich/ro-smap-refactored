@@ -42,8 +42,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260720c">
-    <link rel="stylesheet" href="./src/glass.css?v=20260720c">
+    <link rel="stylesheet" href="./src/style.css?v=20260720d">
+    <link rel="stylesheet" href="./src/glass.css?v=20260720d">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -390,11 +390,13 @@
                             <button onclick="window.setAdminListFilter('pending')" id="admin-filter-btn-pending" class="admin-filter-btn">Модерация <span id="admin-filter-pending-count" class="admin-filter-count">0</span></button>
                             <button onclick="window.setAdminListFilter('rejected')" id="admin-filter-btn-rejected" class="admin-filter-btn">Отклонённые <span id="admin-filter-rejected-count" class="admin-filter-count">0</span></button>
                         </div>
+                        <input type="search" id="admin-search-sounds" class="modal-input text-sm" placeholder="Поиск по записям: название, автор, ID…" oninput="window.setAdminSearchQuery('sounds', this.value)" autocomplete="off">
                         <div id="admin-sounds-list" class="space-y-3"></div>
                     </div>
 
                     <div id="admin-section-reports" class="hidden space-y-3">
                         <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"><i class="fa-solid fa-flag mr-1 text-red-500"></i>Жалобы <span id="admin-reports-count" class="admin-filter-count"></span></p>
+                        <input type="search" id="admin-search-reports" class="modal-input text-sm" placeholder="Поиск по жалобам: №, запись, причина…" oninput="window.setAdminSearchQuery('reports', this.value)" autocomplete="off">
                         <div id="admin-reports-list" class="space-y-2"></div>
                     </div>
 
@@ -406,6 +408,7 @@
                     <div id="admin-section-support" class="hidden space-y-3">
                         <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"><i class="fa-solid fa-headset mr-1 text-blue-500"></i>Поддержка</p>
                         <p class="text-xs text-slate-500 dark:text-slate-400">Ответы от имени «Поддержка карты».</p>
+                        <input type="search" id="admin-search-support" class="modal-input text-sm" placeholder="Поиск по обращениям: имя, логин, текст…" oninput="window.setAdminSearchQuery('support', this.value)" autocomplete="off">
                         <div id="admin-support-list" class="space-y-2"></div>
                     </div>
 
@@ -414,6 +417,7 @@
                             <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500"><i class="fa-solid fa-calendar-days mr-1 text-amber-500"></i>Ивенты</p>
                             <button type="button" class="admin-tool-btn !py-1.5 !px-2.5" onclick="window.openEventEditor()"><i class="fa-solid fa-plus"></i> Создать</button>
                         </div>
+                        <input type="search" id="admin-search-events" class="modal-input text-sm" placeholder="Поиск по ивентам: название, тип, статус…" oninput="window.setAdminSearchQuery('events', this.value)" autocomplete="off">
                         <div id="admin-events-list" class="space-y-2"></div>
                     </div>
 
@@ -1056,8 +1060,9 @@
                     <h3 id="add-modal-header-title" class="text-xl font-bold text-slate-800 dark:text-white truncate"><i class="fa-solid fa-file-audio mr-2 text-blue-600"></i><span data-lang="add_audio_title">Добавить аудио</span></h3>
                 </div>
                 <div class="flex items-center gap-1 shrink-0 ml-3">
-                    <button type="button" onclick="window.openPublishRulesModal()" class="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors outline-none w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center" title="Правила добавления и пользования" aria-label="Правила">
+                    <button type="button" onclick="window.openPublishRulesModal()" class="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors outline-none inline-flex items-center gap-1.5 px-2.5 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold" title="Правила добавления и пользования" aria-label="Правила">
                         <i class="fa-solid fa-book-open pointer-events-none"></i>
+                        <span class="hidden sm:inline">Правила</span>
                     </button>
                     <button onclick="window.closeAddModalSafely()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors outline-none w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center" aria-label="Закрыть">
                         <i class="fa-solid fa-xmark text-xl pointer-events-none"></i>
@@ -1317,11 +1322,8 @@
             </div>
 
             <div class="p-6 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700">
-                <p class="text-xs text-slate-500 dark:text-slate-400 text-center mb-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+                <p class="text-xs text-slate-500 dark:text-slate-400 text-center mb-3">
                     <span class="inline-flex items-center gap-1.5" data-lang="moderation_notice"><i class="fa-solid fa-cloud"></i> Точки сохраняются в базу Яндекс.Облака</span>
-                    <button type="button" onclick="window.openPublishRulesModal()" class="inline-flex items-center gap-1.5 font-bold text-blue-600 dark:text-blue-400 hover:underline">
-                        <i class="fa-solid fa-book-open"></i> Правила публикации
-                    </button>
                 </p>
                 <div class="flex gap-3">
                     <button id="draft-btn" onclick="window.publishSound('draft')" class="flex-1 py-3.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-all active:scale-[0.98]">
@@ -2108,7 +2110,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260720c"></script>
+    <script type="module" src="./src/main.js?v=20260720d"></script>
 
 </body>
 </html>
