@@ -2744,10 +2744,14 @@ window.renderFilterPanels = function() {
         if (!container) return;
 
         const values = Array.from(set || []).sort((a, b) => String(a).localeCompare(String(b), 'ru'));
+        // Hide whole labeled block (label + chips) when empty — not just the chip row.
+        const section = container.id === 'panel-tags' ? container : container.parentElement;
         if (!values.length) {
-            container.innerHTML = '<div class="text-[10px] text-slate-400">Нет данных</div>';
+            container.innerHTML = '';
+            if (section) section.classList.add('hidden');
             return;
         }
+        if (section) section.classList.remove('hidden');
 
         const counts = new Map();
         if (dataKey === 'tagArray') {
@@ -2795,6 +2799,14 @@ window.renderFilterPanels = function() {
     renderMetaSet(window.allExtractedRecordists, 'filter-meta-recordist', 'window.toggleRecordist', 'fa-user-astronaut', 'recordist', 'activeRecordist');
     renderMetaSet(window.allExtractedWeathers, 'filter-meta-weather', 'window.toggleWeather', 'fa-cloud-sun', 'weather', 'activeWeather');
     renderMetaSet(window.allExtractedDates, 'filter-meta-date', 'window.toggleDate', 'fa-calendar-days', 'date', 'activeDate');
+
+    ['panel-ucs', 'panel-meta'].forEach((id) => {
+        const panel = document.getElementById(id);
+        if (!panel) return;
+        const anyVisible = [...panel.children].some((el) => !el.classList.contains('hidden'));
+        panel.classList.toggle('is-empty-filters', !anyVisible);
+    });
+
     window.renderActiveTags();
 }
 

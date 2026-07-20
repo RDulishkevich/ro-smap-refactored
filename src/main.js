@@ -1,3 +1,3 @@
-﻿import { bootstrapApp } from './core/bootstrap.js?v=20260720f';
+﻿import { bootstrapApp } from './core/bootstrap.js?v=20260720g';
 
 bootstrapApp();

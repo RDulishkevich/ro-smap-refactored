@@ -1250,12 +1250,14 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
         height: 2.75rem;
     }
     #sidebar {
-        top: max(0.5rem, var(--sat));
-        left: max(0.5rem, var(--sal));
-        right: max(0.5rem, var(--sar));
-        bottom: max(0.5rem, var(--sab));
+        top: max(0.35rem, var(--sat));
+        left: 0;
+        right: 0;
+        bottom: 0;
         width: auto;
-        border-radius: 1.35rem;
+        border-radius: 1.35rem 1.35rem 0 0;
+        max-height: none;
+        padding-bottom: var(--sab);
     }
     .sidebar-hidden {
         transform: translateY(calc(100% + 2rem)) !important;
@@ -1603,6 +1605,10 @@ html.dark .search-suggestions,
 .dark .dock-filters-open-btn {
     border-color: rgba(255, 255, 255, 0.12);
     background: rgba(255, 255, 255, 0.05);
+}
+#panel-ucs.is-empty-filters,
+#panel-meta.is-empty-filters {
+    display: none !important;
 }
 
 /* Dock: always expanded width; hide via .sidebar-hidden */
