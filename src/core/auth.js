@@ -88,9 +88,43 @@ export function initAuth() {
                     <label class="modal-label">Пароль</label>
                     <input type="password" id="auth-password" class="modal-input dark:bg-slate-900" placeholder="Придумайте пароль" onkeydown="if(event.key==='Enter') window.submitAuth()">
                 </div>
+                <div>
+                    <label class="modal-label">Уровень умений в полевой записи</label>
+                    <select id="auth-skill-level" class="modal-input dark:bg-slate-900 text-sm">
+                        <option value="">Выберите…</option>
+                        <option value="beginner">Новичок — только начинаю</option>
+                        <option value="intermediate">Любитель — уже записываю</option>
+                        <option value="advanced">Продвинутый — регулярно в поле</option>
+                        <option value="pro">Профи — работа / исследования</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="modal-label">Для чего хотите использовать Полёвку?</label>
+                    <div class="space-y-1.5 text-sm text-slate-700 dark:text-slate-200">
+                        <label class="flex items-center gap-2"><input type="checkbox" name="auth-intent" value="listen" class="rounded"> Слушать карту и открывать места</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" name="auth-intent" value="publish" class="rounded"> Публиковать свои записи</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" name="auth-intent" value="research" class="rounded"> Исследования / учёба</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" name="auth-intent" value="education" class="rounded"> Обучение полевой записи</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" name="auth-intent" value="community" class="rounded"> Сообщество и экспедиции</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" name="auth-intent" value="other" class="rounded"> Другое</label>
+                    </div>
+                </div>
+                <label class="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300 leading-snug">
+                    <input type="checkbox" id="auth-pd-consent" class="mt-0.5 rounded shrink-0">
+                    <span>Согласен(на) на обработку персональных данных (логин, профиль, активность) для работы сервиса Полёвка. <button type="button" class="text-blue-600 dark:text-blue-400 font-semibold hover:underline" onclick="event.preventDefault(); window.openPdConsentInfo && window.openPdConsentInfo()">Подробнее</button></span>
+                </label>
                 <p class="text-[10px] text-slate-400 leading-tight">Этот логин будет автоматически использоваться как CreatorID при добавлении ваших аудиозаписей.</p>
             `;
         }
+    };
+
+    window.openPdConsentInfo = async function() {
+        if (!window.CustomUI?.open) return;
+        await window.CustomUI.open({
+            title: 'Персональные данные',
+            message: '<div class="text-left text-sm text-slate-600 dark:text-slate-300 space-y-2"><p>Мы обрабатываем логин, отображаемое имя, аватар, сообщения и метаданные записей, чтобы вы могли пользоваться картой, кабинетом и модерацией.</p><p>Данные хранятся в облаке сервиса. Вы можете запросить удаление через поддержку.</p><p class="text-xs text-slate-400">Файлы cookie браузера сервис не использует: сессия и настройки хранятся в localStorage на вашем устройстве.</p></div>',
+            confirmText: 'Понятно'
+        });
     };
 
     window.submitAuth = async function() {
@@ -99,6 +133,22 @@ export function initAuth() {
 
         if (!name || !pass) return window.showToast('Заполните все поля!');
         if (pass.length < 4) return window.showToast('Пароль слишком короткий (мин. 4)');
+
+        let regSurvey = null;
+        if (window.authMode === 'register') {
+            const pd = document.getElementById('auth-pd-consent');
+            if (!pd?.checked) return window.showToast('Нужно согласие на обработку персональных данных');
+            const skill = (document.getElementById('auth-skill-level')?.value || '').trim();
+            if (!skill) return window.showToast('Укажите уровень умений');
+            const intents = Array.from(document.querySelectorAll('input[name="auth-intent"]:checked')).map((el) => el.value);
+            if (!intents.length) return window.showToast('Выберите хотя бы одну цель использования');
+            regSurvey = {
+                skillLevel: skill,
+                platformIntents: intents,
+                pdConsentAt: new Date().toISOString(),
+                pdConsent: true
+            };
+        }
 
         const login = name.toLowerCase();
         const actionBtn = document.getElementById('auth-action-btn');
@@ -115,7 +165,10 @@ export function initAuth() {
             window.showToast('Успешный вход: ' + (window.currentUser.username || login));
             window.applyUserSettings();
             if (isNewRegistration && window.saveMyProfile) {
-                await window.saveMyProfile({ joinedAt: new Date().toISOString() });
+                await window.saveMyProfile({
+                    joinedAt: new Date().toISOString(),
+                    ...(regSurvey || {})
+                });
             }
             window.bustFilteredSoundsCache();
             if (window.refreshNotificationsUI) window.refreshNotificationsUI();
@@ -124,6 +177,7 @@ export function initAuth() {
             if (window.touchMyPresence) window.touchMyPresence(true);
             if (window.syncAccountChrome) window.syncAccountChrome();
             if (window.refreshCabinetTabs) window.refreshCabinetTabs();
+            if (window.enableDeviceNotifications) window.enableDeviceNotifications({ quiet: true });
             if (window.__pendingSupportOpen) {
                 window.__pendingSupportOpen = false;
                 if (window.openMessagesModal) window.openMessagesModal(window.SUPPORT_LOGIN || 'support');
@@ -230,6 +284,13 @@ export function initAuth() {
         window.currentUser.email = profile.email || window.currentUser.email || '';
         window.currentUser.emailVerified = !!profile.emailVerified;
         window.currentUser.blocked = !!profile.blocked;
+        window.currentUser.skillLevel = profile.skillLevel || window.currentUser.skillLevel || '';
+        window.currentUser.platformIntents = Array.isArray(profile.platformIntents)
+            ? profile.platformIntents
+            : (window.currentUser.platformIntents || []);
+        window.currentUser.pdConsent = profile.pdConsent != null ? !!profile.pdConsent : !!window.currentUser.pdConsent;
+        window.currentUser.pdConsentAt = profile.pdConsentAt || window.currentUser.pdConsentAt || '';
+        window.currentUser.pushSubscription = profile.pushSubscription || window.currentUser.pushSubscription || null;
         if (login !== 'admin') {
             window.currentUser.role = profile.role === 'admin' ? 'admin' : 'user';
         }
@@ -278,6 +339,13 @@ export function initAuth() {
             email: window.currentUser.email || '',
             emailVerified: !!window.currentUser.emailVerified,
             joinedAt: window.currentUser.joinedAt || prev.joinedAt || new Date().toISOString(),
+            skillLevel: window.currentUser.skillLevel || prev.skillLevel || '',
+            platformIntents: Array.isArray(window.currentUser.platformIntents)
+                ? window.currentUser.platformIntents
+                : (prev.platformIntents || []),
+            pdConsent: window.currentUser.pdConsent != null ? !!window.currentUser.pdConsent : !!prev.pdConsent,
+            pdConsentAt: window.currentUser.pdConsentAt || prev.pdConsentAt || '',
+            pushSubscription: window.currentUser.pushSubscription || prev.pushSubscription || null,
             sessions: prev.sessions || [],
             notifications: fields.notifications !== undefined ? fields.notifications : (prev.notifications || []),
             inbox: fields.inbox !== undefined ? fields.inbox : (prev.inbox || []),
@@ -292,6 +360,13 @@ export function initAuth() {
         if (fields.bio !== undefined) record.bio = String(fields.bio || '');
         if (fields.gear !== undefined) record.gear = Array.isArray(fields.gear) ? fields.gear : [];
         if (fields.links !== undefined) record.links = Array.isArray(fields.links) ? fields.links : [];
+        if (fields.skillLevel !== undefined) record.skillLevel = String(fields.skillLevel || '');
+        if (fields.platformIntents !== undefined) {
+            record.platformIntents = Array.isArray(fields.platformIntents) ? fields.platformIntents : [];
+        }
+        if (fields.pdConsent !== undefined) record.pdConsent = !!fields.pdConsent;
+        if (fields.pdConsentAt !== undefined) record.pdConsentAt = fields.pdConsentAt || '';
+        if (fields.pushSubscription !== undefined) record.pushSubscription = fields.pushSubscription || null;
         if (fields.avatar !== undefined) {
             const av = fields.avatar || '';
             record.avatar = (window.isForbiddenMediaUrl && window.isForbiddenMediaUrl(av)) ? '' : av;
@@ -1968,7 +2043,7 @@ export function initAuth() {
     };
 
     window.switchAdminSection = function(section) {
-        const allowed = ['sounds', 'reports', 'users', 'support', 'events', 'tools', 'console'];
+        const allowed = ['sounds', 'reports', 'users', 'support', 'events', 'tools', 'stats', 'console'];
         window.__adminSection = allowed.includes(section) ? section : 'sounds';
         allowed.forEach((key) => {
             const panel = document.getElementById(`admin-section-${key}`);
@@ -1985,6 +2060,7 @@ export function initAuth() {
             if (window.renderRegionStats) window.renderRegionStats('admin-stats-grid');
         }
         if (window.__adminSection === 'tools') window.renderAdminToolsSummary();
+        if (window.__adminSection === 'stats') window.renderAdminRegStats();
         if (window.__adminSection === 'console') {
             const out = document.getElementById('admin-console-output');
             if (out && !out.childElementCount && window.runAdminConsoleCommand) {
@@ -2005,6 +2081,61 @@ export function initAuth() {
             <div>Каталог: <strong>${all.length}</strong> · на модерации <strong>${pending}</strong></div>
             <div>Жалобы: <strong>${reports}</strong> · пользователи <strong>${users}</strong></div>
             <div>API: <strong>${api?.ok ? `v${api.version || '?'}` : 'нет данных'}</strong></div>
+        `;
+    };
+
+    window.renderAdminRegStats = function() {
+        const el = document.getElementById('admin-reg-stats');
+        if (!el) return;
+        const profiles = (window.profilesData || []).filter((p) => p && p.loginName && p.loginName !== (window.SUPPORT_LOGIN || 'support'));
+        const skillLabels = {
+            beginner: 'Новичок',
+            intermediate: 'Любитель',
+            advanced: 'Продвинутый',
+            pro: 'Профи'
+        };
+        const intentLabels = {
+            listen: 'Слушать карту',
+            publish: 'Публиковать',
+            research: 'Исследования',
+            education: 'Обучение',
+            community: 'Сообщество',
+            other: 'Другое'
+        };
+        const skillCounts = {};
+        const intentCounts = {};
+        let withSurvey = 0;
+        let withConsent = 0;
+        profiles.forEach((p) => {
+            if (p.pdConsent) withConsent += 1;
+            if (p.skillLevel || (p.platformIntents && p.platformIntents.length)) withSurvey += 1;
+            if (p.skillLevel) skillCounts[p.skillLevel] = (skillCounts[p.skillLevel] || 0) + 1;
+            (p.platformIntents || []).forEach((intent) => {
+                intentCounts[intent] = (intentCounts[intent] || 0) + 1;
+            });
+        });
+        const bar = (label, n, total) => {
+            const pct = total ? Math.round((n / total) * 100) : 0;
+            return `<div class="space-y-1">
+                <div class="flex justify-between text-xs"><span>${label}</span><span class="font-bold">${n} · ${pct}%</span></div>
+                <div class="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:${pct}%"></div></div>
+            </div>`;
+        };
+        const total = profiles.length || 1;
+        el.innerHTML = `
+            <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-3 bg-slate-50 dark:bg-slate-900/40 space-y-1 text-xs">
+                <p>Всего профилей: <strong>${profiles.length}</strong></p>
+                <p>С анкетой при регистрации: <strong>${withSurvey}</strong></p>
+                <p>С согласием на ПДн: <strong>${withConsent}</strong></p>
+            </div>
+            <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-3 space-y-2">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Уровень умений</p>
+                ${Object.keys(skillLabels).map((k) => bar(skillLabels[k], skillCounts[k] || 0, total)).join('') || '<p class="text-xs text-slate-400">Пока нет данных</p>'}
+            </div>
+            <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-3 space-y-2">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Цели использования</p>
+                ${Object.keys(intentLabels).map((k) => bar(intentLabels[k], intentCounts[k] || 0, total)).join('')}
+            </div>
         `;
     };
 
@@ -2804,6 +2935,13 @@ export function initAuth() {
             badgeMobile.textContent = label;
             badgeMobile.classList.toggle('hidden', unread === 0);
         }
+        if (typeof window.__lastNotifUnread === 'number'
+            && unread > window.__lastNotifUnread
+            && window.showDeviceNotificationFromInbox) {
+            const newest = window.getMyNotifications().find((n) => !n.read);
+            if (newest) window.showDeviceNotificationFromInbox(newest);
+        }
+        window.__lastNotifUnread = unread;
         if (document.getElementById('notif-panel') && !document.getElementById('notif-panel').classList.contains('hidden')) {
             window.renderNotificationsList();
         }

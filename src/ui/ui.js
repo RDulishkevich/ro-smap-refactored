@@ -3090,7 +3090,9 @@ window.setDockHeader = function(title, subtitle, showBack) {
     }
     if (back) {
         back.classList.remove('hidden');
-        if (showBack) {
+        // «Скрыть панель» всегда закрывает dock. «Назад» — только из карточки, открытой из админки.
+        const returnToAdmin = !!(showBack && window.openedFromAdmin && window.isCurrentUserAdmin && window.isCurrentUserAdmin());
+        if (returnToAdmin) {
             back.title = 'Назад';
             back.setAttribute('aria-label', 'Назад');
             back.onclick = () => {
@@ -5643,8 +5645,10 @@ window.applyUploadedAudioMeta = function(meta) {
     if (meta.keywords) {
         const tagsEl = document.getElementById('add-tags');
         const cur = (tagsEl?.value || '').trim();
-        if (!cur || cur === 'City, Field recording') setIfEmpty('add-tags', meta.keywords, true);
-    }
+        if (!cur || cur === 'City, Field recording') {
+            if (window.setAddTagList) window.setAddTagList(String(meta.keywords || '').split(/[,;]+/));
+            else setIfEmpty('add-tags', meta.keywords, true);
+        }    }
     if (meta.location) setIfEmpty('add-loc', meta.location);
     if (meta.description) setIfEmpty('add-desc', meta.description);
     if (meta.title) setIfEmpty('add-display-title', meta.title);
@@ -5745,6 +5749,120 @@ window.generateUCSFileName = function() {
         : 'AMBMisc_Untitled_Anon_NONE.wav';
     const el = document.getElementById('add-file-name');
     if (el) el.value = name;
+};
+
+window.getAddTagList = function() {
+    const raw = (document.getElementById('add-tags')?.value || '').trim();
+    if (!raw) return [];
+    return raw.split(/[,;]+/).map((t) => t.trim()).filter(Boolean);
+};
+
+window.setAddTagList = function(tags) {
+    const list = Array.isArray(tags)
+        ? tags.map((t) => String(t || '').trim()).filter(Boolean)
+        : [];
+    const unique = [];
+    list.forEach((t) => {
+        if (!unique.some((x) => x.toLowerCase() === t.toLowerCase())) unique.push(t);
+    });
+    const hidden = document.getElementById('add-tags');
+    if (hidden) hidden.value = unique.join(', ');
+    window.renderAddTagChips();
+    if (window.generateUCSFileName) window.generateUCSFileName();
+};
+
+window.renderAddTagChips = function() {
+    const box = document.getElementById('add-tags-chips');
+    if (!box) return;
+    const tags = window.getAddTagList();
+    const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    box.innerHTML = tags.map((tag, i) => `
+        <span class="tag-chip">
+            <span class="tag-chip__label">${esc(tag)}</span>
+            <button type="button" class="tag-chip__remove" data-tag-idx="${i}" aria-label="Удалить тег">&times;</button>
+        </span>
+    `).join('');
+    box.querySelectorAll('[data-tag-idx]').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const idx = Number(btn.getAttribute('data-tag-idx'));
+            const next = window.getAddTagList();
+            next.splice(idx, 1);
+            window.setAddTagList(next);
+        });
+    });
+};
+
+window.commitAddTagChip = function() {
+    const input = document.getElementById('add-tags-input');
+    if (!input) return;
+    const raw = String(input.value || '').trim();
+    if (!raw) return;
+    const parts = raw.split(/[,;]+/).map((t) => t.trim()).filter(Boolean);
+    const next = window.getAddTagList();
+    parts.forEach((p) => {
+        if (!next.some((x) => x.toLowerCase() === p.toLowerCase())) next.push(p);
+    });
+    window.setAddTagList(next);
+    input.value = '';
+    input.focus();
+};
+
+window.bindAddTagsChipInput = function() {
+    if (window.__addTagsChipBound) return;
+    const input = document.getElementById('add-tags-input');
+    if (!input) return;
+    window.__addTagsChipBound = true;
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            window.commitAddTagChip();
+            return;
+        }
+        if (e.key === 'Backspace' && !input.value) {
+            const tags = window.getAddTagList();
+            if (tags.length) {
+                e.preventDefault();
+                tags.pop();
+                window.setAddTagList(tags);
+            }
+        }
+    });
+    input.addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    });
+};
+
+window.openUcsRecommendations = async function() {
+    const message = `
+        <div class="text-left text-sm text-slate-600 dark:text-slate-300 space-y-3 leading-relaxed">
+            <p><strong>UCS</strong> — простой «язык» названий для звуков в кино, играх и архивах. Благодаря нему файл понятен ещё до прослушивания.</p>
+            <p><strong>Как выбрать слой:</strong></p>
+            <ul class="list-disc pl-4 space-y-1">
+                <li><strong>Геофония</strong> — природа без животных: ветер, дождь, река, море.</li>
+                <li><strong>Биофония</strong> — живые существа: птицы, насекомые, собаки.</li>
+                <li><strong>Антропофония</strong> — человек и техника: улица, транспорт, речь, стройка.</li>
+            </ul>
+            <p><strong>Категория и CatID</strong> уточняют тип (например AMB City). Если сомневаетесь — начните с AMBIENCE и ближайшей субкатегории.</p>
+            <p><strong>Свободные теги</strong> — ваши слова для поиска. Добавляйте по одному через Enter.</p>
+            <p class="text-xs text-slate-400">Цель — чтобы другие быстро нашли ваш звук по смыслу, а не только по названию файла.</p>
+        </div>
+    `;
+    if (window.CustomUI && window.CustomUI.open) {
+        await window.CustomUI.open({
+            title: '<i class="fa-solid fa-lightbulb mr-2 text-amber-500"></i>Рекомендации по UCS',
+            message,
+            confirmText: 'Понятно',
+            confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-md'
+        });
+        return;
+    }
+    if (window.showToast) window.showToast('UCS — единый стандарт классификации звуков');
 };
 
 window.__fxNameManual = false;
@@ -6293,6 +6411,9 @@ window.editSound = function(id) {
     window.updateUcsSubcats();
     setVal('add-subcat', s.typeTag || '');
     setVal('add-tags', s.keywords || '');
+    if (window.setAddTagList) window.setAddTagList(window.getAddTagList ? window.getAddTagList() : String(s.keywords || '').split(','));
+    if (window.bindAddTagsChipInput) window.bindAddTagsChipInput();
+    if (window.renderAddTagChips) window.renderAddTagChips();
     setVal('add-loc', s.location || '');
     setVal('add-coords', `${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`);
     setVal('add-date', s.date || '');
@@ -6363,10 +6484,18 @@ window.resetAddModalToCreateMode = function() {
     const imgContainer = document.getElementById('image-preview-container');
     if (imgContainer) { imgContainer.innerHTML = ''; imgContainer.classList.add('hidden'); }
 
-    ['add-user-defined', 'add-display-title', 'add-desc', 'add-tags', 'add-loc', 'add-coords', 'add-date', 'add-time', 'add-custom-gear'].forEach(id => {
+    ['add-user-defined', 'add-display-title', 'add-desc', 'add-loc', 'add-coords', 'add-date', 'add-time', 'add-custom-gear'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
+    if (window.setAddTagList) window.setAddTagList(['City', 'Field recording']);
+    else {
+        const tagsEl = document.getElementById('add-tags');
+        if (tagsEl) tagsEl.value = 'City, Field recording';
+    }
+    const tagsInput = document.getElementById('add-tags-input');
+    if (tagsInput) tagsInput.value = '';
+    if (window.bindAddTagsChipInput) window.bindAddTagsChipInput();
     const fileNameEl = document.getElementById('add-file-name');
     if (fileNameEl) fileNameEl.value = 'AMB_Loc_Tag_Anon.wav';
     const recEl = document.getElementById('add-recordist');
@@ -6425,6 +6554,8 @@ window.toggleAddModal = function(forceClose = false, coords = null, isEdit = fal
         if (window.playSfx) window.playSfx('open');
         // resetAddModalToCreateMode already filled UCS/gear — only ensure combo binds
         if (window.fillGearDatalists) window.fillGearDatalists();
+        if (window.bindAddTagsChipInput) window.bindAddTagsChipInput();
+        if (window.renderAddTagChips) window.renderAddTagChips();
         return;
     }
 

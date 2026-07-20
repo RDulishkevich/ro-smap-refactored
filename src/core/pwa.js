@@ -108,6 +108,84 @@ window.maybeHintAddToHomeScreen = function maybeHintAddToHomeScreen() {
     } catch (_) {}
 };
 
+window.canUseDeviceNotifications = function canUseDeviceNotifications() {
+    return typeof window.Notification !== 'undefined';
+};
+
+window.showDeviceNotificationFromInbox = function showDeviceNotificationFromInbox(n) {
+    if (!window.canUseDeviceNotifications()) return;
+    if (Notification.permission !== 'granted') return;
+    if (document.visibilityState === 'visible' && !(window.isPolevkaStandalone && window.isPolevkaStandalone())) {
+        // In browser tab avoid noisy OS toasts; still allow in installed PWA
+        return;
+    }
+    const title = 'Полёвка';
+    const body = String(n?.text || 'Новое уведомление').slice(0, 140);
+    try {
+        const icon = new URL('Logo.png', document.baseURI || location.href).href;
+        const note = new Notification(title, {
+            body,
+            icon,
+            badge: icon,
+            tag: `polevka-${n?.id || Date.now()}`,
+            data: { url: './', notifId: n?.id || null }
+        });
+        note.onclick = () => {
+            try { window.focus(); } catch (_) {}
+            note.close();
+            if (n?.id && window.openNotification) window.openNotification(n.id);
+        };
+    } catch (err) {
+        console.warn('Device notification failed', err);
+    }
+};
+
+window.enableDeviceNotifications = async function enableDeviceNotifications(opts = {}) {
+    if (!window.canUseDeviceNotifications()) {
+        if (!opts.quiet && window.showToast) window.showToast('Уведомления не поддерживаются в этом браузере');
+        return false;
+    }
+    try {
+        let perm = Notification.permission;
+        if (perm === 'default') perm = await Notification.requestPermission();
+        if (perm !== 'granted') {
+            if (!opts.quiet && window.showToast) {
+                window.showToast('Разрешите уведомления в настройках системы / Safari');
+            }
+            return false;
+        }
+
+        // Store PushManager subscription when available (for future server Web Push / VAPID).
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+            try {
+                const reg = await navigator.serviceWorker.ready;
+                let sub = await reg.pushManager.getSubscription();
+                if (!sub) {
+                    // Without VAPID key we cannot create a push subscription on most browsers.
+                    // Permission is still enough for local Notification API alerts while the PWA runs.
+                } else if (window.saveMyProfile) {
+                    await window.saveMyProfile({ pushSubscription: sub.toJSON() });
+                }
+            } catch (err) {
+                console.warn('PushManager subscribe skipped', err);
+            }
+        }
+
+        if (!opts.quiet && window.showToast) {
+            window.showToast(
+                (window.isPolevkaStandalone && window.isPolevkaStandalone())
+                    ? 'Уведомления включены для Полёвки'
+                    : 'Уведомления включены. На iPhone надёжнее работают из ярлыка на «Домой»'
+            );
+        }
+        return true;
+    } catch (err) {
+        console.warn(err);
+        if (!opts.quiet && window.showToast) window.showToast('Не удалось включить уведомления');
+        return false;
+    }
+};
+
 window.initPolevkaPwa = function initPolevkaPwa() {
     try {
         if (window.isPolevkaStandalone && window.isPolevkaStandalone()) {
@@ -118,10 +196,22 @@ window.initPolevkaPwa = function initPolevkaPwa() {
     window.registerPolevkaServiceWorker();
     window.maybeHintAddToHomeScreen();
 
-    // На iOS кнопка всегда полезна (инструкция); на Android — после beforeinstallprompt или тоже как гайд.
     const showIos = window.isIosDevice && window.isIosDevice() && !(window.isPolevkaStandalone && window.isPolevkaStandalone());
     if (showIos) {
         document.getElementById('btn-add-to-home')?.classList.remove('hidden');
         document.getElementById('btn-add-to-home-settings')?.classList.remove('hidden');
     }
+
+    // Soft prompt for notifications when already on home screen
+    try {
+        if (window.isPolevkaStandalone && window.isPolevkaStandalone()
+            && window.canUseDeviceNotifications()
+            && Notification.permission === 'default'
+            && !localStorage.getItem('polevka_notif_hint_v1')) {
+            localStorage.setItem('polevka_notif_hint_v1', '1');
+            setTimeout(() => {
+                if (window.enableDeviceNotifications) window.enableDeviceNotifications({ quiet: false });
+            }, 8000);
+        }
+    } catch (_) {}
 };

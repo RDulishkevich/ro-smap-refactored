@@ -48,3 +48,41 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+self.addEventListener('push', (event) => {
+  let payload = { title: 'Полёвка', body: 'Новое уведомление', url: './' };
+  try {
+    if (event.data) {
+      const data = event.data.json();
+      payload = { ...payload, ...data };
+    }
+  } catch (_) {
+    try {
+      payload.body = event.data ? event.data.text() : payload.body;
+    } catch (__) {}
+  }
+  event.waitUntil(
+    self.registration.showNotification(payload.title || 'Полёвка', {
+      body: payload.body || '',
+      icon: './Logo.png',
+      badge: './Logo.png',
+      data: { url: payload.url || './' }
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = (event.notification && event.notification.data && event.notification.data.url) || './';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const client of list) {
+        if ('focus' in client) {
+          client.focus();
+          return;
+        }
+      }
+      if (clients.openWindow) return clients.openWindow(target);
+    })
+  );
+});

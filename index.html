@@ -42,8 +42,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260720d">
-    <link rel="stylesheet" href="./src/glass.css?v=20260720d">
+    <link rel="stylesheet" href="./src/style.css?v=20260720e">
+    <link rel="stylesheet" href="./src/glass.css?v=20260720e">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -162,7 +162,7 @@
                 <button type="button" id="search-toggle-btn" class="search-toggle-btn" onclick="window.toggleSearchBar(true)" title="Поиск" aria-expanded="false" aria-controls="search-input">
                     <i class="fa-solid fa-magnifying-glass pointer-events-none"></i>
                 </button>
-                <input type="search" id="search-input" name="rosmap-sound-search" data-lang-placeholder="search_placeholder" placeholder="Поиск…" class="search-cluster-input text-sm text-slate-800 dark:text-white" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-autocomplete="list" aria-controls="search-suggestions" role="combobox" aria-expanded="false" value="">
+                <input type="text" id="search-input" name="rosmap-sound-search" data-lang-placeholder="search_placeholder" placeholder="Поиск…" class="search-cluster-input text-sm text-slate-800 dark:text-white" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-autocomplete="list" aria-controls="search-suggestions" role="combobox" aria-expanded="false" value="">
                 <button type="button" id="search-clear-btn" class="search-clear-btn hidden" onclick="window.clearSearchQuery()" title="Очистить поиск" aria-label="Очистить поиск">
                     <i class="fa-solid fa-xmark pointer-events-none"></i>
                 </button>
@@ -372,6 +372,7 @@
                     <button type="button" id="admin-tab-btn-support" onclick="window.switchAdminSection('support')" class="admin-subtab-btn">Поддержка <span id="admin-tab-support-count" class="admin-filter-count" hidden></span></button>
                     <button type="button" id="admin-tab-btn-events" onclick="window.switchAdminSection('events')" class="admin-subtab-btn">Ивенты</button>
                     <button type="button" id="admin-tab-btn-tools" onclick="window.switchAdminSection('tools')" class="admin-subtab-btn">Инструменты</button>
+                    <button type="button" id="admin-tab-btn-stats" onclick="window.switchAdminSection('stats')" class="admin-subtab-btn">Статистика</button>
                     <button type="button" id="admin-tab-btn-console" onclick="window.switchAdminSection('console')" class="admin-subtab-btn">Консоль</button>
                 </div>
                 <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-3 space-y-4">
@@ -434,6 +435,12 @@
                             <button type="button" class="admin-tool-btn" onclick="window.switchAdminSection('console'); document.getElementById('admin-console-input')?.focus()"><i class="fa-solid fa-terminal"></i> Открыть консоль</button>
                         </div>
                         <div id="admin-ops-summary" class="text-xs text-slate-500 dark:text-slate-400 space-y-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700"></div>
+                    </div>
+
+                    <div id="admin-section-stats" class="hidden space-y-3">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500"><i class="fa-solid fa-chart-simple mr-1 text-blue-500"></i>Статистика регистраций</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Уровень умений и цели использования платформы — из анкеты при регистрации.</p>
+                        <div id="admin-reg-stats" class="space-y-3"></div>
                     </div>
 
                     <div id="admin-section-console" class="hidden flex flex-col min-h-[320px]">
@@ -812,6 +819,10 @@
                         <i class="fa-solid fa-mobile-screen-button"></i>
                         На экран «Домой»
                     </button>
+                    <button type="button" onclick="window.enableDeviceNotifications && window.enableDeviceNotifications()" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                        <i class="fa-solid fa-bell"></i>
+                        Включить уведомления
+                    </button>
                     <button onclick="window.closeSettingsModal(); if(window.openSupportModal) window.openSupportModal(); else if(window.openMessagesModal) window.openMessagesModal(window.SUPPORT_LOGIN || 'support');" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
                         <i class="fa-solid fa-headset"></i>
                         Написать в поддержку
@@ -1121,7 +1132,12 @@
 
                 <!-- Блок 2: UCS Tags -->
                 <div class="space-y-3 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
-                    <p class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest"><i class="fa-solid fa-layer-group mr-1"></i><span data-lang="ucs_block_title">Классификация по стандарту UCS</span></p>
+                    <div class="flex items-center justify-between gap-2">
+                        <p class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest"><i class="fa-solid fa-layer-group mr-1"></i><span data-lang="ucs_block_title">Классификация по стандарту UCS</span></p>
+                        <button type="button" onclick="window.openUcsRecommendations()" class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors">
+                            <i class="fa-solid fa-lightbulb"></i> Рекомендации
+                        </button>
+                    </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="modal-label text-slate-400" data-lang="ucs_layer">Слои аудиоландшафта:</label>
@@ -1147,8 +1163,14 @@
                         </div>
                     </div>
                     <div>
-                        <label class="modal-label text-slate-400" data-lang="keywords">Свободные теги (через запятую)</label>
-                        <input id="add-tags" type="text" value="City, Field recording" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white py-1.5 text-xs" oninput="window.generateUCSFileName()">
+                        <label class="modal-label text-slate-400" data-lang="keywords">Свободные теги</label>
+                        <input type="hidden" id="add-tags" value="City, Field recording">
+                        <div id="add-tags-chips" class="tag-chips-wrap mb-2"></div>
+                        <div class="flex gap-2">
+                            <input id="add-tags-input" type="text" value="" placeholder="Тег → Enter или «Добавить»" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white py-1.5 text-xs flex-1" autocomplete="off">
+                            <button type="button" id="add-tags-add-btn" onclick="window.commitAddTagChip()" class="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Добавить</button>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-1">По одному тегу: Enter или кнопка «Добавить». Запятые не нужны.</p>
                     </div>
                 </div>
 
@@ -1323,7 +1345,7 @@
 
             <div class="p-6 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700">
                 <p class="text-xs text-slate-500 dark:text-slate-400 text-center mb-3">
-                    <span class="inline-flex items-center gap-1.5" data-lang="moderation_notice"><i class="fa-solid fa-cloud"></i> Точки сохраняются в базу Яндекс.Облака</span>
+                    <span class="inline-flex items-center gap-1.5" data-lang="moderation_notice"><i class="fa-solid fa-cloud"></i> Данные сохраняются на облако</span>
                 </p>
                 <div class="flex gap-3">
                     <button id="draft-btn" onclick="window.publishSound('draft')" class="flex-1 py-3.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-all active:scale-[0.98]">
@@ -2110,7 +2132,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260720d"></script>
+    <script type="module" src="./src/main.js?v=20260720e"></script>
 
 </body>
 </html>
