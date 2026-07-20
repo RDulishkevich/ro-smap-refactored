@@ -1,5 +1,5 @@
 /**
- * Community + publish rules for RO.SMap (UI + moderator reject chips).
+ * Community + publish rules for Полёвка (UI + moderator reject chips).
  * Keep in sync with docs/community-rules.md
  */
 
@@ -13,7 +13,7 @@ export const PUBLISH_RULE_SECTIONS = [
     {
         id: 'about',
         title: 'О платформе',
-        intro: 'RO.SMap — публичная аудиокарта полевых записей. Цель каталога — достоверные, полезные и этично опубликованные звуки места.',
+        intro: 'Полёвка — публичная аудиокарта полевых записей Ростовской области. Цель каталога — достоверные, полезные и этично опубликованные звуки места.',
         items: [
             {
                 id: 'A1',

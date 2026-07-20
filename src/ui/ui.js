@@ -198,7 +198,7 @@ window.exportSoundsData = function(format, allSounds = false) {
 window.onboardingStepsRu = [
     {
         target: null,
-        title: 'Аудиокарта Ростовской области',
+        title: 'Полёвка',
         text: 'Слушайте полевые записи прямо на карте. Три коротких шага — и вы в деле.'
     },
     {
@@ -215,7 +215,7 @@ window.onboardingStepsRu = [
 window.onboardingStepsEn = [
     {
         target: null,
-        title: 'Rostov Region audio map',
+        title: 'Polevka',
         text: 'Listen to field recordings right on the map. Three short steps — and you’re in.'
     },
     {
@@ -3075,8 +3075,8 @@ window.setDockHeader = function(title, subtitle, showBack) {
     const subEl = document.getElementById('dock-subtitle');
     const back = document.getElementById('dock-back-btn');
     if (titleEl) {
-        titleEl.textContent = title || 'Ростовская область';
-        if (!title || title === 'Ростовская область') titleEl.setAttribute('data-lang', 'title');
+        titleEl.textContent = title || 'Полёвка';
+        if (!title || title === 'Полёвка') titleEl.setAttribute('data-lang', 'title');
         else titleEl.removeAttribute('data-lang');
     }
     if (subEl) {
@@ -3084,7 +3084,7 @@ window.setDockHeader = function(title, subtitle, showBack) {
             subEl.innerHTML = subtitle;
             subEl.removeAttribute('data-lang');
         } else {
-            subEl.innerHTML = '<i class="fa-solid fa-map-location-dot text-[color:var(--accent)]"></i> Audio Map';
+            subEl.textContent = 'Аудиокарта Ростовской области';
             subEl.setAttribute('data-lang', 'subtitle');
         }
     }
@@ -6010,7 +6010,7 @@ window.publishSound = async function(targetStatus = 'pending') {
                     type: 'moderation',
                     text: `Запись «${soundObj.title}» отправлена на модерацию`,
                     fromId: null,
-                    fromName: 'RO.SMap',
+                    fromName: 'Полёвка',
                     soundId: soundObj.id,
                     soundTitle: soundObj.title,
                     action: 'edit',

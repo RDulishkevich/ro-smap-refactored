@@ -1,7 +1,7 @@
-# RO.SMap
+# Полёвка
 
 ## Product
-Interactive audio map of Rostov Region: listen to field recordings on the map, filter by UCS layers, run expeditions, messaging, and personal cabinet.
+Interactive audio map of Rostov Region (Полёвка): listen to field recordings on the map, filter by UCS layers, run expeditions, messaging, and personal cabinet.
 
 ## Audience
 Field recordists, locals, students, and curious listeners exploring the region through sound.

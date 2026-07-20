@@ -424,7 +424,7 @@ export function initAuth() {
                         type: 'moderation',
                         text: `Запись «${s.title}» отправлена на модерацию`,
                         fromId: null,
-                        fromName: 'RO.SMap',
+                        fromName: 'Полёвка',
                         soundId: s.id,
                         soundTitle: s.title,
                         action: 'edit',

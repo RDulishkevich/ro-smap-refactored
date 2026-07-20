@@ -5,7 +5,7 @@ export const sourceIdMap = {
 
 export const translations = {
     ru: {
-        title: "Ростовская область", subtitle: "Аудиокарта", search_placeholder: "Поиск звуков...",
+        title: "Полёвка", subtitle: "Аудиокарта Ростовской области", search_placeholder: "Поиск звуков...",
         filter_tab_ucs: "Слои", filter_tab_tags: "Теги", filter_tab_meta: "Параметры",
         sidebar_tab_library: "Библиотека", sidebar_tab_feed: "Лента", sidebar_tab_expeditions: "Экспедиции", sidebar_tab_help: "Помощь",
         ucs_category: "Категория (UCS)", ucs_sub: "Субкатегория (CatID)", ucs_layer: "Слои аудиоландшафта", ucs_block_title: "Классификация по стандарту UCS",
@@ -46,7 +46,7 @@ export const translations = {
         ui_sounds_hint: "Короткие звуки для уведомлений, тостов, окон и действий."
     },
     en: {
-        title: "Rostov Region", subtitle: "Audio Map", search_placeholder: "Search sounds...",
+        title: "Polevka", subtitle: "Rostov Region audio map", search_placeholder: "Search sounds...",
         filter_tab_ucs: "Layers", filter_tab_tags: "Tags", filter_tab_meta: "Params",
         sidebar_tab_library: "Library", sidebar_tab_feed: "Feed", sidebar_tab_expeditions: "Expeditions", sidebar_tab_help: "Help",
         ucs_category: "Category (UCS)", ucs_sub: "Subcategory (CatID)", ucs_layer: "Soundscape Layers", ucs_block_title: "UCS Classification",

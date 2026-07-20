@@ -1,7 +1,7 @@
-# RO.SMap — Design
+# Полёвка — Design
 
 ## Design read
-**Reading this as:** map-first product chrome (logistics-dashboard architecture): full-bleed map, left icon rail, always-visible floating catalog dock (compact ↔ expanded), top search toolbar, contextual player — grainy glass, Gilroy, coral accent (no green/lime).
+**Reading this as:** map-first product chrome (logistics-dashboard architecture): full-bleed map, left icon rail, always-visible floating catalog dock (compact ↔ expanded), top search toolbar, contextual player — grainy glass, Satoshi/Clash, coral accent (no green/lime). Brand: **Полёвка**.
 
 ## Visual architecture
 
