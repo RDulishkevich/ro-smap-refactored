@@ -387,6 +387,7 @@ window.showMarkerHoverCard = function(sound) {
 
     const card = document.getElementById('marker-hover-card');
     const photoEl = document.getElementById('marker-hover-photo');
+    const photoWrap = document.getElementById('marker-hover-photo-wrap');
     const ecoEl = document.getElementById('marker-hover-eco');
     const titleEl = document.getElementById('marker-hover-title');
     const metaEl = document.getElementById('marker-hover-meta');
@@ -399,7 +400,7 @@ window.showMarkerHoverCard = function(sound) {
         anthrophony: { label: 'Антропофония', cls: 'is-anthro' }
     };
     const eco = ecoMap[sound.ecoCategory] || { label: 'Звук', cls: '' };
-    const photo = (sound.images && sound.images[0]) || `https://picsum.photos/seed/${encodeURIComponent(sound.id)}/400/240`;
+    const photo = (sound.images && sound.images[0]) || '';
     const desc = (sound.description || '').trim();
     const shortDesc = desc.length > 90 ? `${desc.slice(0, 87)}…` : desc;
 
@@ -420,8 +421,16 @@ window.showMarkerHoverCard = function(sound) {
     descEl.textContent = shortDesc;
     descEl.style.display = shortDesc ? '' : 'none';
 
-    photoEl.alt = sound.title || '';
-    if (photoEl.getAttribute('src') !== photo) photoEl.src = photo;
+    const hasPhoto = !!photo;
+    card.classList.toggle('no-photo', !hasPhoto);
+    if (photoWrap) photoWrap.hidden = !hasPhoto;
+    if (hasPhoto) {
+        photoEl.alt = sound.title || '';
+        if (photoEl.getAttribute('src') !== photo) photoEl.src = photo;
+    } else {
+        photoEl.removeAttribute('src');
+        photoEl.alt = '';
+    }
 
     window.__markerHoverSoundId = sound.id;
     window.__markerHoverCoords = [sound.lat, sound.lng];

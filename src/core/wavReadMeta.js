@@ -154,7 +154,21 @@ export function readWavMetadataBuffer(buffer) {
         const padded = size + (size % 2);
         if (payloadStart + size > buffer.byteLength) break;
 
-        if (id === 'bext' && size >= 256 + 32 + 32 + 10 + 8) {
+        if (id === 'fmt ' && size >= 16) {
+            const audioFormat = view.getUint16(payloadStart, true);
+            const sampleRate = view.getUint32(payloadStart + 4, true);
+            let bitsPerSample = view.getUint16(payloadStart + 14, true);
+            let float = audioFormat === 3;
+            if (audioFormat === 0xFFFE && size >= 40) {
+                bitsPerSample = view.getUint16(payloadStart + 14, true);
+                const subFormat = view.getUint16(payloadStart + 24, true);
+                float = subFormat === 3;
+            }
+            if (sampleRate && bitsPerSample && !out.format) {
+                const khz = sampleRate % 1000 === 0 ? `${sampleRate / 1000}kHz` : `${sampleRate}Hz`;
+                out.format = `WAV ${khz} / ${float ? `${bitsPerSample}-bit Float` : `${bitsPerSample}-bit`}`;
+            }
+        } else if (id === 'bext' && size >= 256 + 32 + 32 + 10 + 8) {
             out.description = readAscii(view, payloadStart, 256) || out.description;
             out.originator = readAscii(view, payloadStart + 256, 32) || out.originator;
             out.originatorReference = readAscii(view, payloadStart + 288, 32) || out.originatorReference;

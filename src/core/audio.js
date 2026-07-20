@@ -344,6 +344,86 @@ window.resetStereoPan = function() {
     window.setStereoPan(0);
 };
 
+window.currentPlaybackPitch = 0;
+
+window.setPlaybackPitch = function(semitones) {
+    const st = Math.max(-12, Math.min(12, Math.round(Number(semitones) || 0)));
+    window.currentPlaybackPitch = st;
+    const rate = Math.pow(2, st / 12);
+    if (window.audioElement) {
+        try { window.audioElement.preservesPitch = false; } catch (_) {}
+        try { window.audioElement.mozPreservesPitch = false; } catch (_) {}
+        try { window.audioElement.webkitPreservesPitch = false; } catch (_) {}
+        window.audioElement.playbackRate = rate;
+    }
+    const label = document.getElementById('pitch-value');
+    if (label) label.textContent = st === 0 ? '0 st' : `${st > 0 ? '+' : ''}${st} st`;
+    const slider = document.getElementById('pitch-slider');
+    if (slider && Number(slider.value) !== st) slider.value = String(st);
+};
+
+window.resetPlaybackPitch = function() {
+    const slider = document.getElementById('pitch-slider');
+    if (slider) slider.value = '0';
+    window.setPlaybackPitch(0);
+};
+
+window.downloadPitchedSound = async function() {
+    const s = (window.soundsData || []).find((x) => x.id === window.currentPlayingId);
+    if (!s || !s.url || String(s.url).startsWith('blob:')) {
+        window.showToast('Файл недоступен для скачивания.');
+        return;
+    }
+    const st = window.currentPlaybackPitch || 0;
+    const ratio = Math.pow(2, st / 12);
+    const baseName = (s.fileName || 'recording.wav').replace(/\.wav$/i, '');
+    const outName = st === 0 ? `${baseName}.wav` : `${baseName}_pitch${st > 0 ? '+' : ''}${st}.wav`;
+
+    try {
+        window.showToast(st === 0 ? 'Скачивание…' : 'Рендер питча…');
+        const res = await fetch(s.url);
+        if (!res.ok) throw new Error('fetch_failed');
+        const blob = await res.blob();
+
+        if (st === 0 && /\.wav$/i.test(s.fileName || s.url)) {
+            const a = document.createElement('a');
+            const objUrl = URL.createObjectURL(blob);
+            a.href = objUrl;
+            a.download = outName;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(objUrl), 2000);
+            if (window.incrementDownloadCount) window.incrementDownloadCount(s.id);
+            return;
+        }
+
+        if (!window.decodeAudioFile || !window.audioBufferToWav) {
+            throw new Error('convert_unavailable');
+        }
+        const file = new File([blob], s.fileName || 'audio.wav', { type: blob.type || 'audio/wav' });
+        let buffer = await window.decodeAudioFile(file);
+        if (st !== 0 && window.pitchShiftAudioBuffer) {
+            buffer = window.pitchShiftAudioBuffer(buffer, ratio);
+        }
+        const wavBuf = window.audioBufferToWav(buffer, { bitDepth: 24 });
+        const outBlob = new Blob([wavBuf], { type: 'audio/wav' });
+        const a = document.createElement('a');
+        const objUrl = URL.createObjectURL(outBlob);
+        a.href = objUrl;
+        a.download = outName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(objUrl), 2000);
+        if (window.incrementDownloadCount) window.incrementDownloadCount(s.id);
+        window.showToast('Готово');
+    } catch (err) {
+        console.warn(err);
+        window.showToast('Не удалось подготовить файл');
+    }
+};
+
 window.dbFromRms = function(rms) {
     if (!rms || rms < 1e-5) return -Infinity;
     return 20 * Math.log10(rms);
@@ -1093,6 +1173,7 @@ window.closePlayerCard = function() {
 
     window.collapsePlayerAnalyzers();
     window.resetStereoPan();
+    if (window.resetPlaybackPitch) window.resetPlaybackPitch();
 
     if (card) card.classList.add('translate-y-[150%]', 'opacity-0');
     document.body.classList.remove('player-visible');

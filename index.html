@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Полёвка — аудиокарта Ростовской области</title>
+    <title>Полёвка – аудиокарта Ростовской области</title>
     <meta name="application-name" content="Полёвка">
     <meta name="apple-mobile-web-app-title" content="Полёвка">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -42,8 +42,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260720e">
-    <link rel="stylesheet" href="./src/glass.css?v=20260720e">
+    <link rel="stylesheet" href="./src/style.css?v=20260720f">
+    <link rel="stylesheet" href="./src/glass.css?v=20260720f">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -52,11 +52,11 @@
     <!-- React (панель "Статистика региона" рисуется React-компонентом, см. src/widgets/analytics-widget.js) -->
     <script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js" crossorigin></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
-    <!-- Satoshi / Clash (Fontshare) · Plus Jakarta fallback — no CORS-blocked CDN -->
+    <!-- Satoshi / Clash (Fontshare) · Plus Jakarta fallback – no CORS-blocked CDN -->
     <link href="https://api.fontshare.com/v2/css?f[]=clash-display@600,700&f[]=satoshi@400,500,600,700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body class="text-slate-800 antialiased relative">
+<body class="text-slate-800 antialiased relative dock-is-hidden">
 
     <div id="toast-message" class="fixed left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-none text-white px-5 py-3 rounded-full shadow-2xl z-[300] transform -translate-y-24 opacity-0 transition-all duration-300 pointer-events-none flex items-center gap-3 border border-slate-700" style="top: max(1.25rem, calc(env(safe-area-inset-top, 0px) + 0.75rem));">
         <i class="fa-solid fa-circle-info text-blue-400 text-lg"></i>
@@ -83,7 +83,7 @@
         </div>
     </div>
 
-        <!-- UI Слои: overflow-hidden — иначе overflow-x:hidden принудительно включает scroll по Y и сдвигает весь chrome -->
+        <!-- UI Слои: overflow-hidden – иначе overflow-x:hidden принудительно включает scroll по Y и сдвигает весь chrome -->
         <div class="absolute inset-0 pointer-events-none z-10 w-full h-full overflow-hidden">
 
         <!-- Mobile drawer scrim (same stacking context as #sidebar) -->
@@ -94,7 +94,7 @@
             <i class="fa-solid fa-bars"></i>
         </button>
 
-        <!-- Left icon rail (desktop always; mobile hidden — burger opens dock) -->
+        <!-- Left icon rail (desktop always; mobile hidden – burger opens dock) -->
         <nav id="app-rail" class="app-rail pointer-events-auto z-[61] hidden md:flex" aria-label="Навигация">
             <div class="app-rail__brand" title="Полёвка">
                 <img src="./Logo.png" alt="Полёвка" width="40" height="40" decoding="async">
@@ -222,6 +222,7 @@
                             <i class="fa-solid fa-arrow-left text-sm pointer-events-none"></i>
                         </button>
                         <img class="dock-brand-mark shrink-0" src="./Logo.png" alt="" width="36" height="36" decoding="async" aria-hidden="true">
+                        <span id="dock-view-icon" class="dock-view-icon hidden" aria-hidden="true"><i class="fa-solid fa-gear"></i></span>
                         <div class="min-w-0">
                             <h1 id="dock-title" class="brand-title text-xl md:text-2xl text-slate-800 dark:text-white truncate" data-lang="title">Полёвка</h1>
                             <p id="dock-subtitle" class="brand-sub text-xs md:text-sm mt-0.5 flex items-center gap-2" data-lang="subtitle">Аудиокарта Ростовской области</p>
@@ -318,6 +319,23 @@
                             <span class="text-[9px] font-bold text-slate-400 w-3 text-center">R</span>
                             <span id="panner-value" class="text-[10px] font-mono font-semibold text-sky-600 dark:text-sky-400 w-12 text-right">C</span>
                         </div>
+                        <div id="pitch-shift-row" class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/60 space-y-2">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-[10px] uppercase text-slate-500 font-bold tracking-widest">Питч</span>
+                                <span id="pitch-value" class="text-[10px] font-mono font-semibold text-sky-600 dark:text-sky-400">0 st</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[9px] font-bold text-slate-400 w-6 text-center">−12</span>
+                                <input type="range" id="pitch-slider" min="-12" max="12" step="1" value="0" class="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-500" oninput="window.setPlaybackPitch(this.value)">
+                                <span class="text-[9px] font-bold text-slate-400 w-6 text-center">+12</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button type="button" onclick="window.resetPlaybackPitch()" class="flex-1 py-1.5 rounded-xl text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Сброс</button>
+                                <button type="button" onclick="window.downloadPitchedSound()" class="flex-1 py-1.5 rounded-xl text-[10px] font-bold bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors">
+                                    <i class="fa-solid fa-download mr-1"></i>Скачать WAV
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <div class="analyzer-panel analyzer-panel-fuchsia">
                         <div class="flex justify-between items-center mb-2">
@@ -403,6 +421,7 @@
 
                     <div id="admin-section-users" class="hidden space-y-3">
                         <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"><i class="fa-solid fa-users mr-1 text-blue-500"></i>Пользователи</p>
+                        <input type="search" id="admin-search-users" class="modal-input text-sm" placeholder="Поиск по людям: имя, логин, роль…" oninput="window.setAdminSearchQuery('users', this.value)" autocomplete="off">
                         <div id="admin-users-grid" class="space-y-2"></div>
                     </div>
 
@@ -439,7 +458,7 @@
 
                     <div id="admin-section-stats" class="hidden space-y-3">
                         <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500"><i class="fa-solid fa-chart-simple mr-1 text-blue-500"></i>Статистика регистраций</p>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Уровень умений и цели использования платформы — из анкеты при регистрации.</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Уровень умений и цели использования платформы – из анкеты при регистрации.</p>
                         <div id="admin-reg-stats" class="space-y-3"></div>
                     </div>
 
@@ -453,7 +472,7 @@
                             <input id="admin-console-input" type="text" class="modal-input text-sm font-mono" placeholder="help · pending · approve &lt;id&gt; · …" onkeydown="window.onAdminConsoleKeydown(event)" oninput="window.onAdminConsoleInput(event)" autocomplete="off" spellcheck="false" aria-autocomplete="list" aria-controls="admin-console-suggest">
                             <div id="admin-console-suggest" class="admin-console-suggest hidden" role="listbox"></div>
                         </div>
-                        <p class="text-[10px] text-slate-400 mt-1.5">Tab — подсказка · Enter — выполнить · <button type="button" class="underline" onclick="window.runAdminConsoleCommand('help')">help</button></p>
+                        <p class="text-[10px] text-slate-400 mt-1.5">Tab – подсказка · Enter – выполнить · <button type="button" class="underline" onclick="window.runAdminConsoleCommand('help')">help</button></p>
                     </div>
                 </div>
             </div>
@@ -468,7 +487,7 @@
                     <div id="help-panel-support" class="space-y-4">
                         <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
                             <h4 class="font-bold text-slate-800 dark:text-white mb-1">Поддержка и помощь</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Сначала ответит бот по частым вопросам. Если ответ не подойдёт — напишите «обращение», и создастся тикет с номером для оператора.</p>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Сначала ответит бот по частым вопросам. Если ответ не подойдёт – напишите «обращение», и создастся тикет с номером для оператора.</p>
                             <button onclick="window.contactSupport()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
                                 <i class="fa-solid fa-circle-question"></i>Открыть чат поддержки
                             </button>
@@ -477,7 +496,7 @@
                     <div id="help-panel-faq" class="hidden space-y-4">
                         <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
                             <h4 class="font-bold text-slate-800 dark:text-white mb-1">Тур по карте</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Короткий обзор интерфейса — библиотека, плеер, фильтры и навигация.</p>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Короткий обзор интерфейса – библиотека, плеер, фильтры и навигация.</p>
                             <button onclick="window.restartOnboarding()" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
                                 <i class="fa-solid fa-compass"></i>Показать тур по карте
                             </button>
@@ -664,9 +683,9 @@
     <!-- Модальное окно: НАСТРОЙКИ -->
     <div id="settings-modal" onmousedown="if(event.target === this) window.requestCloseSettingsModal()" class="fixed inset-0 z-[250] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
         <div id="settings-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto border border-slate-100 dark:border-slate-800">
-            <div class="px-6 py-5 flex justify-between items-center border-b border-slate-100 dark:border-slate-700">
+            <div class="settings-modal-header px-6 py-5 flex justify-between items-center border-b border-slate-100 dark:border-slate-700">
                 <h3 class="text-lg font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-gear mr-2 text-blue-500"></i><span data-lang="settings_title">Настройки</span></h3>
-                <button onclick="window.requestCloseSettingsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none">
+                <button type="button" onclick="window.requestCloseSettingsModal()" class="settings-modal-close text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none" aria-label="Закрыть">
                     <i class="fa-solid fa-xmark text-xl pointer-events-none"></i>
                 </button>
             </div>
@@ -737,7 +756,7 @@
                     <label class="modal-label text-slate-500 dark:text-slate-400 mt-3" data-lang="map_provider_free_more"><i class="fa-solid fa-gift mr-1"></i> Ещё бесплатные слои</label>
                     <div class="relative mt-1">
                         <select id="map-free-basemap-select" onchange="if(this.value) window.setMapProvider(this.value)" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-semibold appearance-none cursor-pointer text-xs">
-                            <option value="">— выберите слой —</option>
+                            <option value="">– выберите слой –</option>
                             <option value="cyclosm">CyclOSM (вело)</option>
                             <option value="hot">HOT Humanitarian</option>
                             <option value="osmde">OSM.de</option>
@@ -752,7 +771,7 @@
                         </select>
                         <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
                     </div>
-                    <p id="map-provider-hint" class="text-[11px] text-slate-400 leading-relaxed mt-2" data-lang="map_provider_yandex_hint">Классическая карта Яндекса — быстрый и стабильный режим по умолчанию.</p>
+                    <p id="map-provider-hint" class="text-[11px] text-slate-400 leading-relaxed mt-2" data-lang="map_provider_yandex_hint">Классическая карта Яндекса – быстрый и стабильный режим по умолчанию.</p>
                     <div id="dgis-key-wrap" class="hidden mt-3 space-y-1.5">
                         <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider" for="dgis-api-key-input">Ключ 2GIS MapGL</label>
                         <div class="flex gap-2">
@@ -831,7 +850,7 @@
                         <i class="fa-solid fa-book-open"></i>
                         Открыть раздел «Помощь»
                     </button>
-                    <p class="text-[11px] text-slate-500 dark:text-slate-400 text-center">Тур, поддержка и справка — здесь в настройках на телефоне.</p>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 text-center">Тур, поддержка и справка – здесь в настройках на телефоне.</p>
                 </div>
             </div>
         </div>
@@ -840,37 +859,27 @@
     <!-- Модальное окно: ЛИЧНЫЙ КАБИНЕТ -->
     <div id="cabinet-modal" onmousedown="if(event.target === this) window.requestCloseCabinet()" class="fixed inset-0 z-[200] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
         <div id="cabinet-modal-content" class="bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-2xl app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto border border-slate-100 dark:border-slate-800">
-            <div class="px-6 py-5 flex justify-between items-center bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
-                <div class="flex items-center gap-4 min-w-0">
-                    <label class="relative cursor-pointer group shrink-0">
-                        <img id="cabinet-avatar" class="hidden w-14 h-14 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-sm" alt="avatar">
-                        <div id="cabinet-avatar-fallback" class="w-14 h-14 rounded-full bg-blue-100 dark:bg-slate-700 flex items-center justify-center text-blue-600 dark:text-blue-400 text-xl shadow-inner">
-                            <i class="fa-solid fa-user-astronaut"></i>
-                        </div>
-                        <input type="file" id="avatar-input" accept="image/*" class="hidden" onchange="window.uploadProfilePhoto(this.files)">
-                        <span class="absolute inset-0 rounded-full bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[10px] font-bold text-white">Фото</span>
-                    </label>
-                    <div class="min-w-0">
-                        <h3 id="cabinet-user-name" class="text-lg font-bold text-slate-800 dark:text-white leading-tight truncate">Имя Пользователя</h3>
-                        <p id="cabinet-user-role" class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Рекордист</p>
-                        <p id="cabinet-user-login" class="hidden text-[11px] text-slate-400 mt-0.5"></p>
-                        <div class="flex flex-wrap gap-2 mt-2 text-[10px] text-slate-500 dark:text-slate-400">
-                            <span id="cabinet-user-joined" class="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full"><i class="fa-solid fa-calendar-days"></i>Дата</span>
-                            <span id="cabinet-user-stats" class="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full"><i class="fa-solid fa-microphone"></i>0 звуков</span>
-                            <span id="cabinet-user-level" class="hidden inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-1 rounded-full font-bold"><i class="fa-solid fa-bolt"></i>Lv 1</span>
-                        </div>
-                        <div id="cabinet-member-badge" class="cabinet-member-badge hidden mt-2"></div>
-                        <button type="button" onclick="window.openOwnPublicProfile()" class="md:hidden mt-2 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-bold">
-                            <i class="fa-solid fa-id-badge"></i><span data-lang="public_profile">Публичный профиль</span>
-                        </button>
+            <div class="cabinet-modal-header px-5 py-4 flex items-start gap-3 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
+                <label class="relative cursor-pointer group shrink-0">
+                    <img id="cabinet-avatar" class="hidden w-12 h-12 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-sm" alt="avatar">
+                    <div id="cabinet-avatar-fallback" class="w-12 h-12 rounded-full bg-blue-100 dark:bg-slate-700 flex items-center justify-center text-blue-600 dark:text-blue-400 text-lg shadow-inner">
+                        <i class="fa-solid fa-user-astronaut"></i>
                     </div>
-                </div>
-                <div class="flex items-center gap-2 shrink-0">
-                    <button onclick="window.openOwnPublicProfile()" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors" title="Смотреть публичный профиль">
+                    <input type="file" id="avatar-input" accept="image/*" class="hidden" onchange="window.uploadProfilePhoto(this.files)">
+                    <span class="absolute inset-0 rounded-full bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[10px] font-bold text-white">Фото</span>
+                </label>
+                <div class="min-w-0 flex-1">
+                    <h3 id="cabinet-user-name" class="text-base font-bold text-slate-800 dark:text-white leading-snug break-words">Имя Пользователя</h3>
+                    <p id="cabinet-user-role" class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Рекордист</p>
+                    <p id="cabinet-user-login" class="hidden text-[11px] text-slate-400 mt-0.5"></p>
+                    <div class="flex flex-wrap gap-1.5 mt-2 text-[10px] text-slate-500 dark:text-slate-400">
+                        <span id="cabinet-user-joined" class="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full"><i class="fa-solid fa-calendar-days"></i>Дата</span>
+                        <span id="cabinet-user-stats" class="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full"><i class="fa-solid fa-microphone"></i>0 звуков</span>
+                        <span id="cabinet-user-level" class="hidden inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full font-bold"><i class="fa-solid fa-bolt"></i>Lv 1</span>
+                    </div>
+                    <div id="cabinet-member-badge" class="cabinet-member-badge hidden mt-2"></div>
+                    <button type="button" onclick="window.openOwnPublicProfile()" class="cabinet-public-profile-btn mt-2.5 inline-flex items-center gap-1.5 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline">
                         <i class="fa-solid fa-id-badge"></i><span data-lang="public_profile">Публичный профиль</span>
-                    </button>
-                    <button onclick="window.requestCloseCabinet()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors outline-none">
-                        <i class="fa-solid fa-xmark text-xl pointer-events-none"></i>
                     </button>
                 </div>
             </div>
@@ -915,7 +924,7 @@
                     <div id="cab-quests-hero"></div>
                     <div>
                         <h4 class="font-bold text-slate-800 dark:text-white mb-1" data-lang="quests_active"><i class="fa-solid fa-list-check mr-1.5 text-amber-500"></i>Активные задания</h4>
-                        <p class="text-sm text-slate-600 dark:text-slate-300 mb-3" data-lang="quests_active_hint">Выполняйте практику полевой записи — опыт начисляется автоматически.</p>
+                        <p class="text-sm text-slate-600 dark:text-slate-300 mb-3" data-lang="quests_active_hint">Выполняйте практику полевой записи – опыт начисляется автоматически.</p>
                         <div id="cab-quests-list" class="space-y-3"></div>
                     </div>
                     <div>
@@ -1013,11 +1022,11 @@
                     <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
                         <div>
                             <h4 class="font-bold text-slate-800 dark:text-white mb-1"><i class="fa-solid fa-id-badge mr-1.5 text-blue-500"></i>Публичная визитка</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Эти данные видны всем в вашем публичном профиле — вместе с личной картой и портфолио звуков.</p>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Эти данные видны всем в вашем публичном профиле – вместе с личной картой и портфолио звуков.</p>
                         </div>
                         <div>
                             <label class="modal-label text-slate-400">Краткая биография</label>
-                            <textarea id="profile-bio" rows="3" placeholder="Например: полевой звукозаписывающий, специализация — геофония юга России" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 h-20 resize-none leading-relaxed text-sm"></textarea>
+                            <textarea id="profile-bio" rows="3" placeholder="Например: полевой звукозаписывающий, специализация – геофония юга России" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 h-20 resize-none leading-relaxed text-sm"></textarea>
                         </div>
                         <div>
                             <label class="modal-label text-slate-400">Оборудование (через запятую)</label>
@@ -1085,12 +1094,13 @@
                 <!-- Блок 1: Основная информация (Загрузка файла и Фото) -->
                 <div class="space-y-4">
                     <div id="drop-zone" class="bg-white dark:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors relative">
-                        <input type="file" id="audio-file-input" accept=".wav" class="hidden">
+                        <input type="file" id="audio-file-input" accept="audio/*,.wav,.flac,.aiff,.aif,.mp3,.m4a,.ogg,.aac,.webm" class="hidden">
                         <div id="drop-zone-content" class="pointer-events-none w-full flex flex-col items-center">
                             <i class="fa-solid fa-cloud-arrow-up text-4xl text-slate-300 dark:text-slate-500 mb-3"></i>
                             <div class="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400 mb-2">
-                                <span class="text-sm font-bold" data-lang="drag_drop">Нажмите или перетащите аудиофайл (.wav)</span>
+                                <span class="text-sm font-bold" data-lang="drag_drop">Нажмите или перетащите аудиофайл</span>
                             </div>
+                            <p class="text-[10px] text-slate-400">Любой формат → WAV; частота и битность определяются автоматически</p>
                         </div>
                     </div>
 
@@ -1188,7 +1198,7 @@
                         </div>
                         <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                             <i class="fa-solid fa-circle-info"></i>
-                            <span>На компьютере — ПКМ по карте. На телефоне — удерживайте палец на карте ~0.5 сек</span>
+                            <span>На компьютере – ПКМ по карте. На телефоне – удерживайте палец на карте ~0.5 сек</span>
                         </div>
                     </div>
                     <div class="space-y-3 w-full">
@@ -1233,7 +1243,7 @@
                     <div class="glass-switch-row">
                         <div class="min-w-0">
                             <span class="glass-switch-row__label">Запись на смартфон</span>
-                            <span class="glass-switch-row__hint">Скрывает рекордер, микрофон — «Интегрированные»</span>
+                            <span class="glass-switch-row__hint">Скрывает рекордер, микрофон – «Интегрированные», каналы – Stereo AB</span>
                         </div>
                         <button type="button" role="switch" id="add-smartphone-switch" class="glass-switch shrink-0" aria-checked="false" onclick="window.toggleSmartphoneRecording()" title="Запись на смартфон">
                             <span class="glass-switch__thumb" aria-hidden="true"></span>
@@ -1292,15 +1302,8 @@
                             </div>
                         </div>
                         <div>
-                            <label class="modal-label text-slate-400" data-lang="format">Формат (Только WAV)</label>
-                            <select id="add-format" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white appearance-none text-xs font-semibold">
-                                <option>WAV 48kHz / 24-bit</option>
-                                <option>WAV 96kHz / 24-bit</option>
-                                <option>WAV 192kHz / 24-bit</option>
-                                <option>WAV 48kHz / 32-bit Float</option>
-                                <option>WAV 96kHz / 32-bit Float</option>
-                                <option>WAV 192kHz / 32-bit Float</option>
-                            </select>
+                            <label class="modal-label text-slate-400" data-lang="format">Формат (авто из файла → WAV)</label>
+                            <input id="add-format" type="text" readonly value="" placeholder="Определится после загрузки файла" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-xs font-semibold cursor-default">
                         </div>
                         <div>
                             <label class="modal-label text-slate-400" data-lang="meta_channels">Система / Каналы (SourceID)</label>
@@ -1379,8 +1382,8 @@
                         <div class="min-w-0 flex-1 pb-1">
                             <h3 id="pp-name" class="text-xl font-bold text-slate-900 dark:text-white leading-tight truncate text-balance">Рекордист</h3>
                             <div class="flex flex-wrap items-center gap-2 mt-1.5">
-                                <span id="pp-presence" class="pp-meta-chip"><i class="fa-solid fa-circle text-[7px]"></i>—</span>
-                                <span id="pp-joined" class="pp-meta-chip"><i class="fa-solid fa-calendar-days"></i>—</span>
+                                <span id="pp-presence" class="pp-meta-chip"><i class="fa-solid fa-circle text-[7px]"></i>–</span>
+                                <span id="pp-joined" class="pp-meta-chip"><i class="fa-solid fa-calendar-days"></i>–</span>
                                 <span id="pp-level-chip" class="hidden pp-meta-chip pp-meta-chip--level"><i class="fa-solid fa-bolt"></i>Ур. 1</span>
                             </div>
                         </div>
@@ -1499,7 +1502,7 @@
         </div>
     </div>
 
-    <!-- Просмотр экспедиции (только чтение; в основном окне — через dock) -->
+    <!-- Просмотр экспедиции (только чтение; в основном окне – через dock) -->
     <div id="expedition-view-modal" onmousedown="if(event.target === this) window.closeExpeditionViewModal()" class="fixed inset-0 z-[216] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
         <div id="expedition-view-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto h-[min(92dvh,640px)]">
             <div class="expedition-view-header p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
@@ -1743,7 +1746,7 @@
                     <label class="modal-label text-slate-400">Масштаб</label>
                     <input id="image-crop-zoom" type="range" min="100" max="300" value="100" class="w-full" oninput="window.updateImageCropTransform()">
                 </div>
-                <p class="text-[11px] text-slate-400">Перетащите фото внутри рамки. Рамка — область, которая попадёт в пост.</p>
+                <p class="text-[11px] text-slate-400">Перетащите фото внутри рамки. Рамка – область, которая попадёт в пост.</p>
             </div>
             <div class="p-4 border-t border-slate-100 dark:border-slate-700 flex gap-2 shrink-0">
                 <button onclick="window.requestCloseImageCropModal()" class="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-sm font-bold text-slate-600 dark:text-slate-200">Отмена</button>
@@ -1821,7 +1824,7 @@
                     <textarea id="session-form-purpose" rows="2" placeholder="Что планируете записать, какие задачи" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 resize-none"></textarea>
                 </div>
                 <div>
-                    <label class="modal-label text-slate-400">Участники — зарегистрированные пользователи</label>
+                    <label class="modal-label text-slate-400">Участники – зарегистрированные пользователи</label>
                     <div id="session-form-participants" class="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto custom-scrollbar p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"></div>
                 </div>
                 <div>
@@ -1956,7 +1959,7 @@
                     </div>
                     <div class="meta-group">
                         <span class="meta-label"><i class="fa-solid fa-route"></i> Экспедиция</span>
-                        <span class="meta-value" id="det-expedition">—</span>
+                        <span class="meta-value" id="det-expedition">–</span>
                     </div>
                     <div class="meta-group">
                         <span class="meta-label" data-lang="license"><i class="fa-solid fa-scale-balanced"></i> Лицензия</span>
@@ -2049,7 +2052,7 @@
     </div>
 
     <div id="marker-hover-card" class="marker-hover-card" aria-hidden="true" hidden>
-        <div class="marker-hover-card__photo-wrap">
+        <div id="marker-hover-photo-wrap" class="marker-hover-card__photo-wrap">
             <img id="marker-hover-photo" class="marker-hover-card__photo" alt="" decoding="async">
         </div>
         <div class="marker-hover-card__body">
@@ -2107,7 +2110,7 @@
             <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0 bg-slate-50 dark:bg-slate-800/80">
                 <div class="min-w-0">
                     <h3 class="text-lg font-bold text-slate-800 dark:text-white truncate"><i class="fa-solid fa-book-open mr-2 text-blue-500"></i>Правила Полёвки</h3>
-                    <p id="publish-rules-version" class="text-[10px] font-semibold text-slate-400 mt-0.5">Версия —</p>
+                    <p id="publish-rules-version" class="text-[10px] font-semibold text-slate-400 mt-0.5">Версия –</p>
                 </div>
                 <button type="button" onclick="window.closePublishRulesModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0 w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center" aria-label="Закрыть">
                     <i class="fa-solid fa-xmark text-lg pointer-events-none"></i>
@@ -2120,7 +2123,7 @@
         </div>
     </div>
 
-    <!-- Контекстное меню-«шторка» (список действий), вызывается по «...» — например, у комментариев:
+    <!-- Контекстное меню-«шторка» (список действий), вызывается по «...» – например, у комментариев:
          профиль автора / ответить / реакция / пожаловаться. См. window.ActionSheet в ui.js. -->
     <div id="action-sheet-overlay" onmousedown="if(event.target === this) window.ActionSheet.close()" class="fixed inset-0 z-[9998] bg-slate-900/50 backdrop-blur-none hidden flex items-end sm:items-center justify-center opacity-0 transition-opacity duration-300">
         <div id="action-sheet-content" class="bg-white dark:bg-slate-800 rounded-t-[1.75rem] sm:rounded-[1.75rem] shadow-2xl w-full sm:max-w-xs max-h-[min(85dvh,32rem)] overflow-y-auto transform translate-y-full sm:translate-y-0 sm:scale-95 transition-all mb-0 sm:mb-0">
@@ -2132,7 +2135,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260720e"></script>
+    <script type="module" src="./src/main.js?v=20260720f"></script>
 
 </body>
 </html>

@@ -1,5 +1,5 @@
 /**
- * Support chatbot — FAQ auto-replies before escalating to a numbered ticket.
+ * Support chatbot – FAQ auto-replies before escalating to a numbered ticket.
  */
 
 window.SUPPORT_BOT_FAQ = [
@@ -13,11 +13,11 @@ window.SUPPORT_BOT_FAQ = [
     },
     {
         keys: ['фильтр', 'слой', 'ucs', 'категор', 'найти звук', 'поиск'],
-        answer: 'Фильтры — в библиотеке слева: слои (гео/био/антропо), UCS-категории и теги. Активные фильтры видны в верхней панели карты.'
+        answer: 'Фильтры – в библиотеке слева: слои (гео/био/антропо), UCS-категории и теги. Активные фильтры видны в верхней панели карты.'
     },
     {
         keys: ['вход', 'регистрац', 'аккаунт', 'пароль', 'логин', 'login'],
-        answer: 'Регистрация и вход — через кнопку профиля. Карту можно смотреть без аккаунта; публикация, сообщения и лайки требуют входа.'
+        answer: 'Регистрация и вход – через кнопку профиля. Карту можно смотреть без аккаунта; публикация, сообщения и лайки требуют входа.'
     },
     {
         keys: ['тема', 'тёмн', 'dark', 'язык', 'english', 'карта стиль', 'базовая карта'],
@@ -25,7 +25,7 @@ window.SUPPORT_BOT_FAQ = [
     },
     {
         keys: ['экспедиц', 'сесси', 'маршрут', 'soundwalk'],
-        answer: 'Экспедиции создаются в личном кабинете. К записи можно привязать сессию — она появится во вкладке «Экспедиции».'
+        answer: 'Экспедиции создаются в личном кабинете. К записи можно привязать сессию – она появится во вкладке «Экспедиции».'
     },
     {
         keys: ['жалоба', 'репорт', 'модерац', 'удалить комментарий'],
@@ -41,11 +41,11 @@ window.SUPPORT_BOT_FAQ = [
     },
     {
         keys: ['на экран', 'домой', 'домашний экран', 'добавить на экран', 'ярлык', 'pwa', 'установить приложение', 'home screen'],
-        answer: 'На iPhone: откройте сайт в Safari → «Поделиться» → «На экран „Домой“». На Android часто есть «Установить приложение» в меню браузера. Подробнее — в Помощи → FAQ.'
+        answer: 'На iPhone: откройте сайт в Safari → «Поделиться» → «На экран „Домой“». На Android часто есть «Установить приложение» в меню браузера. Подробнее – в Помощи → FAQ.'
     },
     {
         keys: ['привет', 'здравств', 'hello', 'hi'],
-        answer: 'Здравствуйте! Я бот поддержки Полёвки. Опишите вопрос своими словами — подскажу по FAQ. Если ответа не хватит, напишите «обращение».'
+        answer: 'Здравствуйте! Я бот поддержки Полёвки. Опишите вопрос своими словами – подскажу по FAQ. Если ответа не хватит, напишите «обращение».'
     }
 ];
 
@@ -200,16 +200,16 @@ window.trySupportBotBeforeSend = async function(text) {
 
     if (faq) {
         // User message already saved by caller; append bot reply
-        const footer = '\n\nПомогло? Если нет — напишите «обращение», и мы создадим тикет с номером для оператора.';
+        const footer = '\n\nПомогло? Если нет – напишите «обращение», и мы создадим тикет с номером для оператора.';
         await window.appendSupportBotReply(myLogin, faq.answer + footer);
         if (window.openMessageThread) window.openMessageThread(window.SUPPORT_LOGIN);
         return 'handled';
     }
 
-    // No FAQ hit — soft prompt + still allow message to reach support inbox via normal path
+    // No FAQ hit – soft prompt + still allow message to reach support inbox via normal path
     await window.appendSupportBotReply(
         myLogin,
-        'Пока не нашёл точный ответ в базе. Могу создать обращение для оператора — напишите «обращение». Или уточните вопрос (публикация, плеер, фильтры, аккаунт).'
+        'Пока не нашёл точный ответ в базе. Могу создать обращение для оператора – напишите «обращение». Или уточните вопрос (публикация, плеер, фильтры, аккаунт).'
     );
     if (window.openMessageThread) window.openMessageThread(window.SUPPORT_LOGIN);
     return 'escalate'; // still deliver user text to support inbox

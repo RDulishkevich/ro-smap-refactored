@@ -1,4 +1,4 @@
-/** Cheap change key for poll/sync — avoids JSON.stringify of whole datasets on the main thread. */
+/** Cheap change key for poll/sync – avoids JSON.stringify of whole datasets on the main thread. */
 window.fingerprintDataset = function(arr) {
     if (!Array.isArray(arr)) return 'x';
     const n = arr.length;
@@ -141,7 +141,7 @@ window.renderRegionStats = function(targetId = 'region-stats-grid') {
         { value: stats.byEco.geophony, label: 'Геофония', color: 'text-sky-600 dark:text-sky-400' },
         { value: stats.byEco.biophony, label: 'Биофония', color: 'text-orange-700 dark:text-orange-300' },
         { value: stats.byEco.anthrophony, label: 'Антропофония', color: 'text-stone-600 dark:text-stone-300' },
-        { value: stats.topUcs[0] ? stats.topUcs[0][0] : '—', label: stats.topUcs[0] ? `Топ UCS (${stats.topUcs[0][1]})` : 'Топ UCS', color: 'text-violet-600 dark:text-violet-400' }
+        { value: stats.topUcs[0] ? stats.topUcs[0][0] : '–', label: stats.topUcs[0] ? `Топ UCS (${stats.topUcs[0][1]})` : 'Топ UCS', color: 'text-violet-600 dark:text-violet-400' }
     ];
     grid.innerHTML = cards.map(c => `
         <div class="stat-card">
@@ -199,24 +199,24 @@ window.onboardingStepsRu = [
     {
         target: null,
         title: 'Полёвка',
-        text: 'Слушайте полевые записи прямо на карте. Три коротких шага — и вы в деле.'
+        text: 'Слушайте полевые записи прямо на карте. Три коротких шага – и вы в деле.'
     },
     {
         mapHint: true,
         title: 'Нажмите на метку',
-        text: 'Каждая точка на карте — звук. Тапните по маркеру, чтобы послушать запись.'
+        text: 'Каждая точка на карте – звук. Тапните по маркеру, чтобы послушать запись.'
     },
     {
         target: '#fab-add-sound',
         title: 'Меню и свои записи',
-        text: 'Меню слева — библиотека и экспедиции. Кнопка «+» — добавить звук. На телефоне удерживайте палец на карте, чтобы поставить метку.'
+        text: 'Меню слева – библиотека и экспедиции. Кнопка «+» – добавить звук. На телефоне удерживайте палец на карте, чтобы поставить метку.'
     }
 ];
 window.onboardingStepsEn = [
     {
         target: null,
         title: 'Polevka',
-        text: 'Listen to field recordings right on the map. Three short steps — and you’re in.'
+        text: 'Listen to field recordings right on the map. Three short steps – and you’re in.'
     },
     {
         mapHint: true,
@@ -405,7 +405,7 @@ window.dismissOnboarding = function() {
 };
 
 window.handleOnboardingBackdrop = function(e) {
-    // Клик по затемнению / highlight или «мимо» карточки — скрыть демо-плеер на шаге 3
+    // Клик по затемнению / highlight или «мимо» карточки – скрыть демо-плеер на шаге 3
     const card = document.getElementById('onboarding-card');
     if (card && card.contains(e.target)) return;
     if (window.__onboardingDemoPlayer) {
@@ -574,7 +574,7 @@ window.initOnboarding = function() {
         if (localStorage.getItem('rosmap_onboarding_done')) return;
         window.startOnboarding(0);
     };
-    // Ждём карту/данные, но не дольше ~2.2 с — тур не должен «висеть» на пустом экране
+    // Ждём карту/данные, но не дольше ~2.2 с – тур не должен «висеть» на пустом экране
     if (window.__cloudDataReady && (window.soundsData || []).length) {
         setTimeout(tryStart, 400);
         return;
@@ -678,7 +678,7 @@ window.CustomUI = window.CustomUI || {
                             return `<button type="button" data-suggest-idx="${i}" class="ui-suggest-chip">${label}</button>`;
                         }).join('')}
                     </div>
-                    <p class="text-[10px] text-slate-400 mt-1.5">Нажмите пункт — текст причины подставится; можно дописать своими словами.</p>
+                    <p class="text-[10px] text-slate-400 mt-1.5">Нажмите пункт – текст причины подставится; можно дописать своими словами.</p>
                 `;
                 suggestionsEl.querySelectorAll('[data-suggest-idx]').forEach((btnChip) => {
                     btnChip.addEventListener('click', () => {
@@ -713,7 +713,7 @@ window.CustomUI = window.CustomUI || {
         const inputEl = document.getElementById('ui-modal-input');
         const suggestionsEl = document.getElementById('ui-modal-suggestions');
 
-        // Если диалог был текстовым промптом и пользователь подтвердил (не отменил) — резолвим
+        // Если диалог был текстовым промптом и пользователь подтвердил (не отменил) – резолвим
         // значением поля ввода, а не булевым true.
         if (value === true && inputEl && !inputEl.classList.contains('hidden')) {
             value = inputEl.value.trim();
@@ -756,7 +756,7 @@ window.openPublishRulesModal = function(anchorRuleId) {
     } else if (body) {
         body.innerHTML = `<p class="text-sm text-slate-500">Правила временно недоступны.</p>`;
     }
-    if (ver) ver.textContent = `Версия ${window.PUBLISH_RULES_VERSION || '—'}`;
+    if (ver) ver.textContent = `Версия ${window.PUBLISH_RULES_VERSION || '–'}`;
 
     const m = document.getElementById('publish-rules-modal');
     const c = document.getElementById('publish-rules-modal-content');
@@ -785,7 +785,7 @@ window.closePublishRulesModal = function() {
     setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
 };
 
-// Мини-"шторка" со списком действий — переиспользуемая замена контекстного меню по «...»
+// Мини-"шторка" со списком действий – переиспользуемая замена контекстного меню по «...»
 // (профиль автора / ответить / реакция / пожаловаться у комментариев, см. openCommentMenu).
 window.confirmDiscardDraft = async function(message) {
     return window.CustomUI.open({
@@ -894,7 +894,7 @@ window.ActionSheet = {
 
 /**
  * Единая точка входа для меню действий (⋯, ПКМ по метке, сообщения, админка).
- * Открывает CtxPopup у курсора / якоря — как ПКМ по карте.
+ * Открывает CtxPopup у курсора / якоря – как ПКМ по карте.
  */
 window.openActionsMenu = function(items, opts = {}) {
     if (!Array.isArray(items) || !items.length) return;
@@ -1150,6 +1150,7 @@ window.applyPickedLocation = function() {
 
 window.SMARTPHONE_GEAR = 'Smartphone';
 window.SMARTPHONE_MIC = 'Интегрированные';
+window.SMARTPHONE_CHANNELS = 'Stereo AB';
 window.DEFAULT_GEAR = '';
 window.DEFAULT_MIC = '';
 
@@ -1166,23 +1167,38 @@ window.setSmartphoneRecording = function(on, { restore = true } = {}) {
 
     const recEl = document.getElementById('add-recorder');
     const micEl = document.getElementById('add-mic');
+    const chEl = document.getElementById('add-channels');
 
     if (enabled) {
         if (restore) {
             window.__prevGearBeforePhone = recEl?.value || '';
             window.__prevMicBeforePhone = micEl?.value || '';
+            window.__prevChannelsBeforePhone = chEl?.value || '';
         }
         if (recEl) recEl.value = window.SMARTPHONE_GEAR;
         if (micEl) micEl.value = window.SMARTPHONE_MIC;
-        if (window.closeGearCombo) window.closeGearCombo('recorder');
-    } else if (restore) {
-        if (recEl) {
-            const prev = window.__prevGearBeforePhone || '';
-            recEl.value = prev !== window.SMARTPHONE_GEAR ? prev : '';
+        if (chEl) {
+            chEl.value = window.SMARTPHONE_CHANNELS;
+            chEl.disabled = true;
         }
-        if (micEl) {
-            const prev = window.__prevMicBeforePhone || '';
-            micEl.value = (prev && prev !== window.SMARTPHONE_MIC) ? prev : '';
+        if (window.closeGearCombo) window.closeGearCombo('recorder');
+        if (window.generateUCSFileName) window.generateUCSFileName();
+    } else {
+        if (chEl) chEl.disabled = false;
+        if (restore) {
+            if (recEl) {
+                const prev = window.__prevGearBeforePhone || '';
+                recEl.value = prev !== window.SMARTPHONE_GEAR ? prev : '';
+            }
+            if (micEl) {
+                const prev = window.__prevMicBeforePhone || '';
+                micEl.value = (prev && prev !== window.SMARTPHONE_MIC) ? prev : '';
+            }
+            if (chEl) {
+                const prev = window.__prevChannelsBeforePhone || '';
+                chEl.value = (prev && prev !== window.SMARTPHONE_CHANNELS) ? prev : (prev || 'Stereo XY');
+            }
+            if (window.generateUCSFileName) window.generateUCSFileName();
         }
     }
 };
@@ -1246,7 +1262,7 @@ window.handleGearConfigImageFiles = function(files) {
     Array.from(files).slice(0, remaining).forEach((file) => {
         if (!file.type || !file.type.startsWith('image/')) return;
         if (file.size > (window.MAX_IMAGE_UPLOAD_BYTES || 30 * 1024 * 1024)) {
-            window.showToast('Фото больше 30 МБ — сожмите или выберите другое');
+            window.showToast('Фото больше 30 МБ – сожмите или выберите другое');
             return;
         }
         window.pendingGearConfigImages.push({ preview: URL.createObjectURL(file), file });
@@ -1346,7 +1362,7 @@ window.assignArchiveNumbers = function() {
     (window.soundsData || []).forEach((s) => {
         if (!s || s.deleted) return;
         if (!s.publicId) s.publicId = String(s.id || '').trim();
-        s.archiveNum = String(s.publicId || s.id || '—');
+        s.archiveNum = String(s.publicId || s.id || '–');
     });
 };
 
@@ -1367,7 +1383,7 @@ window.generateSoundId = function() {
         const id = String(100000 + Math.floor(Math.random() * 900000));
         if (!used.has(id)) return id;
     }
-    // Extremely unlikely fallback — still numeric, slightly longer
+    // Extremely unlikely fallback – still numeric, slightly longer
     let n = Date.now() % 1000000;
     for (let i = 0; i < 1000; i++) {
         const id = String(100000 + ((n + i) % 900000));
@@ -1380,8 +1396,8 @@ window.getSoundDisplayId = function(soundOrId) {
     const s = typeof soundOrId === 'string'
         ? (window.soundsData || []).find((x) => x.id === soundOrId)
         : soundOrId;
-    if (!s) return String(soundOrId || '—');
-    return String(s.publicId || s.id || '—');
+    if (!s) return String(soundOrId || '–');
+    return String(s.publicId || s.id || '–');
 };
 
 // Lightbox
@@ -1454,9 +1470,9 @@ window.mergeData = function(cloudData) {
         : incoming;
 
     const combinedMap = new Map();
-    // Shallow copy demo rows — deep JSON clone of the whole library was freezing the UI on every poll.
+    // Shallow copy demo rows – deep JSON clone of the whole library was freezing the UI on every poll.
     (window.rawSoundsData || []).forEach((rs) => combinedMap.set(rs.id, { ...rs }));
-    // Если облачная копия того же id пришла без route — сохраняем маршрут из локального демо,
+    // Если облачная копия того же id пришла без route – сохраняем маршрут из локального демо,
     // иначе soundwalk'и r2/r5 «теряют» прогулку после первой синхронизации.
     mergedCloud.forEach((cs) => {
         if (cs.deleted) { combinedMap.delete(cs.id); return; }
@@ -1465,12 +1481,12 @@ window.mergeData = function(cloudData) {
     });
     window.soundsData = Array.from(combinedMap.values()).reverse().map(window.formatSoundObject);
     window.assignArchiveNumbers();
-    // Tombstone остаются в кэше — нужны для следующего sync/poll.
+    // Tombstone остаются в кэше – нужны для следующего sync/poll.
     window.cloudDataCache = mergedCloud.slice();
     window.__filteredSoundsCache = null;
     window.__filteredSoundsCacheKey = null;
 
-    // Prune only removed markers — full cache wipe forced a multi-frame map rebuild on every sync/poll.
+    // Prune only removed markers – full cache wipe forced a multi-frame map rebuild on every sync/poll.
     const aliveIds = new Set(window.soundsData.map((s) => s.id));
     const prune = (cache, destroy) => {
         if (!cache || !cache.size) return;
@@ -1533,7 +1549,7 @@ window.__putCloudJson = async function(fileName, data) {
     }
     if (!window.apiSyncJson) throw new Error('Secure API клиент не загружен');
     const result = await window.apiSyncJson(fileName, data);
-    // Предпочитаем снимок из ответа API — повторный GET из бакета может отдать устаревший кэш.
+    // Предпочитаем снимок из ответа API – повторный GET из бакета может отдать устаревший кэш.
     if (result && Array.isArray(result.data)) {
         window.__lastMergedUpload = { fileName, data: result.data };
         return true;
@@ -1631,7 +1647,7 @@ window.mergeProfilesArrays = function(fresh = [], proposed = []) {
             out.set(login, { ...p, loginName: login });
             return;
         }
-        // Скаляры (bio, avatar, badges…) — только если локальная правка новее по profileUpdatedAt.
+        // Скаляры (bio, avatar, badges…) – только если локальная правка новее по profileUpdatedAt.
         // lastSeen / inbox / notifications / sessions / typing всегда сливаются отдельно.
         const preferProposedScalars = window.__profileScalarRev(p) > window.__profileScalarRev(cloud);
         const merged = preferProposedScalars ? { ...cloud, ...p } : { ...p, ...cloud };
@@ -1644,7 +1660,7 @@ window.mergeProfilesArrays = function(fresh = [], proposed = []) {
         merged.sessions = preferProposedScalars
             ? (p.sessions || [])
             : window.__mergeKeyedArrays(cloud.sessions || [], p.sessions || []);
-        // typing: не завязан на profileUpdatedAt — иначе «печатает» пропадает при sync presence
+        // typing: не завязан на profileUpdatedAt – иначе «печатает» пропадает при sync presence
         if (Object.prototype.hasOwnProperty.call(p, 'typing') || Object.prototype.hasOwnProperty.call(cloud, 'typing')) {
             if (p.typing === null && (!cloud.typing || new Date(p.lastSeen || 0) >= new Date(cloud.typing?.at || 0))) {
                 merged.typing = null;
@@ -1700,7 +1716,7 @@ window.mergeMapDataArrays = function(fresh = [], proposed = []) {
         if (s?.id == null) return;
         const cloud = map.get(s.id);
         if (!cloud) { map.set(s.id, s); return; }
-        // Tombstone всегда побеждает «живую» копию — иначе удаление откатывается.
+        // Tombstone всегда побеждает «живую» копию – иначе удаление откатывается.
         if (s.deleted) {
             map.set(s.id, { ...cloud, ...s, deleted: true });
             return;
@@ -1891,7 +1907,7 @@ window.hydrateProfilesWithMail = function(profiles = [], mail = []) {
             activityLog: m ? (m.activityLog || []) : (p.activityLog || [])
         };
     });
-    // Ящики без визитки (редко) — всё равно доступны в памяти через синтетическую запись
+    // Ящики без визитки (редко) – всё равно доступны в памяти через синтетическую запись
     (mail || []).forEach((m) => {
         const login = String(m.loginName || '').toLowerCase();
         if (!login || profileLogins.has(login)) return;
@@ -1981,14 +1997,14 @@ window.syncCloudData = async function(newCloudData, fileName = "map_data.json") 
         } catch (e) {
             console.error(e);
             if (e && (e.code === 'unauthorized' || e.status === 401)) {
-                window.showToast('Сессия истекла — войдите снова');
+                window.showToast('Сессия истекла – войдите снова');
                 if (window.clearAuthSession) window.clearAuthSession();
                 if (window.openAuthModal) window.openAuthModal();
             } else if (e && (e.code === 'rate_limited' || e.status === 429)) {
                 const now = Date.now();
                 if (!window.__lastRateLimitToast || now - window.__lastRateLimitToast > 8000) {
                     window.__lastRateLimitToast = now;
-                    window.showToast('Слишком много запросов — подождите немного');
+                    window.showToast('Слишком много запросов – подождите немного');
                 }
             } else {
                 const detail = (e && (e.message || e.code)) ? String(e.message || e.code) : '';
@@ -2107,10 +2123,10 @@ window.isCurrentUserAdmin = function() {
         || String(window.currentUser.loginName || '').toLowerCase() === 'admin';
 };
 
-// Фоновый опрос облака: новые звуки, уведомления, сообщения — без перезагрузки страницы.
+// Фоновый опрос облака: новые звуки, уведомления, сообщения – без перезагрузки страницы.
 window.pollLiveCloudData = async function() {
     if (window.__pollingInFlight || document.hidden) return;
-    // Не затираем локальный кэш, пока идёт запись — иначе UI мигает устаревшим снимком.
+    // Не затираем локальный кэш, пока идёт запись – иначе UI мигает устаревшим снимком.
     if (window.__cloudWriteDepth > 0) return;
     window.__pollingInFlight = true;
     try {
@@ -2195,7 +2211,7 @@ window.pollLiveCloudData = async function() {
                     window.refreshAdminSupportBadge();
                 }
             }
-            // Индикатор печати — на каждом тике опроса, даже если JSON «тот же» по другим полям
+            // Индикатор печати – на каждом тике опроса, даже если JSON «тот же» по другим полям
             if (window.__activeMessagePeer && window.updateTypingIndicator) {
                 const thread = document.getElementById('messages-thread');
                 if (thread && !thread.classList.contains('hidden')) {
@@ -2323,7 +2339,7 @@ window.deleteSoundFromCloud = async function(id) {
 
 // --- Привязка звука к автору и видимость по статусу модерации ---
 // Новые/отредактированные звуки хранят надёжный recordistId (= login), а старые/сид-данные
-// сопоставляются по текстовому имени recordist — оставляем оба пути для совместимости.
+// сопоставляются по текстовому имени recordist – оставляем оба пути для совместимости.
 window.matchesRecordist = function(sound, login, displayName) {
     if (!sound) return false;
     if (login && sound.recordistId && sound.recordistId === login) return true;
@@ -2339,7 +2355,7 @@ window.getUserSounds = function(login, displayName, { includeAllStatuses = false
     });
 };
 
-// Публично на карте/в библиотеке — только published.
+// Публично на карте/в библиотеке – только published.
 // pending/rejected/draft живут в кабинете автора и в админ-очереди.
 window.isSoundStatusVisible = function(s) {
     if (!s || s.deleted) return false;
@@ -2358,7 +2374,7 @@ window.getProfileByDisplayName = function(name) {
     return (window.profilesData || []).find(p => p.displayName && p.displayName.toLowerCase() === String(name).toLowerCase()) || null;
 };
 
-// Небольшой каталог бейджей доверия — назначаются вручную из админ-панели (см. auth.js toggleUserBadge).
+// Небольшой каталог бейджей доверия – назначаются вручную из админ-панели (см. auth.js toggleUserBadge).
 window.BADGE_CATALOG = {
     verified: { label: 'Проверенный автор', icon: 'fa-shield-halved', cls: 'badge-chip-verified' },
     geophony_expert: { label: 'Эксперт геофонии', icon: 'fa-water', cls: 'badge-chip-geo' },
@@ -2457,7 +2473,7 @@ window.openFollowList = function(kind) {
             onClick: () => window.openPublicProfile(l, p?.displayName || l)
         };
     });
-    // Список выбора людей — ActionSheet (не контекстное меню у курсора).
+    // Список выбора людей – ActionSheet (не контекстное меню у курсора).
     if (window.ActionSheet) {
         window.ActionSheet.open(followItems, { title: kind === 'followers' ? 'Подписчики' : 'Подписки' });
     } else if (window.openActionsMenu) {
@@ -2511,7 +2527,7 @@ window.openPublicProfile = function(login, displayName) {
         const joinedDate = profile && profile.joinedAt ? new Date(profile.joinedAt) : null;
         joinedEl.innerHTML = joinedDate && !isNaN(joinedDate)
             ? `<i class="fa-solid fa-calendar-days"></i>${joinedDate.toLocaleDateString('ru-RU')}`
-            : `<i class="fa-solid fa-calendar-days"></i>—`;
+            : `<i class="fa-solid fa-calendar-days"></i>–`;
     }
 
     const avatarEl = document.getElementById('pp-avatar');
@@ -2618,7 +2634,7 @@ window.openPublicProfile = function(login, displayName) {
         c.classList.remove('scale-95');
     }
 
-    // Рендерим карту после снятия display:none — иначе ymaps инициализируется в контейнере
+    // Рендерим карту после снятия display:none – иначе ymaps инициализируется в контейнере
     // нулевой ширины/высоты и рисует пустое/битое полотно.
     if (window.renderProfileMiniMap) window.renderProfileMiniMap('profile-mini-map', sounds.filter(s => !s.status || s.status === 'published'));
 };
@@ -2662,7 +2678,7 @@ window.renderPortfolioGrid = function(sounds, containerId) {
         const ecoLabel = window.translations[window.currentLang]?.[`filter_${s.ecoCategory}`] || s.ecoCategory;
         const st = window.STATUS_LABELS && window.STATUS_LABELS[s.status];
         const statusPill = st && s.status !== 'published' ? `<span class="pub-status-pill ${st.cls}">${st.label}</span>` : '';
-        const thumb = (s.images && s.images[0]) || `https://picsum.photos/seed/${s.id}/80/80`;
+        const thumb = (s.images && s.images[0]) || '';
         return `
         <div class="portfolio-card" onclick="window.closePublicProfileModal(); window.selectSound('${s.id}');">
             <div class="portfolio-card-top">
@@ -2670,10 +2686,12 @@ window.renderPortfolioGrid = function(sounds, containerId) {
                 ${statusPill}
             </div>
             <div class="portfolio-card-body">
-                <img src="${thumb}" alt="" class="portfolio-card-thumb" loading="lazy">
+                ${thumb
+                    ? `<img src="${thumb}" alt="" class="portfolio-card-thumb" loading="lazy">`
+                    : `<span class="portfolio-card-thumb portfolio-card-thumb--empty" aria-hidden="true"><i class="fa-solid fa-wave-square"></i></span>`}
                 <div class="min-w-0 flex-1">
                     <h4 class="portfolio-card-title">${s.title}</h4>
-                    <div class="portfolio-card-meta"><i class="fa-regular fa-calendar"></i> ${s.date || '—'}</div>
+                    <div class="portfolio-card-meta"><i class="fa-regular fa-calendar"></i> ${s.date || '–'}</div>
                 </div>
             </div>
         </div>`;
@@ -2902,14 +2920,16 @@ window.__listVirt = window.__listVirt || { rowH: 68, overscan: 8, items: [], key
 window.buildSoundListRowHtml = function(sound) {
     const isSelected = window.currentPlayingId === sound.id;
     const playing = isSelected && window.isPlaying;
-    const thumb = (sound.images && sound.images[0]) || `https://picsum.photos/seed/${sound.id}/72/72`;
+    const thumb = (sound.images && sound.images[0]) || '';
     const eco = window.translations[window.currentLang][`filter_${sound.ecoCategory}`] || sound.ecoCategory;
     const esc = window.escMsgHtml || ((t) => String(t ?? '')
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'));
     const safeId = String(sound.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     return `
         <div class="sidebar-sound-row${isSelected ? ' is-active' : ''}" data-sound-id="${esc(sound.id)}" onclick="window.selectSound('${safeId}')">
-            <img src="${esc(thumb)}" alt="" class="sidebar-sound-thumb" loading="lazy" onerror="this.src='https://picsum.photos/seed/${esc(sound.id)}/72/72'">
+            ${thumb
+                ? `<img src="${esc(thumb)}" alt="" class="sidebar-sound-thumb" loading="lazy">`
+                : `<span class="sidebar-sound-thumb sidebar-sound-thumb--empty" aria-hidden="true"><i class="fa-solid fa-wave-square"></i></span>`}
             <button type="button" class="sidebar-sound-row__play${playing ? ' is-playing' : ''}" tabindex="-1">
                 ${playing ? '<i class="fa-solid fa-pause text-xs"></i>' : '<i class="fa-solid fa-play text-xs translate-x-[1px]"></i>'}
             </button>
@@ -3020,7 +3040,7 @@ window.refreshPlayingListRow = function() {
                 : '<i class="fa-solid fa-play text-xs translate-x-[1px]"></i>';
         }
     });
-    // Active row may be outside the virtual window — refresh window classes via key bust
+    // Active row may be outside the virtual window – refresh window classes via key bust
     if (!found && (window.__listVirt.items || []).length > 40) {
         window.__listVirt.key = '';
         window.renderListWindow(true);
@@ -3043,7 +3063,7 @@ window.toggleWeather = function(val) { if (window.activeWeather.has(val)) window
 window.toggleDate = function(val) { if (window.activeDate.has(val)) window.activeDate.delete(val); else window.activeDate.add(val); window.processFilterChange(false); }
 
 // Видимость pending/rejected звуков зависит от currentUser (см. isSoundStatusVisible), а логин/
-// логаут не проходит через mergeData/syncCloudData — сбрасываем кэш фильтра вручную, чтобы карта
+// логаут не проходит через mergeData/syncCloudData – сбрасываем кэш фильтра вручную, чтобы карта
 // и список сразу отразили звуки, которые стали видимыми/скрытыми после смены пользователя.
 window.bustFilteredSoundsCache = function() {
     window.__filteredSoundsCache = null;
@@ -3090,7 +3110,7 @@ window.setDockHeader = function(title, subtitle, showBack) {
     }
     if (back) {
         back.classList.remove('hidden');
-        // «Скрыть панель» всегда закрывает dock. «Назад» — только из карточки, открытой из админки.
+        // «Скрыть панель» всегда закрывает dock. «Назад» – только из карточки, открытой из админки.
         const returnToAdmin = !!(showBack && window.openedFromAdmin && window.isCurrentUserAdmin && window.isCurrentUserAdmin());
         if (returnToAdmin) {
             back.title = 'Назад';
@@ -3728,7 +3748,7 @@ window.renderFeedCommentsBlock = function(p) {
                 </button>
             </div>`;
         }).join('')
-        : `<p class="text-sm text-slate-400 italic px-1">Нет комментариев — напишите первым</p>`;
+        : `<p class="text-sm text-slate-400 italic px-1">Нет комментариев – напишите первым</p>`;
 
     return `
         <div class="feed-comments">
@@ -4211,14 +4231,24 @@ window.requestCloseFeedPostModal = async function() {
 
 window.renderDetailsGallery = function() {
     const images = window.__detailsGalleryImages || [];
-    const idx = Math.max(0, Math.min(window.__detailsGalleryIndex || 0, images.length - 1));
+    const idx = images.length ? Math.max(0, Math.min(window.__detailsGalleryIndex || 0, images.length - 1)) : 0;
     window.__detailsGalleryIndex = idx;
     const detImg = document.getElementById('details-image');
     const thumbs = document.getElementById('details-extra-images');
     const counter = document.getElementById('details-gallery-counter');
+    const wrap = detImg?.closest('.details-gallery') || detImg?.parentElement;
     if (detImg) {
-        detImg.src = images[idx] || '';
-        detImg.onclick = () => window.openLightbox(images, idx);
+        if (images.length) {
+            detImg.src = images[idx];
+            detImg.classList.remove('hidden');
+            detImg.onclick = () => window.openLightbox(images, idx);
+            if (wrap) wrap.classList.remove('details-gallery--empty');
+        } else {
+            detImg.removeAttribute('src');
+            detImg.classList.add('hidden');
+            detImg.onclick = null;
+            if (wrap) wrap.classList.add('details-gallery--empty');
+        }
     }
     if (counter) {
         if (images.length > 1) {
@@ -4487,6 +4517,7 @@ window.selectSound = function(id) {
     if (gearEl) gearEl.innerHTML = `<i class="fa-solid fa-walkie-talkie mr-1 text-slate-400"></i>${s.gear}`;
 
     if (s.url) {
+        if (window.resetPlaybackPitch) window.resetPlaybackPitch();
         if (window.audioElement) {
             if (window.audioElement.src !== s.url && !window.audioElement.src.endsWith(s.url)) {
                 window.audioElement.src = s.url;
@@ -4518,7 +4549,7 @@ window.selectSound = function(id) {
 
 window.openDetailsMetaFilterSheet = function(kind, value, label) {
     const v = String(value || '').trim();
-    if (!v || v === '—') return;
+    if (!v || v === '–') return;
     const title = label || v;
     const items = [{
         icon: 'fa-filter',
@@ -4567,9 +4598,7 @@ window.openDetailsModal = function() {
     const s = window.soundsData.find(x => x.id === window.currentPlayingId);
     if (!s) return;
 
-    const images = (s.images && s.images.length)
-        ? s.images
-        : [`https://picsum.photos/seed/${s.id}/800/500`];
+    const images = (s.images && s.images.length) ? s.images : [];
     const gearImgs = Array.isArray(s.gearConfigImages) ? s.gearConfigImages.filter(Boolean) : [];
     window.__detailsGalleryImages = gearImgs.length ? [...images, ...gearImgs] : images;
     window.__detailsGalleryIndex = 0;
@@ -4594,7 +4623,7 @@ window.openDetailsModal = function() {
         const el = document.getElementById(id);
         if (!el) return;
         const v = String(value || '').trim();
-        const empty = !v || v === '—';
+        const empty = !v || v === '–';
         el.classList.toggle('meta-value--action', !empty);
         el.classList.toggle('cursor-pointer', !empty);
         if (empty) {
@@ -4613,15 +4642,15 @@ window.openDetailsModal = function() {
 
     safeText('det-location', s.location || 'Ростовская область');
     safeText('det-coords', `${Number(s.lat).toFixed(4)}, ${Number(s.lng).toFixed(4)}`);
-    safeText('det-weather', s.weather || '—');
-    safeText('det-principle', s.recPrinciple || '—');
-    safeText('det-recorder', s.gear || '—');
-    safeText('det-mic', s.micType || '—');
-    safeText('det-format', s.format || '—');
-    safeText('det-channels', s.channels || '—');
-    safeText('det-license', s.license || '—');
+    safeText('det-weather', s.weather || '–');
+    safeText('det-principle', s.recPrinciple || '–');
+    safeText('det-recorder', s.gear || '–');
+    safeText('det-mic', s.micType || '–');
+    safeText('det-format', s.format || '–');
+    safeText('det-channels', s.channels || '–');
+    safeText('det-license', s.license || '–');
     const dtParts = [s.date, s.time].filter(Boolean).join(' · ');
-    safeText('det-datetime', dtParts || '—');
+    safeText('det-datetime', dtParts || '–');
 
     wireMetaFilter('det-location', 'location', s.location, s.location);
     wireMetaFilter('det-weather', 'weather', s.weather, s.weather);
@@ -4644,7 +4673,7 @@ window.openDetailsModal = function() {
                 const esc = String(tag).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
                 return `<button type="button" class="details-keyword-chip" data-tag="${esc}">${esc}</button>`;
             }).join('')
-            : '<span class="text-slate-400 text-xs">—</span>';
+            : '<span class="text-slate-400 text-xs">–</span>';
         keywordsEl.querySelectorAll('[data-tag]').forEach((btn) => {
             btn.addEventListener('click', (ev) => {
                 ev.stopPropagation();
@@ -4751,7 +4780,7 @@ window.openDetailsModal = function() {
             expEl.appendChild(btn);
             expEl.title = 'Экспедиция';
         } else {
-            expEl.textContent = '—';
+            expEl.textContent = '–';
             expEl.title = '';
         }
     }
@@ -4813,7 +4842,7 @@ window.downloadSound = async function(format) {
         window.showToast('Файл недоступен для скачивания.');
         return;
     }
-    // Prefer UCS fileName — never fall back to platform soundId in the download name
+    // Prefer UCS fileName – never fall back to platform soundId in the download name
     const fileName = s.fileName
         || (window.buildUcsFileName && window.buildUcsFileName({
             catId: s.typeTag,
@@ -4960,7 +4989,7 @@ window.downloadExpeditionArchive = async function(sessionId) {
     }
 };
 
-// Счётчик скачиваний / прослушиваний — лёгкий patchSound вместо полного rewrite map_data.
+// Счётчик скачиваний / прослушиваний – лёгкий patchSound вместо полного rewrite map_data.
 window.__pendingMetricPatches = window.__pendingMetricPatches || new Map();
 
 window.applySoundSocialFields = function(partial) {
@@ -5021,7 +5050,7 @@ window.__flushCounterCloudSync = async function() {
                 return;
             }
             if (err && (err.code === 'rate_limited' || err.status === 429)) {
-                // re-queue with longer backoff — don't storm the API
+                // re-queue with longer backoff – don't storm the API
                 const prev = window.__pendingMetricPatches.get(soundId) || {};
                 window.__pendingMetricPatches.set(soundId, {
                     incPlays: (prev.incPlays || 0) + (payload.incPlays || 0),
@@ -5064,7 +5093,7 @@ window.incrementDownloadCount = function(id) {
     window.__queueCounterCloudSync();
 };
 
-// Счётчик прослушиваний — дедуп по сессии браузера.
+// Счётчик прослушиваний – дедуп по сессии браузера.
 window.__playedSoundIds = window.__playedSoundIds || new Set();
 window.trackSoundPlay = function(id) {
     if (window.__playedSoundIds.has(id)) return;
@@ -5169,7 +5198,7 @@ window.renderComments = function(sound) {
     }
 }
 
-// Контекст активного ответа: parentCommentId — корневой комментарий, replyToId/author —
+// Контекст активного ответа: parentCommentId – корневой комментарий, replyToId/author –
 // конкретный человек, которому отвечаем (может быть автор корня или вложенного ответа).
 window.__replyContext = null;
 window.startReplyToComment = function(soundId, commentId, authorName, parentCommentId = null, replyToAuthorId = null) {
@@ -5278,7 +5307,7 @@ window.addComment = async function() {
     }
 }
 
-// Меню «...» у комментария — профиль автора / ответить / реакция / пожаловаться.
+// Меню «...» у комментария – профиль автора / ответить / реакция / пожаловаться.
 window.openCommentMenu = function(soundId, commentId, ev) {
     const s = window.soundsData.find(x => x.id === soundId);
     if (!s) return;
@@ -5311,7 +5340,7 @@ window.openCommentMenu = function(soundId, commentId, ev) {
     else window.ActionSheet.open(items);
 };
 
-// Меню у вложенного ответа — чтобы можно было ответить тому, кто ответил вам.
+// Меню у вложенного ответа – чтобы можно было ответить тому, кто ответил вам.
 window.openReplyMenu = function(soundId, replyId, ev) {
     const s = window.soundsData.find(x => x.id === soundId);
     if (!s) return;
@@ -5437,7 +5466,7 @@ window.toggleCommentReaction = async function(soundId, commentId) {
     }
 };
 
-// Жалоба на метку или на конкретный комментарий — попадает в очередь модерации
+// Жалоба на метку или на конкретный комментарий – попадает в очередь модерации
 // (Кабинет -> Админ-панель -> Жалобы, см. auth.js renderReportsList).
 window.openReportModal = async function(type, soundId, commentId = null) {
     if (!window.currentUser) { window.showToast('Войдите, чтобы отправить жалобу'); if (window.openAuthModal) window.openAuthModal(); return; }
@@ -5450,7 +5479,7 @@ window.openReportModal = async function(type, soundId, commentId = null) {
 
     const reason = await window.CustomUI.open({
         title: '<i class="fa-solid fa-flag mr-2 text-red-500"></i>Пожаловаться',
-        message: type === 'comment' ? 'Опишите, что не так с этим комментарием — жалобу рассмотрят модераторы.' : 'Опишите, что не так с этой записью — жалобу рассмотрят модераторы.',
+        message: type === 'comment' ? 'Опишите, что не так с этим комментарием – жалобу рассмотрят модераторы.' : 'Опишите, что не так с этой записью – жалобу рассмотрят модераторы.',
         confirmText: 'Отправить жалобу',
         confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md',
         showInput: true,
@@ -5491,7 +5520,7 @@ window.openReportModal = async function(type, soundId, commentId = null) {
     }
 };
 
-// Лайк/дизлайк метки — взаимоисключающий тумблер (голос за один автоматически снимает другой).
+// Лайк/дизлайк метки – взаимоисключающий тумблер (голос за один автоматически снимает другой).
 window.toggleSoundReaction = async function(kind) {
     if (!window.currentUser) { window.showToast('Войдите, чтобы оценить запись'); if (window.openAuthModal) window.openAuthModal(); return; }
     const s = window.soundsData.find(x => x.id === window.currentPlayingId);
@@ -5524,7 +5553,7 @@ window.toggleSoundReaction = async function(kind) {
             const now = Date.now();
             if (!window.__lastRateLimitToast || now - window.__lastRateLimitToast > 8000) {
                 window.__lastRateLimitToast = now;
-                window.showToast('Слишком много запросов — подождите немного');
+                window.showToast('Слишком много запросов – подождите немного');
             }
         } else {
             console.warn('patchSound reaction failed', err);
@@ -5596,29 +5625,66 @@ window.probeAudioDuration = function(src) {
     });
 };
 
-window.handleAudioFiles = function(files) {
-    if (files && files.length > 0 && files[0].type.startsWith('audio/')) {
-        const file = files[0];
-        if (file.size > (window.MAX_AUDIO_UPLOAD_BYTES || 1024 * 1024 * 1024)) {
-            window.showToast('Аудиофайл больше 1 ГБ');
-            return;
+window.handleAudioFiles = async function(files) {
+    if (!(files && files.length > 0)) return;
+    const file = files[0];
+    const looksAudio = (file.type && file.type.startsWith('audio/'))
+        || /\.(wav|flac|aiff?|mp3|m4a|aac|ogg|webm|opus)$/i.test(file.name || '');
+    if (!looksAudio) {
+        window.showToast('Выберите аудиофайл');
+        return;
+    }
+    if (file.size > (window.MAX_AUDIO_UPLOAD_BYTES || 1024 * 1024 * 1024)) {
+        window.showToast('Аудиофайл больше 1 ГБ');
+        return;
+    }
+
+    const dropContent = document.getElementById('drop-zone-content');
+    if (dropContent) {
+        dropContent.innerHTML = `<span class="text-sm font-bold text-blue-600">Обработка: ${file.name}…</span>`;
+    }
+
+    try {
+        let ready = file;
+        let formatLabel = '';
+        if (window.ensureWavUploadFile) {
+            const result = await window.ensureWavUploadFile(file);
+            ready = result.file;
+            formatLabel = result.formatLabel || '';
+            if (result.converted) {
+                window.showToast(`Конвертировано в WAV (${formatLabel || '24-bit'})`);
+            }
         }
-        window.currentUploadedFile = file;
+
+        window.currentUploadedFile = ready;
         window.generateUCSFileName();
         if (window.currentUploadedFileUrl && String(window.currentUploadedFileUrl).startsWith('blob:')) {
             try { URL.revokeObjectURL(window.currentUploadedFileUrl); } catch (_) {}
         }
-        window.currentUploadedFileUrl = URL.createObjectURL(file);
+        window.currentUploadedFileUrl = URL.createObjectURL(ready);
         window.__uploadedAudioDuration = '0:00';
         window.probeAudioDuration(window.currentUploadedFileUrl).then(secs => {
             window.__uploadedAudioDuration = window.formatTime ? window.formatTime(secs) : `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`;
         }).catch(() => { window.__uploadedAudioDuration = '0:00'; });
-        document.getElementById('drop-zone-content').innerHTML = `<span class="text-sm font-bold text-blue-600">Готов к загрузке: ${file.name}</span>`;
+
+        if (dropContent) {
+            dropContent.innerHTML = `<span class="text-sm font-bold text-blue-600">Готов к загрузке: ${ready.name}</span>`;
+        }
+
+        const formatEl = document.getElementById('add-format');
+        if (formatEl && formatLabel) formatEl.value = formatLabel;
 
         if (window.readWavFileMetadata) {
-            window.readWavFileMetadata(file).then((meta) => {
+            window.readWavFileMetadata(ready).then((meta) => {
+                if (formatLabel && !meta.format) meta.format = formatLabel;
                 window.applyUploadedAudioMeta(meta);
             }).catch((err) => console.warn(err));
+        }
+    } catch (err) {
+        console.warn(err);
+        window.showToast('Не удалось прочитать аудио. Попробуйте другой файл.');
+        if (dropContent) {
+            dropContent.innerHTML = `<span class="text-sm font-bold text-slate-500">Нажмите или перетащите аудиофайл</span>`;
         }
     }
 };
@@ -5637,7 +5703,11 @@ window.applyUploadedAudioMeta = function(meta) {
         const el = document.getElementById(id);
         if (!el) return;
         if (!force && (el.value || '').trim()) return;
-        if ([...el.options].some((o) => o.value === value)) el.value = value;
+        if (el.tagName === 'SELECT') {
+            if ([...el.options].some((o) => o.value === value)) el.value = value;
+            return;
+        }
+        el.value = value;
     };
 
     if (meta.date) setIfEmpty('add-date', meta.date, true);
@@ -5661,7 +5731,7 @@ window.applyUploadedAudioMeta = function(meta) {
     setIfEmpty('add-recorder', meta.recorder);
     setIfEmpty('add-mic', meta.micType);
     if (window.syncSmartphoneRecordingFromFields) window.syncSmartphoneRecordingFromFields();
-    setSelect('add-format', meta.format);
+    if (meta.format) setIfEmpty('add-format', meta.format, true);
     setSelect('add-channels', meta.channels);
     setSelect('add-license', meta.license);
     setIfEmpty('add-recordist', meta.recordist);
@@ -5841,16 +5911,16 @@ window.bindAddTagsChipInput = function() {
 window.openUcsRecommendations = async function() {
     const message = `
         <div class="text-left text-sm text-slate-600 dark:text-slate-300 space-y-3 leading-relaxed">
-            <p><strong>UCS</strong> — простой «язык» названий для звуков в кино, играх и архивах. Благодаря нему файл понятен ещё до прослушивания.</p>
+            <p><strong>UCS</strong> – простой «язык» названий для звуков в кино, играх и архивах. Благодаря нему файл понятен ещё до прослушивания.</p>
             <p><strong>Как выбрать слой:</strong></p>
             <ul class="list-disc pl-4 space-y-1">
-                <li><strong>Геофония</strong> — природа без животных: ветер, дождь, река, море.</li>
-                <li><strong>Биофония</strong> — живые существа: птицы, насекомые, собаки.</li>
-                <li><strong>Антропофония</strong> — человек и техника: улица, транспорт, речь, стройка.</li>
+                <li><strong>Геофония</strong> – природа без животных: ветер, дождь, река, море.</li>
+                <li><strong>Биофония</strong> – живые существа: птицы, насекомые, собаки.</li>
+                <li><strong>Антропофония</strong> – человек и техника: улица, транспорт, речь, стройка.</li>
             </ul>
-            <p><strong>Категория и CatID</strong> уточняют тип (например AMB City). Если сомневаетесь — начните с AMBIENCE и ближайшей субкатегории.</p>
-            <p><strong>Свободные теги</strong> — ваши слова для поиска. Добавляйте по одному через Enter.</p>
-            <p class="text-xs text-slate-400">Цель — чтобы другие быстро нашли ваш звук по смыслу, а не только по названию файла.</p>
+            <p><strong>Категория и CatID</strong> уточняют тип (например AMB City). Если сомневаетесь – начните с AMBIENCE и ближайшей субкатегории.</p>
+            <p><strong>Свободные теги</strong> – ваши слова для поиска. Добавляйте по одному через Enter.</p>
+            <p class="text-xs text-slate-400">Цель – чтобы другие быстро нашли ваш звук по смыслу, а не только по названию файла.</p>
         </div>
     `;
     if (window.CustomUI && window.CustomUI.open) {
@@ -5862,7 +5932,7 @@ window.openUcsRecommendations = async function() {
         });
         return;
     }
-    if (window.showToast) window.showToast('UCS — единый стандарт классификации звуков');
+    if (window.showToast) window.showToast('UCS – единый стандарт классификации звуков');
 };
 
 window.__fxNameManual = false;
@@ -5952,7 +6022,7 @@ window.handleImageFilesWrapper = function(files) {
     toProcess.forEach(file => {
         if (!file.type || !file.type.startsWith('image/')) return;
         if (file.size > (window.MAX_IMAGE_UPLOAD_BYTES || 30 * 1024 * 1024)) {
-            window.showToast('Фото больше 30 МБ — сожмите или выберите другое');
+            window.showToast('Фото больше 30 МБ – сожмите или выберите другое');
             return;
         }
         const preview = URL.createObjectURL(file);
@@ -6130,7 +6200,7 @@ window.collectAddFormEmbedMeta = function({ soundId, title, coords, fileName, lo
 };
 
 // targetStatus: 'pending' (кнопка "Опубликовать") или 'draft' (кнопка "Черновик").
-// Логика перехода статусов при редактировании — см. комментарий у поле status ниже.
+// Логика перехода статусов при редактировании – см. комментарий у поле status ниже.
 window.publishSound = async function(targetStatus = 'pending') {
     if (!window.currentUser) { window.showToast('Войдите, чтобы опубликовать звук'); return; }
     const loginKey = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
@@ -6375,7 +6445,7 @@ window.publishSound = async function(targetStatus = 'pending') {
 };
 
 // Заполняет выпадающий список сессий в модалке добавления. selectedId (если передан) выбирается
-// сразу — используется после создания новой сессии прямо из модалки.
+// сразу – используется после создания новой сессии прямо из модалки.
 window.populateSessionSelect = function(selectedId = '') {
     const select = document.getElementById('add-session');
     if (!select) return;
@@ -6385,7 +6455,7 @@ window.populateSessionSelect = function(selectedId = '') {
     select.value = selectedId || '';
 };
 
-// Открывает модалку "Добавить аудио" в режиме редактирования существующей записи —
+// Открывает модалку "Добавить аудио" в режиме редактирования существующей записи –
 // поля заполняются текущими данными звука, а publishSound() ниже патчит, а не создаёт новую.
 window.editSound = function(id) {
     const s = window.soundsData.find(x => x.id === id);
@@ -6439,7 +6509,7 @@ window.editSound = function(id) {
 
     window.populateSessionSelect(s.sessionId || '');
     const draftBtnEl = document.getElementById('draft-btn');
-    // Кнопка "Черновик" уместна только пока запись сама остаётся черновиком —
+    // Кнопка "Черновик" уместна только пока запись сама остаётся черновиком –
     // для уже отправленных/опубликованных/отклонённых записей повторный черновик не имеет смысла.
     if (draftBtnEl) draftBtnEl.classList.toggle('hidden', s.status !== 'draft');
 
@@ -6448,7 +6518,7 @@ window.editSound = function(id) {
     const dropContent = document.getElementById('drop-zone-content');
     if (dropContent) dropContent.innerHTML = s.url
         ? `<i class="fa-solid fa-file-waveform text-4xl text-blue-400 mb-3"></i><span class="text-sm font-bold text-slate-500 dark:text-slate-400">Аудиофайл уже сохранён. Выберите новый, чтобы заменить.</span>`
-        : `<i class="fa-solid fa-cloud-arrow-up text-4xl text-slate-300 dark:text-slate-500 mb-3"></i><span class="text-sm font-bold text-slate-500 dark:text-slate-400">Нажмите или перетащите аудиофайл (.wav)</span>`;
+        : `<i class="fa-solid fa-cloud-arrow-up text-4xl text-slate-300 dark:text-slate-500 mb-3"></i><span class="text-sm font-bold text-slate-500 dark:text-slate-400">Нажмите или перетащите аудиофайл</span>`;
 
     const headerTitle = document.getElementById('add-modal-header-title');
     if (headerTitle) headerTitle.innerHTML = `<i class="fa-solid fa-pen mr-2 text-blue-600"></i>Редактировать запись`;
@@ -6479,7 +6549,7 @@ window.resetAddModalToCreateMode = function() {
     if (publishText) publishText.textContent = 'Опубликовать звук';
 
     const dropContent = document.getElementById('drop-zone-content');
-    if (dropContent) dropContent.innerHTML = `<i class="fa-solid fa-cloud-arrow-up text-4xl text-slate-300 dark:text-slate-500 mb-3"></i><div class="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400 mb-2"><span class="text-sm font-bold" data-lang="drag_drop">Нажмите или перетащите аудиофайл (.wav)</span></div>`;
+    if (dropContent) dropContent.innerHTML = `<i class="fa-solid fa-cloud-arrow-up text-4xl text-slate-300 dark:text-slate-500 mb-3"></i><div class="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400 mb-2"><span class="text-sm font-bold" data-lang="drag_drop">Нажмите или перетащите аудиофайл</span></div><p class="text-[10px] text-slate-400">Любой формат → WAV; частота и битность определяются автоматически</p>`;
 
     const imgContainer = document.getElementById('image-preview-container');
     if (imgContainer) { imgContainer.innerHTML = ''; imgContainer.classList.add('hidden'); }
@@ -6552,7 +6622,7 @@ window.toggleAddModal = function(forceClose = false, coords = null, isEdit = fal
         }
 
         if (window.playSfx) window.playSfx('open');
-        // resetAddModalToCreateMode already filled UCS/gear — only ensure combo binds
+        // resetAddModalToCreateMode already filled UCS/gear – only ensure combo binds
         if (window.fillGearDatalists) window.fillGearDatalists();
         if (window.bindAddTagsChipInput) window.bindAddTagsChipInput();
         if (window.renderAddTagChips) window.renderAddTagChips();
@@ -7037,7 +7107,7 @@ window.initSearchChrome = function() {
         if (cluster && !cluster.contains(e.target)) {
             window.clearSearchSuggestions();
             const input = document.getElementById('search-input');
-            // Не закрываем строку, пока в ней есть запрос — иначе теряется контекст на мобиле.
+            // Не закрываем строку, пока в ней есть запрос – иначе теряется контекст на мобиле.
             if (cluster.classList.contains('is-open') && !(input && input.value.trim())) {
                 window.toggleSearchBar(false);
             }

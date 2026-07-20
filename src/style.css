@@ -864,6 +864,9 @@ body.dark-mode .modal-input::placeholder,
     background: #e2e8f0;
     overflow: hidden;
 }
+.marker-hover-card.no-photo .marker-hover-card__photo-wrap {
+    display: none;
+}
 .dark .marker-hover-card__photo-wrap { background: #0f172a; }
 .marker-hover-card__photo {
     width: 100%;
@@ -1067,7 +1070,8 @@ body.dock-view-analyzers .dock-header {
 #cabinet-modal-content.cabinet-in-dock > .border-b,
 #messages-modal-content.messages-in-dock > .border-b,
 #expedition-view-modal-content.expedition-in-dock > .border-b,
-#settings-modal-content.settings-in-dock > .border-b {
+#settings-modal-content.settings-in-dock > .border-b,
+#cabinet-modal-content.cabinet-in-dock .cabinet-modal-header {
     border-bottom-color: color-mix(in srgb, var(--panel-border, #e2e8f0) 70%, transparent);
 }
 
@@ -1092,6 +1096,21 @@ body.dock-view-analyzers .dock-header {
     object-fit: cover;
     display: block;
 }
+.dock-view-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: color-mix(in srgb, var(--accent, #ff5a3d) 14%, transparent);
+    color: var(--accent-ink, #e84a2f);
+    font-size: 1rem;
+}
+.dock-view-icon.hidden { display: none !important; }
+body.dock-view-settings .dock-brand-mark { display: none; }
+body.dock-view-settings .dock-view-icon { display: inline-flex !important; }
 
 .dock-brand-mark {
     width: 2.25rem;
@@ -1643,6 +1662,12 @@ html.dark .search-suggestions,
     border: none !important;
     transform: none !important;
     background: transparent !important;
+}
+#settings-modal-content.settings-in-dock .settings-modal-header {
+    display: none !important;
+}
+#cabinet-modal-content.cabinet-in-dock .cabinet-modal-close {
+    display: none !important;
 }
 #settings-modal-content.settings-in-dock > div:first-child button[onclick*="closeSettingsModal"],
 #cabinet-modal-content.cabinet-in-dock > div:first-child button[onclick*="closeCabinet"],
@@ -2692,6 +2717,7 @@ textarea.modal-input {
     background: #f1f5f9;
 }
 .dark .portfolio-card-thumb { border-color: #334155; background: #0f172a; }
+.portfolio-card-thumb--empty { border-radius: 9999px; }
 
 /* ?????? ???????????? ????? ? ??????????? ymaps.Map ?????? ??????? */
 .profile-mini-map-wrap {
@@ -4149,6 +4175,20 @@ html.dark .feed-post__cover,
     border: 1px solid var(--panel-border);
 }
 .dark .sidebar-sound-thumb { border-color: #334155; }
+.sidebar-sound-thumb--empty,
+.portfolio-card-thumb--empty {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #f1f5f9;
+    color: #94a3b8;
+    font-size: 0.75rem;
+}
+.dark .sidebar-sound-thumb--empty,
+.dark .portfolio-card-thumb--empty {
+    background: #0f172a;
+    color: #64748b;
+}
 .sidebar-expedition-thumb {
     width: 2.5rem; height: 2.5rem; border-radius: 0.75rem;
     object-fit: cover; flex-shrink: 0;
@@ -4340,42 +4380,27 @@ html.dark .feed-post__cover,
 
 @media (max-width: 767px) {
     body.dock-view-cabinet .dock-header #dock-subtitle { display: none; }
-    body.dock-view-cabinet #cabinet-modal-content.cabinet-in-dock > div:first-child {
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        padding-top: 1rem;
-        padding-bottom: 1rem;
+    body.dock-view-cabinet #cabinet-modal-content.cabinet-in-dock .cabinet-modal-header {
+        flex-direction: row;
+        align-items: flex-start;
+        text-align: left;
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
         gap: 0.75rem;
-        border-bottom: none !important;
-    }
-    body.dock-view-cabinet #cabinet-modal-content.cabinet-in-dock > div:first-child .flex.items-center.gap-4 {
-        flex-direction: column;
-        align-items: center;
-        width: 100%;
-    }
-    body.dock-view-cabinet #cabinet-modal-content.cabinet-in-dock > div:first-child .min-w-0 {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
     }
     body.dock-view-cabinet #cabinet-avatar,
     body.dock-view-cabinet #cabinet-avatar-fallback {
-        width: 5.5rem;
-        height: 5.5rem;
-        font-size: 1.75rem;
+        width: 3.25rem;
+        height: 3.25rem;
+        font-size: 1.15rem;
     }
     body.dock-view-cabinet #cabinet-user-name {
-        font-size: 1.25rem;
-        text-align: center;
+        font-size: 1.05rem;
+        text-align: left;
     }
     body.dock-view-cabinet #cabinet-user-role { display: none; }
     body.dock-view-cabinet #cabinet-tabs {
         display: none;
-    }
-    body.dock-view-cabinet #cabinet-modal-content.cabinet-in-dock > div:first-child .sm\:inline-flex,
-    body.dock-view-cabinet #cabinet-modal-content.cabinet-in-dock > div:first-child button[onclick*="closeCabinet"] {
-        display: none !important;
     }
     body.dock-view-cabinet #cabinet-logout-footer {
         display: none !important;

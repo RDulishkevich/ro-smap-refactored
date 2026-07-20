@@ -1,5 +1,5 @@
 /**
- * Events panel — contests / meetups / challenges on the right chrome.
+ * Events panel – contests / meetups / challenges on the right chrome.
  * Persists to events.json via syncEventsData.
  */
 
@@ -63,7 +63,7 @@ window.formatEventRange = function(e) {
     };
     const a = fmt(e.startsAt);
     const b = fmt(e.endsAt);
-    if (a && b) return `${a} — ${b}`;
+    if (a && b) return `${a} – ${b}`;
     return a || b || 'Даты уточняются';
 };
 
@@ -217,7 +217,7 @@ window.renderEventDetail = function(e) {
                 bits.push(achTitle);
             }
             const reward = bits.length ? ` <span class="event-prize-reward">(${esc(bits.join(' · '))})</span>` : '';
-            return `<li><strong>${esc(p.place || '')}.</strong> ${esc(p.title || '')}${p.description ? ` — ${esc(p.description)}` : ''}${reward}</li>`;
+            return `<li><strong>${esc(p.place || '')}.</strong> ${esc(p.title || '')}${p.description ? ` – ${esc(p.description)}` : ''}${reward}</li>`;
         }).join('')}</ul>`
         : '';
 
@@ -429,7 +429,7 @@ window.deleteEvent = async function(eventId) {
     window.renderEventsPanel();
 };
 
-/* —— Editor —— */
+/* –– Editor –– */
 window.openEventEditor = function(eventId = null) {
     if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) {
         window.showToast('Только администратор');

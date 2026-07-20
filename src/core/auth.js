@@ -92,10 +92,10 @@ export function initAuth() {
                     <label class="modal-label">Уровень умений в полевой записи</label>
                     <select id="auth-skill-level" class="modal-input dark:bg-slate-900 text-sm">
                         <option value="">Выберите…</option>
-                        <option value="beginner">Новичок — только начинаю</option>
-                        <option value="intermediate">Любитель — уже записываю</option>
-                        <option value="advanced">Продвинутый — регулярно в поле</option>
-                        <option value="pro">Профи — работа / исследования</option>
+                        <option value="beginner">Новичок – только начинаю</option>
+                        <option value="intermediate">Любитель – уже записываю</option>
+                        <option value="advanced">Продвинутый – регулярно в поле</option>
+                        <option value="pro">Профи – работа / исследования</option>
                     </select>
                 </div>
                 <div>
@@ -264,7 +264,7 @@ export function initAuth() {
 
     // Подмешивает публичные данные профиля (био/ссылки/гир-лист/бейджи/дата регистрации) из
     // общего облачного profiles.json в currentUser. Вызывается и после логина (auth.js), и после
-    // фонового фетча profiles.json на старте приложения (bootstrap.js) — порядок этих двух событий
+    // фонового фетча profiles.json на старте приложения (bootstrap.js) – порядок этих двух событий
     // не гарантирован, поэтому дёргаем из обоих мест.
     window.applyProfileToCurrentUser = function() {
         if (!window.currentUser) return;
@@ -576,7 +576,7 @@ export function initAuth() {
                             <span class="pub-status-pill ${st.cls} shrink-0">${st.label}</span>
                         </div>`;
                     }).join('')}
-                </div>` : `<p class="text-xs text-slate-400 italic mt-2">Пока нет записей — привяжите звук к сессии в вкладке "Мои звуки".</p>`}
+                </div>` : `<p class="text-xs text-slate-400 italic mt-2">Пока нет записей – привяжите звук к сессии в вкладке "Мои звуки".</p>`}
                 ${draftCount > 0 ? `
                 <button onclick="event.stopPropagation(); window.publishSessionDrafts('${session.id}')" class="mt-3 w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-sm">
                     <i class="fa-solid fa-cloud-arrow-up mr-1.5"></i>Опубликовать все черновики (${draftCount})
@@ -664,7 +664,7 @@ export function initAuth() {
         const body = document.getElementById('expedition-view-body');
         if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-route mr-2 text-blue-500"></i>${session.title}`;
 
-        const dateStr = session.date ? new Date(session.date).toLocaleDateString('ru-RU') : '—';
+        const dateStr = session.date ? new Date(session.date).toLocaleDateString('ru-RU') : '–';
         const count = (window.soundsData || []).filter(s =>
             s.sessionId === session.id && (!s.status || s.status === 'published')
         ).length;
@@ -683,7 +683,7 @@ export function initAuth() {
         const ownerNameSafe = String(session.ownerName || ownerLogin).replace(/'/g, "\\'");
         const ownerHtml = ownerLogin
             ? `<button type="button" class="font-semibold text-blue-600 dark:text-blue-400 hover:underline truncate text-left" onclick="window.closeExpeditionViewModal(); window.openPublicProfile('${ownerSafe}', '${ownerNameSafe}')">${window.escMsgHtml ? window.escMsgHtml(session.ownerName || ownerLogin) : (session.ownerName || ownerLogin)}</button>`
-            : `<p class="font-semibold text-slate-700 dark:text-slate-200 truncate">${session.ownerName || '—'}</p>`;
+            : `<p class="font-semibold text-slate-700 dark:text-slate-200 truncate">${session.ownerName || '–'}</p>`;
         const photos = session.photos || [];
         const links = [...(session.links || []), ...(session.videoLinks || [])];
 
@@ -694,7 +694,7 @@ export function initAuth() {
                     <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60"><p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Организатор</p>${ownerHtml}</div>
                     <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60"><p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Дата</p><p class="font-semibold text-slate-700 dark:text-slate-200">${dateStr}</p></div>
                     <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60"><p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Звуков</p><p class="font-semibold text-slate-700 dark:text-slate-200">${count}</p></div>
-                    <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60"><p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Маршрут</p><p class="font-semibold text-slate-700 dark:text-slate-200 truncate">${session.route || '—'}</p></div>
+                    <div class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60"><p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Маршрут</p><p class="font-semibold text-slate-700 dark:text-slate-200 truncate">${session.route || '–'}</p></div>
                 </div>
                 ${(session.routeStops || []).length ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1.5">Точки маршрута</p><div class="space-y-1.5">${session.routeStops.map((st, i) => {
                     const title = st.title || `Точка ${i + 1}`;
@@ -919,7 +919,7 @@ export function initAuth() {
         window.renderSessionRouteStops();
     };
 
-    // Список участников — чипы-чекбоксы по всем ЗАРЕГИСТРИРОВАННЫМ пользователям (кроме себя);
+    // Список участников – чипы-чекбоксы по всем ЗАРЕГИСТРИРОВАННЫМ пользователям (кроме себя);
     // незарегистрированных вписывают отдельным текстовым полем (session-form-guests).
     window.renderSessionParticipantsPicker = function(selectedLogins) {
         const container = document.getElementById('session-form-participants');
@@ -1438,7 +1438,7 @@ export function initAuth() {
             return window.showToast('Сначала войдите в профиль');
         }
         if (!window.getAuthToken || !window.getAuthToken()) {
-            return window.showToast('Сессия устарела — войдите снова');
+            return window.showToast('Сессия устарела – войдите снова');
         }
 
         try {
@@ -1768,14 +1768,15 @@ export function initAuth() {
 
     // Переключатель очереди: все / pending / rejected
     window.__adminListFilter = window.__adminListFilter || 'all';
-    window.__adminSearch = window.__adminSearch || { sounds: '', reports: '', support: '', events: '' };
+    window.__adminSearch = window.__adminSearch || { sounds: '', reports: '', support: '', events: '', users: '' };
     window.setAdminSearchQuery = function(section, value) {
-        if (!window.__adminSearch) window.__adminSearch = { sounds: '', reports: '', support: '', events: '' };
+        if (!window.__adminSearch) window.__adminSearch = { sounds: '', reports: '', support: '', events: '', users: '' };
         window.__adminSearch[section] = String(value || '').trim().toLowerCase();
         if (section === 'sounds' && window.renderAdminList) window.renderAdminList();
         else if (section === 'reports' && window.renderReportsList) window.renderReportsList();
         else if (section === 'support' && window.renderAdminSupportList) window.renderAdminSupportList();
         else if (section === 'events' && window.renderAdminEventsList) window.renderAdminEventsList();
+        else if (section === 'users' && window.renderAdminUsersList) window.renderAdminUsersList();
     };
     window.setAdminListFilter = function(mode) {
         window.__adminListFilter = mode;
@@ -1841,8 +1842,8 @@ export function initAuth() {
         list.innerHTML = sounds.map(s => {
             const isHardcoded = rawIds.includes(s.id);
             const status = s.status || 'published';
-            const publicId = String(s.publicId || s.archiveNum || s.id || '—');
-            const internalId = String(s.id || '—');
+            const publicId = String(s.publicId || s.archiveNum || s.id || '–');
+            const internalId = String(s.id || '–');
             const idLine = (publicId !== internalId)
                 ? `№ ${publicId}${isHardcoded ? ' · вшито' : ''} · ID ${internalId}`
                 : `ID ${internalId}${isHardcoded ? ' · вшито' : ''}`;
@@ -1947,8 +1948,8 @@ export function initAuth() {
                     ? '<i class="fa-solid fa-circle-exclamation mr-2 text-red-500"></i>Причина отклонения'
                     : '<i class="fa-solid fa-clock mr-2 text-amber-500"></i>Причина возврата на модерацию',
                 message: isReject
-                    ? 'Запись вернётся автору в черновик. Выберите пункт правил или напишите причину — она будет в уведомлении и в кабинете. <button type="button" class="text-blue-600 dark:text-blue-400 font-bold hover:underline" onclick="window.openPublishRulesModal()">Открыть правила</button>'
-                    : 'Укажите, зачем запись снова в очереди модерации — причина сохранится в карточке и уйдёт автору при необходимости. <button type="button" class="text-blue-600 dark:text-blue-400 font-bold hover:underline" onclick="window.openPublishRulesModal()">Открыть правила</button>',
+                    ? 'Запись вернётся автору в черновик. Выберите пункт правил или напишите причину – она будет в уведомлении и в кабинете. <button type="button" class="text-blue-600 dark:text-blue-400 font-bold hover:underline" onclick="window.openPublishRulesModal()">Открыть правила</button>'
+                    : 'Укажите, зачем запись снова в очереди модерации – причина сохранится в карточке и уйдёт автору при необходимости. <button type="button" class="text-blue-600 dark:text-blue-400 font-bold hover:underline" onclick="window.openPublishRulesModal()">Открыть правила</button>',
                 confirmText: isReject ? 'Отклонить' : 'На модерацию',
                 confirmClass: isReject
                     ? 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
@@ -2029,7 +2030,7 @@ export function initAuth() {
         }
     };
 
-    // --- Жалобы (на записи и на комментарии) — очередь модерации в админ-панели ---
+    // --- Жалобы (на записи и на комментарии) – очередь модерации в админ-панели ---
     window.__adminSection = 'sounds';
 
     window.openAdminPanel = function(section) {
@@ -2239,7 +2240,7 @@ export function initAuth() {
                 ? String(r.reason).slice(0, 90) + '…'
                 : (r.reason || '');
             const dateStr = r.date ? new Date(r.date).toLocaleDateString('ru-RU') : '';
-            const num = r.number || '—';
+            const num = r.number || '–';
             return `
             <div class="admin-entity-row ${r.status === 'resolved' ? 'is-muted' : ''}">
                 <button type="button" class="admin-entity-main min-w-0 flex-1 text-left" onclick="window.openReportDetail('${r.soundId}', '${r.id}')">
@@ -2260,7 +2261,7 @@ export function initAuth() {
         window.__activeReport = { soundId, reportId };
         const title = document.getElementById('report-detail-title');
         const body = document.getElementById('report-detail-body');
-        if (title) title.innerHTML = `<i class="fa-solid fa-flag mr-2 text-red-500"></i>Жалоба № ${r.number || '—'}`;
+        if (title) title.innerHTML = `<i class="fa-solid fa-flag mr-2 text-red-500"></i>Жалоба № ${r.number || '–'}`;
         let targetText = '';
         if (r.type === 'comment') {
             const c = s ? (s.comments || []).find(x => x.id === r.commentId) : null;
@@ -2276,7 +2277,7 @@ export function initAuth() {
                     </div>
                     <div class="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/40">
                         <p class="text-[10px] font-bold uppercase text-red-400 mb-1">Текст жалобы</p>
-                        <p class="text-slate-800 dark:text-slate-100 whitespace-pre-wrap leading-relaxed">${r.reason || '—'}</p>
+                        <p class="text-slate-800 dark:text-slate-100 whitespace-pre-wrap leading-relaxed">${r.reason || '–'}</p>
                     </div>
                     <p class="text-[11px] text-slate-400">От ${r.reporterName || 'аноним'} · ${r.date ? new Date(r.date).toLocaleString('ru-RU') : ''} · ${r.status === 'resolved' ? 'Решено' : 'Открыта'}</p>
                 </div>`;
@@ -2314,7 +2315,7 @@ export function initAuth() {
         if (r.status !== 'resolved') {
             items.push({ icon: 'fa-check', label: 'Отметить решённой', tone: 'success', onClick: () => window.resolveReport(soundId, reportId) });
         }
-        const opts = { title: `Жалоба № ${r.number || '—'}`, event: ev || (typeof event !== 'undefined' ? event : null) };
+        const opts = { title: `Жалоба № ${r.number || '–'}`, event: ev || (typeof event !== 'undefined' ? event : null) };
         if (window.openActionsMenu) window.openActionsMenu(items, opts);
         else window.ActionSheet.open(items);
     };
@@ -2368,7 +2369,19 @@ export function initAuth() {
             el.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">Пока нет зарегистрированных профилей.</p>`;
             return;
         }
-        el.innerHTML = profiles.filter(p => p.loginName !== window.SUPPORT_LOGIN).map(p => {
+        const q = (window.__adminSearch?.users || '').trim().toLowerCase();
+        const rows = profiles.filter((p) => p.loginName !== window.SUPPORT_LOGIN).filter((p) => {
+            if (!q) return true;
+            const hay = [
+                p.loginName, p.displayName, p.role, p.email, ...(p.badges || [])
+            ].map((x) => String(x || '').toLowerCase()).join(' ');
+            return hay.includes(q);
+        });
+        if (!rows.length) {
+            el.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">${q ? 'Ничего не найдено по запросу.' : 'Пока нет зарегистрированных профилей.'}</p>`;
+            return;
+        }
+        el.innerHTML = rows.map(p => {
             const isAdmin = p.role === 'admin' || p.loginName === 'admin';
             const isBlocked = !!p.blocked;
             const badgeCount = (p.badges || []).length;
@@ -2812,7 +2825,7 @@ export function initAuth() {
         body.innerHTML = `
             <div class="rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-4 space-y-1.5">
                 <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Логин:</span> @${login}</p>
-                <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Регистрация:</span> ${fmt(p?.joinedAt) || '—'}</p>
+                <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Регистрация:</span> ${fmt(p?.joinedAt) || '–'}</p>
                 <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Роль:</span> ${p?.role === 'admin' || login === 'admin' ? 'Администратор' : 'Пользователь'}</p>
                 <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Статус:</span> ${p?.blocked ? 'Заблокирован' : 'Активен'}</p>
                 <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Email:</span> ${p?.email ? (p.emailVerified ? p.email + ' ✓' : p.email) : 'не привязан'}</p>
@@ -2852,7 +2865,7 @@ export function initAuth() {
         setTimeout(() => { if (modal.classList.contains('opacity-0')) modal.classList.add('hidden'); }, 300);
     };
 
-    // --- Уведомления: лайки, ответы, комментарии; админам — жалобы ---
+    // --- Уведомления: лайки, ответы, комментарии; админам – жалобы ---
     // Хранятся в profiles.json у получателя (profile.notifications[]).
     window.pushNotifications = async function(targetLogins, payload) {
         const fromId = payload.fromId || null;
@@ -3144,7 +3157,7 @@ export function initAuth() {
             id: 'msup' + Date.now().toString(36),
             fromId: window.SUPPORT_LOGIN,
             fromName: window.SUPPORT_NAME,
-            text: 'Здравствуйте! Я бот поддержки RO·SMap. Опишите вопрос — отвечу из базы знаний. Если ответ не подойдёт, напишите «обращение» — создам тикет с номером для оператора.',
+            text: 'Здравствуйте! Я бот поддержки RO·SMap. Опишите вопрос – отвечу из базы знаний. Если ответ не подойдёт, напишите «обращение» – создам тикет с номером для оператора.',
             date: new Date().toISOString(),
             read: true,
             _supportThread: true
@@ -3610,7 +3623,7 @@ export function initAuth() {
             list.innerHTML = all.length
                 ? all.map(m => window.renderMessageBubble(m)).join('')
                 : `<p class="text-xs text-slate-400 text-center py-6">${peerKey === String(window.SUPPORT_LOGIN || '').toLowerCase() || asSupport
-                    ? 'Опишите проблему с картой, публикацией или аккаунтом — ответим здесь.'
+                    ? 'Опишите проблему с картой, публикацией или аккаунтом – ответим здесь.'
                     : 'Начните переписку'}</p>`;
             if (!quiet || nearBottom) list.scrollTop = list.scrollHeight;
             if (window.bindMessageBubbleMenus) window.bindMessageBubbleMenus(list);
@@ -3845,7 +3858,7 @@ export function initAuth() {
             }
 
             const updated = [...(window.profilesData || [])];
-            // Снимаем «печатает» в том же write — без отдельной синхронизации перед отправкой.
+            // Снимаем «печатает» в том же write – без отдельной синхронизации перед отправкой.
             const myIdx = updated.findIndex(p => String(p.loginName || '').toLowerCase() === String(myLogin || '').toLowerCase());
             if (myIdx >= 0 && updated[myIdx].typing) {
                 updated[myIdx] = { ...updated[myIdx], typing: null, lastSeen: new Date().toISOString() };
@@ -3945,12 +3958,12 @@ export function initAuth() {
                         if (faq) {
                             await window.appendSupportBotReply(
                                 myLogin,
-                                `${faq.answer}\n\nПомогло? Если нет — напишите «обращение», и мы создадим тикет с номером.`
+                                `${faq.answer}\n\nПомогло? Если нет – напишите «обращение», и мы создадим тикет с номером.`
                             );
                         } else {
                             await window.appendSupportBotReply(
                                 myLogin,
-                                'Пока нет точного ответа в базе. Уточните вопрос или напишите «обращение» — создам тикет для оператора.'
+                                'Пока нет точного ответа в базе. Уточните вопрос или напишите «обращение» – создам тикет для оператора.'
                             );
                         }
                     }
@@ -4138,7 +4151,7 @@ export function initAuth() {
 
         const reason = await window.CustomUI.open({
             title: '<i class="fa-solid fa-flag mr-2 text-red-500"></i>Пожаловаться на сообщение',
-            message: 'Опишите причину — жалобу рассмотрят модераторы.',
+            message: 'Опишите причину – жалобу рассмотрят модераторы.',
             confirmText: 'Отправить',
             confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md',
             showInput: true,
@@ -4281,7 +4294,7 @@ export function initAuth() {
 
     // --- Привязка email с кодом подтверждения ---
     // Код и адрес живут только в памяти (window.__pendingEmailVerification), в облако/профиль
-    // попадают только после успешного подтверждения — так жалоба "ввёл email и забыл" не
+    // попадают только после успешного подтверждения – так жалоба "ввёл email и забыл" не
     // оставляет висящих неподтверждённых кодов в общем profiles.json.
     window.__pendingEmailVerification = null;
 
@@ -4293,7 +4306,7 @@ export function initAuth() {
         badge.className = `pub-status-pill ${verified ? 'pub-status-published' : 'pub-status-rejected'}`;
     };
 
-    // Точка интеграции с реальной отправкой писем — см. window.YANDEX_EMAIL_FUNCTION_URL
+    // Точка интеграции с реальной отправкой писем – см. window.YANDEX_EMAIL_FUNCTION_URL
     // в state.js. Пока URL не задан, работаем в демо-режиме: код показывается прямо в тосте,
     // поскольку у клиентского приложения нет собственного почтового сервера.
     window.sendVerificationEmail = async function(email, code) {
@@ -4307,7 +4320,7 @@ export function initAuth() {
                 if (res.ok) return true;
             } catch (e) { /* падаем в демо-режим ниже */ }
         }
-        window.showToast(`Демо-режим: код подтверждения — ${code}`);
+        window.showToast(`Демо-режим: код подтверждения – ${code}`);
         console.info(`[demo email] Код подтверждения для ${email}: ${code}`);
         return true;
     };
@@ -4375,7 +4388,7 @@ export function initAuth() {
         });
         Object.values(byCategory).forEach(c => { c.demand = c.plays + c.downloads * 2; });
 
-        // Спрос = прослушивания + скачивания x2 (скачивание — более сильный сигнал интереса).
+        // Спрос = прослушивания + скачивания x2 (скачивание – более сильный сигнал интереса).
         const topSounds = published
             .map(s => ({ ...s, demand: (s.plays || 0) + (s.downloads || 0) * 2 }))
             .sort((a, b) => b.demand - a.demand)
@@ -4412,7 +4425,7 @@ export function initAuth() {
             const bucket = days.find(d => d.key === dayKey);
             if (bucket) bucket.value += 1;
             else if (s.plays) {
-                // если даты нет — учтём активность через plays в последний день
+                // если даты нет – учтём активность через plays в последний день
             }
         });
         // Добавим «вес» прослушиваний/скачиваний как активность на сегодня для наглядности
