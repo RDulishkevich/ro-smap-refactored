@@ -3259,6 +3259,16 @@ export function initAuth() {
         };
         apply(btn, badge);
         apply(btnMobile, badgeMobile);
+        const navBadge = document.getElementById('mobile-nav-inbox-badge');
+        if (navBadge) {
+            if (!window.currentUser) {
+                navBadge.classList.add('hidden');
+            } else {
+                const unread = window.getMyInbox().filter(m => !m.read && !m.deleted).length;
+                navBadge.textContent = unread > 99 ? '99+' : String(unread);
+                navBadge.classList.toggle('hidden', unread === 0);
+            }
+        }
         if (window.refreshAdminSupportBadge) window.refreshAdminSupportBadge();
         if (window.syncAccountChrome) window.syncAccountChrome();
     };

@@ -3422,6 +3422,11 @@ window.openDockView = function(view) {
     }
 
     if (window.showDockPanel) window.showDockPanel();
+    if (window.syncMobileNavActive) {
+        if (next === 'cabinet' || next === 'messages' || next === 'settings') window.syncMobileNavActive('profile');
+        else if (next === 'feed') window.syncMobileNavActive('feed');
+        else window.syncMobileNavActive('library');
+    }
 };
 
 window.closeDockViewer = function() {
@@ -6843,6 +6848,57 @@ window.hideDockPanel = function() {
     const playerCard = document.getElementById('player-card');
     if (playerCard) playerCard.style.marginLeft = '';
     if (window.clearRailTabActive) window.clearRailTabActive();
+    if (window.syncMobileNavActive) window.syncMobileNavActive('map');
+};
+
+window.syncMobileNavActive = function(nav) {
+    const root = document.getElementById('mobile-bottom-nav');
+    if (!root) return;
+    const id = nav || 'map';
+    root.querySelectorAll('[data-nav]').forEach((btn) => {
+        btn.classList.toggle('is-active', btn.getAttribute('data-nav') === id);
+    });
+};
+
+window.mobileNavGo = function(dest) {
+    const target = String(dest || 'map');
+    if (window.innerWidth >= 768) return;
+
+    if (target === 'map') {
+        if (window.closeEventsSheet) window.closeEventsSheet();
+        if (window.hideDockPanel) window.hideDockPanel();
+        window.syncMobileNavActive('map');
+        return;
+    }
+    if (target === 'library') {
+        if (window.closeEventsSheet) window.closeEventsSheet();
+        if (window.openDockView) window.openDockView('library');
+        window.syncMobileNavActive('library');
+        return;
+    }
+    if (target === 'feed') {
+        if (window.closeEventsSheet) window.closeEventsSheet();
+        if (window.openDockView) window.openDockView('feed');
+        window.syncMobileNavActive('feed');
+        return;
+    }
+    if (target === 'events') {
+        if (window.hideDockPanel) window.hideDockPanel();
+        if (window.toggleEventsPanel) window.toggleEventsPanel();
+        window.syncMobileNavActive('events');
+        return;
+    }
+    if (target === 'profile') {
+        if (window.closeEventsSheet) window.closeEventsSheet();
+        if (!window.currentUser) {
+            if (window.openAuthModal) window.openAuthModal();
+            window.syncMobileNavActive('profile');
+            return;
+        }
+        if (window.openCabinet) window.openCabinet();
+        else if (window.openDockView) window.openDockView('cabinet');
+        window.syncMobileNavActive('profile');
+    }
 };
 
 window.initDockChrome = function() {
@@ -6855,6 +6911,7 @@ window.initDockChrome = function() {
     if (s && s.classList.contains('sidebar-hidden')) {
         document.body.classList.add('dock-is-hidden');
         if (window.clearRailTabActive) window.clearRailTabActive();
+        if (window.syncMobileNavActive) window.syncMobileNavActive('map');
     } else {
         document.body.classList.remove('dock-is-hidden');
     }

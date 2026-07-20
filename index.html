@@ -42,8 +42,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260720g">
-    <link rel="stylesheet" href="./src/glass.css?v=20260720g">
+    <link rel="stylesheet" href="./src/style.css?v=20260720h">
+    <link rel="stylesheet" href="./src/glass.css?v=20260720h">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -89,8 +89,8 @@
         <!-- Mobile drawer scrim (same stacking context as #sidebar) -->
         <div id="sidebar-backdrop" onclick="window.toggleSidebar()" class="fixed inset-0 z-[55] bg-slate-900/40 backdrop-blur-[2px] opacity-0 pointer-events-none transition-opacity duration-300 md:hidden"></div>
 
-        <!-- Mobile: open catalog dock -->
-        <button id="burger-btn" onclick="window.toggleSidebar()" class="absolute top-4 left-4 z-20 map-icon-btn pointer-events-auto md:hidden" aria-label="Меню">
+        <!-- Mobile: burger hidden — bottom nav opens dock -->
+        <button id="burger-btn" onclick="window.toggleSidebar()" class="absolute top-4 left-4 z-20 map-icon-btn pointer-events-auto hidden" aria-label="Меню">
             <i class="fa-solid fa-bars"></i>
         </button>
 
@@ -171,9 +171,9 @@
             <div id="active-tags-container" class="map-top-toolbar__tags flex flex-wrap gap-1.5 empty:hidden overflow-hidden"></div>
         </div>
 
-        <!-- Mobile top-right: messages + profile/settings -->
+        <!-- Mobile top-right: notifications only (rest → bottom nav) -->
         <div id="map-top-right-controls" class="absolute top-4 right-4 md:top-6 md:right-6 pointer-events-auto z-50 flex items-center gap-2 sm:gap-3">
-            <button type="button" id="events-fab" onclick="window.toggleEventsPanel()" class="relative map-icon-btn" title="Ивенты" aria-label="Ивенты" aria-expanded="false">
+            <button type="button" id="events-fab" onclick="window.toggleEventsPanel()" class="relative map-icon-btn hidden md:inline-flex" title="Ивенты" aria-label="Ивенты" aria-expanded="false">
                 <i class="fa-solid fa-calendar-days"></i>
                 <span id="events-btn-mobile-badge" class="hidden absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center shadow">0</span>
             </button>
@@ -183,16 +183,16 @@
                     <span id="msg-badge-mobile" class="hidden absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center shadow">0</span>
                 </button>
             </div>
-            <div class="relative md:hidden" id="notif-wrap-mobile">
-                <button type="button" onclick="window.toggleNotificationsPanel(event)" id="notif-btn-mobile" class="hidden relative map-icon-btn" title="Уведомления" data-lang-title="notifications_title">
+            <div class="relative" id="notif-wrap-mobile">
+                <button type="button" onclick="window.toggleNotificationsPanel(event)" id="notif-btn-mobile" class="hidden relative map-icon-btn md:hidden" title="Уведомления" data-lang-title="notifications_title">
                     <i class="fa-solid fa-bell"></i>
                     <span id="notif-badge-mobile" class="hidden absolute -top-1 -right-1 min-w-[1.2rem] h-[1.2rem] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none flex items-center justify-center shadow">0</span>
                 </button>
             </div>
-            <button onclick="window.openSettingsPanel()" id="settings-btn-mobile" class="map-icon-btn md:hidden" title="Настройки">
+            <button onclick="window.openSettingsPanel()" id="settings-btn-mobile" class="map-icon-btn hidden md:hidden" title="Настройки">
                 <i class="fa-solid fa-gear"></i>
             </button>
-            <button onclick="window.toggleCabinet()" id="profile-btn-mobile" class="map-icon-btn map-icon-btn--accent md:hidden" title="Личный кабинет" data-lang-title="profile_title">
+            <button onclick="window.toggleCabinet()" id="profile-btn-mobile" class="map-icon-btn map-icon-btn--accent hidden md:hidden" title="Личный кабинет" data-lang-title="profile_title">
                 <img id="profile-btn-mobile-avatar" class="profile-btn-avatar hidden" alt="">
                 <i class="fa-solid fa-user-astronaut profile-btn-icon"></i>
             </button>
@@ -636,7 +636,7 @@
             </div>
         </div>
 
-        <!-- FABs: mobile under profile; desktop bottom-right (map chrome ref) -->
+        <!-- FABs: mobile above bottom nav; desktop bottom-right -->
         <div id="fab-add" class="absolute bottom-24 right-4 md:top-auto md:bottom-8 md:right-8 pointer-events-auto z-40 flex flex-col gap-3 items-end">
             <button id="fab-guessr" onclick="window.openAudioGuessr()" class="map-fab map-fab--secondary w-12 h-12 md:w-14 md:h-14" title="Audio Guessr">
                 <i class="fa-solid fa-headphones text-lg md:text-xl pointer-events-none"></i>
@@ -645,6 +645,32 @@
                 <i class="fa-solid fa-plus text-2xl pointer-events-none"></i>
             </button>
         </div>
+
+        <!-- Mobile bottom navigation -->
+        <nav id="mobile-bottom-nav" class="mobile-bottom-nav md:hidden" aria-label="Основная навигация">
+            <button type="button" class="mobile-nav-btn is-active" data-nav="map" onclick="window.mobileNavGo('map')" aria-label="Карта">
+                <i class="fa-solid fa-map" aria-hidden="true"></i>
+                <span>Карта</span>
+            </button>
+            <button type="button" class="mobile-nav-btn" data-nav="library" onclick="window.mobileNavGo('library')" aria-label="Библиотека">
+                <i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+                <span>Каталог</span>
+            </button>
+            <button type="button" class="mobile-nav-btn" data-nav="feed" onclick="window.mobileNavGo('feed')" aria-label="Лента">
+                <i class="fa-solid fa-newspaper" aria-hidden="true"></i>
+                <span>Лента</span>
+            </button>
+            <button type="button" class="mobile-nav-btn" data-nav="events" onclick="window.mobileNavGo('events')" aria-label="Ивенты">
+                <i class="fa-solid fa-calendar-days" aria-hidden="true"></i>
+                <span>Ивенты</span>
+                <span id="mobile-nav-events-badge" class="mobile-nav-badge hidden">0</span>
+            </button>
+            <button type="button" class="mobile-nav-btn" data-nav="profile" onclick="window.mobileNavGo('profile')" aria-label="Профиль">
+                <i class="fa-solid fa-user-astronaut" aria-hidden="true"></i>
+                <span>Профиль</span>
+                <span id="mobile-nav-inbox-badge" class="mobile-nav-badge hidden">0</span>
+            </button>
+        </nav>
 
     </div>
 
@@ -2135,7 +2161,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260720g"></script>
+    <script type="module" src="./src/main.js?v=20260720h"></script>
 
 </body>
 </html>

@@ -91,6 +91,13 @@ window.closeEventsPanel = function() {
 };
 
 window.toggleEventsPanel = function() {
+    if (window.innerWidth < 768) {
+        const sheet = document.getElementById('events-sheet');
+        const open = sheet && !sheet.classList.contains('hidden') && !sheet.classList.contains('opacity-0');
+        if (open) window.closeEventsSheet();
+        else window.openEventsPanel();
+        return;
+    }
     const panel = document.getElementById('events-panel');
     if (!panel) return;
     if (panel.classList.contains('hidden')) window.openEventsPanel();
@@ -105,6 +112,7 @@ window.openEventsSheet = function() {
     sheet.classList.remove('opacity-0', 'pointer-events-none');
     document.body.classList.add('events-open');
     window.renderEventsPanel();
+    if (window.syncMobileNavActive) window.syncMobileNavActive('events');
 };
 
 window.closeEventsSheet = function() {
@@ -114,6 +122,10 @@ window.closeEventsSheet = function() {
     document.body.classList.remove('events-open');
     setTimeout(() => { if (sheet.classList.contains('opacity-0')) sheet.classList.add('hidden'); }, 250);
     window.__eventsDetailId = null;
+    if (window.syncMobileNavActive) {
+        const dockHidden = document.getElementById('sidebar')?.classList.contains('sidebar-hidden');
+        window.syncMobileNavActive(dockHidden ? 'map' : (window.__dockView === 'feed' ? 'feed' : (window.__dockView === 'cabinet' ? 'profile' : 'library')));
+    }
 };
 
 window.setEventsFilter = function(filter) {
@@ -174,8 +186,9 @@ window.renderEventsPanel = function() {
 
     const badge = document.getElementById('events-rail-badge');
     const badgeMobile = document.getElementById('events-btn-mobile-badge');
+    const badgeNav = document.getElementById('mobile-nav-events-badge');
     const liveCount = window.filterEventsList('live').length;
-    [badge, badgeMobile].forEach((el) => {
+    [badge, badgeMobile, badgeNav].forEach((el) => {
         if (!el) return;
         el.textContent = String(liveCount);
         el.classList.toggle('hidden', liveCount === 0);

@@ -257,7 +257,14 @@ window.initYandexMap = function() {
         container.innerHTML = '';
         container.classList.remove('is-mapbox');
     }
-    window.map = new ymaps.Map('map', { center: [47.23371, 39.74427], zoom: 15, controls: ['zoomControl'] });
+    const isMobile = window.innerWidth < 768;
+    window.map = new ymaps.Map('map', {
+        center: [47.23371, 39.74427],
+        zoom: 15,
+        controls: isMobile ? [] : ['zoomControl']
+    }, {
+        suppressMapOpenBlock: true
+    });
     if (container) {
         if (window.currentMapStyle === 'monochrome') container.classList.add('map-monochrome');
         else container.classList.remove('map-monochrome');
