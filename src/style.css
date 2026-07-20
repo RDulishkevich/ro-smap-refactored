@@ -1052,7 +1052,7 @@ body.dock-view-analyzers .dock-header {
     margin-bottom: 0.35rem;
     overflow: hidden;
     flex-shrink: 0;
-    background: #0b1220;
+    background: #000;
     border: 1px solid rgba(255, 255, 255, 0.08);
 }
 .app-rail__brand img {
@@ -1060,6 +1060,20 @@ body.dock-view-analyzers .dock-header {
     height: 100%;
     object-fit: cover;
     display: block;
+}
+
+.dock-brand-mark {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.8rem;
+    object-fit: cover;
+    margin-top: 0.2rem;
+    background: #000;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+}
+html.dark .dock-brand-mark,
+.dark .dock-brand-mark {
+    border-color: rgba(255, 255, 255, 0.1);
 }
 
 .app-rail__btn {

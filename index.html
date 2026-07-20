@@ -12,9 +12,10 @@
     <meta name="theme-color" content="#ff5a3d">
     <meta name="description" content="Аудиокарта Ростовской области: звуки мест, лента и карта.">
     <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="icon" href="./favicon.png" type="image/png">
+    <link rel="icon" href="./favicon.png" type="image/png" sizes="32x32">
     <link rel="shortcut icon" href="./favicon.png" type="image/png">
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" sizes="180x180">
+    <link rel="apple-touch-icon" href="./Logo.png" sizes="512x512">
     
     <!-- Tailwind CSS & Config -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -41,8 +42,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260720b">
-    <link rel="stylesheet" href="./src/glass.css?v=20260720b">
+    <link rel="stylesheet" href="./src/style.css?v=20260720c">
+    <link rel="stylesheet" href="./src/glass.css?v=20260720c">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -96,7 +97,7 @@
         <!-- Left icon rail (desktop always; mobile hidden — burger opens dock) -->
         <nav id="app-rail" class="app-rail pointer-events-auto z-[61] hidden md:flex" aria-label="Навигация">
             <div class="app-rail__brand" title="Полёвка">
-                <img src="./favicon.png" alt="Полёвка" width="40" height="40" decoding="async">
+                <img src="./Logo.png" alt="Полёвка" width="40" height="40" decoding="async">
             </div>
             <button type="button" id="rail-library" class="app-rail__btn" onclick="window.switchSidebarTab('library')" title="Библиотека">
                 <i class="fa-solid fa-layer-group"></i>
@@ -220,6 +221,7 @@
                         <button type="button" id="dock-back-btn" onclick="window.hideDockPanel()" class="dock-back-btn shrink-0" title="Скрыть панель" aria-label="Скрыть панель">
                             <i class="fa-solid fa-arrow-left text-sm pointer-events-none"></i>
                         </button>
+                        <img class="dock-brand-mark shrink-0" src="./Logo.png" alt="" width="36" height="36" decoding="async" aria-hidden="true">
                         <div class="min-w-0">
                             <h1 id="dock-title" class="brand-title text-xl md:text-2xl text-slate-800 dark:text-white truncate" data-lang="title">Полёвка</h1>
                             <p id="dock-subtitle" class="brand-sub text-xs md:text-sm mt-0.5 flex items-center gap-2" data-lang="subtitle">Аудиокарта Ростовской области</p>
@@ -620,8 +622,14 @@
     <div id="auth-modal" onmousedown="if(event.target === this) window.requestCloseAuthModal()" class="fixed inset-0 z-[250] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
         <div class="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-sm app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
             <div class="px-6 py-5 flex justify-between items-center border-b border-slate-100 dark:border-slate-700">
-                <h3 class="text-lg font-bold text-slate-800 dark:text-white"><i class="fa-solid fa-right-to-bracket mr-2 text-blue-500"></i>Вход / Регистрация</h3>
-                <button onclick="window.requestCloseAuthModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none">
+                <div class="flex items-center gap-3 min-w-0">
+                    <img src="./Logo.png" alt="" width="40" height="40" decoding="async" class="rounded-xl shrink-0" aria-hidden="true">
+                    <div class="min-w-0">
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Полёвка</p>
+                        <h3 class="text-lg font-bold text-slate-800 dark:text-white truncate">Вход / Регистрация</h3>
+                    </div>
+                </div>
+                <button onclick="window.requestCloseAuthModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none shrink-0">
                     <i class="fa-solid fa-xmark text-xl pointer-events-none"></i>
                 </button>
             </div>
@@ -2100,7 +2108,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260720b"></script>
+    <script type="module" src="./src/main.js?v=20260720c"></script>
 
 </body>
 </html>

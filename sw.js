@@ -1,13 +1,15 @@
 /* Полёвка — минимальный service worker для установки PWA (Android) и офлайн-оболочки. */
-const CACHE = 'polevka-shell-v1';
+const CACHE = 'polevka-shell-v2';
 const PRECACHE = [
   './',
   './index.html',
   './manifest.webmanifest',
+  './Logo.png',
   './favicon.png',
   './apple-touch-icon.png',
   './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icons/icon-512.png',
+  './icons/logo-mark.png'
 ];
 
 self.addEventListener('install', (event) => {
