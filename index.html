@@ -42,8 +42,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260721f">
-    <link rel="stylesheet" href="./src/glass.css?v=20260721f">
+    <link rel="stylesheet" href="./src/style.css?v=20260721g">
+    <link rel="stylesheet" href="./src/glass.css?v=20260721g">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -784,6 +784,7 @@
                     <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="map_provider"><i class="fa-solid fa-layer-group mr-1"></i> Движок карты</label>
                     <div class="glass-seg glass-seg--wrap mt-1" id="map-provider-seg">
                         <button type="button" onclick="window.setMapProvider('yandex')" id="map-provider-yandex-btn" class="glass-seg__btn is-active is-active--accent" data-lang="map_provider_yandex">Яндекс</button>
+                        <button type="button" onclick="window.setMapProvider('yandex3')" id="map-provider-yandex3-btn" class="glass-seg__btn" data-lang="map_provider_yandex3">Яндекс 3</button>
                         <button type="button" onclick="window.setMapProvider('ozon')" id="map-provider-ozon-btn" class="glass-seg__btn" data-lang="map_provider_ozon">Ozon Maps</button>
                         <button type="button" onclick="window.setMapProvider('mapbox')" id="map-provider-mapbox-btn" class="glass-seg__btn" data-lang="map_provider_mapbox">OSM 3D</button>
                         <button type="button" onclick="window.setMapProvider('carto')" id="map-provider-carto-btn" class="glass-seg__btn" data-lang="map_provider_carto">Carto</button>
@@ -2173,7 +2174,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260721f"></script>
+    <script type="module" src="./src/main.js?v=20260721g"></script>
 
 </body>
 </html>

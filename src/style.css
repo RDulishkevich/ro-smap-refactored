@@ -2895,6 +2895,14 @@ textarea.modal-input {
 .dark #location-picker-map.map-monochrome [class*="-ground-pane"], .dark #location-picker-map.map-monochrome [class*="-copyrights-pane"] { filter: grayscale(100%) invert(90%) brightness(0.8) contrast(1.2); }
 .dark #location-picker-map:not(.map-monochrome) [class*="-ground-pane"], .dark #location-picker-map:not(.map-monochrome) [class*="-copyrights-pane"] { filter: invert(90%) hue-rotate(180deg) brightness(0.8) contrast(1.1); }
 
+/* Yandex Maps API 3 quiet engine */
+#map.is-yandex3,
+#map.is-yandex3 > ymaps,
+#map.is-yandex3 [class*="ymaps3"] {
+    width: 100%;
+    height: 100%;
+}
+
 /* MapLibre GL (OpenFreeMap) main map */
 #map.is-mapbox,
 #map.is-mapbox .mapboxgl-map {

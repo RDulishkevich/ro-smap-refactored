@@ -1370,6 +1370,7 @@ export function initAuth() {
         }
 
         const mapYandexBtn = document.getElementById('map-provider-yandex-btn');
+        const mapYandex3Btn = document.getElementById('map-provider-yandex3-btn');
         const mapMapboxBtn = document.getElementById('map-provider-mapbox-btn');
         const mapOzonBtn = document.getElementById('map-provider-ozon-btn');
         const mapCartoBtn = document.getElementById('map-provider-carto-btn');
@@ -1387,6 +1388,7 @@ export function initAuth() {
                 : 'glass-seg__btn';
         };
         setProv(mapYandexBtn, 'yandex');
+        setProv(mapYandex3Btn, 'yandex3');
         setProv(mapOzonBtn, 'ozon');
         setProv(mapMapboxBtn, 'mapbox');
         setProv(mapCartoBtn, 'carto');

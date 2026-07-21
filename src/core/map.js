@@ -137,13 +137,14 @@ window.destroyMainMap = function() {
     if (window.destroyMapboxMap) window.destroyMapboxMap();
     if (window.destroyDgisMap) window.destroyDgisMap();
     if (window.destroyGoogleEarthMap) window.destroyGoogleEarthMap();
+    if (window.destroyYandex3Map) window.destroyYandex3Map();
     window.destroyYandexMap();
     window.map = null;
     window.__mainMapReady = false;
     const container = document.getElementById('map');
     if (container) {
         container.innerHTML = '';
-        container.classList.remove('is-mapbox', 'is-dgis', 'is-googleearth', 'is-map-provider-placeholder', 'map-monochrome');
+        container.classList.remove('is-mapbox', 'is-dgis', 'is-googleearth', 'is-yandex3', 'is-map-provider-placeholder', 'map-monochrome');
         container.__longPressBound = false;
         container.__dgisCtxBound = false;
         container.__googleCtxBound = false;
@@ -165,6 +166,7 @@ window.normalizeMapProvider = function(provider) {
     if (raw === 'osmbright' || raw === 'bright') return 'osmbright';
     if (raw === 'dgis' || raw === '2gis') return 'dgis';
     if (raw === 'googleearth' || raw === 'google' || raw === 'earth') return 'googleearth';
+    if (raw === 'yandex3' || raw === 'yandexv3' || raw === 'ymaps3') return 'yandex3';
     return 'yandex';
 };
 
@@ -181,6 +183,10 @@ window.startMainMap = function() {
     }
     if (provider === 'googleearth') {
         if (window.initGoogleEarthMap) window.initGoogleEarthMap();
+        return;
+    }
+    if (provider === 'yandex3') {
+        if (window.initYandex3Map) window.initYandex3Map();
         return;
     }
     if (typeof ymaps !== 'undefined') ymaps.ready(window.initYandexMap);
@@ -228,6 +234,7 @@ window.updateMapProviderHint = function() {
         osmbright: 'map_provider_osmbright_hint',
         dgis: 'map_provider_dgis_hint',
         googleearth: 'map_provider_google_hint',
+        yandex3: 'map_provider_yandex3_hint',
         yandex: 'map_provider_yandex_hint'
     };
     const key = keyMap[p] || 'map_provider_yandex_hint';
@@ -362,8 +369,8 @@ window.positionMarkerHoverCard = function() {
         if (window.positionMapboxHoverCard) window.positionMapboxHoverCard();
         return;
     }
-    if (window.currentMapProvider === 'dgis' || window.currentMapProvider === 'googleearth') {
-        // HTML markers share screen space; skip projection-based hover for WebGL providers without unproject.
+    if (window.currentMapProvider === 'dgis' || window.currentMapProvider === 'googleearth' || window.currentMapProvider === 'yandex3') {
+        // HTML markers share screen space; skip projection-based hover for non-2.1 providers.
         return;
     }
 
@@ -490,6 +497,10 @@ window.mapSetView = function(lat, lng, zoom = 15) {
         if (window.googleEarthSetView) window.googleEarthSetView(lat, lng, zoom);
         return;
     }
+    if (p === 'yandex3' && window.yandex3Map) {
+        if (window.yandex3SetView) window.yandex3SetView(lat, lng, zoom);
+        return;
+    }
     if (!window.map) return;
     window.map.setCenter([lat, lng], zoom, { duration: 800 });
 };
@@ -506,6 +517,10 @@ window.mapAddRouteOverlay = function(route, colorClass) {
     }
     if (p === 'googleearth') {
         if (window.googleEarthAddRouteOverlay) window.googleEarthAddRouteOverlay(route, colorClass);
+        return;
+    }
+    if (p === 'yandex3') {
+        if (window.yandex3AddRouteOverlay) window.yandex3AddRouteOverlay(route, colorClass);
         return;
     }
     window.clearMapRoutes();
@@ -539,6 +554,12 @@ window.setWalkerPosition = function(coords) {
         try {
             window.googleEarthWalker.position = { lat: coords[0], lng: coords[1], altitude: 0 };
         } catch (_) {}
+        return;
+    }
+    if (window.walkerMarker && window.walkerMarker.__yandex3 && coords) {
+        if (typeof window.walkerMarker.setCoordinates === 'function') {
+            window.walkerMarker.setCoordinates(coords);
+        }
         return;
     }
     if (!window.walkerMarker || !coords || !window.walkerMarker.geometry) return;
@@ -575,6 +596,20 @@ window.initMapLongPress = function() {
                     const rect = container.getBoundingClientRect();
                     const point = window.mapboxMap.unproject([start.x - rect.left, start.y - rect.top]);
                     coords = [point.lat, point.lng];
+                } else if (window.yandex3Map && window.currentMapProvider === 'yandex3') {
+                    if (Array.isArray(window.__yandex3PointerCoords) && window.__yandex3PointerCoords.length >= 2) {
+                        const [lng, lat] = window.__yandex3PointerCoords;
+                        coords = [lat, lng];
+                    } else {
+                        const rect = container.getBoundingClientRect();
+                        const px = [start.x - rect.left, start.y - rect.top];
+                        if (typeof window.yandex3Map.getCoordinatesFromPixels === 'function') {
+                            const [lng, lat] = window.yandex3Map.getCoordinatesFromPixels(px);
+                            coords = [lat, lng];
+                        } else {
+                            return;
+                        }
+                    }
                 } else {
                     const projection = window.map.options.get('projection');
                     const globalPixels = window.map.converter.pageToGlobal([start.pageX, start.pageY]);
@@ -845,6 +880,10 @@ window.updateMapMarkers = function() {
         if (window.updateGoogleEarthMarkers) window.updateGoogleEarthMarkers();
         return;
     }
+    if (p === 'yandex3') {
+        if (window.updateYandex3Markers) window.updateYandex3Markers();
+        return;
+    }
     if (!window.map || typeof ymaps === 'undefined') return;
 
     const filtered = window.getFilteredSounds ? window.getFilteredSounds() : window.soundsData || [];
@@ -990,12 +1029,15 @@ window.clearMapRoutes = function() {
     if (window.googleEarthMapEl || window.googleEarthWalker || (window.activePolyline && window.activePolyline.__googleearth)) {
         if (window.clearGoogleEarthRoutes) window.clearGoogleEarthRoutes();
     }
-    if (window.activePolyline && window.map?.geoObjects && !window.activePolyline.__mapbox && !window.activePolyline.__dgis && !window.activePolyline.__googleearth) {
+    if (window.yandex3Map || (window.activePolyline && window.activePolyline.__yandex3)) {
+        if (window.clearYandex3Routes) window.clearYandex3Routes();
+    }
+    if (window.activePolyline && window.map?.geoObjects && !window.activePolyline.__mapbox && !window.activePolyline.__dgis && !window.activePolyline.__googleearth && !window.activePolyline.__yandex3) {
         try { window.map.geoObjects.remove(window.activePolyline); } catch (_) {}
         window.activePolyline = null;
     }
-    if (window.walkerMarker && window.map?.geoObjects && !window.walkerMapboxMarker && !window.walkerMarker.__dgis && !window.walkerMarker.__googleearth) {
+    if (window.walkerMarker && window.map?.geoObjects && !window.walkerMapboxMarker && !window.walkerMarker.__dgis && !window.walkerMarker.__googleearth && !window.walkerMarker.__yandex3) {
         try { window.map.geoObjects.remove(window.walkerMarker); } catch (_) {}
         window.walkerMarker = null;
     }
-}
+};
