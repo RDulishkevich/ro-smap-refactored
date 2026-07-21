@@ -2,6 +2,9 @@
  * Quiet parallel engine: Yandex Maps JS API 3.x
  * Provider id: `yandex3` — opt-in from Settings. Default remains API 2.1 (`yandex`).
  * Hides basemap POI via scheme customization (not possible in 2.1).
+ *
+ * API 3 requires a non-empty HTTP Referer list on the key. Domains only
+ * (polevka.art, localhost, 127.0.0.1) — no https:// or /*. Propagation ~15 min.
  */
 
 window.YANDEX3_POI_CUSTOMIZATION = [
@@ -12,54 +15,84 @@ window.YANDEX3_POI_CUSTOMIZATION = [
 ];
 
 window.getYandexMapsApiKey = function getYandexMapsApiKey() {
+    const fromWindow = String(window.YANDEX_MAPS_API_KEY || '').trim();
+    if (fromWindow && fromWindow !== 'ваш_api_ключ_яндекс') return fromWindow;
     try {
         const scripts = document.querySelectorAll('script[src*="api-maps.yandex.ru"]');
         for (const s of scripts) {
             const m = String(s.src || '').match(/[?&]apikey=([^&]+)/i);
-            if (m && m[1] && m[1] !== encodeURIComponent('ваш_api_ключ_яндекс')) {
-                return decodeURIComponent(m[1]);
+            if (m && m[1]) {
+                const key = decodeURIComponent(m[1]);
+                if (key && key !== 'ваш_api_ключ_яндекс') return key;
             }
         }
     } catch (_) {}
     return '';
 };
 
+window.__resetYmaps3Load = function __resetYmaps3Load() {
+    window.__ymaps3LoadPromise = null;
+};
+
 window.loadYmaps3 = function loadYmaps3() {
     if (window.__ymaps3LoadPromise) return window.__ymaps3LoadPromise;
-    if (window.ymaps3 && window.ymaps3.ready) {
-        window.__ymaps3LoadPromise = window.ymaps3.ready.then(() => window.ymaps3);
-        return window.__ymaps3LoadPromise;
-    }
 
-    window.__ymaps3LoadPromise = new Promise((resolve, reject) => {
-        const key = window.getYandexMapsApiKey();
-        if (!key) {
-            reject(new Error('Yandex Maps API key missing'));
-            return;
-        }
-        const existing = document.querySelector('script[data-ymaps3]');
-        if (existing) {
-            existing.addEventListener('load', () => {
-                if (!window.ymaps3) reject(new Error('ymaps3 missing after load'));
-                else window.ymaps3.ready.then(() => resolve(window.ymaps3)).catch(reject);
+    window.__ymaps3LoadPromise = (async () => {
+        const host = (typeof location !== 'undefined' && location.hostname) || '';
+
+        // Prefer statically included v3 script from index.html.
+        if (!window.ymaps3) {
+            const key = window.getYandexMapsApiKey();
+            if (!key) throw new Error('Нет API-ключа Яндекс Карт');
+
+            await new Promise((resolve, reject) => {
+                const existing = document.querySelector('script[data-ymaps3]');
+                if (existing && window.ymaps3) {
+                    resolve();
+                    return;
+                }
+                if (existing) {
+                    existing.addEventListener('load', () => resolve(), { once: true });
+                    existing.addEventListener('error', () => reject(new Error('Скрипт API 3 не загрузился')), { once: true });
+                    // Already in DOM but load may have finished before listeners.
+                    setTimeout(() => {
+                        if (window.ymaps3) resolve();
+                    }, 50);
+                    return;
+                }
+                const script = document.createElement('script');
+                script.src = `https://api-maps.yandex.ru/v3/?apikey=${encodeURIComponent(key)}&lang=ru_RU`;
+                script.async = true;
+                script.dataset.ymaps3 = '1';
+                script.onload = () => resolve();
+                script.onerror = () => reject(new Error('Скрипт API 3 не загрузился'));
+                document.head.appendChild(script);
             });
-            existing.addEventListener('error', () => reject(new Error('ymaps3 script failed')));
-            return;
         }
-        const script = document.createElement('script');
-        script.src = `https://api-maps.yandex.ru/v3/?apikey=${encodeURIComponent(key)}&lang=ru_RU`;
-        script.async = true;
-        script.dataset.ymaps3 = '1';
-        script.onload = () => {
-            if (!window.ymaps3) {
-                reject(new Error('ymaps3 global missing'));
-                return;
-            }
-            window.ymaps3.ready.then(() => resolve(window.ymaps3)).catch(reject);
-        };
-        script.onerror = () => reject(new Error('Failed to load Yandex Maps API 3'));
-        document.head.appendChild(script);
+
+        if (!window.ymaps3 || !window.ymaps3.ready) {
+            throw new Error(
+                `ymaps3 недоступен (хост: ${host || 'unknown'}). Добавь «${host || 'localhost'}» в HTTP Referer ключа`
+            );
+        }
+
+        await Promise.race([
+            window.ymaps3.ready,
+            new Promise((_, reject) => {
+                setTimeout(() => {
+                    reject(new Error(
+                        `Таймаут API 3. Добавь домен «${host || 'localhost'}» в HTTP Referer (без https://) и подожди ~15 мин`
+                    ));
+                }, 15000);
+            })
+        ]);
+
+        return window.ymaps3;
+    })().catch((err) => {
+        window.__resetYmaps3Load();
+        throw err;
     });
+
     return window.__ymaps3LoadPromise;
 };
 
@@ -78,6 +111,7 @@ window.destroyYandex3Map = function destroyYandex3Map() {
     }
     window.yandex3Listener = null;
     window.yandex3FeaturesLayer = null;
+    window.__yandex3PointerCoords = null;
     if (window.map && window.map.__provider === 'yandex3') window.map = null;
     const container = document.getElementById('map');
     if (container) container.classList.remove('is-yandex3');
@@ -117,6 +151,7 @@ window.yandex3MarkerHtml = function yandex3MarkerHtml(sound, isSelected) {
 window.updateYandex3Markers = function updateYandex3Markers() {
     if (!window.yandex3Map || !window.ymaps3) return;
     const { YMapMarker } = window.ymaps3;
+    if (!YMapMarker) return;
     window.yandex3MarkerCache = window.yandex3MarkerCache || new Map();
 
     const filtered = window.getFilteredSounds ? window.getFilteredSounds() : (window.soundsData || []);
@@ -206,6 +241,7 @@ window.yandex3AddRouteOverlay = function yandex3AddRouteOverlay(route) {
     window.clearYandex3Routes();
     if (!window.yandex3Map || !window.ymaps3 || !route || route.length < 2) return;
     const { YMapFeature, YMapMarker } = window.ymaps3;
+    if (!YMapFeature || !YMapMarker) return;
     const coords = route.map((pt) => [pt[1], pt[0]]);
     try {
         window.yandex3RouteFeature = new YMapFeature({
@@ -244,152 +280,166 @@ window.yandex3AddRouteOverlay = function yandex3AddRouteOverlay(route) {
     }
 };
 
+window.__yandex3FallbackToClassic = function __yandex3FallbackToClassic(err) {
+    console.warn('[yandex3]', err);
+    const host = (typeof location !== 'undefined' && location.hostname) || '';
+    const detail = String(err?.message || err || '').slice(0, 160);
+    if (window.showToast) {
+        window.showToast(
+            detail
+                || `Тихий режим недоступен с «${host}». Добавь этот домен в HTTP Referer ключа Яндекса`
+        );
+    }
+    if (window.normalizeMapProvider && window.normalizeMapProvider(window.currentMapProvider) === 'yandex3') {
+        if (window.setMapProvider) window.setMapProvider('yandex');
+    }
+};
+
 window.initYandex3Map = async function initYandex3Map() {
     let ymaps3;
     try {
         ymaps3 = await window.loadYmaps3();
     } catch (err) {
-        console.warn(err);
-        if (window.showToast) {
-            window.showToast('Не удалось загрузить Яндекс Карты 3.0 — возвращаю классический режим');
-        }
-        if (window.setMapProvider) window.setMapProvider('yandex');
+        window.__yandex3FallbackToClassic(err);
         return;
     }
 
     const container = document.getElementById('map');
     if (!container) return;
 
-    if (window.destroyYandex3Map) window.destroyYandex3Map();
-    container.innerHTML = '';
-    container.classList.add('is-yandex3');
-    container.classList.remove('is-mapbox', 'is-dgis', 'is-googleearth', 'is-map-provider-placeholder');
-    if (window.currentMapStyle === 'monochrome') container.classList.add('map-monochrome');
-    else container.classList.remove('map-monochrome');
-
-    const {
-        YMap,
-        YMapDefaultSchemeLayer,
-        YMapDefaultFeaturesLayer,
-        YMapListener
-    } = ymaps3;
-
-    let YMapControls = null;
-    let YMapZoomControl = null;
     try {
-        const controls = await ymaps3.import('@yandex/ymaps3-controls@0.0.1');
-        YMapControls = controls.YMapControls;
-        YMapZoomControl = controls.YMapZoomControl;
-    } catch (_) {
-        // Zoom controls optional — gestures still work.
-    }
+        if (window.destroyYandex3Map) window.destroyYandex3Map();
+        container.innerHTML = '';
+        container.classList.add('is-yandex3');
+        container.classList.remove('is-mapbox', 'is-dgis', 'is-googleearth', 'is-map-provider-placeholder');
+        if (window.currentMapStyle === 'monochrome') container.classList.add('map-monochrome');
+        else container.classList.remove('map-monochrome');
 
-    const isMobile = window.innerWidth < 768;
-    const map = new YMap(container, {
-        location: {
-            center: [39.74427, 47.23371],
-            zoom: 15
-        },
-        theme: window.currentTheme === 'dark' ? 'dark' : 'light'
-    });
+        const {
+            YMap,
+            YMapDefaultSchemeLayer,
+            YMapDefaultFeaturesLayer,
+            YMapListener
+        } = ymaps3;
 
-    map.addChild(new YMapDefaultSchemeLayer({
-        customization: window.YANDEX3_POI_CUSTOMIZATION
-    }));
-    map.addChild(new YMapDefaultFeaturesLayer());
+        if (!YMap || !YMapDefaultSchemeLayer) {
+            throw new Error('Компоненты YMap не найдены после ymaps3.ready');
+        }
 
-    if (!isMobile && YMapControls && YMapZoomControl) {
+        const map = new YMap(container, {
+            location: {
+                center: [39.74427, 47.23371],
+                zoom: 15
+            },
+            theme: window.currentTheme === 'dark' ? 'dark' : 'light'
+        });
+
         try {
-            map.addChild(new YMapControls({ position: 'right' }).addChild(new YMapZoomControl({})));
-        } catch (_) {}
-    }
-
-    const listener = new YMapListener({
-        layer: 'any',
-        onClick: () => {
-            if (window.hideMarkerHoverCard) window.hideMarkerHoverCard(true);
-            if (window.hideMapContextMenu) window.hideMapContextMenu();
-        },
-        onActionStart: () => {
-            if (window.hideMarkerHoverCard) window.hideMarkerHoverCard(true);
-        },
-        onMouseMove: (_obj, event) => {
-            if (event?.coordinates) window.__yandex3PointerCoords = event.coordinates;
+            map.addChild(new YMapDefaultSchemeLayer({
+                customization: window.YANDEX3_POI_CUSTOMIZATION
+            }));
+        } catch (custErr) {
+            console.warn('[yandex3] customization failed, plain scheme', custErr);
+            map.addChild(new YMapDefaultSchemeLayer());
         }
-    });
-    map.addChild(listener);
-
-    window.yandex3Map = map;
-    window.yandex3Listener = listener;
-    window.yandex3MarkerCache = new Map();
-    window.__yandex3PointerCoords = null;
-
-    window.map = {
-        __provider: 'yandex3',
-        setCenter(coords, zoom, _opts) {
-            const [lat, lng] = coords;
-            window.yandex3SetView(lat, lng, zoom ?? 15);
-        },
-        getZoom() {
-            try {
-                return map.zoom ?? map.location?.zoom ?? 15;
-            } catch (_) {
-                return 15;
-            }
-        },
-        container: {
-            getElement() {
-                return container;
-            }
-        },
-        geoObjects: {
-            add() {},
-            remove() {}
-        },
-        destroy() {
-            window.destroyYandex3Map();
+        if (YMapDefaultFeaturesLayer) {
+            try { map.addChild(new YMapDefaultFeaturesLayer()); } catch (_) {}
         }
-    };
 
-    // Context menu (desktop) — prefer last pointer geo from YMapListener.
-    container.addEventListener('contextmenu', (e) => {
-        if (window.currentMapProvider !== 'yandex3') return;
-        e.preventDefault();
-        e.stopPropagation();
-        let coords = null;
-        if (Array.isArray(window.__yandex3PointerCoords) && window.__yandex3PointerCoords.length >= 2) {
-            const [lng, lat] = window.__yandex3PointerCoords;
-            coords = [lat, lng];
-        } else {
-            try {
-                if (typeof map.getCoordinatesFromPixels === 'function') {
-                    const rect = container.getBoundingClientRect();
-                    const [lng, lat] = map.getCoordinatesFromPixels([e.clientX - rect.left, e.clientY - rect.top]);
-                    coords = [lat, lng];
+        // Zoom controls via separate package — optional, never block map init.
+        if (window.innerWidth >= 768 && typeof ymaps3.import === 'function') {
+            ymaps3.import('@yandex/ymaps3-controls@0.0.1').then((controls) => {
+                try {
+                    const { YMapControls, YMapZoomControl } = controls || {};
+                    if (YMapControls && YMapZoomControl && window.yandex3Map === map) {
+                        map.addChild(new YMapControls({ position: 'right' }).addChild(new YMapZoomControl({})));
+                    }
+                } catch (_) {}
+            }).catch(() => {});
+        }
+
+        if (YMapListener) {
+            const listener = new YMapListener({
+                layer: 'any',
+                onClick: () => {
+                    if (window.hideMarkerHoverCard) window.hideMarkerHoverCard(true);
+                    if (window.hideMapContextMenu) window.hideMapContextMenu();
+                },
+                onActionStart: () => {
+                    if (window.hideMarkerHoverCard) window.hideMarkerHoverCard(true);
+                },
+                onMouseMove: (_obj, event) => {
+                    if (event?.coordinates) window.__yandex3PointerCoords = event.coordinates;
                 }
-            } catch (_) {}
-        }
-        if (!coords) {
-            try {
-                const center = map.center || map.location?.center;
-                if (center) coords = [center[1], center[0]];
-            } catch (__) {}
-        }
-        if (coords && window.showMapContextMenu) {
-            window.showMapContextMenu(coords, {
-                clientX: e.clientX,
-                clientY: e.clientY,
-                pageX: e.pageX,
-                pageY: e.pageY
             });
+            map.addChild(listener);
+            window.yandex3Listener = listener;
         }
-    }, { capture: true });
 
-    if (window.initMapLongPress) {
-        container.__longPressBound = false;
-        window.initMapLongPress();
+        window.yandex3Map = map;
+        window.yandex3MarkerCache = new Map();
+        window.__yandex3PointerCoords = null;
+
+        window.map = {
+            __provider: 'yandex3',
+            setCenter(coords, zoom, _opts) {
+                const [lat, lng] = coords;
+                window.yandex3SetView(lat, lng, zoom ?? 15);
+            },
+            getZoom() {
+                try {
+                    return map.zoom ?? map.location?.zoom ?? 15;
+                } catch (_) {
+                    return 15;
+                }
+            },
+            container: {
+                getElement() {
+                    return container;
+                }
+            },
+            geoObjects: {
+                add() {},
+                remove() {}
+            },
+            destroy() {
+                window.destroyYandex3Map();
+            }
+        };
+
+        container.addEventListener('contextmenu', (e) => {
+            if (window.currentMapProvider !== 'yandex3') return;
+            e.preventDefault();
+            e.stopPropagation();
+            let coords = null;
+            if (Array.isArray(window.__yandex3PointerCoords) && window.__yandex3PointerCoords.length >= 2) {
+                const [lng, lat] = window.__yandex3PointerCoords;
+                coords = [lat, lng];
+            }
+            if (!coords) {
+                try {
+                    const center = map.center || map.location?.center;
+                    if (center) coords = [center[1], center[0]];
+                } catch (_) {}
+            }
+            if (coords && window.showMapContextMenu) {
+                window.showMapContextMenu(coords, {
+                    clientX: e.clientX,
+                    clientY: e.clientY,
+                    pageX: e.pageX,
+                    pageY: e.pageY
+                });
+            }
+        }, { capture: true });
+
+        if (window.initMapLongPress) {
+            container.__longPressBound = false;
+            window.initMapLongPress();
+        }
+
+        window.__mainMapReady = true;
+        if (window.updateMapMarkers) window.updateMapMarkers();
+    } catch (err) {
+        window.__yandex3FallbackToClassic(err);
     }
-
-    window.__mainMapReady = true;
-    if (window.updateMapMarkers) window.updateMapMarkers();
 };
