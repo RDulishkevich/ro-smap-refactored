@@ -263,7 +263,9 @@ window.initYandexMap = function() {
         zoom: 15,
         controls: isMobile ? [] : ['zoomControl']
     }, {
-        suppressMapOpenBlock: true
+        suppressMapOpenBlock: true,
+        // POI icons stay on the basemap (API 2.1 cannot hide them), but disable ads/org popups.
+        yandexMapDisablePoiInteractivity: true
     });
     if (container) {
         if (window.currentMapStyle === 'monochrome') container.classList.add('map-monochrome');
@@ -632,6 +634,9 @@ window.initLocationPickerMap = function() {
             center: initialCoords,
             zoom: 12,
             controls: ['zoomControl', 'fullscreenControl']
+        }, {
+            yandexMapDisablePoiInteractivity: true,
+            suppressMapOpenBlock: true
         });
 
         window.locationPickerMap.events.add('click', function (e) {
@@ -790,6 +795,9 @@ window.renderProfileMiniMap = function(containerId, sounds) {
             center: [47.23371, 39.74427],
             zoom: 9,
             controls: []
+        }, {
+            yandexMapDisablePoiInteractivity: true,
+            suppressMapOpenBlock: true
         });
     } else {
         window.profileMiniMap.geoObjects.removeAll();
