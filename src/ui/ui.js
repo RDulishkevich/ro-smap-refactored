@@ -3404,7 +3404,7 @@ window.dockCabinetContent = function() {
 };
 
 window.clearRailTabActive = function() {
-    ['rail-library', 'rail-expeditions', 'rail-help', 'rail-admin'].forEach(id => {
+    ['rail-library', 'rail-feed', 'rail-expeditions', 'rail-help', 'rail-admin'].forEach(id => {
         const btn = document.getElementById(id);
         if (!btn) return;
         btn.classList.remove('is-active');
@@ -3616,6 +3616,7 @@ window.__openDockViewImpl = function(view) {
         const btnLib = document.getElementById('tab-library');
         const btnExp = document.getElementById('tab-expeditions');
         const railLib = document.getElementById('rail-library');
+        const railFeed = document.getElementById('rail-feed');
         const railExp = document.getElementById('rail-expeditions');
         const panelLib = document.getElementById('sidebar-library');
         const panelFeed = document.getElementById('sidebar-feed');
@@ -3626,6 +3627,7 @@ window.__openDockViewImpl = function(view) {
         if (next === 'feed') {
             if (mobileTabs) mobileTabs.classList.add('hidden');
             if (panelFeed) panelFeed.classList.remove('hidden');
+            if (railFeed) { railFeed.classList.add('is-active'); railFeed.setAttribute('aria-current', 'page'); }
             window.setDockHeader('Лента', 'Новости и посты', false);
             if (window.renderSidebarFeed) window.renderSidebarFeed();
         } else if (next === 'expeditions') {

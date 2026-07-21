@@ -43,8 +43,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260721p">
-    <link rel="stylesheet" href="./src/glass.css?v=20260721p">
+    <link rel="stylesheet" href="./src/style.css?v=20260721q">
+    <link rel="stylesheet" href="./src/glass.css?v=20260721q">
     
     <!-- FontAwesome & Omnitone (Maps JS API key loaded at runtime via Secure API publicConfig — not in source) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha384-t1nt8BQoYMLFN5p42tRAtuAAFQaCQODekUVeKKZrEnEyp4H2R0RHFz0KWpmj7i8g" crossorigin="anonymous" referrerpolicy="no-referrer">
@@ -101,6 +101,9 @@
             </div>
             <button type="button" id="rail-library" class="app-rail__btn" onclick="window.switchSidebarTab('library')" title="Библиотека">
                 <i class="fa-solid fa-layer-group"></i>
+            </button>
+            <button type="button" id="rail-feed" class="app-rail__btn" onclick="window.switchSidebarTab('feed')" title="Лента">
+                <i class="fa-solid fa-newspaper"></i>
             </button>
             <button type="button" id="rail-expeditions" class="app-rail__btn" onclick="window.switchSidebarTab('expeditions')" title="Экспедиции">
                 <i class="fa-solid fa-route"></i>
@@ -961,6 +964,7 @@
                         <button type="button" class="cabinet-mobile-row" onclick="window.switchCabinetTab('analytics')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-chart-line"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_analytics">Аналитика</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
                         <button type="button" class="cabinet-mobile-row" onclick="window.switchCabinetTab('settings')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-gear"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_settings">Настройки</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
                         <button type="button" class="cabinet-mobile-row" onclick="window.hideDockPanel(); window.toggleNotificationsPanel && window.toggleNotificationsPanel();"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-bell"></i></span><span class="cabinet-mobile-row__label" data-lang="notifications_title">Уведомления</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
+                        <button type="button" class="cabinet-mobile-row" onclick="window.toggleMessagesPanel && window.toggleMessagesPanel()"><span class="cabinet-mobile-row__icon relative"><i class="fa-solid fa-envelope"></i><span id="cab-mobile-msg-badge" class="hidden absolute -top-1 -right-1 min-w-[1rem] h-[1rem] px-0.5 rounded-full bg-blue-500 text-white text-[9px] font-bold flex items-center justify-center">0</span></span><span class="cabinet-mobile-row__label" data-lang="messages_title">Сообщения</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
                         <button type="button" class="cabinet-mobile-row" onclick="window.switchCabinetTab('security')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-lock"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_security">Сменить пароль</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
                         <button type="button" id="cab-mobile-admin" class="cabinet-mobile-row hidden" onclick="window.openAdminPanel()"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-shield-halved"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_admin">Админ-панель</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
                     </div>
@@ -2214,7 +2218,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260721p"></script>
+    <script type="module" src="./src/main.js?v=20260721q"></script>
 
 </body>
 </html>

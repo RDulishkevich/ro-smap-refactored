@@ -1431,7 +1431,7 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
         gap: 0.65rem;
     }
     #burger-btn { display: none !important; }
-    #msg-wrap-mobile,
+    /* Messages stay in map chrome when logged in; profile/settings live in bottom nav */
     #settings-btn-mobile,
     #profile-btn-mobile {
         display: none !important;

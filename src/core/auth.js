@@ -3756,6 +3756,16 @@ export function initAuth() {
         };
         apply(btn, badge);
         apply(btnMobile, badgeMobile);
+        const cabMsgBadge = document.getElementById('cab-mobile-msg-badge');
+        if (cabMsgBadge) {
+            if (!window.currentUser) {
+                cabMsgBadge.classList.add('hidden');
+            } else {
+                const unread = window.getMyInbox().filter(m => !m.read && !m.deleted).length;
+                cabMsgBadge.textContent = unread > 99 ? '99+' : String(unread);
+                cabMsgBadge.classList.toggle('hidden', unread === 0);
+            }
+        }
         const navBadge = document.getElementById('mobile-nav-inbox-badge');
         if (navBadge) {
             if (!window.currentUser) {
