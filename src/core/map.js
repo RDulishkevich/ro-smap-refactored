@@ -371,35 +371,58 @@ window.hideMarkerHoverCard = function(immediate = false) {
     else window.__markerHoverHideTimer = setTimeout(hide, 80);
 };
 
+/** Place fixed hover card near a viewport (client) point above the marker. */
+window.positionHoverCardAtClient = function(clientX, clientY) {
+    const card = document.getElementById('marker-hover-card');
+    if (!card || !Number.isFinite(clientX) || !Number.isFinite(clientY)) return false;
+    const cardW = card.offsetWidth || 196;
+    const cardH = card.offsetHeight || 170;
+    const pad = 10;
+    const vw = window.innerWidth || document.documentElement.clientWidth || 0;
+    const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+    let left = clientX - cardW / 2;
+    let top = clientY - cardH - 18;
+    left = Math.max(pad, Math.min(left, vw - cardW - pad));
+    if (top < pad) top = clientY + 22;
+    top = Math.max(pad, Math.min(top, vh - cardH - pad));
+    card.style.left = `${Math.round(left)}px`;
+    card.style.top = `${Math.round(top)}px`;
+    return true;
+};
+
 window.positionMarkerHoverCard = function() {
     const card = document.getElementById('marker-hover-card');
-    if (!card || !window.map || !window.__markerHoverCoords) return;
+    if (!card || !window.__markerHoverCoords) return;
 
+    // 1) DOM marker — reliable for Yandex 2.1 HTML layouts, MapLibre, Yandex 3, 2GIS, etc.
+    const soundId = window.__markerHoverSoundId;
+    const markerEl = soundId ? document.getElementById(`marker-${soundId}`) : null;
+    if (markerEl) {
+        const r = markerEl.getBoundingClientRect();
+        if (r.width > 0 || r.height > 0 || r.top !== 0 || r.left !== 0) {
+            window.positionHoverCardAtClient(r.left + r.width / 2, r.top);
+            return;
+        }
+    }
+
+    // 2) MapLibre / Mapbox projection
     if (window.mapboxMap && window.isMapLibreProvider && window.isMapLibreProvider(window.currentMapProvider)) {
         if (window.positionMapboxHoverCard) window.positionMapboxHoverCard();
         return;
     }
-    if (window.currentMapProvider === 'dgis' || window.currentMapProvider === 'googleearth' || window.currentMapProvider === 'yandex3') {
-        // HTML markers share screen space; skip projection-based hover for non-2.1 providers.
-        return;
-    }
 
-    try {
-        const projection = window.map.options.get('projection');
-        const zoom = window.map.getZoom();
-        const globalPixels = projection.toGlobalPixels(window.__markerHoverCoords, zoom);
-        const pagePixels = window.map.converter.globalToPage(globalPixels);
-        const cardW = card.offsetWidth || 196;
-        const cardH = card.offsetHeight || 170;
-        const pad = 10;
-        let left = pagePixels[0] - cardW / 2;
-        let top = pagePixels[1] - cardH - 18;
-        left = Math.max(pad, Math.min(left, (window.innerWidth || 0) - cardW - pad));
-        if (top < pad) top = pagePixels[1] + 22;
-        top = Math.max(pad, Math.min(top, (window.innerHeight || 0) - cardH - pad));
-        card.style.left = `${Math.round(left)}px`;
-        card.style.top = `${Math.round(top)}px`;
-    } catch (_) {}
+    // 3) Yandex Maps JS API 2.1 projection (page → client)
+    if (window.map && window.map.converter && (window.currentMapProvider === 'yandex' || !window.currentMapProvider)) {
+        try {
+            const projection = window.map.options.get('projection');
+            const zoom = window.map.getZoom();
+            const globalPixels = projection.toGlobalPixels(window.__markerHoverCoords, zoom);
+            const pagePixels = window.map.converter.globalToPage(globalPixels);
+            const sx = window.scrollX || window.pageXOffset || 0;
+            const sy = window.scrollY || window.pageYOffset || 0;
+            window.positionHoverCardAtClient(pagePixels[0] - sx, pagePixels[1] - sy);
+        } catch (_) { /* keep last position */ }
+    }
 };
 
 window.showMarkerHoverCard = function(sound) {
@@ -463,7 +486,11 @@ window.showMarkerHoverCard = function(sound) {
     card.hidden = false;
     card.setAttribute('aria-hidden', 'false');
     window.positionMarkerHoverCard();
-    requestAnimationFrame(() => card.classList.add('is-visible'));
+    requestAnimationFrame(() => {
+        card.classList.add('is-visible');
+        // Second pass after unhide — real card size + DOM marker rect
+        window.positionMarkerHoverCard();
+    });
 
     // Если в данных 0:00 — пробуем длительность из аудиофайла
     if (knownSecs <= 0 && sound.url && window.probeAudioDuration) {

@@ -524,16 +524,9 @@ window.positionMapboxHoverCard = function() {
         const point = window.mapboxMap.project(lngLat);
         const container = window.mapboxMap.getContainer();
         const rect = container.getBoundingClientRect();
-        const cardW = card.offsetWidth || 196;
-        const cardH = card.offsetHeight || 170;
-        const pad = 10;
-        let left = rect.left + point.x - cardW / 2;
-        let top = rect.top + point.y - cardH - 18;
-        left = Math.max(pad, Math.min(left, (window.innerWidth || 0) - cardW - pad));
-        if (top < pad) top = rect.top + point.y + 22;
-        top = Math.max(pad, Math.min(top, (window.innerHeight || 0) - cardH - pad));
-        card.style.left = `${Math.round(left)}px`;
-        card.style.top = `${Math.round(top)}px`;
+        if (window.positionHoverCardAtClient) {
+            window.positionHoverCardAtClient(rect.left + point.x, rect.top + point.y);
+        }
     } catch (_) {}
 };
 
