@@ -19,10 +19,10 @@
     <link rel="apple-touch-icon" href="./Logo.png" sizes="512x512">
 
     <!-- Tailwind (self-hosted build — без Play CDN / без unsafe-eval) -->
-    <link rel="stylesheet" href="./src/tailwind.built.css?v=20260721r">
+    <link rel="stylesheet" href="./src/tailwind.built.css?v=20260721t">
     
-    <link rel="stylesheet" href="./src/style.css?v=20260721r">
-    <link rel="stylesheet" href="./src/glass.css?v=20260721r">
+    <link rel="stylesheet" href="./src/style.css?v=20260721t">
+    <link rel="stylesheet" href="./src/glass.css?v=20260721t">
     
     <!-- FontAwesome & Omnitone (Maps JS API key loaded at runtime via Secure API publicConfig — not in source) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha384-t1nt8BQoYMLFN5p42tRAtuAAFQaCQODekUVeKKZrEnEyp4H2R0RHFz0KWpmj7i8g" crossorigin="anonymous" referrerpolicy="no-referrer">
@@ -137,7 +137,7 @@
             <div id="active-tags-container" class="map-top-toolbar__tags flex flex-wrap gap-1.5 empty:hidden overflow-hidden"></div>
         </div>
 
-        <!-- Mobile top-right: notifications only (rest → bottom nav) -->
+        <!-- Top-right: events (both); msg/notif after login (mobile only). Profile/settings → bottom nav / rail. -->
         <div id="map-top-right-controls" class="absolute top-4 right-4 md:top-6 md:right-6 pointer-events-auto z-50 flex items-center gap-2 sm:gap-3">
             <button type="button" id="events-fab" onclick="window.toggleEventsPanel()" class="relative map-icon-btn inline-flex" title="Ивенты" aria-label="Ивенты" aria-expanded="false">
                 <i class="fa-solid fa-calendar-days"></i>
@@ -149,16 +149,16 @@
                     <span id="msg-badge-mobile" class="hidden absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center shadow">0</span>
                 </button>
             </div>
-            <div class="relative" id="notif-wrap-mobile">
-                <button type="button" onclick="window.toggleNotificationsPanel(event)" id="notif-btn-mobile" class="hidden relative map-icon-btn md:hidden" title="Уведомления" data-lang-title="notifications_title">
+            <div class="relative md:hidden" id="notif-wrap-mobile">
+                <button type="button" onclick="window.toggleNotificationsPanel(event)" id="notif-btn-mobile" class="hidden relative map-icon-btn" title="Уведомления" data-lang-title="notifications_title">
                     <i class="fa-solid fa-bell"></i>
                     <span id="notif-badge-mobile" class="hidden absolute -top-1 -right-1 min-w-[1.2rem] h-[1.2rem] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none flex items-center justify-center shadow">0</span>
                 </button>
             </div>
-            <button onclick="window.openSettingsPanel()" id="settings-btn-mobile" class="map-icon-btn hidden md:hidden" title="Настройки">
+            <button onclick="window.openSettingsPanel()" id="settings-btn-mobile" class="map-icon-btn hidden" title="Настройки" aria-hidden="true" tabindex="-1">
                 <i class="fa-solid fa-gear"></i>
             </button>
-            <button onclick="window.toggleCabinet()" id="profile-btn-mobile" class="map-icon-btn map-icon-btn--accent hidden md:hidden" title="Личный кабинет" data-lang-title="profile_title">
+            <button onclick="window.toggleCabinet()" id="profile-btn-mobile" class="map-icon-btn map-icon-btn--accent hidden" title="Личный кабинет" data-lang-title="profile_title" aria-hidden="true" tabindex="-1">
                 <img id="profile-btn-mobile-avatar" class="profile-btn-avatar hidden" alt="">
                 <i class="fa-solid fa-user-astronaut profile-btn-icon"></i>
             </button>
@@ -2229,7 +2229,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260721r"></script>
+    <script type="module" src="./src/main.js?v=20260721t"></script>
 
 </body>
 </html>

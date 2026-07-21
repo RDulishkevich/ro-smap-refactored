@@ -188,6 +188,30 @@ body {
 .map-icon-btn.hidden {
     display: none !important;
 }
+.app-rail__btn.hidden {
+    display: none !important;
+}
+/*
+ * Chrome visibility (canonical):
+ * - Desktop ≥768: account actions in #app-rail; map top-right = events only.
+ * - Mobile <768: bottom nav + map top-right = events + messages + notifications.
+ * Never rely on Tailwind md:hidden alone for .map-icon-btn — display:inline-flex wins.
+ */
+@media (min-width: 768px) {
+    #notif-wrap-mobile,
+    #msg-wrap-mobile,
+    #settings-btn-mobile,
+    #profile-btn-mobile,
+    #burger-btn,
+    #mobile-bottom-nav {
+        display: none !important;
+    }
+}
+@media (max-width: 767px) {
+    #app-rail {
+        display: none !important;
+    }
+}
 .map-icon-btn:hover { transform: translateY(-1px) scale(1.03); }
 .map-icon-btn:active { transform: scale(0.96); }
 .map-icon-btn--accent { color: var(--accent-ink); }
