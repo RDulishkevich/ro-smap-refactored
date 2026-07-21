@@ -2929,7 +2929,7 @@ window.getFilteredSounds = function(forceRefresh = false) {
     return filtered;
 }
 
-window.__listVirt = window.__listVirt || { rowH: 68, overscan: 8, items: [], key: '' };
+window.__listVirt = window.__listVirt || { rowH: 68, overscan: 10, items: [], key: '' };
 
 window.buildSoundListRowHtml = function(sound) {
     const isSelected = window.currentPlayingId === sound.id;
@@ -2942,7 +2942,7 @@ window.buildSoundListRowHtml = function(sound) {
     return `
         <div class="sidebar-sound-row${isSelected ? ' is-active' : ''}" data-sound-id="${esc(sound.id)}" onclick="window.selectSound('${safeId}')">
             ${thumb
-                ? `<img src="${esc(thumb)}" alt="" class="sidebar-sound-thumb" loading="lazy">`
+                ? `<img src="${esc(thumb)}" alt="" class="sidebar-sound-thumb" decoding="async" fetchpriority="low">`
                 : `<span class="sidebar-sound-thumb sidebar-sound-thumb--empty" aria-hidden="true"><i class="fa-solid fa-wave-square"></i></span>`}
             <button type="button" class="sidebar-sound-row__play${playing ? ' is-playing' : ''}" tabindex="-1">
                 ${playing ? '<i class="fa-solid fa-pause text-xs"></i>' : '<i class="fa-solid fa-play text-xs translate-x-[1px]"></i>'}
@@ -2957,6 +2957,20 @@ window.buildSoundListRowHtml = function(sound) {
         </div>`;
 };
 
+window.syncSoundListRowState = function(row, sound) {
+    if (!row || !sound) return;
+    const isSelected = window.currentPlayingId === sound.id;
+    const playing = isSelected && window.isPlaying;
+    row.classList.toggle('is-active', isSelected);
+    const playBtn = row.querySelector('.sidebar-sound-row__play');
+    if (playBtn) {
+        playBtn.classList.toggle('is-playing', playing);
+        playBtn.innerHTML = playing
+            ? '<i class="fa-solid fa-pause text-xs"></i>'
+            : '<i class="fa-solid fa-play text-xs translate-x-[1px]"></i>';
+    }
+};
+
 window.renderListWindow = function(force = false) {
     const listContainer = document.getElementById('sounds-list');
     if (!listContainer) return;
@@ -2964,7 +2978,7 @@ window.renderListWindow = function(force = false) {
     if (!items.length) return;
 
     const rowH = window.__listVirt.rowH || 68;
-    const overscan = window.__listVirt.overscan || 8;
+    const overscan = window.__listVirt.overscan || 10;
     const scrollTop = listContainer.scrollTop || 0;
     const viewH = listContainer.clientHeight || 480;
     const start = Math.max(0, Math.floor(scrollTop / rowH) - overscan);
@@ -2976,10 +2990,36 @@ window.renderListWindow = function(force = false) {
     const topPad = start * rowH;
     const bottomPad = Math.max(0, (items.length - end) * rowH);
     const slice = items.slice(start, end);
-    listContainer.innerHTML = `
-        <div class="sounds-list-virt" style="padding-top:${topPad}px;padding-bottom:${bottomPad}px">
-            ${slice.map((sound) => window.buildSoundListRowHtml(sound)).join('')}
-        </div>`;
+
+    let wrap = listContainer.querySelector('.sounds-list-virt');
+    if (!wrap) {
+        listContainer.innerHTML = '<div class="sounds-list-virt"></div>';
+        wrap = listContainer.querySelector('.sounds-list-virt');
+    }
+    wrap.style.paddingTop = `${topPad}px`;
+    wrap.style.paddingBottom = `${bottomPad}px`;
+
+    const wanted = new Set(slice.map((s) => String(s.id)));
+    [...wrap.children].forEach((el) => {
+        const id = el.getAttribute('data-sound-id');
+        if (!wanted.has(id)) el.remove();
+    });
+
+    const existing = new Map();
+    [...wrap.children].forEach((el) => existing.set(el.getAttribute('data-sound-id'), el));
+
+    slice.forEach((sound) => {
+        const id = String(sound.id);
+        let row = existing.get(id);
+        if (!row) {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = window.buildSoundListRowHtml(sound).trim();
+            row = tmp.firstElementChild;
+        } else if (force || window.currentPlayingId === sound.id || row.classList.contains('is-active')) {
+            window.syncSoundListRowState(row, sound);
+        }
+        wrap.appendChild(row);
+    });
 };
 
 window.renderList = function() {

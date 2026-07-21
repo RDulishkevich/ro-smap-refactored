@@ -109,21 +109,27 @@ window.maybeHintAddToHomeScreen = function maybeHintAddToHomeScreen() {
 };
 
 window.canUseDeviceNotifications = function canUseDeviceNotifications() {
-    return typeof window.Notification !== 'undefined';
+    return typeof window.Notification !== 'undefined'
+        && !!(window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1');
 };
 
 window.showDeviceNotificationFromInbox = function showDeviceNotificationFromInbox(n) {
-    if (!window.canUseDeviceNotifications()) return;
-    if (Notification.permission !== 'granted') return;
-    if (document.visibilityState === 'visible' && !(window.isPolevkaStandalone && window.isPolevkaStandalone())) {
-        // In browser tab avoid noisy OS toasts; still allow in installed PWA
+    const body = String(n?.text || 'Новое уведомление').slice(0, 140);
+    const canNotify = window.canUseDeviceNotifications && window.canUseDeviceNotifications()
+        && typeof Notification !== 'undefined'
+        && Notification.permission === 'granted';
+
+    // Browser tab without OS permission / insecure context: keep feedback in-app.
+    if (!canNotify) {
+        if (document.visibilityState === 'visible' && window.showToast) {
+            window.showToast(body);
+        }
         return;
     }
-    const title = 'Полёвка';
-    const body = String(n?.text || 'Новое уведомление').slice(0, 140);
+
     try {
         const icon = new URL('Logo.png', document.baseURI || location.href).href;
-        const note = new Notification(title, {
+        const note = new Notification('Полёвка', {
             body,
             icon,
             badge: icon,
@@ -134,9 +140,11 @@ window.showDeviceNotificationFromInbox = function showDeviceNotificationFromInbo
             try { window.focus(); } catch (_) {}
             note.close();
             if (n?.id && window.openNotification) window.openNotification(n.id);
+            else if (window.toggleNotificationsPanel) window.toggleNotificationsPanel();
         };
     } catch (err) {
         console.warn('Device notification failed', err);
+        if (window.showToast) window.showToast(body);
     }
 };
 

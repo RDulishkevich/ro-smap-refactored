@@ -264,7 +264,7 @@ button.app-rail__btn.hidden,
 #notif-panel,
 #notif-panel.notif-panel {
     border-radius: var(--radius-lg) !important;
-    z-index: 90 !important;
+    z-index: 230 !important;
     background: var(--panel-solid) !important;
     background-color: var(--panel-solid) !important;
     border: 1px solid var(--glass-rim-outer) !important;

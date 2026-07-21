@@ -3120,29 +3120,21 @@ export function initAuth() {
 
     window.toggleNotificationsPanel = function(ev) {
         if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
-        if (!window.currentUser) return;
+        if (!window.currentUser) {
+            if (window.showToast) window.showToast('Войдите, чтобы видеть уведомления');
+            if (window.openAuthModal) window.openAuthModal();
+            return;
+        }
         const panel = document.getElementById('notif-panel');
         if (!panel) return;
         const opening = panel.classList.contains('hidden');
         panel.classList.toggle('hidden', !opening);
         if (opening) {
-            const anchor = (window.innerWidth < 768)
-                ? document.getElementById('notif-btn-mobile')
-                : document.getElementById('notif-btn');
-            if (window.innerWidth < 768) {
-                // Mobile layout is CSS-owned (under top chrome, above bottom rail).
-                panel.style.left = '';
-                panel.style.right = '';
-                panel.style.top = '';
-                panel.style.bottom = '';
-                panel.style.width = '';
-            } else if (anchor) {
-                panel.style.left = '';
-                panel.style.right = '';
-                panel.style.top = '';
-                panel.style.bottom = '';
-                panel.style.width = '';
-            }
+            panel.style.left = '';
+            panel.style.right = '';
+            panel.style.top = '';
+            panel.style.bottom = '';
+            panel.style.width = '';
             if (window.playSfx) window.playSfx('open');
             window.renderNotificationsList();
         } else if (window.playSfx) {
@@ -3170,11 +3162,13 @@ export function initAuth() {
             expedition: 'fa-route',
             moderation: 'fa-clipboard-check'
         };
+        const esc = window.escMsgHtml || ((t) => String(t ?? '')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'));
         list.innerHTML = items.map(n => `
-            <button onclick="window.openNotification('${n.id}')" class="notif-item ${n.read ? '' : 'unread'} w-full text-left">
+            <button onclick="window.openNotification('${esc(n.id)}')" class="notif-item ${n.read ? '' : 'unread'} w-full text-left">
                 <i class="fa-solid ${icons[n.type] || 'fa-bell'} notif-item-icon"></i>
                 <div class="min-w-0 flex-1">
-                    <p class="text-xs font-semibold text-slate-700 dark:text-slate-200 leading-snug">${n.text}</p>
+                    <p class="text-xs font-semibold text-slate-700 dark:text-slate-200 leading-snug">${esc(n.text)}</p>
                     <p class="text-[10px] text-slate-400 mt-0.5">${n.date ? new Date(n.date).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</p>
                 </div>
             </button>

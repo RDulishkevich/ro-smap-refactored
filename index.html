@@ -42,8 +42,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260721a">
-    <link rel="stylesheet" href="./src/glass.css?v=20260721a">
+    <link rel="stylesheet" href="./src/style.css?v=20260721b">
+    <link rel="stylesheet" href="./src/glass.css?v=20260721b">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -140,18 +140,6 @@
                 </button>
             </div>
         </nav>
-
-        <!-- Notifications popover (outside rail so it is not clipped / glass-bleed) -->
-        <div id="notif-panel" class="notif-panel hidden pointer-events-auto z-[90] flex flex-col overflow-hidden">
-            <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0 gap-2">
-                <h4 class="text-sm font-bold text-slate-800 dark:text-white" data-lang="notifications_title">Уведомления</h4>
-                <div class="flex items-center gap-2 shrink-0">
-                    <button type="button" onclick="window.clearAllNotifications()" class="text-[11px] font-semibold text-slate-400 hover:text-red-500 transition-colors">Очистить</button>
-                    <button type="button" onclick="window.markAllNotificationsRead()" class="text-[11px] font-semibold text-accent hover:opacity-80">Прочитать все</button>
-                </div>
-            </div>
-            <div id="notif-list" class="overflow-y-auto custom-scrollbar flex-1 p-2 space-y-1 min-h-0"></div>
-        </div>
 
         <!-- Floating top toolbar: search morphs from loupe; tags -->
         <div id="map-top-toolbar" class="map-top-toolbar pointer-events-auto z-[50]">
@@ -679,6 +667,19 @@
 
     </div>
 
+    <!-- Notifications: body-level so overflow-hidden chrome does not clip / trap stacking -->
+    <div id="notif-panel" class="notif-panel hidden pointer-events-auto z-[230] flex flex-col overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0 gap-2">
+            <h4 class="text-sm font-bold text-slate-800 dark:text-white" data-lang="notifications_title">Уведомления</h4>
+            <div class="flex items-center gap-2 shrink-0">
+                <button type="button" onclick="window.clearAllNotifications()" class="text-[11px] font-semibold text-slate-400 hover:text-red-500 transition-colors">Очистить</button>
+                <button type="button" onclick="window.markAllNotificationsRead()" class="text-[11px] font-semibold text-accent hover:opacity-80">Прочитать все</button>
+                <button type="button" onclick="window.toggleNotificationsPanel()" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 md:hidden" aria-label="Закрыть"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </div>
+        <div id="notif-list" class="overflow-y-auto custom-scrollbar flex-1 p-2 space-y-1 min-h-0"></div>
+    </div>
+
     <!-- Модальное окно: АВТОРИЗАЦИЯ -->
     <div id="auth-modal" onmousedown="if(event.target === this) window.requestCloseAuthModal()" class="fixed inset-0 z-[250] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
         <div class="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-sm app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
@@ -934,7 +935,9 @@
                         <button type="button" class="cabinet-mobile-row" onclick="window.switchCabinetTab('settings')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-gear"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_settings">Настройки</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
                         <button type="button" class="cabinet-mobile-row" onclick="window.hideDockPanel(); window.toggleNotificationsPanel && window.toggleNotificationsPanel();"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-bell"></i></span><span class="cabinet-mobile-row__label" data-lang="notifications_title">Уведомления</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
                         <button type="button" class="cabinet-mobile-row" onclick="window.switchCabinetTab('security')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-lock"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_security">Сменить пароль</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
+                        <button type="button" class="cabinet-mobile-row" onclick="window.openOwnPublicProfile()"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-id-badge"></i></span><span class="cabinet-mobile-row__label" data-lang="public_profile">Публичный профиль</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
                         <button type="button" id="cab-mobile-admin" class="cabinet-mobile-row hidden" onclick="window.openAdminPanel()"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-shield-halved"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_admin">Админ-панель</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
+                        <button type="button" class="cabinet-mobile-row cabinet-mobile-row--danger" onclick="window.logoutUser()"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-right-from-bracket"></i></span><span class="cabinet-mobile-row__label">Выйти</span></button>
                     </div>
                     <div class="grid grid-cols-2 gap-4 mb-4">
                         <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-center items-center text-center">
@@ -2166,7 +2169,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260721a"></script>
+    <script type="module" src="./src/main.js?v=20260721b"></script>
 
 </body>
 </html>
