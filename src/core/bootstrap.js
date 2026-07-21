@@ -100,7 +100,7 @@ export function bootstrapApp() {
                 .catch(() => [])
         ]).then(async ([, cloudData, profiles, feed, events]) => {
             let mail = [];
-            if (window.getAuthToken && window.getAuthToken() && window.apiGetMail) {
+            if ((window.isAuthed?.() || window.getAuthToken?.()) && window.apiGetMail) {
                 try { mail = await window.apiGetMail(); } catch (_) { mail = []; }
             }
             if (window.applyProfilesAndMailSnapshot) {

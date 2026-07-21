@@ -1,6 +1,9 @@
 # Local Cursor agent skills (Impeccable, Taste, etc.)
 .cursor/
 
+# Root frontend deps
+node_modules/
+
 # Cloud Function deps / build artifacts
 cloud/api/node_modules/
 cloud/*.zip

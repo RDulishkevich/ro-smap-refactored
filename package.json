@@ -3,6 +3,11 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "build:css": "tailwindcss -i ./src/tailwind.input.css -o ./src/tailwind.built.css --minify",
+    "watch:css": "tailwindcss -i ./src/tailwind.input.css -o ./src/tailwind.built.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
   }
 }

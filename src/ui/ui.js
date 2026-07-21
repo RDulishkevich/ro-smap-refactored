@@ -1575,9 +1575,9 @@ window.__waitCloudReady = async function() {
 };
 
 window.fetchCloudJson = async function(fileName) {
-    // mail.json больше не публичный — только Secure API (JWT)
+    // mail.json больше не публичный — только Secure API (JWT / cookie)
     if (fileName === 'mail.json') {
-        if (!window.getAuthToken || !window.getAuthToken()) return [];
+        if (!(window.isAuthed?.() || window.getAuthToken?.())) return [];
         if (!window.apiGetMail) return [];
         try {
             return await window.apiGetMail();
@@ -1592,8 +1592,8 @@ window.fetchCloudJson = async function(fileName) {
 };
 
 window.__putCloudJson = async function(fileName, data) {
-    // Запись только через Secure API (JWT). Анонимный presign отключён.
-    if (!window.getAuthToken || !window.getAuthToken()) {
+    // Запись только через Secure API (JWT / cookie). Анонимный presign отключён.
+    if (!(window.isAuthed?.() || window.getAuthToken?.())) {
         throw new Error('Требуется вход для синхронизации с облаком');
     }
     if (!window.apiSyncJson) throw new Error('Secure API клиент не загружен');
@@ -1986,7 +1986,7 @@ window.syncCloudData = async function(newCloudData, fileName = "map_data.json") 
     return window.__enqueueCloudWrite(fileName, async () => {
         window.__cloudWriteDepth++;
         try {
-            if (!window.getAuthToken || !window.getAuthToken()) {
+            if (!(window.isAuthed?.() || window.getAuthToken?.())) {
                 window.showToast('Войдите в аккаунт, чтобы сохранить данные в облако');
                 if (window.openAuthModal) window.openAuthModal();
                 return false;
@@ -2173,22 +2173,22 @@ window.normalizeUserRole = function(role) {
 
 window.isCurrentUserAdmin = function() {
     if (!window.currentUser) return false;
-    // Без JWT админские действия всё равно не пройдут на сервере
-    if (window.getAuthToken && !window.getAuthToken()) return false;
+    // Без сессии (cookie / access JWT) админские действия всё равно не пройдут на сервере
+    if (!(window.isAuthed?.() || window.getAuthToken?.())) return false;
     return String(window.currentUser.role || '').toLowerCase() === 'admin'
         || String(window.currentUser.loginName || '').toLowerCase() === 'admin';
 };
 
 window.isCurrentUserModerator = function() {
     if (!window.currentUser) return false;
-    if (window.getAuthToken && !window.getAuthToken()) return false;
+    if (!(window.isAuthed?.() || window.getAuthToken?.())) return false;
     return String(window.currentUser.role || '').toLowerCase() === 'moderator';
 };
 
 /** Admin, moderator, or legacy login `admin`. */
 window.isCurrentUserStaff = function() {
     if (!window.currentUser) return false;
-    if (window.getAuthToken && !window.getAuthToken()) return false;
+    if (!(window.isAuthed?.() || window.getAuthToken?.())) return false;
     if (window.isCurrentUserAdmin && window.isCurrentUserAdmin()) return true;
     if (window.isCurrentUserModerator && window.isCurrentUserModerator()) return true;
     return String(window.currentUser.loginName || '').toLowerCase() === 'admin';
@@ -2271,7 +2271,7 @@ window.pollLiveCloudData = async function() {
             fetch(`${window.YANDEX_BUCKET_URL}/profiles.json?nocache=${Date.now()}`)
                 .then(res => res.ok ? res.json() : null)
                 .catch(() => null),
-            (window.getAuthToken && window.getAuthToken() && window.apiGetMail)
+            (window.isAuthed?.() || window.getAuthToken?.()) && window.apiGetMail
                 ? window.apiGetMail().catch(() => null)
                 : Promise.resolve([]),
             background
@@ -5299,7 +5299,7 @@ window.__flushCounterCloudSync = async function() {
         window.__counterSyncTimer = null;
     }
     window.__counterSyncDirty = false;
-    if (!window.getAuthToken || !window.getAuthToken()) {
+    if (!(window.isAuthed?.() || window.getAuthToken?.())) {
         window.__pendingMetricPatches.clear();
         return;
     }

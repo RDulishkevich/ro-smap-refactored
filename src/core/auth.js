@@ -1,16 +1,16 @@
 export function initAuth() {
     // Сессия без JWT больше не считается валидной (иначе роль можно подделать в DevTools).
     try { localStorage.removeItem('rosmap_users_db'); } catch (_) {}
-    const token = (() => { try { return localStorage.getItem('rosmap_token'); } catch (_) { return null; } })();
+    try { localStorage.removeItem('rosmap_token'); } catch (_) {} // legacy localStorage JWT
     const savedUserStr = localStorage.getItem('rosmap_user');
-    if (savedUserStr && token) {
+    const sessionFlag = (() => { try { return localStorage.getItem('rosmap_session') === '1'; } catch (_) { return false; } })();
+    const memTok = (() => { try { return sessionStorage.getItem('rosmap_at') || ''; } catch (_) { return ''; } })();
+    if (memTok) window.__accessToken = memTok;
+    if (savedUserStr && (sessionFlag || memTok)) {
         try { window.currentUser = JSON.parse(savedUserStr); } catch (_) { window.currentUser = null; }
     } else {
         window.currentUser = null;
-        try {
-            localStorage.removeItem('rosmap_user');
-            if (!token) localStorage.removeItem('rosmap_token');
-        } catch (_) {}
+        try { localStorage.removeItem('rosmap_user'); } catch (_) {}
     }
     
     window.authMode = 'login'; // 'login' or 'register'
@@ -408,7 +408,19 @@ export function initAuth() {
                 }
 
                 try {
-                    const data = await window.apiLogin(login, pass);
+                    let data = await window.apiLogin(login, pass);
+                    if (data?.needsTotp) {
+                        const totpCode = await window.CustomUI.open({
+                            title: '<i class="fa-solid fa-shield-halved mr-2 text-blue-500"></i>Двухфакторная защита',
+                            message: 'Введите 6-значный код из приложения аутентификатора (Google Authenticator, Aegis и т.п.).',
+                            showInput: true,
+                            inputPlaceholder: '000000',
+                            confirmText: 'Войти',
+                            cancelText: 'Отмена'
+                        });
+                        if (!totpCode) return;
+                        data = await window.apiLogin(login, pass, String(totpCode).trim());
+                    }
                     await finishOk(data, false);
                     return;
                 } catch (err) {
@@ -419,6 +431,13 @@ export function initAuth() {
                     }
                     if (err.code === 'blocked') return window.showToast('Аккаунт заблокирован администратором');
                     if (err.code === 'bad_credentials') return window.showToast('Неверный логин или пароль!');
+                    if (err.code === 'bad_totp') return window.showToast('Неверный код 2FA');
+                    if (err.code === 'login_locked') {
+                        const sec = err.data?.retryAfterSec;
+                        return window.showToast(sec
+                            ? `Слишком много попыток. Подождите ${Math.ceil(sec / 60)} мин.`
+                            : 'Слишком много попыток. Попробуйте позже.');
+                    }
                     if (err.code === 'login_taken') return window.showToast('Логин уже занят!');
                     throw err;
                 }
@@ -442,12 +461,15 @@ export function initAuth() {
         });
         if (!confirmed) return;
 
+        try { if (window.apiLogout) await window.apiLogout(); } catch (_) {}
         window.currentUser = null;
         if (window.clearAuthSession) window.clearAuthSession();
         else {
             try {
                 localStorage.removeItem('rosmap_user');
                 localStorage.removeItem('rosmap_token');
+                localStorage.removeItem('rosmap_session');
+                sessionStorage.removeItem('rosmap_at');
             } catch (_) {}
         }
         window.closeCabinet();
@@ -1651,7 +1673,7 @@ export function initAuth() {
 
     window.uploadProfilePhoto = async function(files) {
         if (!files || !files[0] || !window.currentUser) return;
-        if (!window.getAuthToken || !window.getAuthToken()) {
+        if (!(window.isAuthed?.() || window.getAuthToken?.())) {
             window.showToast('Войдите в аккаунт, чтобы сохранить фото');
             return;
         }
@@ -1708,20 +1730,126 @@ export function initAuth() {
         if (!window.currentUser) {
             return window.showToast('Сначала войдите в профиль');
         }
-        if (!window.getAuthToken || !window.getAuthToken()) {
+        if (!(window.isAuthed?.() || window.getAuthToken?.())) {
             return window.showToast('Сессия устарела – войдите снова');
         }
 
         try {
-            await window.apiChangePassword(currentPassword, newPassword);
+            const data = await window.apiChangePassword(currentPassword, newPassword);
+            if (data?.token) window.setAuthSession(data.token, data.user || window.currentUser);
             if (document.getElementById('cab-current-password')) document.getElementById('cab-current-password').value = '';
             if (document.getElementById('cab-new-password')) document.getElementById('cab-new-password').value = '';
             if (document.getElementById('cab-confirm-password')) document.getElementById('cab-confirm-password').value = '';
-            window.showToast('Пароль успешно обновлён');
+            window.showToast('Пароль обновлён. Другие устройства вышли из аккаунта.');
         } catch (err) {
             if (err.code === 'bad_credentials') return window.showToast('Текущий пароль неверен');
             window.showToast(err.message || 'Не удалось сменить пароль');
         }
+    };
+
+    window.refreshSecurityPanelUI = function() {
+        const status = document.getElementById('cab-totp-status');
+        const setupBtn = document.getElementById('cab-totp-setup-btn');
+        const disableWrap = document.getElementById('cab-totp-disable-wrap');
+        const enabled = !!(window.currentUser && window.currentUser.totpEnabled);
+        if (status) {
+            status.textContent = enabled
+                ? '2FA включена'
+                : (window.currentUser?.role === 'admin' || window.currentUser?.role === 'moderator'
+                    ? '2FA выключена — для staff рекомендуется включить'
+                    : '2FA выключена');
+            status.className = enabled
+                ? 'text-sm text-emerald-600 dark:text-emerald-400 font-semibold'
+                : 'text-sm text-slate-500 dark:text-slate-400';
+        }
+        if (setupBtn) setupBtn.classList.toggle('hidden', enabled);
+        if (disableWrap) disableWrap.classList.toggle('hidden', !enabled);
+        const setupBox = document.getElementById('cab-totp-setup-box');
+        if (setupBox && enabled) setupBox.classList.add('hidden');
+    };
+
+    window.startTotpSetup = async function() {
+        if (!window.apiTotpSetup) return window.showToast('API недоступен');
+        try {
+            const data = await window.apiTotpSetup();
+            const box = document.getElementById('cab-totp-setup-box');
+            const secretEl = document.getElementById('cab-totp-secret');
+            const urlEl = document.getElementById('cab-totp-otpauth');
+            if (secretEl) secretEl.textContent = data.secret || '';
+            if (urlEl) {
+                urlEl.href = data.otpauthUrl || '#';
+                urlEl.textContent = 'Открыть в приложении-аутентификаторе';
+            }
+            if (box) box.classList.remove('hidden');
+            window.showToast('Секрет создан. Добавьте его в приложение и подтвердите кодом.');
+        } catch (err) {
+            if (err.code === 'totp_already_enabled') return window.showToast('2FA уже включена');
+            window.showToast(err.message || 'Не удалось начать настройку 2FA');
+        }
+    };
+
+    window.confirmTotpSetup = async function() {
+        const code = (document.getElementById('cab-totp-confirm-code')?.value || '').trim();
+        if (!/^\d{6}$/.test(code)) return window.showToast('Введите 6-значный код');
+        try {
+            await window.apiTotpConfirm(code);
+            if (window.currentUser) window.currentUser.totpEnabled = true;
+            try { localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser)); } catch (_) {}
+            const codeInput = document.getElementById('cab-totp-confirm-code');
+            if (codeInput) codeInput.value = '';
+            window.refreshSecurityPanelUI();
+            window.showToast('Двухфакторная защита включена');
+        } catch (err) {
+            if (err.code === 'bad_totp') return window.showToast('Неверный код');
+            window.showToast(err.message || 'Не удалось подтвердить 2FA');
+        }
+    };
+
+    window.disableTotp = async function() {
+        const password = document.getElementById('cab-totp-disable-password')?.value || '';
+        const code = (document.getElementById('cab-totp-disable-code')?.value || '').trim();
+        if (!password) return window.showToast('Введите пароль');
+        if (!/^\d{6}$/.test(code)) return window.showToast('Введите код 2FA');
+        try {
+            const data = await window.apiTotpDisable(password, code);
+            if (data?.token) window.setAuthSession(data.token, { ...(data.user || window.currentUser), totpEnabled: false });
+            if (window.currentUser) window.currentUser.totpEnabled = false;
+            try { localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser)); } catch (_) {}
+            ['cab-totp-disable-password', 'cab-totp-disable-code'].forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            window.refreshSecurityPanelUI();
+            window.showToast('2FA отключена');
+        } catch (err) {
+            if (err.code === 'bad_credentials') return window.showToast('Неверный пароль');
+            if (err.code === 'bad_totp') return window.showToast('Неверный код 2FA');
+            window.showToast(err.message || 'Не удалось отключить 2FA');
+        }
+    };
+
+    window.logoutAllDevices = async function() {
+        const confirmed = await window.CustomUI.open({
+            title: '<i class="fa-solid fa-laptop-slash mr-2 text-red-500"></i>Выйти везде?',
+            message: 'Все сессии на других устройствах будут завершены. На этом устройстве тоже потребуется войти снова.',
+            confirmText: 'Выйти везде',
+            confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
+        });
+        if (!confirmed) return;
+        try {
+            await window.apiLogoutAll();
+        } catch (err) {
+            window.showToast(err.message || 'Не удалось завершить сессии');
+            return;
+        }
+        window.clearAuthSession();
+        window.closeCabinet();
+        window.showToast('Все сессии завершены');
+        window.setTheme('light');
+        window.setMapStyle('normal');
+        window.bustFilteredSoundsCache?.();
+        window.syncAccountChrome?.();
+        window.refreshCabinetTabs?.();
     };
 
     window.closeCabinet = function() {
@@ -1830,6 +1958,7 @@ export function initAuth() {
             if (window.fillProfileSettingsForm) window.fillProfileSettingsForm();
         } else if (tab === 'security') {
             document.body.classList.remove('cab-mobile-home');
+            if (window.refreshSecurityPanelUI) window.refreshSecurityPanelUI();
         } else if (tab === 'admin') {
             if (window.openAdminPanel) window.openAdminPanel();
             else window.switchCabinetTab('sounds');

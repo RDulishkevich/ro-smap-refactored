@@ -10,7 +10,7 @@
 
 ## Безопасность и база данных
 
-С версии Secure API запись в облако идёт **только с JWT**:
+С версии Secure API запись в облако идёт **только с сессией** (HttpOnly cookies + короткий access JWT):
 
 | Было | Стало |
 |------|--------|
@@ -22,9 +22,11 @@
 | Роль `admin` из DevTools | роль сверяется с `_auth`/`profiles` на каждом запросе |
 | Аудио/фото как data-URL / blob в JSON | файлы в `uploads/{login}/…`, в JSON только https |
 | Всё в одном `profiles.json` | визитки + отдельный private `mail.json` + `_auth/private_meta.json` |
+| JWT в `localStorage` на 14 дней | HttpOnly cookies, access 30м / refresh 14д, `tokenVersion` |
+| Tailwind Play CDN (`unsafe-eval`) | self-host `src/tailwind.built.css`, CSP без `unsafe-eval` |
 
 Полная инструкция деплоя: [`cloud/api/README.md`](cloud/api/README.md).  
-Полный разбор безопасности: [`docs/security.md`](docs/security.md).
+Полный разбор безопасности: [`docs/security.md`](docs/security.md) (v13+).
 
 ### Быстрый чеклист деплоя
 1. Создать статический ключ SA с `storage.editor` на бакет `rosmap2026`

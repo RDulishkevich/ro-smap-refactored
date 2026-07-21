@@ -17,15 +17,18 @@
  *   ALLOW_DEMO_EMAIL_CODES — set to 1 on staging only: return demoCode when SMTP missing
  *
  * Actions (POST JSON { action, ... }):
- *   health | publicConfig | register | login | changePassword | me | getMail | sync | commit | presign | patchSound | translate
+ *   health | publicConfig | register | login | refresh | logout | logoutAll | changePassword | me | getMail
+ *   | sync | commit | presign | patchSound | translate
  *   | requestEmailVerification | confirmEmailVerification
  *   | requestPasswordReset | confirmPasswordReset | adminDeleteUser | adminUnbindEmail | adminSendEmail
+ *   | totpSetup | totpConfirm | totpDisable | getSecurityEvents
  */
 
 const crypto = require('crypto');
 const { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const mailTemplates = require('./mailTemplates');
+const sessionSec = require('./sessionSecurity');
 
 let nodemailer = null;
 try {
@@ -65,7 +68,7 @@ const EMAIL_CODES_PREFIX = '_auth/email_codes/';
 const PASSWORD_RESET_PREFIX = '_auth/password_resets/';
 const ALLOWED_JSON = new Set(['map_data.json', 'profiles.json', 'feed.json', 'mail.json', 'events.json']);
 const MEDIA_PREFIXES = ['uploads/', 'audio/', 'images/'];
-const TOKEN_TTL_SEC = 60 * 60 * 24 * 14; // 14 days
+const TOKEN_TTL_SEC = sessionSec.ACCESS_TTL_SEC; // access JWT (short); refresh via cookie
 const MIN_PASSWORD_LEN = 8;
 const MAX_IMAGE_BYTES = 30 * 1024 * 1024;      // 30 MB — фото/обложки с телефона
 const MAX_AUDIO_BYTES = 1024 * 1024 * 1024;    // 1 GB — длинные WAV / амбисоник
@@ -172,7 +175,12 @@ function corsHeaders() {
         'Referrer-Policy': 'strict-origin-when-cross-origin',
         'X-Frame-Options': 'DENY'
     };
-    if (allowOrigin) headers['Access-Control-Allow-Origin'] = allowOrigin;
+    if (allowOrigin) {
+        headers['Access-Control-Allow-Origin'] = allowOrigin;
+        if (allowOrigin !== '*') {
+            headers['Access-Control-Allow-Credentials'] = 'true';
+        }
+    }
     return headers;
 }
 
@@ -272,12 +280,39 @@ function sanitizeMailRecord(row) {
     };
 }
 
-function respond(statusCode, payload) {
-    return {
+function respond(statusCode, payload, { cookies } = {}) {
+    const headers = corsHeaders();
+    const out = {
         statusCode,
-        headers: corsHeaders(),
+        headers,
         body: JSON.stringify(payload)
     };
+    if (Array.isArray(cookies) && cookies.length) {
+        out.multiValueHeaders = { 'Set-Cookie': cookies };
+        // Single-header fallback for runtimes without multiValueHeaders
+        if (cookies.length === 1) headers['Set-Cookie'] = cookies[0];
+    }
+    return out;
+}
+
+function authSuccessResponse(user, extra = {}) {
+    const pair = sessionSec.issueTokenPair(signJwt, user);
+    const cookies = sessionSec.sessionCookiesFor(
+        __reqEvent,
+        getHeader,
+        pair.access,
+        pair.refresh,
+        pair.accessTtl,
+        pair.refreshTtl
+    );
+    return respond(200, {
+        ok: true,
+        token: pair.access,
+        refreshToken: pair.refresh,
+        tokenExpiresIn: pair.accessTtl,
+        user: extra.user || publicUser(user),
+        ...extra
+    }, { cookies });
 }
 
 function parseBody(event) {
@@ -312,7 +347,9 @@ function actionRateLimit(action, ip, login = '') {
     const base = String(ip || 'unknown');
     const who = login || base;
     if (action === 'register' && !rateLimit(`reg:${base}`, 8, 60000)) return false;
-    if (action === 'login' && !rateLimit(`login:${base}`, 40, 60000)) return false;
+    if (action === 'login' && !rateLimit(`login:${base}`, 25, 60000)) return false;
+    if (action === 'refresh' && !rateLimit(`refresh:${base}`, 60, 60000)) return false;
+    if ((action === 'logout' || action === 'logoutAll') && !rateLimit(`logout:${who}`, 30, 60000)) return false;
     // Authenticated write budget — keyed by login so shared NAT doesn't starve one user.
     if ((action === 'sync' || action === 'commit') && !rateLimit(`sync:${who}`, 120, 60000)) return false;
     if (action === 'presign' && !rateLimit(`presign:${who}`, 90, 60000)) return false;
@@ -327,6 +364,9 @@ function actionRateLimit(action, ip, login = '') {
     if ((action === 'adminDeleteUser' || action === 'adminUnbindEmail') && !rateLimit(`adminops:${who}`, 20, 600000)) return false;
     if (action === 'adminSendEmail' && !rateLimit(`adminsend:${who}`, 30, 3600000)) return false;
     if (action === 'adminSendEmail' && !rateLimit(`adminsendip:${base}`, 60, 3600000)) return false;
+    if ((action === 'totpSetup' || action === 'totpConfirm' || action === 'totpDisable')
+        && !rateLimit(`totp:${who}`, 20, 600000)) return false;
+    if (action === 'getSecurityEvents' && !rateLimit(`secevt:${who}`, 30, 60000)) return false;
     return true;
 }
 
@@ -366,11 +406,7 @@ function verifyJwt(token) {
 }
 
 function extractToken(event, body) {
-    // Не используем Authorization: Bearer — у YC HTTP-триггера это IAM invoke-токен.
-    const custom = getHeader(event, 'x-rosmap-token');
-    if (custom) return String(custom).trim();
-    if (body && body.token) return String(body.token);
-    return '';
+    return sessionSec.extractTokenFromRequest(event, body, getHeader);
 }
 
 function normalizeLogin(login) {
@@ -401,10 +437,23 @@ async function streamToString(stream) {
     return Buffer.concat(chunks).toString('utf8');
 }
 
-async function getJson(key, fallback) {
+async function getJsonRawText(key, bucketOverride) {
     try {
-        const res = await s3.send(new GetObjectCommand({ Bucket: bucketForKey(key), Key: key }));
-        const text = await streamToString(res.Body);
+        const res = await s3.send(new GetObjectCommand({
+            Bucket: bucketOverride || bucketForKey(key),
+            Key: key
+        }));
+        return await streamToString(res.Body);
+    } catch (err) {
+        if (err && (err.name === 'NoSuchKey' || err.$metadata?.httpStatusCode === 404)) return null;
+        throw err;
+    }
+}
+
+async function getJsonRaw(key, fallback, bucketOverride) {
+    try {
+        const text = await getJsonRawText(key, bucketOverride);
+        if (text == null) return fallback;
         const data = JSON.parse(text || 'null');
         return data == null ? fallback : data;
     } catch (err) {
@@ -413,18 +462,74 @@ async function getJson(key, fallback) {
     }
 }
 
+async function getJson(key, fallback) {
+    let text;
+    try {
+        text = await getJsonRawText(key);
+    } catch (err) {
+        if (err && (err.name === 'NoSuchKey' || err.$metadata?.httpStatusCode === 404)) return fallback;
+        throw err;
+    }
+    if (text == null) return fallback;
+    let data;
+    try {
+        data = JSON.parse(text || 'null');
+    } catch (_) {
+        return fallback;
+    }
+    if (data == null) return fallback;
+
+    if (!JWT_SECRET || !sessionSec.needsIntegrity(key) || key.startsWith('_auth/integrity/')) {
+        return data;
+    }
+    try {
+        const sigRow = await getJsonRaw(sessionSec.integrityKeyFor(key), null, PRIVATE_BUCKET);
+        if (!sigRow || !sigRow.sig) return data; // legacy objects without HMAC yet
+        const expect = sessionSec.signIntegrity(text, JWT_SECRET);
+        const a = Buffer.from(String(expect));
+        const b = Buffer.from(String(sigRow.sig));
+        if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+            console.error('integrity_mismatch', key);
+            await sessionSec.appendSecurityEvent(putJson, getJsonRaw, {
+                type: 'integrity_mismatch',
+                key
+            });
+            return fallback;
+        }
+    } catch (_) { /* soft: do not break reads on integrity infra errors */ }
+    return data;
+}
+
 async function putJson(key, data, { privateObject = false } = {}) {
     const bucket = bucketForKey(key);
+    const bodyUtf8 = JSON.stringify(data);
     const params = {
         Bucket: bucket,
         Key: key,
-        Body: Buffer.from(JSON.stringify(data), 'utf8'),
+        Body: Buffer.from(bodyUtf8, 'utf8'),
         ContentType: 'application/json; charset=utf-8'
     };
     if (privateObject || bucket === PRIVATE_BUCKET || key.startsWith('_auth/') || key.startsWith('staging/')) {
         params.ACL = 'private';
     }
     await s3.send(new PutObjectCommand(params));
+    if (JWT_SECRET && sessionSec.needsIntegrity(key)) {
+        try {
+            const sig = sessionSec.signIntegrity(bodyUtf8, JWT_SECRET);
+            await s3.send(new PutObjectCommand({
+                Bucket: PRIVATE_BUCKET,
+                Key: sessionSec.integrityKeyFor(key),
+                Body: Buffer.from(JSON.stringify({
+                    key,
+                    alg: 'hmac-sha256',
+                    sig,
+                    at: new Date().toISOString()
+                }), 'utf8'),
+                ContentType: 'application/json; charset=utf-8',
+                ACL: 'private'
+            }));
+        } catch (_) {}
+    }
 }
 
 async function loadAuthUsers() {
@@ -485,14 +590,17 @@ async function putMailJson(data) {
 /** Актуальная роль из _auth + profiles (не доверяем JWT.role). */
 async function resolveAuthUser(payload) {
     if (!payload?.login) return null;
+    if (payload.typ && payload.typ !== 'access') return null;
     const login = String(payload.login).toLowerCase();
     const users = await loadAuthUsers();
     const row = users[login];
     if (!row) return null;
+    const tv = Number(row.tokenVersion || 0) || 0;
+    if (payload.tv != null && Number(payload.tv) !== tv) return null;
     const profiles = await getJson('profiles.json', []);
     const profile = (profiles || []).find((p) => String(p.loginName || '').toLowerCase() === login);
     if (profile?.blocked && login !== 'admin') {
-        return { login, blocked: true, role: 'user', displayName: login };
+        return { login, blocked: true, role: 'user', displayName: login, tokenVersion: tv };
     }
     let role = normalizeStaffRole(row.role, login);
     if (profile?.role) role = normalizeStaffRole(profile.role, login);
@@ -501,7 +609,9 @@ async function resolveAuthUser(payload) {
         login,
         role,
         displayName: profile?.displayName || row.displayName || payload.displayName || login,
-        blocked: false
+        blocked: false,
+        tokenVersion: tv,
+        totpEnabled: !!row.totpEnabled
     };
 }
 
@@ -545,15 +655,13 @@ async function ensureAdminUser(users) {
 }
 
 function issueToken(user) {
-    const now = Math.floor(Date.now() / 1000);
-    const role = normalizeStaffRole(user.role, user.login);
-    return signJwt({
+    const pair = sessionSec.issueTokenPair(signJwt, {
         login: user.login,
-        role,
+        role: normalizeStaffRole(user.role, user.login),
         displayName: user.displayName || user.login,
-        iat: now,
-        exp: now + TOKEN_TTL_SEC
+        tokenVersion: user.tokenVersion || 0
     });
+    return pair.access;
 }
 
 function publicUser(user) {
@@ -1203,34 +1311,58 @@ async function handleRegister(body) {
         await putMailJson(mail);
     }
 
-    const user = { login, displayName, role: 'user' };
-    const token = issueToken(user);
-    return respond(200, { ok: true, token, user: publicUser(user) });
+    const user = { login, displayName, role: 'user', tokenVersion: 0 };
+    return authSuccessResponse(user);
 }
 
-async function handleLogin(body) {
+async function handleLogin(event, body) {
     const login = normalizeLogin(body.login || body.username);
     const password = String(body.password || '');
+    const totpCode = String(body.totpCode || body.totp || '').trim();
+    const ip = getHeader(event, 'x-forwarded-for') || event.requestContext?.identity?.sourceIp || 'unknown';
+    const ipKey = String(ip).split(',')[0].trim();
+
     if (!login || !password) return respond(400, { ok: false, error: 'missing_fields' });
+
+    const lock = sessionSec.checkLoginAllowed(ipKey, login);
+    if (!lock.ok) {
+        await sessionSec.appendSecurityEvent(putJson, getJson, {
+            type: 'login_locked',
+            login,
+            ip: ipKey
+        });
+        return respond(429, {
+            ok: false,
+            error: 'login_locked',
+            retryAfterSec: lock.retryAfterSec,
+            message: 'Слишком много неудачных попыток. Попробуйте позже.'
+        });
+    }
 
     let users = await loadAuthUsers();
     users = await ensureAdminUser(users);
 
-    // Bootstrap admin login even before auth file existed
     if (login === 'admin' && ADMIN_PASSWORD && password === ADMIN_PASSWORD && !users.admin) {
         users = await ensureAdminUser(users);
     }
 
     const row = users[login];
-    if (!row) return respond(404, { ok: false, error: 'no_user' });
+    if (!row) {
+        sessionSec.recordLoginFailure(ipKey, login);
+        return respond(404, { ok: false, error: 'no_user' });
+    }
     if (!verifyPassword(password, row.salt, row.hash)) {
-        // allow ADMIN_PASSWORD override for admin account recovery
         if (!(login === 'admin' && ADMIN_PASSWORD && password === ADMIN_PASSWORD)) {
+            sessionSec.recordLoginFailure(ipKey, login);
+            await sessionSec.appendSecurityEvent(putJson, getJson, {
+                type: 'login_fail',
+                login,
+                ip: ipKey
+            });
             return respond(401, { ok: false, error: 'bad_credentials' });
         }
     }
 
-    // sync role from profiles if present
     const profiles = await getJson('profiles.json', []);
     const profile = profiles.find((p) => String(p.loginName || '').toLowerCase() === login);
     if (profile?.blocked && login !== 'admin') {
@@ -1240,25 +1372,49 @@ async function handleLogin(body) {
     if (profile?.role) role = normalizeStaffRole(profile.role, login);
     if (profile?.role === 'user' && login !== 'admin') role = 'user';
 
+    if (row.totpEnabled && row.totpSecret) {
+        if (!totpCode) {
+            return respond(200, {
+                ok: true,
+                needsTotp: true,
+                login,
+                message: 'Введите код из приложения 2FA'
+            });
+        }
+        if (!sessionSec.verifyTotp(row.totpSecret, totpCode)) {
+            sessionSec.recordLoginFailure(ipKey, login);
+            await sessionSec.appendSecurityEvent(putJson, getJson, {
+                type: 'totp_fail',
+                login,
+                ip: ipKey
+            });
+            return respond(401, { ok: false, error: 'bad_totp' });
+        }
+    }
+
+    sessionSec.clearLoginFailures(ipKey, login);
+
     const user = {
         login,
         displayName: profile?.displayName || row.displayName || login,
-        role
+        role,
+        tokenVersion: Number(row.tokenVersion || 0) || 0
     };
     const privateMeta = await loadPrivateMeta();
     const pii = privateMeta[login] && typeof privateMeta[login] === 'object' ? privateMeta[login] : {};
-    // Разовая подтяжка PII из публичного профиля, если ещё не мигрировали
     const fromPublic = extractProfilePii(profile || {});
     const mergedPii = { ...fromPublic, ...pii };
     if (PROFILE_PII_KEYS.some((k) => pii[k] === undefined && fromPublic[k] !== undefined)) {
         privateMeta[login] = { ...mergedPii, updatedAt: new Date().toISOString() };
         await savePrivateMeta(privateMeta);
     }
-    const token = issueToken(user);
-    return respond(200, {
-        ok: true,
-        token,
-        user: { ...publicUser(user), ...extractProfilePii(mergedPii) }
+    await sessionSec.appendSecurityEvent(putJson, getJson, {
+        type: 'login_ok',
+        login,
+        ip: ipKey
+    });
+    return authSuccessResponse(user, {
+        user: { ...publicUser(user), ...extractProfilePii(mergedPii), totpEnabled: !!row.totpEnabled }
     });
 }
 
@@ -1283,9 +1439,211 @@ async function handleChangePassword(event, body) {
     if (!okCurrent) return respond(401, { ok: false, error: 'bad_credentials' });
 
     const { salt, hash } = hashPassword(newPassword);
-    users[authUser.login] = { ...row, salt, hash, passwordUpdatedAt: new Date().toISOString() };
+    const nextTv = (Number(row.tokenVersion || 0) || 0) + 1;
+    users[authUser.login] = {
+        ...row,
+        salt,
+        hash,
+        passwordUpdatedAt: new Date().toISOString(),
+        tokenVersion: nextTv
+    };
     await saveAuthUsers(users);
-    return respond(200, { ok: true });
+    await sessionSec.appendSecurityEvent(putJson, getJson, {
+        type: 'password_changed',
+        login: authUser.login
+    });
+    // Re-issue session on this device; other devices invalidated via tokenVersion
+    return authSuccessResponse({
+        login: authUser.login,
+        displayName: authUser.displayName,
+        role: authUser.role,
+        tokenVersion: nextTv
+    });
+}
+
+async function handleRefresh(event, body) {
+    const refreshTok = sessionSec.extractRefreshToken(event, body, getHeader);
+    const payload = verifyJwt(refreshTok);
+    if (!payload || payload.typ !== 'refresh' || !payload.login) {
+        return respond(401, { ok: false, error: 'unauthorized' }, {
+            cookies: sessionSec.clearSessionCookies(event, getHeader)
+        });
+    }
+    const users = await loadAuthUsers();
+    const row = users[String(payload.login).toLowerCase()];
+    if (!row) {
+        return respond(401, { ok: false, error: 'unauthorized' }, {
+            cookies: sessionSec.clearSessionCookies(event, getHeader)
+        });
+    }
+    const tv = Number(row.tokenVersion || 0) || 0;
+    if (payload.tv != null && Number(payload.tv) !== tv) {
+        return respond(401, { ok: false, error: 'unauthorized' }, {
+            cookies: sessionSec.clearSessionCookies(event, getHeader)
+        });
+    }
+    const authUser = await resolveAuthUser({
+        login: payload.login,
+        typ: 'access',
+        tv,
+        displayName: row.displayName
+    });
+    if (!authUser || authUser.blocked) {
+        return respond(authUser?.blocked ? 403 : 401, {
+            ok: false,
+            error: authUser?.blocked ? 'blocked' : 'unauthorized'
+        }, { cookies: sessionSec.clearSessionCookies(event, getHeader) });
+    }
+    return authSuccessResponse(authUser);
+}
+
+async function handleLogout(event, body) {
+    await sessionSec.appendSecurityEvent(putJson, getJson, {
+        type: 'logout',
+        login: verifyJwt(extractToken(event, body))?.login || ''
+    });
+    return respond(200, { ok: true }, {
+        cookies: sessionSec.clearSessionCookies(event, getHeader)
+    });
+}
+
+async function handleLogoutAll(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const authUser = await resolveAuthUser(payload);
+    if (!authUser) return respond(401, { ok: false, error: 'unauthorized' });
+    if (authUser.blocked) return respond(403, { ok: false, error: 'blocked' });
+
+    const users = await loadAuthUsers();
+    const row = users[authUser.login];
+    if (!row) return respond(404, { ok: false, error: 'no_user' });
+    const nextTv = (Number(row.tokenVersion || 0) || 0) + 1;
+    users[authUser.login] = { ...row, tokenVersion: nextTv };
+    await saveAuthUsers(users);
+    await sessionSec.appendSecurityEvent(putJson, getJson, {
+        type: 'logout_all',
+        login: authUser.login
+    });
+    return respond(200, { ok: true }, {
+        cookies: sessionSec.clearSessionCookies(event, getHeader)
+    });
+}
+
+async function handleTotpSetup(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const authUser = await resolveAuthUser(payload);
+    if (!authUser) return respond(401, { ok: false, error: 'unauthorized' });
+    if (authUser.blocked) return respond(403, { ok: false, error: 'blocked' });
+
+    const users = await loadAuthUsers();
+    const row = users[authUser.login];
+    if (!row) return respond(404, { ok: false, error: 'no_user' });
+    if (row.totpEnabled) {
+        return respond(400, { ok: false, error: 'totp_already_enabled' });
+    }
+
+    const secret = sessionSec.generateTotpSecret();
+    users[authUser.login] = {
+        ...row,
+        totpPendingSecret: secret,
+        totpPendingAt: new Date().toISOString()
+    };
+    await saveAuthUsers(users);
+    return respond(200, {
+        ok: true,
+        secret,
+        otpauthUrl: sessionSec.totpOtpauthUrl(secret, authUser.login)
+    });
+}
+
+async function handleTotpConfirm(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const authUser = await resolveAuthUser(payload);
+    if (!authUser) return respond(401, { ok: false, error: 'unauthorized' });
+    if (authUser.blocked) return respond(403, { ok: false, error: 'blocked' });
+
+    const code = String(body.totpCode || body.code || '').trim();
+    const users = await loadAuthUsers();
+    const row = users[authUser.login];
+    if (!row) return respond(404, { ok: false, error: 'no_user' });
+    const secret = row.totpPendingSecret || row.totpSecret;
+    if (!secret) return respond(400, { ok: false, error: 'totp_not_started' });
+    if (!sessionSec.verifyTotp(secret, code)) {
+        return respond(401, { ok: false, error: 'bad_totp' });
+    }
+
+    users[authUser.login] = {
+        ...row,
+        totpEnabled: true,
+        totpSecret: secret,
+        totpEnabledAt: new Date().toISOString()
+    };
+    delete users[authUser.login].totpPendingSecret;
+    delete users[authUser.login].totpPendingAt;
+    await saveAuthUsers(users);
+    await sessionSec.appendSecurityEvent(putJson, getJson, {
+        type: 'totp_enabled',
+        login: authUser.login
+    });
+    return respond(200, { ok: true, totpEnabled: true });
+}
+
+async function handleTotpDisable(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const authUser = await resolveAuthUser(payload);
+    if (!authUser) return respond(401, { ok: false, error: 'unauthorized' });
+    if (authUser.blocked) return respond(403, { ok: false, error: 'blocked' });
+
+    const password = String(body.password || '');
+    const code = String(body.totpCode || body.code || '').trim();
+    const users = await loadAuthUsers();
+    const row = users[authUser.login];
+    if (!row) return respond(404, { ok: false, error: 'no_user' });
+    if (!row.totpEnabled) return respond(400, { ok: false, error: 'totp_not_enabled' });
+
+    const okPass = verifyPassword(password, row.salt, row.hash)
+        || (authUser.login === 'admin' && ADMIN_PASSWORD && password === ADMIN_PASSWORD);
+    if (!okPass) return respond(401, { ok: false, error: 'bad_credentials' });
+    if (!sessionSec.verifyTotp(row.totpSecret, code)) {
+        return respond(401, { ok: false, error: 'bad_totp' });
+    }
+
+    const next = { ...row, totpEnabled: false };
+    delete next.totpSecret;
+    delete next.totpPendingSecret;
+    delete next.totpPendingAt;
+    delete next.totpEnabledAt;
+    next.tokenVersion = (Number(row.tokenVersion || 0) || 0) + 1;
+    users[authUser.login] = next;
+    await saveAuthUsers(users);
+    await sessionSec.appendSecurityEvent(putJson, getJson, {
+        type: 'totp_disabled',
+        login: authUser.login
+    });
+    return authSuccessResponse({
+        login: authUser.login,
+        displayName: authUser.displayName,
+        role: authUser.role,
+        tokenVersion: next.tokenVersion
+    }, { totpEnabled: false });
+}
+
+async function handleGetSecurityEvents(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const authUser = await resolveAuthUser(payload);
+    if (!authUser) return respond(401, { ok: false, error: 'unauthorized' });
+    if (authUser.blocked) return respond(403, { ok: false, error: 'blocked' });
+    if (authUser.role !== 'admin') return respond(403, { ok: false, error: 'forbidden' });
+
+    const list = await getJson(sessionSec.SECURITY_EVENTS_KEY, []);
+    return respond(200, {
+        ok: true,
+        events: Array.isArray(list) ? list.slice(0, 100) : []
+    });
 }
 
 function isSmtpConfigured() {
@@ -1737,13 +2095,11 @@ async function handleMe(event, body) {
         }
     }
 
-    const token = issueToken(user);
-    return respond(200, {
-        ok: true,
-        token,
+    return authSuccessResponse(user, {
         user: {
             ...publicUser(user),
-            ...extractProfilePii(pii)
+            ...extractProfilePii(pii),
+            totpEnabled: !!user.totpEnabled
         }
     });
 }
@@ -2108,7 +2464,7 @@ exports.handler = async function handler(event = {}) {
 
     // health / publicConfig — без секретов и без тяжёлых лимитов
     if (action === 'health') {
-        return respond(200, { ok: true, version: 12 });
+        return respond(200, { ok: true, version: 13 });
     }
     if (action === 'publicConfig') {
         return respond(200, {
@@ -2127,13 +2483,13 @@ exports.handler = async function handler(event = {}) {
         return respond(429, { ok: false, error: 'rate_limited' });
     }
 
-    const tokenPayload = (
-        action === 'sync' || action === 'commit' || action === 'presign' || action === 'me'
-        || action === 'changePassword' || action === 'patchSound' || action === 'translate'
-        || action === 'getMail'
-        || action === 'requestEmailVerification' || action === 'confirmEmailVerification'
-        || action === 'adminDeleteUser' || action === 'adminUnbindEmail' || action === 'adminSendEmail'
-    )
+    const authActions = new Set([
+        'sync', 'commit', 'presign', 'me', 'changePassword', 'patchSound', 'translate',
+        'getMail', 'requestEmailVerification', 'confirmEmailVerification',
+        'adminDeleteUser', 'adminUnbindEmail', 'adminSendEmail',
+        'logoutAll', 'totpSetup', 'totpConfirm', 'totpDisable', 'getSecurityEvents'
+    ]);
+    const tokenPayload = authActions.has(action)
         ? verifyJwt(extractToken(event, body))
         : null;
     if (!actionRateLimit(action, ipKey, tokenPayload?.login || '')) {
@@ -2142,7 +2498,10 @@ exports.handler = async function handler(event = {}) {
 
     try {
         if (action === 'register') return await handleRegister(body);
-        if (action === 'login') return await handleLogin(body);
+        if (action === 'login') return await handleLogin(event, body);
+        if (action === 'refresh') return await handleRefresh(event, body);
+        if (action === 'logout') return await handleLogout(event, body);
+        if (action === 'logoutAll') return await handleLogoutAll(event, body);
         if (action === 'changePassword') return await handleChangePassword(event, body);
         if (action === 'me') return await handleMe(event, body);
         if (action === 'getMail') return await handleGetMail(event, body);
@@ -2158,6 +2517,10 @@ exports.handler = async function handler(event = {}) {
         if (action === 'adminDeleteUser') return await handleAdminDeleteUser(event, body);
         if (action === 'adminUnbindEmail') return await handleAdminUnbindEmail(event, body);
         if (action === 'adminSendEmail') return await handleAdminSendEmail(event, body);
+        if (action === 'totpSetup') return await handleTotpSetup(event, body);
+        if (action === 'totpConfirm') return await handleTotpConfirm(event, body);
+        if (action === 'totpDisable') return await handleTotpDisable(event, body);
+        if (action === 'getSecurityEvents') return await handleGetSecurityEvents(event, body);
         if (action === 'legacy_presign') {
             return respond(401, {
                 ok: false,

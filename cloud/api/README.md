@@ -9,24 +9,29 @@
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | проверка живости (`version: 10`) |
+| `health` | нет | проверка живости (`version: 13`) |
 | `publicConfig` | нет | публичные ключи (Maps) |
 | `register` | нет | регистрация (пароль → scrypt) |
-| `login` | нет | вход → JWT |
-| `me` | JWT | проверка сессии / refresh + PII из private_meta |
-| `changePassword` | JWT | смена пароля (залогинен) |
+| `login` | нет | вход → HttpOnly cookies + access JWT (опц. TOTP) |
+| `refresh` | refresh cookie | новая пара токенов |
+| `logout` / `logoutAll` | cookie / JWT | выход с устройства / везде (`tokenVersion++`) |
+| `me` | access | проверка сессии / PII + ротация cookies |
+| `changePassword` | access | смена пароля + инвалидация других сессий |
+| `totpSetup` / `totpConfirm` / `totpDisable` | access | TOTP 2FA |
+| `getSecurityEvents` | access admin | журнал security events |
 | `requestPasswordReset` | нет | код сброса на **подтверждённый** email |
 | `confirmPasswordReset` | нет | код + новый пароль |
-| `sync` | JWT | GET→merge→sanitize→PUT JSON |
-| `patchSound` | JWT | лёгкий патч plays/downloads/лайков без полной перезаписи `map_data.json` |
-| `presign` | JWT | presigned PUT для `uploads/{login}/...` и `staging/{login}/...` |
-| `commit` | JWT | взять staging → merge → sanitize → PUT публичный JSON |
-| `getMail` | JWT | личная почта (проекция); staff — полный `mail.json` |
-| `translate` | JWT | Yandex Translate RU→EN (UCS FXName) |
-| `requestEmailVerification` | JWT | 6-значный код на email (SMTP); хеш в `_auth/email_codes/{login}.json` |
-| `confirmEmailVerification` | JWT | проверка кода → `email` + `emailVerified` в private_meta |
-| `adminDeleteUser` | JWT admin | полное удаление учётки + PII; профиль → «Удалённый аккаунт» |
-| `adminUnbindEmail` | JWT admin | снять email / `emailVerified` |
+| `sync` | access | GET→merge→sanitize→PUT JSON (+ HMAC) |
+| `patchSound` | access | лёгкий патч plays/downloads/лайков без полной перезаписи `map_data.json` |
+| `presign` | access | presigned PUT для `uploads/{login}/...` и `staging/{login}/...` |
+| `commit` | access | взять staging → merge → sanitize → PUT публичный JSON |
+| `getMail` | access | личная почта (проекция); staff — полный `mail.json` |
+| `translate` | access | Yandex Translate RU→EN (UCS FXName) |
+| `requestEmailVerification` | access | 6-значный код на email (SMTP); хеш в `_auth/email_codes/{login}.json` |
+| `confirmEmailVerification` | access | проверка кода → `email` + `emailVerified` в private_meta |
+| `adminDeleteUser` | access admin | полное удаление учётки + PII; профиль → «Удалённый аккаунт» |
+| `adminUnbindEmail` | access admin | снять email / `emailVerified` |
+| `adminSendEmail` | access admin | письмо пользователю (verified email) |
 
 ### Роли
 
@@ -50,10 +55,15 @@
 | `_auth/private_meta.json` | private | email и survey-поля |
 | `_auth/email_codes/{login}.json` | private | хеш кода подтверждения email |
 | `_auth/password_resets/{login}.json` | private | хеш кода сброса пароля |
+| `_auth/security_events.json` | private | журнал security events |
+| `_auth/integrity/*.sig` | private | HMAC-SHA256 критичных JSON |
 
 Медиа только в `uploads/{login}/…`. **data-URL и blob: в базах запрещены.**
 
-Письма: `cloud/api/mailTemplates.js` (обязателен в zip деплоя).
+Письма: `cloud/api/mailTemplates.js` (обязателен в zip деплоя).  
+Сессии / TOTP / lockout / HMAC: `cloud/api/sessionSecurity.js` (обязателен в zip деплоя).
+
+Подробности по угрозам и чеклистам: [`docs/security.md`](../../docs/security.md).
 
 ## Лимиты
 
@@ -65,7 +75,9 @@
 | Inbox / notifications | 200 / 100 записей |
 | Текст сообщения | 4000 символов |
 | Пароль | мин. 8 символов |
-| Rate limit | IP 360/мин (без health); sync/commit 120; patchSound 180; presign 90; translate 40; getMail 120; email/reset request 5/10мин на логин, 20/час на IP; confirm 20/10мин |
+| Access JWT / refresh | 30 мин / 14 суток (HttpOnly cookies) |
+| Login lockout | 8 fails → 15 мин (IP+login) |
+| Rate limit | IP 360/мин (без health); login 25; refresh 60; sync/commit 120; patchSound 180; presign 90; translate 40; getMail 120; email/reset request 5/10мин на логин, 20/час на IP; confirm 20/10мин; totp 20/10мин |
 
 ## Переменные окружения функции
 

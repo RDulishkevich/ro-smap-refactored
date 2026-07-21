@@ -1,13 +1,33 @@
-/** Клиент безопасного API (Yandex Cloud Function). */
+/** Клиент безопасного API (Yandex Cloud Function). Cookie-сессии + короткий access JWT. */
+
+window.__accessToken = window.__accessToken || '';
+window.__refreshInFlight = null;
 
 window.getAuthToken = function() {
-    try { return localStorage.getItem('rosmap_token') || ''; } catch (_) { return ''; }
+    if (window.__accessToken) return window.__accessToken;
+    try { return sessionStorage.getItem('rosmap_at') || ''; } catch (_) { return ''; }
+};
+
+window.hasAuthSession = function() {
+    if (window.getAuthToken()) return true;
+    if (window.currentUser?.loginName || window.currentUser?.username) return true;
+    try { return localStorage.getItem('rosmap_session') === '1'; } catch (_) { return false; }
+};
+
+/** Удобная проверка: cookie-сессия или access JWT в памяти. */
+window.isAuthed = function() {
+    return !!(window.hasAuthSession && window.hasAuthSession());
 };
 
 window.setAuthSession = function(token, user) {
+    if (token) {
+        window.__accessToken = token;
+        try { sessionStorage.setItem('rosmap_at', token); } catch (_) {}
+    }
     try {
-        if (token) localStorage.setItem('rosmap_token', token);
-        else localStorage.removeItem('rosmap_token');
+        localStorage.setItem('rosmap_session', '1');
+        // legacy cleanup — JWT больше не в localStorage
+        localStorage.removeItem('rosmap_token');
     } catch (_) {}
     if (user) {
         window.currentUser = {
@@ -18,6 +38,7 @@ window.setAuthSession = function(token, user) {
                 const r = String(user.role || '').toLowerCase();
                 return (r === 'admin' || r === 'moderator') ? r : 'user';
             })(),
+            totpEnabled: !!user.totpEnabled,
             settings: (window.currentUser && window.currentUser.settings) || { theme: 'light', mapStyle: 'normal', lang: 'ru' }
         };
         try { localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser)); } catch (_) {}
@@ -25,14 +46,17 @@ window.setAuthSession = function(token, user) {
 };
 
 window.clearAuthSession = function() {
+    window.__accessToken = '';
     try {
+        sessionStorage.removeItem('rosmap_at');
         localStorage.removeItem('rosmap_token');
         localStorage.removeItem('rosmap_user');
+        localStorage.removeItem('rosmap_session');
     } catch (_) {}
     window.currentUser = null;
 };
 
-window.apiRequest = async function(action, payload = {}, { auth = false } = {}) {
+window.apiRequest = async function(action, payload = {}, { auth = false, _retried = false } = {}) {
     const url = window.YANDEX_FUNCTION_URL;
     if (!url) throw new Error('YANDEX_FUNCTION_URL is empty');
 
@@ -40,25 +64,32 @@ window.apiRequest = async function(action, payload = {}, { auth = false } = {}) 
     const body = { action, ...payload };
     if (auth) {
         const token = window.getAuthToken();
-        if (!token) {
-            const err = new Error('unauthorized');
-            err.code = 'unauthorized';
-            throw err;
-        }
         // Важно: НЕ слать Authorization: Bearer — у functions.yandexcloud.net
         // этот заголовок означает IAM-токен вызова функции, а не наш JWT.
-        body.token = token;
-        headers['X-Rosmap-Token'] = token;
+        // Cookie HttpOnly (rosmap_at) тоже принимается сервером при credentials:include.
+        if (token) {
+            body.token = token;
+            headers['X-Rosmap-Token'] = token;
+        }
     }
 
     const res = await fetch(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        credentials: 'include'
     });
 
     let data = null;
     try { data = await res.json(); } catch (_) { data = null; }
+
+    if (auth && !_retried && (res.status === 401 || data?.error === 'unauthorized')
+        && action !== 'refresh' && action !== 'login' && action !== 'logout') {
+        const refreshed = await window.apiRefreshSession().catch(() => null);
+        if (refreshed?.ok) {
+            return window.apiRequest(action, payload, { auth: true, _retried: true });
+        }
+    }
 
     if (!res.ok || (data && data.ok === false)) {
         const err = new Error((data && (data.message || data.error)) || `HTTP ${res.status}`);
@@ -67,19 +98,63 @@ window.apiRequest = async function(action, payload = {}, { auth = false } = {}) 
         err.data = data;
         throw err;
     }
+    if (data?.token) {
+        window.__accessToken = data.token;
+        try { sessionStorage.setItem('rosmap_at', data.token); } catch (_) {}
+    }
     return data || { ok: true };
+};
+
+window.apiRefreshSession = function() {
+    if (window.__refreshInFlight) return window.__refreshInFlight;
+    window.__refreshInFlight = (async () => {
+        try {
+            const data = await window.apiRequest('refresh', {}, { auth: false });
+            if (data?.token) window.setAuthSession(data.token, data.user || window.currentUser);
+            return data;
+        } finally {
+            window.__refreshInFlight = null;
+        }
+    })();
+    return window.__refreshInFlight;
 };
 
 window.apiRegister = function(login, password, displayName) {
     return window.apiRequest('register', { login, password, displayName: displayName || login });
 };
 
-window.apiLogin = function(login, password) {
-    return window.apiRequest('login', { login, password });
+window.apiLogin = function(login, password, totpCode) {
+    const payload = { login, password };
+    if (totpCode) payload.totpCode = totpCode;
+    return window.apiRequest('login', payload);
+};
+
+window.apiLogout = function() {
+    return window.apiRequest('logout', {}, { auth: false }).catch(() => ({ ok: true }));
+};
+
+window.apiLogoutAll = function() {
+    return window.apiRequest('logoutAll', {}, { auth: true });
 };
 
 window.apiMe = function() {
     return window.apiRequest('me', {}, { auth: true });
+};
+
+window.apiTotpSetup = function() {
+    return window.apiRequest('totpSetup', {}, { auth: true });
+};
+
+window.apiTotpConfirm = function(code) {
+    return window.apiRequest('totpConfirm', { totpCode: code }, { auth: true });
+};
+
+window.apiTotpDisable = function(password, code) {
+    return window.apiRequest('totpDisable', { password, totpCode: code }, { auth: true });
+};
+
+window.apiGetSecurityEvents = function() {
+    return window.apiRequest('getSecurityEvents', {}, { auth: true });
 };
 
 window.apiRequestEmailVerification = function(email) {
@@ -329,15 +404,12 @@ window.uploadImageToStorage = async function(input, fileNamePrefix = 'img') {
     return window.uploadUserMedia(blob, `${fileNamePrefix}_${Date.now()}.jpg`, 'image/jpeg');
 };
 
-/** Восстановить сессию после перезагрузки (JWT → me). */
+/** Восстановить сессию после перезагрузки (cookie / access JWT → me). */
 window.restoreAuthSession = async function() {
-    const token = window.getAuthToken();
-    if (!token) return false;
-    try {
+    const tryMe = async () => {
         const data = await window.apiMe();
         if (data.token) window.setAuthSession(data.token, data.user);
-        else window.setAuthSession(token, data.user);
-        // PII (email и т.п.) приходят из private_meta через me, не из публичного profiles.json
+        else window.setAuthSession(window.getAuthToken(), data.user);
         if (data.user && window.currentUser) {
             if (data.user.email !== undefined) window.currentUser.email = data.user.email || '';
             if (data.user.emailVerified !== undefined) window.currentUser.emailVerified = !!data.user.emailVerified;
@@ -349,10 +421,30 @@ window.restoreAuthSession = async function() {
             }
             if (data.user.pdConsent !== undefined) window.currentUser.pdConsent = !!data.user.pdConsent;
             if (data.user.pdConsentAt !== undefined) window.currentUser.pdConsentAt = data.user.pdConsentAt || '';
+            if (data.user.totpEnabled !== undefined) window.currentUser.totpEnabled = !!data.user.totpEnabled;
             try { localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser)); } catch (_) {}
         }
         return true;
+    };
+
+    if (!window.hasAuthSession() && !window.getAuthToken()) {
+        // Попробовать cookie-сессию без локального флага (после очистки localStorage)
+        try {
+            return await tryMe();
+        } catch (_) {
+            return false;
+        }
+    }
+
+    try {
+        return await tryMe();
     } catch (err) {
+        if (err.code === 'unauthorized' || err.status === 401) {
+            try {
+                const refreshed = await window.apiRefreshSession();
+                if (refreshed?.ok) return await tryMe();
+            } catch (_) {}
+        }
         if (err.code === 'unauthorized' || err.code === 'blocked' || err.status === 401 || err.status === 403) {
             window.clearAuthSession();
         }
