@@ -1,0 +1,70 @@
+# Set Unisender Go SMTP on Secure API (prompts for API key — do not paste key into chat).
+# Usage (from repo root):
+#   powershell -ExecutionPolicy Bypass -File cloud/ops/set-unisender-smtp.ps1
+# Optional:
+#   -SmtpHost smtp.go2.unisender.ru
+
+param(
+    [string]$SmtpHost = "smtp.go1.unisender.ru",
+    [string]$SmtpUser = "8283982",
+    [string]$SmtpPort = "587",
+    [string]$MailFrom = "noreply@polevka.art",
+    [string]$FunctionId = "d4ebp9rd7rd53iso4p8u"
+)
+
+$ErrorActionPreference = "Stop"
+$root = Resolve-Path (Join-Path $PSScriptRoot "..\..")
+Set-Location $root
+
+Write-Host "SMTP_HOST=$SmtpHost  SMTP_USER=$SmtpUser  MAIL_FROM=$MailFrom"
+$secure = Read-Host "Unisender API key (SMTP password)" -AsSecureString
+$BSTR = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+try {
+    $SmtpPass = [Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+} finally {
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR) | Out-Null
+}
+if (-not $SmtpPass) { throw "Empty API key" }
+
+Write-Host "Building zip..."
+Push-Location (Join-Path $root "cloud\api")
+npm install --omit=dev | Out-Null
+$zip = Join-Path $root "cloud\rosmap-api-deploy.zip"
+if (Test-Path $zip) { Remove-Item $zip -Force }
+Compress-Archive -Path index.js, package.json, package-lock.json, node_modules -DestinationPath $zip -Force
+Pop-Location
+
+Write-Host "Reading current function env..."
+$ver = (yc serverless function version list --function-id $FunctionId --limit 1 --format json | ConvertFrom-Json)[0]
+$full = yc serverless function version get --id $ver.id --format json | ConvertFrom-Json
+$envMap = @{}
+if ($full.environment) {
+    $full.environment.PSObject.Properties | ForEach-Object { $envMap[$_.Name] = [string]$_.Value }
+}
+
+$envMap["SMTP_HOST"] = $SmtpHost
+$envMap["SMTP_PORT"] = $SmtpPort
+$envMap["SMTP_USER"] = $SmtpUser
+$envMap["SMTP_PASS"] = $SmtpPass
+$envMap["MAIL_FROM"] = $MailFrom
+
+$ycArgs = @(
+    "serverless", "function", "version", "create",
+    "--function-id", $FunctionId,
+    "--runtime", "nodejs18",
+    "--entrypoint", "index.handler",
+    "--memory", "512m",
+    "--execution-timeout", "30s",
+    "--source-path", $zip
+)
+foreach ($k in ($envMap.Keys | Sort-Object)) {
+    $ycArgs += @("--environment", "$k=$($envMap[$k])")
+}
+
+Write-Host "Deploying new version (secrets not printed)..."
+& yc @ycArgs
+if ($LASTEXITCODE -ne 0) { throw "yc deploy failed: $LASTEXITCODE" }
+
+Remove-Item $zip -Force -ErrorAction SilentlyContinue
+Write-Host "Done. Test: cabinet -> send email code on https://www.polevka.art"
+Write-Host "If mail fails and cabinet is go2.unisender.ru, re-run with: -SmtpHost smtp.go2.unisender.ru"

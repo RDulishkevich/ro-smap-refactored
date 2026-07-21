@@ -103,6 +103,11 @@ export function initAuth() {
                     <input type="text" id="auth-username" class="modal-input dark:bg-slate-900" placeholder="Придумайте псевдоним" onkeydown="if(event.key==='Enter') window.submitAuth()">
                 </div>
                 <div>
+                    <label class="modal-label">Email</label>
+                    <input type="email" id="auth-email" class="modal-input dark:bg-slate-900" placeholder="name@example.com" autocomplete="email" onkeydown="if(event.key==='Enter') window.submitAuth()">
+                    <p class="text-[10px] text-slate-400 mt-1">На него придёт код подтверждения. Нужен для восстановления доступа.</p>
+                </div>
+                <div>
                     <label class="modal-label">Пароль</label>
                     <input type="password" id="auth-password" class="modal-input dark:bg-slate-900" placeholder="Придумайте пароль" onkeydown="if(event.key==='Enter') window.submitAuth()">
                 </div>
@@ -129,7 +134,7 @@ export function initAuth() {
                 </div>
                 <label class="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300 leading-snug">
                     <input type="checkbox" id="auth-pd-consent" class="mt-0.5 rounded shrink-0">
-                    <span>Согласен(на) на обработку персональных данных (логин, профиль, активность) для работы сервиса Полёвка. <button type="button" class="text-blue-600 dark:text-blue-400 font-semibold hover:underline" onclick="event.preventDefault(); window.openPdConsentInfo && window.openPdConsentInfo()">Подробнее</button>. Регистрируясь, вы принимаете <button type="button" class="text-blue-600 dark:text-blue-400 font-semibold hover:underline" onclick="event.preventDefault(); window.openLegalDocModal && window.openLegalDocModal('terms')">пользовательское соглашение</button>.</span>
+                    <span>Согласен(на) на обработку персональных данных (логин, email, профиль, активность) для работы сервиса Полёвка. <button type="button" class="text-blue-600 dark:text-blue-400 font-semibold hover:underline" onclick="event.preventDefault(); window.openPdConsentInfo && window.openPdConsentInfo()">Подробнее</button>. Регистрируясь, вы принимаете <button type="button" class="text-blue-600 dark:text-blue-400 font-semibold hover:underline" onclick="event.preventDefault(); window.openLegalDocModal && window.openLegalDocModal('terms')">пользовательское соглашение</button>.</span>
                 </label>
                 <p class="text-[10px] text-slate-400 leading-tight">Этот логин будет автоматически использоваться как CreatorID при добавлении ваших аудиозаписей.</p>
             `;
@@ -148,9 +153,14 @@ export function initAuth() {
         if (pass.length < 8) return window.showToast('Пароль слишком короткий (мин. 8)');
 
         let regSurvey = null;
+        let regEmail = '';
         if (window.authMode === 'register') {
             const pd = document.getElementById('auth-pd-consent');
             if (!pd?.checked) return window.showToast('Нужно согласие на обработку персональных данных');
+            regEmail = (document.getElementById('auth-email')?.value || '').trim().toLowerCase();
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail)) {
+                return window.showToast('Введите корректный email');
+            }
             const skill = (document.getElementById('auth-skill-level')?.value || '').trim();
             if (!skill) return window.showToast('Укажите уровень умений');
             const intents = Array.from(document.querySelectorAll('input[name="auth-intent"]:checked')).map((el) => el.value);
@@ -201,10 +211,37 @@ export function initAuth() {
             window.showToast('Успешный вход: ' + (window.currentUser.username || login));
             window.applyUserSettings();
             if (isNewRegistration && window.saveMyProfile) {
+                window.currentUser.email = regEmail || window.currentUser.email || '';
+                window.currentUser.emailVerified = false;
                 await window.saveMyProfile({
                     joinedAt: new Date().toISOString(),
+                    email: regEmail || '',
                     ...(regSurvey || {})
                 });
+                if (regEmail && window.apiRequestEmailVerification) {
+                    try {
+                        const ev = await window.apiRequestEmailVerification(regEmail);
+                        window.__pendingEmailVerification = {
+                            email: regEmail,
+                            expiresAt: ev?.expiresAt || (Date.now() + 10 * 60 * 1000)
+                        };
+                        if (ev?.demo && ev?.demoCode) {
+                            window.showToast(`Демо (staging): код – ${ev.demoCode}`);
+                        } else {
+                            window.showToast('Код подтверждения отправлен на email');
+                        }
+                        if (window.refreshEmailVerificationUI) window.refreshEmailVerificationUI();
+                    } catch (mailErr) {
+                        const code = mailErr?.code || '';
+                        if (code === 'mail_not_configured') {
+                            window.showToast('Аккаунт создан. Подтверждение email пока недоступно — настройте почту позже в кабинете.');
+                        } else if (code === 'rate_limited') {
+                            window.showToast('Аккаунт создан. Код можно запросить позже в кабинете.');
+                        } else {
+                            window.showToast('Аккаунт создан. Код подтверждения не отправился — запросите в кабинете.');
+                        }
+                    }
+                }
             }
             window.bustFilteredSoundsCache();
             if (window.refreshNotificationsUI) window.refreshNotificationsUI();

@@ -1295,18 +1295,32 @@ async function clearEmailCode(login) {
 }
 
 async function sendVerificationMail(to, code) {
+    const port = SMTP_PORT || 587;
     const transporter = nodemailer.createTransport({
         host: SMTP_HOST,
-        port: SMTP_PORT || 587,
-        secure: Number(SMTP_PORT) === 465,
+        port,
+        secure: Number(port) === 465,
+        requireTLS: Number(port) !== 465,
         auth: { user: SMTP_USER, pass: SMTP_PASS }
     });
+    // Unisender Go: отключить трекинг; skip_unsubscribe=1 только если поддержка Unisender разрешила (иначе убрать флаг).
+    const uniHeaders = {
+        global_language: 'ru',
+        track_links: 0,
+        track_read: 0
+    };
+    if (String(process.env.UNISENDER_SKIP_UNSUBSCRIBE || '') === '1') {
+        uniHeaders.skip_unsubscribe = 1;
+    }
     await transporter.sendMail({
         from: MAIL_FROM,
         to,
         subject: 'Код подтверждения — Полёвка',
         text: `Ваш код подтверждения email в Полёвке: ${code}\n\nКод действует 10 минут. Если вы не запрашивали код, просто проигнорируйте письмо.`,
-        html: `<p>Ваш код подтверждения email в Полёвке: <strong style="font-size:1.25rem;letter-spacing:0.1em">${code}</strong></p><p>Код действует 10 минут. Если вы не запрашивали код, просто проигнорируйте письмо.</p>`
+        html: `<p>Ваш код подтверждения email в Полёвке: <strong style="font-size:1.25rem;letter-spacing:0.1em">${code}</strong></p><p>Код действует 10 минут. Если вы не запрашивали код, просто проигнорируйте письмо.</p>`,
+        headers: {
+            'X-UNISENDER-GO': JSON.stringify(uniHeaders)
+        }
     });
 }
 

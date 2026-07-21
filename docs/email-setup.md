@@ -1,79 +1,73 @@
 # Настройка почты Полёвки (`@polevka.art`)
 
-Транзакционные письма (код подтверждения email) идут через Secure API (`requestEmailVerification`) и SMTP. Код API уже в репозитории; письма включатся после env и DNS.
+Цель: адреса вида `noreply@polevka.art` / `support@polevka.art`, коды подтверждения на **любые** ящики пользователей (Gmail и т.д.), серверы в РФ (152‑ФЗ).
 
-**152-ФЗ:** email пользователя — персональные данные. Нельзя слать коды через зарубежный ESP (Brevo, Resend, Mailgun EU/US и т.п.) — это трансграничная передача. Для Полёвки используем **SMTP на серверах в РФ**.
-
-Пока почта не настроена, пользователи пишут в **чат поддержки в приложении**.
+Сайт остаётся на GitHub Pages; меняются только **почтовые** DNS (MX/SPF/DKIM), не A/AAAA/`www`.
 
 ---
 
-## Рекомендуемый стек (РФ)
+## Рекомендуемое решение (без Unisender и без Яндекс 360)
 
-| Задача | Зачем | Вариант |
-|--------|--------|---------|
-| **Отправка** кодов (`noreply@…`) | SMTP в Cloud Function | **Unisender Go** — серверы в РФ, заявленное соответствие 152-ФЗ; бесплатный старт (лимиты уточняйте в кабинете) |
-| **Приём** на `support@…` | Входящие | Пока чат в приложении; позже — почта на домене у российского хостера (Reg.ru / Beget / Timeweb mail) или MX-forward **в РФ**, не ImprovMX/Gmail как основной канал ПДн |
+**Почта для домена у российского хостера** → обычный SMTP в Secure API.
 
-Яндекс 360 и «корпоративная» почта Reg.ru — опционально и дороже; для кодов достаточно Unisender Go + DNS на Reg.ru.
+| Что | Куда |
+|-----|------|
+| Ящики | `noreply@polevka.art` (коды), `support@polevka.art` (люди) |
+| Где купить | **Reg.ru «Почта» Mail-1** (~от 109 ₽/мес) **или** самый дешёвый хостинг **Beget** / **Timeweb** (почта на домене часто **включена** в тариф) |
+| Отправка кодов | SMTP хостера → env Cloud Function (`SMTP_*`, `MAIL_FROM`) |
+| Unisender Go | Для прод-кодов **не нужен** (бесплатный не шлёт на Gmail; платный вы не берёте) |
 
----
+Домен `polevka.art` уже на Reg.ru — логично взять **их же Mail-1**: один кабинет, проще DNS.
 
-## 1. Отправка кодов — Unisender Go
+### Шаги (Reg.ru Почта)
 
-1. Зарегистрируйтесь: [go.unisender.ru](https://go.unisender.ru/) (или кабинет Unisender Go).
-2. Добавьте домен `polevka.art`, пропишите в DNS Reg.ru SPF/DKIM/(DMARC) **как покажет сервис**.
-3. Создайте SMTP-доступ / API-ключ по их инструкции.
-4. В env Cloud Function (пример — актуальный host смотрите в кабинете):
+1. Заказать [Почта для домена / Mail-1](https://www.reg.ru/hosting/mail) на `polevka.art`.
+2. Создать ящики: `noreply`, `support` (пароли сохранить).
+3. В DNS Reg.ru выставить **MX / SPF / DKIM**, как покажет раздел почты (часто мастер сам).
+   - **A/AAAA и CNAME `www` не трогать** (сайт GitHub Pages).
+   - SPF: одна запись `v=spf1 …`; если остался `include:spf.unisender.ru` — можно убрать, когда Unisender больше не шлёте.
+   - NS для `support.polevka.art` (трекинг Unisender) **не мешают** ящику `support@polevka.art` — это разные вещи (поддомен vs локальная часть).
+4. SMTP из справки Reg.ru (типично `smtp.reg.ru` или mail-хост из панели; порт 465/587; логин = полный адрес ящика).
+5. Env функции:
 
 ```
-SMTP_HOST=smtp.go1.unisender.ru
-SMTP_PORT=587
-SMTP_USER=<логин SMTP>
-SMTP_PASS=<пароль / ключ SMTP>
+SMTP_HOST=<из панели Reg.ru>
+SMTP_PORT=465
+SMTP_USER=noreply@polevka.art
+SMTP_PASS=<пароль ящика noreply>
 MAIL_FROM=Полёвка <noreply@polevka.art>
 ```
 
-Пересоберите zip с `nodemailer` и задеплойте функцию (`health.version` ≥ 8).
+6. Деплой новой version Secure API → проверка: кабинет → «Отправить код» на Gmail.
 
-Альтернативы в РФ (тот же nodemailer + env): Sendsay, Dashamail, почтовый SMTP хостера с ящиком `noreply@polevka.art` на серверах в России.
+### Альтернатива: Beget / Timeweb
 
-### Staging без SMTP
-
-```
-ALLOW_DEMO_EMAIL_CODES=1
-```
-
-Только для тестов. **Не на проде.**
+Минимальный тариф хостинга → раздел «Почта» → ящики на `polevka.art` → в DNS Reg.ru прописать **их** MX/SPF/DKIM. Сайт по-прежнему с GitHub (A-записи не менять на Beget, только почтовые).
 
 ---
 
-## 2. Приём `support@polevka.art` (позже)
+## Почему не Unisender Go бесплатно
 
-Сейчас достаточно чата в приложении.  
-Когда понадобится входящая почта: ящик у российского регистратора/хостера + MX в DNS Reg.ru. После активации адрес уже указан в `SUPPORT_PUBLIC_EMAIL` (`src/data/legalDocs.js`).
+Бесплатный тариф шлёт **только на `@polevka.art`**. Подключение через Yandex Cloud Marketplace это не снимает. Платный Unisender вы не берёте → для кодов на Gmail нужен **свой SMTP ящика** (см. выше).
 
-Не используйте зарубежный forward (ImprovMX → Gmail) как основной канал для обращений с ПДн.
-
----
-
-## 3. DNS на Reg.ru
-
-1. Записи SPF/DKIM/DMARC из кабинета Unisender Go (или другого РФ-SMTP).
-2. При появлении входящего ящика — MX провайдера в РФ.
-3. Пропагация: минуты–сутки.
+DNS Unisender (SPF/DKIM/validate), которые уже добавлены, можно позже упростить под почту Reg.ru/Beget, чтобы не плодить лишние TXT.
 
 ---
 
-## 4. Проверка
+## Пока почта не куплена
 
-1. API задеплоен с `nodemailer`, заполнены `SMTP_*` / `MAIL_FROM`.
-2. Кабинет на `https://www.polevka.art` → код на почту → подтверждение.
+SMTP в API пустой → toast «отправка писем пока не настроена». Чат поддержки в приложении работает. Константа `SUPPORT_PUBLIC_EMAIL` уже `support@polevka.art`.
 
-Ошибка `mail_not_configured` — пустые SMTP env или не задеплоен `nodemailer`.
+---
+
+## Проверка
+
+1. Письмо на `support@polevka.art` доходит во веб-почту хостера.
+2. Код из кабинета приходит на личный Gmail с From `noreply@polevka.art`.
+3. `health` API ок; в логах функции нет `mail_send_failed`.
 
 ---
 
 ## Вне объёма
 
-Массовые рассылки и сброс пароля по email — после рабочего SMTP.
+Массовые рассылки, сброс пароля по email — после рабочего SMTP.
