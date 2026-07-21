@@ -422,11 +422,26 @@ export function initAuth() {
     };
 
     // Удаляет саму сессию и отвязывает от неё звуки (они остаются, просто теряют sessionId).
-    window.deleteSession = async function(sessionId) {
+    // opts.ownerLogin / asAdmin — админ может удалить чужую экспедицию.
+    window.deleteSession = async function(sessionId, opts = {}) {
         if (!window.currentUser) return false;
-        const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const isAdmin = !!(window.isCurrentUserAdmin && window.isCurrentUserAdmin());
+        let ownerLogin = myLogin;
+        if (opts.asAdmin || opts.ownerLogin) {
+            if (!isAdmin) {
+                window.showToast('Нужны права администратора');
+                return false;
+            }
+            const found = window.findSessionById(sessionId);
+            if (!found) {
+                window.showToast('Экспедиция не найдена');
+                return false;
+            }
+            ownerLogin = opts.ownerLogin || found.ownerId;
+        }
         const updated = [...(window.profilesData || [])];
-        const idx = updated.findIndex(p => p.loginName === login);
+        const idx = updated.findIndex(p => p.loginName === ownerLogin);
         if (idx < 0) return false;
         updated[idx] = {
             ...updated[idx],
@@ -447,6 +462,10 @@ export function initAuth() {
 
         const profilesOk = await window.syncProfilesData(updated);
         if (changed) await window.syncCloudData(updatedCloud);
+        if (profilesOk && window.renderAdminExpeditionsList && window.__adminSection === 'expeditions') {
+            window.renderAdminExpeditionsList();
+        }
+        if (profilesOk && window.renderSidebarExpeditions) window.renderSidebarExpeditions();
         return profilesOk;
     };
 
@@ -788,8 +807,27 @@ export function initAuth() {
     window.openSessionModal = function(sessionId = null) {
         if (!window.currentUser) { window.showToast('Войдите, чтобы создать экспедицию'); if (window.openAuthModal) window.openAuthModal(); return; }
         window.__editingSessionId = sessionId;
+        window.__editingSessionOwner = null;
 
-        const session = sessionId ? window.getMySessions().find(s => s.id === sessionId) : null;
+        const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        let session = null;
+        if (sessionId) {
+            session = window.getMySessions().find(s => s.id === sessionId) || null;
+            if (session) {
+                window.__editingSessionOwner = myLogin;
+            } else if (window.isCurrentUserAdmin && window.isCurrentUserAdmin()) {
+                const found = window.findSessionById(sessionId);
+                if (found) {
+                    session = found;
+                    window.__editingSessionOwner = found.ownerId;
+                }
+            }
+            if (!session) {
+                window.showToast('Экспедиция не найдена');
+                return;
+            }
+        }
+
         const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
         setVal('session-form-title', session?.title);
         setVal('session-form-date', session?.date);
@@ -831,6 +869,7 @@ export function initAuth() {
             setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
         }
         window.__sessionRouteStops = [];
+        window.__editingSessionOwner = null;
     };
 
     window.isSessionFormDirty = function() {
@@ -989,8 +1028,16 @@ export function initAuth() {
         const routeStops = [...(window.__sessionRouteStops || [])];
 
         const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const isAdmin = !!(window.isCurrentUserAdmin && window.isCurrentUserAdmin());
+        const ownerLogin = (window.__editingSessionId && window.__editingSessionOwner)
+            ? window.__editingSessionOwner
+            : login;
+        if (ownerLogin !== login && !isAdmin) {
+            window.showToast('Нельзя редактировать чужую экспедицию');
+            return;
+        }
         const updated = [...(window.profilesData || [])];
-        const idx = updated.findIndex(p => p.loginName === login);
+        const idx = updated.findIndex(p => p.loginName === ownerLogin);
 
         const isEdit = !!window.__editingSessionId;
         const existingSessions = idx >= 0 ? [...(updated[idx].sessions || [])] : [];
@@ -1014,20 +1061,29 @@ export function initAuth() {
         }
 
         if (idx >= 0) updated[idx] = { ...updated[idx], sessions: existingSessions, profileUpdatedAt: new Date().toISOString() };
-        else updated.push({ loginName: login, displayName: window.currentUser.username, sessions: existingSessions, profileUpdatedAt: new Date().toISOString() });
+        else updated.push({
+            loginName: ownerLogin,
+            displayName: ownerLogin === login ? window.currentUser.username : ownerLogin,
+            sessions: existingSessions,
+            profileUpdatedAt: new Date().toISOString()
+        });
 
         window.showToast('Сохранение экспедиции...');
         const success = await window.syncProfilesData(updated);
         if (success) {
             window.showToast(isEdit ? 'Экспедиция обновлена' : 'Экспедиция создана');
             window.closeSessionModal();
+            window.__editingSessionOwner = null;
             if (window.populateSessionSelect) window.populateSessionSelect(sessionObj.id);
             if (window.renderSessionsPanel) window.renderSessionsPanel();
             if (window.renderSidebarExpeditions) window.renderSidebarExpeditions();
+            if (window.renderAdminExpeditionsList && window.__adminSection === 'expeditions') {
+                window.renderAdminExpeditionsList();
+            }
 
             if (!isEdit && window.evaluateFieldProgress) window.evaluateFieldProgress();
 
-            const newlyAdded = participants.filter(p => !prevParticipants.has(p) && p !== login);
+            const newlyAdded = participants.filter(p => !prevParticipants.has(p) && p !== ownerLogin);
             if (newlyAdded.length && window.pushNotifications) {
                 window.pushNotifications(newlyAdded, {
                     type: 'expedition',
@@ -1768,14 +1824,15 @@ export function initAuth() {
 
     // Переключатель очереди: все / pending / rejected
     window.__adminListFilter = window.__adminListFilter || 'all';
-    window.__adminSearch = window.__adminSearch || { sounds: '', reports: '', support: '', events: '', users: '' };
+    window.__adminSearch = window.__adminSearch || { sounds: '', reports: '', support: '', events: '', expeditions: '', users: '' };
     window.setAdminSearchQuery = function(section, value) {
-        if (!window.__adminSearch) window.__adminSearch = { sounds: '', reports: '', support: '', events: '', users: '' };
+        if (!window.__adminSearch) window.__adminSearch = { sounds: '', reports: '', support: '', events: '', expeditions: '', users: '' };
         window.__adminSearch[section] = String(value || '').trim().toLowerCase();
         if (section === 'sounds' && window.renderAdminList) window.renderAdminList();
         else if (section === 'reports' && window.renderReportsList) window.renderReportsList();
         else if (section === 'support' && window.renderAdminSupportList) window.renderAdminSupportList();
         else if (section === 'events' && window.renderAdminEventsList) window.renderAdminEventsList();
+        else if (section === 'expeditions' && window.renderAdminExpeditionsList) window.renderAdminExpeditionsList();
         else if (section === 'users' && window.renderAdminUsersList) window.renderAdminUsersList();
     };
     window.setAdminListFilter = function(mode) {
@@ -1864,6 +1921,105 @@ export function initAuth() {
             `;
         }).join('');
         if (window.refreshAdminRailBadge) window.refreshAdminRailBadge();
+    };
+
+    window.renderAdminExpeditionsList = function() {
+        const el = document.getElementById('admin-expeditions-list');
+        if (!el) return;
+        const esc = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        let list = (window.getAllSessions ? window.getAllSessions() : []).slice();
+        const q = (window.__adminSearch?.expeditions || '').trim().toLowerCase();
+        if (q) {
+            list = list.filter((s) => {
+                const hay = [
+                    s.title, s.id, s.ownerId, s.ownerName, s.route, s.purpose, s.date,
+                    ...(s.participants || []), ...(s.guests || [])
+                ].map((x) => String(x || '').toLowerCase()).join(' ');
+                return hay.includes(q);
+            });
+        }
+        if (!list.length) {
+            el.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">${q ? 'Ничего не найдено по запросу.' : 'Экспедиций пока нет'}</p>`;
+            return;
+        }
+        el.innerHTML = list.map((s) => {
+            const soundCount = (window.soundsData || []).filter((x) => x.sessionId === s.id).length;
+            const participants = Array.isArray(s.participants) ? s.participants.length : 0;
+            const dateLabel = s.date || (s.createdAt ? String(s.createdAt).slice(0, 10) : 'без даты');
+            return `<div class="admin-entity-row">
+                <button type="button" class="admin-entity-main text-left flex-1 min-w-0" onclick="window.openExpeditionViewModal && window.openExpeditionViewModal('${esc(s.id)}')">
+                    <p class="admin-entity-num">ID ${esc(s.id)}</p>
+                    <p class="admin-entity-title">${esc(s.title || 'Без названия')}</p>
+                    <p class="admin-entity-meta">${esc(s.ownerName || s.ownerId || '—')} · ${esc(dateLabel)} · ${soundCount} зап. · ${participants} уч.</p>
+                </button>
+                <button type="button" class="admin-actions-btn shrink-0" onclick="event.stopPropagation(); window.openAdminExpeditionActions('${esc(s.id)}', event)"><i class="fa-solid fa-ellipsis"></i> Действия</button>
+            </div>`;
+        }).join('');
+    };
+
+    window.getAdminExpeditionActionItems = function(sessionId) {
+        const s = window.findSessionById ? window.findSessionById(sessionId) : null;
+        if (!s) return [];
+        return [
+            {
+                icon: 'fa-eye',
+                label: 'Открыть',
+                tone: 'primary',
+                onClick: () => { if (window.openExpeditionViewModal) window.openExpeditionViewModal(sessionId); }
+            },
+            {
+                icon: 'fa-pen',
+                label: 'Изменить',
+                tone: 'primary',
+                onClick: () => { if (window.openSessionModal) window.openSessionModal(sessionId); }
+            },
+            {
+                icon: 'fa-filter',
+                label: 'Фильтр на карте',
+                tone: 'default',
+                onClick: () => {
+                    if (window.setSidebarSessionFilter) window.setSidebarSessionFilter(sessionId);
+                    if (window.switchSidebarTab) window.switchSidebarTab('expeditions');
+                }
+            },
+            {
+                icon: 'fa-trash',
+                label: 'Удалить',
+                tone: 'danger',
+                onClick: () => { if (window.adminDeleteSession) window.adminDeleteSession(sessionId); }
+            }
+        ];
+    };
+
+    window.openAdminExpeditionActions = function(sessionId, ev) {
+        const items = window.getAdminExpeditionActionItems(sessionId);
+        const s = window.findSessionById ? window.findSessionById(sessionId) : null;
+        if (!items.length) return;
+        const opts = { title: s?.title || 'Экспедиция', event: ev || (typeof event !== 'undefined' ? event : null) };
+        if (window.openActionsMenu) window.openActionsMenu(items, opts);
+        else if (window.ActionSheet) window.ActionSheet.open(items);
+    };
+
+    window.adminDeleteSession = async function(sessionId) {
+        if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) {
+            window.showToast('Нужны права администратора');
+            return;
+        }
+        const s = window.findSessionById ? window.findSessionById(sessionId) : null;
+        if (!s) {
+            window.showToast('Экспедиция не найдена');
+            return;
+        }
+        const confirmed = await window.CustomUI.open({
+            title: 'Удалить экспедицию?',
+            message: `«${s.title || sessionId}» (${s.ownerName || s.ownerId || '—'}). Записи останутся, привязка снимется.`,
+            confirmText: 'Удалить',
+            confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
+        });
+        if (!confirmed) return;
+        window.showToast('Удаление экспедиции...');
+        const ok = await window.deleteSession(sessionId, { asAdmin: true, ownerLogin: s.ownerId });
+        window.showToast(ok ? 'Экспедиция удалена' : 'Не удалось удалить');
     };
 
     window.getAdminSoundActionItems = function(soundId) {
@@ -2044,7 +2200,7 @@ export function initAuth() {
     };
 
     window.switchAdminSection = function(section) {
-        const allowed = ['sounds', 'reports', 'users', 'support', 'events', 'tools', 'stats', 'console'];
+        const allowed = ['sounds', 'reports', 'users', 'support', 'events', 'expeditions', 'tools', 'stats', 'console'];
         window.__adminSection = allowed.includes(section) ? section : 'sounds';
         allowed.forEach((key) => {
             const panel = document.getElementById(`admin-section-${key}`);
@@ -2056,6 +2212,7 @@ export function initAuth() {
         if (window.__adminSection === 'users') window.renderAdminUsersList();
         if (window.__adminSection === 'support') window.renderAdminSupportList();
         if (window.__adminSection === 'events' && window.renderAdminEventsList) window.renderAdminEventsList();
+        if (window.__adminSection === 'expeditions' && window.renderAdminExpeditionsList) window.renderAdminExpeditionsList();
         if (window.__adminSection === 'sounds') {
             if (window.renderAdminList) window.renderAdminList();
             if (window.renderRegionStats) window.renderRegionStats('admin-stats-grid');
@@ -2077,10 +2234,11 @@ export function initAuth() {
         const pending = all.filter((s) => s.status === 'pending').length;
         const reports = window.getAllReports ? window.getAllReports().filter((r) => r.status !== 'resolved').length : 0;
         const users = (window.profilesData || []).length;
+        const sessions = window.getAllSessions ? window.getAllSessions().length : 0;
         const api = window.__apiHealth;
         el.innerHTML = `
             <div>Каталог: <strong>${all.length}</strong> · на модерации <strong>${pending}</strong></div>
-            <div>Жалобы: <strong>${reports}</strong> · пользователи <strong>${users}</strong></div>
+            <div>Жалобы: <strong>${reports}</strong> · пользователи <strong>${users}</strong> · экспедиции <strong>${sessions}</strong></div>
             <div>API: <strong>${api?.ok ? `v${api.version || '?'}` : 'нет данных'}</strong></div>
         `;
     };
@@ -3019,7 +3177,7 @@ export function initAuth() {
                 <i class="fa-solid ${icons[n.type] || 'fa-bell'} notif-item-icon"></i>
                 <div class="min-w-0 flex-1">
                     <p class="text-xs font-semibold text-slate-700 dark:text-slate-200 leading-snug">${n.text}</p>
-                    <p class="text-[10px] text-slate-400 mt-0.5">${n.date ? new Date(n.date).toLocaleString('ru-RU') : ''}</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">${n.date ? new Date(n.date).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</p>
                 </div>
             </button>
         `).join('');

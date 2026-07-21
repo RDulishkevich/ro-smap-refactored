@@ -26,6 +26,16 @@ window.EVENT_TYPE_LABELS = {
     announcement: 'Анонс'
 };
 
+/** Russian plural: 1 участник, 2 участника, 5 участников */
+window.pluralRu = function(n, one, few, many) {
+    const abs = Math.abs(Number(n) || 0) % 100;
+    const d = abs % 10;
+    if (abs > 10 && abs < 20) return many;
+    if (d === 1) return one;
+    if (d >= 2 && d <= 4) return few;
+    return many;
+};
+
 window.getActiveEvents = function() {
     return (window.eventsData || []).filter((e) => e && !e.deleted);
 };
@@ -112,7 +122,7 @@ window.openEventsSheet = function() {
     sheet.classList.remove('opacity-0', 'pointer-events-none');
     document.body.classList.add('events-open');
     window.renderEventsPanel();
-    if (window.syncMobileNavActive) window.syncMobileNavActive('events');
+    if (window.syncMobileNavActive) window.syncMobileNavActive('map');
 };
 
 window.closeEventsSheet = function() {
@@ -124,7 +134,11 @@ window.closeEventsSheet = function() {
     window.__eventsDetailId = null;
     if (window.syncMobileNavActive) {
         const dockHidden = document.getElementById('sidebar')?.classList.contains('sidebar-hidden');
-        window.syncMobileNavActive(dockHidden ? 'map' : (window.__dockView === 'feed' ? 'feed' : (window.__dockView === 'cabinet' ? 'profile' : 'library')));
+        if (dockHidden) window.syncMobileNavActive('map');
+        else if (window.__dockView === 'feed') window.syncMobileNavActive('feed');
+        else if (window.__dockView === 'cabinet') window.syncMobileNavActive('profile');
+        else if (window.__dockView === 'settings') window.syncMobileNavActive('settings');
+        else window.syncMobileNavActive('library');
     }
 };
 
@@ -171,7 +185,7 @@ window.renderEventsPanel = function() {
                     <p class="event-card__title">${esc(e.title || 'Без названия')}</p>
                     ${e.theme ? `<p class="event-card__theme">${esc(e.theme)}</p>` : ''}
                     <p class="event-card__meta"><i class="fa-regular fa-calendar"></i> ${esc(window.formatEventRange(e))}</p>
-                    <p class="event-card__meta"><i class="fa-solid fa-users"></i> ${going} участников</p>
+                    <p class="event-card__meta"><i class="fa-solid fa-users"></i> ${going} ${window.pluralRu ? window.pluralRu(going, 'участник', 'участника', 'участников') : (going === 1 ? 'участник' : 'участников')}</p>
                 </button>`;
             }).join('')
             : `<div class="events-empty"><i class="fa-solid fa-calendar-days"></i><p>Пока нет ивентов</p><p class="text-[11px] opacity-70">Админ может создать конкурс, встречу или челлендж</p></div>`;
@@ -186,9 +200,8 @@ window.renderEventsPanel = function() {
 
     const badge = document.getElementById('events-rail-badge');
     const badgeMobile = document.getElementById('events-btn-mobile-badge');
-    const badgeNav = document.getElementById('mobile-nav-events-badge');
     const liveCount = window.filterEventsList('live').length;
-    [badge, badgeMobile, badgeNav].forEach((el) => {
+    [badge, badgeMobile].forEach((el) => {
         if (!el) return;
         el.textContent = String(liveCount);
         el.classList.toggle('hidden', liveCount === 0);

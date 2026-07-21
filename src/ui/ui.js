@@ -2111,6 +2111,7 @@ window.syncEventsData = async function(events) {
         window.__lastEventsPollKey = window.fingerprintDataset(window.eventsData);
         if (window.renderEventsPanel) window.renderEventsPanel();
         if (window.__adminSection === 'events' && window.renderAdminEventsList) window.renderAdminEventsList();
+        if (window.__adminSection === 'expeditions' && window.renderAdminExpeditionsList) window.renderAdminExpeditionsList();
     }
     return success;
 };
@@ -2236,6 +2237,7 @@ window.pollLiveCloudData = async function() {
                 window.eventsData = events.filter(e => !e.deleted);
                 if (window.renderEventsPanel) window.renderEventsPanel();
                 if (window.__adminSection === 'events' && window.renderAdminEventsList) window.renderAdminEventsList();
+        if (window.__adminSection === 'expeditions' && window.renderAdminExpeditionsList) window.renderAdminExpeditionsList();
             }
         }
     } finally {
@@ -3122,9 +3124,7 @@ window.setDockHeader = function(title, subtitle, showBack) {
     }
     if (back) {
         back.classList.remove('hidden');
-        // «Скрыть панель» всегда закрывает dock. «Назад» – только из карточки, открытой из админки.
-        const returnToAdmin = !!(showBack && window.openedFromAdmin && window.isCurrentUserAdmin && window.isCurrentUserAdmin());
-        if (returnToAdmin) {
+        if (showBack) {
             back.title = 'Назад';
             back.setAttribute('aria-label', 'Назад');
             back.onclick = () => {
@@ -3191,13 +3191,13 @@ window.dockCabinetContent = function() {
 };
 
 window.clearRailTabActive = function() {
-    ['rail-library', 'rail-feed', 'rail-expeditions', 'rail-help', 'rail-admin'].forEach(id => {
+    ['rail-library', 'rail-expeditions', 'rail-help', 'rail-admin'].forEach(id => {
         const btn = document.getElementById(id);
         if (!btn) return;
         btn.classList.remove('is-active');
         btn.removeAttribute('aria-current');
     });
-    ['tab-library', 'tab-feed', 'tab-expeditions', 'tab-help'].forEach(id => {
+    ['tab-library', 'tab-expeditions', 'tab-help'].forEach(id => {
         const btn = document.getElementById(id);
         if (btn) btn.className = 'ui-tab ui-tab--main';
     });
@@ -3390,10 +3390,8 @@ window.openDockView = function(view) {
         if (mobileTabs) mobileTabs.classList.remove('hidden');
         window.__sidebarTab = next;
         const btnLib = document.getElementById('tab-library');
-        const btnFeed = document.getElementById('tab-feed');
         const btnExp = document.getElementById('tab-expeditions');
         const railLib = document.getElementById('rail-library');
-        const railFeed = document.getElementById('rail-feed');
         const railExp = document.getElementById('rail-expeditions');
         const panelLib = document.getElementById('sidebar-library');
         const panelFeed = document.getElementById('sidebar-feed');
@@ -3402,8 +3400,6 @@ window.openDockView = function(view) {
         window.clearRailTabActive();
 
         if (next === 'feed') {
-            if (btnFeed) btnFeed.className = activeClass;
-            if (railFeed) { railFeed.classList.add('is-active'); railFeed.setAttribute('aria-current', 'page'); }
             if (panelFeed) panelFeed.classList.remove('hidden');
             window.setDockHeader('Лента', 'Новости и посты', false);
             if (window.renderSidebarFeed) window.renderSidebarFeed();
@@ -3417,13 +3413,18 @@ window.openDockView = function(view) {
             if (btnLib) btnLib.className = activeClass;
             if (railLib) { railLib.classList.add('is-active'); railLib.setAttribute('aria-current', 'page'); }
             if (panelLib) panelLib.classList.remove('hidden');
-            window.setDockHeader('Ростовская область', null, false);
+            window.setDockHeader(
+                window.innerWidth < 768 ? 'Библиотека' : 'Ростовская область',
+                null,
+                false
+            );
         }
     }
 
     if (window.showDockPanel) window.showDockPanel();
     if (window.syncMobileNavActive) {
-        if (next === 'cabinet' || next === 'messages' || next === 'settings') window.syncMobileNavActive('profile');
+        if (next === 'cabinet' || next === 'messages') window.syncMobileNavActive('profile');
+        else if (next === 'settings') window.syncMobileNavActive('settings');
         else if (next === 'feed') window.syncMobileNavActive('feed');
         else window.syncMobileNavActive('library');
     }
@@ -6882,10 +6883,11 @@ window.mobileNavGo = function(dest) {
         window.syncMobileNavActive('feed');
         return;
     }
-    if (target === 'events') {
-        if (window.hideDockPanel) window.hideDockPanel();
-        if (window.toggleEventsPanel) window.toggleEventsPanel();
-        window.syncMobileNavActive('events');
+    if (target === 'settings') {
+        if (window.closeEventsSheet) window.closeEventsSheet();
+        if (window.openSettingsPanel) window.openSettingsPanel();
+        else if (window.openDockView) window.openDockView('settings');
+        window.syncMobileNavActive('settings');
         return;
     }
     if (target === 'profile') {

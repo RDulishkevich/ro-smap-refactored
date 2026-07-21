@@ -588,7 +588,7 @@ a.bg-blue-600 {
 @media (max-width: 767px) {
     :root { --glass-blur: 16px; --radius-xl: 1.6rem; }
     #sidebar.sidebar-panel {
-        border-radius: 1.25rem 1.25rem 0 0 !important;
+        border-radius: 0 !important;
         border-bottom: none !important;
     }
     #sidebar.sidebar-panel,
