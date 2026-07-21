@@ -19,11 +19,13 @@
  * Actions (POST JSON { action, ... }):
  *   health | publicConfig | register | login | changePassword | me | getMail | sync | commit | presign | patchSound | translate
  *   | requestEmailVerification | confirmEmailVerification
+ *   | requestPasswordReset | confirmPasswordReset | adminDeleteUser | adminUnbindEmail
  */
 
 const crypto = require('crypto');
 const { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const mailTemplates = require('./mailTemplates');
 
 let nodemailer = null;
 try {
@@ -56,9 +58,11 @@ const SMTP_PASS = process.env.SMTP_PASS || '';
 const MAIL_FROM = process.env.MAIL_FROM || '';
 const ALLOW_DEMO_EMAIL_CODES = String(process.env.ALLOW_DEMO_EMAIL_CODES || '') === '1';
 const EMAIL_CODE_TTL_MS = 10 * 60 * 1000;
+const PASSWORD_RESET_TTL_MS = 15 * 60 * 1000;
 const AUTH_KEY = '_auth/users.json';
 const PRIVATE_META_KEY = '_auth/private_meta.json';
 const EMAIL_CODES_PREFIX = '_auth/email_codes/';
+const PASSWORD_RESET_PREFIX = '_auth/password_resets/';
 const ALLOWED_JSON = new Set(['map_data.json', 'profiles.json', 'feed.json', 'mail.json', 'events.json']);
 const MEDIA_PREFIXES = ['uploads/', 'audio/', 'images/'];
 const TOKEN_TTL_SEC = 60 * 60 * 24 * 14; // 14 days
@@ -75,6 +79,23 @@ const PROFILE_PII_KEYS = ['email', 'emailVerified', 'skillLevel', 'platformInten
 const ALLOWED_MEDIA_CT = /^(image\/(jpeg|jpg|png|webp|gif)|audio\/(mpeg|mp3|wav|x-wav|wave|mp4|aac|ogg|flac|webm|x-m4a)|application\/(json|octet-stream))/i;
 const DATA_OR_BLOB_RE = /^(data:|blob:)/i;
 const HTTP_URL_RE = /^https?:\/\//i;
+
+function normalizeStaffRole(role, login = '') {
+    if (String(login || '').toLowerCase() === 'admin') return 'admin';
+    const r = String(role || '').toLowerCase();
+    if (r === 'admin') return 'admin';
+    if (r === 'moderator') return 'moderator';
+    return 'user';
+}
+
+function isAdminUser(user) {
+    return !!user && normalizeStaffRole(user.role, user.login) === 'admin';
+}
+
+function isStaffUser(user) {
+    const r = user ? normalizeStaffRole(user.role, user.login) : 'user';
+    return r === 'admin' || r === 'moderator';
+}
 
 /** Request-scoped event for CORS Origin reflection (set at handler entry). */
 let __reqEvent = null;
@@ -301,6 +322,9 @@ function actionRateLimit(action, ip, login = '') {
     if (action === 'requestEmailVerification' && !rateLimit(`emailreq:${who}`, 5, 600000)) return false;
     if (action === 'requestEmailVerification' && !rateLimit(`emailreqip:${base}`, 20, 3600000)) return false;
     if (action === 'confirmEmailVerification' && !rateLimit(`emailcfm:${who}`, 20, 600000)) return false;
+    if (action === 'requestPasswordReset' && !rateLimit(`pwdreq:${base}`, 8, 600000)) return false;
+    if (action === 'confirmPasswordReset' && !rateLimit(`pwdcfm:${base}`, 20, 600000)) return false;
+    if ((action === 'adminDeleteUser' || action === 'adminUnbindEmail') && !rateLimit(`adminops:${who}`, 20, 600000)) return false;
     return true;
 }
 
@@ -468,8 +492,8 @@ async function resolveAuthUser(payload) {
     if (profile?.blocked && login !== 'admin') {
         return { login, blocked: true, role: 'user', displayName: login };
     }
-    let role = row.role === 'admin' || login === 'admin' ? 'admin' : 'user';
-    if (profile?.role === 'admin') role = 'admin';
+    let role = normalizeStaffRole(row.role, login);
+    if (profile?.role) role = normalizeStaffRole(profile.role, login);
     if (profile?.role === 'user' && login !== 'admin') role = 'user';
     return {
         login,
@@ -482,7 +506,7 @@ async function resolveAuthUser(payload) {
 /** Клиенту не отдаём чужие ящики целиком — только свои + исходящие (для UI чатов). */
 function projectMailForClient(mail, user) {
     if (!user) return [];
-    if (user.role === 'admin') return (mail || []).map(sanitizeMailRecord);
+    if (isStaffUser(user)) return (mail || []).map(sanitizeMailRecord);
     const login = user.login;
     const out = [];
     for (const row of mail || []) {
@@ -520,9 +544,10 @@ async function ensureAdminUser(users) {
 
 function issueToken(user) {
     const now = Math.floor(Date.now() / 1000);
+    const role = normalizeStaffRole(user.role, user.login);
     return signJwt({
         login: user.login,
-        role: user.role === 'admin' ? 'admin' : 'user',
+        role,
         displayName: user.displayName || user.login,
         iat: now,
         exp: now + TOKEN_TTL_SEC
@@ -535,7 +560,7 @@ function publicUser(user) {
         loginName: user.login,
         username: user.displayName || user.login,
         displayName: user.displayName || user.login,
-        role: user.role === 'admin' ? 'admin' : 'user'
+        role: normalizeStaffRole(user.role, user.login)
     };
 }
 
@@ -865,8 +890,14 @@ function sanitizeInbox(cloudInbox = [], proposedInbox = [], actorLogin) {
 }
 
 function sanitizeProfiles(fresh, merged, user) {
-    if (user.role === 'admin') {
-        return (merged || []).map(sanitizeProfileCard);
+    if (isAdminUser(user)) {
+        return (merged || []).map((p) => {
+            const login = String(p.loginName || '').toLowerCase();
+            return sanitizeProfileCard({
+                ...p,
+                role: normalizeStaffRole(p.role, login)
+            });
+        });
     }
     const freshMap = new Map((fresh || []).map((p) => [String(p.loginName || '').toLowerCase(), p]));
     return (merged || []).map((p) => {
@@ -875,7 +906,7 @@ function sanitizeProfiles(fresh, merged, user) {
         if (login === user.login) {
             return sanitizeProfileCard({
                 ...p,
-                role: cloud.role === 'admin' ? 'admin' : 'user',
+                role: normalizeStaffRole(cloud.role, login),
                 blocked: !!cloud.blocked,
                 badges: Array.isArray(cloud.badges) ? cloud.badges : (p.badges || []),
                 loginName: login,
@@ -910,7 +941,7 @@ function sanitizeProfiles(fresh, merged, user) {
 }
 
 function sanitizeMail(fresh, merged, user) {
-    if (user.role === 'admin') {
+    if (isStaffUser(user)) {
         return (merged || []).map(sanitizeMailRecord);
     }
     const freshMap = new Map((fresh || []).map((p) => [String(p.loginName || '').toLowerCase(), p]));
@@ -1019,7 +1050,7 @@ function sanitizeCommentsForActor(cloudComments = [], proposedComments = [], act
 }
 
 function sanitizeMapData(fresh, merged, user) {
-    if (user.role === 'admin') {
+    if (isStaffUser(user)) {
         return (merged || []).map(sanitizeSoundRecord);
     }
     const freshMap = new Map((fresh || []).map((s) => [s.id, s]));
@@ -1068,7 +1099,7 @@ function sanitizeMapData(fresh, merged, user) {
 }
 
 function sanitizeFeed(fresh, merged, user) {
-    if (user.role === 'admin') return merged;
+    if (isStaffUser(user)) return merged;
     const freshMap = new Map((fresh || []).map((p) => [p.id, p]));
     const out = [];
     for (const p of merged || []) {
@@ -1104,7 +1135,7 @@ function sanitizeFeed(fresh, merged, user) {
 }
 
 function sanitizeEvents(fresh, merged, user) {
-    if (user.role === 'admin') return merged;
+    if (isAdminUser(user)) return merged;
     const freshMap = new Map((fresh || []).map((e) => [e.id, e]));
     const out = [];
     for (const e of merged || []) {
@@ -1203,8 +1234,8 @@ async function handleLogin(body) {
     if (profile?.blocked && login !== 'admin') {
         return respond(403, { ok: false, error: 'blocked' });
     }
-    let role = row.role === 'admin' || login === 'admin' ? 'admin' : 'user';
-    if (profile?.role === 'admin') role = 'admin';
+    let role = normalizeStaffRole(row.role, login);
+    if (profile?.role) role = normalizeStaffRole(profile.role, login);
     if (profile?.role === 'user' && login !== 'admin') role = 'user';
 
     const user = {
@@ -1294,7 +1325,7 @@ async function clearEmailCode(login) {
     } catch (_) { /* ignore */ }
 }
 
-async function sendVerificationMail(to, code) {
+async function sendTransactionalMail(to, { subject, text, html }) {
     const port = SMTP_PORT || 587;
     const transporter = nodemailer.createTransport({
         host: SMTP_HOST,
@@ -1303,25 +1334,213 @@ async function sendVerificationMail(to, code) {
         requireTLS: Number(port) !== 465,
         auth: { user: SMTP_USER, pass: SMTP_PASS }
     });
-    // Unisender Go: отключить трекинг; skip_unsubscribe=1 только если поддержка Unisender разрешила (иначе убрать флаг).
-    const uniHeaders = {
-        global_language: 'ru',
-        track_links: 0,
-        track_read: 0
-    };
-    if (String(process.env.UNISENDER_SKIP_UNSUBSCRIBE || '') === '1') {
-        uniHeaders.skip_unsubscribe = 1;
-    }
-    await transporter.sendMail({
-        from: MAIL_FROM,
-        to,
-        subject: 'Код подтверждения — Полёвка',
-        text: `Ваш код подтверждения email в Полёвке: ${code}\n\nКод действует 10 минут. Если вы не запрашивали код, просто проигнорируйте письмо.`,
-        html: `<p>Ваш код подтверждения email в Полёвке: <strong style="font-size:1.25rem;letter-spacing:0.1em">${code}</strong></p><p>Код действует 10 минут. Если вы не запрашивали код, просто проигнорируйте письмо.</p>`,
-        headers: {
-            'X-UNISENDER-GO': JSON.stringify(uniHeaders)
+    const headers = {};
+    if (String(SMTP_HOST || '').includes('unisender')) {
+        const uniHeaders = { global_language: 'ru', track_links: 0, track_read: 0 };
+        if (String(process.env.UNISENDER_SKIP_UNSUBSCRIBE || '') === '1') {
+            uniHeaders.skip_unsubscribe = 1;
         }
+        headers['X-UNISENDER-GO'] = JSON.stringify(uniHeaders);
+    }
+    await transporter.sendMail({ from: MAIL_FROM, to, subject, text, html, headers });
+}
+
+async function sendVerificationMail(to, code) {
+    await sendTransactionalMail(to, mailTemplates.verificationEmail(code));
+}
+
+async function sendPasswordResetMail(to, code) {
+    await sendTransactionalMail(to, mailTemplates.passwordResetEmail(code));
+}
+
+function passwordResetKey(login) {
+    return `${PASSWORD_RESET_PREFIX}${normalizeLogin(login)}.json`;
+}
+
+async function loadPasswordReset(login) {
+    return getJson(passwordResetKey(login), null);
+}
+
+async function savePasswordReset(login, row) {
+    await putJson(passwordResetKey(login), row, { privateObject: true });
+}
+
+async function clearPasswordReset(login) {
+    try {
+        await s3.send(new DeleteObjectCommand({
+            Bucket: bucketForKey(passwordResetKey(login)),
+            Key: passwordResetKey(login)
+        }));
+    } catch (_) { /* ignore */ }
+}
+
+async function findLoginByEmailOrLogin(loginOrEmail) {
+    const raw = String(loginOrEmail || '').trim().toLowerCase();
+    if (!raw) return null;
+    if (raw.includes('@')) {
+        const email = normalizeEmail(raw);
+        if (!isValidEmail(email)) return null;
+        const meta = await loadPrivateMeta();
+        for (const [login, row] of Object.entries(meta || {})) {
+            if (normalizeEmail(row?.email) === email) return normalizeLogin(login);
+        }
+        return null;
+    }
+    const login = normalizeLogin(raw);
+    const users = await loadAuthUsers();
+    return users[login] ? login : null;
+}
+
+async function handleRequestPasswordReset(body) {
+    const loginOrEmail = String(body.loginOrEmail || '').trim();
+    const generic = respond(200, { ok: true, message: 'if_account_exists_email_sent' });
+
+    if (!rateLimit(`pwdreqid:${loginOrEmail.toLowerCase().slice(0, 64)}`, 5, 600000)) {
+        return respond(429, { ok: false, error: 'rate_limited' });
+    }
+
+    const login = await findLoginByEmailOrLogin(loginOrEmail);
+    if (!login || login === 'admin') return generic;
+
+    const meta = await loadPrivateMeta();
+    const email = normalizeEmail(meta[login]?.email);
+    if (!isValidEmail(email) || !meta[login]?.emailVerified) return generic;
+
+    const smtpOk = isSmtpConfigured();
+    if (!smtpOk && !ALLOW_DEMO_EMAIL_CODES) return generic;
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = Date.now() + PASSWORD_RESET_TTL_MS;
+    await savePasswordReset(login, {
+        codeHash: hashEmailCode(login, code),
+        expiresAt,
+        createdAt: new Date().toISOString()
     });
+
+    if (smtpOk) {
+        try {
+            await sendPasswordResetMail(email, code);
+        } catch (err) {
+            console.error('SMTP password reset failed', err);
+            await clearPasswordReset(login);
+            return respond(502, { ok: false, error: 'mail_send_failed' });
+        }
+        return respond(200, { ok: true });
+    }
+
+    return respond(200, { ok: true, demoCode: code, demo: true });
+}
+
+async function handleConfirmPasswordReset(body) {
+    const loginOrEmail = String(body.loginOrEmail || '').trim();
+    const code = String(body.code || '').trim();
+    const newPassword = String(body.newPassword || '');
+    if (!/^\d{6}$/.test(code)) return respond(400, { ok: false, error: 'bad_code' });
+    if (newPassword.length < MIN_PASSWORD_LEN) return respond(400, { ok: false, error: 'weak_password' });
+
+    const login = await findLoginByEmailOrLogin(loginOrEmail);
+    if (!login || login === 'admin') return respond(400, { ok: false, error: 'bad_code' });
+
+    const row = await loadPasswordReset(login);
+    if (!row?.codeHash) return respond(400, { ok: false, error: 'no_pending_code' });
+    if (Date.now() > Number(row.expiresAt || 0)) {
+        await clearPasswordReset(login);
+        return respond(400, { ok: false, error: 'code_expired' });
+    }
+
+    const expect = hashEmailCode(login, code);
+    try {
+        const a = Buffer.from(expect, 'hex');
+        const b = Buffer.from(String(row.codeHash), 'hex');
+        if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+            return respond(400, { ok: false, error: 'bad_code' });
+        }
+    } catch (_) {
+        return respond(400, { ok: false, error: 'bad_code' });
+    }
+
+    let users = await loadAuthUsers();
+    users = await ensureAdminUser(users);
+    if (!users[login]) return respond(404, { ok: false, error: 'no_user' });
+    const { salt, hash } = hashPassword(newPassword);
+    users[login] = { ...users[login], salt, hash, passwordUpdatedAt: new Date().toISOString() };
+    await saveAuthUsers(users);
+    await clearPasswordReset(login);
+    return respond(200, { ok: true });
+}
+
+async function handleAdminDeleteUser(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const actor = await resolveAuthUser(payload);
+    if (!actor || !isAdminUser(actor)) return respond(403, { ok: false, error: 'forbidden' });
+
+    const target = normalizeLogin(body.login);
+    if (!target || target === 'admin' || target === actor.login || target === 'support') {
+        return respond(400, { ok: false, error: 'bad_login' });
+    }
+
+    let users = await loadAuthUsers();
+    if (!users[target]) return respond(404, { ok: false, error: 'no_user' });
+    delete users[target];
+    await saveAuthUsers(users);
+
+    const meta = await loadPrivateMeta();
+    if (meta[target]) {
+        delete meta[target];
+        await savePrivateMeta(meta);
+    }
+    await clearEmailCode(target);
+    await clearPasswordReset(target);
+
+    const profiles = await getJson('profiles.json', []);
+    const nextProfiles = (profiles || []).map((p) => {
+        if (String(p.loginName || '').toLowerCase() !== target) return p;
+        return sanitizeProfileCard({
+            ...p,
+            displayName: 'Удалённый аккаунт',
+            bio: '',
+            avatar: '',
+            links: [],
+            gear: [],
+            blocked: true,
+            role: 'user',
+            deletedAt: new Date().toISOString(),
+            profileUpdatedAt: new Date().toISOString()
+        });
+    });
+    await putJson('profiles.json', nextProfiles);
+
+    try {
+        const mail = await getMailJson();
+        const nextMail = (mail || []).filter((r) => String(r.loginName || '').toLowerCase() !== target);
+        await putMailJson(nextMail);
+    } catch (_) { /* ignore */ }
+
+    return respond(200, { ok: true, login: target });
+}
+
+async function handleAdminUnbindEmail(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const actor = await resolveAuthUser(payload);
+    if (!actor || !isAdminUser(actor)) return respond(403, { ok: false, error: 'forbidden' });
+
+    const target = normalizeLogin(body.login);
+    if (!target) return respond(400, { ok: false, error: 'bad_login' });
+
+    const meta = await loadPrivateMeta();
+    const prev = meta[target] && typeof meta[target] === 'object' ? meta[target] : {};
+    meta[target] = {
+        ...prev,
+        email: '',
+        emailVerified: false,
+        emailVerifiedAt: '',
+        updatedAt: new Date().toISOString()
+    };
+    await savePrivateMeta(meta);
+    await clearEmailCode(target);
+    return respond(200, { ok: true, login: target });
 }
 
 async function handleRequestEmailVerification(event, body) {
@@ -1333,6 +1552,12 @@ async function handleRequestEmailVerification(event, body) {
 
     const email = normalizeEmail(body.email);
     if (!isValidEmail(email)) return respond(400, { ok: false, error: 'bad_email' });
+
+    const privateMeta = await loadPrivateMeta();
+    const existing = privateMeta[user.login] || {};
+    if (existing.emailVerified && normalizeEmail(existing.email) === email) {
+        return respond(200, { ok: true, alreadyVerified: true });
+    }
 
     const smtpOk = isSmtpConfigured();
     if (!smtpOk && !ALLOW_DEMO_EMAIL_CODES) {
@@ -1821,7 +2046,7 @@ exports.handler = async function handler(event = {}) {
 
     // health / publicConfig — без секретов и без тяжёлых лимитов
     if (action === 'health') {
-        return respond(200, { ok: true, version: 9 });
+        return respond(200, { ok: true, version: 10 });
     }
     if (action === 'publicConfig') {
         return respond(200, {
@@ -1845,6 +2070,7 @@ exports.handler = async function handler(event = {}) {
         || action === 'changePassword' || action === 'patchSound' || action === 'translate'
         || action === 'getMail'
         || action === 'requestEmailVerification' || action === 'confirmEmailVerification'
+        || action === 'adminDeleteUser' || action === 'adminUnbindEmail'
     )
         ? verifyJwt(extractToken(event, body))
         : null;
@@ -1865,6 +2091,10 @@ exports.handler = async function handler(event = {}) {
         if (action === 'translate') return await handleTranslate(event, body);
         if (action === 'requestEmailVerification') return await handleRequestEmailVerification(event, body);
         if (action === 'confirmEmailVerification') return await handleConfirmEmailVerification(event, body);
+        if (action === 'requestPasswordReset') return await handleRequestPasswordReset(body);
+        if (action === 'confirmPasswordReset') return await handleConfirmPasswordReset(body);
+        if (action === 'adminDeleteUser') return await handleAdminDeleteUser(event, body);
+        if (action === 'adminUnbindEmail') return await handleAdminUnbindEmail(event, body);
         if (action === 'legacy_presign') {
             return respond(401, {
                 ok: false,

@@ -49,10 +49,16 @@ export function initAuth() {
         const name = (document.getElementById('auth-username')?.value || '').trim();
         const pass = (document.getElementById('auth-password')?.value || '').trim();
         if (name || pass) return true;
+        if (window.authMode === 'reset' || window.authMode === 'reset-confirm') {
+            if ((document.getElementById('auth-reset-login')?.value || '').trim()) return true;
+            if ((document.getElementById('auth-reset-code')?.value || '').trim()) return true;
+            if ((document.getElementById('auth-reset-password')?.value || '').trim()) return true;
+        }
         if (window.authMode === 'register') {
             if ((document.getElementById('auth-skill-level')?.value || '').trim()) return true;
             if (document.querySelector('input[name="auth-intent"]:checked')) return true;
             if (document.getElementById('auth-pd-consent')?.checked) return true;
+            if ((document.getElementById('auth-email')?.value || '').trim()) return true;
         }
         return false;
     };
@@ -71,6 +77,7 @@ export function initAuth() {
 
     window.switchAuthTab = function(mode) {
         window.authMode = mode;
+        window.__passwordResetLoginOrEmail = '';
         const btnLogin = document.getElementById('auth-tab-login');
         const btnReg = document.getElementById('auth-tab-register');
         const container = document.getElementById('auth-form-container');
@@ -78,6 +85,11 @@ export function initAuth() {
 
         const activeClass = "flex-1 py-3 text-sm font-bold text-blue-600 border-b-2 border-blue-600 transition-colors";
         const inactiveClass = "flex-1 py-3 text-sm font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors";
+
+        if (actionBtn) {
+            actionBtn.disabled = false;
+            actionBtn.onclick = () => window.submitAuth();
+        }
 
         if (mode === 'login') {
             btnLogin.className = activeClass;
@@ -92,6 +104,9 @@ export function initAuth() {
                     <label class="modal-label">Пароль</label>
                     <input type="password" id="auth-password" class="modal-input dark:bg-slate-900" placeholder="Ваш пароль" onkeydown="if(event.key==='Enter') window.submitAuth()">
                 </div>
+                <p class="text-center">
+                    <button type="button" class="text-sm text-blue-600 dark:text-blue-400 font-semibold hover:underline" onclick="window.openPasswordResetFlow()">Забыли пароль?</button>
+                </p>
             `;
         } else {
             btnReg.className = activeClass;
@@ -143,6 +158,130 @@ export function initAuth() {
 
     window.openPdConsentInfo = function() {
         if (window.openLegalDocModal) window.openLegalDocModal('privacy');
+    };
+
+    window.__passwordResetLoginOrEmail = '';
+
+    window.openPasswordResetFlow = function() {
+        window.authMode = 'reset';
+        window.__passwordResetLoginOrEmail = '';
+        const btnLogin = document.getElementById('auth-tab-login');
+        const btnReg = document.getElementById('auth-tab-register');
+        const container = document.getElementById('auth-form-container');
+        const actionBtn = document.getElementById('auth-action-btn');
+        const inactiveClass = "flex-1 py-3 text-sm font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors";
+        if (btnLogin) btnLogin.className = inactiveClass;
+        if (btnReg) btnReg.className = inactiveClass;
+        if (actionBtn) {
+            actionBtn.textContent = 'Отправить код';
+            actionBtn.onclick = () => window.submitPasswordResetRequest();
+        }
+        if (container) {
+            container.innerHTML = `
+                <p class="text-sm text-slate-600 dark:text-slate-300">Укажите логин или email – пришлём код для сброса пароля.</p>
+                <div>
+                    <label class="modal-label">Логин или email</label>
+                    <input type="text" id="auth-reset-login" class="modal-input dark:bg-slate-900" placeholder="логин или name@example.com" autocomplete="username" onkeydown="if(event.key==='Enter'){event.preventDefault();window.submitPasswordResetRequest()}">
+                </div>
+                <p class="text-center">
+                    <button type="button" class="text-sm text-slate-500 hover:text-blue-600 font-semibold hover:underline" onclick="window.switchAuthTab('login')">← Назад ко входу</button>
+                </p>
+            `;
+            setTimeout(() => document.getElementById('auth-reset-login')?.focus(), 50);
+        }
+    };
+
+    window.showPasswordResetConfirmForm = function(loginOrEmail) {
+        window.authMode = 'reset-confirm';
+        window.__passwordResetLoginOrEmail = loginOrEmail;
+        const container = document.getElementById('auth-form-container');
+        const actionBtn = document.getElementById('auth-action-btn');
+        if (actionBtn) {
+            actionBtn.textContent = 'Сменить пароль';
+            actionBtn.onclick = () => window.submitPasswordResetConfirm();
+        }
+        if (container) {
+            container.innerHTML = `
+                <p class="text-sm text-slate-600 dark:text-slate-300">Код отправлен. Введите его и новый пароль.</p>
+                <div>
+                    <label class="modal-label">Код из письма (6 цифр)</label>
+                    <input type="text" id="auth-reset-code" inputmode="numeric" maxlength="6" class="modal-input dark:bg-slate-900 text-center tracking-[0.3em] font-mono" placeholder="000000" onkeydown="if(event.key==='Enter'){event.preventDefault();window.submitPasswordResetConfirm()}">
+                </div>
+                <div>
+                    <label class="modal-label">Новый пароль</label>
+                    <input type="password" id="auth-reset-password" class="modal-input dark:bg-slate-900" placeholder="Минимум 8 символов" autocomplete="new-password" onkeydown="if(event.key==='Enter'){event.preventDefault();window.submitPasswordResetConfirm()}">
+                </div>
+                <p class="text-center space-x-3">
+                    <button type="button" class="text-sm text-slate-500 hover:text-blue-600 font-semibold hover:underline" onclick="window.openPasswordResetFlow()">Другой логин / email</button>
+                    <button type="button" class="text-sm text-slate-500 hover:text-blue-600 font-semibold hover:underline" onclick="window.switchAuthTab('login')">Войти</button>
+                </p>
+            `;
+            setTimeout(() => document.getElementById('auth-reset-code')?.focus(), 50);
+        }
+    };
+
+    window.submitPasswordResetRequest = async function() {
+        const loginOrEmail = (document.getElementById('auth-reset-login')?.value || '').trim();
+        if (!loginOrEmail) return window.showToast('Введите логин или email');
+        const actionBtn = document.getElementById('auth-action-btn');
+        if (actionBtn) actionBtn.disabled = true;
+        try {
+            if (!window.apiRequestPasswordReset) {
+                window.showToast('API недоступен');
+                return;
+            }
+            const data = await window.apiRequestPasswordReset(loginOrEmail);
+            if (data?.demo && data?.demoCode) {
+                window.showToast(`Демо (staging): код – ${data.demoCode}`);
+                console.info(`[demo password reset] Код для ${loginOrEmail}: ${data.demoCode}`);
+            } else {
+                window.showToast('Если аккаунт найден, код отправлен на почту');
+            }
+            window.showPasswordResetConfirmForm(loginOrEmail);
+        } catch (err) {
+            const code = err?.code || '';
+            if (code === 'mail_not_configured') {
+                window.showToast('Отправка писем пока не настроена. Напишите в поддержку.');
+            } else if (code === 'rate_limited') {
+                window.showToast('Слишком много запросов. Подождите и попробуйте снова.');
+            } else {
+                window.showToast(err?.message || 'Не удалось запросить сброс пароля');
+            }
+        } finally {
+            if (actionBtn) actionBtn.disabled = false;
+        }
+    };
+
+    window.submitPasswordResetConfirm = async function() {
+        const loginOrEmail = window.__passwordResetLoginOrEmail
+            || (document.getElementById('auth-reset-login')?.value || '').trim();
+        const code = (document.getElementById('auth-reset-code')?.value || '').trim();
+        const newPassword = (document.getElementById('auth-reset-password')?.value || '').trim();
+        if (!loginOrEmail) return window.showToast('Сначала запросите код');
+        if (!/^\d{6}$/.test(code)) return window.showToast('Введите 6-значный код');
+        if (newPassword.length < 8) return window.showToast('Пароль слишком короткий (мин. 8)');
+        const actionBtn = document.getElementById('auth-action-btn');
+        if (actionBtn) actionBtn.disabled = true;
+        try {
+            if (!window.apiConfirmPasswordReset) {
+                window.showToast('API недоступен');
+                return;
+            }
+            await window.apiConfirmPasswordReset(loginOrEmail, code, newPassword);
+            window.showToast('Пароль обновлён. Войдите с новым паролем.');
+            window.__passwordResetLoginOrEmail = '';
+            window.switchAuthTab('login');
+            const userEl = document.getElementById('auth-username');
+            if (userEl && !loginOrEmail.includes('@')) userEl.value = loginOrEmail;
+        } catch (err) {
+            const c = err?.code || '';
+            if (c === 'code_expired') window.showToast('Код истёк, запросите новый');
+            else if (c === 'bad_code') window.showToast('Неверный код');
+            else if (c === 'no_pending_code') window.showToast('Сначала запросите код');
+            else window.showToast(err?.message || 'Не удалось сменить пароль');
+        } finally {
+            if (actionBtn) actionBtn.disabled = false;
+        }
     };
 
     window.submitAuth = async function() {
@@ -359,7 +498,8 @@ export function initAuth() {
         window.currentUser.pdConsentAt = profile.pdConsentAt || window.currentUser.pdConsentAt || '';
         window.currentUser.pushSubscription = profile.pushSubscription || window.currentUser.pushSubscription || null;
         if (login !== 'admin') {
-            window.currentUser.role = profile.role === 'admin' ? 'admin' : 'user';
+            const r = String(profile.role || '').toLowerCase();
+            window.currentUser.role = (r === 'admin' || r === 'moderator') ? r : 'user';
         }
         if (profile.avatar) window.currentUser.avatar = profile.avatar;
         if (profile.displayName) window.currentUser.username = profile.displayName;
@@ -418,7 +558,11 @@ export function initAuth() {
             inbox: fields.inbox !== undefined ? fields.inbox : (prev.inbox || []),
             activityLog: prev.activityLog || [],
             typing: prev.typing || null,
-            role: fields.role !== undefined ? fields.role : (prev.role || (window.currentUser.role === 'admin' ? 'admin' : 'user')),
+            role: fields.role !== undefined
+                ? fields.role
+                : (prev.role || (['admin', 'moderator'].includes(String(window.currentUser.role || '').toLowerCase())
+                    ? window.currentUser.role
+                    : 'user')),
             blocked: fields.blocked !== undefined ? !!fields.blocked : !!prev.blocked,
             profileUpdatedAt: new Date().toISOString(),
             lastSeen: new Date().toISOString()
@@ -1209,28 +1353,38 @@ export function initAuth() {
         const adminMobile = document.getElementById('cab-mobile-admin');
         const railAdmin = document.getElementById('rail-admin');
         const roleEl = document.getElementById('cabinet-user-role');
-        const isAdmin = window.isCurrentUserAdmin
-            ? window.isCurrentUserAdmin()
-            : (String(window.currentUser?.role || '').toLowerCase() === 'admin' || String(window.currentUser?.username || '').toLowerCase() === 'admin');
+        const isStaff = window.isCurrentUserStaff
+            ? window.isCurrentUserStaff()
+            : (window.isCurrentUserAdmin ? window.isCurrentUserAdmin() : false);
+        const isAdmin = window.isCurrentUserAdmin ? window.isCurrentUserAdmin() : false;
+        const isModerator = window.isCurrentUserModerator ? window.isCurrentUserModerator() : false;
 
         if (adminTab) {
             adminTab.classList.add('hidden');
             adminTab.classList.add('pointer-events-none');
         }
         if (adminMobile) {
-            adminMobile.classList.toggle('hidden', !isAdmin);
+            adminMobile.classList.toggle('hidden', !isStaff);
         }
         if (railAdmin) {
-            railAdmin.classList.toggle('hidden', !isAdmin);
-            if (!isAdmin && window.__dockView === 'admin' && window.openDockView) {
+            railAdmin.classList.toggle('hidden', !isStaff);
+            if (!isStaff && window.__dockView === 'admin' && window.openDockView) {
                 window.openDockView('home');
             }
+        }
+
+        const consoleTab = document.getElementById('admin-tab-btn-console');
+        if (consoleTab) {
+            consoleTab.classList.toggle('hidden', !isStaff);
         }
 
         if (roleEl) {
             if (isAdmin) {
                 roleEl.textContent = 'Администратор системы';
                 roleEl.className = 'text-[11px] font-bold text-red-500 uppercase tracking-wider';
+            } else if (isModerator) {
+                roleEl.textContent = 'Модератор';
+                roleEl.className = 'text-[11px] font-bold text-indigo-500 uppercase tracking-wider';
             } else {
                 roleEl.textContent = 'Рекордист';
                 roleEl.className = 'text-[11px] font-bold text-slate-400 uppercase tracking-wider';
@@ -2099,7 +2253,9 @@ export function initAuth() {
             if (status !== 'pending') items.push({ icon: 'fa-clock', label: 'На модерацию', tone: 'warning', onClick: () => window.setSoundStatus(soundId, 'pending') });
             if (status !== 'rejected') items.push({ icon: 'fa-ban', label: 'Отклонить', tone: 'danger', onClick: () => window.setSoundStatus(soundId, 'rejected') });
         }
-        items.push({ icon: 'fa-trash', label: 'Удалить', tone: 'danger', onClick: () => window.deleteSoundFromCloud(soundId) });
+        if (window.isCurrentUserAdmin && window.isCurrentUserAdmin()) {
+            items.push({ icon: 'fa-trash', label: 'Удалить', tone: 'danger', onClick: () => window.deleteSoundFromCloud(soundId) });
+        }
         return items;
     };
 
@@ -2143,7 +2299,9 @@ export function initAuth() {
                 { icon: 'fa-clock', label: 'На модерацию', tone: 'warning', onClick: () => window.setSoundStatus(id, 'pending') }
             );
         }
-        items.push({ icon: 'fa-trash', label: 'Удалить', tone: 'danger', onClick: () => window.deleteSoundFromCloud(id) });
+        if (window.isCurrentUserAdmin && window.isCurrentUserAdmin()) {
+            items.push({ icon: 'fa-trash', label: 'Удалить', tone: 'danger', onClick: () => window.deleteSoundFromCloud(id) });
+        }
         const opts = { title: s.title || 'Запись', event: ev || (typeof event !== 'undefined' ? event : null), anchor: document.getElementById('details-admin-actions-btn') };
         if (window.openActionsMenu) window.openActionsMenu(items, opts);
         else window.ActionSheet.open(items);
@@ -2251,8 +2409,8 @@ export function initAuth() {
     window.__adminSection = 'sounds';
 
     window.openAdminPanel = function(section) {
-        if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) {
-            window.showToast('Нужны права администратора');
+        if (!(window.isCurrentUserStaff && window.isCurrentUserStaff())) {
+            window.showToast('Нужны права модератора или администратора');
             return;
         }
         if (window.openDockView) window.openDockView('admin');
@@ -2362,7 +2520,7 @@ export function initAuth() {
     window.refreshAdminRailBadge = function() {
         const badge = document.getElementById('rail-admin-badge');
         if (!badge) return;
-        if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) {
+        if (!(window.isCurrentUserStaff && window.isCurrentUserStaff())) {
             badge.classList.add('hidden');
             badge.textContent = '0';
             return;
@@ -2601,7 +2759,15 @@ export function initAuth() {
             return;
         }
         el.innerHTML = rows.map(p => {
-            const isAdmin = p.role === 'admin' || p.loginName === 'admin';
+            const role = window.normalizeUserRole
+                ? window.normalizeUserRole(p.role === 'admin' || p.loginName === 'admin' ? 'admin' : p.role)
+                : (p.role === 'admin' || p.loginName === 'admin' ? 'admin' : (p.role === 'moderator' ? 'moderator' : 'user'));
+            const roleLabel = window.staffRoleLabel
+                ? window.staffRoleLabel(role, p.loginName)
+                : (role === 'admin' ? 'Администратор' : (role === 'moderator' ? 'Модератор' : 'Пользователь'));
+            const rolePillCls = role === 'admin'
+                ? 'pub-status-pending'
+                : (role === 'moderator' ? 'pub-status-published' : '');
             const isBlocked = !!p.blocked;
             const badgeCount = (p.badges || []).length;
             const safeLogin = String(p.loginName || '').replace(/'/g, "\\'");
@@ -2614,10 +2780,10 @@ export function initAuth() {
                             ? `<img src="${p.avatar}" class="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-600 shrink-0" alt="">`
                             : `<span class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0"><i class="fa-solid fa-user-astronaut opacity-60 text-sm"></i></span>`}
                         <span class="truncate font-semibold">${p.displayName || p.loginName}</span>
-                        ${isAdmin ? `<span class="pub-status-pill pub-status-pending">Админ</span>` : ''}
+                        ${role !== 'user' ? `<span class="pub-status-pill ${rolePillCls}">${roleLabel}</span>` : ''}
                         ${isBlocked ? `<span class="pub-status-pill pub-status-rejected">Блок</span>` : ''}
                     </div>
-                    <p class="admin-entity-meta mt-0.5">@${p.loginName}${p.joinedAt ? ' · рег. ' + new Date(p.joinedAt).toLocaleDateString('ru-RU') : ''}${badgeCount ? ` · ${badgeCount} зван.` : ''}</p>
+                    <p class="admin-entity-meta mt-0.5">@${p.loginName}${p.joinedAt ? ' · рег. ' + new Date(p.joinedAt).toLocaleDateString('ru-RU') : ''}${badgeCount ? ` · ${badgeCount} зван.` : ''} · ${roleLabel}</p>
                 </button>
                 <button type="button" onclick="window.openAdminUserActions('${safeLogin}', event)" class="admin-actions-btn shrink-0"><i class="fa-solid fa-ellipsis"></i> Действия</button>
             </div>`;
@@ -2690,7 +2856,7 @@ export function initAuth() {
     window.refreshAdminSupportBadge = function() {
         const tabCount = document.getElementById('admin-tab-support-count');
         if (!tabCount) return;
-        if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) {
+        if (!(window.isCurrentUserStaff && window.isCurrentUserStaff())) {
             tabCount.textContent = '';
             tabCount.hidden = true;
             return;
@@ -2711,15 +2877,28 @@ export function initAuth() {
     window.openAdminUserActions = function(login, ev) {
         const p = window.getProfileByLogin ? window.getProfileByLogin(login) : null;
         if (!p) return;
-        const isAdmin = p.role === 'admin' || p.loginName === 'admin';
+        const role = window.normalizeUserRole
+            ? window.normalizeUserRole(p.loginName === 'admin' ? 'admin' : p.role)
+            : (p.role === 'admin' || p.loginName === 'admin' ? 'admin' : (p.role === 'moderator' ? 'moderator' : 'user'));
         const isBlocked = !!p.blocked;
+        const canManageRoles = window.isCurrentUserAdmin && window.isCurrentUserAdmin();
         const items = [
             { icon: 'fa-id-badge', label: 'Открыть профиль', tone: 'primary', onClick: () => window.openPublicProfile(login, p.displayName || login) },
-            { icon: 'fa-medal', label: 'Звания', tone: 'warning', onClick: () => window.openBadgeAssignModal(login) },
             { icon: 'fa-chart-simple', label: 'Сводка', tone: 'primary', onClick: () => window.openUserActivityModal(login) }
         ];
-        if (login !== 'admin') {
-            items.push({ icon: 'fa-user-shield', label: isAdmin ? 'Снять админа' : 'Сделать админом', tone: 'primary', onClick: () => window.setUserAdminRole(login, !isAdmin) });
+        if (canManageRoles) {
+            items.splice(1, 0, { icon: 'fa-medal', label: 'Звания', tone: 'warning', onClick: () => window.openBadgeAssignModal(login) });
+        }
+        if (canManageRoles && login !== 'admin') {
+            if (role !== 'admin') {
+                items.push({ icon: 'fa-user-shield', label: 'Сделать администратором', tone: 'primary', onClick: () => window.setUserStaffRole(login, 'admin') });
+            }
+            if (role !== 'moderator') {
+                items.push({ icon: 'fa-user-check', label: 'Сделать модератором', tone: 'primary', onClick: () => window.setUserStaffRole(login, 'moderator') });
+            }
+            if (role !== 'user') {
+                items.push({ icon: 'fa-user', label: 'Сделать пользователем', tone: 'warning', onClick: () => window.setUserStaffRole(login, 'user') });
+            }
             items.push({ icon: 'fa-ban', label: isBlocked ? 'Разблокировать' : 'Заблокировать', tone: isBlocked ? 'success' : 'danger', onClick: () => window.setUserBlocked(login, !isBlocked) });
         }
         const opts = { title: p.displayName || login, event: ev || (typeof event !== 'undefined' ? event : null) };
@@ -2810,6 +2989,10 @@ export function initAuth() {
 
     window.setUserBlocked = async function(login, blocked) {
         if (login === 'admin') return;
+        if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) {
+            window.showToast('Нужны права администратора');
+            return;
+        }
         const updated = [...(window.profilesData || [])];
         const idx = updated.findIndex(p => p.loginName === login);
         if (idx < 0) return;
@@ -2827,37 +3010,50 @@ export function initAuth() {
         if (success) { window.showToast(blocked ? 'Пользователь заблокирован' : 'Пользователь разблокирован'); window.renderAdminUsersList(); }
     };
 
-    window.setUserAdminRole = async function(login, makeAdmin) {
+    window.setUserStaffRole = async function(login, role) {
         if (login === 'admin') return;
+        if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) {
+            window.showToast('Нужны права администратора');
+            return;
+        }
+        const nextRole = window.normalizeUserRole ? window.normalizeUserRole(role) : (['admin', 'moderator', 'user'].includes(role) ? role : 'user');
         const updated = [...(window.profilesData || [])];
         const idx = updated.findIndex(p => p.loginName === login);
         if (idx < 0) return;
+        const labels = { admin: 'администратором', moderator: 'модератором', user: 'пользователем' };
+        const notifyText = {
+            admin: 'Вам выданы права администратора',
+            moderator: 'Вам выданы права модератора',
+            user: 'Ваша роль изменена на обычного пользователя'
+        };
         const confirmed = await window.CustomUI.open({
-            title: makeAdmin ? '<i class="fa-solid fa-user-shield mr-2 text-indigo-500"></i>Назначить администратором?' : 'Снять права администратора?',
-            message: makeAdmin
-                ? `@${login} получит доступ к модерации, жалобам и управлению пользователями.`
-                : `@${login} потеряет права администратора.`,
-            confirmText: makeAdmin ? 'Назначить' : 'Снять',
+            title: '<i class="fa-solid fa-user-shield mr-2 text-indigo-500"></i>Изменить роль?',
+            message: `@${login} станет ${labels[nextRole] || 'пользователем'}.`,
+            confirmText: 'Назначить',
             confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors shadow-md'
         });
         if (!confirmed) return;
-        updated[idx] = { ...updated[idx], role: makeAdmin ? 'admin' : 'user', profileUpdatedAt: new Date().toISOString() };
+        updated[idx] = { ...updated[idx], role: nextRole, profileUpdatedAt: new Date().toISOString() };
         const success = await window.syncProfilesData(updated);
         if (success) {
-            window.showToast(makeAdmin ? 'Права администратора выданы' : 'Права администратора сняты');
+            const roleLabel = window.staffRoleLabel ? window.staffRoleLabel(nextRole, login) : nextRole;
+            window.showToast(`Роль обновлена: ${roleLabel}`);
             window.renderAdminUsersList();
             if (window.pushNotifications) {
                 const adminLogin = window.currentUser?.loginName || 'admin';
                 window.pushNotifications([login], {
                     type: 'badge',
-                    text: makeAdmin
-                        ? 'Вам выданы права администратора'
-                        : 'С вас сняты права администратора',
+                    text: notifyText[nextRole] || 'Ваша роль изменена',
                     fromId: adminLogin,
                     fromName: window.currentUser?.username || 'Администратор'
                 });
             }
         }
+    };
+
+    /** @deprecated use setUserStaffRole */
+    window.setUserAdminRole = async function(login, makeAdmin) {
+        return window.setUserStaffRole(login, makeAdmin ? 'admin' : 'user');
     };
 
     // Журнал действий пользователя (для админ-сводки). Пишется в profiles.json.
@@ -3045,7 +3241,7 @@ export function initAuth() {
             <div class="rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 p-4 space-y-1.5">
                 <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Логин:</span> @${login}</p>
                 <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Регистрация:</span> ${fmt(p?.joinedAt) || '–'}</p>
-                <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Роль:</span> ${p?.role === 'admin' || login === 'admin' ? 'Администратор' : 'Пользователь'}</p>
+                <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Роль:</span> ${window.staffRoleLabel ? window.staffRoleLabel(p?.role, login) : (p?.role === 'admin' || login === 'admin' ? 'Администратор' : (p?.role === 'moderator' ? 'Модератор' : 'Пользователь'))}</p>
                 <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Статус:</span> ${p?.blocked ? 'Заблокирован' : 'Активен'}</p>
                 <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Email:</span> ${p?.email ? (p.emailVerified ? p.email + ' ✓' : p.email) : 'не привязан'}</p>
                 <p class="text-xs text-slate-500"><span class="font-bold text-slate-700 dark:text-slate-200">Действий:</span> ${data.events.length}</p>
@@ -3129,7 +3325,10 @@ export function initAuth() {
 
     window.notifyAdmins = async function(payload) {
         const adminLogins = new Set(['admin']);
-        (window.profilesData || []).forEach(p => { if (p.role === 'admin') adminLogins.add(p.loginName); });
+        (window.profilesData || []).forEach((p) => {
+            const r = String(p.role || '').toLowerCase();
+            if (r === 'admin' || r === 'moderator') adminLogins.add(p.loginName);
+        });
         return window.pushNotifications([...adminLogins], payload);
     };
 
@@ -3350,7 +3549,7 @@ export function initAuth() {
     window.MSG_REACT_EMOJI = ['👍','❤️','😂','😮','😢','🔥'];
     window.ONLINE_THRESHOLD_MS = 2 * 60 * 1000;
     window.SUPPORT_LOGIN = 'support';
-    window.SUPPORT_NAME = 'Поддержка RO·SMap';
+    window.SUPPORT_NAME = 'Поддержка Полёвки';
 
     window.ensureSupportProfile = async function() {
         const login = window.SUPPORT_LOGIN;
@@ -3390,7 +3589,7 @@ export function initAuth() {
             id: 'msup' + Date.now().toString(36),
             fromId: window.SUPPORT_LOGIN,
             fromName: window.SUPPORT_NAME,
-            text: 'Здравствуйте! Я бот поддержки RO·SMap. Опишите вопрос – отвечу из базы знаний. Если ответ не подойдёт, напишите «обращение» – создам тикет с номером для оператора.',
+            text: 'Здравствуйте! Я бот поддержки Полёвки. Опишите вопрос – отвечу из базы знаний. Если ответ не подойдёт, напишите «обращение» – создам тикет с номером для оператора.',
             date: new Date().toISOString(),
             read: true,
             _supportThread: true
@@ -4542,6 +4741,24 @@ export function initAuth() {
         const verified = !!(window.currentUser && window.currentUser.email && window.currentUser.emailVerified);
         badge.textContent = verified ? 'Подтверждена' : 'Не подтверждена';
         badge.className = `pub-status-pill ${verified ? 'pub-status-published' : 'pub-status-rejected'}`;
+
+        const sendBtn = document.getElementById('email-send-code-btn');
+        const codeBlock = document.getElementById('email-code-block');
+        const emailInput = document.getElementById('profile-email');
+        if (verified) {
+            if (sendBtn) sendBtn.classList.add('hidden');
+            if (codeBlock) codeBlock.classList.add('hidden');
+            if (emailInput) {
+                emailInput.readOnly = true;
+                emailInput.classList.add('opacity-80');
+            }
+        } else {
+            if (sendBtn) sendBtn.classList.remove('hidden');
+            if (emailInput) {
+                emailInput.readOnly = false;
+                emailInput.classList.remove('opacity-80');
+            }
+        }
     };
 
     /** Optional override; основной путь — Secure API requestEmailVerification. */
@@ -4566,6 +4783,12 @@ export function initAuth() {
             window.showToast('Введите корректный email');
             return;
         }
+        const currentEmail = String(window.currentUser.email || '').trim().toLowerCase();
+        if (window.currentUser.emailVerified && currentEmail && email.toLowerCase() === currentEmail) {
+            window.showToast('Email уже подтверждён');
+            window.refreshEmailVerificationUI();
+            return;
+        }
 
         const btn = document.getElementById('email-send-code-btn');
         if (btn) btn.disabled = true;
@@ -4575,6 +4798,15 @@ export function initAuth() {
                 return;
             }
             const data = await window.apiRequestEmailVerification(email);
+            if (data?.alreadyVerified) {
+                if (window.currentUser) {
+                    window.currentUser.email = email;
+                    window.currentUser.emailVerified = true;
+                }
+                window.showToast('Email уже подтверждён');
+                window.refreshEmailVerificationUI?.();
+                return;
+            }
             window.__pendingEmailVerification = {
                 email,
                 expiresAt: data?.expiresAt || (Date.now() + 10 * 60 * 1000)

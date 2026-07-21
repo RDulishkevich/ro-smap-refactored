@@ -14,7 +14,10 @@ window.setAuthSession = function(token, user) {
             ...(window.currentUser || {}),
             username: user.username || user.displayName || user.login,
             loginName: user.loginName || user.login,
-            role: user.role === 'admin' ? 'admin' : 'user',
+            role: (() => {
+                const r = String(user.role || '').toLowerCase();
+                return (r === 'admin' || r === 'moderator') ? r : 'user';
+            })(),
             settings: (window.currentUser && window.currentUser.settings) || { theme: 'light', mapStyle: 'normal', lang: 'ru' }
         };
         try { localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser)); } catch (_) {}
@@ -85,6 +88,22 @@ window.apiRequestEmailVerification = function(email) {
 
 window.apiConfirmEmailVerification = function(code) {
     return window.apiRequest('confirmEmailVerification', { code }, { auth: true });
+};
+
+window.apiRequestPasswordReset = function(loginOrEmail) {
+    return window.apiRequest('requestPasswordReset', { loginOrEmail }, { auth: false });
+};
+
+window.apiConfirmPasswordReset = function(loginOrEmail, code, newPassword) {
+    return window.apiRequest('confirmPasswordReset', { loginOrEmail, code, newPassword }, { auth: false });
+};
+
+window.apiAdminDeleteUser = function(login) {
+    return window.apiRequest('adminDeleteUser', { login }, { auth: true });
+};
+
+window.apiAdminUnbindEmail = function(login) {
+    return window.apiRequest('adminUnbindEmail', { login }, { auth: true });
 };
 
 window.apiGetMail = async function() {

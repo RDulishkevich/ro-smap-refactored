@@ -23,7 +23,8 @@
 | Аудио/фото как data-URL / blob в JSON | файлы в `uploads/{login}/…`, в JSON только https |
 | Всё в одном `profiles.json` | визитки + отдельный private `mail.json` + `_auth/private_meta.json` |
 
-Полная инструкция деплоя: [`cloud/api/README.md`](cloud/api/README.md).
+Полная инструкция деплоя: [`cloud/api/README.md`](cloud/api/README.md).  
+Полный разбор безопасности: [`docs/security.md`](docs/security.md).
 
 ### Быстрый чеклист деплоя
 1. Создать статический ключ SA с `storage.editor` на бакет `rosmap2026`

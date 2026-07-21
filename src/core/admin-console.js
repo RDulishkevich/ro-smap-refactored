@@ -15,6 +15,8 @@ window.ADMIN_CONSOLE_COMMANDS = [
     { name: 'approve', usage: 'approve <soundId>', desc: 'Одобрить запись' },
     { name: 'reject', usage: 'reject <soundId>', desc: 'Отклонить запись' },
     { name: 'delete', usage: 'delete <soundId>', desc: 'Удалить запись (tombstone)' },
+    { name: 'delete-user', usage: 'delete-user <login>', desc: 'Полное удаление аккаунта (admin)' },
+    { name: 'unbind-email', usage: 'unbind-email <login>', desc: 'Снять привязку email (admin)' },
     { name: 'status', usage: 'status <soundId> <published|pending|rejected>', desc: 'Сменить статус' },
     { name: 'sound', usage: 'sound <soundId>', desc: 'Карточка звука (в консоли)' },
     { name: 'id', usage: 'id <soundId>', desc: 'Показать публичный ID' },
@@ -23,7 +25,10 @@ window.ADMIN_CONSOLE_COMMANDS = [
     { name: 'whois', usage: 'whois <login>', desc: 'Карточка пользователя' },
     { name: 'block', usage: 'block <login>', desc: 'Заблокировать пользователя' },
     { name: 'unblock', usage: 'unblock <login>', desc: 'Разблокировать' },
-    { name: 'role', usage: 'role <login>', desc: 'Роль пользователя' },
+    { name: 'role', usage: 'role <login>', desc: 'Показать роль пользователя' },
+    { name: 'set-role', usage: 'set-role <login> <admin|moderator|user>', desc: 'Назначить роль (admin)' },
+    { name: 'make-admin', usage: 'make-admin <login>', desc: 'Сделать администратором' },
+    { name: 'make-moderator', usage: 'make-moderator <login>', desc: 'Сделать модератором' },
     { name: 'profile', usage: 'profile <login>', desc: 'Сводка профиля (без модалки)' },
     { name: 'reports', usage: 'reports', desc: 'Открытые жалобы' },
     { name: 'resolve', usage: 'resolve <reportId|№>', desc: 'Закрыть жалобу' },
@@ -224,8 +229,9 @@ window.onAdminConsoleKeydown = function(event) {
 window.runAdminConsoleCommand = async function(raw) {
     const line = String(raw || '').trim();
     if (!line) return;
-    if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) {
-        window.adminConsoleLog('Нет прав администратора', 'error');
+    if (!(window.isCurrentUserStaff && window.isCurrentUserStaff())
+        && !(window.isCurrentUserAdmin && window.isCurrentUserAdmin())) {
+        window.adminConsoleLog('Нужны права модератора или администратора', 'error');
         return;
     }
     window.__adminConsoleHistory.push(line);
@@ -237,6 +243,18 @@ window.runAdminConsoleCommand = async function(raw) {
     const cmd = String(parts[0] || '').toLowerCase();
     const args = parts.slice(1);
     const findSound = (id) => (window.soundsData || []).find((x) => x.id === id || window.getSoundDisplayId?.(x) === id);
+
+    const adminOnlyCmds = new Set([
+        'block', 'unblock', 'delete', 'delete-user', 'unbind-email',
+        'set-role', 'setrole', 'make-admin', 'make-moderator',
+        'feed-delete', 'feed-clear-comments',
+        'event-create', 'event-status', 'event-pin', 'event-end',
+        'event-set-winner', 'event-delete'
+    ]);
+    if (adminOnlyCmds.has(cmd) && !(window.isCurrentUserAdmin && window.isCurrentUserAdmin())) {
+        window.adminConsoleLog('Команда только для администратора', 'error');
+        return;
+    }
 
     try {
         switch (cmd) {
@@ -261,7 +279,7 @@ window.runAdminConsoleCommand = async function(raw) {
             }
             case 'version': {
                 const h = window.__apiHealth || {};
-                window.adminConsoleLog(`client cache 20260720e · api ${h.version ?? '?'}`);
+                window.adminConsoleLog(`client cache 20260721n · api ${h.version ?? '?'}`);
                 break;
             }
             case 'stats':
@@ -322,6 +340,30 @@ window.runAdminConsoleCommand = async function(raw) {
                 if (!id) { window.adminConsoleLog('usage: delete <soundId>', 'error'); break; }
                 if (window.deleteSoundFromCloud) await window.deleteSoundFromCloud(id);
                 window.adminConsoleLog(`delete requested ${id}`, 'ok');
+                break;
+            }
+            case 'delete-user': {
+                const login = String(args[0] || '').toLowerCase();
+                if (!login) { window.adminConsoleLog('usage: delete-user <login>', 'error'); break; }
+                const ok = await window.CustomUI.open({
+                    title: '<i class="fa-solid fa-user-xmark mr-2 text-red-500"></i>Удалить аккаунт?',
+                    message: `Полностью удалить @${login}: доступ, email, личная почта. Профиль станет «Удалённый аккаунт». Необратимо.`,
+                    confirmText: 'Удалить',
+                    confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl'
+                });
+                if (!ok) { window.adminConsoleLog('отменено'); break; }
+                if (!window.apiAdminDeleteUser) { window.adminConsoleLog('API недоступен', 'error'); break; }
+                await window.apiAdminDeleteUser(login);
+                window.adminConsoleLog(`аккаунт @${login} удалён`, 'ok');
+                if (window.pollLiveCloudData) window.pollLiveCloudData();
+                break;
+            }
+            case 'unbind-email': {
+                const login = String(args[0] || '').toLowerCase();
+                if (!login) { window.adminConsoleLog('usage: unbind-email <login>', 'error'); break; }
+                if (!window.apiAdminUnbindEmail) { window.adminConsoleLog('API недоступен', 'error'); break; }
+                await window.apiAdminUnbindEmail(login);
+                window.adminConsoleLog(`email снят у @${login}`, 'ok');
                 break;
             }
             case 'sound':
@@ -417,6 +459,35 @@ window.runAdminConsoleCommand = async function(raw) {
                 const login = String(args[0] || '').toLowerCase();
                 const p = window.getProfileByLogin?.(login);
                 window.adminConsoleLog(p ? `${login}: ${p.role || 'user'}` : 'не найден', p ? 'ok' : 'error');
+                break;
+            }
+            case 'set-role':
+            case 'setrole': {
+                const login = String(args[0] || '').toLowerCase();
+                const role = String(args[1] || '').toLowerCase();
+                if (!login || !['admin', 'moderator', 'user'].includes(role)) {
+                    window.adminConsoleLog('usage: set-role <login> <admin|moderator|user>', 'error');
+                    break;
+                }
+                if (!window.setUserStaffRole) { window.adminConsoleLog('setUserStaffRole недоступен', 'error'); break; }
+                await window.setUserStaffRole(login, role);
+                window.adminConsoleLog(`${login} → ${role}`, 'ok');
+                break;
+            }
+            case 'make-admin': {
+                const login = String(args[0] || '').toLowerCase();
+                if (!login) { window.adminConsoleLog('usage: make-admin <login>', 'error'); break; }
+                if (!window.setUserStaffRole) { window.adminConsoleLog('setUserStaffRole недоступен', 'error'); break; }
+                await window.setUserStaffRole(login, 'admin');
+                window.adminConsoleLog(`${login} → admin`, 'ok');
+                break;
+            }
+            case 'make-moderator': {
+                const login = String(args[0] || '').toLowerCase();
+                if (!login) { window.adminConsoleLog('usage: make-moderator <login>', 'error'); break; }
+                if (!window.setUserStaffRole) { window.adminConsoleLog('setUserStaffRole недоступен', 'error'); break; }
+                await window.setUserStaffRole(login, 'moderator');
+                window.adminConsoleLog(`${login} → moderator`, 'ok');
                 break;
             }
             case 'reports': {

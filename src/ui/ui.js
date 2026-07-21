@@ -787,6 +787,7 @@ window.closePublishRulesModal = function() {
 
 window.openLegalDocModal = function(docId) {
     const id = docId === 'terms' ? 'terms' : 'privacy';
+    window.__legalDocId = id;
     const doc = window.LEGAL_DOCS && window.LEGAL_DOCS[id];
     const body = document.getElementById('legal-doc-body');
     const titleEl = document.getElementById('legal-doc-title');
@@ -2164,12 +2165,92 @@ window.syncEventsData = async function(events) {
     return success;
 };
 
+window.normalizeUserRole = function(role) {
+    const r = String(role || '').toLowerCase();
+    if (r === 'admin' || r === 'moderator') return r;
+    return 'user';
+};
+
 window.isCurrentUserAdmin = function() {
     if (!window.currentUser) return false;
     // Без JWT админские действия всё равно не пройдут на сервере
     if (window.getAuthToken && !window.getAuthToken()) return false;
     return String(window.currentUser.role || '').toLowerCase() === 'admin'
         || String(window.currentUser.loginName || '').toLowerCase() === 'admin';
+};
+
+window.isCurrentUserModerator = function() {
+    if (!window.currentUser) return false;
+    if (window.getAuthToken && !window.getAuthToken()) return false;
+    return String(window.currentUser.role || '').toLowerCase() === 'moderator';
+};
+
+/** Admin, moderator, or legacy login `admin`. */
+window.isCurrentUserStaff = function() {
+    if (!window.currentUser) return false;
+    if (window.getAuthToken && !window.getAuthToken()) return false;
+    if (window.isCurrentUserAdmin && window.isCurrentUserAdmin()) return true;
+    if (window.isCurrentUserModerator && window.isCurrentUserModerator()) return true;
+    return String(window.currentUser.loginName || '').toLowerCase() === 'admin';
+};
+
+window.staffRoleLabel = function(role, loginName) {
+    if (String(loginName || '').toLowerCase() === 'admin') return 'Администратор';
+    const r = window.normalizeUserRole ? window.normalizeUserRole(role) : String(role || '').toLowerCase();
+    if (r === 'admin') return 'Администратор';
+    if (r === 'moderator') return 'Модератор';
+    return 'Пользователь';
+};
+
+/** Print-friendly window → Save as PDF. docId: privacy | terms | rules */
+window.downloadLegalPrint = function(docId) {
+    const esc = (s) => String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    let title = 'Документ';
+    let version = '';
+    let bodyHtml = '';
+    if (docId === 'rules' || docId === 'publish') {
+        title = 'Правила Полёвки';
+        version = window.PUBLISH_RULES_VERSION || '';
+        bodyHtml = window.renderPublishRulesHtml ? window.renderPublishRulesHtml() : '';
+    } else {
+        const id = docId === 'terms' ? 'terms' : 'privacy';
+        const doc = window.LEGAL_DOCS && window.LEGAL_DOCS[id];
+        title = doc?.title || (id === 'terms' ? 'Пользовательское соглашение' : 'Политика конфиденциальности');
+        version = doc?.version || window.LEGAL_DOCS_VERSION || '';
+        bodyHtml = window.renderLegalDocHtml ? window.renderLegalDocHtml(id) : '';
+    }
+    if (!bodyHtml) {
+        if (window.showToast) window.showToast('Документ временно недоступен');
+        return;
+    }
+    const w = window.open('', '_blank', 'noopener,noreferrer');
+    if (!w) {
+        if (window.showToast) window.showToast('Разрешите всплывающие окна для печати PDF');
+        return;
+    }
+    w.document.write(`<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><title>${esc(title)}</title>
+<style>
+  body{font-family:Georgia,'Times New Roman',serif;max-width:720px;margin:2rem auto;padding:0 1.25rem;color:#111;line-height:1.55}
+  h1{font-size:1.5rem;margin:0 0 .35rem} .ver{color:#666;font-size:.85rem;margin-bottom:1.5rem}
+  .publish-rule-section{margin:1.25rem 0}
+  .publish-rule-section__title{font-size:1.05rem;margin:0 0 .5rem;border-bottom:1px solid #ddd;padding-bottom:.25rem}
+  .publish-rule-section__intro{color:#444;font-style:italic;margin:0 0 .75rem;font-size:.92rem}
+  .publish-rule-item{margin:.75rem 0}
+  .publish-rule-item__title{font-size:.95rem;margin:0 0 .25rem}
+  .publish-rule-item__code{font-family:ui-monospace,Consolas,monospace;color:#444;margin-right:.35rem}
+  .publish-rule-item__body{margin:0;font-size:.92rem}
+  @media print{body{margin:0;max-width:none}}
+</style></head><body>
+<h1>${esc(title)}</h1>
+${version ? `<p class="ver">Версия ${esc(version)}</p>` : ''}
+${bodyHtml}
+<script>window.onload=function(){setTimeout(function(){window.print()},200)}<\/script>
+</body></html>`);
+    w.document.close();
 };
 
 // Фоновый опрос облака: новые звуки, уведомления, сообщения – без перезагрузки страницы.
@@ -3507,8 +3588,8 @@ window.__openDockViewImpl = function(view) {
         if (tabHelp) tabHelp.className = 'ui-tab ui-tab--main is-active';
         window.switchHelpTab(window.__helpTab || 'support');
     } else if (next === 'admin') {
-        if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) {
-            window.showToast('Нужны права администратора');
+        if (!(window.isCurrentUserStaff && window.isCurrentUserStaff())) {
+            window.showToast('Нужны права модератора или администратора');
             window.openDockView(window.__sidebarTab || 'library');
             return;
         }
@@ -3580,7 +3661,7 @@ window.closeDockViewer = function() {
     let returnTab = window.__dockReturnView
         || (window.__dockView === 'expedition' ? (window.__sidebarTab || 'expeditions') : null)
         || (window.__sidebarTab || 'library');
-    if (window.openedFromAdmin && window.isCurrentUserAdmin && window.isCurrentUserAdmin()) {
+    if (window.openedFromAdmin && window.isCurrentUserStaff && window.isCurrentUserStaff()) {
         returnTab = 'admin';
         window.openedFromAdmin = false;
     }
@@ -4987,9 +5068,9 @@ window.openDetailsModal = function() {
 
     const adminBtn = document.getElementById('details-admin-actions-btn');
     if (adminBtn) {
-        const isAdmin = window.isCurrentUserAdmin && window.isCurrentUserAdmin();
-        adminBtn.classList.toggle('hidden', !isAdmin);
-        adminBtn.classList.toggle('flex', !!isAdmin);
+        const isStaff = window.isCurrentUserStaff && window.isCurrentUserStaff();
+        adminBtn.classList.toggle('hidden', !isStaff);
+        adminBtn.classList.toggle('flex', !!isStaff);
     }
 
     // Always open sound card in the left viewer dock (mobile opens the drawer)
@@ -5096,13 +5177,13 @@ window.downloadExpeditionArchive = async function(sessionId) {
 
     const myLogin = window.currentUser?.loginName || String(window.currentUser?.username || '').toLowerCase();
     const isOwner = myLogin && session.ownerId && String(session.ownerId).toLowerCase() === myLogin;
-    const isAdmin = window.isCurrentUserAdmin && window.isCurrentUserAdmin();
+    const isStaff = window.isCurrentUserStaff && window.isCurrentUserStaff();
 
     const sounds = (window.soundsData || []).filter((s) => {
         if (s.sessionId !== session.id) return false;
         if (!s.url || s.url.length < 10 || String(s.url).startsWith('blob:')) return false;
         if (!s.status || s.status === 'published') return true;
-        return isOwner || isAdmin;
+        return isOwner || isStaff;
     });
 
     if (!sounds.length) {
@@ -6840,7 +6921,7 @@ window.toggleAddModal = function(forceClose = false, coords = null, isEdit = fal
             if (m.classList.contains('opacity-0')) m.classList.add('hidden');
             // Defer heavy reset until after close animation (keeps close smooth)
             window.resetAddModalToCreateMode();
-            if (window.openedFromAdmin && window.isCurrentUserAdmin && window.isCurrentUserAdmin()) {
+            if (window.openedFromAdmin && window.isCurrentUserStaff && window.isCurrentUserStaff()) {
                 window.openedFromAdmin = false;
                 if (window.openAdminPanel) window.openAdminPanel(window.__adminSection || 'sounds');
             }
@@ -6848,7 +6929,7 @@ window.toggleAddModal = function(forceClose = false, coords = null, isEdit = fal
         return;
     }
     window.resetAddModalToCreateMode();
-    if (window.openedFromAdmin && window.isCurrentUserAdmin && window.isCurrentUserAdmin()) {
+    if (window.openedFromAdmin && window.isCurrentUserStaff && window.isCurrentUserStaff()) {
         window.openedFromAdmin = false;
         if (window.openAdminPanel) window.openAdminPanel(window.__adminSection || 'sounds');
     }

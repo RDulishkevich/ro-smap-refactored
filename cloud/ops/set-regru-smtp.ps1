@@ -30,7 +30,7 @@ Push-Location (Join-Path $root "cloud\api")
 npm install --omit=dev | Out-Null
 $zip = Join-Path $root "cloud\rosmap-api-deploy.zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }
-Compress-Archive -Path index.js, package.json, package-lock.json, node_modules -DestinationPath $zip -Force
+Compress-Archive -Path index.js, mailTemplates.js, package.json, package-lock.json, node_modules -DestinationPath $zip -Force
 Pop-Location
 
 Write-Host "Reading current function env..."

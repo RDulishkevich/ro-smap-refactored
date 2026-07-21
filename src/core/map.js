@@ -81,7 +81,7 @@ window.createMapMarkerFromContext = function() {
 
 /** ПКМ / долгое нажатие по метке: CtxPopup, как у кнопок «⋯». */
 window.openMarkerAdminContext = function(soundId, e) {
-    if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) return false;
+    if (!(window.isCurrentUserStaff && window.isCurrentUserStaff())) return false;
     if (e) {
         try {
             if (typeof e.preventDefault === 'function') e.preventDefault();
