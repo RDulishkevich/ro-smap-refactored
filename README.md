@@ -16,10 +16,12 @@
 |------|--------|
 | Пароли в `localStorage` plaintext | scrypt-хеши в `_auth/users.json` |
 | Админ-пароль в клиентском JS | `ADMIN_PASSWORD` в env Cloud Function |
+| Ключ Яндекс.Карт в `index.html` | `YANDEX_MAPS_API_KEY` в env + `action=publicConfig` |
+| Публичный `mail.json` | private bucket + Deny anonymous GetObject |
 | Анонимный presign → overwrite JSON | `action=sync` + проверка прав на сервере |
-| Роль `admin` из DevTools | роль в JWT, сервер отбрасывает подделки |
+| Роль `admin` из DevTools | роль сверяется с `_auth`/`profiles` на каждом запросе |
 | Аудио/фото как data-URL / blob в JSON | файлы в `uploads/{login}/…`, в JSON только https |
-| Всё в одном `profiles.json` | визитки + отдельный `mail.json` |
+| Всё в одном `profiles.json` | визитки + отдельный private `mail.json` + `_auth/private_meta.json` |
 
 Полная инструкция деплоя: [`cloud/api/README.md`](cloud/api/README.md).
 

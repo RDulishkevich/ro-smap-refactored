@@ -185,11 +185,21 @@ window.startMainMap = function() {
         if (window.initGoogleEarthMap) window.initGoogleEarthMap();
         return;
     }
-    if (provider === 'yandex3') {
-        if (window.initYandex3Map) window.initYandex3Map();
-        return;
+    const startYandex = () => {
+        if (provider === 'yandex3') {
+            if (window.initYandex3Map) window.initYandex3Map();
+            return;
+        }
+        if (typeof ymaps !== 'undefined') ymaps.ready(window.initYandexMap);
+    };
+    if (window.ensureYandexMapsLoaded) {
+        window.ensureYandexMapsLoaded().then(startYandex).catch((err) => {
+            console.error(err);
+            if (window.showToast) window.showToast('Не удалось загрузить Яндекс.Карты');
+        });
+    } else {
+        startYandex();
     }
-    if (typeof ymaps !== 'undefined') ymaps.ready(window.initYandexMap);
 };
 
 window.remountMainMap = function() {

@@ -16,19 +16,21 @@
 | `patchSound` | JWT | лёгкий патч plays/downloads/лайков без полной перезаписи `map_data.json` |
 | `presign` | JWT | presigned PUT для `uploads/{login}/...` и `staging/{login}/...` |
 | `commit` | JWT | взять staging → merge → sanitize → PUT публичный JSON |
+| `getMail` | JWT | личная почта (проекция); admin — полный `mail.json` |
 | `translate` | JWT | Yandex Translate RU→EN (UCS FXName); env `YC_TRANSLATE_API_KEY`, `YC_FOLDER_ID` |
 
-Хеши паролей и staging живут в **приватном** бакете `rosmap2026-private` (`_auth/users.json`, `staging/...`). Публичный бакет `rosmap2026` — каталог и медиа.
+Хеши паролей, staging и **mail.json** живут в **приватном** бакете `rosmap2026-private` (`_auth/users.json`, `_auth/private_meta.json`, `staging/...`, `mail.json`). Публичный бакет `rosmap2026` — каталог и медиа (без личных сообщений).
 
-## JSON-базы (публичный бакет)
+## JSON-базы
 
-| Файл | Содержимое |
-|------|------------|
-| `map_data.json` | звуки (метаданные + **https** URL аудио/фото) |
-| `profiles.json` | визитки (bio, avatar URL, gear, sessions…) **без** почты |
-| `mail.json` | inbox / notifications / activityLog по `loginName` |
-| `feed.json` | лента |
-| `events.json` | ивенты (конкурсы / встречи / RSVP) |
+| Файл | Бакет | Содержимое |
+|------|-------|------------|
+| `map_data.json` | public | звуки (метаданные + **https** URL аудио/фото) |
+| `profiles.json` | public | визитки (bio, avatar URL, gear, sessions…) **без** email/PII |
+| `mail.json` | **private** | inbox / notifications / activityLog; клиент получает только свою проекцию через `getMail`/`sync` |
+| `feed.json` | public | лента |
+| `events.json` | public | ивенты (конкурсы / встречи / RSVP) |
+| `_auth/private_meta.json` | private | email и survey-поля профилей |
 
 Медиа только в `uploads/{login}/…` (или legacy `audio/` / `images/`). **data-URL и blob: в базах запрещены** — API вычищает при sync.
 
@@ -41,7 +43,8 @@
 | Тело `sync` | ~2.5 MB (иначе staging+commit) |
 | Inbox / notifications | 200 / 100 записей |
 | Текст сообщения | 4000 символов |
-| Rate limit | IP 360/мин (без health); sync/commit 120; patchSound 180; presign 90; translate 40 |
+| Пароль | мин. 8 символов |
+| Rate limit | IP 360/мин (без health); sync/commit 120; patchSound 180; presign 90; translate 40; getMail 120 |
 
 ## Переменные окружения функции
 
@@ -58,13 +61,13 @@ YC_TRANSLATE_API_KEY=<ключ Translate API>
 YC_FOLDER_ID=<folder id, если требуется для ключа>
 ```
 
-После добавления Translate env — передеплой функции (`health.version` должен стать `5`). Без ключа `translate` отвечает `503 translate_unconfigured`.
+После добавления Translate env — передеплой функции (`health.version` должен стать `6`). Без ключа `translate` отвечает `503 translate_unconfigured`.
 
 ## Деплой (консоль или CLI)
 
 1. Сервисный аккаунт с ролями `storage.editor` на оба бакета.
-2. Публичный бакет: анонимное чтение JSON/медиа; запись только через SA/API.
-3. Приватный бакет: без публичного доступа.
+2. Публичный бакет: анонимное чтение JSON/медиа; **запретить** публичный GetObject на `mail.json` (см. `cloud/ops/bucket-deny-sensitive.json`). Запись только через SA/API.
+3. Приватный бакет: без публичного доступа (`mail.json`, `_auth/`, `staging/`).
 4. Упакуйте функцию:
 
 ```bash
@@ -75,6 +78,7 @@ zip -r ../rosmap-api.zip index.js package.json node_modules
 
 5. Обновите функцию (Node.js 18+), entrypoint `index.handler`, env из списка выше.
 6. В клиенте `src/core/state.js` — `YANDEX_FUNCTION_URL`.
+7. После деплоя API v6 первый `getMail`/`sync` mail мигрирует старый публичный `mail.json` в private и затирает публичную копию до `[]`.
 
 ## Миграция Stage 2 (profiles → mail)
 

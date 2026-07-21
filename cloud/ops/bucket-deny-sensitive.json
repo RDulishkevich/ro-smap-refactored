@@ -9,6 +9,18 @@
       "Resource": "arn:aws:s3:::rosmap2026/*"
     },
     {
+      "Sid": "DenyAnonymousReadMail",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::rosmap2026/mail.json",
+      "Condition": {
+        "StringNotEquals": {
+          "aws:PrincipalCanonicalUser": "aje8erq6r8nblo8bcij1"
+        }
+      }
+    },
+    {
       "Sid": "AllowServiceAccountFullObjectAccess",
       "Effect": "Allow",
       "Principal": { "CanonicalUser": "aje8erq6r8nblo8bcij1" },

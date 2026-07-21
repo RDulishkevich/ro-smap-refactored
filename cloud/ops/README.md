@@ -4,12 +4,18 @@
 
 | Bucket | Public read | Contents |
 |--------|-------------|----------|
-| `rosmap2026` | yes (catalog/media) | `map_data.json`, `profiles.json`, `mail.json`, `feed.json`, `uploads/`, `backups/` |
-| `rosmap2026-private` | **no** | `_auth/users.json`, `staging/{login}/…`, `_auth/backups/…` |
+| `rosmap2026` | yes (catalog/media) | `map_data.json`, `profiles.json`, `feed.json`, `events.json`, `uploads/`, `backups/` — **не** `mail.json` |
+| `rosmap2026-private` | **no** | `_auth/users.json`, `_auth/private_meta.json`, `mail.json`, `staging/{login}/…`, `_auth/backups/…` |
 
-API env must include `PRIVATE_BUCKET=rosmap2026-private`.
+API env must include `PRIVATE_BUCKET=rosmap2026-private` and `YANDEX_MAPS_API_KEY` (browser Maps key, HTTP Referer lock; выдаётся только через `action=publicConfig`).
 
-Sensitive objects must never live in the public bucket.
+Sensitive objects must never live in the public bucket. Apply `bucket-deny-sensitive.json` so anonymous GetObject on `mail.json` is denied even if a stale object reappears.
+
+Migrate / scrub mail once after API v7:
+
+```powershell
+node cloud/ops/migrate-mail-private.cjs
+```
 
 ## CORS on private bucket (required for sync)
 
@@ -64,7 +70,9 @@ Do not paste the new password into chat. After you change it in-app, the bootstr
 
 ## Smoke checklist
 
-- [ ] API `health` → ok (`version: 2`)
+- [ ] API `health` → ok (`version: 7`)
+- [ ] `publicConfig` returns Maps key length > 0 (key not in frontend source)
+- [ ] `https://storage.yandexcloud.net/rosmap2026/mail.json` → 403/404
 - [ ] Register new user
 - [ ] Login (admin + normal user)
 - [ ] Publish sound (audio lands in `uploads/…`, not data-URL in JSON)
@@ -73,7 +81,6 @@ Do not paste the new password into chat. After you change it in-app, the bootstr
 - [ ] Support chat opens from Settings → Помощь
 - [ ] Admin Support tab shows unread count
 - [ ] Search empty state + filter pills work on mobile
-- [ ] `mail.json` exists; `profiles.json` without heavy inbox
 - [ ] Hard refresh — data still there
 - [ ] `https://storage.yandexcloud.net/rosmap2026/_auth/users.json` → 404/403
 - [ ] Private auth not reachable without keys

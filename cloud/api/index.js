@@ -11,9 +11,10 @@
  *   ALLOWED_ORIGIN    — CORS origin (default *)
  *   YC_TRANSLATE_API_KEY — Yandex Cloud Translate API key (Api-Key …)
  *   YC_FOLDER_ID      — folder id (required with some key types)
+ *   YANDEX_MAPS_API_KEY — browser Maps JS key (HTTP Referer lock); exposed only via publicConfig
  *
  * Actions (POST JSON { action, ... }):
- *   health | register | login | changePassword | me | sync | commit | presign | patchSound | translate
+ *   health | publicConfig | register | login | changePassword | me | getMail | sync | commit | presign | patchSound | translate
  */
 
 const crypto = require('crypto');
@@ -28,10 +29,14 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
 const YC_TRANSLATE_API_KEY = process.env.YC_TRANSLATE_API_KEY || '';
 const YC_FOLDER_ID = process.env.YC_FOLDER_ID || '';
+/** Browser-only Maps key (HTTP Referer restricted). Served via publicConfig — not committed to frontend. */
+const YANDEX_MAPS_API_KEY = process.env.YANDEX_MAPS_API_KEY || '';
 const AUTH_KEY = '_auth/users.json';
+const PRIVATE_META_KEY = '_auth/private_meta.json';
 const ALLOWED_JSON = new Set(['map_data.json', 'profiles.json', 'feed.json', 'mail.json', 'events.json']);
 const MEDIA_PREFIXES = ['uploads/', 'audio/', 'images/'];
 const TOKEN_TTL_SEC = 60 * 60 * 24 * 14; // 14 days
+const MIN_PASSWORD_LEN = 8;
 const MAX_IMAGE_BYTES = 30 * 1024 * 1024;      // 30 MB — фото/обложки с телефона
 const MAX_AUDIO_BYTES = 1024 * 1024 * 1024;    // 1 GB — длинные WAV / амбисоник
 const MAX_JSON_SYNC_BYTES = 2_500_000;
@@ -40,12 +45,14 @@ const MAX_NOTIFICATIONS = 100;
 const MAX_ACTIVITY = 100;
 const MAX_MSG_TEXT = 4000;
 const MAX_BIO = 2000;
+const PROFILE_PII_KEYS = ['email', 'emailVerified', 'skillLevel', 'platformIntents', 'pdConsent', 'pdConsentAt'];
 const ALLOWED_MEDIA_CT = /^(image\/(jpeg|jpg|png|webp|gif)|audio\/(mpeg|mp3|wav|x-wav|wave|mp4|aac|ogg|flac|webm|x-m4a)|application\/(json|octet-stream))/i;
 const DATA_OR_BLOB_RE = /^(data:|blob:)/i;
 const HTTP_URL_RE = /^https?:\/\//i;
 
 function bucketForKey(key) {
-    if (key.startsWith('_auth/') || key.startsWith('staging/')) return PRIVATE_BUCKET;
+    // mail.json — личные сообщения: только private bucket (не публичный CDN)
+    if (key === 'mail.json' || key.startsWith('_auth/') || key.startsWith('staging/')) return PRIVATE_BUCKET;
     return BUCKET;
 }
 
@@ -130,6 +137,16 @@ function sanitizeProfileCard(p) {
             return { ...s, photos };
         });
     }
+    // PII не храним в публичном profiles.json
+    PROFILE_PII_KEYS.forEach((k) => { delete out[k]; });
+    return out;
+}
+
+function extractProfilePii(p = {}) {
+    const out = {};
+    PROFILE_PII_KEYS.forEach((k) => {
+        if (p[k] !== undefined) out[k] = p[k];
+    });
     return out;
 }
 
@@ -203,6 +220,7 @@ function actionRateLimit(action, ip, login = '') {
     if (action === 'presign' && !rateLimit(`presign:${who}`, 90, 60000)) return false;
     if (action === 'patchSound' && !rateLimit(`patch:${who}`, 180, 60000)) return false;
     if (action === 'translate' && !rateLimit(`translate:${who}`, 40, 60000)) return false;
+    if (action === 'getMail' && !rateLimit(`getmail:${who}`, 120, 60000)) return false;
     return true;
 }
 
@@ -225,7 +243,13 @@ function verifyJwt(token) {
     if (parts.length !== 3) return null;
     const data = `${parts[0]}.${parts[1]}`;
     const expect = crypto.createHmac('sha256', JWT_SECRET).update(data).digest('base64url');
-    if (expect !== parts[2]) return null;
+    try {
+        const a = Buffer.from(expect);
+        const b = Buffer.from(String(parts[2]));
+        if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+    } catch (_) {
+        return null;
+    }
     try {
         const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
         if (!payload.exp || Date.now() / 1000 > payload.exp) return null;
@@ -304,6 +328,99 @@ async function loadAuthUsers() {
 
 async function saveAuthUsers(users) {
     await putJson(AUTH_KEY, users, { privateObject: true });
+}
+
+async function loadPrivateMeta() {
+    const meta = await getJson(PRIVATE_META_KEY, {});
+    return meta && typeof meta === 'object' ? meta : {};
+}
+
+async function savePrivateMeta(meta) {
+    await putJson(PRIVATE_META_KEY, meta, { privateObject: true });
+}
+
+/** Стирает утечку: старая публичная копия mail.json → []. */
+async function scrubPublicMailObject() {
+    try {
+        await s3.send(new PutObjectCommand({
+            Bucket: BUCKET,
+            Key: 'mail.json',
+            Body: Buffer.from('[]', 'utf8'),
+            ContentType: 'application/json; charset=utf-8'
+        }));
+    } catch (_) {}
+}
+
+/**
+ * mail.json только из private bucket.
+ * Если там пусто — один раз мигрируем из публичного бакета и затираем публичную копию.
+ */
+async function getMailJson() {
+    let data = await getJson('mail.json', null);
+    if (Array.isArray(data)) return data;
+    try {
+        const res = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: 'mail.json' }));
+        const text = await streamToString(res.Body);
+        const parsed = JSON.parse(text || '[]');
+        if (Array.isArray(parsed)) {
+            if (parsed.length) await putJson('mail.json', parsed, { privateObject: true });
+            await scrubPublicMailObject();
+            return parsed;
+        }
+    } catch (_) {}
+    return [];
+}
+
+async function putMailJson(data) {
+    await putJson('mail.json', data, { privateObject: true });
+    await scrubPublicMailObject();
+}
+
+/** Актуальная роль из _auth + profiles (не доверяем JWT.role). */
+async function resolveAuthUser(payload) {
+    if (!payload?.login) return null;
+    const login = String(payload.login).toLowerCase();
+    const users = await loadAuthUsers();
+    const row = users[login];
+    if (!row) return null;
+    const profiles = await getJson('profiles.json', []);
+    const profile = (profiles || []).find((p) => String(p.loginName || '').toLowerCase() === login);
+    if (profile?.blocked && login !== 'admin') {
+        return { login, blocked: true, role: 'user', displayName: login };
+    }
+    let role = row.role === 'admin' || login === 'admin' ? 'admin' : 'user';
+    if (profile?.role === 'admin') role = 'admin';
+    if (profile?.role === 'user' && login !== 'admin') role = 'user';
+    return {
+        login,
+        role,
+        displayName: profile?.displayName || row.displayName || payload.displayName || login,
+        blocked: false
+    };
+}
+
+/** Клиенту не отдаём чужие ящики целиком — только свои + исходящие (для UI чатов). */
+function projectMailForClient(mail, user) {
+    if (!user) return [];
+    if (user.role === 'admin') return (mail || []).map(sanitizeMailRecord);
+    const login = user.login;
+    const out = [];
+    for (const row of mail || []) {
+        const rowLogin = String(row.loginName || '').toLowerCase();
+        if (rowLogin === login) {
+            out.push(sanitizeMailRecord(row));
+            continue;
+        }
+        const ownOutbound = (row.inbox || []).filter((m) => String(m.fromId || '').toLowerCase() === login);
+        if (!ownOutbound.length) continue;
+        out.push(sanitizeMailRecord({
+            loginName: rowLogin,
+            inbox: ownOutbound,
+            notifications: [],
+            activityLog: []
+        }));
+    }
+    return out;
 }
 
 async function ensureAdminUser(users) {
@@ -740,6 +857,87 @@ function sanitizeMail(fresh, merged, user) {
     });
 }
 
+function forceActorInList(cloudList = [], proposedList, actorLogin) {
+    const cloud = (Array.isArray(cloudList) ? cloudList : []).map(String).filter(Boolean);
+    const without = cloud.filter((x) => x !== actorLogin);
+    if (!Array.isArray(proposedList)) return cloud;
+    if (proposedList.map(String).includes(actorLogin)) without.push(actorLogin);
+    return without;
+}
+
+function sanitizeRepliesForActor(cloudReplies = [], proposedReplies = [], actorLogin) {
+    const cloudMap = new Map((cloudReplies || []).map((r) => [r.id, r]));
+    const out = [];
+    for (const r of proposedReplies || []) {
+        if (!r?.id) continue;
+        const prev = cloudMap.get(r.id);
+        if (prev) {
+            if (String(prev.authorId || '').toLowerCase() === actorLogin) {
+                out.push({
+                    ...prev,
+                    ...r,
+                    authorId: actorLogin,
+                    text: typeof r.text === 'string' ? r.text.slice(0, 2000) : prev.text,
+                    reactedBy: forceActorInList(prev.reactedBy, r.reactedBy, actorLogin)
+                });
+            } else {
+                out.push({
+                    ...prev,
+                    reactedBy: forceActorInList(prev.reactedBy, r.reactedBy, actorLogin)
+                });
+            }
+            cloudMap.delete(r.id);
+            continue;
+        }
+        out.push({
+            ...r,
+            authorId: actorLogin,
+            text: typeof r.text === 'string' ? r.text.slice(0, 2000) : '',
+            reactedBy: forceActorInList([], r.reactedBy, actorLogin)
+        });
+    }
+    for (const leftover of cloudMap.values()) out.push(leftover);
+    return out;
+}
+
+function sanitizeCommentsForActor(cloudComments = [], proposedComments = [], actorLogin) {
+    const cloudMap = new Map((cloudComments || []).map((c) => [c.id, c]));
+    const out = [];
+    for (const c of proposedComments || []) {
+        if (!c?.id) continue;
+        const prev = cloudMap.get(c.id);
+        if (prev) {
+            if (String(prev.authorId || '').toLowerCase() === actorLogin) {
+                out.push({
+                    ...prev,
+                    ...c,
+                    authorId: actorLogin,
+                    text: typeof c.text === 'string' ? c.text.slice(0, 2000) : prev.text,
+                    replies: sanitizeRepliesForActor(prev.replies || [], c.replies || [], actorLogin),
+                    reactedBy: forceActorInList(prev.reactedBy, c.reactedBy, actorLogin)
+                });
+            } else {
+                out.push({
+                    ...prev,
+                    replies: sanitizeRepliesForActor(prev.replies || [], c.replies || [], actorLogin),
+                    reactedBy: forceActorInList(prev.reactedBy, c.reactedBy, actorLogin)
+                });
+            }
+            cloudMap.delete(c.id);
+            continue;
+        }
+        out.push({
+            ...c,
+            authorId: actorLogin,
+            text: typeof c.text === 'string' ? c.text.slice(0, 2000) : '',
+            replies: sanitizeRepliesForActor([], c.replies || [], actorLogin),
+            reactedBy: forceActorInList([], c.reactedBy, actorLogin)
+        });
+    }
+    for (const leftover of cloudMap.values()) out.push(leftover);
+    return out;
+}
+
 function sanitizeMapData(fresh, merged, user) {
     if (user.role === 'admin') {
         return (merged || []).map(sanitizeSoundRecord);
@@ -754,7 +952,8 @@ function sanitizeMapData(fresh, merged, user) {
                 ...s,
                 recordistId: user.login,
                 recordist: s.recordist || user.displayName || user.login,
-                status: s.status === 'draft' ? 'draft' : 'pending'
+                status: s.status === 'draft' ? 'draft' : 'pending',
+                comments: sanitizeCommentsForActor([], s.comments || [], user.login)
             }));
             continue;
         }
@@ -763,17 +962,20 @@ function sanitizeMapData(fresh, merged, user) {
                 ...s,
                 recordistId: user.login,
                 // non-admin cannot self-publish
-                status: s.status === 'published' && cloud.status !== 'published' ? 'pending' : s.status
+                status: s.status === 'published' && cloud.status !== 'published' ? 'pending' : s.status,
+                comments: sanitizeCommentsForActor(cloud.comments || [], s.comments || [], user.login),
+                likedBy: forceActorInList(cloud.likedBy, s.likedBy, user.login),
+                dislikedBy: forceActorInList(cloud.dislikedBy, s.dislikedBy, user.login)
             }));
             continue;
         }
         // foreign sound: allow only social fields from actor
         out.push(sanitizeSoundRecord({
             ...cloud,
-            comments: mergeCommentLists(cloud.comments || [], s.comments || []),
+            comments: sanitizeCommentsForActor(cloud.comments || [], s.comments || [], user.login),
             reports: mergeKeyedArrays(cloud.reports || [], s.reports || []),
-            likedBy: Array.isArray(s.likedBy) ? s.likedBy : (cloud.likedBy || []),
-            dislikedBy: Array.isArray(s.dislikedBy) ? s.dislikedBy : (cloud.dislikedBy || []),
+            likedBy: forceActorInList(cloud.likedBy, s.likedBy, user.login),
+            dislikedBy: forceActorInList(cloud.dislikedBy, s.dislikedBy, user.login),
             plays: Math.max(cloud.plays || 0, s.plays || 0),
             downloads: Math.max(cloud.downloads || 0, s.downloads || 0)
         }));
@@ -796,14 +998,19 @@ function sanitizeFeed(fresh, merged, user) {
             continue;
         }
         if (String(cloud.authorId || '').toLowerCase() === user.login) {
-            out.push(p);
+            out.push({
+                ...p,
+                authorId: user.login,
+                comments: sanitizeCommentsForActor(cloud.comments || [], p.comments || [], user.login),
+                reactedBy: forceActorInList(cloud.reactedBy, p.reactedBy, user.login)
+            });
             continue;
         }
         // Social-only merge on others' posts
         out.push({
             ...cloud,
-            comments: mergeCommentLists(cloud.comments || [], p.comments || []),
-            reactedBy: Array.isArray(p.reactedBy) ? p.reactedBy : (cloud.reactedBy || []),
+            comments: sanitizeCommentsForActor(cloud.comments || [], p.comments || [], user.login),
+            reactedBy: forceActorInList(cloud.reactedBy, p.reactedBy, user.login),
             reactedAt: p.reactedAt || cloud.reactedAt,
             viewedBy: Array.from(new Set([...(cloud.viewedBy || []), ...(p.viewedBy || [])])),
             views: Math.max(Number(cloud.views) || 0, Number(p.views) || 0),
@@ -844,7 +1051,7 @@ async function handleRegister(body) {
     const password = String(body.password || '');
     const displayName = String(body.displayName || body.username || login).trim().slice(0, 40) || login;
     if (!login || login.length < 2) return respond(400, { ok: false, error: 'bad_login' });
-    if (password.length < 4) return respond(400, { ok: false, error: 'weak_password' });
+    if (password.length < MIN_PASSWORD_LEN) return respond(400, { ok: false, error: 'weak_password' });
     if (login === 'admin') return respond(403, { ok: false, error: 'reserved_login' });
 
     let users = await loadAuthUsers();
@@ -877,10 +1084,10 @@ async function handleRegister(body) {
         await putJson('profiles.json', profiles);
     }
 
-    const mail = await getJson('mail.json', []);
+    const mail = await getMailJson();
     if (!mail.some((p) => String(p.loginName || '').toLowerCase() === login)) {
         mail.push({ loginName: login, inbox: [], notifications: [], activityLog: [] });
-        await putJson('mail.json', mail);
+        await putMailJson(mail);
     }
 
     const user = { login, displayName, role: 'user' };
@@ -925,28 +1132,45 @@ async function handleLogin(body) {
         displayName: profile?.displayName || row.displayName || login,
         role
     };
+    const privateMeta = await loadPrivateMeta();
+    const pii = privateMeta[login] && typeof privateMeta[login] === 'object' ? privateMeta[login] : {};
+    // Разовая подтяжка PII из публичного профиля, если ещё не мигрировали
+    const fromPublic = extractProfilePii(profile || {});
+    const mergedPii = { ...fromPublic, ...pii };
+    if (PROFILE_PII_KEYS.some((k) => pii[k] === undefined && fromPublic[k] !== undefined)) {
+        privateMeta[login] = { ...mergedPii, updatedAt: new Date().toISOString() };
+        await savePrivateMeta(privateMeta);
+    }
     const token = issueToken(user);
-    return respond(200, { ok: true, token, user: publicUser(user) });
+    return respond(200, {
+        ok: true,
+        token,
+        user: { ...publicUser(user), ...extractProfilePii(mergedPii) }
+    });
 }
 
 async function handleChangePassword(event, body) {
     const payload = verifyJwt(extractToken(event, body));
     if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const authUser = await resolveAuthUser(payload);
+    if (!authUser) return respond(401, { ok: false, error: 'unauthorized' });
+    if (authUser.blocked) return respond(403, { ok: false, error: 'blocked' });
+
     const currentPassword = String(body.currentPassword || '');
     const newPassword = String(body.newPassword || '');
-    if (newPassword.length < 4) return respond(400, { ok: false, error: 'weak_password' });
+    if (newPassword.length < MIN_PASSWORD_LEN) return respond(400, { ok: false, error: 'weak_password' });
 
     let users = await loadAuthUsers();
     users = await ensureAdminUser(users);
-    const row = users[payload.login];
+    const row = users[authUser.login];
     if (!row) return respond(404, { ok: false, error: 'no_user' });
 
     const okCurrent = verifyPassword(currentPassword, row.salt, row.hash)
-        || (payload.login === 'admin' && ADMIN_PASSWORD && currentPassword === ADMIN_PASSWORD);
+        || (authUser.login === 'admin' && ADMIN_PASSWORD && currentPassword === ADMIN_PASSWORD);
     if (!okCurrent) return respond(401, { ok: false, error: 'bad_credentials' });
 
     const { salt, hash } = hashPassword(newPassword);
-    users[payload.login] = { ...row, salt, hash, passwordUpdatedAt: new Date().toISOString() };
+    users[authUser.login] = { ...row, salt, hash, passwordUpdatedAt: new Date().toISOString() };
     await saveAuthUsers(users);
     return respond(200, { ok: true });
 }
@@ -954,25 +1178,60 @@ async function handleChangePassword(event, body) {
 async function handleMe(event, body) {
     const payload = verifyJwt(extractToken(event, body));
     if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const user = await resolveAuthUser(payload);
+    if (!user) return respond(401, { ok: false, error: 'unauthorized' });
+    if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
+
+    const privateMeta = await loadPrivateMeta();
+    let pii = privateMeta[user.login] && typeof privateMeta[user.login] === 'object'
+        ? { ...privateMeta[user.login] }
+        : {};
+
+    // Разовая миграция PII из публичного profiles.json → private_meta
     const profiles = await getJson('profiles.json', []);
-    const profile = profiles.find((p) => String(p.loginName || '').toLowerCase() === payload.login);
-    if (profile?.blocked && payload.login !== 'admin') {
-        return respond(403, { ok: false, error: 'blocked' });
+    const profile = (profiles || []).find((p) => String(p.loginName || '').toLowerCase() === user.login);
+    const fromPublic = extractProfilePii(profile || {});
+    if (Object.keys(fromPublic).length) {
+        const mergedPii = { ...fromPublic, ...pii };
+        const needsSave = PROFILE_PII_KEYS.some((k) => pii[k] === undefined && fromPublic[k] !== undefined);
+        if (needsSave) {
+            privateMeta[user.login] = { ...mergedPii, updatedAt: new Date().toISOString() };
+            await savePrivateMeta(privateMeta);
+        }
+        pii = mergedPii;
+        if (PROFILE_PII_KEYS.some((k) => profile[k] !== undefined)) {
+            const scrubbed = (profiles || []).map((p) => sanitizeProfileCard(p));
+            await putJson('profiles.json', scrubbed);
+        }
     }
-    const role = (payload.role === 'admin' || profile?.role === 'admin' || payload.login === 'admin') ? 'admin' : 'user';
-    const user = {
-        login: payload.login,
-        displayName: profile?.displayName || payload.displayName || payload.login,
-        role
-    };
-    // refresh token role claim
+
     const token = issueToken(user);
-    return respond(200, { ok: true, token, user: publicUser(user) });
+    return respond(200, {
+        ok: true,
+        token,
+        user: {
+            ...publicUser(user),
+            ...extractProfilePii(pii)
+        }
+    });
+}
+
+async function handleGetMail(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const user = await resolveAuthUser(payload);
+    if (!user) return respond(401, { ok: false, error: 'unauthorized' });
+    if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
+    const mail = await getMailJson();
+    return respond(200, { ok: true, data: projectMailForClient(mail, user) });
 }
 
 async function handleSync(event, body) {
     const payload = verifyJwt(extractToken(event, body));
     if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const user = await resolveAuthUser(payload);
+    if (!user) return respond(401, { ok: false, error: 'unauthorized' });
+    if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
 
     const fileName = String(body.fileName || '');
     if (!ALLOWED_JSON.has(fileName)) return respond(400, { ok: false, error: 'bad_file' });
@@ -990,11 +1249,7 @@ async function handleSync(event, body) {
         });
     }
 
-    return applyMergeAndSave(fileName, proposed, {
-        login: payload.login,
-        role: payload.role,
-        displayName: payload.displayName
-    });
+    return applyMergeAndSave(fileName, proposed, user);
 }
 
 /**
@@ -1004,6 +1259,9 @@ async function handleSync(event, body) {
 async function handlePatchSound(event, body) {
     const payload = verifyJwt(extractToken(event, body));
     if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const user = await resolveAuthUser(payload);
+    if (!user) return respond(401, { ok: false, error: 'unauthorized' });
+    if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
 
     const soundId = String(body.soundId || '').trim();
     if (!soundId) return respond(400, { ok: false, error: 'bad_sound_id' });
@@ -1025,7 +1283,7 @@ async function handlePatchSound(event, body) {
 
     const prev = fresh[idx];
     const sound = { ...prev };
-    const login = payload.login;
+    const login = user.login;
 
     if (incPlays) sound.plays = Math.max(0, (sound.plays || 0) + incPlays);
     if (incDownloads) sound.downloads = Math.max(0, (sound.downloads || 0) + incDownloads);
@@ -1082,7 +1340,7 @@ async function migrateMailOutOfProfiles(proposedProfiles, user) {
     );
     if (!hasEmbedded) return;
 
-    const freshMail = await getJson('mail.json', []);
+    const freshMail = await getMailJson();
     const extracted = (proposedProfiles || [])
         .filter((p) => p?.loginName)
         .map(extractMailRecord);
@@ -1090,19 +1348,34 @@ async function migrateMailOutOfProfiles(proposedProfiles, user) {
 
     let merged = mergeMailArrays(freshMail, extracted);
     merged = sanitizeMail(freshMail, merged, user);
-    await putJson('mail.json', merged);
+    await putMailJson(merged);
+}
+
+async function persistActorPrivateMeta(proposedProfiles, user) {
+    if (!user?.login || !Array.isArray(proposedProfiles)) return;
+    const mine = proposedProfiles.find((p) => String(p.loginName || '').toLowerCase() === user.login);
+    if (!mine) return;
+    const pii = extractProfilePii(mine);
+    if (!Object.keys(pii).length) return;
+    const meta = await loadPrivateMeta();
+    meta[user.login] = { ...(meta[user.login] || {}), ...pii, updatedAt: new Date().toISOString() };
+    await savePrivateMeta(meta);
 }
 
 async function applyMergeAndSave(fileName, proposed, user) {
     let nextProposed = proposed;
     if (fileName === 'profiles.json') {
         await migrateMailOutOfProfiles(proposed, user);
-        nextProposed = (proposed || []).map(stripMailFields);
+        await persistActorPrivateMeta(proposed, user);
+        nextProposed = (proposed || []).map(stripMailFields).map(sanitizeProfileCard);
     }
 
-    const fresh = await getJson(fileName, []);
+    const fresh = fileName === 'mail.json'
+        ? await getMailJson()
+        : await getJson(fileName, []);
     if (!nextProposed.length && Array.isArray(fresh) && fresh.length) {
-        return respond(200, { ok: true, skipped: true, count: fresh.length, data: fresh });
+        const skippedData = fileName === 'mail.json' ? projectMailForClient(fresh, user) : fresh;
+        return respond(200, { ok: true, skipped: true, count: fresh.length, data: skippedData });
     }
 
     let merged = nextProposed;
@@ -1114,40 +1387,42 @@ async function applyMergeAndSave(fileName, proposed, user) {
         else merged = mergeMapDataArrays(fresh, nextProposed);
     }
 
-    if (fileName === 'profiles.json') merged = sanitizeProfiles(fresh, merged, user).map(stripMailFields);
+    if (fileName === 'profiles.json') merged = sanitizeProfiles(fresh, merged, user).map(stripMailFields).map(sanitizeProfileCard);
     else if (fileName === 'mail.json') merged = sanitizeMail(fresh, merged, user);
     else if (fileName === 'feed.json') merged = sanitizeFeed(fresh, merged, user);
     else if (fileName === 'events.json') merged = sanitizeEvents(fresh, merged, user);
     else merged = sanitizeMapData(fresh, merged, user);
 
-    await putJson(fileName, merged);
+    if (fileName === 'mail.json') await putMailJson(merged);
+    else await putJson(fileName, merged);
+
+    const clientData = fileName === 'mail.json' ? projectMailForClient(merged, user) : merged;
     return respond(200, {
         ok: true,
         fileName,
         count: Array.isArray(merged) ? merged.length : 0,
         // Клиент использует этот снимок вместо повторного GET (CDN/гонка иначе «теряет» сообщения)
-        data: merged
+        data: clientData
     });
 }
 
 async function handleCommit(event, body) {
     const payload = verifyJwt(extractToken(event, body));
     if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const user = await resolveAuthUser(payload);
+    if (!user) return respond(401, { ok: false, error: 'unauthorized' });
+    if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
 
     const fileName = String(body.fileName || '');
     if (!ALLOWED_JSON.has(fileName)) return respond(400, { ok: false, error: 'bad_file' });
 
-    const stagingKey = `staging/${payload.login}/${fileName}`;
+    const stagingKey = `staging/${user.login}/${fileName}`;
     const proposed = await getJson(stagingKey, null);
     if (!Array.isArray(proposed)) {
         return respond(400, { ok: false, error: 'no_staging', message: `Missing ${stagingKey}` });
     }
 
-    const result = await applyMergeAndSave(fileName, proposed, {
-        login: payload.login,
-        role: payload.role,
-        displayName: payload.displayName
-    });
+    const result = await applyMergeAndSave(fileName, proposed, user);
 
     try {
         await s3.send(new DeleteObjectCommand({
@@ -1162,6 +1437,9 @@ async function handleCommit(event, body) {
 async function handlePresign(event, body) {
     const payload = verifyJwt(extractToken(event, body));
     if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const user = await resolveAuthUser(payload);
+    if (!user) return respond(401, { ok: false, error: 'unauthorized' });
+    if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
 
     const fileName = String(body.fileName || '').replace(/^\/+/, '');
     const contentType = String(body.contentType || 'application/octet-stream');
@@ -1173,9 +1451,9 @@ async function handlePresign(event, body) {
 
     let key;
     // Staging JSON для больших баз (обход лимита тела HTTP-триггера)
-    const stagingMatch = fileName.match(/^staging\/([^/]+)\/(map_data\.json|profiles\.json|feed\.json|mail\.json)$/);
+    const stagingMatch = fileName.match(/^staging\/([^/]+)\/(map_data\.json|profiles\.json|feed\.json|mail\.json|events\.json)$/);
     if (stagingMatch) {
-        if (stagingMatch[1] !== payload.login) return respond(403, { ok: false, error: 'bad_staging_owner' });
+        if (stagingMatch[1] !== user.login) return respond(403, { ok: false, error: 'bad_staging_owner' });
         key = fileName;
     } else if (ALLOWED_JSON.has(fileName) || fileName === AUTH_KEY || fileName.startsWith('_auth/')) {
         return respond(403, { ok: false, error: 'use_sync' });
@@ -1183,9 +1461,9 @@ async function handlePresign(event, body) {
         const allowed = MEDIA_PREFIXES.some((p) => fileName.startsWith(p));
         if (!allowed) return respond(403, { ok: false, error: 'bad_prefix' });
         const safe = fileName.replace(/[^a-zA-Z0-9_\-./]/g, '_');
-        key = safe.startsWith(`uploads/${payload.login}/`)
+        key = safe.startsWith(`uploads/${user.login}/`)
             ? safe
-            : `uploads/${payload.login}/${safe.split('/').pop()}`;
+            : `uploads/${user.login}/${safe.split('/').pop()}`;
 
         const isImage = /^image\//i.test(contentType);
         const isAudio = /^audio\//i.test(contentType);
@@ -1202,7 +1480,7 @@ async function handlePresign(event, body) {
 
     // Не подписываем ACL: браузер шлёт только Content-Type, иначе PUT → 403 SignatureMismatch.
     // В private-бакете объекты и так непубличные по умолчанию.
-    const hostBucket = key.startsWith('staging/') ? PRIVATE_BUCKET : BUCKET;
+    const hostBucket = key.startsWith('staging/') || key === 'mail.json' ? PRIVATE_BUCKET : BUCKET;
     const command = new PutObjectCommand({
         Bucket: hostBucket,
         Key: key,
@@ -1222,6 +1500,9 @@ async function handlePresign(event, body) {
 async function handleTranslate(event, body) {
     const payload = verifyJwt(extractToken(event, body));
     if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const user = await resolveAuthUser(payload);
+    if (!user) return respond(401, { ok: false, error: 'unauthorized' });
+    if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
     if (!YC_TRANSLATE_API_KEY) {
         return respond(503, { ok: false, error: 'translate_unconfigured', message: 'YC_TRANSLATE_API_KEY is not set' });
     }
@@ -1279,20 +1560,36 @@ exports.handler = async function handler(event = {}) {
     const ip = getHeader(event, 'x-forwarded-for') || event.requestContext?.identity?.sourceIp || 'unknown';
     const ipKey = String(ip).split(',')[0].trim();
 
-    if (!JWT_SECRET || !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-        return respond(500, { ok: false, error: 'server_misconfigured' });
-    }
-
     const body = parseBody(event);
     // Legacy client shape { fileName, contentType } without action → reject (force upgrade)
     const action = body.action || (body.fileName && body.contentType && !body.data ? 'legacy_presign' : '');
 
-    // health is free (probe); everything else shares a generous per-IP ceiling
-    if (action !== 'health' && !rateLimit(`ip:${ipKey}`, 360, 60000)) {
+    // health / publicConfig — без секретов и без тяжёлых лимитов
+    if (action === 'health') {
+        return respond(200, { ok: true, version: 7 });
+    }
+    if (action === 'publicConfig') {
+        return respond(200, {
+            ok: true,
+            yandexMapsApiKey: YANDEX_MAPS_API_KEY || '',
+            bucketUrl: `https://storage.yandexcloud.net/${BUCKET}`
+        });
+    }
+
+    if (!JWT_SECRET || !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+        return respond(500, { ok: false, error: 'server_misconfigured' });
+    }
+
+    // everything else shares a generous per-IP ceiling
+    if (!rateLimit(`ip:${ipKey}`, 360, 60000)) {
         return respond(429, { ok: false, error: 'rate_limited' });
     }
 
-    const tokenPayload = (action === 'sync' || action === 'commit' || action === 'presign' || action === 'me' || action === 'changePassword' || action === 'patchSound' || action === 'translate')
+    const tokenPayload = (
+        action === 'sync' || action === 'commit' || action === 'presign' || action === 'me'
+        || action === 'changePassword' || action === 'patchSound' || action === 'translate'
+        || action === 'getMail'
+    )
         ? verifyJwt(extractToken(event, body))
         : null;
     if (!actionRateLimit(action, ipKey, tokenPayload?.login || '')) {
@@ -1300,11 +1597,11 @@ exports.handler = async function handler(event = {}) {
     }
 
     try {
-        if (action === 'health') return respond(200, { ok: true, version: 5 });
         if (action === 'register') return await handleRegister(body);
         if (action === 'login') return await handleLogin(body);
         if (action === 'changePassword') return await handleChangePassword(event, body);
         if (action === 'me') return await handleMe(event, body);
+        if (action === 'getMail') return await handleGetMail(event, body);
         if (action === 'sync') return await handleSync(event, body);
         if (action === 'commit') return await handleCommit(event, body);
         if (action === 'presign') return await handlePresign(event, body);
@@ -1320,6 +1617,6 @@ exports.handler = async function handler(event = {}) {
         return respond(400, { ok: false, error: 'unknown_action' });
     } catch (err) {
         console.error('API error', err);
-        return respond(500, { ok: false, error: 'internal', detail: String(err.message || err) });
+        return respond(500, { ok: false, error: 'internal' });
     }
 };

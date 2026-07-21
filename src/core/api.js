@@ -79,8 +79,72 @@ window.apiMe = function() {
     return window.apiRequest('me', {}, { auth: true });
 };
 
+window.apiGetMail = async function() {
+    const data = await window.apiRequest('getMail', {}, { auth: true });
+    return Array.isArray(data?.data) ? data.data : [];
+};
+
 window.apiHealth = function() {
     return window.apiRequest('health');
+};
+
+/** Browser-safe public config (Maps key with HTTP Referer lock). No auth secrets. */
+window.apiPublicConfig = function() {
+    return window.apiRequest('publicConfig');
+};
+
+/**
+ * Load Yandex Maps JS API 2.1 (+ optional 3.x) after fetching key from Secure API.
+ * Key is never committed to frontend source.
+ */
+window.ensureYandexMapsLoaded = async function() {
+    if (typeof window.ymaps !== 'undefined') return true;
+    if (window.__yandexMapsLoadPromise) return window.__yandexMapsLoadPromise;
+
+    window.__yandexMapsLoadPromise = (async () => {
+        let key = String(window.YANDEX_MAPS_API_KEY || '').trim();
+        if (!key && window.apiPublicConfig) {
+            try {
+                const cfg = await window.apiPublicConfig();
+                key = String(cfg?.yandexMapsApiKey || '').trim();
+                if (cfg?.bucketUrl && !window.YANDEX_BUCKET_URL) {
+                    window.YANDEX_BUCKET_URL = cfg.bucketUrl;
+                }
+            } catch (err) {
+                console.warn('publicConfig failed', err);
+            }
+        }
+        if (!key) throw new Error('Yandex Maps API key is not configured on the server');
+        window.YANDEX_MAPS_API_KEY = key;
+
+        const loadScript = (src, attrs = {}) => new Promise((resolve, reject) => {
+            if (document.querySelector(`script[src="${src}"]`)) {
+                resolve();
+                return;
+            }
+            const s = document.createElement('script');
+            s.src = src;
+            s.async = true;
+            Object.entries(attrs).forEach(([k, v]) => s.setAttribute(k, v));
+            s.onload = () => resolve();
+            s.onerror = () => reject(new Error(`Failed to load ${src}`));
+            document.head.appendChild(s);
+        });
+
+        await loadScript(`https://api-maps.yandex.ru/2.1/?apikey=${encodeURIComponent(key)}&lang=ru_RU`);
+        // API 3 — тихий режим; грузим заранее, включается только при провайдере yandex3
+        try {
+            await loadScript(`https://api-maps.yandex.ru/v3/?apikey=${encodeURIComponent(key)}&lang=ru_RU`, { 'data-ymaps3': '1' });
+        } catch (_) {}
+
+        if (typeof window.ymaps === 'undefined') throw new Error('ymaps failed to initialize');
+        return true;
+    })().catch((err) => {
+        window.__yandexMapsLoadPromise = null;
+        throw err;
+    });
+
+    return window.__yandexMapsLoadPromise;
 };
 
 window.apiChangePassword = function(currentPassword, newPassword) {
@@ -238,6 +302,20 @@ window.restoreAuthSession = async function() {
         const data = await window.apiMe();
         if (data.token) window.setAuthSession(data.token, data.user);
         else window.setAuthSession(token, data.user);
+        // PII (email и т.п.) приходят из private_meta через me, не из публичного profiles.json
+        if (data.user && window.currentUser) {
+            if (data.user.email !== undefined) window.currentUser.email = data.user.email || '';
+            if (data.user.emailVerified !== undefined) window.currentUser.emailVerified = !!data.user.emailVerified;
+            if (data.user.skillLevel !== undefined) window.currentUser.skillLevel = data.user.skillLevel || '';
+            if (data.user.platformIntents !== undefined) {
+                window.currentUser.platformIntents = Array.isArray(data.user.platformIntents)
+                    ? data.user.platformIntents
+                    : [];
+            }
+            if (data.user.pdConsent !== undefined) window.currentUser.pdConsent = !!data.user.pdConsent;
+            if (data.user.pdConsentAt !== undefined) window.currentUser.pdConsentAt = data.user.pdConsentAt || '';
+            try { localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser)); } catch (_) {}
+        }
         return true;
     } catch (err) {
         if (err.code === 'unauthorized' || err.code === 'blocked' || err.status === 401 || err.status === 403) {

@@ -1536,6 +1536,16 @@ window.__waitCloudReady = async function() {
 };
 
 window.fetchCloudJson = async function(fileName) {
+    // mail.json больше не публичный — только Secure API (JWT)
+    if (fileName === 'mail.json') {
+        if (!window.getAuthToken || !window.getAuthToken()) return [];
+        if (!window.apiGetMail) return [];
+        try {
+            return await window.apiGetMail();
+        } catch (_) {
+            return [];
+        }
+    }
     const res = await fetch(`${window.YANDEX_BUCKET_URL}/${fileName}?nocache=${Date.now()}`);
     if (!res.ok) return null;
     const data = await res.json();
@@ -2142,9 +2152,9 @@ window.pollLiveCloudData = async function() {
             fetch(`${window.YANDEX_BUCKET_URL}/profiles.json?nocache=${Date.now()}`)
                 .then(res => res.ok ? res.json() : null)
                 .catch(() => null),
-            fetch(`${window.YANDEX_BUCKET_URL}/mail.json?nocache=${Date.now()}`)
-                .then(res => res.ok ? res.json() : null)
-                .catch(() => null),
+            (window.getAuthToken && window.getAuthToken() && window.apiGetMail)
+                ? window.apiGetMail().catch(() => null)
+                : Promise.resolve([]),
             background
                 ? Promise.resolve(null)
                 : fetch(`${window.YANDEX_BUCKET_URL}/feed.json?nocache=${Date.now()}`)
@@ -5270,17 +5280,28 @@ window.renderComments = function(sound) {
     if(!sound.comments || sound.comments.length === 0) { container.innerHTML = `<p class="text-sm text-slate-400 italic px-2">Нет комментариев</p>`; return; }
 
     const login = window.currentUser ? (window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase()) : null;
-    const isAdmin = !!window.currentUser && (String(window.currentUser.role || '').toLowerCase() === 'admin' || login === 'admin');
-    const esc = s => String(s == null ? '' : s).replace(/'/g, "\\'");
+    const escAttr = (s) => String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    const escHtml = (s) => String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    const escJs = (s) => String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
     const renderAuthor = (author, authorId) => {
         const profile = authorId && window.getProfileByLogin ? window.getProfileByLogin(authorId) : null;
-        const avatar = profile?.avatar
-            ? `<img src="${profile.avatar}" alt="" class="comment-avatar">`
+        const avatarUrl = profile?.avatar && /^https?:\/\//i.test(profile.avatar) ? profile.avatar : '';
+        const avatar = avatarUrl
+            ? `<img src="${escAttr(avatarUrl)}" alt="" class="comment-avatar">`
             : `<span class="comment-avatar comment-avatar-fallback"><i class="fa-solid fa-user"></i></span>`;
         const name = authorId
-            ? `<span class="comment-author-link" onclick="window.openPublicProfile('${authorId}', '${esc(author)}')">${author}</span>`
-            : `<span class="font-bold text-slate-700 dark:text-slate-200">${author}</span>`;
+            ? `<span class="comment-author-link" onclick="window.openPublicProfile('${escJs(authorId)}', '${escJs(author)}')">${escHtml(author)}</span>`
+            : `<span class="font-bold text-slate-700 dark:text-slate-200">${escHtml(author)}</span>`;
         return `<span class="comment-author-wrap">${avatar}${name}</span>`;
     };
 
@@ -5288,19 +5309,19 @@ window.renderComments = function(sound) {
         const reactedByMe = !!login && (r.reactedBy || []).includes(login);
         const reactionCount = (r.reactedBy || []).length;
         return `
-        <div class="comment-reply swipe-reply-row" data-reply-id="${r.id}" data-reply-author="${esc(r.author)}" data-reply-author-id="${esc(r.authorId || '')}">
+        <div class="comment-reply swipe-reply-row" data-reply-id="${escAttr(r.id)}" data-reply-author="${escAttr(r.author)}" data-reply-author-id="${escAttr(r.authorId || '')}">
             <span class="swipe-reply-hint"><i class="fa-solid fa-reply"></i></span>
             <div class="flex justify-between items-start gap-2 mb-1">
                 <span class="text-[12px]">${renderAuthor(r.author, r.authorId)}</span>
                 <div class="flex items-center gap-1 shrink-0">
-                    <span class="text-[9px] text-slate-400">${r.date}</span>
-                    <button onclick="window.openReplyMenu('${sound.id}', '${r.id}', event)" class="comment-menu-btn" title="Действия">
+                    <span class="text-[9px] text-slate-400">${escHtml(r.date)}</span>
+                    <button onclick="window.openReplyMenu('${escJs(sound.id)}', '${escJs(r.id)}', event)" class="comment-menu-btn" title="Действия">
                         <i class="fa-solid fa-ellipsis"></i>
                     </button>
                 </div>
             </div>
-            <p class="text-[12px] text-slate-600 dark:text-slate-300">${r.text}</p>
-            <button onclick="window.toggleCommentReaction('${sound.id}', '${r.id}')" class="comment-reaction-btn ${reactedByMe ? 'active' : ''}">
+            <p class="text-[12px] text-slate-600 dark:text-slate-300">${escHtml(r.text)}</p>
+            <button onclick="window.toggleCommentReaction('${escJs(sound.id)}', '${escJs(r.id)}')" class="comment-reaction-btn ${reactedByMe ? 'active' : ''}">
                 <i class="fa-solid fa-heart"></i>${reactionCount > 0 ? reactionCount : ''}
             </button>
         </div>`;
@@ -5310,19 +5331,19 @@ window.renderComments = function(sound) {
         const reactedByMe = !!login && (c.reactedBy || []).includes(login);
         const reactionCount = (c.reactedBy || []).length;
         return `
-        <div class="bg-slate-100/60 dark:bg-slate-900/60 p-3.5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 swipe-reply-row" data-comment-id="${c.id}" data-comment-author="${esc(c.author)}" data-comment-author-id="${esc(c.authorId || '')}">
+        <div class="bg-slate-100/60 dark:bg-slate-900/60 p-3.5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 swipe-reply-row" data-comment-id="${escAttr(c.id)}" data-comment-author="${escAttr(c.author)}" data-comment-author-id="${escAttr(c.authorId || '')}">
             <span class="swipe-reply-hint"><i class="fa-solid fa-reply"></i></span>
             <div class="flex justify-between items-start mb-1.5 gap-2">
                 <span class="text-[13px]">${renderAuthor(c.author, c.authorId)}</span>
                 <div class="flex items-center gap-1.5 shrink-0">
-                    <span class="text-[10px] text-slate-400">${c.date}</span>
-                    <button onclick="window.openCommentMenu('${sound.id}', '${c.id}', event)" class="comment-menu-btn" title="Действия">
+                    <span class="text-[10px] text-slate-400">${escHtml(c.date)}</span>
+                    <button onclick="window.openCommentMenu('${escJs(sound.id)}', '${escJs(c.id)}', event)" class="comment-menu-btn" title="Действия">
                         <i class="fa-solid fa-ellipsis"></i>
                     </button>
                 </div>
             </div>
-            <p class="text-[13px] text-slate-600 dark:text-slate-300 mb-1.5">${c.text}</p>
-            <button onclick="window.toggleCommentReaction('${sound.id}', '${c.id}')" class="comment-reaction-btn ${reactedByMe ? 'active' : ''}">
+            <p class="text-[13px] text-slate-600 dark:text-slate-300 mb-1.5">${escHtml(c.text)}</p>
+            <button onclick="window.toggleCommentReaction('${escJs(sound.id)}', '${escJs(c.id)}')" class="comment-reaction-btn ${reactedByMe ? 'active' : ''}">
                 <i class="fa-solid fa-heart"></i>${reactionCount > 0 ? reactionCount : ''}
             </button>
             ${(c.replies && c.replies.length) ? `<div class="comment-replies">${c.replies.map(renderReply).join('')}</div>` : ''}
