@@ -67,6 +67,7 @@ window.ADMIN_CONSOLE_COMMANDS = [
     { name: 'provider', usage: 'provider <id>', desc: 'Сменить движок карты' },
     { name: 'providers', usage: 'providers', desc: 'Список движков карты' },
     { name: 'notify', usage: 'notify <login> <текст…>', desc: 'Системное уведомление' },
+    { name: 'email', usage: 'email <login> [текст…]', desc: 'Письмо на подтверждённый email' },
     { name: 'likes', usage: 'likes <soundId>', desc: 'Лайки записи' },
     { name: 'plays', usage: 'plays <soundId>', desc: 'Прослушивания' },
     { name: 'downloads', usage: 'downloads <soundId>', desc: 'Скачивания' },
@@ -279,7 +280,7 @@ window.runAdminConsoleCommand = async function(raw) {
             }
             case 'version': {
                 const h = window.__apiHealth || {};
-                window.adminConsoleLog(`client cache 20260721n · api ${h.version ?? '?'}`);
+                window.adminConsoleLog(`client cache 20260721o · api ${h.version ?? '?'}`);
                 break;
             }
             case 'stats':
@@ -763,6 +764,25 @@ window.runAdminConsoleCommand = async function(raw) {
                     });
                     window.adminConsoleLog(`notify → ${login}`, 'ok');
                 } else window.adminConsoleLog('pushNotifications недоступен', 'error');
+                break;
+            }
+            case 'email':
+            case 'send-email': {
+                const login = String(args[0] || '').toLowerCase();
+                const text = args.slice(1).join(' ').trim();
+                if (!login) { window.adminConsoleLog('usage: email <login> [текст…]', 'error'); break; }
+                if (!text) {
+                    if (window.openAdminSendEmail) await window.openAdminSendEmail(login);
+                    else window.adminConsoleLog('openAdminSendEmail недоступен', 'error');
+                    break;
+                }
+                if (!window.apiAdminSendEmail) { window.adminConsoleLog('API недоступен', 'error'); break; }
+                try {
+                    const data = await window.apiAdminSendEmail(login, text);
+                    window.adminConsoleLog(`email → ${login}${data?.toMasked ? ` (${data.toMasked})` : ''}`, 'ok');
+                } catch (err) {
+                    window.adminConsoleLog(err?.code || err?.message || 'ошибка отправки', 'error');
+                }
                 break;
             }
             case 'likes': {

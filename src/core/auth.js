@@ -2886,6 +2886,14 @@ export function initAuth() {
             { icon: 'fa-id-badge', label: 'Открыть профиль', tone: 'primary', onClick: () => window.openPublicProfile(login, p.displayName || login) },
             { icon: 'fa-chart-simple', label: 'Сводка', tone: 'primary', onClick: () => window.openUserActivityModal(login) }
         ];
+        if (window.isCurrentUserStaff && window.isCurrentUserStaff()) {
+            items.push({
+                icon: 'fa-envelope',
+                label: 'Письмо на email',
+                tone: 'primary',
+                onClick: () => window.openAdminSendEmail(login)
+            });
+        }
         if (canManageRoles) {
             items.splice(1, 0, { icon: 'fa-medal', label: 'Звания', tone: 'warning', onClick: () => window.openBadgeAssignModal(login) });
         }
@@ -2904,6 +2912,63 @@ export function initAuth() {
         const opts = { title: p.displayName || login, event: ev || (typeof event !== 'undefined' ? event : null) };
         if (window.openActionsMenu) window.openActionsMenu(items, opts);
         else window.ActionSheet.open(items);
+    };
+
+    /** Staff: send branded email to user's verified address via Secure API. */
+    window.openAdminSendEmail = async function(login) {
+        if (!window.isCurrentUserStaff || !window.isCurrentUserStaff()) {
+            window.showToast('Нужны права модератора или администратора');
+            return;
+        }
+        const target = String(login || '').toLowerCase();
+        if (!target) return;
+
+        const subject = await window.CustomUI.open({
+            title: '<i class="fa-solid fa-envelope mr-2 text-blue-500"></i>Письмо пользователю',
+            message: `Тема письма для @${target} (можно оставить пустой и нажать «Далее»).`,
+            confirmText: 'Далее',
+            confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-md',
+            showInput: true,
+            inputPlaceholder: 'Сообщение от поддержки Полёвки'
+        });
+        if (subject === false) return;
+
+        const message = await window.CustomUI.open({
+            title: '<i class="fa-solid fa-pen mr-2 text-blue-500"></i>Текст письма',
+            message: `Напишите текст для @${target}. Уйдёт только на подтверждённый email.`,
+            confirmText: 'Отправить',
+            confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-md',
+            showInput: true,
+            inputPlaceholder: 'Текст письма…'
+        });
+        if (message === false || !String(message || '').trim()) {
+            if (message !== false) window.showToast('Введите текст письма');
+            return;
+        }
+
+        const staffLogin = window.currentUser?.loginName || 'staff';
+        const guard = window.spamGuardCheck
+            ? window.spamGuardCheck(`admin-email:${staffLogin}`, { minIntervalMs: 3000, maxPerWindow: 20, windowMs: 3600000 })
+            : { ok: true };
+        if (!guard.ok) { window.spamGuardToast?.(guard); return; }
+
+        try {
+            if (!window.apiAdminSendEmail) {
+                window.showToast('API недоступен');
+                return;
+            }
+            const data = await window.apiAdminSendEmail(target, String(message).trim(), String(subject || '').trim());
+            window.showToast(data?.toMasked ? `Письмо отправлено (${data.toMasked})` : 'Письмо отправлено');
+        } catch (err) {
+            const code = err?.code || '';
+            if (code === 'email_unavailable') window.showToast('У пользователя нет подтверждённого email');
+            else if (code === 'mail_not_configured') window.showToast('Отправка писем не настроена');
+            else if (code === 'mail_send_failed') window.showToast('Не удалось отправить письмо');
+            else if (code === 'rate_limited') window.showToast('Слишком много писем — подождите');
+            else if (code === 'no_user') window.showToast('Пользователь не найден');
+            else if (code === 'forbidden') window.showToast('Недостаточно прав');
+            else window.showToast('Ошибка отправки письма');
+        }
     };
 
     window.__badgeAssignLogin = null;

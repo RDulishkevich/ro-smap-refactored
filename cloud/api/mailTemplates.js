@@ -11,9 +11,11 @@ function esc(s) {
         .replace(/"/g, '&quot;');
 }
 
-function layout({ title, preheader, bodyHtml }) {
+function layout({ title, preheader, bodyHtml, footHtml }) {
     const brand = 'Полёвка';
     const site = 'https://www.polevka.art';
+    const foot = footHtml || `Письмо отправлено автоматически сервисом «Полёвка». Если вы не запрашивали это действие, просто проигнорируйте письмо.<br>
+        <a href="${esc(site)}">${esc(site)}</a>`;
     return `<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -31,6 +33,7 @@ function layout({ title, preheader, bodyHtml }) {
   .body{padding:28px}
   .h1{margin:0 0 12px;font-size:18px;font-weight:700;color:#0f172a}
   .p{margin:0 0 14px;font-size:15px;line-height:1.55;color:#334155}
+  .msg{margin:0 0 14px;font-size:15px;line-height:1.65;color:#334155;white-space:pre-wrap}
   .code{display:inline-block;margin:8px 0 18px;padding:14px 22px;border-radius:14px;background:#eff6ff;border:1px solid #bfdbfe;font-size:28px;font-weight:800;letter-spacing:0.22em;color:#1e3a8a;font-family:ui-monospace,Consolas,monospace}
   .foot{padding:18px 28px 28px;font-size:12px;line-height:1.5;color:#94a3b8}
   .foot a{color:#64748b}
@@ -46,10 +49,7 @@ function layout({ title, preheader, bodyHtml }) {
         <p class="sub">Аудиокарта полевых записей · ${esc(site.replace('https://', ''))}</p>
       </div>
       <div class="body">${bodyHtml}</div>
-      <div class="foot">
-        Письмо отправлено автоматически сервисом «Полёвка». Если вы не запрашивали это действие, просто проигнорируйте письмо.<br>
-        <a href="${esc(site)}">${esc(site)}</a>
-      </div>
+      <div class="foot">${foot}</div>
     </div>
   </div>
 </body>
@@ -92,7 +92,32 @@ function passwordResetEmail(code) {
     };
 }
 
+/** Staff → user message (admin / moderator). Body must already be plain text; we escape for HTML. */
+function staffMessageEmail({ subject, message, fromLabel }) {
+    const site = 'https://www.polevka.art';
+    const subj = String(subject || 'Сообщение от поддержки Полёвки').slice(0, 120);
+    const msg = String(message || '').slice(0, 4000);
+    const from = String(fromLabel || 'Поддержка Полёвки').slice(0, 80);
+    const msgHtml = esc(msg).replace(/\r\n|\r|\n/g, '<br>');
+    return {
+        subject: subj.includes('Полёвка') ? subj : `${subj} — Полёвка`,
+        text: `${from}:\n\n${msg}\n\n—\nОтветить можно в чате поддержки в приложении или на support@polevka.art\n${site}`,
+        html: layout({
+            title: subj,
+            preheader: msg.slice(0, 100),
+            bodyHtml: `
+              <h1 class="h1">${esc(subj)}</h1>
+              <p class="p" style="font-size:13px;color:#64748b;margin-bottom:16px">От: ${esc(from)}</p>
+              <p class="msg">${msgHtml}</p>
+            `,
+            footHtml: `Это письмо от команды Полёвки. Ответить удобнее в чате поддержки в приложении или на <a href="mailto:support@polevka.art">support@polevka.art</a>.<br>
+        <a href="${esc(site)}">${esc(site)}</a>`
+        })
+    };
+}
+
 module.exports = {
     verificationEmail,
-    passwordResetEmail
+    passwordResetEmail,
+    staffMessageEmail
 };

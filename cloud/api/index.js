@@ -19,7 +19,7 @@
  * Actions (POST JSON { action, ... }):
  *   health | publicConfig | register | login | changePassword | me | getMail | sync | commit | presign | patchSound | translate
  *   | requestEmailVerification | confirmEmailVerification
- *   | requestPasswordReset | confirmPasswordReset | adminDeleteUser | adminUnbindEmail
+ *   | requestPasswordReset | confirmPasswordReset | adminDeleteUser | adminUnbindEmail | adminSendEmail
  */
 
 const crypto = require('crypto');
@@ -325,6 +325,8 @@ function actionRateLimit(action, ip, login = '') {
     if (action === 'requestPasswordReset' && !rateLimit(`pwdreq:${base}`, 8, 600000)) return false;
     if (action === 'confirmPasswordReset' && !rateLimit(`pwdcfm:${base}`, 20, 600000)) return false;
     if ((action === 'adminDeleteUser' || action === 'adminUnbindEmail') && !rateLimit(`adminops:${who}`, 20, 600000)) return false;
+    if (action === 'adminSendEmail' && !rateLimit(`adminsend:${who}`, 30, 3600000)) return false;
+    if (action === 'adminSendEmail' && !rateLimit(`adminsendip:${base}`, 60, 3600000)) return false;
     return true;
 }
 
@@ -1325,7 +1327,7 @@ async function clearEmailCode(login) {
     } catch (_) { /* ignore */ }
 }
 
-async function sendTransactionalMail(to, { subject, text, html }) {
+async function sendTransactionalMail(to, { subject, text, html, replyTo }) {
     const port = SMTP_PORT || 587;
     const transporter = nodemailer.createTransport({
         host: SMTP_HOST,
@@ -1342,7 +1344,19 @@ async function sendTransactionalMail(to, { subject, text, html }) {
         }
         headers['X-UNISENDER-GO'] = JSON.stringify(uniHeaders);
     }
-    await transporter.sendMail({ from: MAIL_FROM, to, subject, text, html, headers });
+    const opts = { from: MAIL_FROM, to, subject, text, html, headers };
+    if (replyTo) opts.replyTo = replyTo;
+    await transporter.sendMail(opts);
+}
+
+function maskEmail(email) {
+    const e = normalizeEmail(email);
+    const at = e.indexOf('@');
+    if (at < 1) return '***';
+    const local = e.slice(0, at);
+    const domain = e.slice(at + 1);
+    const shown = local.length <= 2 ? `${local[0] || '*'}*` : `${local.slice(0, 2)}***`;
+    return `${shown}@${domain}`;
 }
 
 async function sendVerificationMail(to, code) {
@@ -1541,6 +1555,54 @@ async function handleAdminUnbindEmail(event, body) {
     await savePrivateMeta(meta);
     await clearEmailCode(target);
     return respond(200, { ok: true, login: target });
+}
+
+async function handleAdminSendEmail(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const actor = await resolveAuthUser(payload);
+    if (!actor || !isStaffUser(actor)) return respond(403, { ok: false, error: 'forbidden' });
+    if (actor.blocked) return respond(403, { ok: false, error: 'blocked' });
+
+    const target = normalizeLogin(body.login);
+    if (!target) return respond(400, { ok: false, error: 'bad_login' });
+
+    const subject = String(body.subject || 'Сообщение от поддержки Полёвки').trim().slice(0, 120);
+    const message = String(body.message || body.text || '').trim().slice(0, 4000);
+    if (!message || message.length < 2) return respond(400, { ok: false, error: 'bad_message' });
+
+    const users = await loadAuthUsers();
+    if (!users[target]) return respond(404, { ok: false, error: 'no_user' });
+
+    const meta = await loadPrivateMeta();
+    const row = meta[target] && typeof meta[target] === 'object' ? meta[target] : {};
+    const email = normalizeEmail(row.email);
+    if (!isValidEmail(email) || !row.emailVerified) {
+        return respond(400, { ok: false, error: 'email_unavailable', message: 'User has no verified email' });
+    }
+
+    if (!isSmtpConfigured()) {
+        return respond(503, { ok: false, error: 'mail_not_configured' });
+    }
+
+    const fromLabel = isAdminUser(actor) ? 'Администратор Полёвки' : 'Модератор Полёвки';
+    const tpl = mailTemplates.staffMessageEmail({ subject, message, fromLabel });
+    try {
+        await sendTransactionalMail(email, {
+            ...tpl,
+            replyTo: 'support@polevka.art'
+        });
+    } catch (err) {
+        console.error('SMTP staff message failed', err);
+        return respond(502, { ok: false, error: 'mail_send_failed' });
+    }
+
+    return respond(200, {
+        ok: true,
+        login: target,
+        toMasked: maskEmail(email),
+        subject: tpl.subject
+    });
 }
 
 async function handleRequestEmailVerification(event, body) {
@@ -2046,7 +2108,7 @@ exports.handler = async function handler(event = {}) {
 
     // health / publicConfig — без секретов и без тяжёлых лимитов
     if (action === 'health') {
-        return respond(200, { ok: true, version: 10 });
+        return respond(200, { ok: true, version: 11 });
     }
     if (action === 'publicConfig') {
         return respond(200, {
@@ -2070,7 +2132,7 @@ exports.handler = async function handler(event = {}) {
         || action === 'changePassword' || action === 'patchSound' || action === 'translate'
         || action === 'getMail'
         || action === 'requestEmailVerification' || action === 'confirmEmailVerification'
-        || action === 'adminDeleteUser' || action === 'adminUnbindEmail'
+        || action === 'adminDeleteUser' || action === 'adminUnbindEmail' || action === 'adminSendEmail'
     )
         ? verifyJwt(extractToken(event, body))
         : null;
@@ -2095,6 +2157,7 @@ exports.handler = async function handler(event = {}) {
         if (action === 'confirmPasswordReset') return await handleConfirmPasswordReset(body);
         if (action === 'adminDeleteUser') return await handleAdminDeleteUser(event, body);
         if (action === 'adminUnbindEmail') return await handleAdminUnbindEmail(event, body);
+        if (action === 'adminSendEmail') return await handleAdminSendEmail(event, body);
         if (action === 'legacy_presign') {
             return respond(401, {
                 ok: false,

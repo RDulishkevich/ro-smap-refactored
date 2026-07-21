@@ -106,6 +106,14 @@ window.apiAdminUnbindEmail = function(login) {
     return window.apiRequest('adminUnbindEmail', { login }, { auth: true });
 };
 
+window.apiAdminSendEmail = function(login, message, subject) {
+    return window.apiRequest('adminSendEmail', {
+        login,
+        message,
+        subject: subject || undefined
+    }, { auth: true });
+};
+
 window.apiGetMail = async function() {
     const data = await window.apiRequest('getMail', {}, { auth: true });
     return Array.isArray(data?.data) ? data.data : [];
