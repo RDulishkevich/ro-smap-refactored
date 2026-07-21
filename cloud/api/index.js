@@ -8,7 +8,8 @@
  *   STORAGE_ENDPOINT  — https://storage.yandexcloud.net
  *   JWT_SECRET        — long random string for session tokens
  *   ADMIN_PASSWORD    — bootstrap / admin login password (NOT shipped to client)
- *   ALLOWED_ORIGIN    — CORS origin (default *)
+ *   ALLOWED_ORIGIN    — CORS whitelist, comma-separated
+ *                       (default: polevka.art + www + github pages + localhost)
  *   YC_TRANSLATE_API_KEY — Yandex Cloud Translate API key (Api-Key …)
  *   YC_FOLDER_ID      — folder id (required with some key types)
  *   YANDEX_MAPS_API_KEY — browser Maps JS key (HTTP Referer lock); exposed only via publicConfig
@@ -36,7 +37,14 @@ const PRIVATE_BUCKET = process.env.PRIVATE_BUCKET || 'rosmap2026-private';
 const ENDPOINT = process.env.STORAGE_ENDPOINT || 'https://storage.yandexcloud.net';
 const JWT_SECRET = process.env.JWT_SECRET || '';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
+const DEFAULT_ALLOWED_ORIGINS = [
+    'https://polevka.art',
+    'https://www.polevka.art',
+    'https://rdulishkevich.github.io',
+    'http://localhost',
+    'http://127.0.0.1'
+].join(',');
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || DEFAULT_ALLOWED_ORIGINS;
 const YC_TRANSLATE_API_KEY = process.env.YC_TRANSLATE_API_KEY || '';
 const YC_FOLDER_ID = process.env.YC_FOLDER_ID || '';
 /** Browser-only Maps key (HTTP Referer restricted). Served via publicConfig — not committed to frontend. */
@@ -68,6 +76,50 @@ const ALLOWED_MEDIA_CT = /^(image\/(jpeg|jpg|png|webp|gif)|audio\/(mpeg|mp3|wav|
 const DATA_OR_BLOB_RE = /^(data:|blob:)/i;
 const HTTP_URL_RE = /^https?:\/\//i;
 
+/** Request-scoped event for CORS Origin reflection (set at handler entry). */
+let __reqEvent = null;
+
+function parseAllowedOrigins(raw) {
+    return String(raw || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+}
+
+function isLocalDevOrigin(origin) {
+    try {
+        const u = new URL(origin);
+        return (u.protocol === 'http:' || u.protocol === 'https:')
+            && (u.hostname === 'localhost' || u.hostname === '127.0.0.1');
+    } catch (_) {
+        return false;
+    }
+}
+
+/** Returns the Origin to echo. Never returns empty for browser Origins (YC may inject *). */
+function resolveCorsOrigin(requestOrigin) {
+    const rules = parseAllowedOrigins(ALLOWED_ORIGIN);
+    if (rules.includes('*')) return '*';
+    const fallback = rules.find((r) => r.startsWith('https://')) || rules[0] || 'https://polevka.art';
+    if (!requestOrigin) return '';
+    if (rules.includes(requestOrigin)) return requestOrigin;
+    if (isLocalDevOrigin(requestOrigin)) {
+        const allowLocal = rules.some((r) => {
+            if (r === 'http://localhost' || r === 'http://127.0.0.1') return true;
+            if (r === 'https://localhost' || r === 'https://127.0.0.1') return true;
+            try {
+                const u = new URL(r);
+                return u.hostname === 'localhost' || u.hostname === '127.0.0.1';
+            } catch (_) {
+                return false;
+            }
+        });
+        if (allowLocal) return requestOrigin;
+    }
+    // Чужой Origin: отдаём свой домен (не совпадёт → браузер заблокирует), а не пустоту.
+    return fallback;
+}
+
 function bucketForKey(key) {
     // mail.json — личные сообщения: только private bucket (не публичный CDN)
     if (key === 'mail.json' || key.startsWith('_auth/') || key.startsWith('staging/')) return PRIVATE_BUCKET;
@@ -87,13 +139,20 @@ const s3 = new S3Client({
 const rateBucket = new Map();
 
 function corsHeaders() {
-    return {
+    const requestOrigin = getHeader(__reqEvent, 'origin');
+    const allowOrigin = resolveCorsOrigin(requestOrigin);
+    const headers = {
         'Content-Type': 'application/json; charset=utf-8',
-        'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, X-Rosmap-Token',
-        'Access-Control-Max-Age': '86400'
+        'Access-Control-Max-Age': '86400',
+        'Vary': 'Origin',
+        'X-Content-Type-Options': 'nosniff',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'X-Frame-Options': 'DENY'
     };
+    if (allowOrigin) headers['Access-Control-Allow-Origin'] = allowOrigin;
+    return headers;
 }
 
 function isForbiddenMediaUrl(value) {
@@ -1733,6 +1792,7 @@ async function handleTranslate(event, body) {
 }
 
 exports.handler = async function handler(event = {}) {
+    __reqEvent = event || {};
     const method = (event.httpMethod || event.requestContext?.http?.method || 'POST').toUpperCase();
     if (method === 'OPTIONS') {
         return { statusCode: 204, headers: corsHeaders(), body: '' };
@@ -1747,7 +1807,7 @@ exports.handler = async function handler(event = {}) {
 
     // health / publicConfig — без секретов и без тяжёлых лимитов
     if (action === 'health') {
-        return respond(200, { ok: true, version: 8 });
+        return respond(200, { ok: true, version: 9 });
     }
     if (action === 'publicConfig') {
         return respond(200, {

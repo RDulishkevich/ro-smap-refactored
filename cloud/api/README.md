@@ -60,9 +60,11 @@ AWS_ACCESS_KEY_ID=...
 AWS_SECRET_ACCESS_KEY=...
 JWT_SECRET=<длинная случайная строка>
 ADMIN_PASSWORD=<пароль админа, НЕ хранить в клиенте>
-ALLOWED_ORIGIN=*
+ALLOWED_ORIGIN=https://polevka.art,https://www.polevka.art,https://rdulishkevich.github.io,http://localhost,http://127.0.0.1
 YC_TRANSLATE_API_KEY=<ключ Translate API>
 YC_FOLDER_ID=<folder id, если требуется для ключа>
+YANDEX_MAPS_API_KEY=<браузерный ключ Maps JS, HTTP Referer>
+
 YANDEX_MAPS_API_KEY=<browser Maps key>
 SMTP_HOST=
 SMTP_PORT=587
