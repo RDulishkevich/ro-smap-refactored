@@ -42,8 +42,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260721c">
-    <link rel="stylesheet" href="./src/glass.css?v=20260721c">
+    <link rel="stylesheet" href="./src/style.css?v=20260721e">
+    <link rel="stylesheet" href="./src/glass.css?v=20260721e">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -942,9 +942,7 @@
                         <button type="button" class="cabinet-mobile-row" onclick="window.switchCabinetTab('settings')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-gear"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_settings">Настройки</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
                         <button type="button" class="cabinet-mobile-row" onclick="window.hideDockPanel(); window.toggleNotificationsPanel && window.toggleNotificationsPanel();"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-bell"></i></span><span class="cabinet-mobile-row__label" data-lang="notifications_title">Уведомления</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
                         <button type="button" class="cabinet-mobile-row" onclick="window.switchCabinetTab('security')"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-lock"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_security">Сменить пароль</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
-                        <button type="button" class="cabinet-mobile-row" onclick="window.openOwnPublicProfile()"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-id-badge"></i></span><span class="cabinet-mobile-row__label" data-lang="public_profile">Публичный профиль</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
                         <button type="button" id="cab-mobile-admin" class="cabinet-mobile-row hidden" onclick="window.openAdminPanel()"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-shield-halved"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_admin">Админ-панель</span><i class="fa-solid fa-chevron-right cabinet-mobile-row__chev"></i></button>
-                        <button type="button" class="cabinet-mobile-row cabinet-mobile-row--danger" onclick="window.logoutUser()"><span class="cabinet-mobile-row__icon"><i class="fa-solid fa-right-from-bracket"></i></span><span class="cabinet-mobile-row__label">Выйти</span></button>
                     </div>
                     <div class="grid grid-cols-2 gap-4 mb-4">
                         <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-center items-center text-center">
@@ -1408,11 +1406,10 @@
         <div id="public-profile-modal-content" class="pp-modal bg-white dark:bg-slate-900 rounded-[1.75rem] shadow-2xl w-full max-w-2xl app-modal-panel flex flex-col overflow-hidden min-h-0 transform scale-95 transition-all pointer-events-auto border border-slate-200/80 dark:border-slate-700">
 
             <div class="pp-hero relative shrink-0">
-                <div class="pp-hero__cover" aria-hidden="true"></div>
-                <button type="button" onclick="window.closePublicProfileModal()" class="pp-hero__close absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-black/25 hover:bg-black/40 text-white flex items-center justify-center transition-colors" aria-label="Закрыть">
+                <button type="button" onclick="window.closePublicProfileModal()" class="pp-hero__close" aria-label="Закрыть">
                     <i class="fa-solid fa-xmark pointer-events-none"></i>
                 </button>
-                <div class="pp-hero__body relative px-5 sm:px-6 pb-4 pt-14">
+                <div class="pp-hero__body relative px-5 sm:px-6 pb-4 pt-3">
                     <div class="flex items-end gap-4">
                         <div class="pp-avatar-wrap shrink-0">
                             <img id="pp-avatar" onclick="window.openProfileAvatarLightbox()" class="hidden pp-avatar" alt="avatar" title="Открыть фото">
@@ -2176,7 +2173,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260721c"></script>
+    <script type="module" src="./src/main.js?v=20260721e"></script>
 
 </body>
 </html>

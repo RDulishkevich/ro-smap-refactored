@@ -1,5 +1,5 @@
-/* Полёвка — минимальный service worker для установки PWA (Android) и офлайн-оболочки. */
-const CACHE = 'polevka-shell-v2';
+/* Полёвка — service worker: PWA shell + Web Notifications (Safari / Chrome / installed app). */
+const CACHE = 'polevka-shell-v3';
 const PRECACHE = [
   './',
   './index.html',
@@ -65,22 +65,27 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(payload.title || 'Полёвка', {
       body: payload.body || '',
       icon: './Logo.png',
-      badge: './Logo.png',
-      data: { url: payload.url || './' }
+      badge: './icons/icon-192.png',
+      tag: payload.tag || `polevka-push-${Date.now()}`,
+      renotify: true,
+      data: { url: payload.url || './', notifId: payload.notifId || null }
     })
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = (event.notification && event.notification.data && event.notification.data.url) || './';
+  const data = (event.notification && event.notification.data) || {};
+  const target = data.url || './';
+  const notifId = data.notifId || null;
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const client of list) {
-        if ('focus' in client) {
-          client.focus();
-          return;
-        }
+        try {
+          client.postMessage({ type: 'polevka-notif-click', notifId });
+        } catch (_) {}
+        if ('focus' in client) return client.focus();
       }
       if (clients.openWindow) return clients.openWindow(target);
     })

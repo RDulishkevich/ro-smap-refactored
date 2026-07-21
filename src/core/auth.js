@@ -3133,6 +3133,16 @@ export function initAuth() {
         if (document.getElementById('notif-panel') && !document.getElementById('notif-panel').classList.contains('hidden')) {
             window.renderNotificationsList();
         }
+        // Keep mobile profile badge in sync with notification unread count.
+        if (window.refreshMessagesUI) {
+            const navBadge = document.getElementById('mobile-nav-inbox-badge');
+            if (navBadge && window.currentUser) {
+                const unreadMsg = (window.getMyInbox ? window.getMyInbox() : []).filter(m => !m.read && !m.deleted).length;
+                const total = unreadMsg + unread;
+                navBadge.textContent = total > 99 ? '99+' : String(total);
+                navBadge.classList.toggle('hidden', total === 0);
+            }
+        }
     };
 
     window.toggleNotificationsPanel = function(ev) {
@@ -3147,6 +3157,7 @@ export function initAuth() {
         const opening = panel.classList.contains('hidden');
         panel.classList.toggle('hidden', !opening);
         if (opening) {
+            panel.classList.add('is-open');
             panel.style.left = '';
             panel.style.right = '';
             panel.style.top = '';
@@ -3154,8 +3165,19 @@ export function initAuth() {
             panel.style.width = '';
             if (window.playSfx) window.playSfx('open');
             window.renderNotificationsList();
-        } else if (window.playSfx) {
-            window.playSfx('close');
+            // Soft-enable OS notifications once the user opens the inbox (user gesture).
+            try {
+                if (window.canUseDeviceNotifications
+                    && window.canUseDeviceNotifications()
+                    && window.getNotificationPermission
+                    && window.getNotificationPermission() === 'default'
+                    && localStorage.getItem('polevka_device_notifs') !== '0') {
+                    window.enableDeviceNotifications({ quiet: true });
+                }
+            } catch (_) {}
+        } else {
+            panel.classList.remove('is-open');
+            if (window.playSfx) window.playSfx('close');
         }
     };
 
@@ -3431,7 +3453,9 @@ export function initAuth() {
             if (!window.currentUser) {
                 navBadge.classList.add('hidden');
             } else {
-                const unread = window.getMyInbox().filter(m => !m.read && !m.deleted).length;
+                const unreadMsg = window.getMyInbox().filter(m => !m.read && !m.deleted).length;
+                const unreadNotif = (window.getMyNotifications ? window.getMyNotifications() : []).filter(n => !n.read).length;
+                const unread = unreadMsg + unreadNotif;
                 navBadge.textContent = unread > 99 ? '99+' : String(unread);
                 navBadge.classList.toggle('hidden', unread === 0);
             }

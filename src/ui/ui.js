@@ -2125,28 +2125,36 @@ window.isCurrentUserAdmin = function() {
 };
 
 // Фоновый опрос облака: новые звуки, уведомления, сообщения – без перезагрузки страницы.
+// Polls even when the tab/PWA is hidden (slower) so device notifications can fire.
 window.pollLiveCloudData = async function() {
-    if (window.__pollingInFlight || document.hidden) return;
+    if (window.__pollingInFlight) return;
     // Не затираем локальный кэш, пока идёт запись – иначе UI мигает устаревшим снимком.
     if (window.__cloudWriteDepth > 0) return;
     window.__pollingInFlight = true;
+    const background = !!document.hidden;
     try {
         const [cloudData, profiles, mail, feed, events] = await Promise.all([
-            fetch(`${window.YANDEX_BUCKET_URL}/map_data.json?nocache=${Date.now()}`)
-                .then(res => res.ok ? res.json() : null)
-                .catch(() => null),
+            background
+                ? Promise.resolve(null)
+                : fetch(`${window.YANDEX_BUCKET_URL}/map_data.json?nocache=${Date.now()}`)
+                    .then(res => res.ok ? res.json() : null)
+                    .catch(() => null),
             fetch(`${window.YANDEX_BUCKET_URL}/profiles.json?nocache=${Date.now()}`)
                 .then(res => res.ok ? res.json() : null)
                 .catch(() => null),
             fetch(`${window.YANDEX_BUCKET_URL}/mail.json?nocache=${Date.now()}`)
                 .then(res => res.ok ? res.json() : null)
                 .catch(() => null),
-            fetch(`${window.YANDEX_BUCKET_URL}/feed.json?nocache=${Date.now()}`)
-                .then(res => res.ok ? res.json() : null)
-                .catch(() => null),
-            fetch(`${window.YANDEX_BUCKET_URL}/events.json?nocache=${Date.now()}`)
-                .then(res => res.ok ? res.json() : null)
-                .catch(() => null)
+            background
+                ? Promise.resolve(null)
+                : fetch(`${window.YANDEX_BUCKET_URL}/feed.json?nocache=${Date.now()}`)
+                    .then(res => res.ok ? res.json() : null)
+                    .catch(() => null),
+            background
+                ? Promise.resolve(null)
+                : fetch(`${window.YANDEX_BUCKET_URL}/events.json?nocache=${Date.now()}`)
+                    .then(res => res.ok ? res.json() : null)
+                    .catch(() => null)
         ]);
 
         if (Array.isArray(cloudData)) {
@@ -2297,7 +2305,8 @@ window.startLiveCloudPolling = function() {
         await window.pollLiveCloudData();
         const fast = document.body.classList.contains('dock-view-messages')
             || (document.getElementById('messages-thread') && !document.getElementById('messages-thread').classList.contains('hidden'));
-        const ms = document.hidden ? 25000 : (fast ? 4000 : 15000);
+        // Keep a background tick so inbox notifications arrive while the PWA is backgrounded.
+        const ms = document.hidden ? 20000 : (fast ? 4000 : 12000);
         window.__livePollTimer = setTimeout(tick, ms);
     };
     window.__livePollTimer = setTimeout(tick, 2500);
@@ -2931,30 +2940,50 @@ window.getFilteredSounds = function(forceRefresh = false) {
     return filtered;
 }
 
-window.__listVirt = window.__listVirt || { rowH: 68, overscan: 10, items: [], key: '' };
+window.__listVirt = window.__listVirt || { rowH: 108, overscan: 8, items: [], key: '' };
+window.__listVirt.rowH = 108;
+window.__listVirt.overscan = window.__listVirt.overscan || 8;
 
 window.buildSoundListRowHtml = function(sound) {
     const isSelected = window.currentPlayingId === sound.id;
     const playing = isSelected && window.isPlaying;
     const thumb = (sound.images && sound.images[0]) || '';
-    const eco = window.translations[window.currentLang][`filter_${sound.ecoCategory}`] || sound.ecoCategory;
+    const eco = window.translations[window.currentLang][`filter_${sound.ecoCategory}`] || sound.ecoCategory || '';
+    const cat = sound.ucsCat || sound.typeTag || '';
     const esc = window.escMsgHtml || ((t) => String(t ?? '')
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'));
     const safeId = String(sound.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const tags = Array.isArray(sound.tagArray) && sound.tagArray.length
+        ? sound.tagArray
+        : String(sound.keywords || '')
+            .split(/[,;]+/)
+            .map((t) => t.trim())
+            .filter(Boolean);
+    const shownTags = tags.slice(0, 4);
+    const canDownload = !!(sound.url && String(sound.url).length > 10 && !String(sound.url).startsWith('blob:'));
     return `
         <div class="sidebar-sound-row${isSelected ? ' is-active' : ''}" data-sound-id="${esc(sound.id)}" onclick="window.selectSound('${safeId}')">
             ${thumb
                 ? `<img src="${esc(thumb)}" alt="" class="sidebar-sound-thumb" decoding="async" fetchpriority="low">`
                 : `<span class="sidebar-sound-thumb sidebar-sound-thumb--empty" aria-hidden="true"><i class="fa-solid fa-wave-square"></i></span>`}
-            <button type="button" class="sidebar-sound-row__play${playing ? ' is-playing' : ''}" tabindex="-1">
-                ${playing ? '<i class="fa-solid fa-pause text-xs"></i>' : '<i class="fa-solid fa-play text-xs translate-x-[1px]"></i>'}
-            </button>
-            <div class="flex-grow min-w-0 text-left">
-                <h3 class="font-semibold text-[13px] truncate text-slate-800 dark:text-white flex items-center gap-1.5">${esc(sound.title)}</h3>
-                <div class="flex flex-wrap gap-1 mt-1">
-                    <span class="text-[8px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 font-bold uppercase tracking-wider font-mono">${esc(window.getSoundDisplayId ? window.getSoundDisplayId(sound) : sound.id)}</span>
-                    <span class="text-[8px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 font-bold uppercase tracking-wider">${esc(eco)}</span>
+            <div class="sidebar-sound-row__body">
+                <h3 class="sidebar-sound-row__title">${esc(sound.title || 'Без названия')}</h3>
+                <div class="sidebar-sound-row__meta">
+                    ${eco ? `<span class="sidebar-sound-row__chip sidebar-sound-row__chip--eco">${esc(eco)}</span>` : ''}
+                    ${cat ? `<span class="sidebar-sound-row__chip">${esc(cat)}</span>` : ''}
                 </div>
+                ${shownTags.length ? `<div class="sidebar-sound-row__tags">${shownTags.map((t) => `<span class="sidebar-sound-row__tag">${esc(t)}</span>`).join('')}</div>` : ''}
+            </div>
+            <div class="sidebar-sound-row__actions" onclick="event.stopPropagation()">
+                <button type="button" class="sidebar-sound-row__play${playing ? ' is-playing' : ''}" title="Воспроизвести" aria-label="Воспроизвести" onclick="window.selectSound('${safeId}')">
+                    ${playing ? '<i class="fa-solid fa-pause text-xs"></i>' : '<i class="fa-solid fa-play text-xs translate-x-[1px]"></i>'}
+                </button>
+                <button type="button" class="sidebar-sound-row__action" title="Скачать" aria-label="Скачать" ${canDownload ? '' : 'disabled'} onclick="window.downloadSoundFromList('${safeId}')">
+                    <i class="fa-solid fa-download text-xs"></i>
+                </button>
+                <button type="button" class="sidebar-sound-row__action" title="Описание" aria-label="Описание" onclick="window.openSoundDetailsFromList('${safeId}')">
+                    <i class="fa-solid fa-circle-info text-xs"></i>
+                </button>
             </div>
         </div>`;
 };
@@ -2973,13 +3002,26 @@ window.syncSoundListRowState = function(row, sound) {
     }
 };
 
+window.openSoundDetailsFromList = function(soundId) {
+    if (!soundId) return;
+    if (window.selectSound) window.selectSound(soundId);
+    setTimeout(() => {
+        if (window.openDetailsModal) window.openDetailsModal();
+    }, 40);
+};
+
+window.downloadSoundFromList = async function(soundId) {
+    if (!soundId) return;
+    if (window.downloadSound) await window.downloadSound(null, soundId);
+};
+
 window.renderListWindow = function(force = false) {
     const listContainer = document.getElementById('sounds-list');
     if (!listContainer) return;
     const items = window.__listVirt.items || [];
     if (!items.length) return;
 
-    const rowH = window.__listVirt.rowH || 68;
+    const rowH = window.__listVirt.rowH || 108;
     const overscan = window.__listVirt.overscan || 10;
     const scrollTop = listContainer.scrollTop || 0;
     const viewH = listContainer.clientHeight || 480;
@@ -4936,8 +4978,9 @@ window.closeDetailsModal = function() {
     }
 }
 
-window.downloadSound = async function(format) {
-    const s = window.soundsData.find(x => x.id === window.currentPlayingId);
+window.downloadSound = async function(format, soundId) {
+    const id = soundId || window.currentPlayingId;
+    const s = window.soundsData.find(x => x.id === id);
     if (!s) return;
     if (!s.url || s.url.length < 10 || s.url.startsWith('blob:')) {
         window.showToast('Файл недоступен для скачивания.');
