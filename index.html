@@ -42,8 +42,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260721b">
-    <link rel="stylesheet" href="./src/glass.css?v=20260721b">
+    <link rel="stylesheet" href="./src/style.css?v=20260721c">
+    <link rel="stylesheet" href="./src/glass.css?v=20260721c">
     
     <!-- FontAwesome, Yandex Maps & Omnitone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -231,6 +231,13 @@
 
             <!-- Библиотека: фильтры + список звуков -->
             <div id="sidebar-library" class="flex flex-col flex-1 min-h-0">
+                <div class="library-filters-bar px-4 pt-2 pb-1.5 shrink-0">
+                    <button type="button" id="library-filters-toggle" class="dock-filters-open-btn is-open" onclick="window.toggleLibraryFilters()" aria-expanded="true" aria-controls="dock-filters">
+                        <span class="dock-filters-open-btn__lead"><i class="fa-solid fa-filter" aria-hidden="true"></i><span data-lang="library_filters_btn">Фильтр</span></span>
+                        <span id="library-filters-count" class="library-filters-count hidden">0</span>
+                        <i class="fa-solid fa-chevron-down dock-filters-open-btn__chev" aria-hidden="true"></i>
+                    </button>
+                </div>
                 <div id="dock-filters" class="dock-filters">
                     <div class="dock-filter-tabs flex border-b border-slate-100/80 dark:border-slate-700/50 flex-shrink-0 bg-slate-50/50 dark:bg-slate-900/30">
                         <button onclick="window.switchFilterTab('ucs')" id="tab-ucs" class="ui-tab ui-tab--filter is-active" data-lang="filter_tab_ucs"><i class="fa-solid fa-wave-square mr-1"></i>Слои</button>
@@ -681,9 +688,9 @@
     </div>
 
     <!-- Модальное окно: АВТОРИЗАЦИЯ -->
-    <div id="auth-modal" onmousedown="if(event.target === this) window.requestCloseAuthModal()" class="fixed inset-0 z-[250] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div class="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-sm app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
-            <div class="px-6 py-5 flex justify-between items-center border-b border-slate-100 dark:border-slate-700">
+    <div id="auth-modal" onmousedown="if(event.target === this) window.requestCloseAuthModal()" class="fixed inset-0 z-[210] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
+        <div id="auth-modal-content" class="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-sm app-modal-panel flex flex-col overflow-hidden min-h-0 transform scale-95 transition-all pointer-events-auto">
+            <div class="px-6 py-5 flex justify-between items-center border-b border-slate-100 dark:border-slate-700 shrink-0">
                 <div class="flex items-center gap-3 min-w-0">
                     <img src="./Logo.png" alt="" width="40" height="40" decoding="async" class="rounded-xl shrink-0" aria-hidden="true">
                     <div class="min-w-0">
@@ -691,23 +698,23 @@
                         <h3 class="text-lg font-bold text-slate-800 dark:text-white truncate">Вход / Регистрация</h3>
                     </div>
                 </div>
-                <button onclick="window.requestCloseAuthModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none shrink-0">
+                <button type="button" onclick="window.requestCloseAuthModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none shrink-0" aria-label="Закрыть">
                     <i class="fa-solid fa-xmark text-xl pointer-events-none"></i>
                 </button>
             </div>
             
             <!-- Переключатель вкладок Вход/Регистрация -->
-            <div class="flex border-b border-slate-100 dark:border-slate-700">
-                <button onclick="window.switchAuthTab('login')" id="auth-tab-login" class="flex-1 py-3 text-sm font-bold text-blue-600 border-b-2 border-blue-600 transition-colors">Вход</button>
-                <button onclick="window.switchAuthTab('register')" id="auth-tab-register" class="flex-1 py-3 text-sm font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors">Новый аккаунт</button>
+            <div class="flex border-b border-slate-100 dark:border-slate-700 shrink-0">
+                <button type="button" onclick="window.switchAuthTab('login')" id="auth-tab-login" class="flex-1 py-3 text-sm font-bold text-blue-600 border-b-2 border-blue-600 transition-colors">Вход</button>
+                <button type="button" onclick="window.switchAuthTab('register')" id="auth-tab-register" class="flex-1 py-3 text-sm font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors">Новый аккаунт</button>
             </div>
 
-            <div class="p-6 space-y-4" id="auth-form-container">
+            <div class="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1 min-h-0" id="auth-form-container">
                 <!-- Поля генерируются через JS -->
             </div>
             
-            <div class="p-6 pt-0 border-t border-slate-100 dark:border-slate-700 mt-2">
-                <button id="auth-action-btn" onclick="window.submitAuth()" class="w-full mt-4 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-md active:scale-95">Войти</button>
+            <div class="px-6 pb-6 pt-3 border-t border-slate-100 dark:border-slate-700 shrink-0">
+                <button type="button" id="auth-action-btn" onclick="window.submitAuth()" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-md active:scale-95">Войти</button>
             </div>
         </div>
     </div>
@@ -2169,7 +2176,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260721b"></script>
+    <script type="module" src="./src/main.js?v=20260721c"></script>
 
 </body>
 </html>

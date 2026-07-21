@@ -601,6 +601,15 @@ a.bg-blue-600 {
     }
 }
 
+@media (max-width: 767px) {
+    #auth-modal > #auth-modal-content.app-modal-panel,
+    #auth-modal > #auth-modal-content {
+        border-radius: 0 !important;
+        max-height: none !important;
+        height: 100% !important;
+    }
+}
+
 @media (prefers-reduced-transparency: reduce) {
     body::before { display: none !important; }
     #sidebar.sidebar-panel,

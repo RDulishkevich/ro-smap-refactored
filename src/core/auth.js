@@ -20,7 +20,8 @@ export function initAuth() {
         m.classList.remove('hidden');
         void m.offsetWidth;
         m.classList.remove('opacity-0', 'pointer-events-none');
-        m.firstElementChild.classList.remove('scale-95');
+        const panel = document.getElementById('auth-modal-content') || m.firstElementChild;
+        if (panel) panel.classList.remove('scale-95');
         if (window.playSfx) window.playSfx('open');
         window.switchAuthTab('login');
     };
@@ -29,14 +30,30 @@ export function initAuth() {
         const m = document.getElementById('auth-modal');
         if(!m) return;
         m.classList.add('opacity-0', 'pointer-events-none');
-        m.firstElementChild.classList.add('scale-95');
+        const panel = document.getElementById('auth-modal-content') || m.firstElementChild;
+        if (panel) panel.classList.add('scale-95');
         setTimeout(() => { if(m.classList.contains('opacity-0')) m.classList.add('hidden') }, 300);
+    };
+
+    /** Close auth when user navigates elsewhere. Returns false if they cancel a dirty-form discard. */
+    window.dismissAuthModalForNavigation = async function() {
+        const m = document.getElementById('auth-modal');
+        if (!m || m.classList.contains('hidden')) return true;
+        if (window.requestCloseAuthModal) return window.requestCloseAuthModal();
+        window.closeAuthModal();
+        return true;
     };
 
     window.isAuthFormDirty = function() {
         const name = (document.getElementById('auth-username')?.value || '').trim();
         const pass = (document.getElementById('auth-password')?.value || '').trim();
-        return !!(name || pass);
+        if (name || pass) return true;
+        if (window.authMode === 'register') {
+            if ((document.getElementById('auth-skill-level')?.value || '').trim()) return true;
+            if (document.querySelector('input[name="auth-intent"]:checked')) return true;
+            if (document.getElementById('auth-pd-consent')?.checked) return true;
+        }
+        return false;
     };
 
     window.requestCloseAuthModal = async function() {

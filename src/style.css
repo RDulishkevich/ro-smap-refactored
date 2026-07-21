@@ -1632,22 +1632,58 @@ html.dark .search-suggestions,
 
 .dock-filters-open-btn {
     width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
     text-align: left;
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.02em;
     text-transform: uppercase;
     color: var(--ink-muted, #6b7280);
-    padding: 0.45rem 0.65rem;
+    padding: 0.55rem 0.75rem;
     border-radius: 999px;
     border: 1px solid rgba(20, 20, 20, 0.08);
     background: rgba(20, 20, 20, 0.03);
     cursor: pointer;
 }
+.dock-filters-open-btn__lead {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+}
+.dock-filters-open-btn__chev {
+    font-size: 0.7rem;
+    opacity: 0.7;
+    transition: transform 0.2s ease;
+}
+.dock-filters-open-btn.is-open .dock-filters-open-btn__chev {
+    transform: rotate(180deg);
+}
 .dock-filters-open-btn:hover { color: var(--accent-ink); }
 .dark .dock-filters-open-btn {
     border-color: rgba(255, 255, 255, 0.12);
     background: rgba(255, 255, 255, 0.05);
+}
+.library-filters-count {
+    min-width: 1.15rem;
+    height: 1.15rem;
+    padding: 0 0.35rem;
+    border-radius: 999px;
+    background: var(--accent, #ff5a3d);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    line-height: 1.15rem;
+    text-align: center;
+}
+#dock-filters.is-collapsed .dock-filter-tabs,
+#dock-filters.is-collapsed #panel-ucs,
+#dock-filters.is-collapsed #panel-tags,
+#dock-filters.is-collapsed #panel-meta {
+    display: none !important;
 }
 #panel-ucs.is-empty-filters,
 #panel-meta.is-empty-filters {
@@ -1837,13 +1873,18 @@ html.dark .search-suggestions,
         z-index: 200 !important;
     }
     #events-sheet .events-sheet-panel,
-    .app-modal-overlay > .app-modal-panel {
+    .app-modal-overlay > .app-modal-panel,
+    #auth-modal > #auth-modal-content,
+    #auth-modal > .app-modal-panel {
         width: 100% !important;
         max-width: none !important;
         height: 100% !important;
         max-height: none !important;
         margin: 0 !important;
         border-radius: 0 !important;
+    }
+    #auth-modal.app-modal-overlay {
+        z-index: 210 !important;
     }
     /* Many modals use a content div without app-modal-panel on the same node */
     .app-modal-overlay > [id$="-modal-content"],

@@ -2876,6 +2876,7 @@ window.renderActiveTags = function() {
 
     if (!pills.length) {
         containers.forEach((c) => { c.innerHTML = ''; });
+        if (window.syncLibraryFiltersToggle) window.syncLibraryFiltersToggle(0);
         return;
     }
 
@@ -2889,6 +2890,7 @@ window.renderActiveTags = function() {
             <i class="fa-solid fa-trash-can mr-1"></i>Сбросить
         </button>`;
     containers.forEach((c) => { c.innerHTML = html; });
+    if (window.syncLibraryFiltersToggle) window.syncLibraryFiltersToggle(pills.length);
 }
 
 window.getFilteredSounds = function(forceRefresh = false) {
@@ -3291,6 +3293,17 @@ window.switchHelpTab = function(tab) {
 };
 
 window.openDockView = function(view) {
+    const run = () => window.__openDockViewImpl(view);
+    const auth = document.getElementById('auth-modal');
+    if (auth && !auth.classList.contains('hidden') && !auth.classList.contains('opacity-0')
+        && window.dismissAuthModalForNavigation) {
+        window.dismissAuthModalForNavigation().then((ok) => { if (ok !== false) run(); });
+        return;
+    }
+    run();
+};
+
+window.__openDockViewImpl = function(view) {
     const prev = window.__dockView;
     const next = ['library', 'feed', 'expeditions', 'help', 'details', 'analyzers', 'settings', 'cabinet', 'messages', 'expedition', 'admin'].includes(view) ? view : 'library';
     const nested = ['details', 'analyzers', 'settings', 'cabinet', 'messages', 'expedition'];
@@ -4475,12 +4488,39 @@ window.closeFeedArticleModal = function() {
     setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
 };
 
+window.__libraryFiltersOpen = true;
+
+window.syncLibraryFiltersToggle = function(count) {
+    const n = typeof count === 'number'
+        ? count
+        : (document.getElementById('library-active-filters')?.querySelectorAll('.active-filter-pill')?.length || 0);
+    const badge = document.getElementById('library-filters-count');
+    if (badge) {
+        badge.textContent = n > 99 ? '99+' : String(n);
+        badge.classList.toggle('hidden', n <= 0);
+    }
+};
+
+window.toggleLibraryFilters = function(forceOpen) {
+    const open = (typeof forceOpen === 'boolean') ? forceOpen : !window.__libraryFiltersOpen;
+    window.__libraryFiltersOpen = open;
+    const panel = document.getElementById('dock-filters');
+    const btn = document.getElementById('library-filters-toggle');
+    if (panel) panel.classList.toggle('is-collapsed', !open);
+    if (btn) {
+        btn.classList.toggle('is-open', open);
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    if (window.syncLibraryFiltersToggle) window.syncLibraryFiltersToggle();
+};
+
 window.switchFilterTab = function(tab) {
     if (tab === 'expeditions') {
         window.switchSidebarTab('expeditions');
         return;
     }
     if (window.__sidebarTab !== 'library') window.switchSidebarTab('library');
+    if (window.toggleLibraryFilters) window.toggleLibraryFilters(true);
 
     const btnUcs = document.getElementById('tab-ucs');
     const btnTags = document.getElementById('tab-tags');
@@ -6904,9 +6944,20 @@ window.syncMobileNavActive = function(nav) {
     });
 };
 
-window.mobileNavGo = function(dest) {
+window.mobileNavGo = async function(dest) {
     const target = String(dest || 'map');
     if (window.innerWidth >= 768) return;
+
+    const auth = document.getElementById('auth-modal');
+    const authOpen = !!(auth && !auth.classList.contains('hidden') && !auth.classList.contains('opacity-0'));
+    if (authOpen && target === 'profile' && !window.currentUser) {
+        window.syncMobileNavActive('profile');
+        return;
+    }
+    if (authOpen && window.dismissAuthModalForNavigation) {
+        const ok = await window.dismissAuthModalForNavigation();
+        if (ok === false) return;
+    }
 
     if (target === 'map') {
         if (window.closeEventsSheet) window.closeEventsSheet();
