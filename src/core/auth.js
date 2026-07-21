@@ -3129,21 +3129,19 @@ export function initAuth() {
             const anchor = (window.innerWidth < 768)
                 ? document.getElementById('notif-btn-mobile')
                 : document.getElementById('notif-btn');
-            if (anchor) {
-                const r = anchor.getBoundingClientRect();
-                if (window.innerWidth < 768) {
-                    panel.style.left = 'auto';
-                    panel.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
-                    panel.style.bottom = 'auto';
-                    panel.style.top = `${r.bottom + 8}px`;
-                    panel.style.width = `min(calc(100vw - 1.5rem), 22rem)`;
-                } else {
-                    panel.style.left = '';
-                    panel.style.right = '';
-                    panel.style.top = '';
-                    panel.style.bottom = '';
-                    panel.style.width = '';
-                }
+            if (window.innerWidth < 768) {
+                // Mobile layout is CSS-owned (under top chrome, above bottom rail).
+                panel.style.left = '';
+                panel.style.right = '';
+                panel.style.top = '';
+                panel.style.bottom = '';
+                panel.style.width = '';
+            } else if (anchor) {
+                panel.style.left = '';
+                panel.style.right = '';
+                panel.style.top = '';
+                panel.style.bottom = '';
+                panel.style.width = '';
             }
             if (window.playSfx) window.playSfx('open');
             window.renderNotificationsList();

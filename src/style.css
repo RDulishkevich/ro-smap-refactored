@@ -951,6 +951,8 @@ body.dark-mode .modal-input::placeholder,
     --chrome-inset-bottom: calc(var(--chrome-pad) + var(--sab));
     --chrome-inset-left: calc(var(--chrome-pad) + var(--sal));
     --mobile-nav-h: 3.35rem;
+    /* Mobile fullscreen surfaces end above the bottom rail */
+    --mobile-fs-bottom: calc(var(--mobile-nav-h) + var(--sab));
 }
 
 @media (min-width: 768px) {
@@ -1211,9 +1213,9 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
     #map-top-toolbar.map-top-toolbar {
         display: flex;
         top: var(--chrome-inset-top);
-        left: calc(4.25rem + var(--sal));
+        left: max(0.75rem, var(--sal));
         right: auto;
-        max-width: calc(100vw - 4.25rem - 9.5rem - var(--sal) - var(--sar));
+        max-width: calc(100vw - 5.75rem - var(--sal) - var(--sar));
         padding: 0.25rem;
         border-radius: 999px;
         flex-wrap: nowrap;
@@ -1256,18 +1258,19 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
         top: 0;
         left: 0;
         right: 0;
-        bottom: calc(var(--mobile-nav-h, 3.35rem) + var(--sab));
+        bottom: var(--mobile-fs-bottom);
         width: auto;
         border-radius: 0;
         max-height: none;
         padding-top: var(--sat);
         padding-bottom: 0;
+        z-index: 80;
     }
     .sidebar-hidden {
         transform: translateY(calc(100% + 2rem)) !important;
     }
-    /* Bottom nav replaces inner Библиотека/Лента tabs */
-    #dock-mobile-tabs {
+    /* Catalog switcher: Библиотека / Экспедиции (Help → settings) */
+    #dock-mobile-tabs #tab-help {
         display: none !important;
     }
     /* One close affordance: bottom nav «Карта». Keep back only for nested views via body class. */
@@ -1302,31 +1305,14 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
     }
     #map-top-toolbar.map-top-toolbar {
         left: max(0.75rem, var(--sal));
-        max-width: calc(100vw - 5.5rem - var(--sal) - var(--sar));
+        max-width: calc(100vw - 5.75rem - var(--sal) - var(--sar));
+        z-index: 70;
+    }
+    #map-top-right-controls {
+        z-index: 70;
     }
     #player-anchor.player-anchor {
-        padding-bottom: calc(var(--mobile-nav-h, 3.35rem) + var(--sab) + 0.5rem);
-    }
-    /* Events sheet = full viewport minus bottom rail (nav stays above at z-220) */
-    #events-sheet {
-        align-items: stretch !important;
-        justify-content: stretch !important;
-        padding: 0 !important;
-        padding-top: var(--sat) !important;
-        bottom: calc(var(--mobile-nav-h, 3.35rem) + var(--sab)) !important;
-        top: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        background: transparent !important;
-        z-index: 200 !important;
-    }
-    #events-sheet .events-sheet-panel {
-        width: 100% !important;
-        max-width: none !important;
-        max-height: none !important;
-        height: 100% !important;
-        border-radius: 0 !important;
-        transform: none !important;
+        padding-bottom: calc(var(--mobile-fs-bottom) + 0.5rem);
     }
     /* Keep sidebar above map chrome, below bottom nav */
     #sidebar {
@@ -1786,10 +1772,6 @@ html.dark .search-suggestions,
 /* Dock: always expanded width; hide via .sidebar-hidden */
 #sidebar {
     position: absolute;
-    top: 1rem;
-    left: 1rem;
-    bottom: 1rem;
-    width: calc(100% - 2rem);
     transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, width 0.35s var(--ease-out, ease), left 0.35s var(--ease-out, ease);
 }
 @media (min-width: 768px) {
@@ -1800,9 +1782,99 @@ html.dark .search-suggestions,
         width: var(--dock-w-expanded);
         max-height: none;
     }
+    .sidebar-hidden {
+        transform: translateX(calc(-100% - 2rem)) !important;
+    }
 }
+@media (max-width: 767px) {
+    /*
+     * Mobile fullscreen rule (canonical):
+     * primary surfaces (dock, sheet, app-modal) fill the viewport
+     * except the bottom rail (--mobile-fs-bottom). No inset half-sheets.
+     */
+    #sidebar {
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: var(--mobile-fs-bottom);
+        width: auto;
+        border-radius: 0;
+        max-height: none;
+        padding-top: var(--sat);
+        padding-bottom: 0;
+        z-index: 80;
+    }
+    .sidebar-hidden {
+        transform: translateY(calc(100% + 2rem)) !important;
+    }
+
+    #events-sheet,
+    .app-modal-overlay {
+        align-items: stretch !important;
+        justify-content: stretch !important;
+        padding: 0 !important;
+        padding-top: var(--sat) !important;
+        top: 0 !important;
+        right: 0 !important;
+        left: 0 !important;
+        bottom: var(--mobile-fs-bottom) !important;
+        height: auto !important;
+    }
+    #events-sheet {
+        background: transparent !important;
+        z-index: 200 !important;
+    }
+    #events-sheet .events-sheet-panel,
+    .app-modal-overlay > .app-modal-panel {
+        width: 100% !important;
+        max-width: none !important;
+        height: 100% !important;
+        max-height: none !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+    }
+    /* Many modals use a content div without app-modal-panel on the same node */
+    .app-modal-overlay > [id$="-modal-content"],
+    .app-modal-overlay > [id$="-content"]:not(#ui-modal-content) {
+        width: 100% !important;
+        max-width: none !important;
+        height: 100% !important;
+        max-height: none !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+    }
+    #ui-modal-overlay.app-modal-overlay {
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 1rem !important;
+        padding-top: max(1rem, var(--sat)) !important;
+        padding-bottom: max(1rem, 0.75rem) !important;
+    }
+    #ui-modal-overlay > #ui-modal-content {
+        width: 100% !important;
+        max-width: 24rem !important;
+        height: auto !important;
+        max-height: calc(100% - 0.5rem) !important;
+        border-radius: 1.5rem !important;
+        margin: 0 auto !important;
+    }
+
+    /* Notifications: under top chrome — never cover search / events / bell */
+    #notif-panel.notif-panel,
+    .notif-panel {
+        position: fixed !important;
+        top: calc(var(--chrome-inset-top) + 3.25rem) !important;
+        left: max(0.75rem, var(--sal)) !important;
+        right: max(0.75rem, var(--sar)) !important;
+        bottom: auto !important;
+        width: auto !important;
+        max-width: none !important;
+        max-height: calc(100dvh - var(--chrome-inset-top) - 3.25rem - var(--mobile-fs-bottom) - 0.75rem) !important;
+        z-index: 60 !important;
+    }
+}
+
 .sidebar-hidden {
-    transform: translateX(calc(-100% - 2rem)) !important;
     opacity: 0 !important;
     pointer-events: none;
 }
@@ -4390,18 +4462,6 @@ html.dark .feed-post__cover,
                 opacity 0.35s ease,
                 transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
-@media (max-width: 640px) {
-    #notif-panel {
-        position: fixed !important;
-        top: 4.5rem !important;
-        right: 0.75rem !important;
-        left: 0.75rem !important;
-        width: auto !important;
-        max-width: none !important;
-        max-height: min(65vh, 24rem) !important;
-    }
-}
-
 /* --- ??????? "??????????" ? ????? ?????? ?????? --- */
 .sidebar-expedition-reset {
     display: flex; align-items: center; gap: 6px;

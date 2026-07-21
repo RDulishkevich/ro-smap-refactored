@@ -309,13 +309,23 @@ window.showToast('…', { silent: true }); // без звука
 
 | Тема | Mobile | Desktop |
 |------|--------|---------|
-| Навигация | `#dock-mobile-tabs`, burger | `#app-rail` + dock |
+| Навигация | `#mobile-bottom-nav` + в доке `#dock-mobile-tabs` (Библиотека/Экспедиции) | `#app-rail` + dock |
 | Ивенты | sheet `#events-sheet` | панель `#events-panel` |
 | CtxPopup / ActionSheet | у курсора / снизу (picker) | у курсора / по центру (picker) |
-| Модалки | ближе к верху, учитывай safe-area / dvh | по центру |
-| Player padding | обычный | справа запас под events panel при `body.events-panel-open` |
+| Модалки / dock / sheet | **fullscreen** над bottom rail (`--mobile-fs-bottom`) | по центру / боковые панели |
+| Player padding | запас под bottom nav | справа запас под events panel при `body.events-panel-open` |
 
-Новый «боковой» контент на desktop → панель как events; на mobile → sheet с тем же `*-body` контентом (как `renderEventsPanel` пишет в оба хоста).
+### Mobile fullscreen (обязательное правило)
+
+На `&lt;768px` основные поверхности занимают **весь экран кроме нижнего rail**:
+
+- CSS-переменная: `--mobile-fs-bottom: calc(var(--mobile-nav-h) + var(--sab))`
+- Поверхности: `#sidebar`, `#events-sheet`, `.app-modal-overlay` (+ их панели/контент)
+- Без внутренних отступов оверлея, без `max-h-[92dvh]` half-sheet, без скруглений у края экрана
+- Исключение: `#ui-modal-overlay` (confirm/prompt) — компактная карточка по центру
+- Уведомления (`#notif-panel`) — под верхним chrome, **не** перекрывают поиск/ивенты/колокольчик
+
+Новый «боковой» контент на desktop → панель как events; на mobile → тот же fullscreen-паттерн с общим `*-body` рендерером.
 
 ---
 

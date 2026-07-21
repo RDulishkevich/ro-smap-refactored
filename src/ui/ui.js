@@ -3400,16 +3400,19 @@ window.openDockView = function(view) {
         window.clearRailTabActive();
 
         if (next === 'feed') {
+            if (mobileTabs) mobileTabs.classList.add('hidden');
             if (panelFeed) panelFeed.classList.remove('hidden');
             window.setDockHeader('Лента', 'Новости и посты', false);
             if (window.renderSidebarFeed) window.renderSidebarFeed();
         } else if (next === 'expeditions') {
+            if (mobileTabs) mobileTabs.classList.remove('hidden');
             if (btnExp) btnExp.className = activeClass;
             if (railExp) { railExp.classList.add('is-active'); railExp.setAttribute('aria-current', 'page'); }
             if (panelExp) panelExp.classList.remove('hidden');
             window.setDockHeader('Экспедиции', 'Маршруты и сессии', false);
             if (window.renderSidebarExpeditions) window.renderSidebarExpeditions();
         } else {
+            if (mobileTabs) mobileTabs.classList.remove('hidden');
             if (btnLib) btnLib.className = activeClass;
             if (railLib) { railLib.classList.add('is-active'); railLib.setAttribute('aria-current', 'page'); }
             if (panelLib) panelLib.classList.remove('hidden');
