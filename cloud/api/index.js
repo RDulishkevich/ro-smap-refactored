@@ -2108,7 +2108,7 @@ exports.handler = async function handler(event = {}) {
 
     // health / publicConfig — без секретов и без тяжёлых лимитов
     if (action === 'health') {
-        return respond(200, { ok: true, version: 11 });
+        return respond(200, { ok: true, version: 12 });
     }
     if (action === 'publicConfig') {
         return respond(200, {
