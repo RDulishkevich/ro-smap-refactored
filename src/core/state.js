@@ -14,7 +14,8 @@ export function initGlobalState() {
     window.formatSoundObject = formatSoundObject;
     
     // 2. Константы Облака
-    // YANDEX_FUNCTION_URL — Secure API (auth + sync). См. cloud/api/README.md
+    // YANDEX_FUNCTION_URL — Secure API (auth + sync + email verification). См. cloud/api/README.md
+    // YANDEX_EMAIL_FUNCTION_URL — optional override; основной путь — Secure API requestEmailVerification
     window.YANDEX_BUCKET_URL = 'https://storage.yandexcloud.net/rosmap2026';
     window.YANDEX_FUNCTION_URL = 'https://functions.yandexcloud.net/d4ebp9rd7rd53iso4p8u';
     window.YANDEX_EMAIL_FUNCTION_URL = '';

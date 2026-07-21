@@ -43,8 +43,8 @@
         }
     </script>
     
-    <link rel="stylesheet" href="./src/style.css?v=20260721j">
-    <link rel="stylesheet" href="./src/glass.css?v=20260721j">
+    <link rel="stylesheet" href="./src/style.css?v=20260721l">
+    <link rel="stylesheet" href="./src/glass.css?v=20260721l">
     
     <!-- FontAwesome & Omnitone (Maps JS API key loaded at runtime via Secure API publicConfig — not in source) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -492,6 +492,7 @@
                             <button onclick="window.contactSupport()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-colors shadow-sm">
                                 <i class="fa-solid fa-circle-question"></i>Открыть чат поддержки
                             </button>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Пока пишите в чат в приложении. Планируемый адрес: <span class="font-semibold text-slate-600 dark:text-slate-300" id="help-support-email">support@polevka.art</span></p>
                         </div>
                     </div>
                     <div id="help-panel-faq" class="hidden space-y-4">
@@ -510,10 +511,16 @@
                             </button>
                         </div>
                         <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
-                            <h4 class="font-bold text-slate-800 dark:text-white mb-1">Правила публикации и пользования</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Формат WAV, координаты, права, модерация, поведение в каталоге и скачивание.</p>
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-1">Документы и правила</h4>
+                            <p class="text-sm text-slate-600 dark:text-slate-300">Политика конфиденциальности, пользовательское соглашение и правила публикации.</p>
+                            <button type="button" onclick="window.openLegalDocModal('privacy')" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                                <i class="fa-solid fa-shield-halved"></i>Политика конфиденциальности
+                            </button>
+                            <button type="button" onclick="window.openLegalDocModal('terms')" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                                <i class="fa-solid fa-file-contract"></i>Пользовательское соглашение
+                            </button>
                             <button type="button" onclick="window.openPublishRulesModal()" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                                <i class="fa-solid fa-book-open"></i>Открыть правила
+                                <i class="fa-solid fa-book-open"></i>Правила публикации
                             </button>
                         </div>
                         <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
@@ -886,8 +893,20 @@
                         <i class="fa-solid fa-headset"></i>
                         Написать в поддержку
                     </button>
-                    <button type="button" onclick="window.closeSettingsModal(); window.switchSidebarTab('help');" class="hidden md:flex w-full items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    <button type="button" onclick="window.openLegalDocModal('privacy')" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        Политика конфиденциальности
+                    </button>
+                    <button type="button" onclick="window.openLegalDocModal('terms')" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                        <i class="fa-solid fa-file-contract"></i>
+                        Пользовательское соглашение
+                    </button>
+                    <button type="button" onclick="window.openPublishRulesModal()" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
                         <i class="fa-solid fa-book-open"></i>
+                        Правила публикации
+                    </button>
+                    <button type="button" onclick="window.closeSettingsModal(); window.switchSidebarTab('help');" class="hidden md:flex w-full items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                        <i class="fa-solid fa-circle-question"></i>
                         Открыть раздел «Помощь»
                     </button>
                     <p class="text-[11px] text-slate-500 dark:text-slate-400 text-center">Тур, поддержка и справка – здесь в настройках на телефоне.</p>
@@ -2162,6 +2181,25 @@
         </div>
     </div>
 
+    <!-- Политика / пользовательское соглашение -->
+    <div id="legal-doc-modal" onmousedown="if(event.target === this) window.closeLegalDocModal()" class="fixed inset-0 z-[260] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
+        <div id="legal-doc-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto h-[min(92dvh,720px)] border border-slate-100 dark:border-slate-700">
+            <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0 bg-slate-50 dark:bg-slate-800/80">
+                <div class="min-w-0">
+                    <h3 id="legal-doc-title" class="text-lg font-bold text-slate-800 dark:text-white truncate"><i class="fa-solid fa-shield-halved mr-2 text-blue-500"></i>Документ</h3>
+                    <p id="legal-doc-version" class="text-[10px] font-semibold text-slate-400 mt-0.5">Версия –</p>
+                </div>
+                <button type="button" onclick="window.closeLegalDocModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0 w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center" aria-label="Закрыть">
+                    <i class="fa-solid fa-xmark text-lg pointer-events-none"></i>
+                </button>
+            </div>
+            <div id="legal-doc-body" class="p-5 overflow-y-auto custom-scrollbar flex-1 min-h-0 space-y-5"></div>
+            <div class="p-4 border-t border-slate-100 dark:border-slate-700 shrink-0">
+                <button type="button" onclick="window.closeLegalDocModal()" class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors">Понятно</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Контекстное меню-«шторка» (список действий), вызывается по «...» – например, у комментариев:
          профиль автора / ответить / реакция / пожаловаться. См. window.ActionSheet в ui.js. -->
     <div id="action-sheet-overlay" onmousedown="if(event.target === this) window.ActionSheet.close()" class="fixed inset-0 z-[9998] bg-slate-900/50 backdrop-blur-none hidden flex items-end sm:items-center justify-center opacity-0 transition-opacity duration-300">
@@ -2174,7 +2212,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260721j"></script>
+    <script type="module" src="./src/main.js?v=20260721l"></script>
 
 </body>
 </html>

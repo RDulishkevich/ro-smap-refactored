@@ -79,6 +79,14 @@ window.apiMe = function() {
     return window.apiRequest('me', {}, { auth: true });
 };
 
+window.apiRequestEmailVerification = function(email) {
+    return window.apiRequest('requestEmailVerification', { email }, { auth: true });
+};
+
+window.apiConfirmEmailVerification = function(code) {
+    return window.apiRequest('confirmEmailVerification', { code }, { auth: true });
+};
+
 window.apiGetMail = async function() {
     const data = await window.apiRequest('getMail', {}, { auth: true });
     return Array.isArray(data?.data) ? data.data : [];

@@ -44,6 +44,20 @@ window.SUPPORT_BOT_FAQ = [
         answer: 'На iPhone: откройте сайт в Safari → «Поделиться» → «На экран „Домой“». На Android часто есть «Установить приложение» в меню браузера. Подробнее – в Помощи → FAQ.'
     },
     {
+        keys: ['политик', 'конфиденциал', 'персональн', '152-фз', 'пдн', 'privacy'],
+        answer: 'Открываю политику конфиденциальности. Связь по ПДн – чат поддержки в приложении (планируемый адрес support@polevka.art).',
+        openLegal: 'privacy'
+    },
+    {
+        keys: ['соглашен', 'оферт', 'terms', 'условия пользования', 'пользовательск'],
+        answer: 'Открываю пользовательское соглашение. Правила публикации звуков – отдельный документ в Помощи → FAQ.',
+        openLegal: 'terms'
+    },
+    {
+        keys: ['поддержк', 'контакт', 'написать вам', 'email поддержки', 'почта поддержки', 'support@'],
+        answer: 'Пишите в этот чат поддержки. Планируемый адрес support@polevka.art – после настройки почтового ящика.'
+    },
+    {
         keys: ['привет', 'здравств', 'hello', 'hi'],
         answer: 'Здравствуйте! Я бот поддержки Полёвки. Опишите вопрос своими словами – подскажу по FAQ. Если ответа не хватит, напишите «обращение».'
     }
@@ -202,6 +216,9 @@ window.trySupportBotBeforeSend = async function(text) {
         // User message already saved by caller; append bot reply
         const footer = '\n\nПомогло? Если нет – напишите «обращение», и мы создадим тикет с номером для оператора.';
         await window.appendSupportBotReply(myLogin, faq.answer + footer);
+        if (faq.openLegal && window.openLegalDocModal) {
+            try { window.openLegalDocModal(faq.openLegal); } catch (_) { /* ignore */ }
+        }
         if (window.openMessageThread) window.openMessageThread(window.SUPPORT_LOGIN);
         return 'handled';
     }

@@ -129,20 +129,15 @@ export function initAuth() {
                 </div>
                 <label class="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300 leading-snug">
                     <input type="checkbox" id="auth-pd-consent" class="mt-0.5 rounded shrink-0">
-                    <span>Согласен(на) на обработку персональных данных (логин, профиль, активность) для работы сервиса Полёвка. <button type="button" class="text-blue-600 dark:text-blue-400 font-semibold hover:underline" onclick="event.preventDefault(); window.openPdConsentInfo && window.openPdConsentInfo()">Подробнее</button></span>
+                    <span>Согласен(на) на обработку персональных данных (логин, профиль, активность) для работы сервиса Полёвка. <button type="button" class="text-blue-600 dark:text-blue-400 font-semibold hover:underline" onclick="event.preventDefault(); window.openPdConsentInfo && window.openPdConsentInfo()">Подробнее</button>. Регистрируясь, вы принимаете <button type="button" class="text-blue-600 dark:text-blue-400 font-semibold hover:underline" onclick="event.preventDefault(); window.openLegalDocModal && window.openLegalDocModal('terms')">пользовательское соглашение</button>.</span>
                 </label>
                 <p class="text-[10px] text-slate-400 leading-tight">Этот логин будет автоматически использоваться как CreatorID при добавлении ваших аудиозаписей.</p>
             `;
         }
     };
 
-    window.openPdConsentInfo = async function() {
-        if (!window.CustomUI?.open) return;
-        await window.CustomUI.open({
-            title: 'Персональные данные',
-            message: '<div class="text-left text-sm text-slate-600 dark:text-slate-300 space-y-2"><p>Мы обрабатываем логин, отображаемое имя, аватар, сообщения и метаданные записей, чтобы вы могли пользоваться картой, кабинетом и модерацией.</p><p>Данные хранятся в облаке сервиса. Вы можете запросить удаление через поддержку.</p><p class="text-xs text-slate-400">Файлы cookie браузера сервис не использует: сессия и настройки хранятся в localStorage на вашем устройстве.</p></div>',
-            confirmText: 'Понятно'
-        });
+    window.openPdConsentInfo = function() {
+        if (window.openLegalDocModal) window.openLegalDocModal('privacy');
     };
 
     window.submitAuth = async function() {
@@ -4499,10 +4494,9 @@ export function initAuth() {
         }
     };
 
-    // --- Привязка email с кодом подтверждения ---
-    // Код и адрес живут только в памяти (window.__pendingEmailVerification), в облако/профиль
-    // попадают только после успешного подтверждения – так жалоба "ввёл email и забыл" не
-    // оставляет висящих неподтверждённых кодов в общем profiles.json.
+    // --- Привязка email с кодом подтверждения (Secure API + SMTP) ---
+    // Код генерируется и хранится на сервере (хеш в _auth/email_codes/). В профиль
+    // попадают только после confirmEmailVerification — клиент не может выставить emailVerified сам.
     window.__pendingEmailVerification = null;
 
     window.refreshEmailVerificationUI = function() {
@@ -4513,62 +4507,117 @@ export function initAuth() {
         badge.className = `pub-status-pill ${verified ? 'pub-status-published' : 'pub-status-rejected'}`;
     };
 
-    // Точка интеграции с реальной отправкой писем – см. window.YANDEX_EMAIL_FUNCTION_URL
-    // в state.js. Пока URL не задан, работаем в демо-режиме: код показывается прямо в тосте,
-    // поскольку у клиентского приложения нет собственного почтового сервера.
+    /** Optional override; основной путь — Secure API requestEmailVerification. */
     window.sendVerificationEmail = async function(email, code) {
-        if (window.YANDEX_EMAIL_FUNCTION_URL) {
-            try {
-                const res = await fetch(window.YANDEX_EMAIL_FUNCTION_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, code })
-                });
-                if (res.ok) return true;
-            } catch (e) { /* падаем в демо-режим ниже */ }
+        if (!window.YANDEX_EMAIL_FUNCTION_URL) return false;
+        try {
+            const res = await fetch(window.YANDEX_EMAIL_FUNCTION_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, code })
+            });
+            return res.ok;
+        } catch (_) {
+            return false;
         }
-        window.showToast(`Демо-режим: код подтверждения – ${code}`);
-        console.info(`[demo email] Код подтверждения для ${email}: ${code}`);
-        return true;
     };
 
     window.startEmailVerification = async function() {
         if (!window.currentUser) return;
         const email = (document.getElementById('profile-email')?.value || '').trim();
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { window.showToast('Введите корректный email'); return; }
-
-        const code = String(Math.floor(100000 + Math.random() * 900000));
-        window.__pendingEmailVerification = { email, code, expiresAt: Date.now() + 10 * 60 * 1000 };
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            window.showToast('Введите корректный email');
+            return;
+        }
 
         const btn = document.getElementById('email-send-code-btn');
         if (btn) btn.disabled = true;
-        await window.sendVerificationEmail(email, code);
-        if (btn) btn.disabled = false;
+        try {
+            if (!window.apiRequestEmailVerification) {
+                window.showToast('API недоступен');
+                return;
+            }
+            const data = await window.apiRequestEmailVerification(email);
+            window.__pendingEmailVerification = {
+                email,
+                expiresAt: data?.expiresAt || (Date.now() + 10 * 60 * 1000)
+            };
 
-        const block = document.getElementById('email-code-block');
-        if (block) { block.classList.remove('hidden'); block.classList.add('space-y-2'); }
-        const codeInput = document.getElementById('email-code-input');
-        if (codeInput) { codeInput.value = ''; codeInput.focus(); }
+            if (data?.demo && data?.demoCode) {
+                // Только staging: ALLOW_DEMO_EMAIL_CODES=1 на сервере
+                window.showToast(`Демо (staging): код – ${data.demoCode}`);
+                console.info(`[demo email] Код подтверждения для ${email}: ${data.demoCode}`);
+            } else {
+                window.showToast('Код отправлен на почту');
+            }
+
+            const block = document.getElementById('email-code-block');
+            if (block) { block.classList.remove('hidden'); block.classList.add('space-y-2'); }
+            const codeInput = document.getElementById('email-code-input');
+            if (codeInput) { codeInput.value = ''; codeInput.focus(); }
+        } catch (err) {
+            const code = err?.code || '';
+            if (code === 'mail_not_configured') {
+                window.showToast('Отправка писем пока не настроена. Напишите в поддержку или попробуйте позже.');
+            } else if (code === 'rate_limited') {
+                window.showToast('Слишком много запросов. Подождите и попробуйте снова.');
+            } else if (code === 'unauthorized') {
+                window.showToast('Войдите в аккаунт');
+                if (window.openAuthModal) window.openAuthModal();
+            } else {
+                window.showToast(err?.message === 'mail_send_failed' || code === 'mail_send_failed'
+                    ? 'Не удалось отправить письмо. Попробуйте позже.'
+                    : 'Не удалось запросить код');
+            }
+        } finally {
+            if (btn) btn.disabled = false;
+        }
     };
 
     window.confirmEmailCode = async function() {
+        if (!window.currentUser) return;
         const pending = window.__pendingEmailVerification;
         if (!pending) { window.showToast('Сначала запросите код'); return; }
-        if (Date.now() > pending.expiresAt) { window.showToast('Код истёк, запросите новый'); window.__pendingEmailVerification = null; return; }
+        if (pending.expiresAt && Date.now() > pending.expiresAt) {
+            window.showToast('Код истёк, запросите новый');
+            window.__pendingEmailVerification = null;
+            return;
+        }
 
         const entered = (document.getElementById('email-code-input')?.value || '').trim();
-        if (entered !== pending.code) { window.showToast('Неверный код'); return; }
+        if (!/^\d{6}$/.test(entered)) { window.showToast('Введите 6-значный код'); return; }
 
         window.showToast('Подтверждение почты...');
-        const ok = await window.saveMyProfile({ email: pending.email, emailVerified: true });
-        if (ok) {
+        try {
+            const data = await window.apiConfirmEmailVerification(entered);
+            const email = data?.email || pending.email;
+            window.currentUser.email = email;
+            window.currentUser.emailVerified = true;
+            try { localStorage.setItem('rosmap_user', JSON.stringify(window.currentUser)); } catch (_) {}
+
+            // Синхронизируем визитку без доверия к client-side emailVerified на сервере
+            // (сервер уже записал verified в private_meta).
+            if (window.saveMyProfile) {
+                await window.saveMyProfile({ email });
+            }
+
             window.__pendingEmailVerification = null;
             const block = document.getElementById('email-code-block');
             if (block) block.classList.add('hidden');
             window.refreshEmailVerificationUI();
             window.showToast('Почта подтверждена');
-        } else {
-            window.showToast('Не удалось сохранить подтверждение');
+        } catch (err) {
+            const code = err?.code || '';
+            if (code === 'code_expired') {
+                window.showToast('Код истёк, запросите новый');
+                window.__pendingEmailVerification = null;
+            } else if (code === 'bad_code') {
+                window.showToast('Неверный код');
+            } else if (code === 'no_pending_code') {
+                window.showToast('Сначала запросите код');
+            } else {
+                window.showToast('Не удалось подтвердить почту');
+            }
         }
     };
 

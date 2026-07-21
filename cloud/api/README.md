@@ -7,10 +7,11 @@
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | проверка живости (`version: 5`) |
+| `health` | нет | проверка живости (`version: 8`) |
+| `publicConfig` | нет | публичные ключи (Maps) |
 | `register` | нет | регистрация (пароль → scrypt) |
 | `login` | нет | вход → JWT |
-| `me` | JWT | проверка сессии / refresh |
+| `me` | JWT | проверка сессии / refresh + PII из private_meta |
 | `changePassword` | JWT | смена пароля |
 | `sync` | JWT | GET→merge→sanitize→PUT JSON |
 | `patchSound` | JWT | лёгкий патч plays/downloads/лайков без полной перезаписи `map_data.json` |
@@ -18,8 +19,10 @@
 | `commit` | JWT | взять staging → merge → sanitize → PUT публичный JSON |
 | `getMail` | JWT | личная почта (проекция); admin — полный `mail.json` |
 | `translate` | JWT | Yandex Translate RU→EN (UCS FXName); env `YC_TRANSLATE_API_KEY`, `YC_FOLDER_ID` |
+| `requestEmailVerification` | JWT | 6-значный код на email (SMTP); хеш в `_auth/email_codes/{login}.json` |
+| `confirmEmailVerification` | JWT | проверка кода → `email` + `emailVerified` в private_meta |
 
-Хеши паролей, staging и **mail.json** живут в **приватном** бакете `rosmap2026-private` (`_auth/users.json`, `_auth/private_meta.json`, `staging/...`, `mail.json`). Публичный бакет `rosmap2026` — каталог и медиа (без личных сообщений).
+Хеши паролей, staging, коды email и **mail.json** живут в **приватном** бакете `rosmap2026-private` (`_auth/users.json`, `_auth/private_meta.json`, `_auth/email_codes/`, `staging/...`, `mail.json`). Публичный бакет `rosmap2026` — каталог и медиа (без личных сообщений).
 
 ## JSON-базы
 
@@ -31,6 +34,7 @@
 | `feed.json` | public | лента |
 | `events.json` | public | ивенты (конкурсы / встречи / RSVP) |
 | `_auth/private_meta.json` | private | email и survey-поля профилей |
+| `_auth/email_codes/{login}.json` | private | хеш кода подтверждения email (TTL ~10 мин) |
 
 Медиа только в `uploads/{login}/…` (или legacy `audio/` / `images/`). **data-URL и blob: в базах запрещены** — API вычищает при sync.
 
@@ -44,7 +48,7 @@
 | Inbox / notifications | 200 / 100 записей |
 | Текст сообщения | 4000 символов |
 | Пароль | мин. 8 символов |
-| Rate limit | IP 360/мин (без health); sync/commit 120; patchSound 180; presign 90; translate 40; getMail 120 |
+| Rate limit | IP 360/мин (без health); sync/commit 120; patchSound 180; presign 90; translate 40; getMail 120; email request 5/10мин на логин, 20/час на IP; email confirm 20/10мин |
 
 ## Переменные окружения функции
 
@@ -59,9 +63,18 @@ ADMIN_PASSWORD=<пароль админа, НЕ хранить в клиенте
 ALLOWED_ORIGIN=*
 YC_TRANSLATE_API_KEY=<ключ Translate API>
 YC_FOLDER_ID=<folder id, если требуется для ключа>
+YANDEX_MAPS_API_KEY=<browser Maps key>
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+MAIL_FROM=
+ALLOW_DEMO_EMAIL_CODES=0
 ```
 
-После добавления Translate env — передеплой функции (`health.version` должен стать `6`). Без ключа `translate` отвечает `503 translate_unconfigured`.
+Без SMTP `requestEmailVerification` отвечает `503 mail_not_configured` (клиент показывает toast без кода). На staging можно `ALLOW_DEMO_EMAIL_CODES=1` — тогда в ответе будет `demoCode`. SMTP только у провайдеров в РФ (см. [`docs/email-setup.md`](../../docs/email-setup.md), Unisender Go) — не Brevo/зарубежные ESP из‑за 152‑ФЗ.
+
+После добавления Translate/SMTP env — передеплой функции (`health.version` ≥ 8). Без ключа `translate` отвечает `503 translate_unconfigured`.
 
 ## Деплой (консоль или CLI)
 

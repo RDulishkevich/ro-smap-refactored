@@ -785,6 +785,44 @@ window.closePublishRulesModal = function() {
     setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
 };
 
+window.openLegalDocModal = function(docId) {
+    const id = docId === 'terms' ? 'terms' : 'privacy';
+    const doc = window.LEGAL_DOCS && window.LEGAL_DOCS[id];
+    const body = document.getElementById('legal-doc-body');
+    const titleEl = document.getElementById('legal-doc-title');
+    const ver = document.getElementById('legal-doc-version');
+    if (titleEl) {
+        titleEl.innerHTML = id === 'terms'
+            ? '<i class="fa-solid fa-file-contract mr-2 text-blue-500"></i>Пользовательское соглашение'
+            : '<i class="fa-solid fa-shield-halved mr-2 text-blue-500"></i>Политика конфиденциальности';
+    }
+    if (body && window.renderLegalDocHtml) {
+        body.innerHTML = window.renderLegalDocHtml(id);
+    } else if (body) {
+        body.innerHTML = `<p class="text-sm text-slate-500">Документ временно недоступен.</p>`;
+    }
+    if (ver) ver.textContent = `Версия ${doc?.version || window.LEGAL_DOCS_VERSION || '–'}`;
+
+    const m = document.getElementById('legal-doc-modal');
+    const c = document.getElementById('legal-doc-modal-content');
+    if (!m || !c) return;
+    m.classList.remove('hidden');
+    void m.offsetWidth;
+    m.classList.remove('opacity-0', 'pointer-events-none');
+    c.classList.remove('scale-95');
+    if (window.playSfx) window.playSfx('open');
+};
+
+window.closeLegalDocModal = function() {
+    const m = document.getElementById('legal-doc-modal');
+    const c = document.getElementById('legal-doc-modal-content');
+    if (!m || !c) return;
+    m.classList.add('opacity-0', 'pointer-events-none');
+    c.classList.add('scale-95');
+    if (window.playSfx) window.playSfx('close');
+    setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
+};
+
 // Мини-"шторка" со списком действий – переиспользуемая замена контекстного меню по «...»
 // (профиль автора / ответить / реакция / пожаловаться у комментариев, см. openCommentMenu).
 window.confirmDiscardDraft = async function(message) {

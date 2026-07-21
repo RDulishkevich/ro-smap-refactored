@@ -12,14 +12,24 @@
  *   YC_TRANSLATE_API_KEY — Yandex Cloud Translate API key (Api-Key …)
  *   YC_FOLDER_ID      — folder id (required with some key types)
  *   YANDEX_MAPS_API_KEY — browser Maps JS key (HTTP Referer lock); exposed only via publicConfig
+ *   SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / MAIL_FROM — transactional email
+ *   ALLOW_DEMO_EMAIL_CODES — set to 1 on staging only: return demoCode when SMTP missing
  *
  * Actions (POST JSON { action, ... }):
  *   health | publicConfig | register | login | changePassword | me | getMail | sync | commit | presign | patchSound | translate
+ *   | requestEmailVerification | confirmEmailVerification
  */
 
 const crypto = require('crypto');
 const { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+
+let nodemailer = null;
+try {
+    nodemailer = require('nodemailer');
+} catch (_) {
+    nodemailer = null;
+}
 
 const BUCKET = process.env.BUCKET || 'rosmap2026';
 const PRIVATE_BUCKET = process.env.PRIVATE_BUCKET || 'rosmap2026-private';
@@ -31,8 +41,16 @@ const YC_TRANSLATE_API_KEY = process.env.YC_TRANSLATE_API_KEY || '';
 const YC_FOLDER_ID = process.env.YC_FOLDER_ID || '';
 /** Browser-only Maps key (HTTP Referer restricted). Served via publicConfig — not committed to frontend. */
 const YANDEX_MAPS_API_KEY = process.env.YANDEX_MAPS_API_KEY || '';
+const SMTP_HOST = process.env.SMTP_HOST || '';
+const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || '';
+const MAIL_FROM = process.env.MAIL_FROM || '';
+const ALLOW_DEMO_EMAIL_CODES = String(process.env.ALLOW_DEMO_EMAIL_CODES || '') === '1';
+const EMAIL_CODE_TTL_MS = 10 * 60 * 1000;
 const AUTH_KEY = '_auth/users.json';
 const PRIVATE_META_KEY = '_auth/private_meta.json';
+const EMAIL_CODES_PREFIX = '_auth/email_codes/';
 const ALLOWED_JSON = new Set(['map_data.json', 'profiles.json', 'feed.json', 'mail.json', 'events.json']);
 const MEDIA_PREFIXES = ['uploads/', 'audio/', 'images/'];
 const TOKEN_TTL_SEC = 60 * 60 * 24 * 14; // 14 days
@@ -221,6 +239,9 @@ function actionRateLimit(action, ip, login = '') {
     if (action === 'patchSound' && !rateLimit(`patch:${who}`, 180, 60000)) return false;
     if (action === 'translate' && !rateLimit(`translate:${who}`, 40, 60000)) return false;
     if (action === 'getMail' && !rateLimit(`getmail:${who}`, 120, 60000)) return false;
+    if (action === 'requestEmailVerification' && !rateLimit(`emailreq:${who}`, 5, 600000)) return false;
+    if (action === 'requestEmailVerification' && !rateLimit(`emailreqip:${base}`, 20, 3600000)) return false;
+    if (action === 'confirmEmailVerification' && !rateLimit(`emailcfm:${who}`, 20, 600000)) return false;
     return true;
 }
 
@@ -1175,6 +1196,157 @@ async function handleChangePassword(event, body) {
     return respond(200, { ok: true });
 }
 
+function isSmtpConfigured() {
+    return !!(SMTP_HOST && SMTP_USER && SMTP_PASS && MAIL_FROM && nodemailer);
+}
+
+function normalizeEmail(email) {
+    return String(email || '').trim().toLowerCase().slice(0, 254);
+}
+
+function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function hashEmailCode(login, code) {
+    return crypto.createHmac('sha256', JWT_SECRET || 'email-code')
+        .update(`${login}:${code}`)
+        .digest('hex');
+}
+
+function emailCodeKey(login) {
+    return `${EMAIL_CODES_PREFIX}${normalizeLogin(login)}.json`;
+}
+
+async function loadEmailCode(login) {
+    return getJson(emailCodeKey(login), null);
+}
+
+async function saveEmailCode(login, row) {
+    await putJson(emailCodeKey(login), row, { privateObject: true });
+}
+
+async function clearEmailCode(login) {
+    try {
+        await s3.send(new DeleteObjectCommand({
+            Bucket: bucketForKey(emailCodeKey(login)),
+            Key: emailCodeKey(login)
+        }));
+    } catch (_) { /* ignore */ }
+}
+
+async function sendVerificationMail(to, code) {
+    const transporter = nodemailer.createTransport({
+        host: SMTP_HOST,
+        port: SMTP_PORT || 587,
+        secure: Number(SMTP_PORT) === 465,
+        auth: { user: SMTP_USER, pass: SMTP_PASS }
+    });
+    await transporter.sendMail({
+        from: MAIL_FROM,
+        to,
+        subject: 'Код подтверждения — Полёвка',
+        text: `Ваш код подтверждения email в Полёвке: ${code}\n\nКод действует 10 минут. Если вы не запрашивали код, просто проигнорируйте письмо.`,
+        html: `<p>Ваш код подтверждения email в Полёвке: <strong style="font-size:1.25rem;letter-spacing:0.1em">${code}</strong></p><p>Код действует 10 минут. Если вы не запрашивали код, просто проигнорируйте письмо.</p>`
+    });
+}
+
+async function handleRequestEmailVerification(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const user = await resolveAuthUser(payload);
+    if (!user) return respond(401, { ok: false, error: 'unauthorized' });
+    if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
+
+    const email = normalizeEmail(body.email);
+    if (!isValidEmail(email)) return respond(400, { ok: false, error: 'bad_email' });
+
+    const smtpOk = isSmtpConfigured();
+    if (!smtpOk && !ALLOW_DEMO_EMAIL_CODES) {
+        return respond(503, {
+            ok: false,
+            error: 'mail_not_configured',
+            message: 'Email delivery is not configured yet'
+        });
+    }
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = Date.now() + EMAIL_CODE_TTL_MS;
+    await saveEmailCode(user.login, {
+        email,
+        codeHash: hashEmailCode(user.login, code),
+        expiresAt,
+        createdAt: new Date().toISOString()
+    });
+
+    if (smtpOk) {
+        try {
+            await sendVerificationMail(email, code);
+        } catch (err) {
+            console.error('SMTP send failed', err);
+            await clearEmailCode(user.login);
+            return respond(502, { ok: false, error: 'mail_send_failed' });
+        }
+        return respond(200, { ok: true, expiresAt });
+    }
+
+    // Staging only: SMTP missing + ALLOW_DEMO_EMAIL_CODES=1
+    return respond(200, {
+        ok: true,
+        expiresAt,
+        demoCode: code,
+        demo: true
+    });
+}
+
+async function handleConfirmEmailVerification(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const user = await resolveAuthUser(payload);
+    if (!user) return respond(401, { ok: false, error: 'unauthorized' });
+    if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
+
+    const code = String(body.code || '').trim();
+    if (!/^\d{6}$/.test(code)) return respond(400, { ok: false, error: 'bad_code' });
+
+    const row = await loadEmailCode(user.login);
+    if (!row || !row.codeHash || !row.email) {
+        return respond(400, { ok: false, error: 'no_pending_code' });
+    }
+    if (Date.now() > Number(row.expiresAt || 0)) {
+        await clearEmailCode(user.login);
+        return respond(400, { ok: false, error: 'code_expired' });
+    }
+
+    const expect = hashEmailCode(user.login, code);
+    try {
+        const a = Buffer.from(expect, 'hex');
+        const b = Buffer.from(String(row.codeHash), 'hex');
+        if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+            return respond(400, { ok: false, error: 'bad_code' });
+        }
+    } catch (_) {
+        return respond(400, { ok: false, error: 'bad_code' });
+    }
+
+    const meta = await loadPrivateMeta();
+    meta[user.login] = {
+        ...(meta[user.login] || {}),
+        email: normalizeEmail(row.email),
+        emailVerified: true,
+        emailVerifiedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    };
+    await savePrivateMeta(meta);
+    await clearEmailCode(user.login);
+
+    return respond(200, {
+        ok: true,
+        email: meta[user.login].email,
+        emailVerified: true
+    });
+}
+
 async function handleMe(event, body) {
     const payload = verifyJwt(extractToken(event, body));
     if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
@@ -1356,9 +1528,18 @@ async function persistActorPrivateMeta(proposedProfiles, user) {
     const mine = proposedProfiles.find((p) => String(p.loginName || '').toLowerCase() === user.login);
     if (!mine) return;
     const pii = extractProfilePii(mine);
+    // emailVerified only via confirmEmailVerification — never trust the client
+    delete pii.emailVerified;
     if (!Object.keys(pii).length) return;
     const meta = await loadPrivateMeta();
-    meta[user.login] = { ...(meta[user.login] || {}), ...pii, updatedAt: new Date().toISOString() };
+    const prev = meta[user.login] && typeof meta[user.login] === 'object' ? meta[user.login] : {};
+    const next = { ...prev, ...pii, updatedAt: new Date().toISOString() };
+    if (pii.email !== undefined) {
+        const newEmail = String(pii.email || '').trim().toLowerCase();
+        const oldEmail = String(prev.email || '').trim().toLowerCase();
+        if (newEmail !== oldEmail) next.emailVerified = false;
+    }
+    meta[user.login] = next;
     await savePrivateMeta(meta);
 }
 
@@ -1566,7 +1747,7 @@ exports.handler = async function handler(event = {}) {
 
     // health / publicConfig — без секретов и без тяжёлых лимитов
     if (action === 'health') {
-        return respond(200, { ok: true, version: 7 });
+        return respond(200, { ok: true, version: 8 });
     }
     if (action === 'publicConfig') {
         return respond(200, {
@@ -1589,6 +1770,7 @@ exports.handler = async function handler(event = {}) {
         action === 'sync' || action === 'commit' || action === 'presign' || action === 'me'
         || action === 'changePassword' || action === 'patchSound' || action === 'translate'
         || action === 'getMail'
+        || action === 'requestEmailVerification' || action === 'confirmEmailVerification'
     )
         ? verifyJwt(extractToken(event, body))
         : null;
@@ -1607,6 +1789,8 @@ exports.handler = async function handler(event = {}) {
         if (action === 'presign') return await handlePresign(event, body);
         if (action === 'patchSound') return await handlePatchSound(event, body);
         if (action === 'translate') return await handleTranslate(event, body);
+        if (action === 'requestEmailVerification') return await handleRequestEmailVerification(event, body);
+        if (action === 'confirmEmailVerification') return await handleConfirmEmailVerification(event, body);
         if (action === 'legacy_presign') {
             return respond(401, {
                 ok: false,
