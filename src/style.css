@@ -2886,21 +2886,35 @@ textarea.modal-input {
     overflow-wrap: anywhere;
 }
 
-/* ??????? ????? ????? */
-#map [class*="-ground-pane"], #map [class*="-copyrights-pane"] { transition: filter 0.5s ease; }
-.dark #map:not(.map-monochrome) [class*="-ground-pane"], .dark #map:not(.map-monochrome) [class*="-copyrights-pane"] { filter: invert(90%) hue-rotate(180deg) brightness(0.8) contrast(1.1); }
-#map.map-monochrome [class*="-ground-pane"], #map.map-monochrome [class*="-copyrights-pane"],
+/* Тёмная/моно тема для API 2.1 (DOM-pane). НЕ применять к yandex3 — CSS filter убивает WebGL-холст. */
+#map:not(.is-yandex3) [class*="-ground-pane"], #map:not(.is-yandex3) [class*="-copyrights-pane"] { transition: filter 0.5s ease; }
+.dark #map:not(.map-monochrome):not(.is-yandex3) [class*="-ground-pane"], .dark #map:not(.map-monochrome):not(.is-yandex3) [class*="-copyrights-pane"] { filter: invert(90%) hue-rotate(180deg) brightness(0.8) contrast(1.1); }
+#map.map-monochrome:not(.is-yandex3) [class*="-ground-pane"], #map.map-monochrome:not(.is-yandex3) [class*="-copyrights-pane"],
 #location-picker-map.map-monochrome [class*="-ground-pane"], #location-picker-map.map-monochrome [class*="-copyrights-pane"] { filter: grayscale(100%) contrast(1.1) brightness(1.05); }
-.dark #map.map-monochrome [class*="-ground-pane"], .dark #map.map-monochrome [class*="-copyrights-pane"],
+.dark #map.map-monochrome:not(.is-yandex3) [class*="-ground-pane"], .dark #map.map-monochrome:not(.is-yandex3) [class*="-copyrights-pane"],
 .dark #location-picker-map.map-monochrome [class*="-ground-pane"], .dark #location-picker-map.map-monochrome [class*="-copyrights-pane"] { filter: grayscale(100%) invert(90%) brightness(0.8) contrast(1.2); }
 .dark #location-picker-map:not(.map-monochrome) [class*="-ground-pane"], .dark #location-picker-map:not(.map-monochrome) [class*="-copyrights-pane"] { filter: invert(90%) hue-rotate(180deg) brightness(0.8) contrast(1.1); }
 
-/* Yandex Maps API 3 quiet engine */
-#map.is-yandex3,
-#map.is-yandex3 > ymaps,
-#map.is-yandex3 [class*="ymaps3"] {
+/* Yandex Maps API 3 quiet engine — full-bleed WebGL, no CSS filters */
+#map.is-yandex3 {
     width: 100%;
     height: 100%;
+    min-height: 100%;
+    filter: none !important;
+}
+#map.is-yandex3 > * {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 100% !important;
+}
+#map.is-yandex3 canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+}
+#map.is-yandex3,
+#map.is-yandex3 * {
+    filter: none !important;
 }
 
 /* MapLibre GL (OpenFreeMap) main map */

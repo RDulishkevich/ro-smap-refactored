@@ -326,25 +326,50 @@ window.initYandex3Map = async function initYandex3Map() {
             throw new Error('Компоненты YMap не найдены после ymaps3.ready');
         }
 
+        // Ensure layout has real pixels before WebGL init (absolute inset-0 can be 0 during remount).
+        const rect = container.getBoundingClientRect();
+        if (rect.width < 2 || rect.height < 2) {
+            await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        }
+
         const map = new YMap(container, {
             location: {
                 center: [39.74427, 47.23371],
                 zoom: 15
             },
-            theme: window.currentTheme === 'dark' ? 'dark' : 'light'
+            theme: window.currentTheme === 'dark' ? 'dark' : 'light',
+            showScaleInCopyrights: true
         });
 
+        // Scheme first without customization (customization can fail silently → white canvas).
+        let schemeLayer;
         try {
-            map.addChild(new YMapDefaultSchemeLayer({
+            schemeLayer = new YMapDefaultSchemeLayer({
                 customization: window.YANDEX3_POI_CUSTOMIZATION
-            }));
+            });
+            map.addChild(schemeLayer);
         } catch (custErr) {
             console.warn('[yandex3] customization failed, plain scheme', custErr);
-            map.addChild(new YMapDefaultSchemeLayer());
+            schemeLayer = new YMapDefaultSchemeLayer();
+            map.addChild(schemeLayer);
         }
         if (YMapDefaultFeaturesLayer) {
             try { map.addChild(new YMapDefaultFeaturesLayer()); } catch (_) {}
         }
+
+        // Force a paint after children attach.
+        try {
+            map.setLocation({
+                center: [39.74427, 47.23371],
+                zoom: 15,
+                duration: 0
+            });
+        } catch (_) {}
+        requestAnimationFrame(() => {
+            try {
+                window.dispatchEvent(new Event('resize'));
+            } catch (__) {}
+        });
 
         // Zoom controls via separate package — optional, never block map init.
         if (window.innerWidth >= 768 && typeof ymaps3.import === 'function') {

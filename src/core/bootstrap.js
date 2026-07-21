@@ -1,29 +1,29 @@
-﻿import { initGlobalState } from './state.js?v=20260721i';
-import './api.js?v=20260721i';
-import { initAuth } from './auth.js?v=20260721i';
+﻿import { initGlobalState } from './state.js?v=20260721j';
+import './api.js?v=20260721j';
+import { initAuth } from './auth.js?v=20260721j';
 
-import './sfx.js?v=20260721i';
-import './antispam.js?v=20260721i';
-import '../ui/ui.js?v=20260721i';
-import './audio.js?v=20260721i';
-import './map.js?v=20260721i';
-import './mapbox-map.js?v=20260721i';
-import './dgis-map.js?v=20260721i';
-import './google-earth-map.js?v=20260721i';
-import './yandex3-map.js?v=20260721i';
-import './achievements.js?v=20260721i';
-import './guessr.js?v=20260721i';
-import './admin-console.js?v=20260721i';
-import './support-bot.js?v=20260721i';
-import './pwa.js?v=20260721i';
-import './events.js?v=20260721i';
-import './ucsName.js?v=20260721i';
-import './wavMeta.js?v=20260721i';
-import './wavReadMeta.js?v=20260721i';
-import './audioConvert.js?v=20260721i';
-import '../data/publishRules.js?v=20260721i';
-import '../data/gearCatalog.js?v=20260721i';
-import '../widgets/analytics-widget.js?v=20260721i';
+import './sfx.js?v=20260721j';
+import './antispam.js?v=20260721j';
+import '../ui/ui.js?v=20260721j';
+import './audio.js?v=20260721j';
+import './map.js?v=20260721j';
+import './mapbox-map.js?v=20260721j';
+import './dgis-map.js?v=20260721j';
+import './google-earth-map.js?v=20260721j';
+import './yandex3-map.js?v=20260721j';
+import './achievements.js?v=20260721j';
+import './guessr.js?v=20260721j';
+import './admin-console.js?v=20260721j';
+import './support-bot.js?v=20260721j';
+import './pwa.js?v=20260721j';
+import './events.js?v=20260721j';
+import './ucsName.js?v=20260721j';
+import './wavMeta.js?v=20260721j';
+import './wavReadMeta.js?v=20260721j';
+import './audioConvert.js?v=20260721j';
+import '../data/publishRules.js?v=20260721j';
+import '../data/gearCatalog.js?v=20260721j';
+import '../widgets/analytics-widget.js?v=20260721j';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;
@@ -91,16 +91,17 @@ export function bootstrapApp() {
             fetch(`${window.YANDEX_BUCKET_URL}/profiles.json?nocache=${Date.now()}`)
                 .then(res => res.ok ? res.json() : [])
                 .catch(err => { console.warn('Профили пользователей недоступны:', err); return []; }),
-            fetch(`${window.YANDEX_BUCKET_URL}/mail.json?nocache=${Date.now()}`)
-                .then(res => res.ok ? res.json() : [])
-                .catch(() => []),
             fetch(`${window.YANDEX_BUCKET_URL}/feed.json?nocache=${Date.now()}`)
                 .then(res => res.ok ? res.json() : [])
                 .catch(() => []),
             fetch(`${window.YANDEX_BUCKET_URL}/events.json?nocache=${Date.now()}`)
                 .then(res => res.ok ? res.json() : [])
                 .catch(() => [])
-        ]).then(([, cloudData, profiles, mail, feed, events]) => {
+        ]).then(async ([, cloudData, profiles, feed, events]) => {
+            let mail = [];
+            if (window.getAuthToken && window.getAuthToken() && window.apiGetMail) {
+                try { mail = await window.apiGetMail(); } catch (_) { mail = []; }
+            }
             if (window.applyProfilesAndMailSnapshot) {
                 window.applyProfilesAndMailSnapshot(
                     Array.isArray(profiles) ? profiles : [],
@@ -218,9 +219,24 @@ export function bootstrapApp() {
         }
 
         if (typeof window.startMainMap === 'function') {
-            window.startMainMap();
-        } else if (typeof window.initMap === 'function' && typeof ymaps !== 'undefined') {
-            ymaps.ready(window.initMap);
+            window.ensureYandexMapsLoaded
+                ? window.ensureYandexMapsLoaded().then(() => window.startMainMap()).catch((err) => {
+                    console.error(err);
+                    if (window.showToast) window.showToast('Не удалось загрузить карту');
+                })
+                : window.startMainMap();
+        } else if (typeof window.initMap === 'function') {
+            const boot = () => {
+                if (typeof ymaps !== 'undefined') ymaps.ready(window.initMap);
+            };
+            if (window.ensureYandexMapsLoaded) {
+                window.ensureYandexMapsLoaded().then(boot).catch((err) => {
+                    console.error(err);
+                    if (window.showToast) window.showToast('Не удалось загрузить карту');
+                });
+            } else {
+                boot();
+            }
         }
     });
 }
