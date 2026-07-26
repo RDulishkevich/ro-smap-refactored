@@ -1,12 +1,12 @@
-import { initGlobalState } from './state.js?v=20260721t';
+import { initGlobalState } from './state.js?v=20260726c';
 import './api.js?v=20260721t';
-import { initAuth } from './auth.js?v=20260721t';
+import { initAuth } from './auth.js?v=20260726c';
 
 import './sfx.js?v=20260721t';
 import './antispam.js?v=20260721t';
-import '../ui/ui.js?v=20260721t';
+import '../ui/ui.js?v=20260726c';
 import './audio.js?v=20260721t';
-import './map.js?v=20260721t';
+import './map.js?v=20260726b';
 import './mapbox-map.js?v=20260721t';
 import './dgis-map.js?v=20260721t';
 import './google-earth-map.js?v=20260721t';
@@ -67,6 +67,7 @@ export function bootstrapApp() {
             if (window.setUiFont && !document.documentElement.getAttribute('data-font')) {
                 window.setUiFont(window.currentFont || 'satoshi', true);
             }
+            if (window.bindSettingsPickers) window.bindSettingsPickers();
             if (window.applyUILanguage) window.applyUILanguage();
             if (window.initSwipeHandlers) window.initSwipeHandlers();
             if (window.initDockChrome) window.initDockChrome();

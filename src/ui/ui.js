@@ -7087,7 +7087,11 @@ window.setTheme = function(theme, skipSave = false) {
 window.setColorPalette = function(palette, skipSave = false) {
     const next = ['coral', 'terre', 'sparrow', 'mist', 'bistre', 'citrus', 'linen', 'straw', 'river', 'grove', 'crema', 'payne', 'clay'].includes(palette) ? palette : 'coral';
     window.currentPalette = next;
-    document.documentElement.setAttribute('data-palette', next);
+    const root = document.documentElement;
+    root.setAttribute('data-palette', next);
+    // Drop stale inline overrides if any
+    root.style.removeProperty('--accent');
+    root.style.removeProperty('--font-ui');
     try { localStorage.setItem('rosmap_palette', next); } catch (_) {}
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('palette', next);
     if (window.refreshSettingsUI) window.refreshSettingsUI();
@@ -7098,11 +7102,44 @@ window.setUiFont = function(font, skipSave = false) {
     const ids = ['satoshi', 'morfin', 'rostov', 'klukva', 'geologica', 'forest', 'neucha', 'coolvetica'];
     const next = ids.includes(font) ? font : 'satoshi';
     window.currentFont = next;
-    document.documentElement.setAttribute('data-font', next);
+    const root = document.documentElement;
+    root.setAttribute('data-font', next);
+    root.style.removeProperty('--font-ui');
+    root.style.removeProperty('--font-brand');
     try { localStorage.setItem('rosmap_font', next); } catch (_) {}
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('font', next);
     if (window.refreshSettingsUI) window.refreshSettingsUI();
 };
+
+/** Event delegation — reliable even if inline onclick is blocked or nodes are re-docked. */
+window.bindSettingsPickers = function() {
+    if (window.__settingsPickersBound) return;
+    window.__settingsPickersBound = true;
+    document.addEventListener('click', (e) => {
+        const paletteBtn = e.target && e.target.closest && e.target.closest('#palette-picker [data-palette-id]');
+        if (paletteBtn) {
+            const id = paletteBtn.getAttribute('data-palette-id');
+            if (id && window.setColorPalette) {
+                e.preventDefault();
+                window.setColorPalette(id);
+            }
+            return;
+        }
+        const fontBtn = e.target && e.target.closest && e.target.closest('#font-picker [data-font-id]');
+        if (fontBtn) {
+            const id = fontBtn.getAttribute('data-font-id');
+            if (id && window.setUiFont) {
+                e.preventDefault();
+                window.setUiFont(id);
+            }
+        }
+    });
+};
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => window.bindSettingsPickers && window.bindSettingsPickers());
+} else if (window.bindSettingsPickers) {
+    window.bindSettingsPickers();
+}
 window.showDockPanel = function() {
     const s = document.getElementById('sidebar');
     if (!s) return;

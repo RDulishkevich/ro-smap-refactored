@@ -25,9 +25,7 @@
     --panel-solid: #f4f2ef;
     --panel-border: var(--glass-rim-outer);
     --panel-shadow: var(--glass-elev);
-    /* Canonical type stack — keep in sync with style.css + tailwind.config.js */
-    --font-ui: "Satoshi", "Plus Jakarta Sans", system-ui, sans-serif;
-    --font-brand: "Clash Display", "Satoshi", sans-serif;
+    /* Fonts: controlled by fonts.css (data-font) — do not reset --font-ui here */
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     --radius-md: 1.15rem;
     --radius-lg: 1.6rem;
@@ -856,8 +854,8 @@ html.dark .glass-switch,
 }
 html.dark .glass-seg__btn.is-active--accent,
 .dark .glass-seg__btn.is-active--accent {
-    background: #f5f5f4 !important;
-    color: #141414 !important;
+    background: var(--cta) !important;
+    color: var(--cta-ink) !important;
 }
 
 .sidebar-sound-row {
