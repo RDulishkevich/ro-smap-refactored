@@ -1,0 +1,136 @@
+/**
+ * Local UI fonts + data-font theme switch.
+ * Default remains Satoshi / Clash Display (loaded from Fontshare in index.html).
+ */
+
+@font-face {
+    font-family: "Morfin Sans";
+    src: url("../assets/fonts/morfin-sans.ttf") format("truetype");
+    font-weight: 400 700;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "Rostov";
+    src: url("../assets/fonts/rostov.ttf") format("truetype");
+    font-weight: 400 700;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "Klukva";
+    src: url("../assets/fonts/klukva.otf") format("opentype");
+    font-weight: 400 700;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "Geologica";
+    src: url("../assets/fonts/geologica.ttf") format("truetype");
+    font-weight: 400 700;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "Forest Smooth";
+    src: url("../assets/fonts/forest-smooth.ttf") format("truetype");
+    font-weight: 400 700;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "Neucha";
+    src: url("../assets/fonts/neucha.ttf") format("truetype");
+    font-weight: 400 700;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "Coolvetica";
+    src: url("../assets/fonts/coolvetica.ttf") format("truetype");
+    font-weight: 400 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+html[data-font="satoshi"],
+html:not([data-font]) {
+    --font-ui: "Satoshi", "Plus Jakarta Sans", system-ui, sans-serif;
+    --font-brand: "Clash Display", "Satoshi", sans-serif;
+}
+html[data-font="morfin"] {
+    --font-ui: "Morfin Sans", system-ui, sans-serif;
+    --font-brand: "Morfin Sans", system-ui, sans-serif;
+}
+html[data-font="rostov"] {
+    --font-ui: "Rostov", system-ui, sans-serif;
+    --font-brand: "Rostov", system-ui, sans-serif;
+}
+html[data-font="klukva"] {
+    --font-ui: "Klukva", system-ui, sans-serif;
+    --font-brand: "Klukva", system-ui, sans-serif;
+}
+html[data-font="geologica"] {
+    --font-ui: "Geologica", system-ui, sans-serif;
+    --font-brand: "Geologica", system-ui, sans-serif;
+}
+html[data-font="forest"] {
+    --font-ui: "Forest Smooth", system-ui, sans-serif;
+    --font-brand: "Forest Smooth", system-ui, sans-serif;
+}
+html[data-font="neucha"] {
+    --font-ui: "Neucha", system-ui, sans-serif;
+    --font-brand: "Neucha", system-ui, sans-serif;
+}
+html[data-font="coolvetica"] {
+    --font-ui: "Coolvetica", system-ui, sans-serif;
+    --font-brand: "Coolvetica", system-ui, sans-serif;
+}
+
+.font-picker {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+}
+@media (min-width: 420px) {
+    .font-picker {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+.font-card {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.2rem;
+    padding: 0.55rem 0.6rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(20, 20, 20, 0.1);
+    background: rgba(255, 255, 255, 0.45);
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+.font-card:hover { transform: translateY(-1px); }
+.font-card.is-active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.font-card__sample {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+.font-card__name {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    opacity: 0.72;
+    font-family: var(--font-ui);
+}
+html.dark .font-card,
+.dark .font-card {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.12);
+}

@@ -9,7 +9,8 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Satoshi', 'Plus Jakarta Sans', 'system-ui', 'sans-serif'],
-        brand: ['Clash Display', 'Satoshi', 'sans-serif']
+        brand: ['Clash Display', 'Satoshi', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace']
       },
       colors: {
         accent: {

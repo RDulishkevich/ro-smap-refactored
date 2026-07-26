@@ -55,8 +55,17 @@ export function bootstrapApp() {
                     window.setColorPalette(savedPalette, true);
                 }
             } catch (_) {}
+            try {
+                const savedFont = localStorage.getItem('rosmap_font');
+                if (savedFont && !(window.currentUser?.settings?.font) && window.setUiFont) {
+                    window.setUiFont(savedFont, true);
+                }
+            } catch (_) {}
             if (window.setColorPalette && !document.documentElement.getAttribute('data-palette')) {
                 window.setColorPalette(window.currentPalette || 'coral', true);
+            }
+            if (window.setUiFont && !document.documentElement.getAttribute('data-font')) {
+                window.setUiFont(window.currentFont || 'satoshi', true);
             }
             if (window.applyUILanguage) window.applyUILanguage();
             if (window.initSwipeHandlers) window.initSwipeHandlers();

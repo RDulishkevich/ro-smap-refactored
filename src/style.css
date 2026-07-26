@@ -11,8 +11,10 @@
     --accent-hover: #e84a2f;
     --accent-soft: rgba(255, 90, 61, 0.14);
     --accent-ink: #e84a2f;
+    /* Canonical type stack — keep in sync with glass.css + tailwind.config.js */
     --font-ui: "Satoshi", "Plus Jakarta Sans", system-ui, sans-serif;
     --font-brand: "Clash Display", "Satoshi", sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     --danger: #c2410c;
     --radius-sm: 0.7rem;
     --radius-md: 1.05rem;
@@ -85,6 +87,256 @@ html[data-palette="sparrow"].dark {
     --accent-hover: #8f6228;
     --accent-soft: rgba(201, 170, 125, 0.22);
     --accent-ink: #c9aa7d;
+}
+
+/* 1 Туман — #F3F3E3 / #A9CFE0 / #606F69 */
+html[data-palette="mist"] {
+    --ink: #606F69;
+    --ink-muted: #606F69;
+    --surface: #F3F3E3;
+    --panel-solid: #F3F3E3;
+    --panel-border: rgba(96, 111, 105, 0.16);
+    --accent: #A9CFE0;
+    --accent-hover: #606F69;
+    --accent-soft: rgba(169, 207, 224, 0.28);
+    --accent-ink: #606F69;
+}
+html.dark[data-palette="mist"],
+html[data-palette="mist"].dark {
+    --ink: #F3F3E3;
+    --ink-muted: #A9CFE0;
+    --surface: #606F69;
+    --panel-solid: #606F69;
+    --panel-border: rgba(243, 243, 227, 0.16);
+    --accent: #A9CFE0;
+    --accent-hover: #F3F3E3;
+    --accent-soft: rgba(169, 207, 224, 0.22);
+    --accent-ink: #A9CFE0;
+}
+
+/* 2 Бистр — #92A0A1 / #EEEAE7 / #3A2B22 */
+html[data-palette="bistre"] {
+    --ink: #3A2B22;
+    --ink-muted: #92A0A1;
+    --surface: #EEEAE7;
+    --panel-solid: #EEEAE7;
+    --panel-border: rgba(58, 43, 34, 0.14);
+    --accent: #92A0A1;
+    --accent-hover: #3A2B22;
+    --accent-soft: rgba(146, 160, 161, 0.22);
+    --accent-ink: #3A2B22;
+}
+html.dark[data-palette="bistre"],
+html[data-palette="bistre"].dark {
+    --ink: #EEEAE7;
+    --ink-muted: #92A0A1;
+    --surface: #3A2B22;
+    --panel-solid: #3A2B22;
+    --panel-border: rgba(238, 234, 231, 0.14);
+    --accent: #92A0A1;
+    --accent-hover: #EEEAE7;
+    --accent-soft: rgba(146, 160, 161, 0.22);
+    --accent-ink: #92A0A1;
+}
+
+/* 3 Цитрус — #363636 / #F58F1F / #457534 / #7D8285 */
+html[data-palette="citrus"] {
+    --ink: #363636;
+    --ink-muted: #7D8285;
+    --surface: #7D8285;
+    --panel-solid: #7D8285;
+    --panel-border: rgba(54, 54, 54, 0.18);
+    --accent: #F58F1F;
+    --accent-hover: #457534;
+    --accent-soft: rgba(245, 143, 31, 0.22);
+    --accent-ink: #F58F1F;
+}
+html.dark[data-palette="citrus"],
+html[data-palette="citrus"].dark {
+    --ink: #7D8285;
+    --ink-muted: #457534;
+    --surface: #363636;
+    --panel-solid: #363636;
+    --panel-border: rgba(125, 130, 133, 0.18);
+    --accent: #F58F1F;
+    --accent-hover: #457534;
+    --accent-soft: rgba(245, 143, 31, 0.22);
+    --accent-ink: #F58F1F;
+}
+
+/* 4 Лён — #A86710 / #0F0A01 / #DFD3A0 */
+html[data-palette="linen"] {
+    --ink: #0F0A01;
+    --ink-muted: #A86710;
+    --surface: #DFD3A0;
+    --panel-solid: #DFD3A0;
+    --panel-border: rgba(15, 10, 1, 0.14);
+    --accent: #A86710;
+    --accent-hover: #0F0A01;
+    --accent-soft: rgba(168, 103, 16, 0.2);
+    --accent-ink: #A86710;
+}
+html.dark[data-palette="linen"],
+html[data-palette="linen"].dark {
+    --ink: #DFD3A0;
+    --ink-muted: #A86710;
+    --surface: #0F0A01;
+    --panel-solid: #0F0A01;
+    --panel-border: rgba(223, 211, 160, 0.14);
+    --accent: #A86710;
+    --accent-hover: #DFD3A0;
+    --accent-soft: rgba(168, 103, 16, 0.22);
+    --accent-ink: #A86710;
+}
+
+/* 5 Солома — #11100C / #C7BBA0 / #D2AC61 / #A97F30 */
+html[data-palette="straw"] {
+    --ink: #11100C;
+    --ink-muted: #A97F30;
+    --surface: #C7BBA0;
+    --panel-solid: #C7BBA0;
+    --panel-border: rgba(17, 16, 12, 0.14);
+    --accent: #A97F30;
+    --accent-hover: #D2AC61;
+    --accent-soft: rgba(169, 127, 48, 0.22);
+    --accent-ink: #A97F30;
+}
+html.dark[data-palette="straw"],
+html[data-palette="straw"].dark {
+    --ink: #C7BBA0;
+    --ink-muted: #A97F30;
+    --surface: #11100C;
+    --panel-solid: #11100C;
+    --panel-border: rgba(199, 187, 160, 0.14);
+    --accent: #D2AC61;
+    --accent-hover: #A97F30;
+    --accent-soft: rgba(210, 172, 97, 0.22);
+    --accent-ink: #D2AC61;
+}
+
+/* 6 Река — #A2B5A0 / #DCC8A3 / #4C6A73 / #5A4A3A */
+html[data-palette="river"] {
+    --ink: #5A4A3A;
+    --ink-muted: #4C6A73;
+    --surface: #DCC8A3;
+    --panel-solid: #DCC8A3;
+    --panel-border: rgba(90, 74, 58, 0.14);
+    --accent: #4C6A73;
+    --accent-hover: #A2B5A0;
+    --accent-soft: rgba(76, 106, 115, 0.2);
+    --accent-ink: #4C6A73;
+}
+html.dark[data-palette="river"],
+html[data-palette="river"].dark {
+    --ink: #DCC8A3;
+    --ink-muted: #A2B5A0;
+    --surface: #5A4A3A;
+    --panel-solid: #5A4A3A;
+    --panel-border: rgba(220, 200, 163, 0.14);
+    --accent: #A2B5A0;
+    --accent-hover: #4C6A73;
+    --accent-soft: rgba(162, 181, 160, 0.22);
+    --accent-ink: #A2B5A0;
+}
+
+/* 7 Роща — Dove Wing / Stingray / Texas Sage / Great Barrington / Guacamole / Hidden Falls */
+html[data-palette="grove"] {
+    --ink: #415451;
+    --ink-muted: #A39F87;
+    --surface: #E9E6DB;
+    --panel-solid: #CECBBA;
+    --panel-border: rgba(65, 84, 81, 0.14);
+    --accent: #798064;
+    --accent-hover: #646742;
+    --accent-soft: rgba(121, 128, 100, 0.2);
+    --accent-ink: #798064;
+}
+html.dark[data-palette="grove"],
+html[data-palette="grove"].dark {
+    --ink: #E9E6DB;
+    --ink-muted: #CECBBA;
+    --surface: #415451;
+    --panel-solid: #646742;
+    --panel-border: rgba(233, 230, 219, 0.14);
+    --accent: #A39F87;
+    --accent-hover: #CECBBA;
+    --accent-soft: rgba(163, 159, 135, 0.22);
+    --accent-ink: #A39F87;
+}
+
+/* 8 Крема — #EAD2B0 / #963417 / #3B3F21 / #628981 / #CF893A */
+html[data-palette="crema"] {
+    --ink: #3B3F21;
+    --ink-muted: #628981;
+    --surface: #EAD2B0;
+    --panel-solid: #EAD2B0;
+    --panel-border: rgba(59, 63, 33, 0.14);
+    --accent: #963417;
+    --accent-hover: #CF893A;
+    --accent-soft: rgba(150, 52, 23, 0.2);
+    --accent-ink: #963417;
+}
+html.dark[data-palette="crema"],
+html[data-palette="crema"].dark {
+    --ink: #EAD2B0;
+    --ink-muted: #628981;
+    --surface: #3B3F21;
+    --panel-solid: #3B3F21;
+    --panel-border: rgba(234, 210, 176, 0.14);
+    --accent: #CF893A;
+    --accent-hover: #963417;
+    --accent-soft: rgba(207, 137, 58, 0.22);
+    --accent-ink: #CF893A;
+}
+
+/* 9 Сумерки — #4E6A83 / #A9B5B4 / #FAB44B / #494822 / #4C3625 */
+html[data-palette="payne"] {
+    --ink: #4C3625;
+    --ink-muted: #494822;
+    --surface: #A9B5B4;
+    --panel-solid: #A9B5B4;
+    --panel-border: rgba(76, 54, 37, 0.14);
+    --accent: #4E6A83;
+    --accent-hover: #FAB44B;
+    --accent-soft: rgba(78, 106, 131, 0.2);
+    --accent-ink: #4E6A83;
+}
+html.dark[data-palette="payne"],
+html[data-palette="payne"].dark {
+    --ink: #A9B5B4;
+    --ink-muted: #4E6A83;
+    --surface: #4C3625;
+    --panel-solid: #494822;
+    --panel-border: rgba(169, 181, 180, 0.14);
+    --accent: #FAB44B;
+    --accent-hover: #4E6A83;
+    --accent-soft: rgba(250, 180, 75, 0.22);
+    --accent-ink: #FAB44B;
+}
+
+/* 10 Глина — #994215 / #E2D5C2 / #788990 / #8D957E */
+html[data-palette="clay"] {
+    --ink: #994215;
+    --ink-muted: #788990;
+    --surface: #E2D5C2;
+    --panel-solid: #E2D5C2;
+    --panel-border: rgba(153, 66, 21, 0.14);
+    --accent: #788990;
+    --accent-hover: #8D957E;
+    --accent-soft: rgba(120, 137, 144, 0.22);
+    --accent-ink: #788990;
+}
+html.dark[data-palette="clay"],
+html[data-palette="clay"].dark {
+    --ink: #E2D5C2;
+    --ink-muted: #8D957E;
+    --surface: #994215;
+    --panel-solid: #994215;
+    --panel-border: rgba(226, 213, 194, 0.14);
+    --accent: #8D957E;
+    --accent-hover: #788990;
+    --accent-soft: rgba(141, 149, 126, 0.22);
+    --accent-ink: #8D957E;
 }
 
 .palette-picker {
@@ -174,6 +426,14 @@ body {
     color: var(--ink-muted);
 }
 
+/* Keep Tailwind font utilities on the live --font-* tokens */
+.font-sans {
+    font-family: var(--font-ui) !important;
+}
+.font-brand {
+    font-family: var(--font-brand) !important;
+}
+
 /* Map chrome structure (look from glass.css) */
 .map-icon-btn {
     width: var(--map-btn-size);
@@ -185,10 +445,12 @@ body {
     cursor: pointer;
     transition: transform var(--dur-fast) var(--ease-out), color var(--dur-fast) ease;
 }
-.map-icon-btn.hidden {
-    display: none !important;
-}
-.app-rail__btn.hidden {
+/*
+ * Canonical hide: always win over Font Awesome (display:inline-block),
+ * component display:flex/inline-flex, and img { display:block }.
+ * Do not invent per-icon .hidden overrides — toggle the class only.
+ */
+.hidden {
     display: none !important;
 }
 /*
@@ -328,6 +590,8 @@ body {
     flex-wrap: wrap;
     gap: 0.25rem;
     margin-top: 0.35rem;
+    max-height: 1.35rem;
+    overflow: hidden;
 }
 .sidebar-sound-row__tag {
     font-size: 10px;
@@ -340,6 +604,7 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    flex: 0 1 auto;
 }
 .dark .sidebar-sound-row__tag {
     color: #94a3b8;
@@ -1311,6 +1576,10 @@ html.dark .dock-brand-mark,
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: inherit;
+}
+#profile-btn.has-avatar .profile-btn-avatar,
+#profile-btn-mobile.has-avatar .profile-btn-avatar {
     display: block;
 }
 #profile-btn.has-avatar,
@@ -1477,6 +1746,14 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
     /* Keep sidebar above map chrome, below bottom nav */
     #sidebar {
         z-index: 80 !important;
+    }
+    /*
+     * Lift Yandex copyrights via transform only (keeps logo + terms side-by-side).
+     * Never set bottom/left/right on this pane or its children.
+     */
+    #map [class*="-copyrights-pane"] {
+        transform: translate3d(0, calc(-1 * var(--mobile-fs-bottom)), 0) !important;
+        margin: 0 !important;
     }
 }
 
@@ -2122,6 +2399,25 @@ html.dark .search-suggestions,
 #settings-modal-content.settings-in-dock .settings-modal-header {
     display: none !important;
 }
+/* One scroll owner when settings live in the dock host */
+#settings-modal-content.settings-in-dock {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+}
+#settings-modal-content.settings-in-dock > .overflow-y-auto,
+#settings-modal-content.settings-in-dock > div.p-6.overflow-y-auto,
+#settings-modal-content.settings-in-dock > .settings-modal-body {
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+    flex: none !important;
+}
+#cabinet-modal-content.cabinet-in-dock {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+}
 #cabinet-modal-content.cabinet-in-dock .cabinet-modal-close {
     display: none !important;
 }
@@ -2289,7 +2585,7 @@ html.dark .search-suggestions,
     margin-bottom: 0.2rem;
 }
 .quest-hero__title {
-    font-family: 'Clash Display', 'Satoshi', sans-serif;
+    font-family: var(--font-brand);
     font-size: 1.15rem;
     font-weight: 700;
     color: #0f172a;
@@ -3645,6 +3941,20 @@ textarea.modal-input {
     transition: transform 150ms var(--ease-out, ease), background 150ms ease;
 }
 .feed-head__create:hover { background: var(--accent, #ff5a3d); transform: scale(1.04); }
+@media (max-width: 767px) {
+    /* Dock chrome already shows «Лента» + subtitle */
+    .feed-head__text {
+        display: none;
+    }
+    .feed-head:not(:has(.feed-head__create)) {
+        display: none;
+    }
+    .feed-head:has(.feed-head__create) {
+        justify-content: flex-end;
+        padding-top: 0.55rem;
+        padding-bottom: 0.1rem;
+    }
+}
 .feed-filters {
     display: flex;
     flex-wrap: wrap;

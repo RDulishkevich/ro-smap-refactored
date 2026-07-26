@@ -3088,7 +3088,7 @@ window.buildSoundListRowHtml = function(sound) {
             .split(/[,;]+/)
             .map((t) => t.trim())
             .filter(Boolean);
-    const shownTags = tags.slice(0, 4);
+    const shownTags = tags.slice(0, 3);
     const canDownload = !!(sound.url && String(sound.url).length > 10 && !String(sound.url).startsWith('blob:'));
     return `
         <div class="sidebar-sound-row${isSelected ? ' is-active' : ''}" data-sound-id="${esc(sound.id)}" onclick="window.selectSound('${safeId}')">
@@ -3628,7 +3628,7 @@ window.__openDockViewImpl = function(view) {
             if (mobileTabs) mobileTabs.classList.add('hidden');
             if (panelFeed) panelFeed.classList.remove('hidden');
             if (railFeed) { railFeed.classList.add('is-active'); railFeed.setAttribute('aria-current', 'page'); }
-            window.setDockHeader('Лента', 'Новости и посты', false);
+            window.setDockHeader('Лента', 'Новости карты и полевые заметки', false);
             if (window.renderSidebarFeed) window.renderSidebarFeed();
         } else if (next === 'expeditions') {
             if (mobileTabs) mobileTabs.classList.remove('hidden');
@@ -7085,13 +7085,23 @@ window.setTheme = function(theme, skipSave = false) {
 };
 
 window.setColorPalette = function(palette, skipSave = false) {
-    const next = ['coral', 'terre', 'sparrow'].includes(palette) ? palette : 'coral';
+    const next = ['coral', 'terre', 'sparrow', 'mist', 'bistre', 'citrus', 'linen', 'straw', 'river', 'grove', 'crema', 'payne', 'clay'].includes(palette) ? palette : 'coral';
     window.currentPalette = next;
     document.documentElement.setAttribute('data-palette', next);
     try { localStorage.setItem('rosmap_palette', next); } catch (_) {}
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('palette', next);
     if (window.refreshSettingsUI) window.refreshSettingsUI();
     if (window.refreshAnalyzersTheme) window.refreshAnalyzersTheme();
+};
+
+window.setUiFont = function(font, skipSave = false) {
+    const ids = ['satoshi', 'morfin', 'rostov', 'klukva', 'geologica', 'forest', 'neucha', 'coolvetica'];
+    const next = ids.includes(font) ? font : 'satoshi';
+    window.currentFont = next;
+    document.documentElement.setAttribute('data-font', next);
+    try { localStorage.setItem('rosmap_font', next); } catch (_) {}
+    if (!skipSave && window.saveUserSettings) window.saveUserSettings('font', next);
+    if (window.refreshSettingsUI) window.refreshSettingsUI();
 };
 window.showDockPanel = function() {
     const s = document.getElementById('sidebar');

@@ -267,6 +267,34 @@ window.initMap = function() {
     window.startMainMap();
 };
 
+/** Reserve bottom chrome so Yandex keeps logo + «Условия» in one intact row above the rail. */
+window.syncYandexMapChromeMargins = function() {
+    const map = window.map;
+    if (!map || !map.margin || typeof map.margin.setDefaultMargin !== 'function') return;
+    if (window.innerWidth >= 768) {
+        map.margin.setDefaultMargin(0);
+        return;
+    }
+    const nav = document.getElementById('mobile-bottom-nav');
+    let bottomPx = 88;
+    if (nav && !nav.classList.contains('hidden')) {
+        const rect = nav.getBoundingClientRect();
+        if (rect.height > 0) {
+            bottomPx = Math.max(72, Math.ceil(window.innerHeight - rect.top + 6));
+        }
+    } else {
+        const raw = getComputedStyle(document.documentElement).getPropertyValue('--mobile-fs-bottom').trim();
+        if (raw) {
+            const probe = document.createElement('div');
+            probe.style.cssText = 'position:absolute;visibility:hidden;height:' + raw;
+            document.body.appendChild(probe);
+            bottomPx = Math.max(72, Math.ceil(probe.getBoundingClientRect().height) || 88);
+            probe.remove();
+        }
+    }
+    map.margin.setDefaultMargin([0, 0, bottomPx, 0]);
+};
+
 window.initYandexMap = function() {
     if (typeof ymaps === 'undefined') return;
     const container = document.getElementById('map');
@@ -287,6 +315,9 @@ window.initYandexMap = function() {
     if (container) {
         if (window.currentMapStyle === 'monochrome') container.classList.add('map-monochrome');
         else container.classList.remove('map-monochrome');
+    }
+    if (typeof window.syncYandexMapChromeMargins === 'function') {
+        window.syncYandexMapChromeMargins();
     }
     window.walkerLayout = ymaps.templateLayoutFactory.createClass(
         '<div class="walker-marker $[properties.colorClass]"><i class="fa-solid fa-person-walking"></i></div>'
@@ -1078,3 +1109,15 @@ window.clearMapRoutes = function() {
         window.walkerMarker = null;
     }
 };
+
+(function bindYandexChromeMarginResize() {
+    let t = 0;
+    window.addEventListener('resize', () => {
+        clearTimeout(t);
+        t = setTimeout(() => {
+            if (typeof window.syncYandexMapChromeMargins === 'function') {
+                window.syncYandexMapChromeMargins();
+            }
+        }, 120);
+    }, { passive: true });
+})();

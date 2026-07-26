@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<html lang="ru" class="light" data-palette="coral" style="font-size: 16px;">
+<html lang="ru" class="light" data-palette="coral" data-font="satoshi" style="font-size: 16px;">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -18,21 +18,26 @@
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" sizes="180x180">
     <link rel="apple-touch-icon" href="./Logo.png" sizes="512x512">
 
-    <!-- Tailwind (self-hosted build — без Play CDN / без unsafe-eval) -->
-    <link rel="stylesheet" href="./src/tailwind.built.css?v=20260721t">
-    
-    <link rel="stylesheet" href="./src/style.css?v=20260721t">
-    <link rel="stylesheet" href="./src/glass.css?v=20260721t">
-    
-    <!-- FontAwesome & Omnitone (Maps JS API key loaded at runtime via Secure API publicConfig — not in source) -->
+    <!-- Fonts first (FA icons + brand UI), then app CSS so .hidden always wins -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha384-t1nt8BQoYMLFN5p42tRAtuAAFQaCQODekUVeKKZrEnEyp4H2R0RHFz0KWpmj7i8g" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link href="https://api.fontshare.com/v2/css?f[]=clash-display@600,700&f[]=satoshi@400,500,600,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./src/fonts.css?v=20260726a">
+
+    <!-- Tailwind (self-hosted build — без Play CDN / без unsafe-eval) -->
+    <link rel="stylesheet" href="./src/tailwind.built.css?v=20260722c">
+    <link rel="stylesheet" href="./src/style.css?v=20260722c">
+    <link rel="stylesheet" href="./src/glass.css?v=20260722c">
+    
+    <!-- Omnitone (Maps JS API key loaded at runtime via Secure API publicConfig — not in source) -->
     <script src="https://cdn.jsdelivr.net/npm/omnitone@1.3.0/build/omnitone.min.js" integrity="sha384-5aveyyKpKISYg2tL5r5SiN4i9TsY23neueM/OhYxhAEUxVpDwQNUPAePirLqvCOe" crossorigin="anonymous"></script>
     <!-- React (панель "Статистика региона" рисуется React-компонентом, см. src/widgets/analytics-widget.js) -->
     <script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" crossorigin="anonymous"></script>
-    <!-- Satoshi / Clash (Fontshare) · Plus Jakarta fallback – no CORS-blocked CDN -->
-    <link href="https://api.fontshare.com/v2/css?f[]=clash-display@600,700&f[]=satoshi@400,500,600,700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="text-slate-800 antialiased relative dock-is-hidden">
 
@@ -683,7 +688,7 @@
                     <img src="./Logo.png" alt="" width="40" height="40" decoding="async" class="rounded-xl shrink-0" aria-hidden="true">
                     <div class="min-w-0">
                         <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Полёвка</p>
-                        <h3 class="text-lg font-bold text-slate-800 dark:text-white truncate">Вход / Регистрация</h3>
+                        <h3 class="text-lg font-bold text-slate-800 dark:text-white leading-tight">Вход / Регистрация</h3>
                     </div>
                 </div>
                 <button type="button" onclick="window.requestCloseAuthModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none shrink-0" aria-label="Закрыть">
@@ -716,13 +721,50 @@
                     <i class="fa-solid fa-xmark text-xl pointer-events-none"></i>
                 </button>
             </div>
-            <div class="p-6 overflow-y-auto custom-scrollbar space-y-6">
+            <div class="settings-modal-body p-6 overflow-y-auto custom-scrollbar space-y-6 flex-1 min-h-0">
                 <div>
                     <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="gui_scale"><i class="fa-solid fa-text-height mr-1"></i> Масштаб интерфейса</label>
                     <div class="glass-seg mt-1" id="scale-buttons">
                         <button type="button" data-scale="small" onclick="window.changeGUISize('small')" class="glass-seg__btn">Small</button>
                         <button type="button" data-scale="medium" onclick="window.changeGUISize('medium')" class="glass-seg__btn is-active is-active--accent">Medium</button>
                         <button type="button" data-scale="large" onclick="window.changeGUISize('large')" class="glass-seg__btn">Large</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="ui_font"><i class="fa-solid fa-font mr-1"></i> Шрифт интерфейса</label>
+                    <div class="font-picker mt-1" id="font-picker" role="radiogroup" aria-label="Шрифт интерфейса">
+                        <button type="button" role="radio" data-font-id="satoshi" onclick="window.setUiFont('satoshi')" class="font-card is-active" aria-checked="true" title="Satoshi" style="font-family:'Satoshi','Plus Jakarta Sans',system-ui,sans-serif">
+                            <span class="font-card__sample" aria-hidden="true">Аа Bb</span>
+                            <span class="font-card__name" data-lang="font_satoshi">Satoshi</span>
+                        </button>
+                        <button type="button" role="radio" data-font-id="morfin" onclick="window.setUiFont('morfin')" class="font-card" aria-checked="false" title="Morfin Sans" style="font-family:'Morfin Sans',system-ui,sans-serif">
+                            <span class="font-card__sample" aria-hidden="true">Аа Bb</span>
+                            <span class="font-card__name" data-lang="font_morfin">Morfin Sans</span>
+                        </button>
+                        <button type="button" role="radio" data-font-id="rostov" onclick="window.setUiFont('rostov')" class="font-card" aria-checked="false" title="Rostov" style="font-family:'Rostov',system-ui,sans-serif">
+                            <span class="font-card__sample" aria-hidden="true">Аа Bb</span>
+                            <span class="font-card__name" data-lang="font_rostov">Rostov</span>
+                        </button>
+                        <button type="button" role="radio" data-font-id="klukva" onclick="window.setUiFont('klukva')" class="font-card" aria-checked="false" title="Klukva" style="font-family:'Klukva',system-ui,sans-serif">
+                            <span class="font-card__sample" aria-hidden="true">Аа Bb</span>
+                            <span class="font-card__name" data-lang="font_klukva">Klukva</span>
+                        </button>
+                        <button type="button" role="radio" data-font-id="geologica" onclick="window.setUiFont('geologica')" class="font-card" aria-checked="false" title="Geologica" style="font-family:'Geologica',system-ui,sans-serif">
+                            <span class="font-card__sample" aria-hidden="true">Аа Bb</span>
+                            <span class="font-card__name" data-lang="font_geologica">Geologica</span>
+                        </button>
+                        <button type="button" role="radio" data-font-id="forest" onclick="window.setUiFont('forest')" class="font-card" aria-checked="false" title="Forest Smooth" style="font-family:'Forest Smooth',system-ui,sans-serif">
+                            <span class="font-card__sample" aria-hidden="true">Аа Bb</span>
+                            <span class="font-card__name" data-lang="font_forest">Forest Smooth</span>
+                        </button>
+                        <button type="button" role="radio" data-font-id="neucha" onclick="window.setUiFont('neucha')" class="font-card" aria-checked="false" title="Neucha" style="font-family:'Neucha',system-ui,sans-serif">
+                            <span class="font-card__sample" aria-hidden="true">Аа Bb</span>
+                            <span class="font-card__name" data-lang="font_neucha">Neucha</span>
+                        </button>
+                        <button type="button" role="radio" data-font-id="coolvetica" onclick="window.setUiFont('coolvetica')" class="font-card" aria-checked="false" title="Coolvetica" style="font-family:'Coolvetica',system-ui,sans-serif">
+                            <span class="font-card__sample" aria-hidden="true">Аа Bb</span>
+                            <span class="font-card__name" data-lang="font_coolvetica">Coolvetica</span>
+                        </button>
                     </div>
                 </div>
                 <div>
@@ -765,6 +807,97 @@
                                 <i style="background:#2b2c1c"></i>
                             </span>
                             <span class="palette-card__name" data-lang="palette_sparrow">Хвоя</span>
+                        </button>
+                        <button type="button" role="radio" data-palette-id="mist" onclick="window.setColorPalette('mist')" class="palette-card" aria-checked="false" title="Туман">
+                            <span class="palette-card__swatches" aria-hidden="true">
+                                <i style="background:#F3F3E3"></i>
+                                <i style="background:#A9CFE0"></i>
+                                <i style="background:#606F69"></i>
+                            </span>
+                            <span class="palette-card__name" data-lang="palette_mist">Туман</span>
+                        </button>
+                        <button type="button" role="radio" data-palette-id="bistre" onclick="window.setColorPalette('bistre')" class="palette-card" aria-checked="false" title="Бистр">
+                            <span class="palette-card__swatches" aria-hidden="true">
+                                <i style="background:#92A0A1"></i>
+                                <i style="background:#EEEAE7"></i>
+                                <i style="background:#3A2B22"></i>
+                            </span>
+                            <span class="palette-card__name" data-lang="palette_bistre">Бистр</span>
+                        </button>
+                        <button type="button" role="radio" data-palette-id="citrus" onclick="window.setColorPalette('citrus')" class="palette-card" aria-checked="false" title="Цитрус">
+                            <span class="palette-card__swatches" aria-hidden="true">
+                                <i style="background:#363636"></i>
+                                <i style="background:#F58F1F"></i>
+                                <i style="background:#457534"></i>
+                                <i style="background:#7D8285"></i>
+                            </span>
+                            <span class="palette-card__name" data-lang="palette_citrus">Цитрус</span>
+                        </button>
+                        <button type="button" role="radio" data-palette-id="linen" onclick="window.setColorPalette('linen')" class="palette-card" aria-checked="false" title="Лён">
+                            <span class="palette-card__swatches" aria-hidden="true">
+                                <i style="background:#A86710"></i>
+                                <i style="background:#0F0A01"></i>
+                                <i style="background:#DFD3A0"></i>
+                            </span>
+                            <span class="palette-card__name" data-lang="palette_linen">Лён</span>
+                        </button>
+                        <button type="button" role="radio" data-palette-id="straw" onclick="window.setColorPalette('straw')" class="palette-card" aria-checked="false" title="Солома">
+                            <span class="palette-card__swatches" aria-hidden="true">
+                                <i style="background:#11100C"></i>
+                                <i style="background:#C7BBA0"></i>
+                                <i style="background:#D2AC61"></i>
+                                <i style="background:#A97F30"></i>
+                            </span>
+                            <span class="palette-card__name" data-lang="palette_straw">Солома</span>
+                        </button>
+                        <button type="button" role="radio" data-palette-id="river" onclick="window.setColorPalette('river')" class="palette-card" aria-checked="false" title="Река">
+                            <span class="palette-card__swatches" aria-hidden="true">
+                                <i style="background:#A2B5A0"></i>
+                                <i style="background:#DCC8A3"></i>
+                                <i style="background:#4C6A73"></i>
+                                <i style="background:#5A4A3A"></i>
+                            </span>
+                            <span class="palette-card__name" data-lang="palette_river">Река</span>
+                        </button>
+                        <button type="button" role="radio" data-palette-id="grove" onclick="window.setColorPalette('grove')" class="palette-card" aria-checked="false" title="Роща">
+                            <span class="palette-card__swatches" aria-hidden="true">
+                                <i style="background:#E9E6DB"></i>
+                                <i style="background:#CECBBA"></i>
+                                <i style="background:#A39F87"></i>
+                                <i style="background:#798064"></i>
+                                <i style="background:#646742"></i>
+                                <i style="background:#415451"></i>
+                            </span>
+                            <span class="palette-card__name" data-lang="palette_grove">Роща</span>
+                        </button>
+                        <button type="button" role="radio" data-palette-id="crema" onclick="window.setColorPalette('crema')" class="palette-card" aria-checked="false" title="Крема">
+                            <span class="palette-card__swatches" aria-hidden="true">
+                                <i style="background:#EAD2B0"></i>
+                                <i style="background:#963417"></i>
+                                <i style="background:#3B3F21"></i>
+                                <i style="background:#628981"></i>
+                                <i style="background:#CF893A"></i>
+                            </span>
+                            <span class="palette-card__name" data-lang="palette_crema">Крема</span>
+                        </button>
+                        <button type="button" role="radio" data-palette-id="payne" onclick="window.setColorPalette('payne')" class="palette-card" aria-checked="false" title="Сумерки">
+                            <span class="palette-card__swatches" aria-hidden="true">
+                                <i style="background:#4E6A83"></i>
+                                <i style="background:#A9B5B4"></i>
+                                <i style="background:#FAB44B"></i>
+                                <i style="background:#494822"></i>
+                                <i style="background:#4C3625"></i>
+                            </span>
+                            <span class="palette-card__name" data-lang="palette_payne">Сумерки</span>
+                        </button>
+                        <button type="button" role="radio" data-palette-id="clay" onclick="window.setColorPalette('clay')" class="palette-card" aria-checked="false" title="Глина">
+                            <span class="palette-card__swatches" aria-hidden="true">
+                                <i style="background:#994215"></i>
+                                <i style="background:#E2D5C2"></i>
+                                <i style="background:#788990"></i>
+                                <i style="background:#8D957E"></i>
+                            </span>
+                            <span class="palette-card__name" data-lang="palette_clay">Глина</span>
                         </button>
                     </div>
                 </div>
@@ -2182,7 +2315,7 @@
         <div id="publish-rules-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto h-[min(92dvh,720px)] border border-slate-100 dark:border-slate-700">
             <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0 bg-slate-50 dark:bg-slate-800/80">
                 <div class="min-w-0">
-                    <h3 class="text-lg font-bold text-slate-800 dark:text-white truncate"><i class="fa-solid fa-book-open mr-2 text-blue-500"></i>Правила Полёвки</h3>
+                    <h3 class="text-base sm:text-lg font-bold text-slate-800 dark:text-white leading-tight"><i class="fa-solid fa-book-open mr-2 text-blue-500"></i>Правила Полёвки</h3>
                     <p id="publish-rules-version" class="text-[10px] font-semibold text-slate-400 mt-0.5">Версия –</p>
                 </div>
                 <button type="button" onclick="window.closePublishRulesModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0 w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center" aria-label="Закрыть">
@@ -2202,7 +2335,7 @@
         <div id="legal-doc-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto h-[min(92dvh,720px)] border border-slate-100 dark:border-slate-700">
             <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0 bg-slate-50 dark:bg-slate-800/80">
                 <div class="min-w-0">
-                    <h3 id="legal-doc-title" class="text-lg font-bold text-slate-800 dark:text-white truncate"><i class="fa-solid fa-shield-halved mr-2 text-blue-500"></i>Документ</h3>
+                    <h3 id="legal-doc-title" class="text-base sm:text-lg font-bold text-slate-800 dark:text-white leading-tight"><i class="fa-solid fa-shield-halved mr-2 text-blue-500"></i>Документ</h3>
                     <p id="legal-doc-version" class="text-[10px] font-semibold text-slate-400 mt-0.5">Версия –</p>
                 </div>
                 <button type="button" onclick="window.closeLegalDocModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0 w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center" aria-label="Закрыть">

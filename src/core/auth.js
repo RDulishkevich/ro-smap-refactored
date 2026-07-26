@@ -1345,6 +1345,7 @@ export function initAuth() {
         const s = window.currentUser.settings;
         if(s.theme) window.setTheme(s.theme, true);
         if(s.palette && window.setColorPalette) window.setColorPalette(s.palette, true);
+        if(s.font && window.setUiFont) window.setUiFont(s.font, true);
         if(s.mapStyle) window.setMapStyle(s.mapStyle, true);
         if(s.mapProvider && window.setMapProvider) window.setMapProvider(s.mapProvider, true);
         if(s.lang) window.setLanguage(s.lang, true);
@@ -1641,6 +1642,12 @@ export function initAuth() {
 
         document.querySelectorAll('#palette-picker [data-palette-id]').forEach(btn => {
             const on = btn.getAttribute('data-palette-id') === (window.currentPalette || 'coral');
+            btn.classList.toggle('is-active', on);
+            btn.setAttribute('aria-checked', on ? 'true' : 'false');
+        });
+
+        document.querySelectorAll('#font-picker [data-font-id]').forEach(btn => {
+            const on = btn.getAttribute('data-font-id') === (window.currentFont || 'satoshi');
             btn.classList.toggle('is-active', on);
             btn.setAttribute('aria-checked', on ? 'true' : 'false');
         });

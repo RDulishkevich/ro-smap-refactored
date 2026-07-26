@@ -12,3 +12,10 @@ cloud/backups/
 .env.*
 !.env.example
 
+
+# Local design / project backups
+backups/
+
+# Temp font unpack leftovers
+assets/fonts/_extract/
+

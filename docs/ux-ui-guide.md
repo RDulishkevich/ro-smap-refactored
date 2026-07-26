@@ -20,6 +20,28 @@
 5. **Antispam на запись.** Любой пользовательский текст/спам-жест через `spamGuardCheck` + `spamGuardToast`.
 6. **Данные через merge + sync.** Не перезаписывать JSON «вслепую»; использовать существующие `sync*` / merge-хелперы.
 7. **Desktop ≥ 768px, mobile &lt; 768.** В JS: `window.innerWidth < 768`. В CSS/Tailwind: `md:`.
+8. **Шрифты и `.hidden` — один контракт** (см. §1.1 ниже). Не чинить иконки точечными `display` override.
+
+---
+
+## 1.1 Шрифты и скрытие иконок
+
+**Текстовый стек (канон):**
+| Роль | CSS | Значение |
+|------|-----|----------|
+| UI | `--font-ui` / `font-sans` | по `data-font` (по умолчанию Satoshi → Plus Jakarta Sans → system-ui) |
+| Бренд / заголовки | `--font-brand` / `font-brand` | по `data-font` (по умолчанию Clash Display → Satoshi) |
+| Моно | `--font-mono` / `font-mono` | ui-monospace → Menlo / Consolas |
+
+Источники: Fontshare (Satoshi, Clash) + Google Fonts (Jakarta fallback) + локальные в `assets/fonts/` (Morfin Sans, Rostov, Klukva, Geologica, Forest Smooth, Neucha, Coolvetica). Выбор в настройках: `setUiFont` → `data-font`. Порядок в `index.html`: **Font Awesome → текстовые шрифты → fonts.css → Tailwind → style.css → glass.css**. Токены держать синхронно в `style.css`, `glass.css`, `fonts.css`, `tailwind.config.js`.
+
+**Иконки:** только Font Awesome 6 Free (`fa-solid` / `fa-regular`). Скрытие — класс **`hidden`**. В app CSS:
+
+```css
+.hidden { display: none !important; }
+```
+
+Так FA `display:inline-block` и `display:flex` на кнопках не «пробивают» скрытие (play/pause, аватар, бейджи). Не добавлять отдельные правила вида `.fa-play.hidden`.
 
 ---
 
@@ -334,7 +356,7 @@ window.showToast('…', { silent: true }); // без звука
 
 - Тёмная тема: класс `html.dark` (`setTheme`).
 - В разметке пары: `bg-white dark:bg-slate-800`, `text-slate-600 dark:text-slate-300`.
-- Акценты: CSS-переменные `--accent`, `--ink`, палитры `data-palette`.
+- Акценты: CSS-переменные `--accent`, `--ink`, палитры `data-palette` (`coral`, `terre`, `sparrow`, `mist`, `bistre`, `citrus`, `linen`, `straw`, `river`, `grove`, `crema`, `payne`, `clay`).
 - Не вводить «ещё один purple gradient» вне существующей системы стекла/панелей.
 
 ---
