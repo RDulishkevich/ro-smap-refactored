@@ -6954,6 +6954,7 @@ window.setMapStyle = function(style, skipSave = false) {
             mapContainer.classList.remove('map-monochrome');
         }
     }
+    if (window.scheduleYandex3MapAppearance) window.scheduleYandex3MapAppearance();
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('mapStyle', style);
     if (window.refreshSettingsUI) window.refreshSettingsUI();
 }
@@ -7082,6 +7083,7 @@ window.setTheme = function(theme, skipSave = false) {
     if (window.isMapLibreProvider && window.isMapLibreProvider(window.currentMapProvider) && window.applyMapboxBasemapConfig) {
         window.applyMapboxBasemapConfig();
     }
+    if (window.scheduleYandex3MapAppearance) window.scheduleYandex3MapAppearance();
 };
 
 window.setColorPalette = function(palette, skipSave = false) {
@@ -7096,6 +7098,7 @@ window.setColorPalette = function(palette, skipSave = false) {
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('palette', next);
     if (window.refreshSettingsUI) window.refreshSettingsUI();
     if (window.refreshAnalyzersTheme) window.refreshAnalyzersTheme();
+    if (window.scheduleYandex3MapAppearance) window.scheduleYandex3MapAppearance();
 };
 
 window.setUiFont = function(font, skipSave = false) {
@@ -7109,6 +7112,7 @@ window.setUiFont = function(font, skipSave = false) {
     try { localStorage.setItem('rosmap_font', next); } catch (_) {}
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('font', next);
     if (window.refreshSettingsUI) window.refreshSettingsUI();
+    if (window.scheduleYandex3MapAppearance) window.scheduleYandex3MapAppearance();
 };
 
 /** Event delegation — reliable even if inline onclick is blocked or nodes are re-docked. */

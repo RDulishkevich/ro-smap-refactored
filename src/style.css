@@ -3221,6 +3221,7 @@ textarea.modal-input {
     height: 100%;
     min-height: 100%;
     filter: none !important;
+    font-family: var(--font-ui);
 }
 #map.is-yandex3 > * {
     width: 100% !important;
@@ -3235,6 +3236,16 @@ textarea.modal-input {
 #map.is-yandex3,
 #map.is-yandex3 * {
     filter: none !important;
+}
+/* Attribution / HTML overlays follow UI font (vector tile glyphs cannot) */
+#map.is-yandex3 [class*="copyright"],
+#map.is-yandex3 [class*="attribution"],
+#map.is-yandex3 [class*="control"],
+#map.is-yandex3 .ymaps3x0--copyright,
+#map.is-yandex3 .ymaps3x0--map-copyrights,
+#map.is-yandex3 .custom-marker,
+#map.is-yandex3 .walker-marker {
+    font-family: var(--font-ui) !important;
 }
 
 /* MapLibre GL (OpenFreeMap) main map */

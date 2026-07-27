@@ -357,6 +357,8 @@ window.showToast('…', { silent: true }); // без звука
 - Тёмная тема: класс `html.dark` (`setTheme`).
 - В разметке пары: `bg-white dark:bg-slate-800`, `text-slate-600 dark:text-slate-300`.
 - Акценты: CSS-переменные `--accent`, `--ink`, палитры `data-palette` (`coral`, `terre`, `sparrow`, `mist`, `bistre`, `citrus`, `linen`, `straw`, `river`, `grove`, `crema`, `payne`, `clay`).
+- Шрифт UI: `data-font` / `setUiFont` → `--font-ui` / `--font-brand`.
+- **Яндекс API 3** (`yandex3`): при смене темы / палитры / mono / шрифта вызывается `applyYandex3MapAppearance` — `theme` light|dark + `customization` по CSS-токенам (`--accent`, `--ink`, `--surface`, `--palette-secondary`). Подписи тайлов красятся под `--ink`; `font-family` у векторных глифов API не меняет — HTML-маркеры и копирайты берут `--font-ui`.
 - Не вводить «ещё один purple gradient» вне существующей системы стекла/панелей.
 
 ---

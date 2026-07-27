@@ -2,6 +2,8 @@
  * Quiet parallel engine: Yandex Maps JS API 3.x
  * Provider id: `yandex3` — opt-in from Settings. Default remains API 2.1 (`yandex`).
  * Hides basemap POI via scheme customization (not possible in 2.1).
+ * Scheme colors follow UI theme + color palette; label colors follow --ink.
+ * (Vector tiles cannot swap label font-family; attribution/overlays use --font-ui.)
  *
  * API 3 requires a non-empty HTTP Referer list on the key. Domains only
  * (polevka.art, localhost, 127.0.0.1) — no https:// or /*. Propagation ~15 min.
@@ -13,6 +15,138 @@ window.YANDEX3_POI_CUSTOMIZATION = [
         stylers: [{ visibility: 'off' }]
     }
 ];
+
+window.readCssThemeVar = function readCssThemeVar(name, fallback = '') {
+    try {
+        const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return v || fallback;
+    } catch (_) {
+        return fallback;
+    }
+};
+
+window.getYandex3ThemeId = function getYandex3ThemeId() {
+    return window.currentTheme === 'dark' ? 'dark' : 'light';
+};
+
+/** Build scheme customization from current UI tokens (palette / dark / mono). */
+window.buildYandex3Customization = function buildYandex3Customization() {
+    const accent = window.readCssThemeVar('--accent', '#ff5a3d');
+    const ink = window.readCssThemeVar('--ink', '#141414');
+    const surface = window.readCssThemeVar('--surface', '#ebe8e4');
+    const muted = window.readCssThemeVar('--ink-muted', '#6b7280');
+    const secondary = window.readCssThemeVar('--palette-secondary', accent);
+    const dark = window.currentTheme === 'dark';
+    const mono = window.currentMapStyle === 'monochrome';
+
+    const rules = [
+        // Quiet basemap — hide POI / transit stops (product requirement)
+        {
+            tags: { any: ['poi', 'transit_location'] },
+            stylers: [{ visibility: 'off' }]
+        }
+    ];
+
+    if (mono) {
+        rules.push({ stylers: [{ saturation: -1 }] });
+    } else {
+        // Soft global pull toward brand accent (keeps map readable)
+        rules.push({
+            stylers: [{ hue: accent, saturation: 0.1 }]
+        });
+        rules.push({
+            tags: { any: ['water'] },
+            elements: 'geometry',
+            stylers: [{ hue: secondary, saturation: 0.2, lightness: dark ? -0.05 : 0.08 }]
+        });
+        rules.push({
+            tags: { any: ['landscape', 'landcover', 'vegetation', 'park'] },
+            elements: 'geometry',
+            stylers: [{ hue: accent, saturation: 0.12, lightness: dark ? -0.04 : 0.06 }]
+        });
+        rules.push({
+            tags: { any: ['building'] },
+            elements: 'geometry',
+            stylers: [{ hue: muted, saturation: 0.05, lightness: dark ? -0.08 : 0.04 }]
+        });
+        rules.push({
+            tags: { any: ['road'] },
+            elements: 'geometry',
+            stylers: [{ hue: muted, saturation: 0.04, lightness: dark ? -0.02 : 0.1 }]
+        });
+    }
+
+    // Toponym / road labels — ink + surface outline to match UI typography contrast
+    // Stick to documented tags only (unknown tags drop the whole block).
+    rules.push({
+        tags: { any: ['admin', 'locality', 'address', 'road'] },
+        elements: 'label.text.fill',
+        stylers: [{ color: ink }]
+    });
+    rules.push({
+        tags: { any: ['admin', 'locality', 'address', 'road'] },
+        elements: 'label.text.outline',
+        stylers: [{ color: surface, opacity: 0.9 }]
+    });
+
+    return rules;
+};
+
+/** Re-read CSS tokens after palette/font attribute paint, then sync the map. */
+window.scheduleYandex3MapAppearance = function scheduleYandex3MapAppearance() {
+    if (!window.applyYandex3MapAppearance) return;
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            try { window.applyYandex3MapAppearance(); } catch (_) {}
+        });
+    });
+};
+
+/** Sync Yandex 3 map theme + scheme customization with UI settings. */
+window.applyYandex3MapAppearance = function applyYandex3MapAppearance() {
+    if (!window.yandex3Map) return;
+    if (window.normalizeMapProvider && window.normalizeMapProvider(window.currentMapProvider) !== 'yandex3') return;
+
+    const theme = window.getYandex3ThemeId();
+    const container = document.getElementById('map');
+    if (container) {
+        if (window.currentMapStyle === 'monochrome') container.classList.add('map-monochrome');
+        else container.classList.remove('map-monochrome');
+    }
+
+    try {
+        if (typeof window.yandex3Map.update === 'function') {
+            window.yandex3Map.update({ theme });
+        }
+    } catch (err) {
+        console.warn('[yandex3] theme update failed', err);
+    }
+
+    const customization = window.buildYandex3Customization();
+    const layer = window.yandex3SchemeLayer;
+    if (layer && typeof layer.update === 'function') {
+        try {
+            layer.update({ customization });
+            return;
+        } catch (err) {
+            console.warn('[yandex3] customization update failed', err);
+        }
+    }
+
+    // Fallback: recreate scheme layer if update is unavailable
+    if (window.ymaps3?.YMapDefaultSchemeLayer && window.yandex3Map) {
+        try {
+            if (layer) {
+                try { window.yandex3Map.removeChild(layer); } catch (_) {}
+            }
+            const next = new window.ymaps3.YMapDefaultSchemeLayer({ customization });
+            window.yandex3Map.addChild(next);
+            window.yandex3SchemeLayer = next;
+        } catch (err) {
+            console.warn('[yandex3] scheme recreate failed', err);
+        }
+    }
+};
 
 window.getYandexMapsApiKey = function getYandexMapsApiKey() {
     const fromWindow = String(window.YANDEX_MAPS_API_KEY || '').trim();
@@ -111,6 +245,7 @@ window.destroyYandex3Map = function destroyYandex3Map() {
     }
     window.yandex3Listener = null;
     window.yandex3FeaturesLayer = null;
+    window.yandex3SchemeLayer = null;
     window.__yandex3PointerCoords = null;
     if (window.map && window.map.__provider === 'yandex3') window.map = null;
     const container = document.getElementById('map');
@@ -337,22 +472,24 @@ window.initYandex3Map = async function initYandex3Map() {
                 center: [39.74427, 47.23371],
                 zoom: 15
             },
-            theme: window.currentTheme === 'dark' ? 'dark' : 'light',
+            theme: window.getYandex3ThemeId ? window.getYandex3ThemeId() : (window.currentTheme === 'dark' ? 'dark' : 'light'),
             showScaleInCopyrights: true
         });
 
-        // Scheme first without customization (customization can fail silently → white canvas).
+        // Scheme first with theme-aware customization (POI off + palette tint).
         let schemeLayer;
+        const customization = window.buildYandex3Customization
+            ? window.buildYandex3Customization()
+            : window.YANDEX3_POI_CUSTOMIZATION;
         try {
-            schemeLayer = new YMapDefaultSchemeLayer({
-                customization: window.YANDEX3_POI_CUSTOMIZATION
-            });
+            schemeLayer = new YMapDefaultSchemeLayer({ customization });
             map.addChild(schemeLayer);
         } catch (custErr) {
             console.warn('[yandex3] customization failed, plain scheme', custErr);
             schemeLayer = new YMapDefaultSchemeLayer();
             map.addChild(schemeLayer);
         }
+        window.yandex3SchemeLayer = schemeLayer;
         if (YMapDefaultFeaturesLayer) {
             try { map.addChild(new YMapDefaultFeaturesLayer()); } catch (_) {}
         }
