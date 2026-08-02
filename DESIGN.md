@@ -34,6 +34,7 @@
 | Secondary / soft surface | `#FEC674` | `#3a3228` | Soft cards, secondary chips |
 | Ink | `#222222` | `#FFF3E2` | Body text |
 | Accent ink (on cream) | `#9a6420` | `#FEC674` | Links / active labels |
+| On accent fill | `#222222` | `#222222` | Text/icons on peach (never white) |
 | Surface / panel | `#FFF3E2` | `#222222` | Dock, modals, player |
 | Panel elevated | `#fff9f0` | `#2c2c2c` | Inputs, nested surfaces |
 | CTA | `#222222` | `#FFF3E2` | Primary buttons, play, FABs |

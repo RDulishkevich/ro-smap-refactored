@@ -357,7 +357,7 @@ window.showToast('…', { silent: true }); // без звука
 - Тёмная тема: класс `html.dark` (`setTheme`).
 - В разметке пары: `bg-white dark:bg-slate-800`, `text-slate-600 dark:text-slate-300`.
 - **Brand DS (default `coral` / «Персик»):** `#FBAB57` accent, `#FEC674` secondary, `#222222` ink/CTA, `#FFF3E2` cream panels. Dark: cream ink on `#222222`, same peach accent. Accent ≤10% of UI.
-- **Кнопки:** primary = charcoal CTA; accent = peach + charcoal text; soft = secondary; ghost = rim. Press `scale(0.97)`.
+- **Buttons:** primary = charcoal CTA; accent fill always uses `--on-accent` `#222` (never white on peach); soft = secondary; ghost = rim. Press `scale(0.97)`.
 - Шрифт по умолчанию: `geo-klukva` — Geologica (UI) + Klukva (brand, оптически +16%). Чистая Klukva — `--font-optical: 1.12`.
 - **Яндекс API 3** (`yandex3`): стандартная схема Яндекса (`light`/`dark` + скрытие POI). Без tint под палитру UI.
 - Не вводить «ещё один purple gradient» вне существующей системы стекла/панелей.
