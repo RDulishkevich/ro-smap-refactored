@@ -1,6 +1,6 @@
 /**
  * Transactional HTML email templates for Полёвка (RU, RF SMTP).
- * Brand tokens from product UI: ink #141414, accent #ff5a3d.
+ * Brand tokens from product UI: ink #222222, accent #FBAB57, paper #FFF3E2.
  * Table + inline styles for client compatibility; soft depth via shadows/layers.
  */
 
@@ -13,16 +13,16 @@ function esc(s) {
 }
 
 const BRAND = {
-    ink: '#141414',
-    accent: '#ff5a3d',
-    accentHover: '#e84a2f',
-    accentSoft: '#fff1ee',
-    accentBorder: '#ffd0c6',
-    muted: '#6b7280',
-    soft: '#9ca3af',
-    line: '#efe8e6',
+    ink: '#222222',
+    accent: '#FBAB57',
+    accentHover: '#e8953f',
+    accentSoft: '#FFF3E2',
+    accentBorder: '#FEC674',
+    muted: '#7a6a58',
+    soft: '#b8a894',
+    line: '#f0e4d4',
     paper: '#ffffff',
-    canvas: '#f6f3f2',
+    canvas: '#FFF3E2',
     site: 'https://www.polevka.art'
 };
 

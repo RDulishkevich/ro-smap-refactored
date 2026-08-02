@@ -1,6 +1,6 @@
 /**
  * Local UI fonts + data-font theme switch.
- * Default remains Satoshi / Clash Display (loaded from Fontshare in index.html).
+ * Default pair: Geologica (UI) + Klukva (brand) — Klukva is optically small, so --font-*-optical bumps size.
  */
 
 @font-face {
@@ -53,10 +53,40 @@
     font-display: swap;
 }
 
-html[data-font="satoshi"],
+:root {
+    --font-optical: 1;
+    --font-brand-optical: 1;
+    --tracking-ui: -0.012em;
+    --tracking-brand: -0.02em;
+    --leading-tight: 1.2;
+    --leading-snug: 1.35;
+    --leading-body: 1.48;
+    --text-xs: 0.75rem;
+    --text-sm: 0.8125rem;
+    --text-md: 0.9375rem;
+    --text-base: 1rem;
+    --text-lg: 1.125rem;
+    --text-xl: 1.35rem;
+    --text-2xl: 1.65rem;
+}
+
+/* Default — Geologica UI + Klukva brand */
+html[data-font="geo-klukva"],
 html:not([data-font]) {
+    --font-ui: "Geologica", "Satoshi", "Plus Jakarta Sans", system-ui, sans-serif;
+    --font-brand: "Klukva", "Geologica", system-ui, sans-serif;
+    --font-optical: 1.02;
+    --font-brand-optical: 1.16;
+    --tracking-ui: -0.01em;
+    --tracking-brand: 0.012em;
+}
+html[data-font="satoshi"] {
     --font-ui: "Satoshi", "Plus Jakarta Sans", system-ui, sans-serif;
     --font-brand: "Clash Display", "Satoshi", sans-serif;
+    --font-optical: 1;
+    --font-brand-optical: 1;
+    --tracking-ui: -0.015em;
+    --tracking-brand: -0.03em;
 }
 html[data-font="morfin"] {
     --font-ui: "Morfin Sans", system-ui, sans-serif;
@@ -69,10 +99,18 @@ html[data-font="rostov"] {
 html[data-font="klukva"] {
     --font-ui: "Klukva", system-ui, sans-serif;
     --font-brand: "Klukva", system-ui, sans-serif;
+    /* Klukva metrics read small — lift body + titles */
+    --font-optical: 1.12;
+    --font-brand-optical: 1.2;
+    --tracking-ui: 0.01em;
+    --tracking-brand: 0.015em;
+    --leading-body: 1.42;
 }
 html[data-font="geologica"] {
     --font-ui: "Geologica", system-ui, sans-serif;
     --font-brand: "Geologica", system-ui, sans-serif;
+    --font-optical: 1.02;
+    --tracking-ui: -0.01em;
 }
 html[data-font="forest"] {
     --font-ui: "Forest Smooth", system-ui, sans-serif;
@@ -81,6 +119,7 @@ html[data-font="forest"] {
 html[data-font="neucha"] {
     --font-ui: "Neucha", system-ui, sans-serif;
     --font-brand: "Neucha", system-ui, sans-serif;
+    --font-optical: 1.08;
 }
 html[data-font="coolvetica"] {
     --font-ui: "Coolvetica", system-ui, sans-serif;
@@ -91,10 +130,39 @@ html,
 body {
     font-family: var(--font-ui) !important;
 }
+body {
+    font-size: calc(1rem * var(--font-optical, 1));
+    letter-spacing: var(--tracking-ui);
+    line-height: var(--leading-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+.brand-title,
+.font-brand,
+#player-title,
+.dock-view-title,
+.app-rail__brand {
+    font-family: var(--font-brand) !important;
+    letter-spacing: var(--tracking-brand);
+    line-height: var(--leading-tight);
+}
 .brand-title,
 .font-brand,
 #player-title {
-    font-family: var(--font-brand) !important;
+    font-size: calc(1em * var(--font-brand-optical, 1));
+    font-weight: 700;
+    text-wrap: balance;
+}
+
+.modal-label,
+.ui-tab,
+.mobile-nav-btn span:not(.mobile-nav-badge),
+.admin-subtab-btn,
+.palette-card__name,
+.font-card__name {
+    font-family: var(--font-ui);
+    letter-spacing: 0.01em;
 }
 
 .font-picker {
@@ -114,33 +182,29 @@ body {
     gap: 0.2rem;
     padding: 0.55rem 0.6rem;
     border-radius: 1rem;
-    border: 1px solid rgba(20, 20, 20, 0.1);
-    background: rgba(255, 255, 255, 0.45);
+    border: 1px solid var(--panel-border, rgba(34, 34, 34, 0.1));
+    background: color-mix(in srgb, var(--panel-solid, #FFF3E2) 70%, transparent);
     color: inherit;
     cursor: pointer;
     text-align: left;
-    transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+    transition: border-color 160ms var(--ease-out, ease), transform 160ms var(--ease-out, ease), background 160ms ease;
 }
-.font-card:hover { transform: translateY(-1px); }
+.font-card:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--accent, #FBAB57) 45%, transparent);
+}
 .font-card.is-active {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px var(--accent-soft);
+    border-color: var(--accent, #FBAB57);
+    background: var(--accent-soft, rgba(251, 171, 87, 0.18));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent, #FBAB57) 35%, transparent);
 }
 .font-card__sample {
-    font-size: 1.15rem;
+    font-size: 1.05rem;
     font-weight: 700;
-    letter-spacing: -0.02em;
     line-height: 1.2;
 }
 .font-card__name {
-    font-size: 0.65rem;
+    font-size: 0.68rem;
     font-weight: 700;
-    letter-spacing: 0.01em;
     opacity: 0.72;
-    font-family: var(--font-ui);
-}
-html.dark .font-card,
-.dark .font-card {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.12);
 }

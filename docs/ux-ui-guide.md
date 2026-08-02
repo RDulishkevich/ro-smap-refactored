@@ -33,15 +33,15 @@
 | Бренд / заголовки | `--font-brand` / `font-brand` | по `data-font` (по умолчанию Clash Display → Satoshi) |
 | Моно | `--font-mono` / `font-mono` | ui-monospace → Menlo / Consolas |
 
-Источники: Fontshare (Satoshi, Clash) + Google Fonts (Jakarta fallback) + локальные в `assets/fonts/` (Morfin Sans, Rostov, Klukva, Geologica, Forest Smooth, Neucha, Coolvetica). Выбор в настройках: `setUiFont` → `data-font`. Порядок в `index.html`: **Font Awesome → текстовые шрифты → fonts.css → Tailwind → style.css → glass.css**. Токены держать синхронно в `style.css`, `glass.css`, `fonts.css`, `tailwind.config.js`.
+Источники: локальные `assets/fonts/` (Geologica, Klukva, …) + Fontshare (Satoshi/Clash опционально) + Jakarta fallback. По умолчанию `data-font="geo-klukva"`. Порядок в `index.html`: **Iconoir → текстовые шрифты → Tailwind → style.css → glass.css → fonts.css**. Токены держать синхронно в `style.css`, `glass.css`, `fonts.css`.
 
-**Иконки:** только Font Awesome 6 Free (`fa-solid` / `fa-regular`). Скрытие — класс **`hidden`**. В app CSS:
+**Иконки:** только [Iconoir](https://iconoir.com) (`iconoir-*`, stroke 24×24). Скрытие — класс **`hidden`**. В app CSS:
 
 ```css
 .hidden { display: none !important; }
 ```
 
-Так FA `display:inline-block` и `display:flex` на кнопках не «пробивают» скрытие (play/pause, аватар, бейджи). Не добавлять отдельные правила вида `.fa-play.hidden`.
+Так Iconoir `display:inline-block` и `display:flex` на кнопках не «пробивают» скрытие (play/pause, аватар, бейджи). Не добавлять отдельные правила вида `.iconoir-play.hidden`. Загрузчик: `iconoir-refresh-circle iconoir-spin`.
 
 ---
 
@@ -356,9 +356,10 @@ window.showToast('…', { silent: true }); // без звука
 
 - Тёмная тема: класс `html.dark` (`setTheme`).
 - В разметке пары: `bg-white dark:bg-slate-800`, `text-slate-600 dark:text-slate-300`.
-- Акценты: CSS-переменные `--accent`, `--ink`, палитры `data-palette` (`coral`, `terre`, `sparrow`, `mist`, `bistre`, `citrus`, `linen`, `straw`, `river`, `grove`, `crema`, `payne`, `clay`).
-- Шрифт UI: `data-font` / `setUiFont` → `--font-ui` / `--font-brand`.
-- **Яндекс API 3** (`yandex3`): при смене темы / палитры / mono / шрифта вызывается `applyYandex3MapAppearance` — `theme` light|dark + `customization` по CSS-токенам (`--accent`, `--ink`, `--surface`, `--palette-secondary`). Подписи тайлов красятся под `--ink`; `font-family` у векторных глифов API не меняет — HTML-маркеры и копирайты берут `--font-ui`.
+- **Brand DS (default `coral` / «Персик»):** `#FBAB57` accent, `#FEC674` secondary, `#222222` ink/CTA, `#FFF3E2` cream panels. Dark: cream ink on `#222222`, same peach accent. Accent ≤10% of UI.
+- **Кнопки:** primary = charcoal CTA; accent = peach + charcoal text; soft = secondary; ghost = rim. Press `scale(0.97)`.
+- Шрифт по умолчанию: `geo-klukva` — Geologica (UI) + Klukva (brand, оптически +16%). Чистая Klukva — `--font-optical: 1.12`.
+- **Яндекс API 3** (`yandex3`): стандартная схема Яндекса (`light`/`dark` + скрытие POI). Без tint под палитру UI.
 - Не вводить «ещё один purple gradient» вне существующей системы стекла/панелей.
 
 ---

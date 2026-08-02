@@ -411,7 +411,7 @@ export function initAuth() {
                     let data = await window.apiLogin(login, pass);
                     if (data?.needsTotp) {
                         const totpCode = await window.CustomUI.open({
-                            title: '<i class="fa-solid fa-shield-halved mr-2 text-blue-500"></i>Двухфакторная защита',
+                            title: '<i class="iconoir-shield mr-2 text-blue-500"></i>Двухфакторная защита',
                             message: 'Введите 6-значный код из приложения аутентификатора (Google Authenticator, Aegis и т.п.).',
                             showInput: true,
                             inputPlaceholder: '000000',
@@ -454,7 +454,7 @@ export function initAuth() {
 
     window.logoutUser = async function() {
         const confirmed = await window.CustomUI.open({
-            title: '<i class="fa-solid fa-right-from-bracket mr-2 text-red-500"></i>Выйти из аккаунта?',
+            title: '<i class="iconoir-log-out mr-2 text-red-500"></i>Выйти из аккаунта?',
             message: 'Вы уверены, что хотите выйти? Несохранённые данные на этом устройстве могут быть потеряны.',
             confirmText: 'Выйти',
             confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
@@ -768,7 +768,7 @@ export function initAuth() {
 
         const sessions = window.getMySessions();
         if (!sessions.length) {
-            container.innerHTML = `<div class="text-center py-12 text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm"><i class="fa-solid fa-route text-4xl mb-3 opacity-30 block"></i><p class="font-medium text-sm">У вас пока нет экспедиций.</p><p class="text-xs mt-1">Создайте сессию, чтобы группировать записи одного выезда перед публикацией.</p></div>`;
+            container.innerHTML = `<div class="text-center py-12 text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm"><i class="iconoir-path-arrow text-4xl mb-3 opacity-30 block"></i><p class="font-medium text-sm">У вас пока нет экспедиций.</p><p class="text-xs mt-1">Создайте сессию, чтобы группировать записи одного выезда перед публикацией.</p></div>`;
             return;
         }
 
@@ -796,25 +796,25 @@ export function initAuth() {
                     <div class="min-w-0">
                         <h5 class="font-bold text-slate-800 dark:text-white text-sm truncate">${session.title}</h5>
                         <p class="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1 flex-wrap">
-                            ${createdDate ? `<span><i class="fa-regular fa-calendar mr-1"></i>${createdDate}</span> · ` : ''}
+                            ${createdDate ? `<span><i class="iconoir-calendar mr-1"></i>${createdDate}</span> · ` : ''}
                             <span>${soundsInSession.length} ${soundsInSession.length === 1 ? 'запись' : 'записей'}</span>
                         </p>
-                        ${session.route ? `<p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1"><i class="fa-solid fa-route mr-1 opacity-60"></i>${session.route}</p>` : ''}
+                        ${session.route ? `<p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1"><i class="iconoir-path-arrow mr-1 opacity-60"></i>${session.route}</p>` : ''}
                         ${session.purpose ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">${session.purpose}</p>` : ''}
-                        ${participantNames.length ? `<p class="text-[11px] text-slate-400 mt-1"><i class="fa-solid fa-user-group mr-1 opacity-60"></i>${participantNames.join(', ')}</p>` : ''}
+                        ${participantNames.length ? `<p class="text-[11px] text-slate-400 mt-1"><i class="iconoir-group mr-1 opacity-60"></i>${participantNames.join(', ')}</p>` : ''}
                         ${(session.photos && session.photos.length) ? `<div class="flex gap-1.5 mt-2">${session.photos.slice(0, 4).map(src => `<img src="${src}" class="w-9 h-9 rounded-lg object-cover border border-slate-200 dark:border-slate-700">`).join('')}</div>` : ''}
                         ${(session.videoLinks && session.videoLinks.length) || (session.links && session.links.length) ? `
                         <div class="flex flex-wrap gap-1.5 mt-2">
-                            ${(session.videoLinks || []).map(url => `<a href="${url}" target="_blank" rel="noopener" class="profile-link-chip" onclick="event.stopPropagation()"><i class="fa-solid fa-film"></i>Видео</a>`).join('')}
-                            ${(session.links || []).map(url => `<a href="${url}" target="_blank" rel="noopener" class="profile-link-chip" onclick="event.stopPropagation()"><i class="fa-solid fa-link"></i>Ресурс</a>`).join('')}
+                            ${(session.videoLinks || []).map(url => `<a href="${url}" target="_blank" rel="noopener" class="profile-link-chip" onclick="event.stopPropagation()"><i class="iconoir-media-video"></i>Видео</a>`).join('')}
+                            ${(session.links || []).map(url => `<a href="${url}" target="_blank" rel="noopener" class="profile-link-chip" onclick="event.stopPropagation()"><i class="iconoir-link"></i>Ресурс</a>`).join('')}
                         </div>` : ''}
                     </div>
                     <div class="flex items-center gap-1.5 shrink-0" onclick="event.stopPropagation()">
                         <button onclick="window.openSessionModal('${session.id}')" class="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-500 dark:text-slate-300 flex items-center justify-center transition-colors" title="Редактировать экспедицию">
-                            <i class="fa-solid fa-pen text-xs"></i>
+                            <i class="iconoir-edit-pencil text-xs"></i>
                         </button>
                         <button onclick="window.deleteSession('${session.id}').then(() => window.renderSessionsPanel())" class="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-500 flex items-center justify-center transition-colors" title="Удалить экспедицию">
-                            <i class="fa-solid fa-trash-can text-xs"></i>
+                            <i class="iconoir-trash text-xs"></i>
                         </button>
                     </div>
                 </div>
@@ -831,7 +831,7 @@ export function initAuth() {
                 </div>` : `<p class="text-xs text-slate-400 italic mt-2">Пока нет записей – привяжите звук к сессии в вкладке "Мои звуки".</p>`}
                 ${draftCount > 0 ? `
                 <button onclick="event.stopPropagation(); window.publishSessionDrafts('${session.id}')" class="mt-3 w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-sm">
-                    <i class="fa-solid fa-cloud-arrow-up mr-1.5"></i>Опубликовать все черновики (${draftCount})
+                    <i class="iconoir-cloud-upload mr-1.5"></i>Опубликовать все черновики (${draftCount})
                 </button>` : ''}
             </div>`;
         }).join('');
@@ -855,16 +855,16 @@ export function initAuth() {
 
         const resetChip = `
             <button onclick="window.setSidebarSessionFilter(null)" class="sidebar-expedition-reset ${!window.activeSessionId ? 'active' : ''}">
-                <i class="fa-solid fa-layer-group"></i>Все звуки
+                <i class="iconoir-multiple-pages"></i>Все звуки
             </button>`;
 
         if (!sessions.length) {
             container.innerHTML = `
                 ${resetChip}
                 <div class="text-center py-6 text-slate-400 dark:text-slate-500">
-                    <i class="fa-solid fa-route text-3xl mb-2 opacity-30 block"></i>
+                    <i class="iconoir-path-arrow text-3xl mb-2 opacity-30 block"></i>
                     <p class="text-xs font-medium">Пока никто не создал экспедиций.</p>
-                    ${myLogin ? `<button onclick="window.openSessionModal()" class="mt-3 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-sm"><i class="fa-solid fa-plus mr-1"></i>Создать</button>` : ''}
+                    ${myLogin ? `<button onclick="window.openSessionModal()" class="mt-3 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-sm"><i class="iconoir-plus mr-1"></i>Создать</button>` : ''}
                 </div>`;
             return;
         }
@@ -879,7 +879,7 @@ export function initAuth() {
             const joined = myLogin && !mine && Array.isArray(session.participants) && session.participants.includes(myLogin);
             const thumb = (session.photos && session.photos[0])
                 ? `<img src="${session.photos[0]}" alt="" class="sidebar-expedition-thumb">`
-                : `<span class="sidebar-expedition-thumb sidebar-expedition-thumb-fallback"><i class="fa-solid fa-route"></i></span>`;
+                : `<span class="sidebar-expedition-thumb sidebar-expedition-thumb-fallback"><i class="iconoir-path-arrow"></i></span>`;
             return `
             <div class="sidebar-expedition-card ${active ? 'active' : ''}">
                 <div class="flex items-start gap-2.5">
@@ -890,19 +890,19 @@ export function initAuth() {
                             <span class="sidebar-expedition-count">${count}</span>
                         </div>
                         <p class="text-[10px] text-slate-400 mt-0.5 truncate">
-                            <i class="fa-solid fa-user-astronaut mr-1 opacity-60"></i>${session.ownerName}
+                            <i class="iconoir-user-circle mr-1 opacity-60"></i>${session.ownerName}
                             ${mine ? ' · ваша' : (joined ? ' · вы участник' : '')}
                         </p>
-                        ${dateStr || session.route ? `<p class="text-[10px] text-slate-400 mt-0.5 truncate">${dateStr ? `<i class="fa-regular fa-calendar mr-1"></i>${dateStr}` : ''}${dateStr && session.route ? ' · ' : ''}${session.route ? `<i class="fa-solid fa-route mr-1"></i>${session.route}` : ''}</p>` : ''}
+                        ${dateStr || session.route ? `<p class="text-[10px] text-slate-400 mt-0.5 truncate">${dateStr ? `<i class="iconoir-calendar mr-1"></i>${dateStr}` : ''}${dateStr && session.route ? ' · ' : ''}${session.route ? `<i class="iconoir-path-arrow mr-1"></i>${session.route}` : ''}</p>` : ''}
                         <div class="flex gap-1.5 mt-2">
-                            <button type="button" onclick="event.stopPropagation(); window.openExpeditionViewModal('${session.id}')" class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700/80 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 transition-colors"><i class="fa-solid fa-eye mr-1"></i>Посмотреть</button>
-                            <button type="button" onclick="event.stopPropagation(); window.setSidebarSessionFilter('${session.id}')" class="px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-100 transition-colors"><i class="fa-solid fa-filter mr-1"></i>Фильтр</button>
+                            <button type="button" onclick="event.stopPropagation(); window.openExpeditionViewModal('${session.id}')" class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700/80 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 transition-colors"><i class="iconoir-eye mr-1"></i>Посмотреть</button>
+                            <button type="button" onclick="event.stopPropagation(); window.setSidebarSessionFilter('${session.id}')" class="px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-100 transition-colors"><i class="iconoir-filter mr-1"></i>Фильтр</button>
                         </div>
                     </div>
                 </div>
             </div>`;
         }).join('') + (myLogin
-            ? `<button onclick="window.openSessionModal()" class="sidebar-expedition-add"><i class="fa-solid fa-plus mr-1.5"></i>Новая экспедиция</button>`
+            ? `<button onclick="window.openSessionModal()" class="sidebar-expedition-add"><i class="iconoir-plus mr-1.5"></i>Новая экспедиция</button>`
             : '');
     };
 
@@ -914,7 +914,7 @@ export function initAuth() {
 
         const titleEl = document.getElementById('expedition-view-title');
         const body = document.getElementById('expedition-view-body');
-        if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-route mr-2 text-blue-500"></i>${session.title}`;
+        if (titleEl) titleEl.innerHTML = `<i class="iconoir-path-arrow mr-2 text-blue-500"></i>${session.title}`;
 
         const dateStr = session.date ? new Date(session.date).toLocaleDateString('ru-RU') : '–';
         const count = (window.soundsData || []).filter(s =>
@@ -954,7 +954,7 @@ export function initAuth() {
                         ? `window.closeExpeditionViewModal(); window.selectSound('${st.soundId}')`
                         : `window.closeExpeditionViewModal(); if(window.map){window.map.setCenter([${Number(st.lat)},${Number(st.lng)}], 14);}`;
                     return `<button type="button" class="session-route-stop w-full text-left" onclick="${click}"><span class="session-route-stop__num">${i + 1}</span><span class="truncate flex-1 font-semibold text-slate-700 dark:text-slate-200">${title}${st.lat != null ? ` · ${Number(st.lat).toFixed(4)}, ${Number(st.lng).toFixed(4)}` : ''}</span></button>`;
-                }).join('')}</div>${session.routeStops.length > 1 ? `<button type="button" onclick="window.showExpeditionRouteOnMap('${session.id}')" class="mt-2 w-full py-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 text-xs font-bold"><i class="fa-solid fa-map-location-dot mr-1"></i>Показать маршрут на карте</button>` : ''}</div>` : ''}
+                }).join('')}</div>${session.routeStops.length > 1 ? `<button type="button" onclick="window.showExpeditionRouteOnMap('${session.id}')" class="mt-2 w-full py-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 text-xs font-bold"><i class="iconoir-map-pin mr-1"></i>Показать маршрут на карте</button>` : ''}</div>` : ''}
                 ${session.purpose ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Цель</p><p class="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">${session.purpose}</p></div>` : ''}
                 ${participantChips.length || guestChips.length ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1.5">Участники</p><div class="flex flex-wrap gap-1.5">${participantChips.join('')}${guestChips.join('')}</div></div>` : ''}
                 ${links.length ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Ссылки</p><ul class="space-y-1">${links.map(l => `<li><a href="${l}" target="_blank" rel="noopener" class="text-sm text-blue-600 hover:underline break-all">${l}</a></li>`).join('')}</ul></div>` : ''}
@@ -1080,7 +1080,7 @@ export function initAuth() {
 
         const titleEl = document.getElementById('session-modal-title');
         const saveTextEl = document.getElementById('session-form-save-text');
-        if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-route mr-2 text-blue-600"></i>${session ? 'Редактировать экспедицию' : 'Новая экспедиция'}`;
+        if (titleEl) titleEl.innerHTML = `<i class="iconoir-path-arrow mr-2 text-blue-600"></i>${session ? 'Редактировать экспедицию' : 'Новая экспедиция'}`;
         if (saveTextEl) saveTextEl.textContent = session ? 'Сохранить изменения' : 'Создать экспедицию';
 
         const m = document.getElementById('session-modal');
@@ -1147,9 +1147,9 @@ export function initAuth() {
             <div class="session-route-stop">
                 <span class="session-route-stop__num">${i + 1}</span>
                 <span class="truncate flex-1 font-semibold text-slate-700 dark:text-slate-200">${stop.title || `Точка ${i + 1}`} · ${Number(stop.lat).toFixed(4)}, ${Number(stop.lng).toFixed(4)}</span>
-                <button type="button" onclick="window.moveSessionRouteStop(${i}, -1)" class="text-slate-400 hover:text-blue-500 px-1" title="Выше"><i class="fa-solid fa-arrow-up text-[10px]"></i></button>
-                <button type="button" onclick="window.moveSessionRouteStop(${i}, 1)" class="text-slate-400 hover:text-blue-500 px-1" title="Ниже"><i class="fa-solid fa-arrow-down text-[10px]"></i></button>
-                <button type="button" onclick="window.removeSessionRouteStop(${i})" class="text-red-400 hover:text-red-500 px-1"><i class="fa-solid fa-xmark"></i></button>
+                <button type="button" onclick="window.moveSessionRouteStop(${i}, -1)" class="text-slate-400 hover:text-blue-500 px-1" title="Выше"><i class="iconoir-nav-arrow-up text-[10px]"></i></button>
+                <button type="button" onclick="window.moveSessionRouteStop(${i}, 1)" class="text-slate-400 hover:text-blue-500 px-1" title="Ниже"><i class="iconoir-nav-arrow-down text-[10px]"></i></button>
+                <button type="button" onclick="window.removeSessionRouteStop(${i})" class="text-red-400 hover:text-red-500 px-1"><i class="iconoir-xmark"></i></button>
             </div>
         `).join('');
         window.syncSessionRouteTextFromStops();
@@ -1205,7 +1205,7 @@ export function initAuth() {
         container.innerHTML = profiles.map(p => `
             <label class="badge-toggle-chip ${selectedLogins.includes(p.loginName) ? 'active' : ''}">
                 <input type="checkbox" class="hidden" value="${p.loginName}" ${selectedLogins.includes(p.loginName) ? 'checked' : ''} onchange="this.closest('label').classList.toggle('active', this.checked)">
-                <i class="fa-solid fa-user"></i>${p.displayName || p.loginName}
+                <i class="iconoir-user"></i>${p.displayName || p.loginName}
             </label>
         `).join('');
     };
@@ -1236,7 +1236,7 @@ export function initAuth() {
         container.innerHTML = (window.__sessionFormPhotos || []).map((src, i) => `
             <div class="relative">
                 <img src="${src}" class="image-thumb">
-                <button type="button" onclick="window.removeSessionPhoto(${i})" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] shadow-md"><i class="fa-solid fa-xmark"></i></button>
+                <button type="button" onclick="window.removeSessionPhoto(${i})" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] shadow-md"><i class="iconoir-xmark"></i></button>
             </div>
         `).join('');
     };
@@ -1647,7 +1647,7 @@ export function initAuth() {
         });
 
         document.querySelectorAll('#font-picker [data-font-id]').forEach(btn => {
-            const on = btn.getAttribute('data-font-id') === (window.currentFont || 'satoshi');
+            const on = btn.getAttribute('data-font-id') === (window.currentFont || 'geo-klukva');
             btn.classList.toggle('is-active', on);
             btn.setAttribute('aria-checked', on ? 'true' : 'false');
         });
@@ -1837,7 +1837,7 @@ export function initAuth() {
 
     window.logoutAllDevices = async function() {
         const confirmed = await window.CustomUI.open({
-            title: '<i class="fa-solid fa-laptop-slash mr-2 text-red-500"></i>Выйти везде?',
+            title: '<i class="iconoir-laptop mr-2 text-red-500"></i>Выйти везде?',
             message: 'Все сессии на других устройствах будут завершены. На этом устройстве тоже потребуется войти снова.',
             confirmText: 'Выйти везде',
             confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
@@ -2017,16 +2017,16 @@ export function initAuth() {
         if (badgeEl && window.getMyProgress && window.getLevelTitle) {
             const prog = window.getMyProgress();
             badgeEl.classList.remove('hidden');
-            badgeEl.innerHTML = `<i class="fa-solid fa-circle-check"></i>${window.getLevelTitle(prog.level)}`;
+            badgeEl.innerHTML = `<i class="iconoir-check-circle"></i>${window.getLevelTitle(prog.level)}`;
         }
         const joinedEl = document.getElementById('cabinet-user-joined');
         const joinedDate = window.currentUser.joinedAt ? new Date(window.currentUser.joinedAt) : null;
-        if (joinedEl) joinedEl.innerHTML = `<i class="fa-solid fa-calendar-days"></i>${joinedDate && !isNaN(joinedDate) ? joinedDate.toLocaleDateString('ru-RU') : new Date().toLocaleDateString('ru-RU')}`;
+        if (joinedEl) joinedEl.innerHTML = `<i class="iconoir-calendar"></i>${joinedDate && !isNaN(joinedDate) ? joinedDate.toLocaleDateString('ru-RU') : new Date().toLocaleDateString('ru-RU')}`;
 
         const mySounds = window.getUserSounds(login, window.currentUser.username, { includeAllStatuses: true });
 
         const statsEl = document.getElementById('cabinet-user-stats');
-        if (statsEl) statsEl.innerHTML = `<i class="fa-solid fa-microphone"></i>${mySounds.length} звуков`;
+        if (statsEl) statsEl.innerHTML = `<i class="iconoir-microphone"></i>${mySounds.length} звуков`;
 
         const avatar = document.getElementById('cabinet-avatar');
         const fallback = document.getElementById('cabinet-avatar-fallback');
@@ -2078,7 +2078,7 @@ export function initAuth() {
         if(mySounds.length === 0) {
             const statusSummaryEl = document.getElementById('cabinet-moderation-summary');
             if (statusSummaryEl) { statusSummaryEl.classList.add('hidden'); statusSummaryEl.innerHTML = ''; }
-            list.innerHTML = `<div class="text-center py-12 text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm"><i class="fa-solid fa-microphone-slash text-4xl mb-3 opacity-30 block"></i><p class="font-medium text-sm">Вы еще не загрузили ни одного звука.</p><p class="text-xs mt-1">Опубликованные вами звуки появятся здесь.</p></div>`;
+            list.innerHTML = `<div class="text-center py-12 text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm"><i class="iconoir-microphone-mute text-4xl mb-3 opacity-30 block"></i><p class="font-medium text-sm">Вы еще не загрузили ни одного звука.</p><p class="text-xs mt-1">Опубликованные вами звуки появятся здесь.</p></div>`;
             return;
         }
 
@@ -2142,7 +2142,7 @@ export function initAuth() {
             <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow gap-3">
                 <div class="flex items-center gap-3 overflow-hidden">
                     <button onclick="window.selectSound('${s.id}'); window.closeCabinet();" class="w-10 h-10 rounded-full bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 hover:scale-105 transition-transform" title="Воспроизвести на карте">
-                        <i class="fa-solid fa-play text-sm translate-x-[1px] pointer-events-none"></i>
+                        <i class="iconoir-play text-sm translate-x-[1px] pointer-events-none"></i>
                     </button>
                     <div class="flex-1 min-w-0 pr-2">
                         <p class="text-sm font-bold text-slate-800 dark:text-white truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400" onclick="window.selectSound('${s.id}'); window.closeCabinet(); window.openDetailsModal();">${s.title}</p>
@@ -2151,7 +2151,7 @@ export function initAuth() {
                             <span class="text-[10px] text-slate-500 font-mono bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded truncate max-w-[120px] sm:max-w-none">${s.fileName}</span>
                             ${isHardcoded ? `<span class="text-[8px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded uppercase tracking-wider">Вшито</span>` : ''}
                         </div>
-                        ${isRejectedLike(s) && s.rejectionReason ? `<p class="text-[11px] text-red-600 dark:text-red-400 mt-1 leading-snug"><i class="fa-solid fa-circle-exclamation mr-1"></i>${s.rejectionReason}</p>` : ''}
+                        ${isRejectedLike(s) && s.rejectionReason ? `<p class="text-[11px] text-red-600 dark:text-red-400 mt-1 leading-snug"><i class="iconoir-warning-circle mr-1"></i>${s.rejectionReason}</p>` : ''}
                         <select onchange="window.assignSoundToSession('${s.id}', this.value)" class="mt-1.5 text-[10px] font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-300 px-1.5 py-1 max-w-[180px]" title="Привязать к экспедиции">
                             ${sessionOptions(s.sessionId)}
                         </select>
@@ -2160,13 +2160,13 @@ export function initAuth() {
                 <div class="flex items-center gap-2 shrink-0 sm:pr-2">
                     ${canResubmit ? `
                     <button onclick="window.editSound('${s.id}'); window.closeCabinet();" class="flex-1 sm:flex-none h-9 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-colors shadow-sm font-bold text-xs gap-1.5" title="Исправить и отправить снова">
-                        <i class="fa-solid fa-paper-plane"></i><span>Исправить</span>
+                        <i class="iconoir-send-diagonal"></i><span>Исправить</span>
                     </button>` : `
                     <button onclick="window.editSound('${s.id}'); window.closeCabinet();" class="flex-1 sm:flex-none sm:w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-colors shadow-sm font-bold text-xs" title="Редактировать">
-                        <i class="fa-solid fa-pen sm:mr-0 mr-1"></i> <span class="sm:hidden">Изменить</span>
+                        <i class="iconoir-edit-pencil sm:mr-0 mr-1"></i> <span class="sm:hidden">Изменить</span>
                     </button>`}
                     <button onclick="window.deleteSoundFromCloud('${s.id}')" class="flex-1 sm:flex-none sm:w-9 h-9 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 flex items-center justify-center transition-colors shadow-sm font-bold text-xs" title="Удалить">
-                        <i class="fa-solid fa-trash-can sm:mr-0 mr-1"></i> <span class="sm:hidden">Удалить</span>
+                        <i class="iconoir-trash sm:mr-0 mr-1"></i> <span class="sm:hidden">Удалить</span>
                     </button>
                 </div>
             </div>
@@ -2242,7 +2242,7 @@ export function initAuth() {
                 : (filterMode === 'rejected'
                     ? 'Отклонённых записей нет.'
                     : (filterMode === 'pending' ? 'Очередь модерации пуста.' : 'Записей пока нет.'));
-            list.innerHTML = `<div class="text-center py-10 text-slate-400"><i class="fa-solid fa-clipboard-check text-3xl mb-2 opacity-30 block"></i><p class="text-sm font-medium">${emptyMsg}</p></div>`;
+            list.innerHTML = `<div class="text-center py-10 text-slate-400"><i class="iconoir-clipboard-check text-3xl mb-2 opacity-30 block"></i><p class="text-sm font-medium">${emptyMsg}</p></div>`;
             if (window.refreshAdminRailBadge) window.refreshAdminRailBadge();
             return;
         }
@@ -2265,9 +2265,9 @@ export function initAuth() {
                         <p class="admin-entity-num">${idLine}</p>
                         <p class="admin-entity-title">${s.title || 'Без названия'}</p>
                         <p class="admin-entity-meta">${s.fileName || ''} · ${s.recordist || 'Автор'} · ${statusLabel}</p>
-                        ${(status === 'rejected' || returned) && s.rejectionReason ? `<p class="text-[11px] text-red-500 mt-0.5 line-clamp-2"><i class="fa-solid fa-circle-exclamation mr-1"></i>${s.rejectionReason}</p>` : ''}
+                        ${(status === 'rejected' || returned) && s.rejectionReason ? `<p class="text-[11px] text-red-500 mt-0.5 line-clamp-2"><i class="iconoir-warning-circle mr-1"></i>${s.rejectionReason}</p>` : ''}
                     </button>
-                    <button type="button" onclick="event.stopPropagation(); window.openAdminSoundActions('${s.id}', event)" class="admin-actions-btn shrink-0"><i class="fa-solid fa-ellipsis"></i> Действия</button>
+                    <button type="button" onclick="event.stopPropagation(); window.openAdminSoundActions('${s.id}', event)" class="admin-actions-btn shrink-0"><i class="iconoir-more-horiz"></i> Действия</button>
                 </div>
             `;
         }).join('');
@@ -2303,7 +2303,7 @@ export function initAuth() {
                     <p class="admin-entity-title">${esc(s.title || 'Без названия')}</p>
                     <p class="admin-entity-meta">${esc(s.ownerName || s.ownerId || '—')} · ${esc(dateLabel)} · ${soundCount} зап. · ${participants} уч.</p>
                 </button>
-                <button type="button" class="admin-actions-btn shrink-0" onclick="event.stopPropagation(); window.openAdminExpeditionActions('${esc(s.id)}', event)"><i class="fa-solid fa-ellipsis"></i> Действия</button>
+                <button type="button" class="admin-actions-btn shrink-0" onclick="event.stopPropagation(); window.openAdminExpeditionActions('${esc(s.id)}', event)"><i class="iconoir-more-horiz"></i> Действия</button>
             </div>`;
         }).join('');
     };
@@ -2313,19 +2313,19 @@ export function initAuth() {
         if (!s) return [];
         return [
             {
-                icon: 'fa-eye',
+                icon: 'iconoir-eye',
                 label: 'Открыть',
                 tone: 'primary',
                 onClick: () => { if (window.openExpeditionViewModal) window.openExpeditionViewModal(sessionId); }
             },
             {
-                icon: 'fa-pen',
+                icon: 'iconoir-edit-pencil',
                 label: 'Изменить',
                 tone: 'primary',
                 onClick: () => { if (window.openSessionModal) window.openSessionModal(sessionId); }
             },
             {
-                icon: 'fa-filter',
+                icon: 'iconoir-filter',
                 label: 'Фильтр на карте',
                 tone: 'default',
                 onClick: () => {
@@ -2334,7 +2334,7 @@ export function initAuth() {
                 }
             },
             {
-                icon: 'fa-trash',
+                icon: 'iconoir-trash',
                 label: 'Удалить',
                 tone: 'danger',
                 onClick: () => { if (window.adminDeleteSession) window.adminDeleteSession(sessionId); }
@@ -2378,19 +2378,19 @@ export function initAuth() {
         if (!s) return [];
         const status = s.status || 'published';
         const items = [
-            { icon: 'fa-eye', label: 'Просмотреть', tone: 'primary', onClick: () => { window.openedFromAdmin = true; window.closeCabinet(); window.selectSound(soundId); window.openDetailsModal(); } },
-            { icon: 'fa-pen', label: 'Изменить', tone: 'primary', onClick: () => { window.openedFromAdmin = true; window.editSound(soundId); window.closeCabinet(); } }
+            { icon: 'iconoir-eye', label: 'Просмотреть', tone: 'primary', onClick: () => { window.openedFromAdmin = true; window.closeCabinet(); window.selectSound(soundId); window.openDetailsModal(); } },
+            { icon: 'iconoir-edit-pencil', label: 'Изменить', tone: 'primary', onClick: () => { window.openedFromAdmin = true; window.editSound(soundId); window.closeCabinet(); } }
         ];
         if (status === 'pending') {
-            items.push({ icon: 'fa-check', label: 'Одобрить', tone: 'success', onClick: () => window.setSoundStatus(soundId, 'published') });
-            items.push({ icon: 'fa-xmark', label: 'Отклонить', tone: 'danger', onClick: () => window.setSoundStatus(soundId, 'rejected') });
+            items.push({ icon: 'iconoir-check', label: 'Одобрить', tone: 'success', onClick: () => window.setSoundStatus(soundId, 'published') });
+            items.push({ icon: 'iconoir-xmark', label: 'Отклонить', tone: 'danger', onClick: () => window.setSoundStatus(soundId, 'rejected') });
         } else {
-            if (status !== 'published') items.push({ icon: 'fa-check', label: 'Опубликовать', tone: 'success', onClick: () => window.setSoundStatus(soundId, 'published') });
-            if (status !== 'pending') items.push({ icon: 'fa-clock', label: 'На модерацию', tone: 'warning', onClick: () => window.setSoundStatus(soundId, 'pending') });
-            if (status !== 'rejected') items.push({ icon: 'fa-ban', label: 'Отклонить', tone: 'danger', onClick: () => window.setSoundStatus(soundId, 'rejected') });
+            if (status !== 'published') items.push({ icon: 'iconoir-check', label: 'Опубликовать', tone: 'success', onClick: () => window.setSoundStatus(soundId, 'published') });
+            if (status !== 'pending') items.push({ icon: 'iconoir-clock', label: 'На модерацию', tone: 'warning', onClick: () => window.setSoundStatus(soundId, 'pending') });
+            if (status !== 'rejected') items.push({ icon: 'iconoir-prohibition', label: 'Отклонить', tone: 'danger', onClick: () => window.setSoundStatus(soundId, 'rejected') });
         }
         if (window.isCurrentUserAdmin && window.isCurrentUserAdmin()) {
-            items.push({ icon: 'fa-trash', label: 'Удалить', tone: 'danger', onClick: () => window.deleteSoundFromCloud(soundId) });
+            items.push({ icon: 'iconoir-trash', label: 'Удалить', tone: 'danger', onClick: () => window.deleteSoundFromCloud(soundId) });
         }
         return items;
     };
@@ -2412,31 +2412,31 @@ export function initAuth() {
         if (!s) return;
         const status = s.status || 'published';
         const items = [
-            { icon: 'fa-pen', label: 'Изменить', tone: 'primary', onClick: () => { window.closeDetailsModal(); window.editSound(id); } }
+            { icon: 'iconoir-edit-pencil', label: 'Изменить', tone: 'primary', onClick: () => { window.closeDetailsModal(); window.editSound(id); } }
         ];
         if (status === 'pending') {
             items.push(
-                { icon: 'fa-check', label: 'Одобрить', tone: 'success', onClick: () => window.setSoundStatus(id, 'published') },
-                { icon: 'fa-xmark', label: 'Отклонить', tone: 'danger', onClick: () => window.setSoundStatus(id, 'rejected') }
+                { icon: 'iconoir-check', label: 'Одобрить', tone: 'success', onClick: () => window.setSoundStatus(id, 'published') },
+                { icon: 'iconoir-xmark', label: 'Отклонить', tone: 'danger', onClick: () => window.setSoundStatus(id, 'rejected') }
             );
         } else if (status === 'rejected') {
             items.push(
-                { icon: 'fa-check', label: 'Опубликовать', tone: 'success', onClick: () => window.setSoundStatus(id, 'published') },
-                { icon: 'fa-clock', label: 'Вернуть на модерацию', tone: 'warning', onClick: () => window.setSoundStatus(id, 'pending') }
+                { icon: 'iconoir-check', label: 'Опубликовать', tone: 'success', onClick: () => window.setSoundStatus(id, 'published') },
+                { icon: 'iconoir-clock', label: 'Вернуть на модерацию', tone: 'warning', onClick: () => window.setSoundStatus(id, 'pending') }
             );
         } else if (status === 'published') {
             items.push(
-                { icon: 'fa-clock', label: 'Вернуть на модерацию', tone: 'warning', onClick: () => window.setSoundStatus(id, 'pending') },
-                { icon: 'fa-ban', label: 'Отклонить', tone: 'danger', onClick: () => window.setSoundStatus(id, 'rejected') }
+                { icon: 'iconoir-clock', label: 'Вернуть на модерацию', tone: 'warning', onClick: () => window.setSoundStatus(id, 'pending') },
+                { icon: 'iconoir-prohibition', label: 'Отклонить', tone: 'danger', onClick: () => window.setSoundStatus(id, 'rejected') }
             );
         } else {
             items.push(
-                { icon: 'fa-check', label: 'Опубликовать', tone: 'success', onClick: () => window.setSoundStatus(id, 'published') },
-                { icon: 'fa-clock', label: 'На модерацию', tone: 'warning', onClick: () => window.setSoundStatus(id, 'pending') }
+                { icon: 'iconoir-check', label: 'Опубликовать', tone: 'success', onClick: () => window.setSoundStatus(id, 'published') },
+                { icon: 'iconoir-clock', label: 'На модерацию', tone: 'warning', onClick: () => window.setSoundStatus(id, 'pending') }
             );
         }
         if (window.isCurrentUserAdmin && window.isCurrentUserAdmin()) {
-            items.push({ icon: 'fa-trash', label: 'Удалить', tone: 'danger', onClick: () => window.deleteSoundFromCloud(id) });
+            items.push({ icon: 'iconoir-trash', label: 'Удалить', tone: 'danger', onClick: () => window.deleteSoundFromCloud(id) });
         }
         const opts = { title: s.title || 'Запись', event: ev || (typeof event !== 'undefined' ? event : null), anchor: document.getElementById('details-admin-actions-btn') };
         if (window.openActionsMenu) window.openActionsMenu(items, opts);
@@ -2456,8 +2456,8 @@ export function initAuth() {
             const isReject = status === 'rejected';
             const input = await window.CustomUI.open({
                 title: isReject
-                    ? '<i class="fa-solid fa-circle-exclamation mr-2 text-red-500"></i>Причина отклонения'
-                    : '<i class="fa-solid fa-clock mr-2 text-amber-500"></i>Причина возврата на модерацию',
+                    ? '<i class="iconoir-warning-circle mr-2 text-red-500"></i>Причина отклонения'
+                    : '<i class="iconoir-clock mr-2 text-amber-500"></i>Причина возврата на модерацию',
                 message: isReject
                     ? 'Запись вернётся автору в черновик. Выберите пункт правил или напишите причину – она будет в уведомлении и в кабинете. <button type="button" class="text-blue-600 dark:text-blue-400 font-bold hover:underline" onclick="window.openPublishRulesModal()">Открыть правила</button>'
                     : 'Укажите, зачем запись снова в очереди модерации – причина сохранится в карточке и уйдёт автору при необходимости. <button type="button" class="text-blue-600 dark:text-blue-400 font-bold hover:underline" onclick="window.openPublishRulesModal()">Открыть правила</button>',
@@ -2760,9 +2760,9 @@ export function initAuth() {
                     <p class="admin-entity-num">Жалоба № ${num}${r.status === 'resolved' ? ' · решено' : ''}</p>
                     <p class="admin-entity-title">${r.type === 'comment' ? 'На комментарий' : 'На запись'} · ${r.soundTitle || ''}</p>
                     <p class="admin-entity-meta">От ${r.reporterName || 'аноним'} · ${dateStr}</p>
-                    <p class="text-[11px] text-red-500 dark:text-red-400 mt-1 line-clamp-2"><i class="fa-solid fa-quote-left mr-1 opacity-60"></i>${reasonShort}</p>
+                    <p class="text-[11px] text-red-500 dark:text-red-400 mt-1 line-clamp-2"><i class="iconoir-quote mr-1 opacity-60"></i>${reasonShort}</p>
                 </button>
-                <button type="button" onclick="event.stopPropagation(); window.openAdminReportActions('${r.soundId}', '${r.id}', event)" class="admin-actions-btn shrink-0"><i class="fa-solid fa-ellipsis"></i> Действия</button>
+                <button type="button" onclick="event.stopPropagation(); window.openAdminReportActions('${r.soundId}', '${r.id}', event)" class="admin-actions-btn shrink-0"><i class="iconoir-more-horiz"></i> Действия</button>
             </div>`;
         }).join('');
     };
@@ -2774,7 +2774,7 @@ export function initAuth() {
         window.__activeReport = { soundId, reportId };
         const title = document.getElementById('report-detail-title');
         const body = document.getElementById('report-detail-body');
-        if (title) title.innerHTML = `<i class="fa-solid fa-flag mr-2 text-red-500"></i>Жалоба № ${r.number || '–'}`;
+        if (title) title.innerHTML = `<i class="iconoir-triangle-flag mr-2 text-red-500"></i>Жалоба № ${r.number || '–'}`;
         let targetText = '';
         if (r.type === 'comment') {
             const c = s ? (s.comments || []).find(x => x.id === r.commentId) : null;
@@ -2819,14 +2819,14 @@ export function initAuth() {
         const r = s ? (s.reports || []).find(x => x.id === reportId) : null;
         if (!r) return;
         const items = [
-            { icon: 'fa-eye', label: 'Открыть текст жалобы', tone: 'primary', onClick: () => window.openReportDetail(soundId, reportId) },
-            { icon: 'fa-music', label: 'Просмотреть запись', tone: 'primary', onClick: () => { window.closeReportDetailModal(); window.openedFromAdmin = true; window.closeCabinet(); window.selectSound(soundId); window.openDetailsModal(); } }
+            { icon: 'iconoir-eye', label: 'Открыть текст жалобы', tone: 'primary', onClick: () => window.openReportDetail(soundId, reportId) },
+            { icon: 'iconoir-music-double-note', label: 'Просмотреть запись', tone: 'primary', onClick: () => { window.closeReportDetailModal(); window.openedFromAdmin = true; window.closeCabinet(); window.selectSound(soundId); window.openDetailsModal(); } }
         ];
         if (r.type === 'comment' && s && (s.comments || []).some(c => c.id === r.commentId)) {
-            items.push({ icon: 'fa-trash', label: 'Удалить комментарий', tone: 'danger', onClick: () => window.deleteReportedComment(soundId, r.commentId, reportId) });
+            items.push({ icon: 'iconoir-trash', label: 'Удалить комментарий', tone: 'danger', onClick: () => window.deleteReportedComment(soundId, r.commentId, reportId) });
         }
         if (r.status !== 'resolved') {
-            items.push({ icon: 'fa-check', label: 'Отметить решённой', tone: 'success', onClick: () => window.resolveReport(soundId, reportId) });
+            items.push({ icon: 'iconoir-check', label: 'Отметить решённой', tone: 'success', onClick: () => window.resolveReport(soundId, reportId) });
         }
         const opts = { title: `Жалоба № ${r.number || '–'}`, event: ev || (typeof event !== 'undefined' ? event : null) };
         if (window.openActionsMenu) window.openActionsMenu(items, opts);
@@ -2856,7 +2856,7 @@ export function initAuth() {
         const s = window.soundsData.find(x => x.id === soundId);
         if (!s) return;
         const confirmed = await window.CustomUI.open({
-            title: '<i class="fa-solid fa-trash-can mr-2 text-red-500"></i>Удалить комментарий?',
+            title: '<i class="iconoir-trash mr-2 text-red-500"></i>Удалить комментарий?',
             message: 'Комментарий и все ответы к нему будут удалены без возможности восстановления.',
             confirmText: 'Удалить',
             confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
@@ -2914,14 +2914,14 @@ export function initAuth() {
                     <div class="admin-user-row-name flex items-center gap-2">
                         ${p.avatar
                             ? `<img src="${p.avatar}" class="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-600 shrink-0" alt="">`
-                            : `<span class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0"><i class="fa-solid fa-user-astronaut opacity-60 text-sm"></i></span>`}
+                            : `<span class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0"><i class="iconoir-user-circle opacity-60 text-sm"></i></span>`}
                         <span class="truncate font-semibold">${p.displayName || p.loginName}</span>
                         ${role !== 'user' ? `<span class="pub-status-pill ${rolePillCls}">${roleLabel}</span>` : ''}
                         ${isBlocked ? `<span class="pub-status-pill pub-status-rejected">Блок</span>` : ''}
                     </div>
                     <p class="admin-entity-meta mt-0.5">@${p.loginName}${p.joinedAt ? ' · рег. ' + new Date(p.joinedAt).toLocaleDateString('ru-RU') : ''}${badgeCount ? ` · ${badgeCount} зван.` : ''} · ${roleLabel}</p>
                 </button>
-                <button type="button" onclick="window.openAdminUserActions('${safeLogin}', event)" class="admin-actions-btn shrink-0"><i class="fa-solid fa-ellipsis"></i> Действия</button>
+                <button type="button" onclick="window.openAdminUserActions('${safeLogin}', event)" class="admin-actions-btn shrink-0"><i class="iconoir-more-horiz"></i> Действия</button>
             </div>`;
         }).join('');
     };
@@ -2956,7 +2956,7 @@ export function initAuth() {
             : rows;
         if (!filteredRows.length) {
             el.innerHTML = `<div class="text-center py-8 px-3">
-                <i class="fa-solid fa-headset text-2xl text-slate-300 dark:text-slate-600 mb-3 block"></i>
+                <i class="iconoir-headset text-2xl text-slate-300 dark:text-slate-600 mb-3 block"></i>
                 <p class="text-xs font-semibold text-slate-500">${q ? 'Ничего не найдено по запросу.' : 'Обращений пока нет'}</p>
                 ${q ? '' : '<p class="text-[11px] text-slate-400 mt-1">Пользователи пишут из Сообщений или раздела «Помощь» в настройках.</p>'}
             </div>`;
@@ -2978,7 +2978,7 @@ export function initAuth() {
             return `
             <button type="button" onclick="window.openMessagesModal('${safePeer}', { asSupport: true })" class="notif-item ${unread ? 'unread' : ''} msg-support-row w-full text-left">
                 <span class="w-9 h-9 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center shrink-0 overflow-hidden">
-                    ${profile?.avatar ? `<img src="${profile.avatar}" class="w-full h-full object-cover" alt="">` : `<i class="fa-solid fa-headset"></i>`}
+                    ${profile?.avatar ? `<img src="${profile.avatar}" class="w-full h-full object-cover" alt="">` : `<i class="iconoir-headset"></i>`}
                 </span>
                 <div class="min-w-0 flex-1">
                     <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${name}${ticketLabel}${unread ? ' · новое' : ''}</p>
@@ -3019,31 +3019,31 @@ export function initAuth() {
         const isBlocked = !!p.blocked;
         const canManageRoles = window.isCurrentUserAdmin && window.isCurrentUserAdmin();
         const items = [
-            { icon: 'fa-id-badge', label: 'Открыть профиль', tone: 'primary', onClick: () => window.openPublicProfile(login, p.displayName || login) },
-            { icon: 'fa-chart-simple', label: 'Сводка', tone: 'primary', onClick: () => window.openUserActivityModal(login) }
+            { icon: 'iconoir-user-circle', label: 'Открыть профиль', tone: 'primary', onClick: () => window.openPublicProfile(login, p.displayName || login) },
+            { icon: 'iconoir-stats-up-square', label: 'Сводка', tone: 'primary', onClick: () => window.openUserActivityModal(login) }
         ];
         if (window.isCurrentUserStaff && window.isCurrentUserStaff()) {
             items.push({
-                icon: 'fa-envelope',
+                icon: 'iconoir-mail',
                 label: 'Письмо на email',
                 tone: 'primary',
                 onClick: () => window.openAdminSendEmail(login)
             });
         }
         if (canManageRoles) {
-            items.splice(1, 0, { icon: 'fa-medal', label: 'Звания', tone: 'warning', onClick: () => window.openBadgeAssignModal(login) });
+            items.splice(1, 0, { icon: 'iconoir-medal', label: 'Звания', tone: 'warning', onClick: () => window.openBadgeAssignModal(login) });
         }
         if (canManageRoles && login !== 'admin') {
             if (role !== 'admin') {
-                items.push({ icon: 'fa-user-shield', label: 'Сделать администратором', tone: 'primary', onClick: () => window.setUserStaffRole(login, 'admin') });
+                items.push({ icon: 'iconoir-user', label: 'Сделать администратором', tone: 'primary', onClick: () => window.setUserStaffRole(login, 'admin') });
             }
             if (role !== 'moderator') {
-                items.push({ icon: 'fa-user-check', label: 'Сделать модератором', tone: 'primary', onClick: () => window.setUserStaffRole(login, 'moderator') });
+                items.push({ icon: 'iconoir-user-badge-check', label: 'Сделать модератором', tone: 'primary', onClick: () => window.setUserStaffRole(login, 'moderator') });
             }
             if (role !== 'user') {
-                items.push({ icon: 'fa-user', label: 'Сделать пользователем', tone: 'warning', onClick: () => window.setUserStaffRole(login, 'user') });
+                items.push({ icon: 'iconoir-user', label: 'Сделать пользователем', tone: 'warning', onClick: () => window.setUserStaffRole(login, 'user') });
             }
-            items.push({ icon: 'fa-ban', label: isBlocked ? 'Разблокировать' : 'Заблокировать', tone: isBlocked ? 'success' : 'danger', onClick: () => window.setUserBlocked(login, !isBlocked) });
+            items.push({ icon: 'iconoir-prohibition', label: isBlocked ? 'Разблокировать' : 'Заблокировать', tone: isBlocked ? 'success' : 'danger', onClick: () => window.setUserBlocked(login, !isBlocked) });
         }
         const opts = { title: p.displayName || login, event: ev || (typeof event !== 'undefined' ? event : null) };
         if (window.openActionsMenu) window.openActionsMenu(items, opts);
@@ -3060,7 +3060,7 @@ export function initAuth() {
         if (!target) return;
 
         const subject = await window.CustomUI.open({
-            title: '<i class="fa-solid fa-envelope mr-2 text-blue-500"></i>Письмо пользователю',
+            title: '<i class="iconoir-mail mr-2 text-blue-500"></i>Письмо пользователю',
             message: `Тема письма для @${target} (можно оставить пустой и нажать «Далее»).`,
             confirmText: 'Далее',
             confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-md',
@@ -3070,7 +3070,7 @@ export function initAuth() {
         if (subject === false) return;
 
         const message = await window.CustomUI.open({
-            title: '<i class="fa-solid fa-pen mr-2 text-blue-500"></i>Текст письма',
+            title: '<i class="iconoir-edit-pencil mr-2 text-blue-500"></i>Текст письма',
             message: `Напишите текст для @${target}. Уйдёт только на подтверждённый email.`,
             confirmText: 'Отправить',
             confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-md',
@@ -3120,7 +3120,7 @@ export function initAuth() {
             list.innerHTML = Object.entries(window.BADGE_CATALOG || {}).map(([key, b]) => `
                 <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/40 ${badges.has(key) ? 'ring-2 ring-amber-400/60' : ''}">
                     <input type="checkbox" class="accent-amber-500" ${badges.has(key) ? 'checked' : ''} onchange="window.toggleUserBadge('${login}', '${key}', this.checked)">
-                    <span class="w-8 h-8 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 flex items-center justify-center shrink-0"><i class="fa-solid ${b.icon}"></i></span>
+                    <span class="w-8 h-8 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 flex items-center justify-center shrink-0"><i class="${b.icon}"></i></span>
                     <span class="text-sm font-bold text-slate-700 dark:text-slate-200">${b.label}</span>
                 </label>
             `).join('');
@@ -3167,7 +3167,7 @@ export function initAuth() {
                     list.innerHTML = Object.entries(window.BADGE_CATALOG || {}).map(([key, b]) => `
                         <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/40 ${badges.has(key) ? 'ring-2 ring-amber-400/60' : ''}">
                             <input type="checkbox" class="accent-amber-500" ${badges.has(key) ? 'checked' : ''} onchange="window.toggleUserBadge('${login}', '${key}', this.checked)">
-                            <span class="w-8 h-8 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 flex items-center justify-center shrink-0"><i class="fa-solid ${b.icon}"></i></span>
+                            <span class="w-8 h-8 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 flex items-center justify-center shrink-0"><i class="${b.icon}"></i></span>
                             <span class="text-sm font-bold text-slate-700 dark:text-slate-200">${b.label}</span>
                         </label>
                     `).join('');
@@ -3198,7 +3198,7 @@ export function initAuth() {
         const idx = updated.findIndex(p => p.loginName === login);
         if (idx < 0) return;
         const confirmed = await window.CustomUI.open({
-            title: blocked ? '<i class="fa-solid fa-ban mr-2 text-red-500"></i>Заблокировать?' : 'Разблокировать?',
+            title: blocked ? '<i class="iconoir-prohibition mr-2 text-red-500"></i>Заблокировать?' : 'Разблокировать?',
             message: blocked ? `Пользователь @${login} не сможет войти в аккаунт.` : `Пользователь @${login} снова сможет войти.`,
             confirmText: blocked ? 'Заблокировать' : 'Разблокировать',
             confirmClass: blocked
@@ -3228,7 +3228,7 @@ export function initAuth() {
             user: 'Ваша роль изменена на обычного пользователя'
         };
         const confirmed = await window.CustomUI.open({
-            title: '<i class="fa-solid fa-user-shield mr-2 text-indigo-500"></i>Изменить роль?',
+            title: '<i class="iconoir-user mr-2 text-indigo-500"></i>Изменить роль?',
             message: `@${login} станет ${labels[nextRole] || 'пользователем'}.`,
             confirmText: 'Назначить',
             confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors shadow-md'
@@ -3415,15 +3415,15 @@ export function initAuth() {
         };
 
         const icons = {
-            sound_add: 'fa-plus text-blue-500',
-            sound_delete: 'fa-trash text-red-500',
-            reply: 'fa-reply text-indigo-500',
-            comment: 'fa-comment text-slate-500',
-            quest: 'fa-trophy text-amber-500',
-            expedition_join: 'fa-route text-emerald-500',
-            like: 'fa-thumbs-up text-blue-500',
-            dislike: 'fa-thumbs-down text-slate-400',
-            reaction: 'fa-heart text-rose-500'
+            sound_add: 'iconoir-plus text-blue-500',
+            sound_delete: 'iconoir-trash text-red-500',
+            reply: 'iconoir-reply text-indigo-500',
+            comment: 'iconoir-chat-bubble text-slate-500',
+            quest: 'iconoir-trophy text-amber-500',
+            expedition_join: 'iconoir-path-arrow text-emerald-500',
+            like: 'iconoir-thumbs-up text-blue-500',
+            dislike: 'iconoir-thumbs-down text-slate-400',
+            reaction: 'iconoir-heart text-rose-500'
         };
 
         const typeLabels = {
@@ -3455,7 +3455,7 @@ export function initAuth() {
                         : '';
                     return `
                     <div class="activity-row ${e.soundId ? 'cursor-pointer' : ''}" ${clickable}>
-                        <i class="fa-solid ${icons[e.type] || 'fa-circle-info text-slate-400'} shrink-0 mt-0.5"></i>
+                        <i class="${icons[e.type] || 'iconoir-info-circle text-slate-400'} shrink-0 mt-0.5"></i>
                         <div class="min-w-0 flex-1">
                             <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${typeLabels[e.type] || e.type}</p>
                             <p class="text-xs font-semibold text-slate-700 dark:text-slate-200 leading-snug">${e.text}</p>
@@ -3634,22 +3634,22 @@ export function initAuth() {
             return;
         }
         const icons = {
-            comment: 'fa-comment',
-            reply: 'fa-reply',
-            like: 'fa-thumbs-up',
-            dislike: 'fa-thumbs-down',
-            reaction: 'fa-heart',
-            report: 'fa-flag',
-            message: 'fa-envelope',
-            badge: 'fa-award',
-            expedition: 'fa-route',
-            moderation: 'fa-clipboard-check'
+            comment: 'iconoir-chat-bubble',
+            reply: 'iconoir-reply',
+            like: 'iconoir-thumbs-up',
+            dislike: 'iconoir-thumbs-down',
+            reaction: 'iconoir-heart',
+            report: 'iconoir-triangle-flag',
+            message: 'iconoir-mail',
+            badge: 'iconoir-medal',
+            expedition: 'iconoir-path-arrow',
+            moderation: 'iconoir-clipboard-check'
         };
         const esc = window.escMsgHtml || ((t) => String(t ?? '')
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'));
         list.innerHTML = items.map(n => `
             <button onclick="window.openNotification('${esc(n.id)}')" class="notif-item ${n.read ? '' : 'unread'} w-full text-left">
-                <i class="fa-solid ${icons[n.type] || 'fa-bell'} notif-item-icon"></i>
+                <i class="${icons[n.type] || 'iconoir-bell'} notif-item-icon"></i>
                 <div class="min-w-0 flex-1">
                     <p class="text-xs font-semibold text-slate-700 dark:text-slate-200 leading-snug">${esc(n.text)}</p>
                     <p class="text-[10px] text-slate-400 mt-0.5">${n.date ? new Date(n.date).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}</p>
@@ -3712,7 +3712,7 @@ export function initAuth() {
     window.clearAllNotifications = async function() {
         if (!window.currentUser) return;
         const ok = await window.CustomUI.open({
-            title: '<i class="fa-solid fa-trash-can mr-2 text-red-500"></i>Очистить уведомления',
+            title: '<i class="iconoir-trash mr-2 text-red-500"></i>Очистить уведомления',
             message: 'Все уведомления будут удалены без возможности восстановления.',
             confirmText: 'Очистить',
             confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
@@ -4085,17 +4085,17 @@ export function initAuth() {
             const name = isSupport ? window.SUPPORT_NAME : (profile?.displayName || last.fromName || peer);
             const online = isSupport ? true : window.isUserOnline(profile);
             const avatar = isSupport
-                ? `<span class="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 flex items-center justify-center text-sm"><i class="fa-solid fa-headset"></i></span>`
+                ? `<span class="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 flex items-center justify-center text-sm"><i class="iconoir-headset"></i></span>`
                 : (profile?.avatar
                     ? `<img src="${profile.avatar}" class="w-9 h-9 rounded-full object-cover" alt="">`
-                    : `<span class="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-sm"><i class="fa-solid fa-user"></i></span>`);
+                    : `<span class="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-sm"><i class="iconoir-user"></i></span>`);
             const preview = last._supportPinned
                 ? (window.t ? window.t('write_support') : 'Напишите в поддержку')
                 : (last.deleted
                     ? (window.t ? window.t('msg_deleted') : 'Сообщение удалено')
                     : (last.image && !last.text ? `📷 ${window.t ? window.t('photo_label') : 'Фото'}` : (last.text || '')));
             const ticks = last._outgoingHint
-                ? `<span class="msg-ticks msg-ticks--list ${last.read ? 'is-read' : 'is-delivered'}" title="${last.read ? 'Просмотрено' : 'Доставлено'}"><i class="fa-solid ${last.read ? 'fa-check-double' : 'fa-check'}"></i></span>`
+                ? `<span class="msg-ticks msg-ticks--list ${last.read ? 'is-read' : 'is-delivered'}" title="${last.read ? 'Просмотрено' : 'Доставлено'}"><i class="${last.read ? 'iconoir-double-check' : 'iconoir-check'}"></i></span>`
                 : '';
             const presence = isSupport
                 ? (window.t ? window.t('support_status') : 'обычно отвечает в течение дня')
@@ -4139,7 +4139,7 @@ export function initAuth() {
             if (avatar) avatar.classList.add('hidden');
             if (fallback) {
                 fallback.classList.remove('hidden');
-                fallback.innerHTML = '<i class="fa-solid fa-headset"></i>';
+                fallback.innerHTML = '<i class="iconoir-headset"></i>';
             }
         } else if (profile?.avatar) {
             if (avatar) { avatar.src = profile.avatar; avatar.classList.remove('hidden'); }
@@ -4148,7 +4148,7 @@ export function initAuth() {
             if (avatar) avatar.classList.add('hidden');
             if (fallback) {
                 fallback.classList.remove('hidden');
-                fallback.innerHTML = '<i class="fa-solid fa-user"></i>';
+                fallback.innerHTML = '<i class="iconoir-user"></i>';
             }
         }
     };
@@ -4174,8 +4174,8 @@ export function initAuth() {
         const read = !!m.read;
         const title = read ? 'Просмотрено' : 'Доставлено';
         const cls = read ? 'msg-ticks is-read' : 'msg-ticks is-delivered';
-        const icon = read ? 'fa-check-double' : 'fa-check';
-        return `<span class="${cls}" title="${title}"><i class="fa-solid ${icon}"></i></span>`;
+        const icon = read ? 'iconoir-double-check' : 'iconoir-check';
+        return `<span class="${cls}" title="${title}"><i class="${icon}"></i></span>`;
     };
 
     window.formatMsgTime = function(iso) {
@@ -4210,7 +4210,7 @@ export function initAuth() {
             ).join('')}</div>`
             : '';
         return `<div class="msg-bubble ${m._mine ? 'mine' : ''} ${m._mine ? '' : 'swipe-reply-row'}" data-msg-id="${m.id}">
-            ${m._mine ? '' : '<span class="swipe-reply-hint"><i class="fa-solid fa-reply"></i></span>'}
+            ${m._mine ? '' : '<span class="swipe-reply-hint"><i class="iconoir-reply"></i></span>'}
             ${reply}${img}
             ${m.text ? `<p class="text-[13px] leading-snug">${window.escMsgHtml(m.text)}</p>` : ''}
             ${reactions}
@@ -4642,13 +4642,13 @@ export function initAuth() {
         const items = [];
 
         if (!m.deleted) {
-            items.push({ icon: 'fa-reply', label: 'Ответить', onClick: () => window.startMessageReply(msgId) });
+            items.push({ icon: 'iconoir-reply', label: 'Ответить', onClick: () => window.startMessageReply(msgId) });
             items.push({
-                icon: 'fa-face-smile',
+                icon: 'iconoir-emoji',
                 label: 'Поставить реакцию',
                 onClick: () => {
                     const reactItems = window.MSG_REACT_EMOJI.map(emoji => ({
-                        icon: 'fa-heart',
+                        icon: 'iconoir-heart',
                         label: emoji,
                         onClick: () => window.toggleMessageReaction(msgId, emoji)
                     }));
@@ -4667,16 +4667,16 @@ export function initAuth() {
                 }
             });
             if (isMine) {
-                items.push({ icon: 'fa-pen', label: 'Редактировать', onClick: () => window.editMessage(msgId) });
-                items.push({ icon: 'fa-trash-can', label: 'Удалить', danger: true, onClick: () => window.deleteMessage(msgId) });
+                items.push({ icon: 'iconoir-edit-pencil', label: 'Редактировать', onClick: () => window.editMessage(msgId) });
+                items.push({ icon: 'iconoir-trash', label: 'Удалить', danger: true, onClick: () => window.deleteMessage(msgId) });
             } else {
-                items.push({ icon: 'fa-flag', label: 'Пожаловаться', danger: true, onClick: () => window.reportMessage(msgId) });
+                items.push({ icon: 'iconoir-triangle-flag', label: 'Пожаловаться', danger: true, onClick: () => window.reportMessage(msgId) });
             }
         }
         if (m.fromId) {
             const authorProfile = window.getProfileByLogin ? window.getProfileByLogin(m.fromId) : null;
             items.unshift({
-                icon: 'fa-id-badge',
+                icon: 'iconoir-user-circle',
                 label: 'Профиль автора',
                 onClick: () => window.openPublicProfile(m.fromId, authorProfile?.displayName || m.fromName || m.fromId)
             });
@@ -4742,7 +4742,7 @@ export function initAuth() {
         if (found.msg.fromId !== myLogin) return;
 
         const next = await window.CustomUI.open({
-            title: '<i class="fa-solid fa-pen mr-2 text-blue-500"></i>Редактировать',
+            title: '<i class="iconoir-edit-pencil mr-2 text-blue-500"></i>Редактировать',
             message: 'Измените текст сообщения',
             confirmText: 'Сохранить',
             confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-md',
@@ -4773,7 +4773,7 @@ export function initAuth() {
         const myLogin = window.currentUser?.loginName || String(window.currentUser?.username || '').toLowerCase();
         if (found.msg.fromId !== myLogin) return;
         const confirmed = await window.CustomUI.open({
-            title: '<i class="fa-solid fa-trash-can mr-2 text-red-500"></i>Удалить сообщение?',
+            title: '<i class="iconoir-trash mr-2 text-red-500"></i>Удалить сообщение?',
             message: 'Сообщение будет удалено для обоих участников переписки.',
             confirmText: 'Удалить',
             confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
@@ -4805,7 +4805,7 @@ export function initAuth() {
         if (!found || found.msg.deleted) return;
 
         const reason = await window.CustomUI.open({
-            title: '<i class="fa-solid fa-flag mr-2 text-red-500"></i>Пожаловаться на сообщение',
+            title: '<i class="iconoir-triangle-flag mr-2 text-red-500"></i>Пожаловаться на сообщение',
             message: 'Опишите причину – жалобу рассмотрят модераторы.',
             confirmText: 'Отправить',
             confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md',
@@ -5103,7 +5103,7 @@ export function initAuth() {
 
     // --- Профессиональная аналитика: спрос по трекам/акустическим нишам (только опубликованные) ---
     const ECO_LABELS = { biophony: 'Биофония', geophony: 'Геофония', anthrophony: 'Антропофония' };
-    const ECO_ICONS = { biophony: 'fa-leaf', geophony: 'fa-water', anthrophony: 'fa-city' };
+    const ECO_ICONS = { biophony: 'iconoir-leaf', geophony: 'iconoir-droplet', anthrophony: 'iconoir-city' };
 
     window.getMyAnalytics = function() {
         if (!window.currentUser) return null;
@@ -5139,7 +5139,7 @@ export function initAuth() {
 
         const data = window.getMyAnalytics();
         if (!data || data.totalPublished === 0) {
-            container.innerHTML = `<div class="text-center py-12 text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm"><i class="fa-solid fa-chart-line text-4xl mb-3 opacity-30 block"></i><p class="font-medium text-sm">Пока нет данных для аналитики.</p><p class="text-xs mt-1">Она появится, когда ваши опубликованные записи начнут слушать и скачивать.</p></div>`;
+            container.innerHTML = `<div class="text-center py-12 text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm"><i class="iconoir-graph-up text-4xl mb-3 opacity-30 block"></i><p class="font-medium text-sm">Пока нет данных для аналитики.</p><p class="text-xs mt-1">Она появится, когда ваши опубликованные записи начнут слушать и скачивать.</p></div>`;
             return;
         }
 
@@ -5180,9 +5180,9 @@ export function initAuth() {
 
         container.innerHTML = `
             <div class="analytics-cards-row">
-                <div class="analytics-stat-card"><div class="analytics-stat-icon"><i class="fa-solid fa-headphones text-blue-500"></i></div><div class="analytics-stat-value">${data.totalPlays}</div><div class="analytics-stat-label">Прослушиваний</div></div>
-                <div class="analytics-stat-card"><div class="analytics-stat-icon"><i class="fa-solid fa-download text-emerald-500"></i></div><div class="analytics-stat-value">${data.totalDownloads}</div><div class="analytics-stat-label">Скачиваний</div></div>
-                <div class="analytics-stat-card"><div class="analytics-stat-icon"><i class="fa-solid fa-file-audio text-indigo-500"></i></div><div class="analytics-stat-value">${data.totalPublished}</div><div class="analytics-stat-label">Опубликовано</div></div>
+                <div class="analytics-stat-card"><div class="analytics-stat-icon"><i class="iconoir-headset text-blue-500"></i></div><div class="analytics-stat-value">${data.totalPlays}</div><div class="analytics-stat-label">Прослушиваний</div></div>
+                <div class="analytics-stat-card"><div class="analytics-stat-icon"><i class="iconoir-download text-emerald-500"></i></div><div class="analytics-stat-value">${data.totalDownloads}</div><div class="analytics-stat-label">Скачиваний</div></div>
+                <div class="analytics-stat-card"><div class="analytics-stat-icon"><i class="iconoir-music-double-note text-indigo-500"></i></div><div class="analytics-stat-value">${data.totalPublished}</div><div class="analytics-stat-label">Опубликовано</div></div>
             </div>
 
             <div class="analytics-chart-card">
@@ -5203,7 +5203,7 @@ export function initAuth() {
                 <div class="analytics-bars">
                     ${Object.entries(data.byCategory).map(([key, c]) => `
                         <div class="analytics-bar-row">
-                            <span class="analytics-bar-label"><i class="fa-solid ${ECO_ICONS[key]} mr-1"></i>${ECO_LABELS[key]} <span class="text-slate-400">(${c.count})</span></span>
+                            <span class="analytics-bar-label"><i class="${ECO_ICONS[key]} mr-1"></i>${ECO_LABELS[key]} <span class="text-slate-400">(${c.count})</span></span>
                             <div class="analytics-bar-track">
                                 <div class="analytics-bar-fill" style="width: ${Math.max(6, Math.round((c.demand / maxDemand) * 100))}%">
                                     <span class="analytics-bar-value">${c.demand}</span>
@@ -5221,8 +5221,8 @@ export function initAuth() {
                         <div class="flex items-center gap-2.5 py-1.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-lg px-1.5 -mx-1.5 transition-colors" onclick="window.selectSound('${s.id}'); window.closeCabinet();">
                             <span class="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-[10px] font-bold flex items-center justify-center shrink-0">${i + 1}</span>
                             <span class="flex-1 min-w-0 text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">${s.title}</span>
-                            <span class="text-[10px] text-slate-400 shrink-0"><i class="fa-solid fa-headphones mr-0.5"></i>${s.plays || 0}</span>
-                            <span class="text-[10px] text-slate-400 shrink-0"><i class="fa-solid fa-download mr-0.5"></i>${s.downloads || 0}</span>
+                            <span class="text-[10px] text-slate-400 shrink-0"><i class="iconoir-headset mr-0.5"></i>${s.plays || 0}</span>
+                            <span class="text-[10px] text-slate-400 shrink-0"><i class="iconoir-download mr-0.5"></i>${s.downloads || 0}</span>
                         </div>
                     `).join('')}
                 </div>

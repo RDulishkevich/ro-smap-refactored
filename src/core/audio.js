@@ -6,8 +6,8 @@ window.changeVolume = function(val) {
             
     const icon = document.getElementById('volume-icon');
     if(icon) {
-        icon.className = 'pointer-events-none text-sm w-4 text-center fa-solid ' + 
-            (num === 0 ? 'fa-volume-xmark text-red-500' : (num < 0.5 ? 'fa-volume-low' : 'fa-volume-high'));
+        icon.className = 'pointer-events-none text-sm w-4 text-center ' + 
+            (num === 0 ? 'iconoir-sound-off text-red-500' : (num < 0.5 ? 'iconoir-sound-min' : 'iconoir-sound-high'));
     }
     if(num > 0) window.lastVolume = num;
 };
@@ -933,7 +933,7 @@ window.collapsePlayerAnalyzers = function() {
     if (panel) panel.classList.add('hidden');
     if (card) card.classList.remove('analyzers-expanded');
     if (btn) btn.classList.remove('active');
-    if (icon) icon.className = 'fa-solid fa-chart-simple text-[12px] md:text-[13px] pointer-events-none';
+    if (icon) icon.className = 'iconoir-stats-up-square text-[12px] md:text-[13px] pointer-events-none';
     document.body.classList.remove('player-analyzers-open');
 
     if (wasAnalyzerView && window.openDockView && !window.__skipAnalyzerViewRestore) {
@@ -966,7 +966,7 @@ window.togglePlayerAnalyzers = async function() {
         panel.classList.remove('hidden');
         if (card) card.classList.remove('analyzers-expanded');
         if (btn) btn.classList.add('active');
-        if (icon) icon.className = 'fa-solid fa-chevron-down text-[12px] md:text-[13px] pointer-events-none';
+        if (icon) icon.className = 'iconoir-nav-arrow-down text-[12px] md:text-[13px] pointer-events-none';
         document.body.classList.add('player-analyzers-open');
 
         if (window.openDockView) window.openDockView('analyzers');

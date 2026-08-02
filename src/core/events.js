@@ -177,22 +177,22 @@ window.renderEventsPanel = function() {
                 const going = (e.participants || []).filter((p) => p.status === 'going').length;
                 return `
                 <button type="button" class="event-card" onclick="window.openEventDetail('${esc(e.id)}')">
-                    ${e.pinned ? '<span class="event-card__pin"><i class="fa-solid fa-thumbtack"></i></span>' : ''}
+                    ${e.pinned ? '<span class="event-card__pin"><i class="iconoir-pin"></i></span>' : ''}
                     <div class="event-card__top">
                         <span class="event-pill event-pill--${st}">${window.EVENT_STATUS_LABELS[st] || st}</span>
                         <span class="event-card__type">${window.EVENT_TYPE_LABELS[e.type] || e.type || ''}</span>
                     </div>
                     <p class="event-card__title">${esc(e.title || 'Без названия')}</p>
                     ${e.theme ? `<p class="event-card__theme">${esc(e.theme)}</p>` : ''}
-                    <p class="event-card__meta"><i class="fa-regular fa-calendar"></i> ${esc(window.formatEventRange(e))}</p>
-                    <p class="event-card__meta"><i class="fa-solid fa-users"></i> ${going} ${window.pluralRu ? window.pluralRu(going, 'участник', 'участника', 'участников') : (going === 1 ? 'участник' : 'участников')}</p>
+                    <p class="event-card__meta"><i class="iconoir-calendar"></i> ${esc(window.formatEventRange(e))}</p>
+                    <p class="event-card__meta"><i class="iconoir-group"></i> ${going} ${window.pluralRu ? window.pluralRu(going, 'участник', 'участника', 'участников') : (going === 1 ? 'участник' : 'участников')}</p>
                 </button>`;
             }).join('')
-            : `<div class="events-empty"><i class="fa-solid fa-calendar-days"></i><p>Пока нет ивентов</p><p class="text-[11px] opacity-70">Админ может создать конкурс, встречу или челлендж</p></div>`;
+            : `<div class="events-empty"><i class="iconoir-calendar"></i><p>Пока нет ивентов</p><p class="text-[11px] opacity-70">Админ может создать конкурс, встречу или челлендж</p></div>`;
 
         bodyHtml = `
             <div class="events-tabs">${tabs}</div>
-            ${isAdmin ? `<button type="button" class="events-create-btn" onclick="window.openEventEditor()"><i class="fa-solid fa-plus"></i> Создать ивент</button>` : ''}
+            ${isAdmin ? `<button type="button" class="events-create-btn" onclick="window.openEventEditor()"><i class="iconoir-plus"></i> Создать ивент</button>` : ''}
             <div class="events-list">${cards}</div>`;
     }
 
@@ -287,16 +287,16 @@ window.renderEventDetail = function(e) {
 
     const adminBar = isAdmin
         ? `<div class="event-admin-bar">
-            <button type="button" onclick="window.openEventEditor('${e.id}')"><i class="fa-solid fa-pen"></i></button>
-            <button type="button" onclick="window.toggleEventPin('${e.id}')"><i class="fa-solid fa-thumbtack"></i></button>
+            <button type="button" onclick="window.openEventEditor('${e.id}')"><i class="iconoir-edit-pencil"></i></button>
+            <button type="button" onclick="window.toggleEventPin('${e.id}')"><i class="iconoir-pin"></i></button>
             <button type="button" onclick="window.setEventStatus('${e.id}', 'live')">Live</button>
             <button type="button" onclick="window.setEventStatus('${e.id}', 'ended')">End</button>
-            <button type="button" onclick="window.deleteEvent('${e.id}')" class="text-red-500"><i class="fa-solid fa-trash"></i></button>
+            <button type="button" onclick="window.deleteEvent('${e.id}')" class="text-red-500"><i class="iconoir-trash"></i></button>
            </div>`
         : '';
 
     return `
-        <button type="button" class="events-back" onclick="window.backToEventsList()"><i class="fa-solid fa-arrow-left"></i> К списку</button>
+        <button type="button" class="events-back" onclick="window.backToEventsList()"><i class="iconoir-arrow-left"></i> К списку</button>
         ${e.coverImage ? `<div class="event-detail__cover"><img src="${esc(e.coverImage)}" alt=""></div>` : ''}
         <div class="event-detail">
             <div class="event-card__top mb-2">
@@ -305,8 +305,8 @@ window.renderEventDetail = function(e) {
             </div>
             <h3 class="event-detail__title">${esc(e.title)}</h3>
             ${e.theme ? `<p class="event-card__theme">${esc(e.theme)}</p>` : ''}
-            <p class="event-card__meta mt-2"><i class="fa-regular fa-calendar"></i> ${esc(window.formatEventRange(e))}</p>
-            ${e.place?.label ? `<p class="event-card__meta"><i class="fa-solid fa-location-dot"></i> ${esc(e.place.label)}</p>` : ''}
+            <p class="event-card__meta mt-2"><i class="iconoir-calendar"></i> ${esc(window.formatEventRange(e))}</p>
+            ${e.place?.label ? `<p class="event-card__meta"><i class="iconoir-map-pin"></i> ${esc(e.place.label)}</p>` : ''}
             ${e.description ? `<p class="event-detail__desc">${esc(e.description)}</p>` : ''}
             <div class="event-detail__block"><h5>Условия</h5>${conditions}</div>
             ${prizes ? `<div class="event-detail__block"><h5>Призы</h5>${prizes}</div>` : ''}
@@ -581,7 +581,7 @@ window.renderEventEditorLists = function() {
                     <input class="modal-input text-xs" placeholder="Место" value="${String(p.place || '').replace(/"/g, '&quot;')}" oninput="window.__eventEditorPrizes[${i}].place=this.value">
                     <input class="modal-input text-xs" placeholder="Приз" value="${String(p.title || '').replace(/"/g, '&quot;')}" oninput="window.__eventEditorPrizes[${i}].title=this.value">
                     <input class="modal-input text-xs" placeholder="Описание" value="${String(p.description || '').replace(/"/g, '&quot;')}" oninput="window.__eventEditorPrizes[${i}].description=this.value">
-                    <button type="button" onclick="window.__eventEditorPrizes.splice(${i},1);window.renderEventEditorLists()"><i class="fa-solid fa-xmark"></i></button>
+                    <button type="button" onclick="window.__eventEditorPrizes.splice(${i},1);window.renderEventEditorLists()"><i class="iconoir-xmark"></i></button>
                 </div>
                 <div class="event-editor-row event-editor-row--rewards">
                     <input class="modal-input text-xs" type="number" min="0" step="1" placeholder="XP" value="${Number(p.xp) || 0}" oninput="window.__eventEditorPrizes[${i}].xp=Math.max(0,Number(this.value)||0)">
@@ -598,7 +598,7 @@ window.renderEventEditorLists = function() {
                 </select>
                 <input class="modal-input text-xs" placeholder="Подпись" value="${String(c.label || '').replace(/"/g, '&quot;')}" oninput="window.__eventEditorConditions[${i}].label=this.value">
                 <input class="modal-input text-xs" placeholder="Значение" value="${String(c.value || '').replace(/"/g, '&quot;')}" oninput="window.__eventEditorConditions[${i}].value=this.value">
-                <button type="button" onclick="window.__eventEditorConditions.splice(${i},1);window.renderEventEditorLists()"><i class="fa-solid fa-xmark"></i></button>
+                <button type="button" onclick="window.__eventEditorConditions.splice(${i},1);window.renderEventEditorLists()"><i class="iconoir-xmark"></i></button>
             </div>`).join('');
     }
 };

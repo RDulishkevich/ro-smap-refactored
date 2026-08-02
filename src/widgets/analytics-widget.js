@@ -1,5 +1,5 @@
 // Analytics widget: React (via CDN, no bundler) + Motion for animated counters and charts.
-// Mirrors the project's existing CDN-script approach (Tailwind, FontAwesome, Yandex Maps, Omnitone) —
+// Mirrors the project's existing CDN-script approach (Tailwind, Iconoir, Yandex Maps, Omnitone) —
 // no build step required, so it keeps working the moment index.html is opened.
 import { animate } from 'https://cdn.jsdelivr.net/npm/motion@11.13.5/+esm';
 
@@ -35,7 +35,7 @@ if (!React || !ReactDOM) {
             return () => controls.stop();
         }, []);
         return h('div', { ref: cardRef, className: 'analytics-stat-card', style: { opacity: 0 } },
-            h('div', { className: `analytics-stat-icon ${colorClass}` }, h('i', { className: `fa-solid ${icon}` })),
+            h('div', { className: `analytics-stat-icon ${colorClass}` }, h('i', { className: `${icon}` })),
             h('div', { className: `analytics-stat-value ${colorClass}` }, h(CountUp, { value, decimals })),
             h('div', { className: 'analytics-stat-label' }, label)
         );
@@ -134,10 +134,10 @@ if (!React || !ReactDOM) {
 
         return h('div', { ref: rootRef, className: 'analytics-widget', style: { opacity: 0 } },
             h('div', { className: 'analytics-cards-row' },
-                h(StatCard, { icon: 'fa-microphone-lines', value: data.total, label: 'Записей', colorClass: 'text-blue-500', delay: 0 }),
-                h(StatCard, { icon: 'fa-volume-high', value: data.withAudio, label: 'С аудио', colorClass: 'text-emerald-500', delay: 0.06 }),
-                h(StatCard, { icon: 'fa-user-group', value: data.recordists, label: 'Авторов', colorClass: 'text-indigo-500', delay: 0.12 }),
-                h(StatCard, { icon: 'fa-clock', value: data.totalMinutes, decimals: 1, label: 'Минут звука', colorClass: 'text-amber-500', delay: 0.18 })
+                h(StatCard, { icon: 'iconoir-microphone', value: data.total, label: 'Записей', colorClass: 'text-blue-500', delay: 0 }),
+                h(StatCard, { icon: 'iconoir-sound-high', value: data.withAudio, label: 'С аудио', colorClass: 'text-emerald-500', delay: 0.06 }),
+                h(StatCard, { icon: 'iconoir-group', value: data.recordists, label: 'Авторов', colorClass: 'text-indigo-500', delay: 0.12 }),
+                h(StatCard, { icon: 'iconoir-clock', value: data.totalMinutes, decimals: 1, label: 'Минут звука', colorClass: 'text-amber-500', delay: 0.18 })
             ),
             h('div', { className: 'analytics-charts-row' },
                 h('div', { className: 'analytics-chart-card' },

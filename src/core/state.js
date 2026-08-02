@@ -38,7 +38,7 @@ export function initGlobalState() {
     window.currentLang = 'ru';
     window.currentTheme = 'light';
     window.currentPalette = 'coral';
-    window.currentFont = 'satoshi';
+    window.currentFont = 'geo-klukva';
     window.currentMapStyle = 'normal';
     window.currentMapProvider = 'yandex';
     try {

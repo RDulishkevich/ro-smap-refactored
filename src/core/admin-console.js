@@ -347,7 +347,7 @@ window.runAdminConsoleCommand = async function(raw) {
                 const login = String(args[0] || '').toLowerCase();
                 if (!login) { window.adminConsoleLog('usage: delete-user <login>', 'error'); break; }
                 const ok = await window.CustomUI.open({
-                    title: '<i class="fa-solid fa-user-xmark mr-2 text-red-500"></i>Удалить аккаунт?',
+                    title: '<i class="iconoir-user-xmark mr-2 text-red-500"></i>Удалить аккаунт?',
                     message: `Полностью удалить @${login}: доступ, email, личная почта. Профиль станет «Удалённый аккаунт». Необратимо.`,
                     confirmText: 'Удалить',
                     confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl'

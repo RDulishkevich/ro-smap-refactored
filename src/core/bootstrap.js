@@ -4,13 +4,13 @@ import { initAuth } from './auth.js?v=20260726c';
 
 import './sfx.js?v=20260721t';
 import './antispam.js?v=20260721t';
-import '../ui/ui.js?v=20260726c';
+import '../ui/ui.js?v=20260802c';
 import './audio.js?v=20260721t';
 import './map.js?v=20260726b';
 import './mapbox-map.js?v=20260721t';
 import './dgis-map.js?v=20260721t';
 import './google-earth-map.js?v=20260721t';
-import './yandex3-map.js?v=20260727a';
+import './yandex3-map.js?v=20260802a';
 import './achievements.js?v=20260721t';
 import './guessr.js?v=20260721t';
 import './admin-console.js?v=20260721t';
@@ -65,7 +65,7 @@ export function bootstrapApp() {
                 window.setColorPalette(window.currentPalette || 'coral', true);
             }
             if (window.setUiFont && !document.documentElement.getAttribute('data-font')) {
-                window.setUiFont(window.currentFont || 'satoshi', true);
+                window.setUiFont(window.currentFont || 'geo-klukva', true);
             }
             if (window.bindSettingsPickers) window.bindSettingsPickers();
             if (window.applyUILanguage) window.applyUILanguage();

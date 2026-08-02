@@ -204,7 +204,7 @@ window.googleEarthAddRouteOverlay = function(route, colorClass) {
         if (Marker3DElement) {
             const el = document.createElement('div');
             el.className = `walker-marker ${colorClass || ''}`.trim();
-            el.innerHTML = '<i class="fa-solid fa-person-walking"></i>';
+            el.innerHTML = '<i class="iconoir-walking"></i>';
             const walker = new Marker3DElement({
                 position: { lat: route[0][0], lng: route[0][1], altitude: 0 },
                 altitudeMode: AltitudeMode?.CLAMP_TO_GROUND || 'CLAMP_TO_GROUND'
@@ -246,7 +246,7 @@ window.initGoogleEarthMap = async function() {
         container.innerHTML = '';
         container.classList.add('is-map-provider-placeholder');
         container.innerHTML = `<div class="map-provider-placeholder">
-            <i class="fa-solid fa-globe text-2xl mb-3 opacity-50"></i>
+            <i class="iconoir-globe text-2xl mb-3 opacity-50"></i>
             <p class="font-bold">Нужен ключ Google Maps</p>
             <p class="text-sm opacity-80 mt-1">Photorealistic 3D (Google Earth) требует API-ключ Maps JavaScript API.</p>
             <p class="text-[11px] opacity-60 mt-2">Включите Maps JavaScript API в <a class="underline" href="https://console.cloud.google.com/google/maps-apis" target="_blank" rel="noopener">Google Cloud Console</a>.</p>

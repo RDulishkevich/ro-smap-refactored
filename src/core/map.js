@@ -42,7 +42,7 @@ window.showMapContextMenu = function(coords, position) {
 
     const items = [
         {
-            icon: 'fa-plus',
+            icon: 'iconoir-plus',
             label: 'Добавить запись здесь',
             tone: 'primary',
             onClick: () => window.createMapMarkerFromContext()
@@ -320,7 +320,7 @@ window.initYandexMap = function() {
         window.syncYandexMapChromeMargins();
     }
     window.walkerLayout = ymaps.templateLayoutFactory.createClass(
-        '<div class="walker-marker $[properties.colorClass]"><i class="fa-solid fa-person-walking"></i></div>'
+        '<div class="walker-marker $[properties.colorClass]"><i class="iconoir-walking"></i></div>'
     );
     window.updateMapMarkers();
     window.__mainMapReady = true;
@@ -486,10 +486,10 @@ window.showMarkerHoverCard = function(sound) {
 
     const fillMeta = (durationLabel) => {
         metaEl.innerHTML = [
-            `<span><i class="fa-solid fa-fingerprint"></i>${window.escapeHoverText(window.getSoundDisplayId ? window.getSoundDisplayId(sound) : sound.id)}</span>`,
-            durationLabel ? `<span><i class="fa-regular fa-clock"></i>${window.escapeHoverText(durationLabel)}</span>` : '',
-            sound.recordist ? `<span><i class="fa-regular fa-user"></i>${window.escapeHoverText(sound.recordist)}</span>` : '',
-            sound.ucsCat ? `<span><i class="fa-solid fa-tag"></i>${window.escapeHoverText(sound.ucsCat)}</span>` : ''
+            `<span><i class="iconoir-fingerprint"></i>${window.escapeHoverText(window.getSoundDisplayId ? window.getSoundDisplayId(sound) : sound.id)}</span>`,
+            durationLabel ? `<span><i class="iconoir-clock"></i>${window.escapeHoverText(durationLabel)}</span>` : '',
+            sound.recordist ? `<span><i class="iconoir-user"></i>${window.escapeHoverText(sound.recordist)}</span>` : '',
+            sound.ucsCat ? `<span><i class="iconoir-label"></i>${window.escapeHoverText(sound.ucsCat)}</span>` : ''
         ].filter(Boolean).join('');
     };
 
@@ -798,7 +798,7 @@ window.renderLocationPickerRouteChips = function() {
         box.classList.remove('hidden');
         box.innerHTML = stops.map((st, i) => `
             <span class="picker-route-chip">${i + 1}. ${Number(st.lat).toFixed(3)}, ${Number(st.lng).toFixed(3)}
-                <button type="button" onclick="window.removeSessionRoutePointAt(${i})" title="Удалить"><i class="fa-solid fa-xmark"></i></button>
+                <button type="button" onclick="window.removeSessionRoutePointAt(${i})" title="Удалить"><i class="iconoir-xmark"></i></button>
             </span>`).join('');
         return;
     }
@@ -808,7 +808,7 @@ window.renderLocationPickerRouteChips = function() {
     box.classList.remove('hidden');
     box.innerHTML = route.map((pt, i) => `
         <span class="picker-route-chip">${i + 1}. ${Number(pt[0]).toFixed(3)}, ${Number(pt[1]).toFixed(3)}
-            <button type="button" onclick="window.removeAddModalRoutePoint(${i})" title="Удалить"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" onclick="window.removeAddModalRoutePoint(${i})" title="Удалить"><i class="iconoir-xmark"></i></button>
         </span>`).join('');
 };
 
@@ -983,7 +983,7 @@ window.updateMapMarkers = function() {
         if (window.markerLayoutCache.has(layoutKey)) return window.markerLayoutCache.get(layoutKey);
         const layout = ymaps.templateLayoutFactory.createClass(
             `<div id="marker-${id}" class="w-6 h-6 md:w-7 md:h-7 custom-marker ${colorClass} ${isSelected ? 'selected' : ''} flex items-center justify-center text-white shadow-lg transition-transform hover:scale-110">
-                ${isSoundwalk ? '<i class="fa-solid fa-route text-[11px] md:text-[13px] opacity-90"></i>' : (isAmbisonic ? '<i class="fa-solid fa-cube text-[10px] md:text-[12px] opacity-90"></i>' : '')}
+                ${isSoundwalk ? '<i class="iconoir-path-arrow text-[11px] md:text-[13px] opacity-90"></i>' : (isAmbisonic ? '<i class="iconoir-cube text-[10px] md:text-[12px] opacity-90"></i>' : '')}
             </div>`
         );
         window.markerLayoutCache.set(layoutKey, layout);

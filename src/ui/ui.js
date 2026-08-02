@@ -794,8 +794,8 @@ window.openLegalDocModal = function(docId) {
     const ver = document.getElementById('legal-doc-version');
     if (titleEl) {
         titleEl.innerHTML = id === 'terms'
-            ? '<i class="fa-solid fa-file-contract mr-2 text-blue-500"></i>Пользовательское соглашение'
-            : '<i class="fa-solid fa-shield-halved mr-2 text-blue-500"></i>Политика конфиденциальности';
+            ? '<i class="iconoir-page mr-2 text-blue-500"></i>Пользовательское соглашение'
+            : '<i class="iconoir-shield mr-2 text-blue-500"></i>Политика конфиденциальности';
     }
     if (body && window.renderLegalDocHtml) {
         body.innerHTML = window.renderLegalDocHtml(id);
@@ -828,7 +828,7 @@ window.closeLegalDocModal = function() {
 // (профиль автора / ответить / реакция / пожаловаться у комментариев, см. openCommentMenu).
 window.confirmDiscardDraft = async function(message) {
     return window.CustomUI.open({
-        title: '<i class="fa-solid fa-triangle-exclamation mr-2 text-amber-500"></i>Закрыть без сохранения?',
+        title: '<i class="iconoir-warning-triangle mr-2 text-amber-500"></i>Закрыть без сохранения?',
         message: message || 'Несохранённые изменения будут потеряны.',
         confirmText: 'Закрыть',
         confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
@@ -901,10 +901,10 @@ window.ActionSheet = {
         container.innerHTML = headerHtml + items.map((item, i) => {
             const tone = item.tone || (item.danger ? 'danger' : '');
             const toneCls = tone ? `action-sheet-item--${tone}` : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700';
-            const icon = String(item.icon || 'fa-circle').replace(/^fa-(solid|regular|brands)\s+/, '');
+            const icon = String(item.icon || 'iconoir-circle').replace(/^fa-(solid|regular|brands)\s+/, '').replace(/^fa-/, 'iconoir-');
             return `
             <button type="button" onclick="window.ActionSheet.trigger(${i})" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors text-left ${toneCls}">
-                <i class="fa-solid ${icon} w-4 text-center opacity-70"></i>${esc(item.label)}
+                <i class="${icon} w-4 text-center opacity-70"></i>${esc(item.label)}
             </button>`;
         }).join('');
 
@@ -1022,9 +1022,9 @@ window.CtxPopup = {
             const tone = item.tone || (item.danger ? 'danger' : '');
             const iconTone = toneColor[tone] || 'text-slate-400';
             const textTone = tone === 'danger' ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-200';
-            const icon = String(item.icon || 'fa-circle').replace(/^fa-(solid|regular|brands)\s+/, '');
+            const icon = String(item.icon || 'iconoir-circle').replace(/^fa-(solid|regular|brands)\s+/, '').replace(/^fa-/, 'iconoir-');
             return `<button type="button" onclick="window.CtxPopup.trigger(${i})" class="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold ${textTone} hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left">
-                <i class="fa-solid ${icon} ${iconTone} w-4 text-center"></i>
+                <i class="${icon} ${iconTone} w-4 text-center"></i>
                 <span class="truncate">${item.label}</span>
             </button>`;
         }).join('');
@@ -1325,7 +1325,7 @@ window.renderPendingGearConfigImagesPreview = function() {
         <div class="relative">
             <img src="${window.pendingImageSrc(item)}" class="image-thumb">
             <button type="button" onclick="event.stopPropagation(); window.removePendingGearConfigImage(${i})" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] shadow-md">
-                <i class="fa-solid fa-xmark"></i>
+                <i class="iconoir-xmark"></i>
             </button>
         </div>
     `).join('');
@@ -2447,7 +2447,7 @@ window.startLiveCloudPolling = function() {
 
 window.deleteSoundFromCloud = async function(id) {
     const confirmed = await window.CustomUI.open({
-        title: '<i class="fa-solid fa-trash-can mr-2 text-red-500"></i>Удалить звук?',
+        title: '<i class="iconoir-trash mr-2 text-red-500"></i>Удалить звук?',
         message: window.translations[window.currentLang].delete_confirm,
         confirmText: 'Удалить',
         confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
@@ -2516,10 +2516,10 @@ window.getProfileByDisplayName = function(name) {
 
 // Небольшой каталог бейджей доверия – назначаются вручную из админ-панели (см. auth.js toggleUserBadge).
 window.BADGE_CATALOG = {
-    verified: { label: 'Проверенный автор', icon: 'fa-shield-halved', cls: 'badge-chip-verified' },
-    geophony_expert: { label: 'Эксперт геофонии', icon: 'fa-water', cls: 'badge-chip-geo' },
-    biophony_expert: { label: 'Эксперт биофонии', icon: 'fa-leaf', cls: 'badge-chip-bio' },
-    anthrophony_expert: { label: 'Эксперт антропофонии', icon: 'fa-city', cls: 'badge-chip-anthro' }
+    verified: { label: 'Проверенный автор', icon: 'iconoir-shield', cls: 'badge-chip-verified' },
+    geophony_expert: { label: 'Эксперт геофонии', icon: 'iconoir-droplet', cls: 'badge-chip-geo' },
+    biophony_expert: { label: 'Эксперт биофонии', icon: 'iconoir-leaf', cls: 'badge-chip-bio' },
+    anthrophony_expert: { label: 'Эксперт антропофонии', icon: 'iconoir-city', cls: 'badge-chip-anthro' }
 };
 
 window.getMyFollowing = function() {
@@ -2607,7 +2607,7 @@ window.openFollowList = function(kind) {
     const followItems = list.map(l => {
         const p = window.getProfileByLogin(l);
         return {
-            icon: 'fa-user',
+            icon: 'iconoir-user',
             label: p?.displayName || l,
             tone: 'primary',
             onClick: () => window.openPublicProfile(l, p?.displayName || l)
@@ -2653,7 +2653,7 @@ window.openPublicProfile = function(login, displayName) {
     if (presenceEl) {
         const online = window.isUserOnline ? window.isUserOnline(profile) : false;
         const label = window.formatPresenceLabel ? window.formatPresenceLabel(profile) : (online ? 'в сети' : 'не в сети');
-        presenceEl.innerHTML = `<i class="fa-solid fa-circle text-[7px] ${online ? 'text-emerald-500' : 'text-slate-400'}"></i>${label}`;
+        presenceEl.innerHTML = `<i class="iconoir-circle text-[7px] ${online ? 'text-emerald-500' : 'text-slate-400'}"></i>${label}`;
     }
 
     const bioEl = document.getElementById('pp-bio');
@@ -2666,8 +2666,8 @@ window.openPublicProfile = function(login, displayName) {
     if (joinedEl) {
         const joinedDate = profile && profile.joinedAt ? new Date(profile.joinedAt) : null;
         joinedEl.innerHTML = joinedDate && !isNaN(joinedDate)
-            ? `<i class="fa-solid fa-calendar-days"></i>${joinedDate.toLocaleDateString('ru-RU')}`
-            : `<i class="fa-solid fa-calendar-days"></i>–`;
+            ? `<i class="iconoir-calendar"></i>${joinedDate.toLocaleDateString('ru-RU')}`
+            : `<i class="iconoir-calendar"></i>–`;
     }
 
     const avatarEl = document.getElementById('pp-avatar');
@@ -2702,7 +2702,7 @@ window.openPublicProfile = function(login, displayName) {
         badgesEl.innerHTML = badges.map(key => {
             const b = window.BADGE_CATALOG[key];
             if (!b) return '';
-            return `<span class="badge-chip ${b.cls}"><i class="fa-solid ${b.icon}"></i>${b.label}</span>`;
+            return `<span class="badge-chip ${b.cls}"><i class="${b.icon}"></i>${b.label}</span>`;
         }).join('');
         badgesEl.classList.toggle('hidden', badges.length === 0);
     }
@@ -2717,7 +2717,7 @@ window.openPublicProfile = function(login, displayName) {
     if (gearEl) {
         const gear = (profile && profile.gear) || [];
         gearEl.innerHTML = gear.length
-            ? gear.map(g => `<span class="gear-chip"><i class="fa-solid fa-walkie-talkie"></i>${g}</span>`).join('')
+            ? gear.map(g => `<span class="gear-chip"><i class="iconoir-antenna"></i>${g}</span>`).join('')
             : `<span class="text-xs text-slate-400">Список оборудования пока не заполнен</span>`;
     }
 
@@ -2727,7 +2727,7 @@ window.openPublicProfile = function(login, displayName) {
         linksEl.innerHTML = links.map(url => {
             let host = url;
             try { host = new URL(url).hostname.replace(/^www\./, ''); } catch (e) { /* оставляем как есть, если не полный URL */ }
-            return `<a href="${url}" target="_blank" rel="noopener" class="profile-link-chip"><i class="fa-solid fa-arrow-up-right-from-square"></i>${host}</a>`;
+            return `<a href="${url}" target="_blank" rel="noopener" class="profile-link-chip"><i class="iconoir-open-new-window"></i>${host}</a>`;
         }).join('');
         linksEl.classList.toggle('hidden', links.length === 0);
     }
@@ -2828,10 +2828,10 @@ window.renderPortfolioGrid = function(sounds, containerId) {
             <div class="portfolio-card-body">
                 ${thumb
                     ? `<img src="${thumb}" alt="" class="portfolio-card-thumb" loading="lazy">`
-                    : `<span class="portfolio-card-thumb portfolio-card-thumb--empty" aria-hidden="true"><i class="fa-solid fa-wave-square"></i></span>`}
+                    : `<span class="portfolio-card-thumb portfolio-card-thumb--empty" aria-hidden="true"><i class="iconoir-square-wave"></i></span>`}
                 <div class="min-w-0 flex-1">
                     <h4 class="portfolio-card-title">${s.title}</h4>
-                    <div class="portfolio-card-meta"><i class="fa-regular fa-calendar"></i> ${s.date || '–'}</div>
+                    <div class="portfolio-card-meta"><i class="iconoir-calendar"></i> ${s.date || '–'}</div>
                 </div>
             </div>
         </div>`;
@@ -2921,24 +2921,24 @@ window.renderFilterPanels = function() {
             }
 
             return `<button type="button" onclick="${toggleFn}('${escAttr(val)}')" class="px-2.5 py-1 rounded-full text-[11px] font-bold transition-all border flex items-center ${isActive ? 'bg-[#141414] text-white border-[#141414] shadow-sm dark:bg-[#ff5a3d] dark:border-[#ff5a3d]' : 'bg-white/40 dark:bg-white/10 text-slate-600 dark:text-slate-300 border-white/50 dark:border-white/15 hover:bg-white/60 dark:hover:bg-white/15'}">
-                ${icon ? `<i class="fa-solid ${icon} mr-1 opacity-70"></i>` : ''}${displayName} <span class="ml-1 text-[9px] font-normal opacity-60">(${count})</span>
+                ${icon ? `<i class="${icon} mr-1 opacity-70"></i>` : ''}${displayName} <span class="ml-1 text-[9px] font-normal opacity-60">(${count})</span>
             </button>`;
         }).join('');
     };
 
-    renderMetaSet(window.allExtractedEcoLayers, 'filter-eco-layer', 'window.toggleEcoLayer', 'fa-leaf', 'ecoCategory', 'activeEcoLayer');
-    renderMetaSet(window.allExtractedUcsCats, 'filter-ucs-categories', 'window.toggleUcsCat', 'fa-folder-tree', 'ucsCat', 'activeUcsCat');
-    renderMetaSet(window.allExtractedSubcats, 'filter-ucs-subcategories', 'window.toggleUcsSub', 'fa-tag', 'typeTag', 'activeUcsSub');
-    renderMetaSet(window.allExtractedTags, 'panel-tags', 'window.toggleGenTag', 'fa-hashtag', 'tagArray', 'activeGenTags');
+    renderMetaSet(window.allExtractedEcoLayers, 'filter-eco-layer', 'window.toggleEcoLayer', 'iconoir-leaf', 'ecoCategory', 'activeEcoLayer');
+    renderMetaSet(window.allExtractedUcsCats, 'filter-ucs-categories', 'window.toggleUcsCat', 'iconoir-folder', 'ucsCat', 'activeUcsCat');
+    renderMetaSet(window.allExtractedSubcats, 'filter-ucs-subcategories', 'window.toggleUcsSub', 'iconoir-label', 'typeTag', 'activeUcsSub');
+    renderMetaSet(window.allExtractedTags, 'panel-tags', 'window.toggleGenTag', 'iconoir-hashtag', 'tagArray', 'activeGenTags');
 
-    renderMetaSet(window.allExtractedPrinciples, 'filter-meta-principle', 'window.togglePrinciple', 'fa-street-view', 'recPrinciple', 'activePrinciple');
-    renderMetaSet(window.allExtractedGears, 'filter-meta-gear', 'window.toggleGear', 'fa-walkie-talkie', 'gear', 'activeGear');
-    renderMetaSet(window.allExtractedMics, 'filter-meta-mic', 'window.toggleMic', 'fa-microphone-lines', 'micType', 'activeMic');
-    renderMetaSet(window.allExtractedChannels, 'filter-meta-channels', 'window.toggleChannels', 'fa-headphones', 'channels', 'activeChannels');
-    renderMetaSet(window.allExtractedLicenses, 'filter-meta-license', 'window.toggleLicense', 'fa-scale-balanced', 'license', 'activeLicense');
-    renderMetaSet(window.allExtractedRecordists, 'filter-meta-recordist', 'window.toggleRecordist', 'fa-user-astronaut', 'recordist', 'activeRecordist');
-    renderMetaSet(window.allExtractedWeathers, 'filter-meta-weather', 'window.toggleWeather', 'fa-cloud-sun', 'weather', 'activeWeather');
-    renderMetaSet(window.allExtractedDates, 'filter-meta-date', 'window.toggleDate', 'fa-calendar-days', 'date', 'activeDate');
+    renderMetaSet(window.allExtractedPrinciples, 'filter-meta-principle', 'window.togglePrinciple', 'iconoir-walking', 'recPrinciple', 'activePrinciple');
+    renderMetaSet(window.allExtractedGears, 'filter-meta-gear', 'window.toggleGear', 'iconoir-antenna', 'gear', 'activeGear');
+    renderMetaSet(window.allExtractedMics, 'filter-meta-mic', 'window.toggleMic', 'iconoir-microphone', 'micType', 'activeMic');
+    renderMetaSet(window.allExtractedChannels, 'filter-meta-channels', 'window.toggleChannels', 'iconoir-headset', 'channels', 'activeChannels');
+    renderMetaSet(window.allExtractedLicenses, 'filter-meta-license', 'window.toggleLicense', 'iconoir-scale-frame-enlarge', 'license', 'activeLicense');
+    renderMetaSet(window.allExtractedRecordists, 'filter-meta-recordist', 'window.toggleRecordist', 'iconoir-user-circle', 'recordist', 'activeRecordist');
+    renderMetaSet(window.allExtractedWeathers, 'filter-meta-weather', 'window.toggleWeather', 'iconoir-cloud', 'weather', 'activeWeather');
+    renderMetaSet(window.allExtractedDates, 'filter-meta-date', 'window.toggleDate', 'iconoir-calendar', 'date', 'activeDate');
 
     ['panel-ucs', 'panel-meta'].forEach((id) => {
         const panel = document.getElementById(id);
@@ -3021,11 +3021,11 @@ window.renderActiveTags = function() {
     const html = pills.map((p) => `
         <button type="button" onclick="${p.remove}" class="active-filter-pill" title="Убрать фильтр">
             <span class="truncate max-w-[9rem]">${escHtml(p.label)}</span>
-            <i class="fa-solid fa-xmark opacity-70"></i>
+            <i class="iconoir-xmark opacity-70"></i>
         </button>
     `).join('') + `
         <button type="button" onclick="window.clearAllSoundFilters()" class="active-filter-clear">
-            <i class="fa-solid fa-trash-can mr-1"></i>Сбросить
+            <i class="iconoir-trash mr-1"></i>Сбросить
         </button>`;
     containers.forEach((c) => { c.innerHTML = html; });
     if (window.syncLibraryFiltersToggle) window.syncLibraryFiltersToggle(pills.length);
@@ -3094,7 +3094,7 @@ window.buildSoundListRowHtml = function(sound) {
         <div class="sidebar-sound-row${isSelected ? ' is-active' : ''}" data-sound-id="${esc(sound.id)}" onclick="window.selectSound('${safeId}')">
             ${thumb
                 ? `<img src="${esc(thumb)}" alt="" class="sidebar-sound-thumb" decoding="async" fetchpriority="low">`
-                : `<span class="sidebar-sound-thumb sidebar-sound-thumb--empty" aria-hidden="true"><i class="fa-solid fa-wave-square"></i></span>`}
+                : `<span class="sidebar-sound-thumb sidebar-sound-thumb--empty" aria-hidden="true"><i class="iconoir-square-wave"></i></span>`}
             <div class="sidebar-sound-row__body">
                 <h3 class="sidebar-sound-row__title">${esc(sound.title || 'Без названия')}</h3>
                 <div class="sidebar-sound-row__meta">
@@ -3105,13 +3105,13 @@ window.buildSoundListRowHtml = function(sound) {
             </div>
             <div class="sidebar-sound-row__actions" onclick="event.stopPropagation()">
                 <button type="button" class="sidebar-sound-row__play${playing ? ' is-playing' : ''}" title="Воспроизвести" aria-label="Воспроизвести" onclick="window.selectSound('${safeId}')">
-                    ${playing ? '<i class="fa-solid fa-pause text-xs"></i>' : '<i class="fa-solid fa-play text-xs translate-x-[1px]"></i>'}
+                    ${playing ? '<i class="iconoir-pause text-xs"></i>' : '<i class="iconoir-play text-xs translate-x-[1px]"></i>'}
                 </button>
                 <button type="button" class="sidebar-sound-row__action" title="Скачать" aria-label="Скачать" ${canDownload ? '' : 'disabled'} onclick="window.downloadSoundFromList('${safeId}')">
-                    <i class="fa-solid fa-download text-xs"></i>
+                    <i class="iconoir-download text-xs"></i>
                 </button>
                 <button type="button" class="sidebar-sound-row__action" title="Описание" aria-label="Описание" onclick="window.openSoundDetailsFromList('${safeId}')">
-                    <i class="fa-solid fa-circle-info text-xs"></i>
+                    <i class="iconoir-info-circle text-xs"></i>
                 </button>
             </div>
         </div>`;
@@ -3126,8 +3126,8 @@ window.syncSoundListRowState = function(row, sound) {
     if (playBtn) {
         playBtn.classList.toggle('is-playing', playing);
         playBtn.innerHTML = playing
-            ? '<i class="fa-solid fa-pause text-xs"></i>'
-            : '<i class="fa-solid fa-play text-xs translate-x-[1px]"></i>';
+            ? '<i class="iconoir-pause text-xs"></i>'
+            : '<i class="iconoir-play text-xs translate-x-[1px]"></i>';
     }
 };
 
@@ -3210,7 +3210,7 @@ window.renderList = function() {
             || window.activeSessionId || query);
         listContainer.innerHTML = `
             <div class="library-empty text-center px-3 py-8">
-                <i class="fa-solid fa-filter-circle-xmark text-2xl text-slate-300 dark:text-slate-600 mb-3 block"></i>
+                <i class="iconoir-filter text-2xl text-slate-300 dark:text-slate-600 mb-3 block"></i>
                 <p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Ничего не найдено</p>
                 <p class="text-[11px] text-slate-400 mt-1">${hasFilters ? 'Сбросьте поиск или фильтры, чтобы снова увидеть записи.' : 'В библиотеке пока нет опубликованных звуков.'}</p>
                 ${hasFilters ? `
@@ -3263,8 +3263,8 @@ window.refreshPlayingListRow = function() {
         if (playBtn) {
             playBtn.classList.toggle('is-playing', playing);
             playBtn.innerHTML = playing
-                ? '<i class="fa-solid fa-pause text-xs"></i>'
-                : '<i class="fa-solid fa-play text-xs translate-x-[1px]"></i>';
+                ? '<i class="iconoir-pause text-xs"></i>'
+                : '<i class="iconoir-play text-xs translate-x-[1px]"></i>';
         }
     });
     // Active row may be outside the virtual window – refresh window classes via key bust
@@ -3771,33 +3771,33 @@ window.openFeedPostMenu = function(postId, ev) {
     const items = [];
     if (p.authorId) {
         items.push({
-            icon: 'fa-id-badge',
+            icon: 'iconoir-user-circle',
             label: 'Профиль автора',
             tone: 'primary',
             onClick: () => window.openPublicProfile(p.authorId, p.authorName || p.authorId)
         });
     }
     if (p.type === 'article') {
-        items.push({ icon: 'fa-book-open', label: 'Читать статью', tone: 'primary', onClick: () => window.openFeedArticle(postId) });
+        items.push({ icon: 'iconoir-book', label: 'Читать статью', tone: 'primary', onClick: () => window.openFeedArticle(postId) });
     }
     items.push({
-        icon: 'fa-comment',
+        icon: 'iconoir-chat-bubble',
         label: window.__feedOpenComments === postId ? 'Скрыть комментарии' : 'Комментарии',
         onClick: () => window.toggleFeedComments(postId)
     });
     items.push({
-        icon: 'fa-heart',
+        icon: 'iconoir-heart',
         label: 'Нравится',
         onClick: () => window.toggleFeedReaction(postId)
     });
     if (isAdmin) {
         items.push({
-            icon: 'fa-thumbtack',
+            icon: 'iconoir-pin',
             label: p.pinned ? 'Открепить' : 'Закрепить',
             onClick: () => window.toggleFeedPin(postId)
         });
-        items.push({ icon: 'fa-pen', label: 'Изменить', tone: 'primary', onClick: () => window.openFeedPostEditor(postId) });
-        items.push({ icon: 'fa-trash-can', label: 'Удалить', tone: 'danger', onClick: () => window.deleteFeedPost(postId) });
+        items.push({ icon: 'iconoir-edit-pencil', label: 'Изменить', tone: 'primary', onClick: () => window.openFeedPostEditor(postId) });
+        items.push({ icon: 'iconoir-trash', label: 'Удалить', tone: 'danger', onClick: () => window.deleteFeedPost(postId) });
     }
     const opts = {
         title: p.title || 'Пост',
@@ -3859,12 +3859,12 @@ window.renderSidebarFeed = function() {
         <div class="feed-social" onclick="event.stopPropagation()">
             <div class="feed-social__stats">
                 <button type="button" class="feed-social__btn ${reacted ? 'is-active' : ''}" onclick="window.toggleFeedReaction('${p.id}')" aria-pressed="${reacted ? 'true' : 'false'}" title="Нравится">
-                    <i class="fa-solid fa-heart"></i><span>${hearts || ''}</span>
+                    <i class="iconoir-heart"></i><span>${hearts || ''}</span>
                 </button>
                 <button type="button" class="feed-social__btn ${open ? 'is-open' : ''}" onclick="window.toggleFeedComments('${p.id}')" title="Комментарии">
-                    <i class="fa-solid fa-comment"></i><span>${comments || ''}</span>
+                    <i class="iconoir-chat-bubble"></i><span>${comments || ''}</span>
                 </button>
-                <span class="feed-social__btn feed-social__btn--muted" title="Просмотры"><i class="fa-regular fa-eye"></i><span>${views || 0}</span></span>
+                <span class="feed-social__btn feed-social__btn--muted" title="Просмотры"><i class="iconoir-eye"></i><span>${views || 0}</span></span>
             </div>
             ${open ? window.renderFeedCommentsBlock(p) : ''}
         </div>`;
@@ -3879,13 +3879,13 @@ window.renderSidebarFeed = function() {
             const head = `
                 <div class="feed-post__head">
                     <div class="feed-post__meta-row">
-                        ${p.pinned ? '<span class="feed-pin" title="Закреплено"><i class="fa-solid fa-thumbtack"></i></span>' : ''}
+                        ${p.pinned ? '<span class="feed-pin" title="Закреплено"><i class="iconoir-pin"></i></span>' : ''}
                         <span class="feed-type ${typeCls}">${typeLabel}</span>
                         <span class="feed-post__dot" aria-hidden="true">·</span>
                         <span class="feed-post__time">${esc(dateStr)}</span>
                     </div>
                     <button type="button" class="feed-post__more comment-menu-btn" onclick="event.stopPropagation(); window.openFeedPostMenu('${p.id}', event)" title="Действия" aria-label="Действия">
-                        <i class="fa-solid fa-ellipsis"></i>
+                        <i class="iconoir-more-horiz"></i>
                     </button>
                 </div>
                 <div class="feed-post__by">${window.feedAuthorChip(p.authorId, p.authorName)}</div>`;
@@ -3901,7 +3901,7 @@ window.renderSidebarFeed = function() {
                         <button type="button" class="feed-post__title-btn" onclick="window.openFeedArticle('${p.id}')">
                             <h3 class="feed-post__title" style="${titleStyle}">${esc(p.title)}</h3>
                             ${teaser ? `<p class="feed-post__teaser">${esc(teaser)}</p>` : ''}
-                            <span class="feed-post__read">Читать <i class="fa-solid fa-arrow-right"></i></span>
+                            <span class="feed-post__read">Читать <i class="iconoir-arrow-right"></i></span>
                         </button>
                         ${socialBar(p)}
                     </div>
@@ -3919,10 +3919,10 @@ window.renderSidebarFeed = function() {
             </article>`;
         }).join('')
         : `<div class="feed-empty">
-            <i class="fa-regular fa-newspaper"></i>
+            <i class="iconoir-journal"></i>
             <p>Пока нет публикаций</p>
             <p class="feed-empty__hint">${filter === 'all' ? 'Здесь появятся новости и статьи карты' : 'В этом фильтре пусто'}</p>
-            ${isAdmin && filter === 'all' ? '<button type="button" class="feed-admin-create" onclick="window.openFeedPostEditor()"><i class="fa-solid fa-plus"></i> Создать пост</button>' : ''}
+            ${isAdmin && filter === 'all' ? '<button type="button" class="feed-admin-create" onclick="window.openFeedPostEditor()"><i class="iconoir-plus"></i> Создать пост</button>' : ''}
            </div>`;
 
     const recentHtml = recent.length
@@ -3947,7 +3947,7 @@ window.renderSidebarFeed = function() {
                         <h2 class="feed-head__title">Лента</h2>
                         <p class="feed-head__sub">Новости карты и полевые заметки</p>
                     </div>
-                    ${isAdmin ? `<button type="button" class="feed-head__create" onclick="window.openFeedPostEditor()" title="Новый пост"><i class="fa-solid fa-plus"></i></button>` : ''}
+                    ${isAdmin ? `<button type="button" class="feed-head__create" onclick="window.openFeedPostEditor()" title="Новый пост"><i class="iconoir-plus"></i></button>` : ''}
                 </header>
                 <div class="feed-filters" role="tablist">${filters}</div>
             </div>
@@ -3974,7 +3974,7 @@ window.renderFeedCommentsBlock = function(p) {
             const profile = c.authorId && window.getProfileByLogin ? window.getProfileByLogin(c.authorId) : null;
             const avatar = profile?.avatar
                 ? `<img src="${esc(profile.avatar)}" alt="" class="comment-avatar">`
-                : `<span class="comment-avatar comment-avatar-fallback"><i class="fa-solid fa-user"></i></span>`;
+                : `<span class="comment-avatar comment-avatar-fallback"><i class="iconoir-user"></i></span>`;
             const name = c.authorId
                 ? `<span class="comment-author-link" onclick="window.openPublicProfile('${esc(c.authorId)}', '${esc(c.author)}')">${esc(c.author || 'Гость')}</span>`
                 : `<span class="font-bold text-slate-700 dark:text-slate-200">${esc(c.author || 'Гость')}</span>`;
@@ -3985,13 +3985,13 @@ window.renderFeedCommentsBlock = function(p) {
                     <div class="feed-comment__tools">
                         <span class="feed-comment__date">${esc(when)}</span>
                         <button type="button" class="comment-menu-btn" title="Действия" onclick="window.openFeedCommentMenu('${p.id}', '${esc(c.id)}', event)">
-                            <i class="fa-solid fa-ellipsis"></i>
+                            <i class="iconoir-more-horiz"></i>
                         </button>
                     </div>
                 </div>
                 <p class="feed-comment__text">${esc(c.text)}</p>
                 <button type="button" class="comment-reaction-btn ${reactedByMe ? 'active' : ''}" onclick="window.toggleFeedCommentReaction('${p.id}', '${esc(c.id)}')">
-                    <i class="fa-solid fa-heart"></i>${reactionCount > 0 ? reactionCount : ''}
+                    <i class="iconoir-heart"></i>${reactionCount > 0 ? reactionCount : ''}
                 </button>
             </div>`;
         }).join('')
@@ -4002,7 +4002,7 @@ window.renderFeedCommentsBlock = function(p) {
             <div class="feed-comments__list">${list}</div>
             <div class="feed-comments__compose">
                 <input id="feed-comment-input-${esc(p.id)}" type="text" maxlength="500" class="modal-input text-xs" placeholder="Комментарий…" onkeydown="if(event.key==='Enter'){event.preventDefault();window.addFeedComment('${p.id}')}">
-                <button type="button" class="feed-comments__send" onclick="window.addFeedComment('${p.id}')" aria-label="Отправить"><i class="fa-solid fa-paper-plane"></i></button>
+                <button type="button" class="feed-comments__send" onclick="window.addFeedComment('${p.id}')" aria-label="Отправить"><i class="iconoir-send-diagonal"></i></button>
             </div>
         </div>`;
 };
@@ -4020,19 +4020,19 @@ window.openFeedCommentMenu = function(postId, commentId, ev) {
     const items = [];
     if (c.authorId) {
         items.push({
-            icon: 'fa-id-badge',
+            icon: 'iconoir-user-circle',
             label: 'Профиль автора',
             tone: 'primary',
             onClick: () => window.openPublicProfile(c.authorId, c.author)
         });
     }
     items.push({
-        icon: 'fa-heart',
+        icon: 'iconoir-heart',
         label: reacted ? 'Убрать реакцию' : 'Поставить реакцию',
         onClick: () => window.toggleFeedCommentReaction(postId, commentId)
     });
     items.push({
-        icon: 'fa-flag',
+        icon: 'iconoir-triangle-flag',
         label: 'Пожаловаться',
         tone: 'warning',
         onClick: async () => {
@@ -4054,7 +4054,7 @@ window.openFeedCommentMenu = function(postId, commentId, ev) {
     });
     if (isAdmin || (login && c.authorId === login)) {
         items.push({
-            icon: 'fa-trash-can',
+            icon: 'iconoir-trash',
             label: 'Удалить',
             tone: 'danger',
             onClick: () => window.deleteFeedComment(postId, commentId)
@@ -4418,7 +4418,7 @@ window.openFeedPostEditor = function(postId = null) {
     document.querySelectorAll('input[name="feed-post-type"]').forEach(r => {
         r.checked = (r.value === (post?.type || 'notice'));
     });
-    if (header) header.innerHTML = `<i class="fa-solid fa-pen-to-square mr-2 text-blue-500"></i>${post ? 'Редактировать пост' : 'Новый пост'}`;
+    if (header) header.innerHTML = `<i class="iconoir-edit mr-2 text-blue-500"></i>${post ? 'Редактировать пост' : 'Новый пост'}`;
     window.updateFeedPostTypeUI();
     window.applyFeedTitlePreview();
     window.__feedPostSnapshot = {
@@ -4788,7 +4788,7 @@ window.selectSound = function(id) {
     const titleEl = document.getElementById('player-title');
     const gearEl = document.getElementById('player-gear');
     if (titleEl) titleEl.textContent = s.title;
-    if (gearEl) gearEl.innerHTML = `<i class="fa-solid fa-walkie-talkie mr-1 text-slate-400"></i>${s.gear}`;
+    if (gearEl) gearEl.innerHTML = `<i class="iconoir-antenna mr-1 text-slate-400"></i>${s.gear}`;
 
     if (s.url) {
         if (window.resetPlaybackPitch) window.resetPlaybackPitch();
@@ -4826,7 +4826,7 @@ window.openDetailsMetaFilterSheet = function(kind, value, label) {
     if (!v || v === '–') return;
     const title = label || v;
     const items = [{
-        icon: 'fa-filter',
+        icon: 'iconoir-filter',
         label: kind === 'description' || kind === 'search'
             ? 'Искать по этому тексту'
             : `Фильтр: ${String(title).slice(0, 48)}`,
@@ -4885,7 +4885,7 @@ window.openDetailsModal = function() {
     if (titleEl) titleEl.textContent = s.title;
     const idEl = document.getElementById('details-sound-id');
     if (idEl) idEl.textContent = `ID · ${window.getSoundDisplayId ? window.getSoundDisplayId(s) : s.id}`;
-    if (fileEl) fileEl.innerHTML = `<i class="fa-solid fa-file-waveform mr-1"></i>${s.archiveNum || s.id}_${s.fileName}`;
+    if (fileEl) fileEl.innerHTML = `<i class="iconoir-sine-wave mr-1"></i>${s.archiveNum || s.id}_${s.fileName}`;
     // description wired below with ActionSheet filter action
 
     const safeText = (id, txt) => {
@@ -4997,13 +4997,13 @@ window.openDetailsModal = function() {
             if (window.ActionSheet) {
                 window.ActionSheet.open([
                     {
-                        icon: 'fa-id-badge',
+                        icon: 'iconoir-user-circle',
                         label: 'Открыть профиль',
                         tone: 'primary',
                         onClick: () => window.openPublicProfile(s.recordistId, s.recordist)
                     },
                     {
-                        icon: 'fa-filter',
+                        icon: 'iconoir-filter',
                         label: 'Искать по этому автору',
                         onClick: () => window.applyDetailsMetaFilter && window.applyDetailsMetaFilter('recordist', s.recordist)
                     }
@@ -5030,14 +5030,14 @@ window.openDetailsModal = function() {
                 const items = [];
                 if (session) {
                     items.push({
-                        icon: 'fa-route',
+                        icon: 'iconoir-path-arrow',
                         label: 'Открыть экспедицию',
                         tone: 'primary',
                         onClick: () => window.openExpeditionViewModal(session.id)
                     });
                 }
                 items.push({
-                    icon: 'fa-filter',
+                    icon: 'iconoir-filter',
                     label: 'Показать звуки этой экспедиции',
                     onClick: () => {
                         if (s.sessionId && window.setSidebarSessionFilter) {
@@ -5419,7 +5419,7 @@ window.renderComments = function(sound) {
         const avatarUrl = profile?.avatar && /^https?:\/\//i.test(profile.avatar) ? profile.avatar : '';
         const avatar = avatarUrl
             ? `<img src="${escAttr(avatarUrl)}" alt="" class="comment-avatar">`
-            : `<span class="comment-avatar comment-avatar-fallback"><i class="fa-solid fa-user"></i></span>`;
+            : `<span class="comment-avatar comment-avatar-fallback"><i class="iconoir-user"></i></span>`;
         const name = authorId
             ? `<span class="comment-author-link" onclick="window.openPublicProfile('${escJs(authorId)}', '${escJs(author)}')">${escHtml(author)}</span>`
             : `<span class="font-bold text-slate-700 dark:text-slate-200">${escHtml(author)}</span>`;
@@ -5431,19 +5431,19 @@ window.renderComments = function(sound) {
         const reactionCount = (r.reactedBy || []).length;
         return `
         <div class="comment-reply swipe-reply-row" data-reply-id="${escAttr(r.id)}" data-reply-author="${escAttr(r.author)}" data-reply-author-id="${escAttr(r.authorId || '')}">
-            <span class="swipe-reply-hint"><i class="fa-solid fa-reply"></i></span>
+            <span class="swipe-reply-hint"><i class="iconoir-reply"></i></span>
             <div class="flex justify-between items-start gap-2 mb-1">
                 <span class="text-[12px]">${renderAuthor(r.author, r.authorId)}</span>
                 <div class="flex items-center gap-1 shrink-0">
                     <span class="text-[9px] text-slate-400">${escHtml(r.date)}</span>
                     <button onclick="window.openReplyMenu('${escJs(sound.id)}', '${escJs(r.id)}', event)" class="comment-menu-btn" title="Действия">
-                        <i class="fa-solid fa-ellipsis"></i>
+                        <i class="iconoir-more-horiz"></i>
                     </button>
                 </div>
             </div>
             <p class="text-[12px] text-slate-600 dark:text-slate-300">${escHtml(r.text)}</p>
             <button onclick="window.toggleCommentReaction('${escJs(sound.id)}', '${escJs(r.id)}')" class="comment-reaction-btn ${reactedByMe ? 'active' : ''}">
-                <i class="fa-solid fa-heart"></i>${reactionCount > 0 ? reactionCount : ''}
+                <i class="iconoir-heart"></i>${reactionCount > 0 ? reactionCount : ''}
             </button>
         </div>`;
     };
@@ -5453,19 +5453,19 @@ window.renderComments = function(sound) {
         const reactionCount = (c.reactedBy || []).length;
         return `
         <div class="bg-slate-100/60 dark:bg-slate-900/60 p-3.5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 swipe-reply-row" data-comment-id="${escAttr(c.id)}" data-comment-author="${escAttr(c.author)}" data-comment-author-id="${escAttr(c.authorId || '')}">
-            <span class="swipe-reply-hint"><i class="fa-solid fa-reply"></i></span>
+            <span class="swipe-reply-hint"><i class="iconoir-reply"></i></span>
             <div class="flex justify-between items-start mb-1.5 gap-2">
                 <span class="text-[13px]">${renderAuthor(c.author, c.authorId)}</span>
                 <div class="flex items-center gap-1.5 shrink-0">
                     <span class="text-[10px] text-slate-400">${escHtml(c.date)}</span>
                     <button onclick="window.openCommentMenu('${escJs(sound.id)}', '${escJs(c.id)}', event)" class="comment-menu-btn" title="Действия">
-                        <i class="fa-solid fa-ellipsis"></i>
+                        <i class="iconoir-more-horiz"></i>
                     </button>
                 </div>
             </div>
             <p class="text-[13px] text-slate-600 dark:text-slate-300 mb-1.5">${escHtml(c.text)}</p>
             <button onclick="window.toggleCommentReaction('${escJs(sound.id)}', '${escJs(c.id)}')" class="comment-reaction-btn ${reactedByMe ? 'active' : ''}">
-                <i class="fa-solid fa-heart"></i>${reactionCount > 0 ? reactionCount : ''}
+                <i class="iconoir-heart"></i>${reactionCount > 0 ? reactionCount : ''}
             </button>
             ${(c.replies && c.replies.length) ? `<div class="comment-replies">${c.replies.map(renderReply).join('')}</div>` : ''}
         </div>`;
@@ -5604,15 +5604,15 @@ window.openCommentMenu = function(soundId, commentId, ev) {
     const reacted = !!login && (c.reactedBy || []).includes(login);
 
     const items = [];
-    if (c.authorId) items.push({ icon: 'fa-id-badge', label: 'Профиль автора', tone: 'primary', onClick: () => window.openPublicProfile(c.authorId, c.author) });
-    items.push({ icon: 'fa-reply', label: 'Ответить', tone: 'primary', onClick: () => window.startReplyToComment(soundId, commentId, c.author, commentId, c.authorId) });
-    items.push({ icon: 'fa-heart', label: reacted ? 'Убрать реакцию' : 'Поставить реакцию', onClick: () => window.toggleCommentReaction(soundId, commentId) });
-    items.push({ icon: 'fa-flag', label: 'Пожаловаться', tone: 'warning', onClick: () => window.openReportModal('comment', soundId, commentId) });
+    if (c.authorId) items.push({ icon: 'iconoir-user-circle', label: 'Профиль автора', tone: 'primary', onClick: () => window.openPublicProfile(c.authorId, c.author) });
+    items.push({ icon: 'iconoir-reply', label: 'Ответить', tone: 'primary', onClick: () => window.startReplyToComment(soundId, commentId, c.author, commentId, c.authorId) });
+    items.push({ icon: 'iconoir-heart', label: reacted ? 'Убрать реакцию' : 'Поставить реакцию', onClick: () => window.toggleCommentReaction(soundId, commentId) });
+    items.push({ icon: 'iconoir-triangle-flag', label: 'Пожаловаться', tone: 'warning', onClick: () => window.openReportModal('comment', soundId, commentId) });
     if (isAdmin) {
-        items.push({ icon: 'fa-trash-can', label: 'Удалить', tone: 'danger', onClick: () => window.adminDeleteComment(soundId, commentId) });
+        items.push({ icon: 'iconoir-trash', label: 'Удалить', tone: 'danger', onClick: () => window.adminDeleteComment(soundId, commentId) });
         if (c.authorId && c.authorId !== 'admin') {
             items.push({
-                icon: 'fa-user-slash',
+                icon: 'iconoir-user-xmark',
                 label: 'Удалить и заблокировать',
                 tone: 'danger',
                 onClick: async () => {
@@ -5641,18 +5641,18 @@ window.openReplyMenu = function(soundId, replyId, ev) {
     const isAdmin = !!window.currentUser && (String(window.currentUser.role || '').toLowerCase() === 'admin' || login === 'admin');
 
     const items = [];
-    if (reply.authorId) items.push({ icon: 'fa-id-badge', label: 'Профиль автора', tone: 'primary', onClick: () => window.openPublicProfile(reply.authorId, reply.author) });
-    items.push({ icon: 'fa-reply', label: 'Ответить', tone: 'primary', onClick: () => window.startReplyToComment(soundId, replyId, reply.author, parent.id, reply.authorId) });
-    items.push({ icon: 'fa-flag', label: 'Пожаловаться', tone: 'warning', onClick: () => window.openReportModal('comment', soundId, replyId) });
+    if (reply.authorId) items.push({ icon: 'iconoir-user-circle', label: 'Профиль автора', tone: 'primary', onClick: () => window.openPublicProfile(reply.authorId, reply.author) });
+    items.push({ icon: 'iconoir-reply', label: 'Ответить', tone: 'primary', onClick: () => window.startReplyToComment(soundId, replyId, reply.author, parent.id, reply.authorId) });
+    items.push({ icon: 'iconoir-triangle-flag', label: 'Пожаловаться', tone: 'warning', onClick: () => window.openReportModal('comment', soundId, replyId) });
     items.push({
-        icon: 'fa-heart',
+        icon: 'iconoir-heart',
         label: 'Реакция',
         tone: 'primary',
         onClick: () => window.toggleCommentReaction(soundId, replyId)
     });
     if (isAdmin) {
         items.push({
-            icon: 'fa-trash-can', label: 'Удалить', tone: 'danger',
+            icon: 'iconoir-trash', label: 'Удалить', tone: 'danger',
             onClick: async () => {
                 parent.replies = (parent.replies || []).filter(r => r.id !== replyId);
                 const updatedCloud = [...window.cloudDataCache];
@@ -5664,7 +5664,7 @@ window.openReplyMenu = function(soundId, replyId, ev) {
         });
         if (reply.authorId && reply.authorId !== 'admin') {
             items.push({
-                icon: 'fa-user-slash', label: 'Удалить и заблокировать', tone: 'danger',
+                icon: 'iconoir-user-xmark', label: 'Удалить и заблокировать', tone: 'danger',
                 onClick: async () => {
                     parent.replies = (parent.replies || []).filter(r => r.id !== replyId);
                     const updatedCloud = [...window.cloudDataCache];
@@ -5685,7 +5685,7 @@ window.adminDeleteComment = async function(soundId, commentId) {
     const s = window.soundsData.find(x => x.id === soundId);
     if (!s) return;
     const confirmed = await window.CustomUI.open({
-        title: '<i class="fa-solid fa-trash-can mr-2 text-red-500"></i>Удалить комментарий?',
+        title: '<i class="iconoir-trash mr-2 text-red-500"></i>Удалить комментарий?',
         message: 'Комментарий и все ответы к нему будут удалены.',
         confirmText: 'Удалить',
         confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
@@ -5764,7 +5764,7 @@ window.openReportModal = async function(type, soundId, commentId = null) {
     if (!guard.ok) { window.spamGuardToast(guard); return; }
 
     const reason = await window.CustomUI.open({
-        title: '<i class="fa-solid fa-flag mr-2 text-red-500"></i>Пожаловаться',
+        title: '<i class="iconoir-triangle-flag mr-2 text-red-500"></i>Пожаловаться',
         message: type === 'comment' ? 'Опишите, что не так с этим комментарием – жалобу рассмотрят модераторы.' : 'Опишите, что не так с этой записью – жалобу рассмотрят модераторы.',
         confirmText: 'Отправить жалобу',
         confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md',
@@ -6211,7 +6211,7 @@ window.openUcsRecommendations = async function() {
     `;
     if (window.CustomUI && window.CustomUI.open) {
         await window.CustomUI.open({
-            title: '<i class="fa-solid fa-lightbulb mr-2 text-amber-500"></i>Рекомендации по UCS',
+            title: '<i class="iconoir-light-bulb mr-2 text-amber-500"></i>Рекомендации по UCS',
             message,
             confirmText: 'Понятно',
             confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-md'
@@ -6333,7 +6333,7 @@ window.renderPendingImagesPreview = function() {
         <div class="relative">
             <img src="${window.pendingImageSrc(item)}" class="image-thumb">
             <button type="button" onclick="event.stopPropagation(); window.removePendingImage(${i})" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] shadow-md">
-                <i class="fa-solid fa-xmark"></i>
+                <i class="iconoir-xmark"></i>
             </button>
         </div>
     `).join('');
@@ -6803,11 +6803,11 @@ window.editSound = function(id) {
 
     const dropContent = document.getElementById('drop-zone-content');
     if (dropContent) dropContent.innerHTML = s.url
-        ? `<i class="fa-solid fa-file-waveform text-4xl text-blue-400 mb-3"></i><span class="text-sm font-bold text-slate-500 dark:text-slate-400">Аудиофайл уже сохранён. Выберите новый, чтобы заменить.</span>`
-        : `<i class="fa-solid fa-cloud-arrow-up text-4xl text-slate-300 dark:text-slate-500 mb-3"></i><span class="text-sm font-bold text-slate-500 dark:text-slate-400">Нажмите или перетащите аудиофайл</span>`;
+        ? `<i class="iconoir-sine-wave text-4xl text-blue-400 mb-3"></i><span class="text-sm font-bold text-slate-500 dark:text-slate-400">Аудиофайл уже сохранён. Выберите новый, чтобы заменить.</span>`
+        : `<i class="iconoir-cloud-upload text-4xl text-slate-300 dark:text-slate-500 mb-3"></i><span class="text-sm font-bold text-slate-500 dark:text-slate-400">Нажмите или перетащите аудиофайл</span>`;
 
     const headerTitle = document.getElementById('add-modal-header-title');
-    if (headerTitle) headerTitle.innerHTML = `<i class="fa-solid fa-pen mr-2 text-blue-600"></i>Редактировать запись`;
+    if (headerTitle) headerTitle.innerHTML = `<i class="iconoir-edit-pencil mr-2 text-blue-600"></i>Редактировать запись`;
     const publishText = document.getElementById('publish-btn-text');
     if (publishText) {
         publishText.textContent = (s.status === 'rejected' || s.status === 'draft')
@@ -6830,12 +6830,12 @@ window.resetAddModalToCreateMode = function() {
     window.updateSoundwalkRouteUI();
 
     const headerTitle = document.getElementById('add-modal-header-title');
-    if (headerTitle) headerTitle.innerHTML = `<i class="fa-solid fa-file-audio mr-2 text-blue-600"></i><span data-lang="add_audio_title">Добавить аудио</span>`;
+    if (headerTitle) headerTitle.innerHTML = `<i class="iconoir-music-double-note mr-2 text-blue-600"></i><span data-lang="add_audio_title">Добавить аудио</span>`;
     const publishText = document.getElementById('publish-btn-text');
     if (publishText) publishText.textContent = 'Опубликовать звук';
 
     const dropContent = document.getElementById('drop-zone-content');
-    if (dropContent) dropContent.innerHTML = `<i class="fa-solid fa-cloud-arrow-up text-4xl text-slate-300 dark:text-slate-500 mb-3"></i><div class="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400 mb-2"><span class="text-sm font-bold" data-lang="drag_drop">Нажмите или перетащите аудиофайл</span></div><p class="text-[10px] text-slate-400">Любой формат → WAV; частота и битность определяются автоматически</p>`;
+    if (dropContent) dropContent.innerHTML = `<i class="iconoir-cloud-upload text-4xl text-slate-300 dark:text-slate-500 mb-3"></i><div class="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400 mb-2"><span class="text-sm font-bold" data-lang="drag_drop">Нажмите или перетащите аудиофайл</span></div><p class="text-[10px] text-slate-400">Любой формат → WAV; частота и битность определяются автоматически</p>`;
 
     const imgContainer = document.getElementById('image-preview-container');
     if (imgContainer) { imgContainer.innerHTML = ''; imgContainer.classList.add('hidden'); }
@@ -7006,9 +7006,9 @@ window.applyUILanguage = function() {
             return;
         }
         // Сохраняем иконки: обновляем текстовые узлы или весь текст, если детей нет
-        const icon = el.querySelector(':scope > i.fa-solid, :scope > i.fa-regular, :scope > i.fa-brands');
+        const icon = el.querySelector(':scope > i[class*="iconoir-"]');
         if (icon && el.children.length <= 2) {
-            const span = el.querySelector(':scope > span:not([class*="fa"])');
+            const span = el.querySelector(':scope > span:not([class*="iconoir"])');
             if (span && !span.querySelector('i')) {
                 span.textContent = text;
             } else {
@@ -7027,7 +7027,7 @@ window.applyUILanguage = function() {
         } else if (el.children.length === 0) {
             el.textContent = text;
         } else {
-            const span = el.querySelector('[data-lang-text]') || el.querySelector('span:not(.fa-solid):not(.fa-regular)');
+            const span = el.querySelector('[data-lang-text]') || el.querySelector('span:not([class*="iconoir-"]):not([class*="iconoir-"])');
             if (span && span.children.length === 0) span.textContent = text;
             else {
                 el.childNodes.forEach(node => {
@@ -7098,12 +7098,11 @@ window.setColorPalette = function(palette, skipSave = false) {
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('palette', next);
     if (window.refreshSettingsUI) window.refreshSettingsUI();
     if (window.refreshAnalyzersTheme) window.refreshAnalyzersTheme();
-    if (window.scheduleYandex3MapAppearance) window.scheduleYandex3MapAppearance();
 };
 
 window.setUiFont = function(font, skipSave = false) {
-    const ids = ['satoshi', 'morfin', 'rostov', 'klukva', 'geologica', 'forest', 'neucha', 'coolvetica'];
-    const next = ids.includes(font) ? font : 'satoshi';
+    const ids = ['geo-klukva', 'satoshi', 'morfin', 'rostov', 'klukva', 'geologica', 'forest', 'neucha', 'coolvetica'];
+    const next = ids.includes(font) ? font : 'geo-klukva';
     window.currentFont = next;
     const root = document.documentElement;
     root.setAttribute('data-font', next);
@@ -7112,7 +7111,6 @@ window.setUiFont = function(font, skipSave = false) {
     try { localStorage.setItem('rosmap_font', next); } catch (_) {}
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('font', next);
     if (window.refreshSettingsUI) window.refreshSettingsUI();
-    if (window.scheduleYandex3MapAppearance) window.scheduleYandex3MapAppearance();
 };
 
 /** Event delegation — reliable even if inline onclick is blocked or nodes are re-docked. */
@@ -7329,7 +7327,7 @@ window.getSearchSuggestions = function(query) {
             id: s.id,
             label: s.title || 'Звук',
             meta: s.recordist || s.ecoCategory || 'Звук',
-            icon: 'fa-music'
+            icon: 'iconoir-music-double-note'
         });
     });
 
@@ -7343,7 +7341,7 @@ window.getSearchSuggestions = function(query) {
             id: p.id,
             label: title,
             meta: 'Лента',
-            icon: 'fa-newspaper'
+            icon: 'iconoir-journal'
         });
     });
 
@@ -7357,7 +7355,7 @@ window.getSearchSuggestions = function(query) {
             id: s.id,
             label: s.title || 'Экспедиция',
             meta: s.ownerName || 'Экспедиция',
-            icon: 'fa-route'
+            icon: 'iconoir-path-arrow'
         });
     });
 
@@ -7370,7 +7368,7 @@ window.getSearchSuggestions = function(query) {
             id: p.loginName,
             label: name,
             meta: 'Профиль',
-            icon: 'fa-user'
+            icon: 'iconoir-user'
         });
     });
 
@@ -7394,7 +7392,7 @@ window.updateSearchSuggestions = function(query) {
     }
     if (!items.length) {
         box.innerHTML = `<div class="search-suggestion search-suggestion--empty" role="option" aria-disabled="true">
-            <span class="search-suggestion__icon"><i class="fa-solid fa-magnifying-glass"></i></span>
+            <span class="search-suggestion__icon"><i class="iconoir-search"></i></span>
             <span class="min-w-0">
                 <div class="search-suggestion__label">Ничего не найдено</div>
                 <div class="search-suggestion__meta">Попробуйте другое слово или сбросьте фильтры</div>
@@ -7407,7 +7405,7 @@ window.updateSearchSuggestions = function(query) {
     const esc = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     box.innerHTML = items.map((item, i) => `
         <button type="button" role="option" class="search-suggestion" data-index="${i}" data-type="${esc(item.type)}" data-id="${esc(item.id)}">
-            <span class="search-suggestion__icon"><i class="fa-solid ${item.icon}"></i></span>
+            <span class="search-suggestion__icon"><i class="${item.icon}"></i></span>
             <span class="min-w-0">
                 <div class="search-suggestion__label">${esc(item.label)}</div>
                 <div class="search-suggestion__meta">${esc(item.meta)}</div>
