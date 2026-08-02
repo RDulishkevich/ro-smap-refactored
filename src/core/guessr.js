@@ -131,7 +131,7 @@
         }
         window.__guessr.audio = null;
         const playBtn = document.getElementById('guessr-play');
-        if (playBtn) playBtn.innerHTML = '<i class="iconoir-play mr-1"></i>Слушать';
+        if (playBtn) playBtn.innerHTML = '<i class="icon-play mr-1"></i>Слушать';
     };
 
     window.toggleGuessrAudio = function() {
@@ -148,7 +148,7 @@
             window.__guessr.audio = a;
             a.onended = () => {
                 const playBtn = document.getElementById('guessr-play');
-                if (playBtn) playBtn.innerHTML = '<i class="iconoir-play mr-1"></i>Слушать';
+                if (playBtn) playBtn.innerHTML = '<i class="icon-play mr-1"></i>Слушать';
             };
         }
         const a = window.__guessr.audio;
@@ -159,10 +159,10 @@
         }
         if (a.paused) {
             a.play().catch(() => window.showToast('Не удалось воспроизвести'));
-            if (playBtn) playBtn.innerHTML = '<i class="iconoir-pause mr-1"></i>Пауза';
+            if (playBtn) playBtn.innerHTML = '<i class="icon-pause mr-1"></i>Пауза';
         } else {
             a.pause();
-            if (playBtn) playBtn.innerHTML = '<i class="iconoir-play mr-1"></i>Слушать';
+            if (playBtn) playBtn.innerHTML = '<i class="icon-play mr-1"></i>Слушать';
         }
     };
 

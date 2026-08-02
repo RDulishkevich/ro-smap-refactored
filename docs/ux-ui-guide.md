@@ -33,15 +33,15 @@
 | Бренд / заголовки | `--font-brand` / `font-brand` | по `data-font` (по умолчанию Clash Display → Satoshi) |
 | Моно | `--font-mono` / `font-mono` | ui-monospace → Menlo / Consolas |
 
-Источники: локальные `assets/fonts/` (Geologica, Klukva, …) + Fontshare (Satoshi/Clash опционально) + Jakarta fallback. По умолчанию `data-font="geo-klukva"`. Порядок в `index.html`: **Iconoir → текстовые шрифты → Tailwind → style.css → glass.css → fonts.css**. Токены держать синхронно в `style.css`, `glass.css`, `fonts.css`.
+Источники: локальные `assets/fonts/` (Geologica, Klukva, …) + Fontshare (Satoshi/Clash опционально) + Jakarta fallback. По умолчанию `data-font="geo-klukva"`. Порядок в `index.html`: **Iconsax → текстовые шрифты → Tailwind → style.css → glass.css → fonts.css**. Токены держать синхронно в `style.css`, `glass.css`, `fonts.css`.
 
-**Иконки:** только [Iconoir](https://iconoir.com) (`iconoir-*`, stroke 24×24). Скрытие — класс **`hidden`**. В app CSS:
+**Иконки:** только [Iconsax](https://iconsax.io) (`icon-*` через `iconsax-font-icon`). Скрытие — класс **`hidden`**. В app CSS:
 
 ```css
 .hidden { display: none !important; }
 ```
 
-Так Iconoir `display:inline-block` и `display:flex` на кнопках не «пробивают» скрытие (play/pause, аватар, бейджи). Не добавлять отдельные правила вида `.iconoir-play.hidden`. Загрузчик: `iconoir-refresh-circle iconoir-spin`.
+Так Iconsax `display:inline-block` и `display:flex` на кнопках не «пробивают» скрытие (play/pause, аватар, бейджи). Не добавлять отдельные правила вида `.icon-play.hidden`. Загрузчик: `icon-refresh-2 icon-spin`.
 
 ---
 
@@ -356,7 +356,7 @@ window.showToast('…', { silent: true }); // без звука
 
 - Тёмная тема: класс `html.dark` (`setTheme`).
 - В разметке пары: `bg-white dark:bg-slate-800`, `text-slate-600 dark:text-slate-300`.
-- **Brand DS (default `coral` / «Персик»):** `#FBAB57` accent, `#FEC674` secondary, `#222222` ink/CTA, `#FFF3E2` cream panels. Dark: cream ink on `#222222`, same peach accent. Accent ≤10% of UI.
+- **Brand DS (default `coral` / «Персик»):** `#FBAB57` accent, `#FEC674` windows/panels, `#FFF3E2` page cream, `#222222` ink/CTA. Dark: cream ink on `#222222` page, elevated panels `#2c2c2c`, same peach accent. Soft radii (`--radius-xl` ~2.15rem). Iconsax (`icon-*`). Accent ≤10% of UI.
 - **Buttons:** primary = charcoal CTA; accent fill always uses `--on-accent` `#222` (never white on peach); soft = secondary; ghost = rim. Press `scale(0.97)`.
 - Шрифт по умолчанию: `geo-klukva` — Geologica (UI) + Klukva (brand, оптически +16%). Чистая Klukva — `--font-optical: 1.12`.
 - **Яндекс API 3** (`yandex3`): стандартная схема Яндекса (`light`/`dark` + скрытие POI). Без tint под палитру UI.

@@ -31,16 +31,20 @@
 | Role | Light | Dark | Use |
 |------|-------|------|-----|
 | Accent | `#FBAB57` | `#FBAB57` | Active, switches, waveform, soft fills |
-| Secondary / soft surface | `#FEC674` | `#3a3228` | Soft cards, secondary chips |
+| Secondary / soft surface | `#FEC674` | `#FBAB57` | Soft fills, accent chips |
 | Ink | `#222222` | `#FFF3E2` | Body text |
 | Accent ink (on cream) | `#9a6420` | `#FEC674` | Links / active labels |
 | On accent fill | `#222222` | `#222222` | Text/icons on peach (never white) |
-| Surface / panel | `#FFF3E2` | `#222222` | Dock, modals, player |
-| Panel elevated | `#fff9f0` | `#2c2c2c` | Inputs, nested surfaces |
+| Page surface | `#FFF3E2` | `#222222` | App chrome / map-adjacent fills |
+| Windows / panels | `#FEC674` | `#2c2c2c` | Dock, modals, player, sheets |
+| Panel elevated | `#FFF3E2` | `#222222` | Inputs, nested surfaces |
 | CTA | `#222222` | `#FFF3E2` | Primary buttons, play, FABs |
 | CTA ink | `#FFF3E2` | `#222222` | Text on CTA |
 
-**Color ratio (restrained product):** cream panels ~70% · charcoal text/CTA ~20% · peach accent ≤10%.
+**Color ratio (restrained product):** cream page · peach windows · charcoal text/CTA · peach accent on chrome ≤10%.
+
+## Radii
+Cards / dock / modals use soft product radii: `--radius-md` 1.35rem · `--radius-lg` 1.85rem · `--radius-xl` 2.15rem · `--radius-2xl` 2.5rem.
 
 ## Buttons
 - **Primary** (`.ds-btn--primary` / `#auth-action-btn` / play / FAB): charcoal fill, cream ink
@@ -59,8 +63,8 @@
 Product scale (fixed rem, ~1.125–1.2): `--text-xs` … `--text-2xl`. Body line-height ~1.48; brand titles tighter + `text-wrap: balance`.
 
 ## Other
-- **Icons:** Iconoir (`iconoir-*`)
-- **Glass:** cream-tinted light · charcoal dark; blur only on non-scrolling chrome
+- **Icons:** Iconsax (`icon-*` via iconsax-font-icon CDN)
+- **Glass:** peach-tinted light windows · charcoal dark; blur only on non-scrolling chrome
 - **Yandex API 3:** stock `light`/`dark` + POI off — no palette tint
 - Default palette id: `coral` (UI «Персик»)
 

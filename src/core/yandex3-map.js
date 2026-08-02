@@ -199,8 +199,8 @@ window.yandex3MarkerHtml = function yandex3MarkerHtml(sound, isSelected) {
     const isSoundwalk = sound.recPrinciple && sound.recPrinciple.includes('Soundwalk');
     const isAmbisonic = sound.channels && String(sound.channels).toLowerCase().includes('ambisonics');
     const icon = isSoundwalk
-        ? '<i class="iconoir-path-arrow text-[11px] md:text-[13px] opacity-90"></i>'
-        : (isAmbisonic ? '<i class="iconoir-cube text-[10px] md:text-[12px] opacity-90"></i>' : '');
+        ? '<i class="icon-routing text-[11px] md:text-[13px] opacity-90"></i>'
+        : (isAmbisonic ? '<i class="icon-3dcube text-[10px] md:text-[12px] opacity-90"></i>' : '');
     const el = document.createElement('div');
     el.id = `marker-${sound.id}`;
     el.className = `w-6 h-6 md:w-7 md:h-7 custom-marker ${colorClass} ${isSelected ? 'selected' : ''} flex items-center justify-center text-white shadow-lg transition-transform hover:scale-110`;
@@ -331,7 +331,7 @@ window.yandex3AddRouteOverlay = function yandex3AddRouteOverlay(route) {
 
         const walkerEl = document.createElement('div');
         walkerEl.className = 'walker-marker';
-        walkerEl.innerHTML = '<i class="iconoir-walking"></i>';
+        walkerEl.innerHTML = '<i class="icon-man"></i>';
         window.yandex3WalkerMarker = new YMapMarker({ coordinates: coords[0], zIndex: 30 }, walkerEl);
         window.yandex3Map.addChild(window.yandex3WalkerMarker);
         window.walkerMarker = { __yandex3: true };

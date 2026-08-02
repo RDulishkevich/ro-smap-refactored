@@ -163,7 +163,7 @@ window.dgisAddRouteOverlay = function(route, colorClass) {
         });
         const el = document.createElement('div');
         el.className = `walker-marker ${colorClass || ''}`.trim();
-        el.innerHTML = '<i class="iconoir-walking"></i>';
+        el.innerHTML = '<i class="icon-man"></i>';
         window.dgisWalkerMarker = new window.mapgl.HtmlMarker(window.dgisMap, {
             coordinates: coords[0],
             html: el,
@@ -203,7 +203,7 @@ window.initDgisMap = async function() {
         container.innerHTML = '';
         container.classList.add('is-map-provider-placeholder');
         container.innerHTML = `<div class="map-provider-placeholder">
-            <i class="iconoir-key text-2xl mb-3 opacity-50"></i>
+            <i class="icon-key text-2xl mb-3 opacity-50"></i>
             <p class="font-bold">Нужен ключ 2GIS MapGL</p>
             <p class="text-sm opacity-80 mt-1">Вставьте API-ключ в настройках → Движок карты.</p>
             <p class="text-[11px] opacity-60 mt-2">Ключ: <a class="underline" href="https://platform.2gis.ru/" target="_blank" rel="noopener">platform.2gis.ru</a></p>

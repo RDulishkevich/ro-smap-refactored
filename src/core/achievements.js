@@ -32,7 +32,7 @@ window.QUEST_CATALOG = [
     {
         id: 'q_first_publish',
         xp: 40,
-        icon: 'iconoir-microphone',
+        icon: 'icon-microphone',
         title: { ru: 'Первая метка', en: 'First marker' },
         hint: { ru: 'Отправьте первую запись на карту (не черновик).', en: 'Submit your first recording to the map (not a draft).' },
         target: 1,
@@ -41,7 +41,7 @@ window.QUEST_CATALOG = [
     {
         id: 'q_eco_trio',
         xp: 60,
-        icon: 'iconoir-multiple-pages',
+        icon: 'icon-document-text',
         title: { ru: 'Три слоя ландшафта', en: 'Three soundscape layers' },
         hint: { ru: 'Запишите геофонию, биофонию и антропофонию.', en: 'Record geophony, biophony and anthrophony.' },
         target: 3,
@@ -50,7 +50,7 @@ window.QUEST_CATALOG = [
     {
         id: 'q_soundwalk',
         xp: 50,
-        icon: 'iconoir-path-arrow',
+        icon: 'icon-routing',
         title: { ru: 'Звуковая прогулка', en: 'Soundwalk debut' },
         hint: { ru: 'Опубликуйте Soundwalk с маршрутом из ≥2 точек.', en: 'Publish a Soundwalk with a route of ≥2 points.' },
         target: 1,
@@ -59,7 +59,7 @@ window.QUEST_CATALOG = [
     {
         id: 'q_field_notes',
         xp: 45,
-        icon: 'iconoir-task-list',
+        icon: 'icon-task-square',
         title: { ru: 'Полевой дневник', en: 'Field notes' },
         hint: { ru: 'Заполните описание, погоду, микрофон и рекордер у одной записи.', en: 'Fill description, weather, mic and recorder on one sound.' },
         target: 1,
@@ -68,7 +68,7 @@ window.QUEST_CATALOG = [
     {
         id: 'q_photo_proof',
         xp: 35,
-        icon: 'iconoir-camera',
+        icon: 'icon-camera',
         title: { ru: 'Визуальный контекст', en: 'Visual context' },
         hint: { ru: 'Прикрепите фото к записи — так проще понять место.', en: 'Attach a photo to a recording for place context.' },
         target: 1,
@@ -77,7 +77,7 @@ window.QUEST_CATALOG = [
     {
         id: 'q_expedition',
         xp: 55,
-        icon: 'iconoir-map',
+        icon: 'icon-map',
         title: { ru: 'Первая экспедиция', en: 'First expedition' },
         hint: { ru: 'Создайте экспедицию и сгруппируйте выезд.', en: 'Create an expedition to group a field trip.' },
         target: 1,
@@ -86,7 +86,7 @@ window.QUEST_CATALOG = [
     {
         id: 'q_profile_ready',
         xp: 40,
-        icon: 'iconoir-user-circle',
+        icon: 'icon-profile-circle',
         title: { ru: 'Визитка рекордиста', en: 'Recordist card' },
         hint: { ru: 'Заполните био, аватар и список оборудования.', en: 'Add bio, avatar and gear list.' },
         target: 3,
@@ -95,7 +95,7 @@ window.QUEST_CATALOG = [
     {
         id: 'q_map_five',
         xp: 70,
-        icon: 'iconoir-map-pin',
+        icon: 'icon-location',
         title: { ru: 'Пять точек на карте', en: 'Five map points' },
         hint: { ru: 'Добавьте 5 записей (не черновики).', en: 'Add 5 recordings (not drafts).' },
         target: 5,
@@ -104,7 +104,7 @@ window.QUEST_CATALOG = [
     {
         id: 'q_ear_train',
         xp: 50,
-        icon: 'iconoir-headset',
+        icon: 'icon-headphone',
         title: { ru: 'Тренировка слуха', en: 'Ear training' },
         hint: { ru: 'Наберите ≥2500 очков за раунд в Audio Guessr.', en: 'Score ≥2500 points in one Audio Guessr round.' },
         target: 2500,
@@ -113,7 +113,7 @@ window.QUEST_CATALOG = [
     {
         id: 'q_ambisonic',
         xp: 60,
-        icon: 'iconoir-cube',
+        icon: 'icon-3dcube',
         title: { ru: 'Пространственный звук', en: 'Spatial sound' },
         hint: { ru: 'Загрузите запись в формате Ambisonics.', en: 'Upload an Ambisonics recording.' },
         target: 1,
@@ -125,7 +125,7 @@ window.QUEST_CATALOG = [
 window.ACHIEVEMENT_CATALOG = [
     {
         id: 'a_first_steps',
-        icon: 'iconoir-walking',
+        icon: 'icon-man',
         cls: 'ach-chip-field',
         title: { ru: 'Первые шаги', en: 'First steps' },
         hint: { ru: 'Первая запись отправлена на карту', en: 'First recording submitted' },
@@ -133,7 +133,7 @@ window.ACHIEVEMENT_CATALOG = [
     },
     {
         id: 'a_eco_balance',
-        icon: 'iconoir-globe',
+        icon: 'icon-global',
         cls: 'ach-chip-eco',
         title: { ru: 'Баланс ландшафта', en: 'Landscape balance' },
         hint: { ru: 'Все три эко-категории в портфолио', en: 'All three eco-categories in portfolio' },
@@ -141,7 +141,7 @@ window.ACHIEVEMENT_CATALOG = [
     },
     {
         id: 'a_walker',
-        icon: 'iconoir-walking',
+        icon: 'icon-man',
         cls: 'ach-chip-walk',
         title: { ru: 'Странник', en: 'Wanderer' },
         hint: { ru: 'Есть звуковая прогулка с маршрутом', en: 'Completed a routed soundwalk' },
@@ -149,7 +149,7 @@ window.ACHIEVEMENT_CATALOG = [
     },
     {
         id: 'a_archivist',
-        icon: 'iconoir-archive',
+        icon: 'icon-archive',
         cls: 'ach-chip-field',
         title: { ru: 'Архивариус', en: 'Archivist' },
         hint: { ru: '10 записей на карте', en: '10 recordings on the map' },
@@ -157,7 +157,7 @@ window.ACHIEVEMENT_CATALOG = [
     },
     {
         id: 'a_expedition_lead',
-        icon: 'iconoir-triangle-flag',
+        icon: 'icon-flag',
         cls: 'ach-chip-exp',
         title: { ru: 'Глава выезда', en: 'Trip lead' },
         hint: { ru: 'Создана хотя бы одна экспедиция', en: 'Created at least one expedition' },
@@ -165,7 +165,7 @@ window.ACHIEVEMENT_CATALOG = [
     },
     {
         id: 'a_gear_ready',
-        icon: 'iconoir-antenna',
+        icon: 'icon-radar',
         cls: 'ach-chip-gear',
         title: { ru: 'Готов к полю', en: 'Field-ready' },
         hint: { ru: 'В профиле указано оборудование', en: 'Gear listed on profile' },
@@ -173,7 +173,7 @@ window.ACHIEVEMENT_CATALOG = [
     },
     {
         id: 'a_listener',
-        icon: 'iconoir-headset',
+        icon: 'icon-headphone',
         cls: 'ach-chip-ear',
         title: { ru: 'Острый слух', en: 'Sharp ear' },
         hint: { ru: 'Сильный результат в Audio Guessr', en: 'Strong Audio Guessr result' },
@@ -181,7 +181,7 @@ window.ACHIEVEMENT_CATALOG = [
     },
     {
         id: 'a_spatial',
-        icon: 'iconoir-cube',
+        icon: 'icon-3dcube',
         cls: 'ach-chip-spatial',
         title: { ru: '360°', en: '360°' },
         hint: { ru: 'Есть Ambisonics-запись', en: 'Has an Ambisonics recording' },
@@ -189,7 +189,7 @@ window.ACHIEVEMENT_CATALOG = [
     },
     {
         id: 'a_level5',
-        icon: 'iconoir-star',
+        icon: 'icon-star-1',
         cls: 'ach-chip-level',
         title: { ru: 'Картограф звука', en: 'Sound cartographer' },
         hint: { ru: 'Достигнут 5 уровень', en: 'Reached level 5' },
@@ -414,7 +414,7 @@ window.refreshCabinetProgressChip = function() {
     const chip = document.getElementById('cabinet-user-level');
     if (!chip || !window.currentUser) return;
     const prog = window.getMyProgress();
-    chip.innerHTML = `<i class="iconoir-flash"></i>Lv ${prog.level} · ${prog.xp} XP`;
+    chip.innerHTML = `<i class="icon-flash"></i>Lv ${prog.level} · ${prog.xp} XP`;
     chip.classList.remove('hidden');
 };
 
@@ -512,7 +512,7 @@ window.renderProfileAchievements = function(login, profile) {
     if (levelEl) {
         if (prog.xp > 0 || prog.achievements.length) {
             levelEl.classList.remove('hidden');
-            levelEl.innerHTML = `<i class="iconoir-flash"></i>${window.currentLang === 'en' ? 'Lv' : 'Ур.'} ${prog.level} · ${window.getLevelTitle(prog.level)}`;
+            levelEl.innerHTML = `<i class="icon-flash"></i>${window.currentLang === 'en' ? 'Lv' : 'Ур.'} ${prog.level} · ${window.getLevelTitle(prog.level)}`;
         } else {
             levelEl.classList.add('hidden');
         }
@@ -526,7 +526,7 @@ window.renderProfileAchievements = function(login, profile) {
     }
     wrap.classList.remove('hidden');
     wrap.innerHTML = `
-        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2"><i class="iconoir-trophy mr-1"></i>${window.currentLang === 'en' ? 'Achievements' : 'Достижения'}</p>
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2"><i class="icon-cup mr-1"></i>${window.currentLang === 'en' ? 'Achievements' : 'Достижения'}</p>
         <div class="pp-ach-row">${unlocked.map((a) => `
             <span class="ach-chip ${a.cls}" title="${window.locQuestText(a.hint)}"><i class="${a.icon}"></i>${window.locQuestText(a.title)}</span>
         `).join('')}</div>`;
