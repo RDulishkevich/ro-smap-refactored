@@ -6,8 +6,8 @@ import './sfx.js?v=20260721t';
 import './antispam.js?v=20260721t';
 import '../ui/file-xfer.js?v=20260805j';
 import '../ui/like-shake.js?v=20260805j';
-import '../ui/ui.js?v=20260805r';
-import './audio.js?v=20260805r';
+import '../ui/ui.js?v=20260805v';
+import './audio.js?v=20260805v';
 import './map.js?v=20260805o';
 import './mapbox-map.js?v=20260721t';
 import './dgis-map.js?v=20260721t';
@@ -38,6 +38,10 @@ export function bootstrapApp() {
     document.addEventListener('DOMContentLoaded', () => {
         window.audioElement = document.getElementById('global-audio');
         window.soundsData = window.rawSoundsData.map(window.formatSoundObject);
+
+        /* Block pinch-zoom gestures (iOS Safari) — viewport meta also sets user-scalable=no */
+        document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+        document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
 
         if (window.renderWaveform) window.renderWaveform();
         if (window.setupAudioEvents) window.setupAudioEvents();

@@ -5251,8 +5251,20 @@ window.selectSound = function(id) {
     if (window.refreshPlayingListRow) window.refreshPlayingListRow();
     if (window.playSfx) window.playSfx('select');
     const card = document.getElementById('player-card');
-    if(card) card.classList.remove('translate-y-[150%]', 'opacity-0');
+    if (card) {
+        card.classList.remove(
+            'translate-y-[150%]',
+            'opacity-0',
+            'is-dragging',
+            'is-gesture-settle',
+            'is-gesture-closing'
+        );
+        card.style.transform = '';
+        card.style.opacity = '';
+        card.style.transition = '';
+    }
     document.body.classList.add('player-visible');
+    document.body.classList.remove('dock-view-details');
 
     const titleEl = document.getElementById('player-title');
     const gearEl = document.getElementById('player-gear');
@@ -5355,6 +5367,20 @@ window.applyDetailsMetaFilter = function(kind, value) {
 window.openDetailsModal = function() {
     const s = window.soundsData.find(x => x.id === window.currentPlayingId);
     if (!s) return;
+
+    /* Clear leftover swipe transforms so the sound card is not stuck off-screen */
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+        sidebar.classList.remove('is-dragging', 'is-gesture-settle');
+        sidebar.style.transform = '';
+        sidebar.style.opacity = '';
+    }
+    const playerCard = document.getElementById('player-card');
+    if (playerCard) {
+        playerCard.classList.remove('is-dragging', 'is-gesture-settle', 'is-gesture-closing');
+        playerCard.style.transform = '';
+        playerCard.style.opacity = '';
+    }
 
     const images = (s.images && s.images.length) ? s.images : [];
     const gearImgs = Array.isArray(s.gearConfigImages) ? s.gearConfigImages.filter(Boolean) : [];
@@ -7801,7 +7827,9 @@ if (document.readyState === 'loading') {
 window.showDockPanel = function() {
     const s = document.getElementById('sidebar');
     if (!s) return;
-    s.classList.remove('sidebar-hidden');
+    s.classList.remove('sidebar-hidden', 'is-dragging', 'is-gesture-settle');
+    s.style.transform = '';
+    s.style.opacity = '';
     s.classList.add('dock-expanded');
     s.classList.remove('dock-compact');
     document.body.classList.remove('dock-is-hidden');
@@ -7816,6 +7844,9 @@ window.hideDockPanel = function() {
     const s = document.getElementById('sidebar');
     if (!s) return;
     s.classList.add('sidebar-hidden');
+    s.classList.remove('is-dragging', 'is-gesture-settle');
+    s.style.transform = '';
+    s.style.opacity = '';
     document.body.classList.add('dock-is-hidden');
     const backdrop = document.getElementById('sidebar-backdrop');
     if (backdrop) backdrop.classList.remove('visible');
