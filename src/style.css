@@ -1019,6 +1019,21 @@ html.dark .glass-seg__btn.is-active,
 .player-description { display: none; }
 .player-gear-compact { display: none; }
 .player-more-btn { display: none; }
+.player-fab-gap { display: none; }
+.player-wing__time { display: none; }
+.player-dock-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+.player-wing {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+}
+.player-wing--left { flex: 1 1 auto; min-width: 0; }
+.player-wing--right { flex: 0 0 auto; }
 @media (min-width: 768px) {
     #player-card.player-shell {
         display: flex;
@@ -1027,11 +1042,14 @@ html.dark .glass-seg__btn.is-active,
     #player-card .player-sheet-handle { order: 0; }
     #player-card .player-wave-block { order: 1; }
     #player-card .player-meta-row { order: 2; }
-    #player-card .player-compact-row { order: 3; }
+    #player-card .player-dock-row { order: 3; }
     #player-card .player-expand-panel { order: 4; }
     #player-card #ambisonics-control { order: 5; }
     #player-card .player-expand-panel {
         margin-top: 0.35rem;
+    }
+    #player-card .player-more-btn {
+        display: none !important;
     }
 }
 @media (prefers-reduced-motion: reduce) {

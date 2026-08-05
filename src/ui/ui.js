@@ -1022,6 +1022,22 @@ window.togglePlayerSheet = function() {
     else window.expandPlayerSheet();
 };
 
+/** Title tap: mobile expands description only; desktop opens details dock. */
+window.onPlayerTitleActivate = function(ev) {
+    if (ev) {
+        if (ev.stopPropagation) ev.stopPropagation();
+        if (window.__playerGestureBlockClicks) {
+            if (ev.preventDefault) ev.preventDefault();
+            return;
+        }
+    }
+    if (window.innerWidth < 768) {
+        window.togglePlayerSheet();
+        return;
+    }
+    if (window.openDetailsModal) window.openDetailsModal();
+};
+
 window.openPlayerActionsMenu = function(ev) {
     if (ev && ev.stopPropagation) ev.stopPropagation();
     const s = (window.soundsData || []).find((x) => x.id === window.currentPlayingId);
@@ -1074,11 +1090,15 @@ window.openPlayerActionsMenu = function(ev) {
         let tracking = false;
         let moved = false;
 
+        const blockGhostClick = () => {
+            window.__playerGestureBlockClicks = true;
+            setTimeout(() => { window.__playerGestureBlockClicks = false; }, 350);
+        };
+
         const onStart = (e) => {
             if (window.innerWidth >= 768) return;
             const t = e.touches && e.touches[0];
             if (!t) return;
-            /* Don't steal scrubbing on the timeline / volume. */
             const el = e.target;
             if (el && el.closest && (
                 el.closest('#audio-timeline')
@@ -1114,15 +1134,18 @@ window.openPlayerActionsMenu = function(ev) {
             const dy = t.clientY - startY;
             const dx = t.clientX - startX;
             if (Math.abs(dy) < 40 || Math.abs(dy) < Math.abs(dx)) {
-                /* Tap on handle: expand toggle / collapse→close */
-                if (!moved && handle && (e.target === handle || handle.contains(e.target))) {
+                if (!moved && handle && (e.target === handle || (handle.contains && handle.contains(e.target)))) {
+                    blockGhostClick();
                     if (window.isPlayerSheetExpanded()) window.collapsePlayerSheet();
                     else if (window.closePlayerCard) window.closePlayerCard();
                 }
                 return;
             }
-            if (dy < -40) window.expandPlayerSheet();
-            else if (dy > 40) {
+            blockGhostClick();
+            if (dy < -40) {
+                /* Swipe up = description only — never open the sound details dock. */
+                window.expandPlayerSheet();
+            } else if (dy > 40) {
                 if (window.isPlayerSheetExpanded()) window.collapsePlayerSheet();
                 else if (window.closePlayerCard) window.closePlayerCard();
             }
@@ -1135,6 +1158,10 @@ window.openPlayerActionsMenu = function(ev) {
 
         if (handle) {
             handle.addEventListener('click', (e) => {
+                if (window.__playerGestureBlockClicks) {
+                    e.preventDefault();
+                    return;
+                }
                 if (window.innerWidth >= 768) {
                     if (window.closePlayerCard) window.closePlayerCard();
                     return;
@@ -7629,7 +7656,16 @@ window.__mobileRec = {
     recorder: null,
     chunks: [],
     startedAt: 0,
-    timerId: null
+    timerId: null,
+    audioCtx: null,
+    analyser: null,
+    sourceNode: null,
+    rafId: null,
+    peaks: [],
+    blob: null,
+    buffer: null,
+    trimStart: 0,
+    trimEnd: 1
 };
 
 window._formatMobileRecTime = function(ms) {
@@ -7646,20 +7682,175 @@ window._tickMobileRecTimer = function() {
     el.textContent = window._formatMobileRecTime(Date.now() - started);
 };
 
+window._setMobileRecStage = function(stage) {
+    const rec = document.getElementById('mobile-rec-stage-record');
+    const trim = document.getElementById('mobile-rec-stage-trim');
+    if (rec) rec.classList.toggle('hidden', stage !== 'record');
+    if (trim) trim.classList.toggle('hidden', stage !== 'trim');
+};
+
+window._stopMobileRecMonitor = function() {
+    const rec = window.__mobileRec || {};
+    if (rec.rafId) {
+        cancelAnimationFrame(rec.rafId);
+        rec.rafId = null;
+    }
+    try { if (rec.sourceNode) rec.sourceNode.disconnect(); } catch (_) {}
+    try { if (rec.analyser) rec.analyser.disconnect(); } catch (_) {}
+    try { if (rec.audioCtx && rec.audioCtx.state !== 'closed') rec.audioCtx.close(); } catch (_) {}
+    rec.sourceNode = null;
+    rec.analyser = null;
+    rec.audioCtx = null;
+};
+
+window._drawMobileRecLive = function() {
+    const rec = window.__mobileRec;
+    if (!rec || !rec.analyser) return;
+    const canvas = document.getElementById('mobile-rec-live-wave');
+    const dbEl = document.getElementById('mobile-rec-db');
+    const bar = document.getElementById('mobile-rec-meter-bar');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+    const analyser = rec.analyser;
+    const td = new Uint8Array(analyser.fftSize);
+    analyser.getByteTimeDomainData(td);
+
+    let sum = 0;
+    let peak = 0;
+    for (let i = 0; i < td.length; i++) {
+        const v = (td[i] - 128) / 128;
+        sum += v * v;
+        peak = Math.max(peak, Math.abs(v));
+    }
+    const rms = Math.sqrt(sum / td.length);
+    const db = rms > 1e-8 ? (20 * Math.log10(rms)) : -96;
+    const dbClamped = Math.max(-60, Math.min(0, db));
+    if (dbEl) {
+        dbEl.textContent = db <= -90 ? '−∞ dB' : `${dbClamped.toFixed(1)} dB`;
+    }
+    if (bar) {
+        const pct = ((dbClamped + 60) / 60) * 100;
+        bar.style.width = `${Math.max(2, pct)}%`;
+        bar.classList.toggle('is-hot', dbClamped > -6);
+    }
+
+    /* Rolling peak history for a scrolling live waveform */
+    if (!Array.isArray(rec.peaks)) rec.peaks = [];
+    rec.peaks.push(peak);
+    const maxBars = Math.floor(w / 3);
+    if (rec.peaks.length > maxBars) rec.peaks.splice(0, rec.peaks.length - maxBars);
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, w, h);
+    const mid = h / 2;
+    ctx.fillStyle = '#FBAB57';
+    const bars = rec.peaks;
+    const barW = Math.max(2, w / Math.max(bars.length, 1) - 1);
+    for (let i = 0; i < bars.length; i++) {
+        const bh = Math.max(2, bars[i] * (h * 0.9));
+        const x = i * (barW + 1);
+        ctx.fillRect(x, mid - bh / 2, barW, bh);
+    }
+
+    rec.rafId = requestAnimationFrame(() => window._drawMobileRecLive());
+};
+
+window._drawMobileRecTrimWave = function() {
+    const rec = window.__mobileRec;
+    const canvas = document.getElementById('mobile-rec-trim-wave');
+    if (!rec || !rec.buffer || !canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+    const data = rec.buffer.getChannelData(0);
+    const start = Math.max(0, Math.min(1, Number(rec.trimStart) || 0));
+    const end = Math.max(start + 0.01, Math.min(1, Number(rec.trimEnd) || 1));
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, w, h);
+
+    const step = Math.max(1, Math.floor(data.length / w));
+    ctx.fillStyle = '#D6C4B0';
+    for (let x = 0; x < w; x++) {
+        let min = 1;
+        let max = -1;
+        const i0 = x * step;
+        for (let i = 0; i < step && i0 + i < data.length; i++) {
+            const v = data[i0 + i];
+            if (v < min) min = v;
+            if (v > max) max = v;
+        }
+        const y1 = ((1 + min) / 2) * h;
+        const y2 = ((1 + max) / 2) * h;
+        ctx.fillRect(x, y1, 1, Math.max(1, y2 - y1));
+    }
+
+    /* Selected region highlight */
+    ctx.fillStyle = 'rgba(251, 171, 87, 0.28)';
+    ctx.fillRect(start * w, 0, (end - start) * w, h);
+    ctx.fillStyle = '#222222';
+    ctx.fillRect(start * w, 0, 2, h);
+    ctx.fillRect(end * w - 2, 0, 2, h);
+
+    const dur = rec.buffer.duration || 0;
+    const fmt = (t) => window._formatMobileRecTime(t * 1000);
+    const sEl = document.getElementById('mobile-rec-trim-start-label');
+    const eEl = document.getElementById('mobile-rec-trim-end-label');
+    const mEl = document.getElementById('mobile-rec-trim-sel-label');
+    if (sEl) sEl.textContent = fmt(start * dur);
+    if (eEl) eEl.textContent = fmt(end * dur);
+    if (mEl) mEl.textContent = fmt((end - start) * dur);
+};
+
+window._bindMobileRecTrimInputs = function() {
+    const startEl = document.getElementById('mobile-rec-trim-start');
+    const endEl = document.getElementById('mobile-rec-trim-end');
+    if (!startEl || !endEl || startEl.__bound) return;
+    startEl.__bound = true;
+    const sync = () => {
+        const rec = window.__mobileRec;
+        if (!rec) return;
+        let s = Number(startEl.value) / 1000;
+        let e = Number(endEl.value) / 1000;
+        if (s > e - 0.02) s = Math.max(0, e - 0.02);
+        if (e < s + 0.02) e = Math.min(1, s + 0.02);
+        startEl.value = String(Math.round(s * 1000));
+        endEl.value = String(Math.round(e * 1000));
+        rec.trimStart = s;
+        rec.trimEnd = e;
+        window._drawMobileRecTrimWave();
+    };
+    startEl.addEventListener('input', sync);
+    endEl.addEventListener('input', sync);
+};
+
 window.cancelMobileRecord = function() {
     const rec = window.__mobileRec || {};
     try {
         if (rec.recorder && rec.recorder.state !== 'inactive') rec.recorder.stop();
     } catch (_) {}
     if (rec.timerId) clearInterval(rec.timerId);
+    window._stopMobileRecMonitor();
     if (rec.stream) {
         try { rec.stream.getTracks().forEach((t) => t.stop()); } catch (_) {}
     }
-    window.__mobileRec = { stream: null, recorder: null, chunks: [], startedAt: 0, timerId: null };
+    window.__mobileRec = {
+        stream: null, recorder: null, chunks: [], startedAt: 0, timerId: null,
+        audioCtx: null, analyser: null, sourceNode: null, rafId: null, peaks: [],
+        blob: null, buffer: null, trimStart: 0, trimEnd: 1
+    };
     const overlay = document.getElementById('mobile-record-overlay');
-    const pulse = document.getElementById('mobile-record-pulse');
     if (overlay) overlay.classList.add('hidden');
-    if (pulse) pulse.classList.remove('is-live');
+    window._setMobileRecStage('record');
+};
+
+window.restartMobileRecord = function() {
+    window.cancelMobileRecord();
+    window.startMobileRecord();
 };
 
 window.stopMobileRecord = function() {
@@ -7677,26 +7868,108 @@ window.stopMobileRecord = function() {
         const mime = (rec.recorder && rec.recorder.mimeType) || 'audio/webm';
         const blob = new Blob(chunks, { type: mime });
         if (rec.timerId) clearInterval(rec.timerId);
+        window._stopMobileRecMonitor();
         if (rec.stream) {
             try { rec.stream.getTracks().forEach((t) => t.stop()); } catch (_) {}
         }
-        window.__mobileRec = { stream: null, recorder: null, chunks: [], startedAt: 0, timerId: null };
-        const overlay = document.getElementById('mobile-record-overlay');
-        const pulse = document.getElementById('mobile-record-pulse');
-        if (overlay) overlay.classList.add('hidden');
-        if (pulse) pulse.classList.remove('is-live');
+        rec.stream = null;
+        rec.recorder = null;
+        rec.chunks = [];
+        rec.timerId = null;
 
         if (!blob.size) {
             window.showToast('Запись пустая — попробуйте ещё раз');
+            window.cancelMobileRecord();
             return;
         }
-        const ext = mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : 'webm';
-        const file = new File([blob], `polevka-record-${Date.now()}.${ext}`, { type: mime });
-        if (window.toggleAddModal) window.toggleAddModal();
-        if (window.handleAudioFiles) await window.handleAudioFiles([file]);
-        if (window.showToast) window.showToast('Запись добавлена — заполните карточку');
+
+        rec.blob = blob;
+        try {
+            if (!window.decodeAudioFile) throw new Error('no decoder');
+            rec.buffer = await window.decodeAudioFile(blob);
+        } catch (err) {
+            console.warn(err);
+            /* Fallback: skip trim UI, open add form with raw blob */
+            await window._finishMobileRecordWithoutTrim(blob, mime);
+            return;
+        }
+        rec.trimStart = 0;
+        rec.trimEnd = 1;
+        const startEl = document.getElementById('mobile-rec-trim-start');
+        const endEl = document.getElementById('mobile-rec-trim-end');
+        if (startEl) startEl.value = '0';
+        if (endEl) endEl.value = '1000';
+        window._bindMobileRecTrimInputs();
+        window._setMobileRecStage('trim');
+        window._drawMobileRecTrimWave();
     };
     try { rec.recorder.stop(); } catch (_) { window.cancelMobileRecord(); }
+};
+
+window._finishMobileRecordWithoutTrim = async function(blob, mime) {
+    const overlay = document.getElementById('mobile-record-overlay');
+    if (overlay) overlay.classList.add('hidden');
+    window._setMobileRecStage('record');
+    const ext = (mime || '').includes('mp4') ? 'm4a' : (mime || '').includes('ogg') ? 'ogg' : 'webm';
+    const file = new File([blob], `polevka-record-${Date.now()}.${ext}`, { type: mime || 'audio/webm' });
+    window.__mobileRec = {
+        stream: null, recorder: null, chunks: [], startedAt: 0, timerId: null,
+        audioCtx: null, analyser: null, sourceNode: null, rafId: null, peaks: [],
+        blob: null, buffer: null, trimStart: 0, trimEnd: 1
+    };
+    if (window.toggleAddModal) window.toggleAddModal();
+    if (window.handleAudioFiles) await window.handleAudioFiles([file]);
+    if (window.showToast) window.showToast('Запись добавлена — заполните карточку');
+};
+
+window.confirmMobileRecordTrim = async function() {
+    const rec = window.__mobileRec;
+    if (!rec || !rec.buffer) {
+        window.showToast('Нет записи для обрезки');
+        return;
+    }
+    const start = Math.max(0, Math.min(1, Number(rec.trimStart) || 0));
+    const end = Math.max(start + 0.01, Math.min(1, Number(rec.trimEnd) || 1));
+    const buf = rec.buffer;
+    const sr = buf.sampleRate;
+    const i0 = Math.floor(start * buf.length);
+    const i1 = Math.floor(end * buf.length);
+    const len = Math.max(1, i1 - i0);
+
+    let out;
+    try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        const tmp = new AC();
+        out = tmp.createBuffer(buf.numberOfChannels, len, sr);
+        try { tmp.close(); } catch (_) {}
+        for (let c = 0; c < buf.numberOfChannels; c++) {
+            out.getChannelData(c).set(buf.getChannelData(c).subarray(i0, i1));
+        }
+    } catch (err) {
+        console.warn(err);
+        window.showToast('Не удалось обрезать запись');
+        return;
+    }
+
+    if (!window.audioBufferToWav) {
+        window.showToast('Конвертер WAV недоступен');
+        return;
+    }
+    const wavBuf = window.audioBufferToWav(out, { bitDepth: 24 });
+    const file = new File([wavBuf], `polevka-record-${Date.now()}.wav`, { type: 'audio/wav' });
+
+    const overlay = document.getElementById('mobile-record-overlay');
+    if (overlay) overlay.classList.add('hidden');
+    window._setMobileRecStage('record');
+    window.__mobileRec = {
+        stream: null, recorder: null, chunks: [], startedAt: 0, timerId: null,
+        audioCtx: null, analyser: null, sourceNode: null, rafId: null, peaks: [],
+        blob: null, buffer: null, trimStart: 0, trimEnd: 1
+    };
+
+    if (window.toggleAddModal) window.toggleAddModal();
+    if (window.handleAudioFiles) await window.handleAudioFiles([file]);
+    if (window.showToast) window.showToast('Запись готова — заполните карточку');
 };
 
 window.startMobileRecord = async function() {
@@ -7754,19 +8027,52 @@ window.startMobileRecord = async function() {
     recorder.ondataavailable = (e) => {
         if (e.data && e.data.size) chunks.push(e.data);
     };
+
+    let audioCtx = null;
+    let analyser = null;
+    let sourceNode = null;
+    try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AC();
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        sourceNode = audioCtx.createMediaStreamSource(stream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        analyser.smoothingTimeConstant = 0.7;
+        sourceNode.connect(analyser);
+    } catch (err) {
+        console.warn(err);
+    }
+
     window.__mobileRec = {
         stream,
         recorder,
         chunks,
         startedAt: Date.now(),
-        timerId: setInterval(() => window._tickMobileRecTimer(), 250)
+        timerId: setInterval(() => window._tickMobileRecTimer(), 250),
+        audioCtx,
+        analyser,
+        sourceNode,
+        rafId: null,
+        peaks: [],
+        blob: null,
+        buffer: null,
+        trimStart: 0,
+        trimEnd: 1
     };
+
     const overlay = document.getElementById('mobile-record-overlay');
-    const pulse = document.getElementById('mobile-record-pulse');
     const timer = document.getElementById('mobile-record-timer');
+    const dbEl = document.getElementById('mobile-rec-db');
+    const bar = document.getElementById('mobile-rec-meter-bar');
     if (timer) timer.textContent = '0:00';
-    if (pulse) pulse.classList.add('is-live');
+    if (dbEl) dbEl.textContent = '−∞ dB';
+    if (bar) { bar.style.width = '0%'; bar.classList.remove('is-hot'); }
+    window._setMobileRecStage('record');
     if (overlay) overlay.classList.remove('hidden');
+
+    if (analyser) window._drawMobileRecLive();
+
     try {
         recorder.start(250);
     } catch (err) {

@@ -131,7 +131,7 @@ Utilities: `.mobile-grid-4`, `.mobile-pad-x`.
 | Compact / Expanded | `#dock-expand-btn` + `localStorage` `rosmap-dock-expanded` |
 | `#map-top-toolbar` | Search + active filter chips |
 | `#map-top-right-controls` | Events (both); messages/notifications on mobile after login |
-| `#player-card` | Compact cream pill hugging dock · ⋯ menu (описание / анализаторы / амбисоник) · swipe-up expands description |
+| `#player-card` | Wave always on · dual wings hug center **+** · swipe-up = description only · ⋯ menu |
 | `#fab-add` | Desktop only. Mobile: white center FAB in floating peach dock |
 | `#mobile-bottom-nav` | Wellness floating peach pill · bold icons · **+** opens speed-dial (upload / record) |
 | Mobile surfaces | Full viewport; scroll padding clears dock; confirm stays compact |

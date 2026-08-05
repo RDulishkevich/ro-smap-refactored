@@ -1105,7 +1105,9 @@ window.updatePlayerVisuals = function(current, total) {
     const tCur = document.getElementById('time-current'), wAct = document.getElementById('waveform-active');
     const pHead = document.getElementById('playhead'), aTime = document.getElementById('audio-timeline');
 
-    if(tCur) tCur.textContent = window.formatTime(current); 
+    if(tCur) tCur.textContent = window.formatTime(current);
+    const tWing = document.getElementById('time-current-wing');
+    if (tWing) tWing.textContent = window.formatTime(current); 
     if(wAct) wAct.style.clipPath = `inset(0 ${100 - r * 100}% 0 0)`; 
     if(pHead) pHead.style.left = `${r * 100}%`;
     if(aTime) aTime.value = r * 100;
