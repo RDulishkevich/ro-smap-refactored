@@ -997,17 +997,15 @@ window.openActionsMenu = function(items, opts = {}) {
     if (window.ActionSheet) window.ActionSheet.open(items, opts);
 };
 
-/* —— Mobile player sheet: compact dock hug + swipe-up description —— */
+/* —— Mobile player sheet: swipe up → details, swipe down → close + stop —— */
 window.isPlayerSheetExpanded = function() {
     const card = document.getElementById('player-card');
     return !!(card && card.classList.contains('is-expanded'));
 };
 
 window.expandPlayerSheet = function() {
-    const card = document.getElementById('player-card');
-    if (!card) return;
-    card.classList.add('is-expanded');
-    document.body.classList.add('player-sheet-expanded');
+    /* Legacy expand-description path retired — open the sound card instead. */
+    if (window.openDetailsModal) window.openDetailsModal();
 };
 
 window.collapsePlayerSheet = function() {
@@ -1018,11 +1016,10 @@ window.collapsePlayerSheet = function() {
 };
 
 window.togglePlayerSheet = function() {
-    if (window.isPlayerSheetExpanded()) window.collapsePlayerSheet();
-    else window.expandPlayerSheet();
+    if (window.openDetailsModal) window.openDetailsModal();
 };
 
-/** Title tap: mobile expands description only; desktop opens details dock. */
+/** Title tap opens the sound details card (mobile + desktop). */
 window.onPlayerTitleActivate = function(ev) {
     if (ev) {
         if (ev.stopPropagation) ev.stopPropagation();
@@ -1031,10 +1028,6 @@ window.onPlayerTitleActivate = function(ev) {
             return;
         }
     }
-    if (window.innerWidth < 768) {
-        window.togglePlayerSheet();
-        return;
-    }
     if (window.openDetailsModal) window.openDetailsModal();
 };
 
@@ -1042,14 +1035,6 @@ window.openPlayerActionsMenu = function(ev) {
     if (ev && ev.stopPropagation) ev.stopPropagation();
     const s = (window.soundsData || []).find((x) => x.id === window.currentPlayingId);
     const items = [
-        {
-            label: 'Описание',
-            icon: 'icon-document-text',
-            onClick: () => {
-                if (window.innerWidth < 768) window.expandPlayerSheet();
-                else if (window.openDetailsModal) window.openDetailsModal();
-            }
-        },
         {
             label: 'Анализаторы',
             icon: 'icon-chart-2',
@@ -1076,6 +1061,55 @@ window.openPlayerActionsMenu = function(ev) {
             anchor: document.getElementById('player-more-btn')
         });
     }
+};
+
+window.openDetailsActionsMenu = function(ev) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    const s = (window.soundsData || []).find((x) => x.id === window.currentPlayingId);
+    const items = [
+        {
+            label: 'Пожаловаться',
+            icon: 'icon-flag',
+            tone: 'danger',
+            onClick: () => {
+                if (window.openReportModal) window.openReportModal('sound', window.currentPlayingId);
+            }
+        }
+    ];
+    if (window.openActionsMenu) {
+        window.openActionsMenu(items, {
+            title: s?.title || 'Звук',
+            event: ev || null,
+            anchor: document.getElementById('details-more-btn')
+        });
+    }
+};
+
+/** Close sound card and return to the playing player (audio keeps going). */
+window.closeDetailsToPlayer = function() {
+    if (window.__dockView !== 'details') {
+        if (window.closeDetailsModal) window.closeDetailsModal();
+        return;
+    }
+    const returnToMapPlayer = document.body.classList.contains('player-visible') && window.innerWidth < 768;
+    if (returnToMapPlayer) {
+        window.__dockReturnView = null;
+        window.undockDetailsContent && window.undockDetailsContent();
+        const panel = document.getElementById('dock-details');
+        if (panel) panel.classList.add('hidden');
+        document.body.classList.remove('dock-view-details');
+        window.__dockView = window.__sidebarTab || 'library';
+        const m = document.getElementById('details-modal');
+        if (m) {
+            m.classList.add('opacity-0', 'pointer-events-none', 'hidden');
+            const c = document.getElementById('details-modal-content');
+            if (c) c.classList.add('scale-95');
+        }
+        if (window.hideDockPanel) window.hideDockPanel();
+        return;
+    }
+    if (window.closeDockViewer) window.closeDockViewer();
+    else if (window.closeDetailsModal) window.closeDetailsModal();
 };
 
 (function bindPlayerSheetGestures() {
@@ -1136,18 +1170,15 @@ window.openPlayerActionsMenu = function(ev) {
             if (Math.abs(dy) < 40 || Math.abs(dy) < Math.abs(dx)) {
                 if (!moved && handle && (e.target === handle || (handle.contains && handle.contains(e.target)))) {
                     blockGhostClick();
-                    if (window.isPlayerSheetExpanded()) window.collapsePlayerSheet();
-                    else if (window.closePlayerCard) window.closePlayerCard();
+                    if (window.closePlayerCard) window.closePlayerCard();
                 }
                 return;
             }
             blockGhostClick();
             if (dy < -40) {
-                /* Swipe up = description only — never open the sound details dock. */
-                window.expandPlayerSheet();
+                if (window.openDetailsModal) window.openDetailsModal();
             } else if (dy > 40) {
-                if (window.isPlayerSheetExpanded()) window.collapsePlayerSheet();
-                else if (window.closePlayerCard) window.closePlayerCard();
+                if (window.closePlayerCard) window.closePlayerCard();
             }
         };
 
@@ -1162,15 +1193,64 @@ window.openPlayerActionsMenu = function(ev) {
                     e.preventDefault();
                     return;
                 }
-                if (window.innerWidth >= 768) {
-                    if (window.closePlayerCard) window.closePlayerCard();
-                    return;
-                }
                 e.preventDefault();
-                if (window.isPlayerSheetExpanded()) window.collapsePlayerSheet();
-                else if (window.closePlayerCard) window.closePlayerCard();
+                if (window.closePlayerCard) window.closePlayerCard();
             });
         }
+    };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bind);
+    } else {
+        bind();
+    }
+})();
+
+(function bindDetailsSwipeToPlayer() {
+    const bind = () => {
+        const host = document.getElementById('dock-details')
+            || document.getElementById('dock-details-host')
+            || document.getElementById('sidebar');
+        if (!host || host.__detailsSwipeBound) return;
+        host.__detailsSwipeBound = true;
+
+        let startY = 0;
+        let startX = 0;
+        let tracking = false;
+
+        host.addEventListener('touchstart', (e) => {
+            if (window.innerWidth >= 768) return;
+            if (window.__dockView !== 'details') return;
+            const t = e.touches && e.touches[0];
+            if (!t) return;
+            const el = e.target;
+            if (el && el.closest && (
+                el.closest('input')
+                || el.closest('textarea')
+                || el.closest('button')
+                || el.closest('a')
+                || el.closest('#comments-list')
+            )) return;
+            const scroller = el && el.closest
+                ? el.closest('.overflow-y-auto, .custom-scrollbar, #details-modal-content')
+                : null;
+            if (scroller && scroller.scrollTop > 8) return;
+            startY = t.clientY;
+            startX = t.clientX;
+            tracking = true;
+        }, { passive: true });
+
+        host.addEventListener('touchend', (e) => {
+            if (!tracking) return;
+            tracking = false;
+            if (window.__dockView !== 'details') return;
+            const t = e.changedTouches && e.changedTouches[0];
+            if (!t) return;
+            const dy = t.clientY - startY;
+            const dx = t.clientX - startX;
+            if (dy > 70 && Math.abs(dy) > Math.abs(dx)) {
+                if (window.closeDetailsToPlayer) window.closeDetailsToPlayer();
+            }
+        }, { passive: true });
     };
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', bind);
@@ -3733,6 +3813,15 @@ window.__openDockViewImpl = function(view) {
         if (panel) panel.classList.remove('hidden');
         window.dockDetailsContent();
         window.setDockHeader('Описание звука', 'Карточка записи', true);
+        const back = document.getElementById('dock-back-btn');
+        if (back) {
+            back.title = 'К плееру';
+            back.setAttribute('aria-label', 'Назад к плееру');
+            back.onclick = () => {
+                if (window.closeDetailsToPlayer) window.closeDetailsToPlayer();
+                else if (window.closeDockViewer) window.closeDockViewer();
+            };
+        }
         if (mobileTabs) mobileTabs.classList.add('hidden');
         window.clearRailTabActive();
     } else if (next === 'analyzers') {
@@ -5028,7 +5117,10 @@ window.selectSound = function(id) {
     if (titleEl) titleEl.textContent = s.title;
     const gearHtml = `<i class="icon-radar mr-1 text-slate-400"></i>${s.gear || ''}`;
     if (gearEl) gearEl.innerHTML = gearHtml;
-    if (gearCompact) gearCompact.textContent = s.gear ? `· ${s.gear}` : '';
+    if (gearCompact) {
+        const author = String(s.recordist || '').trim();
+        gearCompact.textContent = author ? `· ${author}` : '';
+    }
     if (descEl) {
         const raw = String(s.description || s.desc || '').trim();
         descEl.textContent = raw || 'Описание не указано';
@@ -5036,6 +5128,7 @@ window.selectSound = function(id) {
     }
     if (window.renderSoundTags) window.renderSoundTags(s, 'player-tags');
     if (window.collapsePlayerSheet) window.collapsePlayerSheet();
+    if (window.loadWaveformForSound) window.loadWaveformForSound(s);
 
     if (s.url) {
         if (window.resetPlaybackPitch) window.resetPlaybackPitch();
@@ -5206,18 +5299,10 @@ window.openDetailsModal = function() {
 
     if (descEl) {
         descEl.textContent = s.description || '';
-        const hasDesc = !!(s.description || '').trim();
-        descEl.classList.toggle('meta-value--action', hasDesc);
-        descEl.classList.toggle('cursor-pointer', hasDesc);
-        descEl.title = hasDesc ? 'Действия с описанием' : '';
-        descEl.onclick = hasDesc
-            ? (ev) => {
-                ev.stopPropagation();
-                if (window.openDetailsMetaFilterSheet) {
-                    window.openDetailsMetaFilterSheet('description', s.description, 'Описание');
-                }
-            }
-            : null;
+        descEl.classList.remove('meta-value--action', 'cursor-pointer');
+        descEl.removeAttribute('title');
+        descEl.removeAttribute('role');
+        descEl.onclick = null;
     }
 
     const customGearWrap = document.getElementById('det-custom-gear-wrap');
@@ -5270,7 +5355,8 @@ window.openDetailsModal = function() {
             expEl.innerHTML = '';
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'meta-value--action cursor-pointer text-left ds-link hover:underline';
+            btn.className = 'cursor-pointer text-left font-medium hover:underline';
+            btn.style.color = 'var(--ink)';
             btn.textContent = label;
             btn.onclick = (ev) => {
                 ev.stopPropagation();

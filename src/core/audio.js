@@ -513,10 +513,10 @@ window.getAnalyzerPalette = function() {
         grid: read('--analyzer-grid', 'rgba(100, 116, 139, 0.4)'),
         gridSoft: read('--analyzer-grid-soft', 'rgba(100, 116, 139, 0.22)'),
         label: read('--analyzer-label', 'rgba(51, 65, 85, 0.92)'),
-        stroke: read('--analyzer-stroke', '#0284c7'),
-        strokeGlow: read('--analyzer-stroke-glow', 'rgba(2, 132, 199, 0.4)'),
-        ambiStroke: read('--analyzer-ambi-stroke', '#6366f1'),
-        ambiGlow: read('--analyzer-ambi-glow', 'rgba(99, 102, 241, 0.4)')
+        stroke: read('--analyzer-stroke', '#FBAB57'),
+        strokeGlow: read('--analyzer-stroke-glow', 'transparent'),
+        ambiStroke: read('--analyzer-ambi-stroke', '#222222'),
+        ambiGlow: read('--analyzer-ambi-glow', 'transparent')
     };
 };
 
@@ -1062,12 +1062,91 @@ window.updateUIState = function() {
     else if (window.renderList) window.renderList();
 }
 
-window.renderWaveform = function() {
-    const data = [15, 25, 45, 20, 60, 40, 80, 55, 30, 15, 40, 70, 90, 50, 35, 20, 25, 45, 65, 85, 55, 35, 20, 25, 45, 65, 10, 35, 55, 75, 15, 40, 60, 35, 15, 50, 70, 90, 55, 30, 25, 45, 75, 85];
-    let h = ''; data.forEach(v => h += `<div class="flex-1 bg-current rounded-full" style="height: ${v}%;"></div>`);
-    const wBg = document.getElementById('waveform-bg'), wBuf = document.getElementById('waveform-buffered'), wAct = document.getElementById('waveform-active');
-    if(wBg) wBg.innerHTML = h; if(wBuf) wBuf.innerHTML = h; if(wAct) wAct.innerHTML = h;
-}
+window.__waveformPeaksCache = window.__waveformPeaksCache || Object.create(null);
+window.__waveformRequestId = 0;
+
+window.peaksFromAudioBuffer = function(buffer, barCount) {
+    const n = Math.max(16, Math.min(96, barCount | 0 || 56));
+    if (!buffer || !buffer.length) {
+        return Array.from({ length: n }, () => 18);
+    }
+    const chCount = buffer.numberOfChannels || 1;
+    const len = buffer.length;
+    const block = Math.max(1, Math.floor(len / n));
+    const peaks = new Array(n);
+    for (let i = 0; i < n; i++) {
+        const start = i * block;
+        const end = Math.min(len, start + block);
+        let peak = 0;
+        for (let c = 0; c < chCount; c++) {
+            const data = buffer.getChannelData(c);
+            for (let j = start; j < end; j++) {
+                const v = Math.abs(data[j]);
+                if (v > peak) peak = v;
+            }
+        }
+        /* Map to bar height % with a soft floor so quiet sections stay visible */
+        peaks[i] = Math.max(8, Math.min(96, Math.round(Math.pow(peak, 0.65) * 100)));
+    }
+    return peaks;
+};
+
+window.renderWaveformBars = function(peaks) {
+    const data = Array.isArray(peaks) && peaks.length
+        ? peaks
+        : [18, 28, 42, 22, 55, 35, 70, 48, 30, 18, 38, 62, 80, 44, 32, 20];
+    let h = '';
+    data.forEach((v) => {
+        h += `<div class="flex-1 bg-current rounded-full" style="height: ${v}%;"></div>`;
+    });
+    const wBg = document.getElementById('waveform-bg');
+    const wBuf = document.getElementById('waveform-buffered');
+    const wAct = document.getElementById('waveform-active');
+    if (wBg) wBg.innerHTML = h;
+    if (wBuf) wBuf.innerHTML = h;
+    if (wAct) wAct.innerHTML = h;
+};
+
+window.renderWaveform = function(peaks) {
+    window.renderWaveformBars(peaks);
+};
+
+window.loadWaveformForSound = async function(soundOrUrl) {
+    const reqId = ++window.__waveformRequestId;
+    const url = typeof soundOrUrl === 'string'
+        ? soundOrUrl
+        : (soundOrUrl && (soundOrUrl.url || soundOrUrl.audioUrl)) || '';
+    const cacheKey = url || (soundOrUrl && soundOrUrl.id) || '';
+
+    if (!url || url.length < 8) {
+        /* placeholder until real peaks load / mock track */
+        window.renderWaveformBars(null);
+        return;
+    }
+
+    if (cacheKey && window.__waveformPeaksCache[cacheKey]) {
+        window.renderWaveformBars(window.__waveformPeaksCache[cacheKey]);
+        return;
+    }
+
+    window.renderWaveformBars(null);
+
+    try {
+        if (!window.decodeAudioFile) throw new Error('no decoder');
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('fetch failed');
+        const blob = await res.blob();
+        const file = new File([blob], 'wave.wav', { type: blob.type || 'audio/wav' });
+        const buffer = await window.decodeAudioFile(file);
+        if (reqId !== window.__waveformRequestId) return;
+        const peaks = window.peaksFromAudioBuffer(buffer, 56);
+        if (cacheKey) window.__waveformPeaksCache[cacheKey] = peaks;
+        window.renderWaveformBars(peaks);
+    } catch (_) {
+        if (reqId !== window.__waveformRequestId) return;
+        window.renderWaveformBars(null);
+    }
+};
 
 window.updateBufferProgress = function() {
     if (!window.audioElement) return;

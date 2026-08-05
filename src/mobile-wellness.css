@@ -72,7 +72,7 @@
         left: max(0.75rem, var(--sal));
         right: max(0.75rem, var(--sar));
         bottom: max(var(--mobile-nav-float-gap), var(--sab));
-        z-index: 220;
+        z-index: 235;
         display: flex !important;
         flex-direction: column;
         align-items: stretch;
@@ -394,34 +394,55 @@
         line-height: 1.1 !important;
     }
 
-    /* —— Mobile player (rebuild): compact cream card, cups the raised + —— */
+    /* —— Mobile player: floating cream card that wraps around the raised + —— */
     #player-anchor.player-anchor {
         z-index: 225 !important;
         justify-content: stretch !important;
         padding-left: max(0.75rem, var(--sal)) !important;
         padding-right: max(0.75rem, var(--sar)) !important;
-        /* Clear peach dock; leave the raised FAB band under the notch */
-        padding-bottom: calc(var(--mobile-fs-bottom) - 1.35rem) !important;
+        /* Sit above peach dock; FAB peeks through the card mask */
+        padding-bottom: calc(var(--mobile-fs-bottom) - 0.55rem) !important;
     }
     #player-card.player-shell {
         width: 100% !important;
         max-width: none !important;
         margin: 0 !important;
-        padding: 0.35rem 0.7rem 0 !important;
+        padding: 0.35rem 0.7rem 0.55rem !important;
         max-height: min(62dvh, 30rem) !important;
         overflow: visible !important;
         display: flex !important;
         flex-direction: column !important;
         gap: 0.35rem;
         pointer-events: auto !important;
-        background: var(--well-white) !important;
-        background-color: var(--well-white) !important;
+        background: var(--well-cream) !important;
+        background-color: var(--well-cream) !important;
         border: none !important;
-        border-radius: 1.35rem 1.35rem 0 0 !important;
+        border-radius: 1.35rem !important;
         box-shadow: var(--well-shadow-strong) !important;
+        /* Transparent cup for the raised + — dock peach shows through, not white-on-white */
+        -webkit-mask-image: radial-gradient(
+            circle 1.75rem at 50% calc(100% + 0.2rem),
+            transparent 0,
+            transparent 1.58rem,
+            #000 1.62rem
+        );
+        mask-image: radial-gradient(
+            circle 1.75rem at 50% calc(100% + 0.2rem),
+            transparent 0,
+            transparent 1.58rem,
+            #000 1.62rem
+        );
         transition:
-            transform 0.34s cubic-bezier(0.22, 1, 0.36, 1),
-            opacity 0.24s ease !important;
+            transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+            opacity 0.28s ease !important;
+    }
+    body.dock-view-details #player-anchor.player-anchor {
+        opacity: 0 !important;
+        pointer-events: none !important;
+        transform: translateY(1.25rem);
+        transition:
+            opacity 0.28s ease,
+            transform 0.34s cubic-bezier(0.22, 1, 0.36, 1) !important;
     }
     #player-card.player-shell.is-expanded {
         padding-top: 0.45rem !important;
@@ -504,11 +525,16 @@
         display: inline-flex !important;
         width: 2.25rem;
         height: 2.25rem;
-        color: var(--well-ink);
-        background: var(--well-cream);
+        color: #fff !important;
+        background: var(--well-ink) !important;
+        border: none !important;
+        box-shadow: none !important;
     }
     #player-card .player-more-btn:active {
         transform: scale(0.96);
+    }
+    #player-card .player-more-btn i {
+        color: #fff !important;
     }
     /* Waveform always on */
     #player-card .player-wave-block {
@@ -553,31 +579,65 @@
     #player-card .player-gear-line {
         display: none;
     }
-    /* Concave cup under the card for the raised + */
     #player-card .player-fab-notch {
-        display: block;
-        height: 1.55rem;
-        margin: 0 -0.7rem;
-        background: var(--well-white);
-        border-radius: 0 0 1.35rem 1.35rem;
-        -webkit-mask-image: radial-gradient(
-            circle 1.85rem at 50% 100%,
-            transparent 0,
-            transparent 1.7rem,
-            #000 1.72rem
-        );
-        mask-image: radial-gradient(
-            circle 1.85rem at 50% 100%,
-            transparent 0,
-            transparent 1.7rem,
-            #000 1.72rem
-        );
-        pointer-events: none;
-        flex-shrink: 0;
+        display: none !important;
     }
     #player-card #ambisonics-control:not(.hidden) {
         margin: 0.25rem 0 0.75rem;
         padding-top: 0.65rem;
+    }
+
+    /* Details card in dock — compact photo, single chrome, text fit */
+    body.dock-view-details #details-modal-content.details-in-dock .details-gallery {
+        height: 7.25rem !important;
+        border-radius: 0 0 1rem 1rem;
+        overflow: hidden;
+    }
+    body.dock-view-details #details-modal-content.details-in-dock .details-gallery__img {
+        object-fit: cover;
+        object-position: center;
+    }
+    /* One close control: dock back. Hide gallery X / duplicate back on mobile dock. */
+    body.dock-view-details #details-modal-content.details-in-dock .details-close-btn {
+        display: none !important;
+    }
+    body.dock-view-details #details-modal-content.details-in-dock .meta-value,
+    body.dock-view-details #details-modal-content.details-in-dock #details-title,
+    body.dock-view-details #details-modal-content.details-in-dock #details-filename,
+    body.dock-view-details #details-modal-content.details-in-dock #details-description {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        min-width: 0;
+    }
+    body.dock-view-details #details-modal-content.details-in-dock .meta-group {
+        min-width: 0;
+    }
+    .details-more-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.35rem;
+        height: 2.35rem;
+        border-radius: 999px;
+        background: var(--well-ink);
+        color: #fff;
+        border: none;
+        flex-shrink: 0;
+    }
+    .details-more-btn i { color: #fff; }
+    .details-close-btn {
+        background: color-mix(in srgb, var(--well-ink) 72%, transparent);
+        color: #fff;
+        backdrop-filter: blur(8px);
+    }
+    .details-close-btn i { color: #fff; }
+
+    /* Analyzer panels — cream / peach DS */
+    #player-analyzers .analyzer-panel {
+        background: var(--well-white) !important;
+        border: 1px solid color-mix(in srgb, var(--well-peach) 55%, transparent) !important;
+        border-radius: 1.1rem !important;
+        box-shadow: none !important;
     }
 
     /* —— Record / trim stages —— */
