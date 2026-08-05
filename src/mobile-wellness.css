@@ -723,7 +723,7 @@
     #details-modal-content .details-download-xfer.file-xfer,
     #details-modal-content .file-xfer--compact {
         width: auto !important;
-        max-width: 9.5rem !important;
+        max-width: 12rem !important;
         margin-inline: 0 !important;
     }
     body.dock-view-details #details-modal-content.details-in-dock .grid.grid-cols-2 {
@@ -738,6 +738,21 @@
         overflow-wrap: break-word;
         word-break: normal;
         min-width: 0;
+    }
+    .details-report-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+        min-height: 2.5rem;
+        padding: 0.4rem 0.75rem;
+        border-radius: 999px;
+        background: color-mix(in srgb, #b91c1c 12%, var(--well-white));
+        color: #b91c1c;
+        border: 1px solid color-mix(in srgb, #b91c1c 25%, transparent);
+        font-size: 0.72rem;
+        font-weight: 800;
+        flex-shrink: 0;
     }
     .details-more-btn {
         display: inline-flex;
@@ -1111,6 +1126,9 @@
     }
     body.hide-mobile-nav #mobile-record-overlay {
         padding-bottom: max(0.85rem, var(--sab));
+    }
+    body.hide-mobile-nav #events-sheet .events-sheet-panel {
+        padding-bottom: max(0.85rem, var(--sab)) !important;
     }
 
     /* Primary CTAs on mobile: charcoal soft pill (reference) */

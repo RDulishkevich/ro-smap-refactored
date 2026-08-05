@@ -899,7 +899,9 @@ window.syncMobileChromeHidden = function() {
         || window.__dockView === 'details';
     const messagesOpen = document.body.classList.contains('dock-view-messages')
         || window.__dockView === 'messages';
-    const hide = addOpen || recOpen || detailsOpen || messagesOpen;
+    const eventsOpen = document.body.classList.contains('events-open');
+    const searchOpen = document.body.classList.contains('search-is-open');
+    const hide = addOpen || recOpen || detailsOpen || messagesOpen || eventsOpen || searchOpen;
     document.body.classList.toggle('hide-mobile-nav', hide);
 };
 
@@ -1098,6 +1100,10 @@ window.openPlayerActionsMenu = function(ev) {
 
 window.openDetailsActionsMenu = function(ev) {
     if (ev && ev.stopPropagation) ev.stopPropagation();
+    if (window.openReportModal) {
+        window.openReportModal('sound', window.currentPlayingId);
+        return;
+    }
     const s = (window.soundsData || []).find((x) => x.id === window.currentPlayingId);
     const items = [
         {
@@ -1113,7 +1119,7 @@ window.openDetailsActionsMenu = function(ev) {
         window.openActionsMenu(items, {
             title: s?.title || 'Звук',
             event: ev || null,
-            anchor: document.getElementById('details-more-btn')
+            anchor: document.getElementById('details-report-btn') || document.getElementById('details-more-btn')
         });
     }
 };
@@ -3959,7 +3965,7 @@ window.__openDockViewImpl = function(view) {
         const panel = document.getElementById('dock-settings');
         if (panel) panel.classList.remove('hidden');
         window.dockSettingsContent();
-        window.setDockHeader('Настройки', 'Тема · карта · язык', true);
+        window.setDockHeader('Настройки', 'Тема · язык · масштаб', false);
         if (mobileTabs) mobileTabs.classList.add('hidden');
         window.clearRailTabActive();
         if (window.refreshSettingsUI) window.refreshSettingsUI();
@@ -3986,7 +3992,7 @@ window.__openDockViewImpl = function(view) {
         const panel = document.getElementById('dock-messages');
         if (panel) panel.classList.remove('hidden');
         window.dockMessagesContent();
-        window.setDockHeader('Сообщения', 'Чаты и поддержка', true);
+        window.setDockHeader('Сообщения', 'Чаты и поддержка', false);
         if (mobileTabs) mobileTabs.classList.add('hidden');
         window.clearRailTabActive();
     } else if (next === 'expedition') {
@@ -4079,9 +4085,10 @@ window.__openDockViewImpl = function(view) {
 
     if (window.showDockPanel) window.showDockPanel();
     if (window.syncMobileNavActive) {
-        if (next === 'cabinet' || next === 'messages' || next === 'settings') window.syncMobileNavActive('profile');
+        if (next === 'settings') window.syncMobileNavActive('settings');
+        else if (next === 'cabinet' || next === 'messages') window.syncMobileNavActive('profile');
         else if (next === 'feed') window.syncMobileNavActive('feed');
-        else if (next === 'expeditions' || next === 'expedition') window.syncMobileNavActive('expeditions');
+        else if (next === 'expeditions' || next === 'expedition') window.syncMobileNavActive('library');
         else if (next === 'help') window.syncMobileNavActive('library');
         else window.syncMobileNavActive('library');
     }
@@ -9124,7 +9131,8 @@ window.mobileNavGo = async function(dest) {
     if (activeNav && activeNav === target && target !== 'map') {
         if (window.closeEventsSheet) window.closeEventsSheet();
         if (window.hideDockPanel) window.hideDockPanel();
-        if (window.closeCabinet) window.closeCabinet();
+        if (target === 'settings' && window.closeSettingsModal) window.closeSettingsModal();
+        else if (window.closeCabinet) window.closeCabinet();
         window.syncMobileNavActive('map');
         return;
     }
@@ -9147,24 +9155,11 @@ window.mobileNavGo = async function(dest) {
         window.syncMobileNavActive('feed');
         return;
     }
-    if (target === 'expeditions') {
-        if (window.closeEventsSheet) window.closeEventsSheet();
-        if (window.switchSidebarTab) window.switchSidebarTab('expeditions');
-        else if (window.openDockView) window.openDockView('expeditions');
-        window.syncMobileNavActive('expeditions');
-        return;
-    }
     if (target === 'settings') {
-        /* Legacy: settings live under Profile on mobile */
         if (window.closeEventsSheet) window.closeEventsSheet();
-        if (!window.currentUser) {
-            if (window.openAuthModal) window.openAuthModal();
-            window.syncMobileNavActive('profile');
-            return;
-        }
         if (window.openSettingsPanel) window.openSettingsPanel();
         else if (window.openDockView) window.openDockView('settings');
-        window.syncMobileNavActive('profile');
+        window.syncMobileNavActive('settings');
         return;
     }
     if (target === 'profile') {
@@ -9241,6 +9236,7 @@ window.toggleSearchBar = function(forceOpen) {
         input.blur();
         window.clearSearchSuggestions();
     }
+    if (window.syncMobileChromeHidden) window.syncMobileChromeHidden();
 };
 
 window.clearSearchSuggestions = function() {
@@ -9423,8 +9419,9 @@ window.initSearchChrome = function() {
     input.addEventListener('keydown', (e) => {
         const suggBox = document.getElementById('search-suggestions');
         const items = window.__searchSuggestions || [];
+        const suggVisible = !!(suggBox && !suggBox.classList.contains('hidden') && items.length);
         if (e.key === 'Escape') {
-            if (suggBox && !suggBox.classList.contains('hidden')) {
+            if (suggVisible) {
                 window.clearSearchSuggestions();
                 e.preventDefault();
             } else {
@@ -9432,8 +9429,8 @@ window.initSearchChrome = function() {
             }
             return;
         }
-        if (!items.length || !suggBox || suggBox.classList.contains('hidden')) return;
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            if (!suggVisible) return;
             e.preventDefault();
             const delta = e.key === 'ArrowDown' ? 1 : -1;
             const next = Math.max(0, Math.min(items.length - 1, (window.__searchSuggestionIndex ?? -1) + delta));
@@ -9441,12 +9438,23 @@ window.initSearchChrome = function() {
             suggBox.querySelectorAll('.search-suggestion').forEach((el, i) => el.classList.toggle('is-active', i === next));
             return;
         }
-        if (e.key === 'Enter' && window.__searchSuggestionIndex >= 0) {
-            const item = items[window.__searchSuggestionIndex];
-            if (item) {
-                e.preventDefault();
-                window.applySearchSuggestion(item.type, item.id);
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const idx = window.__searchSuggestionIndex ?? -1;
+            if (suggVisible && idx >= 0 && items[idx]) {
+                window.applySearchSuggestion(items[idx].type, items[idx].id);
+                return;
             }
+            if (suggVisible && items.length === 1) {
+                window.applySearchSuggestion(items[0].type, items[0].id);
+                return;
+            }
+            /* Enter = submit query as filter / open results */
+            window.clearSearchSuggestions();
+            if (window.syncSearchClearBtn) window.syncSearchClearBtn();
+            if (window.processFilterChange) window.processFilterChange(false);
+            if (window.renderActiveTags) window.renderActiveTags();
+            if (input.value.trim() && window.openDockView) window.openDockView('library');
         }
     });
 

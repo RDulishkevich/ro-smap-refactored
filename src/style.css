@@ -1069,6 +1069,14 @@ html.dark .glass-seg__btn.is-active,
     font-size: 0.9rem;
     font-weight: 700;
     cursor: pointer;
+    min-width: 0;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+    word-break: break-word;
 }
 .player-main-sub {
     display: flex;
@@ -1109,6 +1117,29 @@ html.dark .glass-seg__btn.is-active,
     #player-card #ambisonics-control { order: 4; }
     #player-card .player-more-btn { display: none !important; }
     #player-card .player-description { display: none !important; }
+    #player-wave-pill { display: none !important; }
+    #player-card .player-icon-btn {
+        width: 2.75rem !important;
+        height: 2.75rem !important;
+        min-width: 2.75rem !important;
+        min-height: 2.75rem !important;
+    }
+    #player-card .player-icon-btn i,
+    #player-card #btn-ambi-toggle i {
+        font-size: 1.05rem !important;
+    }
+    #player-card .player-title {
+        font-size: 1.05rem;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+    }
+    #player-card .player-main-meta {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+    #player-card .player-main-meta > .flex {
+        align-items: flex-start;
+    }
     #player-card .player-gear-line {
         display: block;
         font-size: 0.65rem;
@@ -1859,6 +1890,16 @@ html.is-standalone body {
     border-color: rgba(255, 255, 255, 0.12);
     background: rgba(255, 255, 255, 0.06);
 }
+/* Messages: one close control on the right, no back arrow */
+body.dock-view-messages #dock-back-btn {
+    display: none !important;
+}
+body.dock-view-messages .dock-header-actions {
+    display: flex !important;
+}
+body.dock-view-messages #dock-mobile-close {
+    display: inline-flex !important;
+}
 #details-modal-content.details-in-dock {
     width: 100% !important;
     max-width: none !important;
@@ -2024,9 +2065,22 @@ html.dark .app-rail__btn.is-active,
     border-radius: 999px;
     z-index: 50;
     width: fit-content;
+    flex-wrap: wrap;
 }
 body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
     left: calc(var(--chrome-inset-left) + var(--rail-w) + var(--chrome-gap));
+}
+/* Keep filter pills off the loupe / search-clear hit area */
+body.search-is-open #map-top-toolbar #active-tags-container,
+#map-top-toolbar.is-search-open #active-tags-container,
+#map-top-toolbar:has(.map-search-cluster.is-open) #active-tags-container {
+    display: none !important;
+}
+#map-top-toolbar .map-top-toolbar__tags {
+    flex: 1 1 100%;
+    max-width: 100%;
+    order: 2;
+    margin-top: 0.15rem;
 }
 @media (min-width: 768px) {
     #map-top-toolbar.map-top-toolbar { display: flex; }
@@ -2044,7 +2098,7 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
         flex-wrap: nowrap;
     }
     #map-top-toolbar #active-tags-container {
-        display: none;
+        display: none !important;
     }
     #map-top-toolbar.is-search-open,
     #map-top-toolbar:has(.map-search-cluster.is-open),
@@ -2105,6 +2159,12 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
     /* One close affordance: bottom nav «Карта». Keep back only for nested views via body class. */
     #dock-mobile-close {
         display: none !important;
+    }
+    body.dock-view-messages #dock-back-btn {
+        display: none !important;
+    }
+    body.dock-view-messages #dock-mobile-close {
+        display: inline-flex !important;
     }
     body:not(.dock-view-details):not(.dock-view-analyzers):not(.dock-view-settings):not(.dock-view-messages):not(.dock-view-expedition):not(.dock-view-admin) #dock-back-btn {
         display: none !important;
@@ -2556,9 +2616,6 @@ select,
 }
 #map-top-toolbar.toolbar-search-hidden {
     max-width: fit-content;
-}
-#map-top-toolbar .map-top-toolbar__tags {
-    max-width: 12rem;
 }
 @media (min-width: 768px) {
     #map-top-toolbar:has(.map-search-cluster:hover),
@@ -3023,6 +3080,9 @@ html.dark .search-suggestions,
         overflow: hidden !important;
     }
     body.hide-mobile-nav #add-modal-content {
+        padding-bottom: max(0.85rem, var(--sab)) !important;
+    }
+    body.hide-mobile-nav #events-sheet .events-sheet-panel {
         padding-bottom: max(0.85rem, var(--sab)) !important;
     }
     #sidebar .custom-scrollbar,
@@ -5719,15 +5779,18 @@ html.dark .feed-post__cover,
 .messages-compose-input,
 #messages-compose-input.messages-compose-input {
     resize: none;
-    min-height: 2.5rem;
-    max-height: 7.5rem;
+    min-height: 3.25rem;
+    max-height: 10rem;
     overflow-y: auto;
     white-space: pre-wrap;
     overflow-wrap: break-word;
     word-break: normal;
-    line-height: 1.35;
-    padding-top: 0.55rem;
-    padding-bottom: 0.55rem;
+    line-height: 1.4;
+    padding-top: 0.7rem;
+    padding-bottom: 0.7rem;
+}
+body.dock-view-messages #messages-compose-bar {
+    padding-bottom: max(0.85rem, env(safe-area-inset-bottom, 0px));
 }
 .msg-bubble.mine {
     background: var(--cta);

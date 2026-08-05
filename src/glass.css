@@ -1722,6 +1722,50 @@ a.bg-blue-600 {
     max-width: 9.5rem !important;
     flex: 0 0 auto;
 }
+.details-download-xfer.file-xfer {
+    width: auto !important;
+    min-width: 8.5rem;
+    max-width: 14rem !important;
+    flex: 0 0 auto;
+}
+.details-download-xfer .file-xfer__track {
+    min-height: 2.85rem;
+    padding: 0.28rem;
+}
+.details-download-xfer .file-xfer__action {
+    min-width: 5.5rem;
+    min-height: 2.35rem;
+    padding: 0 0.95rem;
+    font-size: 0.8rem;
+    font-weight: 800;
+}
+.details-download-xfer .file-xfer__name {
+    font-size: 0.75rem;
+}
+.details-report-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: 2.75rem;
+    padding: 0.45rem 0.85rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, #b91c1c 28%, transparent);
+    background: color-mix(in srgb, #fee2e2 70%, #fff);
+    color: #b91c1c;
+    font-size: 0.75rem;
+    font-weight: 800;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.details-report-btn:hover {
+    background: #fee2e2;
+}
+.dark .details-report-btn {
+    background: color-mix(in srgb, #7f1d1d 35%, transparent);
+    border-color: color-mix(in srgb, #fca5a5 35%, transparent);
+    color: #fecaca;
+}
 .file-xfer--compact .file-xfer__track { min-height: 2.5rem; padding: 0.2rem; }
 .file-xfer--compact .file-xfer__action { min-width: 4.5rem; padding: 0 0.75rem; font-size: 0.7rem; }
 .file-xfer--compact .file-xfer__name { font-size: 0.7rem; }

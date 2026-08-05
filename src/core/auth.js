@@ -1683,7 +1683,14 @@ export function initAuth() {
         if (content && content.classList.contains('settings-in-dock')) {
             if (window.playSfx) window.playSfx('close');
             if (window.undockSettingsContent) window.undockSettingsContent();
-            if (window.openDockView) window.openDockView(window.__sidebarTab || 'library');
+            if (window.__dockView === 'settings') {
+                if (document.body.classList.contains('dock-is-hidden')) {
+                    document.body.classList.remove('dock-view-settings');
+                    window.__dockView = window.__sidebarTab || 'library';
+                } else if (window.openDockView) {
+                    window.openDockView(window.__sidebarTab || 'library');
+                }
+            }
             window.__settingsFormSnapshot = null;
             return;
         }
@@ -2031,8 +2038,14 @@ export function initAuth() {
         if (content && content.classList.contains('cabinet-in-dock')) {
             if (window.playSfx) window.playSfx('close');
             if (window.undockCabinetContent) window.undockCabinetContent();
-            if (window.__dockView === 'cabinet' && window.openDockView) {
-                window.openDockView(window.__sidebarTab || 'library');
+            /* Re-tap profile → map: hideDockPanel already ran; do not reopen library. */
+            if (window.__dockView === 'cabinet') {
+                if (document.body.classList.contains('dock-is-hidden')) {
+                    document.body.classList.remove('dock-view-cabinet');
+                    window.__dockView = window.__sidebarTab || 'library';
+                } else if (window.openDockView) {
+                    window.openDockView(window.__sidebarTab || 'library');
+                }
             }
             window.__cabinetFormSnapshot = null;
             return;
@@ -2722,7 +2735,7 @@ export function initAuth() {
     };
 
     window.switchAdminSection = function(section) {
-        const allowed = ['sounds', 'reports', 'users', 'support', 'events', 'expeditions', 'tools', 'stats', 'console'];
+        const allowed = ['sounds', 'reports', 'users', 'support', 'events', 'expeditions', 'tools', 'stats', 'console', 'ux'];
         window.__adminSection = allowed.includes(section) ? section : 'sounds';
         allowed.forEach((key) => {
             const panel = document.getElementById(`admin-section-${key}`);
@@ -2735,6 +2748,7 @@ export function initAuth() {
         if (window.__adminSection === 'support') window.renderAdminSupportList();
         if (window.__adminSection === 'events' && window.renderAdminEventsList) window.renderAdminEventsList();
         if (window.__adminSection === 'expeditions' && window.renderAdminExpeditionsList) window.renderAdminExpeditionsList();
+        if (window.__adminSection === 'ux' && window.refreshSettingsUI) window.refreshSettingsUI();
         if (window.__adminSection === 'sounds') {
             if (window.renderAdminList) window.renderAdminList();
             if (window.renderRegionStats) window.renderRegionStats('admin-stats-grid');
@@ -4642,7 +4656,7 @@ export function initAuth() {
         // auto-grow textarea
         if (input && input.tagName === 'TEXTAREA') {
             input.style.height = 'auto';
-            input.style.height = Math.min(120, input.scrollHeight) + 'px';
+            input.style.height = Math.min(160, Math.max(52, input.scrollHeight)) + 'px';
         }
     };
 

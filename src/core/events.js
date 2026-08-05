@@ -123,6 +123,7 @@ window.openEventsSheet = function() {
     document.body.classList.add('events-open');
     window.renderEventsPanel();
     if (window.syncMobileNavActive) window.syncMobileNavActive('map');
+    if (window.syncMobileChromeHidden) window.syncMobileChromeHidden();
 };
 
 window.closeEventsSheet = function() {
@@ -132,6 +133,7 @@ window.closeEventsSheet = function() {
     document.body.classList.remove('events-open');
     setTimeout(() => { if (sheet.classList.contains('opacity-0')) sheet.classList.add('hidden'); }, 250);
     window.__eventsDetailId = null;
+    if (window.syncMobileChromeHidden) window.syncMobileChromeHidden();
     if (window.syncMobileNavActive) {
         const dockHidden = document.getElementById('sidebar')?.classList.contains('sidebar-hidden');
         if (dockHidden) window.syncMobileNavActive('map');

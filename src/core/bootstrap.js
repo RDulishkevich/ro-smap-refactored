@@ -1,13 +1,13 @@
 import { initGlobalState } from './state.js?v=20260726c';
 import './api.js?v=20260721t';
-import { initAuth } from './auth.js?v=20260806d';
+import { initAuth } from './auth.js?v=20260806f';
 
 import './sfx.js?v=20260721t';
 import './antispam.js?v=20260721t';
 import '../ui/file-xfer.js?v=20260805j';
 import '../ui/like-shake.js?v=20260805j';
-import '../ui/ui.js?v=20260806e';
-import './audio.js?v=20260806d';
+import '../ui/ui.js?v=20260806f';
+import './audio.js?v=20260806f';
 import './map.js?v=20260806d';
 import './mapbox-map.js?v=20260806d';
 import './dgis-map.js?v=20260721t';
@@ -18,7 +18,7 @@ import './guessr.js?v=20260721t';
 import './admin-console.js?v=20260721t';
 import './support-bot.js?v=20260721t';
 import './pwa.js?v=20260721t';
-import './events.js?v=20260721t';
+import './events.js?v=20260806f';
 import './ucsName.js?v=20260721t';
 import './wavMeta.js?v=20260721t';
 import './wavReadMeta.js?v=20260806a';
