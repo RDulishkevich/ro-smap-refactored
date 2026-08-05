@@ -391,12 +391,13 @@
 
     /* —— Player: full-width wave + dual wings hugging the + FAB —— */
     #player-anchor.player-anchor {
-        z-index: 215 !important;
+        /* Above peach dock so wings stay clickable; FAB gap lets + receive taps */
+        z-index: 235 !important;
         justify-content: stretch !important;
         padding-left: max(0.75rem, var(--sal)) !important;
         padding-right: max(0.75rem, var(--sar)) !important;
-        /* Sit lower so side wings wrap the raised FAB */
-        padding-bottom: calc(var(--sab) + var(--mobile-nav-float-gap) + 0.55rem) !important;
+        /* Clear peach bar; sit in the raised-FAB band so wings wrap the + */
+        padding-bottom: calc(var(--mobile-fs-bottom) - 1.55rem) !important;
     }
     #player-card.player-shell {
         background: transparent !important;
@@ -413,6 +414,7 @@
         display: flex !important;
         flex-direction: column !important;
         gap: 0.4rem;
+        pointer-events: auto !important;
         transition:
             transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
             opacity 0.28s ease !important;
@@ -421,9 +423,26 @@
         overflow-y: auto !important;
     }
     #player-card .player-sheet-handle {
-        position: relative;
+        position: relative !important;
         height: 0.85rem;
         flex-shrink: 0;
+        top: auto !important;
+        left: auto !important;
+        right: auto !important;
+    }
+    #player-card .player-dock-row,
+    #player-card .player-wing,
+    #player-card .player-wave-block,
+    #player-card .player-meta-row {
+        pointer-events: auto;
+        position: relative;
+        z-index: 1;
+    }
+    #player-card .player-fab-gap {
+        display: block;
+        pointer-events: none !important;
+        min-height: 3.35rem;
+        z-index: 0;
     }
     #player-card .drag-handle {
         width: 2.25rem;
@@ -543,11 +562,6 @@
         gap: 0.35rem;
         margin-top: 0.15rem;
     }
-    #player-card .player-fab-gap {
-        display: block;
-        pointer-events: none;
-        min-height: 3.35rem;
-    }
     #player-card .player-wing__time {
         display: inline;
     }
@@ -588,18 +602,20 @@
     #mobile-record-overlay {
         position: fixed;
         inset: 0;
-        z-index: 240;
+        z-index: 260;
         display: flex;
         flex-direction: column;
         align-items: stretch;
         justify-content: flex-end;
         gap: 0;
         padding: 0;
-        padding-bottom: calc(var(--mobile-fs-bottom) + 0.75rem);
+        padding-bottom: max(0.75rem, var(--sab));
         background: color-mix(in srgb, var(--well-ink) 48%, transparent);
+        pointer-events: auto;
     }
     #mobile-record-overlay.hidden {
         display: none !important;
+        pointer-events: none !important;
     }
     .mobile-rec-stage {
         background: var(--well-cream);
@@ -610,6 +626,9 @@
         align-items: stretch;
         gap: 0.85rem;
         box-shadow: var(--well-shadow-strong);
+        pointer-events: auto;
+        position: relative;
+        z-index: 1;
     }
     .mobile-rec-stage.hidden {
         display: none !important;
