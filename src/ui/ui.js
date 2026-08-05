@@ -885,6 +885,18 @@ window.isAddSoundDirty = function() {
     });
 };
 
+window.syncMobileChromeHidden = function() {
+    if (typeof document === 'undefined') return;
+    const add = document.getElementById('add-modal');
+    const addOpen = !!(add && !add.classList.contains('hidden') && !add.classList.contains('opacity-0'));
+    const rec = document.getElementById('mobile-record-overlay');
+    const recOpen = !!(rec && !rec.classList.contains('hidden'));
+    const detailsOpen = document.body.classList.contains('dock-view-details')
+        || window.__dockView === 'details';
+    const hide = addOpen || recOpen || detailsOpen;
+    document.body.classList.toggle('hide-mobile-nav', hide);
+};
+
 window.closeAddModalSafely = async function() {
     return window.requestCloseIfDirty(
         window.isAddSoundDirty,
@@ -1127,6 +1139,7 @@ window.closeDetailsToPlayer = function() {
             if (c) c.classList.add('scale-95');
         }
         if (window.hideDockPanel) window.hideDockPanel();
+        if (window.syncMobileChromeHidden) window.syncMobileChromeHidden();
         return;
     }
     if (window.closeDockViewer) window.closeDockViewer();
@@ -3876,6 +3889,7 @@ window.__openDockViewImpl = function(view) {
         }
         if (mobileTabs) mobileTabs.classList.add('hidden');
         window.clearRailTabActive();
+        if (window.syncMobileChromeHidden) window.syncMobileChromeHidden();
     } else if (next === 'analyzers') {
         document.body.classList.add('dock-view-analyzers');
         const panel = document.getElementById('dock-analyzers');
@@ -4014,6 +4028,7 @@ window.__openDockViewImpl = function(view) {
         else if (next === 'help') window.syncMobileNavActive('library');
         else window.syncMobileNavActive('library');
     }
+    if (window.syncMobileChromeHidden) window.syncMobileChromeHidden();
 };
 
 window.closeDockViewer = function() {
@@ -5192,6 +5207,9 @@ window.selectSound = function(id) {
     }
     if (window.renderSoundTags) window.renderSoundTags(s, 'player-tags');
     if (window.collapsePlayerSheet) window.collapsePlayerSheet();
+    if (window.audioElement) {
+        try { window.audioElement.crossOrigin = 'anonymous'; } catch (_) {}
+    }
     if (window.loadWaveformForSound) window.loadWaveformForSound(s);
 
     if (s.url) {
@@ -5478,6 +5496,29 @@ window.openDetailsModal = function() {
     window.cancelReplyToComment();
 
     window.renderComments(s);
+
+    const markersWrap = document.getElementById('details-time-markers');
+    const markersList = document.getElementById('details-time-markers-list');
+    const markers = Array.isArray(s.timeMarkers) ? s.timeMarkers : [];
+    if (markersWrap && markersList) {
+        if (!markers.length) {
+            markersWrap.classList.add('hidden');
+            markersList.innerHTML = '';
+        } else {
+            markersWrap.classList.remove('hidden');
+            const esc = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            markersList.innerHTML = markers
+                .slice()
+                .sort((a, b) => (Number(a.t) || 0) - (Number(b.t) || 0))
+                .map((m) => {
+                    const sec = Number(m.t) || 0;
+                    const label = esc(m.label || '');
+                    const time = window.formatTime ? window.formatTime(sec) : `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
+                    return `<li><span class="t">${time}</span><span class="l">${label}</span></li>`;
+                })
+                .join('');
+        }
+    }
 
     const adminBtn = document.getElementById('details-admin-actions-btn');
     if (adminBtn) {
@@ -6445,7 +6486,9 @@ window.handleAudioFiles = async function(files) {
         window.__uploadedAudioDuration = '0:00';
         window.probeAudioDuration(window.currentUploadedFileUrl).then(secs => {
             window.__uploadedAudioDuration = window.formatTime ? window.formatTime(secs) : `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`;
+            if (window.syncAddAudioReview) window.syncAddAudioReview();
         }).catch(() => { window.__uploadedAudioDuration = '0:00'; });
+        if (window.syncAddAudioReview) window.syncAddAudioReview({ resetMarkers: true });
 
         if (window.FileXfer && xfer) {
             window.FileXfer.setState(xfer, 'done', { name: ready.name, doneLabel: 'Готово', progress: 100 });
@@ -6512,6 +6555,16 @@ window.applyUploadedAudioMeta = function(meta) {
     if (meta.location) setIfEmpty('add-loc', meta.location);
     if (meta.description) setIfEmpty('add-desc', meta.description);
     if (meta.title) setIfEmpty('add-display-title', meta.title);
+    const markersSrc = Array.isArray(meta.timeMarkers)
+        ? meta.timeMarkers
+        : (Array.isArray(meta.rosmapPayload?.timeMarkers) ? meta.rosmapPayload.timeMarkers : null);
+    if (markersSrc) {
+        window.__addTimeMarkers = markersSrc
+            .map((m) => ({ t: Number(m.t) || 0, label: String(m.label || '').trim() }))
+            .filter((m) => m.label)
+            .slice(0, 40);
+        if (window.renderAddAudioMarkersList) window.renderAddAudioMarkersList();
+    }
     setSelect('add-eco', meta.ecoCategory);
     setSelect('add-weather', meta.weather);
     setSelect('add-principle', meta.recPrinciple);
@@ -6953,6 +7006,7 @@ window.collectAddFormEmbedMeta = function({ soundId, title, coords, fileName, lo
         platformId,
         duration,
         route: route || undefined,
+        timeMarkers: Array.isArray(window.__addTimeMarkers) ? window.__addTimeMarkers : [],
         sourceId: projectId,
         images: Array.isArray(opts.images) ? opts.images : undefined,
         gearConfigImages: Array.isArray(opts.gearConfigImages) ? opts.gearConfigImages : undefined
@@ -7009,6 +7063,214 @@ window.collectAddFormEmbedMeta = function({ soundId, title, coords, fileName, lo
 
 // targetStatus: 'pending' (кнопка "Опубликовать") или 'draft' (кнопка "Черновик").
 // Логика перехода статусов при редактировании – см. комментарий у поле status ниже.
+window.__addTimeMarkers = window.__addTimeMarkers || [];
+window.__addAudioPreviewRaf = null;
+
+window.clearAddAudioReview = function() {
+    window.__addTimeMarkers = [];
+    const audio = document.getElementById('add-audio-preview');
+    if (audio) {
+        try { audio.pause(); } catch (_) {}
+        audio.removeAttribute('src');
+        try { audio.load(); } catch (_) {}
+    }
+    if (window.__addAudioPreviewRaf) {
+        cancelAnimationFrame(window.__addAudioPreviewRaf);
+        window.__addAudioPreviewRaf = null;
+    }
+    const wrap = document.getElementById('add-audio-review');
+    if (wrap) wrap.classList.add('hidden');
+    const list = document.getElementById('add-audio-markers-list');
+    if (list) list.innerHTML = '';
+    const icon = document.getElementById('add-audio-play-icon');
+    if (icon) {
+        icon.classList.remove('icon-pause');
+        icon.classList.add('icon-play');
+    }
+    const seek = document.getElementById('add-audio-seek');
+    if (seek) seek.value = '0';
+    const cur = document.getElementById('add-audio-time-cur');
+    const total = document.getElementById('add-audio-time-total');
+    if (cur) cur.textContent = '0:00';
+    if (total) total.textContent = '0:00';
+    const label = document.getElementById('add-audio-mark-label');
+    if (label) label.value = '';
+};
+
+window.syncAddAudioReview = function(opts = {}) {
+    const url = window.currentUploadedFileUrl || '';
+    const wrap = document.getElementById('add-audio-review');
+    const audio = document.getElementById('add-audio-preview');
+    if (!wrap || !audio) return;
+    if (opts.resetMarkers) window.__addTimeMarkers = [];
+    if (!url || url.length < 4) {
+        wrap.classList.add('hidden');
+        return;
+    }
+    wrap.classList.remove('hidden');
+    if (audio.src !== url && !String(audio.src || '').endsWith(url)) {
+        audio.src = url;
+        try { audio.load(); } catch (_) {}
+    }
+    const onMeta = () => {
+        const total = document.getElementById('add-audio-time-total');
+        if (total && window.formatTime) total.textContent = window.formatTime(audio.duration || 0);
+        window.renderAddAudioMarkersList();
+    };
+    audio.onloadedmetadata = onMeta;
+    if (audio.readyState >= 1) onMeta();
+    if (!audio.__addPreviewBound) {
+        audio.__addPreviewBound = true;
+        audio.addEventListener('ended', () => {
+            const icon = document.getElementById('add-audio-play-icon');
+            if (icon) {
+                icon.classList.remove('icon-pause');
+                icon.classList.add('icon-play');
+            }
+            if (window.__addAudioPreviewRaf) {
+                cancelAnimationFrame(window.__addAudioPreviewRaf);
+                window.__addAudioPreviewRaf = null;
+            }
+        });
+    }
+    window.renderAddAudioMarkersList();
+};
+
+window._tickAddAudioPreview = function() {
+    const audio = document.getElementById('add-audio-preview');
+    if (!audio || audio.paused) {
+        window.__addAudioPreviewRaf = null;
+        return;
+    }
+    const dur = audio.duration || 0;
+    const cur = audio.currentTime || 0;
+    const seek = document.getElementById('add-audio-seek');
+    const curEl = document.getElementById('add-audio-time-cur');
+    if (seek && dur > 0) seek.value = String(Math.round((cur / dur) * 1000));
+    if (curEl && window.formatTime) curEl.textContent = window.formatTime(cur);
+    window.__addAudioPreviewRaf = requestAnimationFrame(window._tickAddAudioPreview);
+};
+
+window.toggleAddAudioPreview = function() {
+    const audio = document.getElementById('add-audio-preview');
+    const icon = document.getElementById('add-audio-play-icon');
+    if (!audio || !audio.src) {
+        window.showToast('Сначала добавьте аудиофайл');
+        return;
+    }
+    if (audio.paused) {
+        const p = audio.play();
+        if (p && p.catch) p.catch(() => window.showToast('Не удалось воспроизвести'));
+        if (icon) {
+            icon.classList.remove('icon-play');
+            icon.classList.add('icon-pause');
+        }
+        if (window.__addAudioPreviewRaf) cancelAnimationFrame(window.__addAudioPreviewRaf);
+        window.__addAudioPreviewRaf = requestAnimationFrame(window._tickAddAudioPreview);
+    } else {
+        audio.pause();
+        if (icon) {
+            icon.classList.remove('icon-pause');
+            icon.classList.add('icon-play');
+        }
+        if (window.__addAudioPreviewRaf) {
+            cancelAnimationFrame(window.__addAudioPreviewRaf);
+            window.__addAudioPreviewRaf = null;
+        }
+    }
+};
+
+window.seekAddAudioPreview = function(v) {
+    const audio = document.getElementById('add-audio-preview');
+    if (!audio || !audio.duration) return;
+    const ratio = Math.max(0, Math.min(1, (Number(v) || 0) / 1000));
+    audio.currentTime = ratio * audio.duration;
+    const curEl = document.getElementById('add-audio-time-cur');
+    if (curEl && window.formatTime) curEl.textContent = window.formatTime(audio.currentTime);
+};
+
+window.renderAddAudioMarkersList = function() {
+    const list = document.getElementById('add-audio-markers-list');
+    if (!list) return;
+    const markers = Array.isArray(window.__addTimeMarkers) ? window.__addTimeMarkers : [];
+    const esc = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    list.innerHTML = markers
+        .slice()
+        .sort((a, b) => (Number(a.t) || 0) - (Number(b.t) || 0))
+        .map((m, idx) => {
+            const t = Number(m.t) || 0;
+            const time = window.formatTime ? window.formatTime(t) : `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+            return `<li class="add-audio-marker-item">
+                <button type="button" class="add-audio-marker-item__t" onclick="window.jumpAddAudioMarker(${t})" title="Перейти">${time}</button>
+                <span class="add-audio-marker-item__label">${esc(m.label)}</span>
+                <button type="button" class="add-audio-marker-item__rm" onclick="window.removeAddAudioMarker(${idx})" aria-label="Удалить метку"><i class="icon-close-circle"></i></button>
+            </li>`;
+        })
+        .join('');
+};
+
+window.jumpAddAudioMarker = function(t) {
+    const audio = document.getElementById('add-audio-preview');
+    if (!audio) return;
+    audio.currentTime = Math.max(0, Number(t) || 0);
+    const seek = document.getElementById('add-audio-seek');
+    if (seek && audio.duration) seek.value = String(Math.round((audio.currentTime / audio.duration) * 1000));
+    const curEl = document.getElementById('add-audio-time-cur');
+    if (curEl && window.formatTime) curEl.textContent = window.formatTime(audio.currentTime);
+};
+
+window.removeAddAudioMarker = function(sortedIdx) {
+    const markers = Array.isArray(window.__addTimeMarkers) ? window.__addTimeMarkers.slice() : [];
+    const ordered = markers
+        .map((m, i) => ({ m, i }))
+        .sort((a, b) => (Number(a.m.t) || 0) - (Number(b.m.t) || 0));
+    const hit = ordered[sortedIdx];
+    if (!hit) return;
+    markers.splice(hit.i, 1);
+    window.__addTimeMarkers = markers;
+    window.renderAddAudioMarkersList();
+};
+
+window.addAudioTimeMarker = async function() {
+    const audio = document.getElementById('add-audio-preview');
+    if (!audio || !audio.src) {
+        window.showToast('Сначала добавьте аудиофайл');
+        return;
+    }
+    const input = document.getElementById('add-audio-mark-label');
+    let label = (input?.value || '').trim();
+    if (!label) {
+        const typed = await window.CustomUI.open({
+            title: 'Метка на таймкоде',
+            message: 'Что было слышно в этой точке?',
+            confirmText: 'Добавить',
+            showInput: true,
+            inputPlaceholder: 'Например: крик чайки, гудок…'
+        });
+        if (typed === false) return;
+        label = String(typed || '').trim();
+    }
+    if (!label) {
+        window.showToast('Введите подпись метки');
+        return;
+    }
+    if (window.spamGuardCheck) {
+        const login = window.currentUser?.loginName || 'anon';
+        const guard = window.spamGuardCheck(`marker:${login}`, { minIntervalMs: 400, maxPerWindow: 40, windowMs: 60000 });
+        if (!guard.ok) { window.spamGuardToast(guard); return; }
+    }
+    const t = Math.round((audio.currentTime || 0) * 100) / 100;
+    window.__addTimeMarkers = Array.isArray(window.__addTimeMarkers) ? window.__addTimeMarkers : [];
+    if (window.__addTimeMarkers.length >= 40) {
+        window.showToast('Слишком много меток (макс. 40)');
+        return;
+    }
+    window.__addTimeMarkers.push({ t, label: label.slice(0, 160) });
+    if (input) input.value = '';
+    window.renderAddAudioMarkersList();
+    window.showToast(`Метка ${window.formatTime ? window.formatTime(t) : t}`);
+};
+
 window.publishSound = async function(targetStatus = 'pending') {
     if (!window.currentUser) { window.showToast('Войдите, чтобы опубликовать звук'); return; }
     const pubBusy = document.getElementById('publish-xfer');
@@ -7172,6 +7434,12 @@ window.publishSound = async function(targetStatus = 'pending') {
             license: val('add-license'),
             fileName: val('add-file-name'),
             images,
+            timeMarkers: Array.isArray(window.__addTimeMarkers)
+                ? window.__addTimeMarkers.map((m) => ({
+                    t: Math.round((Number(m.t) || 0) * 100) / 100,
+                    label: String(m.label || '').trim().slice(0, 160)
+                })).filter((m) => m.label)
+                : (existing?.timeMarkers || []),
             route: window.isSoundwalkPrinciple()
                 ? ((window.addModalRoute && window.addModalRoute.length > 1) ? [...window.addModalRoute] : (existing?.route || undefined))
                 : undefined,
@@ -7321,6 +7589,10 @@ window.editSound = function(id) {
     window.currentUploadedFile = null;
     window.currentUploadedFileUrl = s.url || '';
     window.tempAddCoords = [s.lat, s.lng];
+    window.__addTimeMarkers = Array.isArray(s.timeMarkers)
+        ? s.timeMarkers.map((m) => ({ t: Number(m.t) || 0, label: String(m.label || '') })).filter((m) => m.label)
+        : [];
+    if (window.syncAddAudioReview) window.syncAddAudioReview();
 
     const setVal = (elId, v) => { const el = document.getElementById(elId); if (el) el.value = v ?? ''; };
 
@@ -7405,6 +7677,7 @@ window.resetAddModalToCreateMode = function() {
     window.tempAddCoords = null;
     window.addModalRoute = [];
     window.updateSoundwalkRouteUI();
+    if (window.clearAddAudioReview) window.clearAddAudioReview();
 
     const headerTitle = document.getElementById('add-modal-header-title');
     if (headerTitle) headerTitle.innerHTML = `<i class="icon-musicnote mr-2 ds-link"></i><span data-lang="add_audio_title">Добавить аудио</span>`;
@@ -7498,6 +7771,7 @@ window.toggleAddModal = function(forceClose = false, coords = null, isEdit = fal
         if (window.fillGearDatalists) window.fillGearDatalists();
         if (window.bindAddTagsChipInput) window.bindAddTagsChipInput();
         if (window.renderAddTagChips) window.renderAddTagChips();
+        if (window.syncMobileChromeHidden) window.syncMobileChromeHidden();
         return;
     }
 
@@ -7509,11 +7783,13 @@ window.toggleAddModal = function(forceClose = false, coords = null, isEdit = fal
             if (m.classList.contains('opacity-0')) m.classList.add('hidden');
             // Defer heavy reset until after close animation (keeps close smooth)
             window.resetAddModalToCreateMode();
+            if (window.syncMobileChromeHidden) window.syncMobileChromeHidden();
             if (window.openedFromAdmin && window.isCurrentUserStaff && window.isCurrentUserStaff()) {
                 window.openedFromAdmin = false;
                 if (window.openAdminPanel) window.openAdminPanel(window.__adminSection || 'sounds');
             }
         }, 180);
+        if (window.syncMobileChromeHidden) window.syncMobileChromeHidden();
         return;
     }
     window.resetAddModalToCreateMode();
@@ -7857,9 +8133,24 @@ window._emptyMobileRecState = function() {
         blob: null, buffer: null, trimStart: 0, trimEnd: 1,
         recording: false, armed: false, date: '', time: '', coords: null,
         geoPending: false, geoWatchId: null,
+        gain: 1, gainNode: null, destNode: null,
         previewCtx: null, previewSource: null, previewPlaying: false,
         previewRaf: null, previewPos: 0, committing: false
     };
+};
+
+window.setMobileRecGain = function(raw) {
+    const rec = window.__mobileRec || {};
+    const pct = Math.max(0, Math.min(200, Number(raw) || 100));
+    const gain = pct / 100;
+    rec.gain = gain;
+    if (rec.gainNode && rec.gainNode.gain) {
+        try { rec.gainNode.gain.value = gain; } catch (_) {}
+    }
+    const label = document.getElementById('mobile-rec-gain-val');
+    if (label) label.textContent = `${Math.round(pct)}%`;
+    const slider = document.getElementById('mobile-rec-gain');
+    if (slider && Number(slider.value) !== pct) slider.value = String(Math.round(pct));
 };
 
 window._formatMobileRecTime = function(ms) {
@@ -7993,9 +8284,13 @@ window._stopMobileRecMonitor = function() {
         rec.rafId = null;
     }
     try { if (rec.sourceNode) rec.sourceNode.disconnect(); } catch (_) {}
+    try { if (rec.gainNode) rec.gainNode.disconnect(); } catch (_) {}
+    try { if (rec.destNode) rec.destNode.disconnect(); } catch (_) {}
     try { if (rec.analyser) rec.analyser.disconnect(); } catch (_) {}
     try { if (rec.audioCtx && rec.audioCtx.state !== 'closed') rec.audioCtx.close(); } catch (_) {}
     rec.sourceNode = null;
+    rec.gainNode = null;
+    rec.destNode = null;
     rec.analyser = null;
     rec.audioCtx = null;
 };
@@ -8248,6 +8543,7 @@ window.cancelMobileRecord = function() {
     }
     window._setMobileRecRecordingUi(false);
     window._setMobileRecStage('record');
+    if (window.syncMobileChromeHidden) window.syncMobileChromeHidden();
 };
 
 window.restartMobileRecord = function() {
@@ -8425,6 +8721,7 @@ window.openMobileRecordInEditor = async function() {
     const overlay = document.getElementById('mobile-record-overlay');
     if (overlay) overlay.classList.add('hidden');
     window._setMobileRecStage('record');
+    if (window.syncMobileChromeHidden) window.syncMobileChromeHidden();
 
     const savedMeta = {
         date: rec.date,
@@ -8460,11 +8757,32 @@ window.commitMobileRecord = async function(targetStatus = 'pending') {
         return;
     }
     window._stopMobileRecPreview();
-    rec.committing = true;
     const status = targetStatus === 'draft' ? 'draft' : 'pending';
+    let draftTitle = '';
+    if (status === 'draft') {
+        const named = await window.CustomUI.open({
+            title: 'Черновик',
+            message: 'Как назвать эту запись?',
+            confirmText: 'Сохранить',
+            showInput: true,
+            inputPlaceholder: 'Название черновика',
+            inputValue: `Запись ${rec.time || ''}`.trim()
+        });
+        if (named === false) return;
+        draftTitle = String(named || '').trim();
+        if (!draftTitle) {
+            window.showToast('Введите название');
+            return;
+        }
+    }
+    rec.committing = true;
     try {
         const file = await window._buildMobileRecWavFile();
         const prepared = await window._prepareMobileRecAddForm(file);
+        if (draftTitle) {
+            const titleEl = document.getElementById('add-display-title');
+            if (titleEl) titleEl.value = draftTitle;
+        }
         if (!prepared.coords) {
             rec.committing = false;
             window.showToast('Нужна точка — откройте карточку и отметьте место');
@@ -8474,6 +8792,7 @@ window.commitMobileRecord = async function(targetStatus = 'pending') {
         const overlay = document.getElementById('mobile-record-overlay');
         if (overlay) overlay.classList.add('hidden');
         window.__mobileRec = window._emptyMobileRecState();
+        if (window.syncMobileChromeHidden) window.syncMobileChromeHidden();
         if (window.publishSound) await window.publishSound(status);
     } catch (err) {
         console.warn(err);
@@ -8521,15 +8840,22 @@ window.startMobileRecord = async function() {
     let audioCtx = null;
     let analyser = null;
     let sourceNode = null;
+    let gainNode = null;
+    let destNode = null;
     try {
         const AC = window.AudioContext || window.webkitAudioContext;
         audioCtx = new AC();
         if (audioCtx.state === 'suspended') await audioCtx.resume();
         sourceNode = audioCtx.createMediaStreamSource(stream);
+        gainNode = audioCtx.createGain();
+        gainNode.gain.value = 1;
         analyser = audioCtx.createAnalyser();
         analyser.fftSize = 2048;
         analyser.smoothingTimeConstant = 0.7;
-        sourceNode.connect(analyser);
+        destNode = audioCtx.createMediaStreamDestination();
+        sourceNode.connect(gainNode);
+        gainNode.connect(analyser);
+        gainNode.connect(destNode);
     } catch (err) {
         console.warn(err);
     }
@@ -8540,10 +8866,14 @@ window.startMobileRecord = async function() {
         audioCtx,
         analyser,
         sourceNode,
+        gainNode,
+        destNode,
+        gain: 1,
         armed: true,
         peaks: []
     };
     window._captureMobileRecContext();
+    window.setMobileRecGain(100);
 
     const overlay = document.getElementById('mobile-record-overlay');
     const timer = document.getElementById('mobile-record-timer');
@@ -8555,6 +8885,7 @@ window.startMobileRecord = async function() {
     window._setMobileRecStage('record');
     window._setMobileRecRecordingUi(false);
     if (overlay) overlay.classList.remove('hidden');
+    if (window.syncMobileChromeHidden) window.syncMobileChromeHidden();
     if (analyser) window._drawMobileRecLive();
 };
 
@@ -8581,15 +8912,23 @@ window.beginMobileRecording = async function() {
         }
     }
     let recorder;
+    const recordStream = (rec.destNode && rec.destNode.stream)
+        ? rec.destNode.stream
+        : rec.stream;
     try {
-        recorder = mime ? new MediaRecorder(rec.stream, { mimeType: mime }) : new MediaRecorder(rec.stream);
+        if (rec.gainNode && Number.isFinite(rec.gain)) {
+            rec.gainNode.gain.value = rec.gain;
+        }
+        recorder = mime
+            ? new MediaRecorder(recordStream, { mimeType: mime })
+            : new MediaRecorder(recordStream);
     } catch (err) {
         console.warn(err);
         window.showToast('Не удалось начать запись');
         return;
     }
 
-    /* Refresh timestamp at the moment capture actually starts; keep geo if already fixed */
+    /* Timestamp + geo freeze at the moment «Запись» is pressed */
     window._captureMobileRecContext({ keepCoords: true });
 
     const chunks = [];

@@ -1040,11 +1040,25 @@ html.dark .waveform-layer--buf,
 .dark .waveform-layer--buf { color: color-mix(in srgb, #fff 40%, transparent) !important; }
 #waveform-active,
 .waveform-layer--act { color: var(--accent) !important; }
-#waveform-bg > div,
-#waveform-buffered > div,
-#waveform-active > div {
-    min-height: 12%;
+#waveform-bg > span.waveform-bar,
+#waveform-buffered > span.waveform-bar,
+#waveform-active > span.waveform-bar,
+.waveform-bar {
+    flex: 1 1 0;
+    min-width: 2px;
+    max-width: 7px;
+    border-radius: 999px;
+    background: currentColor;
     align-self: flex-end;
+}
+#waveform-bg,
+#waveform-buffered,
+#waveform-active,
+.waveform-layer {
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: space-between !important;
+    gap: 2px;
 }
 #playhead {
     background: var(--ink) !important;
@@ -1685,8 +1699,15 @@ a.bg-blue-600 {
 
 /* Compact (list row / details) */
 .file-xfer--compact {
+    width: auto;
     max-width: 11rem;
     min-height: 2.5rem;
+    margin-inline: 0;
+}
+.file-xfer--compact.details-download-xfer {
+    width: auto !important;
+    max-width: 9.5rem !important;
+    flex: 0 0 auto;
 }
 .file-xfer--compact .file-xfer__track { min-height: 2.5rem; padding: 0.2rem; }
 .file-xfer--compact .file-xfer__action { min-width: 4.5rem; padding: 0 0.75rem; font-size: 0.7rem; }

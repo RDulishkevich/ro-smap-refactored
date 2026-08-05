@@ -213,6 +213,9 @@ export function readWavMetadataBuffer(buffer) {
             if (rosmapJson) {
                 try {
                     out.rosmapPayload = JSON.parse(rosmapJson);
+                    if (Array.isArray(out.rosmapPayload?.timeMarkers) && !out.timeMarkers) {
+                        out.timeMarkers = out.rosmapPayload.timeMarkers;
+                    }
                 } catch (_) { /* ignore bad snapshot */ }
             }
             const bwfDate = extractIxmlField(xml, 'BWF_ORIGINATION_DATE') || extractIxmlField(xml, 'DATE');

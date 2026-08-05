@@ -1092,13 +1092,17 @@ window.peaksFromAudioBuffer = function(buffer, barCount) {
 };
 
 window.renderWaveformBars = function(peaks) {
+    const wrap = document.getElementById('waveform-wrapper');
+    const hostH = Math.max(28, Math.round((wrap && wrap.clientHeight) || 40));
     const data = Array.isArray(peaks) && peaks.length
         ? peaks
         : [18, 28, 42, 22, 55, 35, 70, 48, 30, 18, 38, 62, 80, 44, 32, 20];
     let h = '';
-    data.forEach((v) => {
-        h += `<div class="flex-1 bg-current rounded-full" style="height: ${v}%;"></div>`;
-    });
+    for (let i = 0; i < data.length; i++) {
+        const v = Math.max(6, Math.min(100, Number(data[i]) || 8));
+        const px = Math.max(3, Math.round((v / 100) * hostH));
+        h += `<span class="waveform-bar" style="height:${px}px"></span>`;
+    }
     const wBg = document.getElementById('waveform-bg');
     const wBuf = document.getElementById('waveform-buffered');
     const wAct = document.getElementById('waveform-active');
@@ -1111,15 +1115,31 @@ window.renderWaveform = function(peaks) {
     window.renderWaveformBars(peaks);
 };
 
+window.__decodeAudioArrayBuffer = async function(ab) {
+    if (!ab || !ab.byteLength) throw new Error('empty audio');
+    if (window.ensureAudioGraph) {
+        try { await window.ensureAudioGraph(); } catch (_) {}
+    }
+    const ctx = window.audioContext
+        || new (window.AudioContext || window.webkitAudioContext)();
+    const copy = ab.slice(0);
+    if (ctx.decodeAudioData.length === 1) {
+        return await ctx.decodeAudioData(copy);
+    }
+    return await new Promise((resolve, reject) => {
+        ctx.decodeAudioData(copy, resolve, reject);
+    });
+};
+
 window.loadWaveformForSound = async function(soundOrUrl) {
     const reqId = ++window.__waveformRequestId;
+    const sound = (soundOrUrl && typeof soundOrUrl === 'object') ? soundOrUrl : null;
     const url = typeof soundOrUrl === 'string'
         ? soundOrUrl
-        : (soundOrUrl && (soundOrUrl.url || soundOrUrl.audioUrl)) || '';
-    const cacheKey = url || (soundOrUrl && soundOrUrl.id) || '';
+        : (sound && (sound.url || sound.audioUrl)) || '';
+    const cacheKey = url || (sound && sound.id) || '';
 
     if (!url || url.length < 8) {
-        /* placeholder until real peaks load / mock track */
         window.renderWaveformBars(null);
         return;
     }
@@ -1131,18 +1151,35 @@ window.loadWaveformForSound = async function(soundOrUrl) {
 
     window.renderWaveformBars(null);
 
+    const finish = (peaks) => {
+        if (reqId !== window.__waveformRequestId) return;
+        if (cacheKey) window.__waveformPeaksCache[cacheKey] = peaks;
+        window.renderWaveformBars(peaks);
+    };
+
+    try {
+        const res = await fetch(url, { mode: 'cors', credentials: 'omit', cache: 'force-cache' });
+        if (!res.ok) throw new Error(`fetch ${res.status}`);
+        const ab = await res.arrayBuffer();
+        const buffer = await window.__decodeAudioArrayBuffer(ab);
+        if (reqId !== window.__waveformRequestId) return;
+        finish(window.peaksFromAudioBuffer(buffer, 64));
+        return;
+    } catch (err) {
+        console.warn('waveform decode failed, retry via File', err);
+    }
+
     try {
         if (!window.decodeAudioFile) throw new Error('no decoder');
-        const res = await fetch(url);
+        const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
         if (!res.ok) throw new Error('fetch failed');
         const blob = await res.blob();
         const file = new File([blob], 'wave.wav', { type: blob.type || 'audio/wav' });
         const buffer = await window.decodeAudioFile(file);
         if (reqId !== window.__waveformRequestId) return;
-        const peaks = window.peaksFromAudioBuffer(buffer, 56);
-        if (cacheKey) window.__waveformPeaksCache[cacheKey] = peaks;
-        window.renderWaveformBars(peaks);
-    } catch (_) {
+        finish(window.peaksFromAudioBuffer(buffer, 64));
+    } catch (err2) {
+        console.warn('waveform fallback failed', err2);
         if (reqId !== window.__waveformRequestId) return;
         window.renderWaveformBars(null);
     }

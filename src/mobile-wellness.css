@@ -376,6 +376,8 @@
     #map-top-toolbar.map-top-toolbar {
         border-radius: 999px !important;
         padding: 0.3rem !important;
+        left: max(0.75rem, var(--sal)) !important;
+        right: auto !important;
     }
     #map-top-right-controls .map-icon-btn,
     #burger-btn {
@@ -469,12 +471,25 @@
         will-change: transform, opacity;
     }
     body.dock-view-details #player-anchor.player-anchor {
+        /* Keep playing player above the sound card; hide only when player is closed */
         opacity: 0 !important;
         pointer-events: none !important;
         transform: translateY(1.25rem);
         transition:
             opacity 0.28s ease,
             transform 0.34s cubic-bezier(0.22, 1, 0.36, 1) !important;
+    }
+    body.dock-view-details.player-visible #player-anchor.player-anchor {
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        transform: none !important;
+        z-index: 235 !important;
+        padding-bottom: calc(0.75rem + var(--sab)) !important;
+    }
+    body.dock-view-details.player-visible #sidebar.sidebar-panel,
+    body.dock-view-details.player-visible #sidebar {
+        /* Leave room so card content isn't trapped under the floating player */
+        padding-bottom: calc(9.5rem + var(--sab)) !important;
     }
     #player-card.player-shell.is-expanded {
         padding-top: 0.45rem !important;
@@ -656,13 +671,52 @@
     body.dock-view-details #details-modal-content.details-in-dock .details-close-btn {
         display: none !important;
     }
-    body.dock-view-details #details-modal-content.details-in-dock .meta-value,
-    body.dock-view-details #details-modal-content.details-in-dock #details-title,
-    body.dock-view-details #details-modal-content.details-in-dock #details-filename,
-    body.dock-view-details #details-modal-content.details-in-dock #details-description {
-        overflow-wrap: break-word;
-        word-break: normal;
-        min-width: 0;
+
+    /* Sound card copy — never letter-stack; full width under actions */
+    #details-modal-content,
+    #details-modal-content.details-in-dock {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    #details-modal-content .details-copy,
+    #details-modal-content .details-header-row,
+    #details-modal-content .details-description,
+    #details-modal-content #details-title,
+    #details-modal-content #details-description,
+    #details-modal-content #details-filename {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        white-space: normal !important;
+        overflow-wrap: break-word !important;
+        word-break: normal !important;
+        word-wrap: break-word !important;
+        hyphens: manual !important;
+        writing-mode: horizontal-tb !important;
+        text-orientation: mixed !important;
+        letter-spacing: normal !important;
+        line-height: 1.35 !important;
+    }
+    #details-modal-content #details-title {
+        font-size: 1.35rem !important;
+        font-weight: 700 !important;
+        line-height: 1.25 !important;
+    }
+    #details-modal-content #details-description {
+        font-size: 0.9rem !important;
+        line-height: 1.45 !important;
+    }
+    #details-modal-content #details-filename {
+        overflow-wrap: anywhere !important;
+        word-break: break-word !important;
+    }
+    #details-modal-content .details-download-xfer.file-xfer,
+    #details-modal-content .file-xfer--compact {
+        width: auto !important;
+        max-width: 9.5rem !important;
+        margin-inline: 0 !important;
     }
     body.dock-view-details #details-modal-content.details-in-dock .grid.grid-cols-2 {
         grid-template-columns: 1fr 1fr;
@@ -671,6 +725,11 @@
     body.dock-view-details #details-modal-content.details-in-dock .meta-group {
         min-width: 0;
         max-width: 100%;
+    }
+    body.dock-view-details #details-modal-content.details-in-dock .meta-value {
+        overflow-wrap: break-word;
+        word-break: normal;
+        min-width: 0;
     }
     .details-more-btn {
         display: inline-flex;
@@ -765,6 +824,25 @@
     .mobile-rec-meter__bar.is-hot {
         background: #963417;
     }
+    .mobile-rec-gain {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        margin: 0.2rem 0 0.15rem;
+    }
+    .mobile-rec-gain__label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--ink-muted);
+    }
+    .mobile-rec-gain__range {
+        width: 100%;
+        accent-color: var(--well-peach);
+        height: 0.35rem;
+    }
     .mobile-rec-db {
         font-size: 0.75rem;
         font-weight: 700;
@@ -796,6 +874,15 @@
         text-align: center;
         color: var(--well-ink);
         font-variant-numeric: tabular-nums;
+        transition: color 0.2s ease;
+    }
+    #mobile-record-overlay.is-recording #mobile-record-timer {
+        color: #dc2626;
+        animation: mobile-rec-timer-blink 1.05s ease-in-out infinite;
+    }
+    @keyframes mobile-rec-timer-blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.45; }
     }
     .mobile-record__hint {
         text-align: center;
@@ -1000,6 +1087,19 @@
         color: #222222 !important;
         border-radius: 999px !important;
         box-shadow: none !important;
+    }
+
+    /* Hide peach dock for add / record / sound card overlays */
+    body.hide-mobile-nav .mobile-bottom-nav {
+        display: none !important;
+        pointer-events: none !important;
+        visibility: hidden !important;
+    }
+    body.hide-mobile-nav {
+        --mobile-fs-bottom: max(0.85rem, var(--sab));
+    }
+    body.hide-mobile-nav #mobile-record-overlay {
+        padding-bottom: max(0.85rem, var(--sab));
     }
 
     /* Primary CTAs on mobile: charcoal soft pill (reference) */
