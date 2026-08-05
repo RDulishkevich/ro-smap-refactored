@@ -513,6 +513,10 @@ window.initYandex3Map = async function initYandex3Map() {
 
         container.addEventListener('contextmenu', (e) => {
             if (window.currentMapProvider !== 'yandex3') return;
+            const t = e.target;
+            if (t && typeof t.closest === 'function' && t.closest('.custom-marker, .marker-hover-card')) {
+                return;
+            }
             e.preventDefault();
             e.stopPropagation();
             let coords = null;

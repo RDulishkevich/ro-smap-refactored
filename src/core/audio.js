@@ -1064,16 +1064,21 @@ window.updateUIState = function() {
 
 window.__waveformPeaksCache = window.__waveformPeaksCache || Object.create(null);
 window.__waveformRequestId = 0;
+window.__waveformPeaks = null;
+window.__waveformProgress = 0;
+window.__waveformBuffered = 0;
 
-window.peaksFromAudioBuffer = function(buffer, barCount) {
-    const n = Math.max(16, Math.min(96, barCount | 0 || 56));
+/** Extract normalized peak magnitudes (0–1) for a continuous waveform path. */
+window.peaksFromAudioBuffer = function(buffer, sampleCount) {
+    const n = Math.max(64, Math.min(320, sampleCount | 0 || 180));
     if (!buffer || !buffer.length) {
-        return Array.from({ length: n }, () => 18);
+        return Array.from({ length: n }, (_, i) => 0.12 + 0.08 * Math.sin(i / 6));
     }
     const chCount = buffer.numberOfChannels || 1;
     const len = buffer.length;
     const block = Math.max(1, Math.floor(len / n));
     const peaks = new Array(n);
+    let maxPeak = 0.0001;
     for (let i = 0; i < n; i++) {
         const start = i * block;
         const end = Math.min(len, start + block);
@@ -1085,30 +1090,127 @@ window.peaksFromAudioBuffer = function(buffer, barCount) {
                 if (v > peak) peak = v;
             }
         }
-        /* Map to bar height % with a soft floor so quiet sections stay visible */
-        peaks[i] = Math.max(8, Math.min(96, Math.round(Math.pow(peak, 0.65) * 100)));
+        peaks[i] = peak;
+        if (peak > maxPeak) maxPeak = peak;
+    }
+    for (let i = 0; i < n; i++) {
+        const norm = peaks[i] / maxPeak;
+        peaks[i] = Math.max(0.04, Math.min(1, Math.pow(norm, 0.72)));
     }
     return peaks;
 };
 
-window.renderWaveformBars = function(peaks) {
+window.drawWaveformCanvas = function() {
+    const canvas = document.getElementById('waveform-canvas');
     const wrap = document.getElementById('waveform-wrapper');
-    const hostH = Math.max(28, Math.round((wrap && wrap.clientHeight) || 40));
-    const data = Array.isArray(peaks) && peaks.length
-        ? peaks
-        : [18, 28, 42, 22, 55, 35, 70, 48, 30, 18, 38, 62, 80, 44, 32, 20];
-    let h = '';
-    for (let i = 0; i < data.length; i++) {
-        const v = Math.max(6, Math.min(100, Number(data[i]) || 8));
-        const px = Math.max(3, Math.round((v / 100) * hostH));
-        h += `<span class="waveform-bar" style="height:${px}px"></span>`;
+    if (!canvas || !wrap) return;
+
+    if (!window.__waveformResizeBound) {
+        window.__waveformResizeBound = true;
+        let t = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(t);
+            t = setTimeout(() => window.drawWaveformCanvas(), 80);
+        });
+        if (typeof ResizeObserver !== 'undefined') {
+            try {
+                const ro = new ResizeObserver(() => window.drawWaveformCanvas());
+                ro.observe(wrap);
+            } catch (_) {}
+        }
     }
-    const wBg = document.getElementById('waveform-bg');
-    const wBuf = document.getElementById('waveform-buffered');
-    const wAct = document.getElementById('waveform-active');
-    if (wBg) wBg.innerHTML = h;
-    if (wBuf) wBuf.innerHTML = h;
-    if (wAct) wAct.innerHTML = h;
+
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const cssW = Math.max(1, Math.round(wrap.clientWidth || 280));
+    const cssH = Math.max(28, Math.round(wrap.clientHeight || 48));
+    if (canvas.width !== Math.round(cssW * dpr) || canvas.height !== Math.round(cssH * dpr)) {
+        canvas.width = Math.round(cssW * dpr);
+        canvas.height = Math.round(cssH * dpr);
+        canvas.style.width = `${cssW}px`;
+        canvas.style.height = `${cssH}px`;
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+
+    const peaks = Array.isArray(window.__waveformPeaks) && window.__waveformPeaks.length
+        ? window.__waveformPeaks
+        : Array.from({ length: 96 }, (_, i) => 0.1 + 0.06 * Math.abs(Math.sin(i * 0.35)));
+    const mid = cssH / 2;
+    const amp = cssH * 0.46;
+    const progress = Math.max(0, Math.min(1, Number(window.__waveformProgress) || 0));
+    const buffered = Math.max(progress, Math.min(1, Number(window.__waveformBuffered) || 0));
+
+    const ink = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#222222';
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#FBAB57';
+
+    const buildPath = () => {
+        const step = cssW / Math.max(1, peaks.length - 1);
+        ctx.beginPath();
+        ctx.moveTo(0, mid);
+        for (let i = 0; i < peaks.length; i++) {
+            const x = i * step;
+            const y = mid - peaks[i] * amp;
+            if (i === 0) ctx.lineTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        for (let i = peaks.length - 1; i >= 0; i--) {
+            const x = i * step;
+            const y = mid + peaks[i] * amp * 0.92;
+            ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+    };
+
+    // Buffered (muted)
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, cssW * buffered, cssH);
+    ctx.clip();
+    buildPath();
+    ctx.fillStyle = ink;
+    ctx.globalAlpha = 0.22;
+    ctx.fill();
+    ctx.restore();
+
+    // Remaining track
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(cssW * buffered, 0, cssW * (1 - buffered) + 1, cssH);
+    ctx.clip();
+    buildPath();
+    ctx.fillStyle = ink;
+    ctx.globalAlpha = 0.14;
+    ctx.fill();
+    ctx.restore();
+
+    // Played
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, cssW * progress, cssH);
+    ctx.clip();
+    buildPath();
+    ctx.fillStyle = accent;
+    ctx.globalAlpha = 0.95;
+    ctx.fill();
+    ctx.restore();
+
+    // Center baseline
+    ctx.globalAlpha = 0.18;
+    ctx.strokeStyle = ink;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, mid);
+    ctx.lineTo(cssW, mid);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+};
+
+window.renderWaveformBars = function(peaks) {
+    window.__waveformPeaks = Array.isArray(peaks) && peaks.length ? peaks : null;
+    window.drawWaveformCanvas();
 };
 
 window.renderWaveform = function(peaks) {
@@ -1163,7 +1265,7 @@ window.loadWaveformForSound = async function(soundOrUrl) {
         const ab = await res.arrayBuffer();
         const buffer = await window.__decodeAudioArrayBuffer(ab);
         if (reqId !== window.__waveformRequestId) return;
-        finish(window.peaksFromAudioBuffer(buffer, 64));
+        finish(window.peaksFromAudioBuffer(buffer, 200));
         return;
     } catch (err) {
         console.warn('waveform decode failed, retry via File', err);
@@ -1177,7 +1279,7 @@ window.loadWaveformForSound = async function(soundOrUrl) {
         const file = new File([blob], 'wave.wav', { type: blob.type || 'audio/wav' });
         const buffer = await window.decodeAudioFile(file);
         if (reqId !== window.__waveformRequestId) return;
-        finish(window.peaksFromAudioBuffer(buffer, 64));
+        finish(window.peaksFromAudioBuffer(buffer, 200));
     } catch (err2) {
         console.warn('waveform fallback failed', err2);
         if (reqId !== window.__waveformRequestId) return;
@@ -1197,34 +1299,35 @@ window.updateBufferProgress = function() {
             }
         }
         if (end === 0) end = buffered.end(buffered.length - 1);
-        const ratio = end / duration;
-        const wBuf = document.getElementById('waveform-buffered');
-        if(wBuf) wBuf.style.clipPath = `inset(0 ${100 - ratio * 100}% 0 0)`;
+        window.__waveformBuffered = end / duration;
+        window.drawWaveformCanvas();
     }
-}
+};
 
 window.startTimelineAnimation = function() {
     if (window.animationFrameId) cancelAnimationFrame(window.animationFrameId);
-    const a = () => { 
-        if (!window.isPlaying || !window.audioElement || !window.audioElement.src) return; 
+    const a = () => {
+        if (!window.isPlaying || !window.audioElement || !window.audioElement.src) return;
         window.updatePlayerVisuals(window.audioElement.currentTime, window.audioElement.duration || 1);
         window.updateBufferProgress();
-        window.animationFrameId = requestAnimationFrame(a); 
+        window.animationFrameId = requestAnimationFrame(a);
     };
     a();
-}
-        
-window.updatePlayerVisuals = function(current, total) {
-    if(isNaN(total) || total === 0) return;
-    const r = current / total;
-            
-    const tCur = document.getElementById('time-current'), wAct = document.getElementById('waveform-active');
-    const pHead = document.getElementById('playhead'), aTime = document.getElementById('audio-timeline');
+};
 
-    if(tCur) tCur.textContent = window.formatTime(current); 
-    if(wAct) wAct.style.clipPath = `inset(0 ${100 - r * 100}% 0 0)`; 
-    if(pHead) pHead.style.left = `${r * 100}%`;
-    if(aTime) aTime.value = r * 100;
+window.updatePlayerVisuals = function(current, total) {
+    if (isNaN(total) || total === 0) return;
+    const r = current / total;
+
+    const tCur = document.getElementById('time-current');
+    const pHead = document.getElementById('playhead');
+    const aTime = document.getElementById('audio-timeline');
+
+    if (tCur) tCur.textContent = window.formatTime(current);
+    window.__waveformProgress = r;
+    window.drawWaveformCanvas();
+    if (pHead) pHead.style.left = `${r * 100}%`;
+    if (aTime) aTime.value = r * 100;
 
     if (window.walkerMarker && window.currentPlayingId) {
         const s = window.soundsData.find(x => x.id === window.currentPlayingId);
@@ -1236,7 +1339,7 @@ window.updatePlayerVisuals = function(current, total) {
             }
         }
     }
-}
+};
 
 window.seekAudio = function(v) { 
     const ratio = v / 100;

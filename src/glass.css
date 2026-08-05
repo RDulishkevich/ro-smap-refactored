@@ -1060,14 +1060,26 @@ html.dark .waveform-layer--buf,
     justify-content: space-between !important;
     gap: 2px;
 }
+.waveform-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 0.65rem;
+    pointer-events: none;
+}
+#waveform-wrapper.player-wave-block {
+    background: color-mix(in srgb, var(--ink) 4%, transparent);
+    border-radius: 0.75rem;
+    overflow: hidden;
+}
 #playhead {
     background: var(--ink) !important;
-    box-shadow: 0 0 6px rgba(0, 0, 0, 0.25) !important;
+    box-shadow: none !important;
 }
 html.dark #playhead,
 .dark #playhead {
     background: #fff !important;
-    box-shadow: 0 0 6px rgba(255, 255, 255, 0.35) !important;
+    box-shadow: none !important;
 }
 #volume-slider { accent-color: var(--accent); }
 

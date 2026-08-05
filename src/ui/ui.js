@@ -713,9 +713,13 @@ window.CustomUI = window.CustomUI || {
         }
 
         if (m && content) {
+            try {
+                if (m.parentElement !== document.body) document.body.appendChild(m);
+                else document.body.appendChild(m);
+            } catch (_) {}
             m.classList.remove('hidden');
             void m.offsetWidth;
-            m.classList.remove('opacity-0');
+            m.classList.remove('opacity-0', 'pointer-events-none');
             content.classList.remove('scale-95');
         }
         if (window.playSfx) window.playSfx('open');
@@ -3876,6 +3880,11 @@ window.__openDockViewImpl = function(view) {
     window.__dockView = next;
     document.body.classList.remove('dock-view-details', 'dock-view-analyzers', 'dock-view-settings', 'dock-view-cabinet', 'dock-view-messages', 'dock-view-expedition', 'dock-view-help', 'dock-view-admin');
 
+    // Close floating overlays that fight with dock/modals
+    if (window.closeNotificationsPanel) window.closeNotificationsPanel();
+    if (window.CtxPopup) try { window.CtxPopup.close(); } catch (_) {}
+    if (window.hideMapContextMenu) try { window.hideMapContextMenu(); } catch (_) {}
+
     if (prev === 'messages' && next !== 'messages') {
         window.__activeMessagePeer = null;
         if (window.cancelMessageReply) window.cancelMessageReply();
@@ -4698,13 +4707,34 @@ window.pickArticleFeedImage = function(files) {
     if (input) input.value = '';
 };
 
-window.openImageCropModal = function(dataUrl, onDone) {
+window.openImageCropModal = function(dataUrl, onDone, opts = {}) {
     window.__cropCallback = onDone;
+    window.__cropShape = (opts && opts.shape === 'circle') ? 'circle' : 'rect';
     const img = document.getElementById('image-crop-source');
     const zoom = document.getElementById('image-crop-zoom');
+    const stage = document.getElementById('image-crop-stage');
+    const frame = document.getElementById('image-crop-frame');
+    const hint = document.getElementById('image-crop-hint');
+    const titleEl = document.querySelector('#image-crop-modal-content h3');
+    if (stage) stage.classList.toggle('is-circle', window.__cropShape === 'circle');
+    if (frame) frame.classList.toggle('is-circle', window.__cropShape === 'circle');
+    if (hint) {
+        hint.textContent = window.__cropShape === 'circle'
+            ? 'Круглая рамка для аватарки. Перетащите фото; щипок или ползунок — масштаб.'
+            : 'Перетащите фото. Жест щипка или ползунок меняют масштаб.';
+    }
+    if (titleEl && opts.title) {
+        titleEl.innerHTML = `<i class="icon-crop mr-2 ds-link"></i>${String(opts.title).replace(/</g, '&lt;')}`;
+    } else if (titleEl) {
+        titleEl.innerHTML = `<i class="icon-crop mr-2 ds-link"></i>Кадрирование`;
+    }
     if (img) {
         img.onload = () => {
-            window.__cropState = { x: 0, y: 0, scale: 1, dragging: false, startX: 0, startY: 0, origX: 0, origY: 0 };
+            window.__cropState = {
+                x: 0, y: 0, scale: 1, dragging: false,
+                startX: 0, startY: 0, origX: 0, origY: 0,
+                pinching: false, pinchStartDist: 0, pinchStartScale: 1
+            };
             if (zoom) zoom.value = 100;
             window.updateImageCropTransform();
             window.bindImageCropDrag();
@@ -4728,6 +4758,11 @@ window.closeImageCropModal = function() {
     c.classList.add('scale-95');
     setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
     window.__cropCallback = null;
+    window.__cropShape = 'rect';
+    const stage = document.getElementById('image-crop-stage');
+    const frame = document.getElementById('image-crop-frame');
+    if (stage) stage.classList.remove('is-circle');
+    if (frame) frame.classList.remove('is-circle');
 };
 
 window.requestCloseImageCropModal = async function() {
@@ -4751,6 +4786,19 @@ window.bindImageCropDrag = function() {
     const stage = document.getElementById('image-crop-stage');
     if (!stage || stage.__cropBound) return;
     stage.__cropBound = true;
+
+    const pinchDist = (t0, t1) => {
+        const dx = t0.clientX - t1.clientX;
+        const dy = t0.clientY - t1.clientY;
+        return Math.hypot(dx, dy) || 1;
+    };
+    const setZoomPct = (pct) => {
+        const zoom = document.getElementById('image-crop-zoom');
+        const clamped = Math.max(100, Math.min(350, Math.round(pct)));
+        if (zoom) zoom.value = String(clamped);
+        window.updateImageCropTransform();
+    };
+
     const onDown = (clientX, clientY) => {
         if (!window.__cropState) return;
         window.__cropState.dragging = true;
@@ -4760,22 +4808,56 @@ window.bindImageCropDrag = function() {
         window.__cropState.origY = window.__cropState.y;
     };
     const onMove = (clientX, clientY) => {
-        if (!window.__cropState?.dragging) return;
+        if (!window.__cropState?.dragging || window.__cropState.pinching) return;
         window.__cropState.x = window.__cropState.origX + (clientX - window.__cropState.startX);
         window.__cropState.y = window.__cropState.origY + (clientY - window.__cropState.startY);
         window.updateImageCropTransform();
     };
-    const onUp = () => { if (window.__cropState) window.__cropState.dragging = false; };
+    const onUp = () => {
+        if (!window.__cropState) return;
+        window.__cropState.dragging = false;
+        window.__cropState.pinching = false;
+    };
+
     stage.addEventListener('mousedown', (e) => { e.preventDefault(); onDown(e.clientX, e.clientY); });
     window.addEventListener('mousemove', (e) => onMove(e.clientX, e.clientY));
     window.addEventListener('mouseup', onUp);
+
     stage.addEventListener('touchstart', (e) => {
+        if (!window.__cropState) return;
+        if (e.touches.length >= 2) {
+            e.preventDefault();
+            window.__cropState.pinching = true;
+            window.__cropState.dragging = false;
+            window.__cropState.pinchStartDist = pinchDist(e.touches[0], e.touches[1]);
+            window.__cropState.pinchStartScale = window.__cropState.scale || 1;
+            return;
+        }
         if (e.touches[0]) onDown(e.touches[0].clientX, e.touches[0].clientY);
-    }, { passive: true });
+    }, { passive: false });
+
     window.addEventListener('touchmove', (e) => {
+        if (!window.__cropState) return;
+        if (window.__cropState.pinching && e.touches.length >= 2) {
+            e.preventDefault();
+            const dist = pinchDist(e.touches[0], e.touches[1]);
+            const next = (window.__cropState.pinchStartScale || 1) * (dist / (window.__cropState.pinchStartDist || 1));
+            setZoomPct(next * 100);
+            return;
+        }
         if (e.touches[0]) onMove(e.touches[0].clientX, e.touches[0].clientY);
-    }, { passive: true });
+    }, { passive: false });
+
     window.addEventListener('touchend', onUp);
+    window.addEventListener('touchcancel', onUp);
+
+    stage.addEventListener('wheel', (e) => {
+        if (!window.__cropState) return;
+        e.preventDefault();
+        const zoom = document.getElementById('image-crop-zoom');
+        const cur = Number(zoom?.value) || 100;
+        setZoomPct(cur + (e.deltaY < 0 ? 8 : -8));
+    }, { passive: false });
 };
 
 window.applyImageCrop = function() {
@@ -4800,7 +4882,15 @@ window.applyImageCrop = function() {
     ctx.fillStyle = '#111';
     ctx.fillRect(0, 0, outSize, outSize);
     try {
+        if (window.__cropShape === 'circle') {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(outSize / 2, outSize / 2, outSize / 2, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.clip();
+        }
         ctx.drawImage(img, sx, sy, Math.max(1, sw), Math.max(1, sh), 0, 0, outSize, outSize);
+        if (window.__cropShape === 'circle') ctx.restore();
     } catch (e) {
         window.showToast('Не удалось кадрировать изображение');
         return;

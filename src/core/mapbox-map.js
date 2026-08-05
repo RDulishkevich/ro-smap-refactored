@@ -628,6 +628,10 @@ window.initMapboxMap = async function() {
     else window.mapboxMap.once('load', onReady);
 
     window.mapboxMap.on('contextmenu', (e) => {
+        const t = e.originalEvent?.target;
+        if (t && typeof t.closest === 'function' && t.closest('.custom-marker, .marker-hover-card')) {
+            return;
+        }
         if (e.originalEvent && typeof e.originalEvent.preventDefault === 'function') {
             e.originalEvent.preventDefault();
         }

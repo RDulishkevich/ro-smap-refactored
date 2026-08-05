@@ -1016,6 +1016,22 @@ html.dark .glass-seg__btn.is-active,
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
 }
+
+/* Stacking scale — Tailwind arbitrary z-[…] is not in the built CSS */
+#toast-message { z-index: 10060 !important; }
+#lightbox-overlay { z-index: 10070 !important; }
+#ui-modal-overlay { z-index: 10050 !important; }
+#action-sheet-overlay,
+#location-picker-modal { z-index: 10040 !important; }
+#ctx-popup-menu,
+#map-context-menu { z-index: 10030 !important; }
+#image-crop-modal,
+#publish-rules-modal,
+#legal-doc-modal,
+#settings-modal { z-index: 10020 !important; }
+#public-profile-modal { z-index: 10010 !important; }
+#notif-panel.notif-panel,
+.notif-panel { z-index: 230 !important; }
 @media (min-width: 640px) {
     .app-modal-overlay { align-items: center; }
 }
@@ -3229,28 +3245,27 @@ html.dark .search-suggestions,
 }
 .dark .cab-tab.active { color: var(--accent-ink); border-bottom-color: var(--accent); }
 .cab-tab.cab-tab-admin { color: #dc2626; }
-.dark .cab-tab.cab-tab-admin { color: #f87171; }
+.cab-tab.cab-tab-admin { color: var(--ink-muted, #6b5340); }
+.dark .cab-tab.cab-tab-admin { color: var(--ink-muted, #b8a894); }
 .cab-tab.cab-tab-admin.active {
-    color: #dc2626;
-    border-bottom-color: #dc2626;
+    color: var(--ink, #222);
+    border-bottom-color: var(--ink, #222);
 }
 .dark .cab-tab.cab-tab-admin.active {
-    color: #f87171;
-    border-bottom-color: #f87171;
+    color: var(--ink, #FFF3E2);
+    border-bottom-color: var(--accent, #FBAB57);
 }
 
 /* Field progress: quests & achievements */
 .quest-hero {
-    padding: 1.1rem 1.15rem;
-    border-radius: 1.25rem;
-    background:
-        linear-gradient(145deg, color-mix(in srgb, var(--accent) 12%, white), #fff 55%),
-        #fff;
-    border: 1px solid color-mix(in srgb, var(--accent) 22%, #e2e8f0);
+    padding: 1rem 1.05rem;
+    border-radius: 1.15rem;
+    background: var(--panel-elevated, #fff);
+    border: 1px solid var(--panel-border, rgba(34, 34, 34, 0.12));
 }
 .dark .quest-hero {
-    background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 18%, #0f172a), #1e293b);
-    border-color: color-mix(in srgb, var(--accent) 28%, #334155);
+    background: var(--panel-solid, #2c2c2c);
+    border-color: var(--panel-border);
 }
 .quest-hero__top {
     display: flex;
@@ -4095,15 +4110,36 @@ textarea.modal-input {
     text-transform: uppercase;
     letter-spacing: 0.03em;
     white-space: nowrap;
+    background: var(--surface-stone, #F5E6D4);
+    color: var(--ink-muted, #6b5340);
+    border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
 }
-.pub-status-published { background: #dcfce7; color: #15803d; }
-.dark .pub-status-published { background: rgba(21, 128, 61, 0.25); color: #4ade80; }
-.pub-status-pending { background: #fef3c7; color: #b45309; }
-.dark .pub-status-pending { background: rgba(180, 83, 9, 0.25); color: #fbbf24; }
-.pub-status-rejected { background: #fee2e2; color: #b91c1c; }
-.dark .pub-status-rejected { background: rgba(185, 28, 28, 0.25); color: #f87171; }
-.pub-status-draft { background: #e2e8f0; color: #475569; }
-.dark .pub-status-draft { background: rgba(71, 85, 105, 0.35); color: #cbd5e1; }
+.dark .pub-status-pill {
+    background: var(--surface-stone, #3a3228);
+    color: var(--ink-muted, #b8a894);
+}
+.pub-status-published,
+.pub-status-pending,
+.pub-status-rejected,
+.pub-status-draft {
+    background: var(--surface-stone, #F5E6D4);
+    color: var(--ink-muted, #6b5340);
+}
+.dark .pub-status-published,
+.dark .pub-status-pending,
+.dark .pub-status-rejected,
+.dark .pub-status-draft {
+    background: var(--surface-stone, #3a3228);
+    color: var(--ink-muted, #b8a894);
+}
+
+.email-status-text {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--ink-muted, #6b5340);
+}
+.email-status-text--ok { color: var(--ink-muted, #6b5340); }
+.email-status-text--pending { color: var(--ink-muted, #6b5340); opacity: 0.9; }
 
 /* ???? ???-????? (???????????? ??????????) */
 .gear-chip {
@@ -5183,6 +5219,13 @@ html.dark .feed-post__cover,
     box-shadow: 0 0 0 9999px rgba(0,0,0,0.45);
     border-radius: 0.5rem;
     pointer-events: none;
+}
+.image-crop-frame.is-circle,
+.image-crop-stage.is-circle .image-crop-frame {
+    border-radius: 50%;
+    width: min(72%, 220px);
+    height: min(72%, 220px);
+    aspect-ratio: 1;
 }
 .msg-support-row {
     border: 1px solid color-mix(in srgb, var(--accent) 35%, white);

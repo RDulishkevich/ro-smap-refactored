@@ -29,8 +29,8 @@
 
     <!-- Tailwind (self-hosted build — без Play CDN / без unsafe-eval) -->
     <link rel="stylesheet" href="./src/tailwind.built.css?v=20260722c">
-    <link rel="stylesheet" href="./src/style.css?v=20260806c">
-    <link rel="stylesheet" href="./src/glass.css?v=20260805v">
+    <link rel="stylesheet" href="./src/style.css?v=20260806d">
+    <link rel="stylesheet" href="./src/glass.css?v=20260806d">
     <!-- fonts.css after glass so data-font tokens win over :root -->
     <link rel="stylesheet" href="./src/fonts.css?v=20260805m">
     <link rel="stylesheet" href="./src/mobile-wellness.css?v=20260806c">
@@ -634,12 +634,14 @@
                     </div>
                 </div>
 
-                <div id="waveform-wrapper" class="player-wave-block relative w-full h-12 md:h-16 cursor-pointer group">
-                    <div id="waveform-bg" class="absolute inset-0 flex items-end justify-between gap-[2px] waveform-layer waveform-layer--bg"></div>
-                    <div id="waveform-buffered" class="absolute inset-0 flex items-end justify-between gap-[2px] waveform-layer waveform-layer--buf pointer-events-none transition-all duration-300 ease-out" style="clip-path: inset(0 100% 0 0);"></div>
-                    <div id="waveform-active" class="absolute inset-0 flex items-end justify-between gap-[2px] waveform-layer waveform-layer--act pointer-events-none" style="clip-path: inset(0 100% 0 0);"></div>
+                <div id="waveform-wrapper" class="player-wave-block relative w-full h-12 md:h-14 cursor-pointer group">
+                    <canvas id="waveform-canvas" class="waveform-canvas" aria-hidden="true"></canvas>
                     <div id="playhead" class="absolute top-0 bottom-0 w-[1.5px] bg-slate-800 dark:bg-white rounded-full pointer-events-none z-10" style="left: 0%;"></div>
-                    <input type="range" id="audio-timeline" min="0" max="100" value="0" step="0.01" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30 m-0" oninput="window.seekAudio(this.value)">
+                    <input type="range" id="audio-timeline" min="0" max="100" value="0" step="0.01" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30 m-0" oninput="window.seekAudio(this.value)" aria-label="Позиция воспроизведения">
+                    <!-- legacy layers kept empty for any leftover selectors -->
+                    <div id="waveform-bg" class="hidden" aria-hidden="true"></div>
+                    <div id="waveform-buffered" class="hidden" aria-hidden="true"></div>
+                    <div id="waveform-active" class="hidden" aria-hidden="true"></div>
                 </div>
 
                 <div id="ambisonics-control" class="hidden mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 pointer-events-auto transition-all flex flex-col items-center">
@@ -1161,7 +1163,7 @@
                     <div class="flex flex-wrap gap-1.5 mt-2 text-[10px] text-slate-500 dark:text-slate-400">
                         <span id="cabinet-user-joined" class="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full"><i class="icon-calendar"></i>Дата</span>
                         <span id="cabinet-user-stats" class="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full"><i class="icon-microphone"></i>0 звуков</span>
-                        <span id="cabinet-user-level" class="hidden inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full font-bold"><i class="icon-flash"></i>Lv 1</span>
+                        <span id="cabinet-user-level" class="hidden inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full font-semibold text-slate-600 dark:text-slate-300"><i class="icon-flash"></i>Lv 1</span>
                     </div>
                     <div id="cabinet-member-badge" class="cabinet-member-badge hidden mt-2"></div>
                     <button type="button" onclick="window.openOwnPublicProfile()" class="cabinet-public-profile-btn mt-2.5 inline-flex items-center gap-1.5 text-[11px] font-bold ds-link hover:underline">
@@ -1271,7 +1273,7 @@
                     <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
                         <div class="flex items-center justify-between gap-2">
                             <h4 class="font-bold text-slate-800 dark:text-white mb-1"><i class="icon-sms mr-1.5 ds-link"></i>Почта</h4>
-                            <span id="email-verified-badge" class="pub-status-pill pub-status-rejected">Не подтверждена</span>
+                            <span id="email-verified-badge" class="email-status-text email-status-text--pending">Не подтверждена</span>
                         </div>
                         <p class="text-sm text-slate-600 dark:text-slate-300">Привяжите email, чтобы восстанавливать доступ к аккаунту и получать важные уведомления.</p>
                         <div>
@@ -2065,9 +2067,9 @@
                 </div>
                 <div>
                     <label class="modal-label text-slate-400">Масштаб</label>
-                    <input id="image-crop-zoom" type="range" min="100" max="300" value="100" class="w-full" oninput="window.updateImageCropTransform()">
+                    <input id="image-crop-zoom" type="range" min="100" max="350" value="100" class="w-full" oninput="window.updateImageCropTransform()">
                 </div>
-                <p class="text-[11px] text-slate-400">Перетащите фото внутри рамки. Рамка – область, которая попадёт в пост.</p>
+                <p id="image-crop-hint" class="text-[11px] text-slate-400">Перетащите фото. Жест щипка или ползунок меняют масштаб.</p>
             </div>
             <div class="p-4 border-t border-slate-100 dark:border-slate-700 flex gap-2 shrink-0">
                 <button onclick="window.requestCloseImageCropModal()" class="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-sm font-bold text-slate-600 dark:text-slate-200">Отмена</button>
@@ -2487,7 +2489,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260806c"></script>
+    <script type="module" src="./src/main.js?v=20260806d"></script>
 
 </body>
 </html>

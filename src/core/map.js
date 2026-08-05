@@ -115,7 +115,39 @@ window.openMarkerAdminContext = function(soundId, e) {
     return true;
 };
 
-/** RMB / long-press on marker: preview card for everyone; staff also get actions menu. */
+/** RMB / long-press on marker: preview + actions menu (staff get moderation items). */
+window.getMarkerContextItems = function(soundId) {
+    const s = (window.soundsData || []).find((x) => x.id === soundId);
+    if (!s) return [];
+    const items = [
+        {
+            icon: 'icon-play',
+            label: 'Слушать',
+            tone: 'primary',
+            onClick: () => {
+                if (window.hideMarkerHoverCard) window.hideMarkerHoverCard(true);
+                if (window.selectSound) window.selectSound(soundId);
+            }
+        },
+        {
+            icon: 'icon-info-circle',
+            label: 'Подробнее',
+            onClick: () => {
+                if (window.hideMarkerHoverCard) window.hideMarkerHoverCard(true);
+                if (window.selectSound) window.selectSound(soundId);
+                if (window.openDetailsModal) window.openDetailsModal();
+            }
+        }
+    ];
+    if (window.isCurrentUserStaff && window.isCurrentUserStaff() && window.getAdminSoundActionItems) {
+        const admin = window.getAdminSoundActionItems(soundId) || [];
+        admin.forEach((it) => {
+            if (!items.some((x) => x.label === it.label)) items.push(it);
+        });
+    }
+    return items;
+};
+
 window.openMarkerContext = function(soundId, e) {
     if (e) {
         try {
@@ -124,14 +156,36 @@ window.openMarkerContext = function(soundId, e) {
             const dom = e.get?.('domEvent');
             if (dom && typeof dom.preventDefault === 'function') dom.preventDefault();
             if (dom && typeof dom.stopPropagation === 'function') dom.stopPropagation();
+            if (e.originalEvent) {
+                if (typeof e.originalEvent.preventDefault === 'function') e.originalEvent.preventDefault();
+                if (typeof e.originalEvent.stopPropagation === 'function') e.originalEvent.stopPropagation();
+            }
         } catch (_) {}
     }
     const sound = (window.soundsData || []).find((x) => x.id === soundId);
     if (sound && window.showMarkerHoverCard) {
         window.showMarkerHoverCard(sound, { force: true });
     }
-    if (window.isCurrentUserStaff && window.isCurrentUserStaff() && window.openMarkerAdminContext) {
-        window.openMarkerAdminContext(soundId, e);
+    const items = window.getMarkerContextItems ? window.getMarkerContextItems(soundId) : [];
+    if (!items.length) return true;
+
+    const point = window.eventClientPoint
+        ? window.eventClientPoint(e)
+        : {
+            clientX: Number(e?.clientX) || 24,
+            clientY: Number(e?.clientY) || 24
+        };
+
+    if (window.openActionsMenu) {
+        window.openActionsMenu(items, {
+            title: sound?.title || 'Метка',
+            subtitle: sound
+                ? `${Number(sound.lat).toFixed(5)}, ${Number(sound.lng).toFixed(5)}`
+                : '',
+            clientX: point.clientX,
+            clientY: point.clientY,
+            event: e
+        });
     }
     return true;
 };

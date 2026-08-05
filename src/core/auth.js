@@ -423,9 +423,8 @@ export function initAuth() {
             if (window.__pendingSupportOpen) {
                 window.__pendingSupportOpen = false;
                 if (window.openMessagesModal) window.openMessagesModal(window.SUPPORT_LOGIN || 'support');
-            } else {
-                window.openCabinet();
             }
+            // Do not auto-open profile/cabinet after login.
         };
 
             try {
@@ -1881,7 +1880,7 @@ export function initAuth() {
                     console.error(err);
                     window.showToast(err.message || 'Не удалось загрузить фото');
                 }
-            });
+            }, { shape: 'circle', title: 'Фото профиля' });
         };
         reader.readAsDataURL(file);
         const input = document.getElementById('avatar-input');
@@ -3757,6 +3756,13 @@ export function initAuth() {
         }
     };
 
+    window.closeNotificationsPanel = function() {
+        const panel = document.getElementById('notif-panel');
+        if (!panel || panel.classList.contains('hidden')) return;
+        panel.classList.add('hidden');
+        panel.classList.remove('is-open');
+    };
+
     window.toggleNotificationsPanel = function(ev) {
         if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
         if (!window.currentUser) {
@@ -3880,10 +3886,10 @@ export function initAuth() {
     window.clearAllNotifications = async function() {
         if (!window.currentUser) return;
         const ok = await window.CustomUI.open({
-            title: '<i class="icon-trash mr-2 text-red-500"></i>Очистить уведомления',
+            title: '<i class="icon-trash mr-2"></i>Очистить уведомления',
             message: 'Все уведомления будут удалены без возможности восстановления.',
             confirmText: 'Очистить',
-            confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
+            confirmClass: 'ds-btn ds-btn--primary'
         });
         if (!ok) return;
         const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
@@ -5119,7 +5125,7 @@ export function initAuth() {
         if (!badge) return;
         const verified = !!(window.currentUser && window.currentUser.email && window.currentUser.emailVerified);
         badge.textContent = verified ? 'Подтверждена' : 'Не подтверждена';
-        badge.className = `pub-status-pill ${verified ? 'pub-status-published' : 'pub-status-rejected'}`;
+        badge.className = `email-status-text ${verified ? 'email-status-text--ok' : 'email-status-text--pending'}`;
 
         const sendBtn = document.getElementById('email-send-code-btn');
         const codeBlock = document.getElementById('email-code-block');
