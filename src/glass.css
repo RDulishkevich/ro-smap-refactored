@@ -1025,14 +1025,27 @@ html.dark #player-card .player-play-btn,
     border-color: color-mix(in srgb, var(--accent) 35%, transparent) !important;
 }
 
-/* Waveform — coral active (soft-UI ref), mist inactive */
-#waveform-bg { color: rgba(20, 20, 20, 0.08); }
+/* Waveform — readable on cream; peach active */
+#waveform-bg,
+.waveform-layer--bg { color: color-mix(in srgb, var(--ink) 28%, transparent) !important; }
 html.dark #waveform-bg,
-.dark #waveform-bg { color: rgba(255, 255, 255, 0.12); }
-#waveform-buffered { color: rgba(20, 20, 20, 0.18); }
+.dark #waveform-bg,
+html.dark .waveform-layer--bg,
+.dark .waveform-layer--bg { color: color-mix(in srgb, #fff 28%, transparent) !important; }
+#waveform-buffered,
+.waveform-layer--buf { color: color-mix(in srgb, var(--ink) 42%, transparent) !important; }
 html.dark #waveform-buffered,
-.dark #waveform-buffered { color: rgba(255, 255, 255, 0.22); }
-#waveform-active { color: var(--accent) !important; }
+.dark #waveform-buffered,
+html.dark .waveform-layer--buf,
+.dark .waveform-layer--buf { color: color-mix(in srgb, #fff 40%, transparent) !important; }
+#waveform-active,
+.waveform-layer--act { color: var(--accent) !important; }
+#waveform-bg > div,
+#waveform-buffered > div,
+#waveform-active > div {
+    min-height: 12%;
+    align-self: flex-end;
+}
 #playhead {
     background: var(--ink) !important;
     box-shadow: 0 0 6px rgba(0, 0, 0, 0.25) !important;
@@ -1047,8 +1060,22 @@ html.dark #playhead,
 #toast-message {
     border-radius: var(--radius-pill) !important;
     color: var(--ink) !important;
+    padding: 0.35rem 0.7rem !important;
+    font-size: 0.75rem !important;
+    line-height: 1.25 !important;
+    max-width: min(88vw, 20rem) !important;
+    gap: 0.35rem !important;
 }
-#toast-message #toast-text { color: var(--ink) !important; }
+#toast-message #toast-text,
+#toast-message .toast-text {
+    color: var(--ink) !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+}
+#toast-message .toast-icon {
+    font-size: 0.8rem !important;
+    opacity: 0.7;
+}
 
 .ui-tab.is-active {
     color: var(--accent-ink) !important;

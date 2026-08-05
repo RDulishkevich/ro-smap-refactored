@@ -41,12 +41,12 @@ window.showToast = function(message, opts = {}) {
     if (!toast) return;
     const textEl = document.getElementById('toast-text');
     if (textEl) textEl.textContent = message;
-    toast.classList.remove('-translate-y-24', 'opacity-0');
+    toast.classList.remove('-translate-y-16', '-translate-y-24', 'opacity-0');
     toast.classList.add('translate-y-0', 'opacity-100');
     if(window.toastTimeout) clearTimeout(window.toastTimeout);
     window.toastTimeout = setTimeout(() => {
         toast.classList.remove('translate-y-0', 'opacity-100');
-        toast.classList.add('-translate-y-24', 'opacity-0');
+        toast.classList.add('-translate-y-16', 'opacity-0');
     }, 3000);
     if (opts.silent) return;
     if (window.playSfx) {
@@ -956,6 +956,7 @@ window.openActionsMenu = function(items, opts = {}) {
 
     let clientX = Number(opts.clientX);
     let clientY = Number(opts.clientY);
+    let preferAbove = !!opts.preferAbove;
 
     if ((!Number.isFinite(clientX) || !Number.isFinite(clientY)) && opts.event) {
         const point = window.eventClientPoint
@@ -977,7 +978,7 @@ window.openActionsMenu = function(items, opts = {}) {
         if (el && typeof el.getBoundingClientRect === 'function') {
             const r = el.getBoundingClientRect();
             clientX = r.left + (r.width / 2);
-            clientY = r.bottom + 6;
+            clientY = preferAbove ? r.top - 6 : r.bottom + 6;
         }
     }
 
@@ -990,7 +991,8 @@ window.openActionsMenu = function(items, opts = {}) {
             subtitle: opts.subtitle || '',
             items,
             clientX,
-            clientY
+            clientY,
+            preferAbove
         });
         return;
     }
@@ -1055,10 +1057,23 @@ window.openPlayerActionsMenu = function(ev) {
         onClick: () => { if (window.openDetailsModal) window.openDetailsModal(); }
     });
     if (window.openActionsMenu) {
+        const card = document.getElementById('player-card');
+        const btn = document.getElementById('player-more-btn');
+        const cardRect = card && card.getBoundingClientRect ? card.getBoundingClientRect() : null;
+        const btnRect = btn && btn.getBoundingClientRect ? btn.getBoundingClientRect() : null;
+        /* Place menu above the whole player card so it never washes over waveform/controls */
+        const anchorY = cardRect
+            ? cardRect.top - 8
+            : (btnRect ? btnRect.top - 6 : undefined);
+        const anchorX = btnRect
+            ? (btnRect.left + btnRect.width / 2)
+            : undefined;
         window.openActionsMenu(items, {
             title: s?.title || 'Плеер',
             event: ev || null,
-            anchor: document.getElementById('player-more-btn')
+            clientX: Number.isFinite(anchorX) ? anchorX : undefined,
+            clientY: Number.isFinite(anchorY) ? anchorY : undefined,
+            preferAbove: true
         });
     }
 };
@@ -1179,7 +1194,6 @@ window.closeDetailsToPlayer = function() {
             || el.closest('#player-more-btn')
             || el.closest('#ambi-sphere-pad')
             || el.closest('#player-analyzers')
-            || el.closest('button')
             || el.closest('a')
             || el.closest('input')
         ));
@@ -1189,7 +1203,11 @@ window.closeDetailsToPlayer = function() {
             if (window.analyzersOpen) return;
             const t = e.touches && e.touches[0];
             if (!t) return;
-            if (isBlockedTarget(e.target)) return;
+            /* Prefer the dedicated handle / top strip — easier to find than a thin gap */
+            const onHandle = !!(handle && (e.target === handle || (handle.contains && handle.contains(e.target))));
+            const onTitle = !!(e.target && e.target.closest && e.target.closest('#player-title, .player-main-meta, .player-sheet-handle'));
+            if (!onHandle && !onTitle && isBlockedTarget(e.target)) return;
+            if (!onHandle && !onTitle && e.target && e.target.closest && e.target.closest('button')) return;
             startY = t.clientY;
             startX = t.clientX;
             tracking = true;
@@ -1285,129 +1303,14 @@ window.closeDetailsToPlayer = function() {
     }
 })();
 
-(function bindDetailsSwipeToPlayer() {
-    const bind = () => {
-        const sidebar = document.getElementById('sidebar');
-        if (!sidebar || sidebar.__detailsSwipeBound) return;
-        sidebar.__detailsSwipeBound = true;
-
-        let startY = 0;
-        let startX = 0;
-        let tracking = false;
-        let dragging = false;
-        let lastDy = 0;
-        const THRESH = 90;
-
-        const clearDrag = () => {
-            sidebar.classList.remove('is-dragging', 'is-gesture-settle');
-            sidebar.style.transform = '';
-            sidebar.style.opacity = '';
-        };
-
-        const springBack = () => {
-            sidebar.classList.remove('is-dragging');
-            sidebar.classList.add('is-gesture-settle');
-            sidebar.style.transform = 'translate3d(0, 0, 0)';
-            sidebar.style.opacity = '1';
-            const done = () => {
-                clearDrag();
-                sidebar.removeEventListener('transitionend', done);
-            };
-            sidebar.addEventListener('transitionend', done);
-            setTimeout(done, 420);
-        };
-
-        sidebar.addEventListener('touchstart', (e) => {
-            if (window.innerWidth >= 768) return;
-            if (window.__dockView !== 'details') return;
-            const t = e.touches && e.touches[0];
-            if (!t) return;
-            const el = e.target;
-            if (el && el.closest && (
-                el.closest('input')
-                || el.closest('textarea')
-                || el.closest('button')
-                || el.closest('a')
-                || el.closest('#comments-list')
-            )) return;
-            const scroller = el && el.closest
-                ? el.closest('.overflow-y-auto, .custom-scrollbar, #details-modal-content')
-                : null;
-            if (scroller && scroller.scrollTop > 8) return;
-            startY = t.clientY;
-            startX = t.clientX;
-            tracking = true;
-            dragging = false;
-            lastDy = 0;
-        }, { passive: true });
-
-        sidebar.addEventListener('touchmove', (e) => {
-            if (!tracking || window.__dockView !== 'details') return;
-            const t = e.touches && e.touches[0];
-            if (!t) return;
-            const dy = t.clientY - startY;
-            const dx = t.clientX - startX;
-            if (!dragging) {
-                if (Math.abs(dy) < 10 && Math.abs(dx) < 10) return;
-                if (Math.abs(dx) >= Math.abs(dy) || dy < 0) {
-                    tracking = false;
-                    return;
-                }
-                dragging = true;
-            }
-            lastDy = dy;
-            e.preventDefault();
-            sidebar.classList.add('is-dragging');
-            sidebar.classList.remove('is-gesture-settle');
-            const y = Math.max(0, dy);
-            sidebar.style.transform = `translate3d(0, ${y}px, 0)`;
-            sidebar.style.opacity = String(Math.max(0.45, 1 - y / 420));
-        }, { passive: false });
-
-        sidebar.addEventListener('touchend', (e) => {
-            if (!tracking) return;
-            tracking = false;
-            if (window.__dockView !== 'details') {
-                clearDrag();
-                return;
-            }
-            const t = e.changedTouches && e.changedTouches[0];
-            const dy = t ? (t.clientY - startY) : lastDy;
-            if (!dragging) return;
-            dragging = false;
-            if (dy > THRESH) {
-                sidebar.classList.remove('is-dragging');
-                sidebar.classList.add('is-gesture-settle');
-                sidebar.style.transform = 'translate3d(0, 110%, 0)';
-                sidebar.style.opacity = '0';
-                setTimeout(() => {
-                    clearDrag();
-                    if (window.closeDetailsToPlayer) window.closeDetailsToPlayer();
-                }, 280);
-            } else {
-                springBack();
-            }
-        }, { passive: true });
-
-        sidebar.addEventListener('touchcancel', () => {
-            if (!tracking && !dragging) return;
-            tracking = false;
-            dragging = false;
-            springBack();
-        }, { passive: true });
-    };
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', bind);
-    } else {
-        bind();
-    }
-})();
+/* Sound-card swipe-to-dismiss removed — use dock back only. */
+(function bindDetailsSwipeToPlayer() { /* intentionally empty */ })();
 
 /** Всплывающее контекстное меню у курсора (как ПКМ по карте), без модальной шторки. */
 window.CtxPopup = {
     _actions: [],
     _bound: false,
-    open: function({ title = '', subtitle = '', items = [], clientX = 12, clientY = 12 } = {}) {
+    open: function({ title = '', subtitle = '', items = [], clientX = 12, clientY = 12, preferAbove = false } = {}) {
         // Скрыть legacy map-context-menu, не трогая текущий popup до перерисовки
         const legacy = document.getElementById('map-context-menu');
         if (legacy) {
@@ -1444,7 +1347,7 @@ window.CtxPopup = {
             const iconTone = toneColor[tone] || 'text-slate-400';
             const textTone = tone === 'danger' ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-200';
             const icon = String(item.icon || 'icon-record-circle').replace(/^fa-(solid|regular|brands)\s+/, '').replace(/^fa-/, 'icon-');
-            return `<button type="button" onclick="window.CtxPopup.trigger(${i})" class="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold ${textTone} hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-left">
+            return `<button type="button" onclick="window.CtxPopup.trigger(${i})" class="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold ${textTone} transition-colors text-left ctx-popup-item">
                 <i class="${icon} ${iconTone} w-4 text-center"></i>
                 <span class="truncate">${item.label}</span>
             </button>`;
@@ -1458,8 +1361,13 @@ window.CtxPopup = {
         const mh = menu.offsetHeight || 160;
         const vw = window.innerWidth || 0;
         const vh = window.innerHeight || 0;
-        const x = Math.min(Math.max(8, clientX), Math.max(8, vw - mw - 8));
-        const y = Math.min(Math.max(8, clientY), Math.max(8, vh - mh - 8));
+        const x = Math.min(Math.max(8, clientX - mw / 2), Math.max(8, vw - mw - 8));
+        let y;
+        if (preferAbove || clientY > vh * 0.58) {
+            y = Math.max(8, clientY - mh);
+        } else {
+            y = Math.min(Math.max(8, clientY), Math.max(8, vh - mh - 8));
+        }
         menu.style.left = `${x}px`;
         menu.style.top = `${y}px`;
 

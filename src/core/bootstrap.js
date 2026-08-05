@@ -1,13 +1,13 @@
 import { initGlobalState } from './state.js?v=20260726c';
 import './api.js?v=20260721t';
-import { initAuth } from './auth.js?v=20260805o';
+import { initAuth } from './auth.js?v=20260805p';
 
 import './sfx.js?v=20260721t';
 import './antispam.js?v=20260721t';
 import '../ui/file-xfer.js?v=20260805j';
 import '../ui/like-shake.js?v=20260805j';
-import '../ui/ui.js?v=20260805v';
-import './audio.js?v=20260805v';
+import '../ui/ui.js?v=20260805w';
+import './audio.js?v=20260805w';
 import './map.js?v=20260805o';
 import './mapbox-map.js?v=20260721t';
 import './dgis-map.js?v=20260721t';

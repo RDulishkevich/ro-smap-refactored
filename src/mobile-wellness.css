@@ -275,7 +275,7 @@
         pointer-events: auto;
     }
 
-    /* —— True fullscreen surfaces: fill viewport EXCEPT bottom rail —— */
+    /* —— True fullscreen surfaces: fill viewport; peach dock floats above via z-index —— */
     #sidebar.sidebar-panel,
     #sidebar,
     #events-sheet,
@@ -283,14 +283,14 @@
         top: 0 !important;
         left: 0 !important;
         right: 0 !important;
-        bottom: var(--mobile-fs-bottom) !important;
+        bottom: 0 !important;
     }
     #sidebar.sidebar-panel,
     #sidebar {
         background: var(--well-cream) !important;
         background-color: var(--well-cream) !important;
         z-index: 200 !important;
-        padding-bottom: max(0.75rem, var(--sab)) !important;
+        padding-bottom: calc(var(--mobile-fs-bottom) + 0.85rem) !important;
     }
     #events-sheet {
         background: var(--well-cream) !important;
@@ -299,7 +299,6 @@
     .app-modal-overlay {
         background: color-mix(in srgb, var(--well-ink) 45%, transparent) !important;
         z-index: 210 !important;
-        /* Overlay itself ends above the peach dock — dock stays tappable */
         align-items: stretch !important;
         justify-content: stretch !important;
         padding: 0 !important;
@@ -315,14 +314,16 @@
         width: 100% !important;
         max-width: none !important;
         margin: 0 !important;
+        padding-bottom: calc(var(--mobile-fs-bottom) + 0.85rem) !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
     }
-    /* Confirm stays compact-centered — no dock padding */
+    /* Confirm stays compact-centered */
     #ui-modal-overlay.app-modal-overlay {
         align-items: center !important;
         justify-content: center !important;
         padding: 1rem !important;
         background: color-mix(in srgb, var(--well-ink) 45%, transparent) !important;
-        /* Confirm can span full screen; dock still above via z-index */
         bottom: 0 !important;
     }
     #ui-modal-overlay > #ui-modal-content {
@@ -484,20 +485,42 @@
         align-items: center;
         justify-content: center;
         width: 100%;
-        height: 0.95rem;
-        padding: 0;
+        /* Large hit target — swipe lives here, not in a thin gap */
+        height: 1.85rem;
+        margin: 0 0 0.1rem;
+        padding: 0.35rem 0;
         border: none;
         background: transparent;
         cursor: pointer;
         flex-shrink: 0;
+        touch-action: none;
         -webkit-tap-highlight-color: transparent;
     }
     #player-card .drag-handle {
         display: block;
-        width: 2.15rem;
-        height: 0.28rem;
+        width: 2.65rem;
+        height: 0.34rem;
         border-radius: 999px;
-        background: color-mix(in srgb, var(--ink) 22%, transparent);
+        background: color-mix(in srgb, var(--ink) 32%, transparent);
+    }
+    /* Waveform contrast on cream player */
+    #player-card #waveform-bg,
+    #player-card .waveform-layer--bg {
+        color: color-mix(in srgb, var(--well-ink) 30%, transparent) !important;
+    }
+    #player-card #waveform-buffered,
+    #player-card .waveform-layer--buf {
+        color: color-mix(in srgb, var(--well-ink) 48%, transparent) !important;
+    }
+    #player-card #waveform-active,
+    #player-card .waveform-layer--act {
+        color: var(--well-peach) !important;
+    }
+    #player-card .player-wave-block {
+        height: 2.45rem !important;
+        margin: 0 !important;
+        flex-shrink: 0;
+        touch-action: none;
     }
     #player-card .player-desktop-only {
         display: none !important;
@@ -567,12 +590,6 @@
     #player-card .player-more-btn i {
         color: #fff !important;
     }
-    /* Waveform always on */
-    #player-card .player-wave-block {
-        height: 2.15rem !important;
-        margin: 0 !important;
-        flex-shrink: 0;
-    }
     /* Description: swipe-up only */
     #player-card .player-expand-panel {
         max-height: 0;
@@ -624,6 +641,13 @@
         border-radius: 0 0 1rem 1rem;
         overflow: hidden;
     }
+    body.dock-view-details #details-modal-content.details-in-dock .details-gallery.details-gallery--empty {
+        display: none !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+    }
     body.dock-view-details #details-modal-content.details-in-dock .details-gallery__img {
         object-fit: cover;
         object-position: center;
@@ -636,12 +660,17 @@
     body.dock-view-details #details-modal-content.details-in-dock #details-title,
     body.dock-view-details #details-modal-content.details-in-dock #details-filename,
     body.dock-view-details #details-modal-content.details-in-dock #details-description {
-        overflow-wrap: anywhere;
-        word-break: break-word;
+        overflow-wrap: break-word;
+        word-break: normal;
         min-width: 0;
+    }
+    body.dock-view-details #details-modal-content.details-in-dock .grid.grid-cols-2 {
+        grid-template-columns: 1fr 1fr;
+        column-gap: 0.75rem;
     }
     body.dock-view-details #details-modal-content.details-in-dock .meta-group {
         min-width: 0;
+        max-width: 100%;
     }
     .details-more-btn {
         display: inline-flex;
@@ -674,11 +703,7 @@
     /* —— Record / trim stages —— */
     #mobile-record-overlay {
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        /* End above peach dock — never cover bottom nav */
-        bottom: var(--mobile-fs-bottom);
+        inset: 0;
         z-index: 220;
         display: flex;
         flex-direction: column;
@@ -686,6 +711,7 @@
         justify-content: flex-end;
         gap: 0;
         padding: 0;
+        padding-bottom: var(--mobile-fs-bottom);
         background: color-mix(in srgb, var(--well-ink) 48%, transparent);
         pointer-events: auto;
     }
@@ -982,6 +1008,79 @@
     #publish-btn {
         border-radius: 999px !important;
         box-shadow: var(--well-shadow) !important;
+    }
+
+    /* Compact toast below top map chrome */
+    #toast-message {
+        top: calc(var(--sat, env(safe-area-inset-top, 0px)) + 4.15rem) !important;
+        padding: 0.3rem 0.65rem !important;
+        max-width: min(82vw, 17.5rem) !important;
+        background: var(--well-white) !important;
+        border: 1px solid color-mix(in srgb, var(--well-peach) 45%, transparent) !important;
+        box-shadow: var(--well-shadow) !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+    #toast-message .toast-text,
+    #toast-message #toast-text {
+        font-size: 0.7rem !important;
+        font-weight: 650 !important;
+        line-height: 1.25 !important;
+    }
+    #toast-message .toast-icon {
+        font-size: 0.72rem !important;
+    }
+
+    /* Add-sound modal: no horizontal scroll; slightly tighter */
+    #add-modal.app-modal-overlay,
+    #add-modal {
+        overflow-x: hidden !important;
+    }
+    #add-modal-content {
+        overflow-x: hidden !important;
+        max-width: 100vw !important;
+    }
+    #add-modal-content > .px-6 {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+    #add-modal-content > .p-6 {
+        padding: 1rem !important;
+        gap: 1.15rem !important;
+        overflow-x: hidden !important;
+    }
+    #add-modal-content .modal-input,
+    #add-modal-content select.modal-input,
+    #add-modal-content textarea.modal-input {
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    #add-modal-content .file-xfer__name,
+    #add-modal-content #add-file-name {
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
+    #add-modal-content .space-y-3.p-4,
+    #add-modal-content .bg-white.p-4 {
+        padding: 0.85rem !important;
+    }
+    #add-modal-content .grid {
+        max-width: 100%;
+    }
+
+    /* CtxPopup: no sticky hover wash over the player on touch */
+    #ctx-popup-menu {
+        z-index: 260 !important;
+        max-width: min(14rem, calc(100vw - 1.5rem));
+    }
+    #ctx-popup-menu button:hover {
+        background: transparent !important;
+    }
+    @media (hover: hover) and (pointer: fine) {
+        #ctx-popup-menu button:hover {
+            background: color-mix(in srgb, var(--well-cream-deep) 80%, transparent) !important;
+        }
     }
 
     @media (prefers-reduced-motion: reduce) {

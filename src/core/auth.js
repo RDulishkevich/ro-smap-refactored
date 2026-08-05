@@ -1725,35 +1725,48 @@ export function initAuth() {
             window.showToast('Выберите изображение');
             return;
         }
-        window.showToast('Загрузка фото...');
-        try {
-            const blob = window.compressImageFile
-                ? await window.compressImageFile(file, 720, 0.82)
-                : file;
-            const url = await window.uploadUserMedia(
-                blob,
-                `avatar_${Date.now()}.jpg`,
-                'image/jpeg'
-            );
-            const avatar = document.getElementById('cabinet-avatar');
-            const fallback = document.getElementById('cabinet-avatar-fallback');
-            if (avatar) {
-                avatar.src = url;
-                avatar.classList.remove('hidden');
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            if (!window.openImageCropModal) {
+                window.showToast('Кадрирование недоступно');
+                return;
             }
-            if (fallback) fallback.classList.add('hidden');
-            const ok = await window.saveMyProfile({ avatar: url });
-            if (ok) {
-                if (window.evaluateFieldProgress) window.evaluateFieldProgress();
-                if (window.refreshProfileButtonAvatar) window.refreshProfileButtonAvatar();
-                window.showToast('Фото профиля обновлено');
-            } else {
-                window.showToast('Не удалось сохранить фото профиля');
-            }
-        } catch (err) {
-            console.error(err);
-            window.showToast(err.message || 'Не удалось загрузить фото');
-        }
+            window.openImageCropModal(e.target.result, async (croppedDataUrl) => {
+                window.showToast('Загрузка фото...');
+                try {
+                    const blob = await (await fetch(croppedDataUrl)).blob();
+                    const ready = window.compressImageFile
+                        ? await window.compressImageFile(blob, 720, 0.82)
+                        : blob;
+                    const url = await window.uploadUserMedia(
+                        ready,
+                        `avatar_${Date.now()}.jpg`,
+                        'image/jpeg'
+                    );
+                    const avatar = document.getElementById('cabinet-avatar');
+                    const fallback = document.getElementById('cabinet-avatar-fallback');
+                    if (avatar) {
+                        avatar.src = url;
+                        avatar.classList.remove('hidden');
+                    }
+                    if (fallback) fallback.classList.add('hidden');
+                    const ok = await window.saveMyProfile({ avatar: url });
+                    if (ok) {
+                        if (window.evaluateFieldProgress) window.evaluateFieldProgress();
+                        if (window.refreshProfileButtonAvatar) window.refreshProfileButtonAvatar();
+                        window.showToast('Фото профиля обновлено');
+                    } else {
+                        window.showToast('Не удалось сохранить фото профиля');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    window.showToast(err.message || 'Не удалось загрузить фото');
+                }
+            });
+        };
+        reader.readAsDataURL(file);
+        const input = document.getElementById('avatar-input');
+        if (input) input.value = '';
     };
 
     window.changePassword = async function() {

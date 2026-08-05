@@ -1417,6 +1417,14 @@ html.dark .glass-seg__btn.is-active,
     flex-shrink: 0;
     background: #e2e8f0;
 }
+.details-gallery.details-gallery--empty {
+    display: none !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
+}
 @media (min-width: 768px) {
     .details-gallery { height: 11rem; }
 }
@@ -2037,12 +2045,12 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
         top: 0;
         left: 0;
         right: 0;
-        bottom: var(--mobile-fs-bottom, 5rem);
+        bottom: 0;
         width: auto;
         border-radius: 0;
         max-height: none;
         padding-top: var(--sat);
-        padding-bottom: max(0.75rem, var(--sab));
+        padding-bottom: calc(var(--mobile-fs-bottom, 5rem) + 0.85rem);
         z-index: 200;
     }
     .sidebar-hidden {
@@ -2704,20 +2712,20 @@ html.dark .search-suggestions,
 }
 @media (max-width: 767px) {
     /*
-     * Mobile fullscreen rule (canonical):
-     * primary surfaces fill the viewport except the bottom rail (--mobile-fs-bottom).
-     * Peach dock stays visible and tappable. Confirm dialogs stay compact-centered.
+     * Mobile fullscreen: surfaces fill the viewport (bottom: 0).
+     * Peach dock floats above via z-index; content uses padding-bottom: --mobile-fs-bottom.
+     * Confirm dialogs stay compact-centered.
      */
     #sidebar {
         top: 0;
         left: 0;
         right: 0;
-        bottom: var(--mobile-fs-bottom, 5rem);
+        bottom: 0;
         width: auto;
         border-radius: 0;
         max-height: none;
         padding-top: var(--sat);
-        padding-bottom: max(0.75rem, var(--sab));
+        padding-bottom: calc(var(--mobile-fs-bottom, 5rem) + 0.85rem);
         z-index: 200;
     }
     .sidebar-hidden {
@@ -2733,7 +2741,7 @@ html.dark .search-suggestions,
         top: 0 !important;
         right: 0 !important;
         left: 0 !important;
-        bottom: var(--mobile-fs-bottom, 5rem) !important;
+        bottom: 0 !important;
         height: auto !important;
     }
     #events-sheet {
@@ -2750,8 +2758,9 @@ html.dark .search-suggestions,
         max-height: none !important;
         margin: 0 !important;
         border-radius: 0 !important;
-        padding-bottom: max(1rem, var(--sab)) !important;
+        padding-bottom: calc(var(--mobile-fs-bottom, 5rem) + 0.85rem) !important;
         box-sizing: border-box !important;
+        overflow-x: hidden !important;
     }
     #auth-modal.app-modal-overlay {
         z-index: 210 !important;
@@ -2765,10 +2774,10 @@ html.dark .search-suggestions,
         max-height: none !important;
         margin: 0 !important;
         border-radius: 0 !important;
-        padding-bottom: max(1rem, var(--sab)) !important;
+        padding-bottom: calc(var(--mobile-fs-bottom, 5rem) + 0.85rem) !important;
         box-sizing: border-box !important;
+        overflow-x: hidden !important;
     }
-    /* Surfaces already end above the dock — light scroll padding only */
     #sidebar .custom-scrollbar,
     #events-sheet-body,
     .pp-body,
@@ -3772,7 +3781,7 @@ textarea.modal-input {
 .meta-group { display: flex; flex-direction: column; gap: 4px; }
 .meta-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; display: flex; align-items: center; }
 .meta-label i { margin-right: 6px; font-size: 0.75rem; opacity: 0.8; }
-.meta-value { font-size: 0.85rem; font-weight: 500; color: #334155; word-wrap: break-word; overflow-wrap: anywhere; word-break: break-word; hyphens: auto; min-width: 0; }
+.meta-value { font-size: 0.85rem; font-weight: 500; color: #334155; overflow-wrap: break-word; word-break: normal; hyphens: manual; min-width: 0; }
 .dark .meta-value { color: #cbd5e1; }
 .meta-value--action {
     color: var(--ink, #222);
