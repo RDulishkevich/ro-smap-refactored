@@ -7895,7 +7895,32 @@ window.__mobileRec = {
     blob: null,
     buffer: null,
     trimStart: 0,
-    trimEnd: 1
+    trimEnd: 1,
+    recording: false,
+    armed: false,
+    date: '',
+    time: '',
+    coords: null,
+    geoPending: false,
+    geoWatchId: null,
+    previewCtx: null,
+    previewSource: null,
+    previewPlaying: false,
+    previewRaf: null,
+    previewPos: 0,
+    committing: false
+};
+
+window._emptyMobileRecState = function() {
+    return {
+        stream: null, recorder: null, chunks: [], startedAt: 0, timerId: null,
+        audioCtx: null, analyser: null, sourceNode: null, rafId: null, peaks: [],
+        blob: null, buffer: null, trimStart: 0, trimEnd: 1,
+        recording: false, armed: false, date: '', time: '', coords: null,
+        geoPending: false, geoWatchId: null,
+        previewCtx: null, previewSource: null, previewPlaying: false,
+        previewRaf: null, previewPos: 0, committing: false
+    };
 };
 
 window._formatMobileRecTime = function(ms) {
@@ -7919,6 +7944,109 @@ window._setMobileRecStage = function(stage) {
     if (trim) trim.classList.toggle('hidden', stage !== 'trim');
 };
 
+window._setMobileRecRecordingUi = function(isRecording) {
+    const overlay = document.getElementById('mobile-record-overlay');
+    const startBtn = document.getElementById('mobile-record-start');
+    const stopBtn = document.getElementById('mobile-record-stop');
+    const hint = document.getElementById('mobile-rec-hint');
+    if (overlay) overlay.classList.toggle('is-recording', !!isRecording);
+    if (startBtn) startBtn.classList.toggle('hidden', !!isRecording);
+    if (stopBtn) stopBtn.classList.toggle('hidden', !isRecording);
+    if (hint) {
+        hint.textContent = isRecording
+            ? 'Идёт запись · нажмите «Стоп», когда закончите'
+            : 'Проверьте уровень · нажмите «Запись», когда будете готовы';
+    }
+};
+
+window._getMapCenterCoords = function() {
+    try {
+        if (window.mapboxMap && window.isMapLibreProvider && window.isMapLibreProvider(window.currentMapProvider)) {
+            const c = window.mapboxMap.getCenter();
+            if (c && Number.isFinite(c.lat) && Number.isFinite(c.lng)) return [c.lat, c.lng];
+        }
+        if (window.map && typeof window.map.getCenter === 'function') {
+            const c = window.map.getCenter();
+            if (Array.isArray(c) && c.length >= 2) return [Number(c[0]), Number(c[1])];
+        }
+    } catch (_) {}
+    return null;
+};
+
+window._updateMobileRecMetaUi = function() {
+    const rec = window.__mobileRec || {};
+    const timeText = rec.time
+        ? `${rec.date || ''} · ${rec.time}`.replace(/^\s·\s/, '').trim()
+        : '—';
+    let geoText = 'Гео…';
+    if (rec.coords && Number.isFinite(rec.coords[0]) && Number.isFinite(rec.coords[1])) {
+        geoText = `${Number(rec.coords[0]).toFixed(4)}, ${Number(rec.coords[1]).toFixed(4)}`;
+    } else if (!rec.geoPending) {
+        geoText = 'Гео недоступно';
+    }
+    const pairs = [
+        ['mobile-rec-meta-time', 'icon-clock', timeText],
+        ['mobile-rec-meta-time-review', 'icon-clock', timeText],
+        ['mobile-rec-meta-geo', 'icon-location', geoText],
+        ['mobile-rec-meta-geo-review', 'icon-location', geoText]
+    ];
+    pairs.forEach(([id, icon, text]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.innerHTML = `<i class="${icon}" aria-hidden="true"></i> ${String(text)}`;
+    });
+};
+
+window._captureMobileRecContext = function(opts = {}) {
+    const rec = window.__mobileRec || (window.__mobileRec = window._emptyMobileRecState());
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    rec.date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    rec.time = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const keepCoords = !!(opts.keepCoords && rec.coords);
+    if (!keepCoords) {
+        rec.coords = null;
+        rec.geoPending = true;
+    }
+    window._updateMobileRecMetaUi();
+
+    if (keepCoords) return;
+
+    if (rec.geoWatchId != null && navigator.geolocation?.clearWatch) {
+        try { navigator.geolocation.clearWatch(rec.geoWatchId); } catch (_) {}
+        rec.geoWatchId = null;
+    }
+
+    const applyCoords = (lat, lng) => {
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        rec.coords = [lat, lng];
+        rec.geoPending = false;
+        window._updateMobileRecMetaUi();
+    };
+
+    if (navigator.geolocation?.getCurrentPosition) {
+        navigator.geolocation.getCurrentPosition(
+            (pos) => applyCoords(pos.coords.latitude, pos.coords.longitude),
+            () => {
+                const fallback = window._getMapCenterCoords();
+                if (fallback) applyCoords(fallback[0], fallback[1]);
+                else {
+                    rec.geoPending = false;
+                    window._updateMobileRecMetaUi();
+                }
+            },
+            { enableHighAccuracy: true, timeout: 14000, maximumAge: 20000 }
+        );
+    } else {
+        const fallback = window._getMapCenterCoords();
+        if (fallback) applyCoords(fallback[0], fallback[1]);
+        else {
+            rec.geoPending = false;
+            window._updateMobileRecMetaUi();
+        }
+    }
+};
+
 window._stopMobileRecMonitor = function() {
     const rec = window.__mobileRec || {};
     if (rec.rafId) {
@@ -7931,6 +8059,29 @@ window._stopMobileRecMonitor = function() {
     rec.sourceNode = null;
     rec.analyser = null;
     rec.audioCtx = null;
+};
+
+window._stopMobileRecPreview = function() {
+    const rec = window.__mobileRec || {};
+    if (rec.previewRaf) {
+        cancelAnimationFrame(rec.previewRaf);
+        rec.previewRaf = null;
+    }
+    try { if (rec.previewSource) rec.previewSource.stop(); } catch (_) {}
+    try { if (rec.previewSource) rec.previewSource.disconnect(); } catch (_) {}
+    rec.previewSource = null;
+    rec.previewPlaying = false;
+    rec.previewPos = 0;
+    const btn = document.getElementById('mobile-rec-play');
+    const icon = document.getElementById('mobile-rec-play-icon');
+    const timeEl = document.getElementById('mobile-rec-play-time');
+    if (btn) btn.classList.remove('is-playing');
+    if (icon) {
+        icon.classList.remove('icon-pause');
+        icon.classList.add('icon-play');
+    }
+    if (timeEl) timeEl.textContent = '0:00';
+    window._drawMobileRecTrimWave();
 };
 
 window._drawMobileRecLive = function() {
@@ -7966,7 +8117,6 @@ window._drawMobileRecLive = function() {
         bar.classList.toggle('is-hot', dbClamped > -6);
     }
 
-    /* Rolling peak history for a scrolling live waveform */
     if (!Array.isArray(rec.peaks)) rec.peaks = [];
     rec.peaks.push(peak);
     const maxBars = Math.floor(w / 3);
@@ -7976,7 +8126,7 @@ window._drawMobileRecLive = function() {
     ctx.fillStyle = '#FFFFFF';
     ctx.fillRect(0, 0, w, h);
     const mid = h / 2;
-    ctx.fillStyle = '#FBAB57';
+    ctx.fillStyle = rec.recording ? '#FBAB57' : '#D6C4B0';
     const bars = rec.peaks;
     const barW = Math.max(2, w / Math.max(bars.length, 1) - 1);
     for (let i = 0; i < bars.length; i++) {
@@ -8019,12 +8169,17 @@ window._drawMobileRecTrimWave = function() {
         ctx.fillRect(x, y1, 1, Math.max(1, y2 - y1));
     }
 
-    /* Selected region highlight */
     ctx.fillStyle = 'rgba(251, 171, 87, 0.28)';
     ctx.fillRect(start * w, 0, (end - start) * w, h);
     ctx.fillStyle = '#222222';
     ctx.fillRect(start * w, 0, 2, h);
     ctx.fillRect(end * w - 2, 0, 2, h);
+
+    if (rec.previewPlaying && rec.buffer.duration) {
+        const ratio = Math.max(start, Math.min(end, rec.previewPos / rec.buffer.duration));
+        ctx.fillStyle = '#FBAB57';
+        ctx.fillRect(ratio * w - 1, 0, 2, h);
+    }
 
     const dur = rec.buffer.duration || 0;
     const fmt = (t) => window._formatMobileRecTime(t * 1000);
@@ -8044,6 +8199,7 @@ window._bindMobileRecTrimInputs = function() {
     const sync = () => {
         const rec = window.__mobileRec;
         if (!rec) return;
+        window._stopMobileRecPreview();
         let s = Number(startEl.value) / 1000;
         let e = Number(endEl.value) / 1000;
         if (s > e - 0.02) s = Math.max(0, e - 0.02);
@@ -8058,8 +8214,82 @@ window._bindMobileRecTrimInputs = function() {
     endEl.addEventListener('input', sync);
 };
 
+window.toggleMobileRecPreview = async function() {
+    const rec = window.__mobileRec;
+    if (!rec || !rec.buffer) {
+        window.showToast('Нет записи для прослушивания');
+        return;
+    }
+    if (rec.previewPlaying) {
+        window._stopMobileRecPreview();
+        return;
+    }
+
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) {
+        window.showToast('Прослушивание недоступно в этом браузере');
+        return;
+    }
+    try {
+        if (!rec.previewCtx || rec.previewCtx.state === 'closed') {
+            rec.previewCtx = new AC();
+        }
+        if (rec.previewCtx.state === 'suspended') await rec.previewCtx.resume();
+    } catch (err) {
+        console.warn(err);
+        window.showToast('Не удалось начать прослушивание');
+        return;
+    }
+
+    const buf = rec.buffer;
+    const start = Math.max(0, Math.min(1, Number(rec.trimStart) || 0)) * buf.duration;
+    const end = Math.max(start + 0.05, Math.min(buf.duration, Math.max(0, Math.min(1, Number(rec.trimEnd) || 1)) * buf.duration));
+    const dur = Math.max(0.05, end - start);
+    const src = rec.previewCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(rec.previewCtx.destination);
+    rec.previewSource = src;
+    rec.previewPlaying = true;
+    rec.previewPos = start;
+    const startedAt = rec.previewCtx.currentTime;
+    const btn = document.getElementById('mobile-rec-play');
+    const icon = document.getElementById('mobile-rec-play-icon');
+    const timeEl = document.getElementById('mobile-rec-play-time');
+    if (btn) btn.classList.add('is-playing');
+    if (icon) {
+        icon.classList.remove('icon-play');
+        icon.classList.add('icon-pause');
+    }
+
+    const tick = () => {
+        if (!rec.previewPlaying || !rec.previewCtx) return;
+        const t = start + (rec.previewCtx.currentTime - startedAt);
+        rec.previewPos = Math.min(end, t);
+        if (timeEl) timeEl.textContent = window._formatMobileRecTime((rec.previewPos - start) * 1000);
+        window._drawMobileRecTrimWave();
+        if (t < end - 0.01) {
+            rec.previewRaf = requestAnimationFrame(tick);
+        }
+    };
+    src.onended = () => {
+        window._stopMobileRecPreview();
+    };
+    try {
+        src.start(0, start, dur);
+        rec.previewRaf = requestAnimationFrame(tick);
+    } catch (err) {
+        console.warn(err);
+        window._stopMobileRecPreview();
+        window.showToast('Не удалось проиграть запись');
+    }
+};
+
 window.cancelMobileRecord = function() {
     const rec = window.__mobileRec || {};
+    window._stopMobileRecPreview();
+    try {
+        if (rec.previewCtx && rec.previewCtx.state !== 'closed') rec.previewCtx.close();
+    } catch (_) {}
     try {
         if (rec.recorder && rec.recorder.state !== 'inactive') rec.recorder.stop();
     } catch (_) {}
@@ -8068,13 +8298,16 @@ window.cancelMobileRecord = function() {
     if (rec.stream) {
         try { rec.stream.getTracks().forEach((t) => t.stop()); } catch (_) {}
     }
-    window.__mobileRec = {
-        stream: null, recorder: null, chunks: [], startedAt: 0, timerId: null,
-        audioCtx: null, analyser: null, sourceNode: null, rafId: null, peaks: [],
-        blob: null, buffer: null, trimStart: 0, trimEnd: 1
-    };
+    if (rec.geoWatchId != null && navigator.geolocation?.clearWatch) {
+        try { navigator.geolocation.clearWatch(rec.geoWatchId); } catch (_) {}
+    }
+    window.__mobileRec = window._emptyMobileRecState();
     const overlay = document.getElementById('mobile-record-overlay');
-    if (overlay) overlay.classList.add('hidden');
+    if (overlay) {
+        overlay.classList.add('hidden');
+        overlay.classList.remove('is-recording');
+    }
+    window._setMobileRecRecordingUi(false);
     window._setMobileRecStage('record');
 };
 
@@ -8106,6 +8339,8 @@ window.stopMobileRecord = function() {
         rec.recorder = null;
         rec.chunks = [];
         rec.timerId = null;
+        rec.recording = false;
+        window._setMobileRecRecordingUi(false);
 
         if (!blob.size) {
             window.showToast('Запись пустая — попробуйте ещё раз');
@@ -8119,7 +8354,6 @@ window.stopMobileRecord = function() {
             rec.buffer = await window.decodeAudioFile(blob);
         } catch (err) {
             console.warn(err);
-            /* Fallback: skip trim UI, open add form with raw blob */
             await window._finishMobileRecordWithoutTrim(blob, mime);
             return;
         }
@@ -8131,77 +8365,190 @@ window.stopMobileRecord = function() {
         if (endEl) endEl.value = '1000';
         window._bindMobileRecTrimInputs();
         window._setMobileRecStage('trim');
+        window._updateMobileRecMetaUi();
         window._drawMobileRecTrimWave();
+        const playRow = document.querySelector('.mobile-rec-preview-row');
+        if (playRow) playRow.classList.remove('hidden');
+        const playTime = document.getElementById('mobile-rec-play-time');
+        if (playTime) playTime.textContent = '0:00';
     };
     try { rec.recorder.stop(); } catch (_) { window.cancelMobileRecord(); }
 };
 
-window._finishMobileRecordWithoutTrim = async function(blob, mime) {
-    const overlay = document.getElementById('mobile-record-overlay');
-    if (overlay) overlay.classList.add('hidden');
-    window._setMobileRecStage('record');
-    const ext = (mime || '').includes('mp4') ? 'm4a' : (mime || '').includes('ogg') ? 'ogg' : 'webm';
-    const file = new File([blob], `polevka-record-${Date.now()}.${ext}`, { type: mime || 'audio/webm' });
-    window.__mobileRec = {
-        stream: null, recorder: null, chunks: [], startedAt: 0, timerId: null,
-        audioCtx: null, analyser: null, sourceNode: null, rafId: null, peaks: [],
-        blob: null, buffer: null, trimStart: 0, trimEnd: 1
-    };
-    if (window.toggleAddModal) window.toggleAddModal();
-    if (window.handleAudioFiles) await window.handleAudioFiles([file]);
-    if (window.showToast) window.showToast('Запись добавлена — заполните карточку');
-};
-
-window.confirmMobileRecordTrim = async function() {
+window._buildMobileRecWavFile = async function() {
     const rec = window.__mobileRec;
-    if (!rec || !rec.buffer) {
-        window.showToast('Нет записи для обрезки');
-        return;
-    }
-    const start = Math.max(0, Math.min(1, Number(rec.trimStart) || 0));
-    const end = Math.max(start + 0.01, Math.min(1, Number(rec.trimEnd) || 1));
-    const buf = rec.buffer;
-    const sr = buf.sampleRate;
-    const i0 = Math.floor(start * buf.length);
-    const i1 = Math.floor(end * buf.length);
-    const len = Math.max(1, i1 - i0);
-
-    let out;
-    try {
+    if (!rec) throw new Error('no_rec');
+    if (rec.buffer && window.audioBufferToWav) {
+        const start = Math.max(0, Math.min(1, Number(rec.trimStart) || 0));
+        const end = Math.max(start + 0.01, Math.min(1, Number(rec.trimEnd) || 1));
+        const buf = rec.buffer;
+        const sr = buf.sampleRate;
+        const i0 = Math.floor(start * buf.length);
+        const i1 = Math.floor(end * buf.length);
+        const len = Math.max(1, i1 - i0);
         const AC = window.AudioContext || window.webkitAudioContext;
         const tmp = new AC();
-        out = tmp.createBuffer(buf.numberOfChannels, len, sr);
+        const out = tmp.createBuffer(buf.numberOfChannels, len, sr);
         try { tmp.close(); } catch (_) {}
         for (let c = 0; c < buf.numberOfChannels; c++) {
             out.getChannelData(c).set(buf.getChannelData(c).subarray(i0, i1));
         }
+        const wavBuf = window.audioBufferToWav(out, { bitDepth: 24 });
+        return new File([wavBuf], `polevka-record-${Date.now()}.wav`, { type: 'audio/wav' });
+    }
+    if (rec.blob) {
+        const mime = rec.blob.type || 'audio/webm';
+        const ext = mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : 'webm';
+        return new File([rec.blob], `polevka-record-${Date.now()}.${ext}`, { type: mime });
+    }
+    throw new Error('no_audio');
+};
+
+window._waitMobileRecCoords = async function(timeoutMs = 2500) {
+    const rec = window.__mobileRec || {};
+    if (rec.coords) return rec.coords;
+    const started = Date.now();
+    while (Date.now() - started < timeoutMs) {
+        if (rec.coords) return rec.coords;
+        await new Promise((r) => setTimeout(r, 120));
+    }
+    const fallback = window._getMapCenterCoords();
+    if (fallback) {
+        rec.coords = fallback;
+        rec.geoPending = false;
+        window._updateMobileRecMetaUi();
+        return fallback;
+    }
+    return null;
+};
+
+window._prepareMobileRecAddForm = async function(file) {
+    const rec = window.__mobileRec || {};
+    const coords = await window._waitMobileRecCoords();
+    window.resetAddModalToCreateMode();
+    if (window.handleAudioFiles) await window.handleAudioFiles([file]);
+
+    const title = `Запись ${rec.time || ''}`.trim() || 'Запись';
+    const setVal = (id, v) => {
+        const el = document.getElementById(id);
+        if (el) el.value = v ?? '';
+    };
+    setVal('add-display-title', title);
+    setVal('add-user-defined', `Field_Recording_${(rec.time || 'now').replace(':', '')}`);
+    window.__fxNameManual = true;
+    const fxEl = document.getElementById('add-user-defined');
+    if (fxEl) fxEl.dataset.auto = '0';
+    setVal('add-date', rec.date || new Date().toISOString().slice(0, 10));
+    setVal('add-time', rec.time || '');
+    setVal('add-desc', 'Быстрая запись с телефона');
+    setVal('add-recorder', 'Smartphone');
+    setVal('add-mic', 'Built-in');
+    if (coords) {
+        window.tempAddCoords = coords;
+        setVal('add-coords', `${Number(coords[0]).toFixed(5)}, ${Number(coords[1]).toFixed(5)}`);
+    }
+    if (window.generateUCSFileName) window.generateUCSFileName();
+    return { coords, title };
+};
+
+window._finishMobileRecordWithoutTrim = async function(blob, mime) {
+    const rec = window.__mobileRec || {};
+    rec.blob = blob;
+    rec.buffer = null;
+    window._setMobileRecStage('trim');
+    window._updateMobileRecMetaUi();
+    const playRow = document.querySelector('.mobile-rec-preview-row');
+    if (playRow) playRow.classList.add('hidden');
+    window.showToast('Обрезка недоступна — можно сохранить как есть');
+};
+
+window.confirmMobileRecordTrim = async function() {
+    /* Legacy alias — open full editor after trim. */
+    return window.openMobileRecordInEditor();
+};
+
+window.openMobileRecordInEditor = async function() {
+    const rec = window.__mobileRec;
+    if (!rec || (!rec.buffer && !rec.blob)) {
+        window.showToast('Нет записи');
+        return;
+    }
+    window._stopMobileRecPreview();
+    let file;
+    try {
+        file = await window._buildMobileRecWavFile();
     } catch (err) {
         console.warn(err);
-        window.showToast('Не удалось обрезать запись');
+        window.showToast('Не удалось подготовить файл');
         return;
     }
-
-    if (!window.audioBufferToWav) {
-        window.showToast('Конвертер WAV недоступен');
-        return;
-    }
-    const wavBuf = window.audioBufferToWav(out, { bitDepth: 24 });
-    const file = new File([wavBuf], `polevka-record-${Date.now()}.wav`, { type: 'audio/wav' });
-
+    const coords = await window._waitMobileRecCoords(1200);
     const overlay = document.getElementById('mobile-record-overlay');
     if (overlay) overlay.classList.add('hidden');
     window._setMobileRecStage('record');
-    window.__mobileRec = {
-        stream: null, recorder: null, chunks: [], startedAt: 0, timerId: null,
-        audioCtx: null, analyser: null, sourceNode: null, rafId: null, peaks: [],
-        blob: null, buffer: null, trimStart: 0, trimEnd: 1
-    };
 
-    if (window.toggleAddModal) window.toggleAddModal();
+    const savedMeta = {
+        date: rec.date,
+        time: rec.time,
+        coords: coords || rec.coords
+    };
+    window.__mobileRec = window._emptyMobileRecState();
+
+    if (window.toggleAddModal) window.toggleAddModal(false, savedMeta.coords || null);
     if (window.handleAudioFiles) await window.handleAudioFiles([file]);
-    if (window.showToast) window.showToast('Запись готова — заполните карточку');
+    const setVal = (id, v) => {
+        const el = document.getElementById(id);
+        if (el && v) el.value = v;
+    };
+    setVal('add-date', savedMeta.date);
+    setVal('add-time', savedMeta.time);
+    if (savedMeta.coords) {
+        window.tempAddCoords = savedMeta.coords;
+        setVal('add-coords', `${Number(savedMeta.coords[0]).toFixed(5)}, ${Number(savedMeta.coords[1]).toFixed(5)}`);
+    }
+    setVal('add-display-title', `Запись ${savedMeta.time || ''}`.trim());
+    setVal('add-recorder', 'Smartphone');
+    setVal('add-mic', 'Built-in');
+    if (window.generateUCSFileName) window.generateUCSFileName();
+    if (window.showToast) window.showToast('Запись готова — дополните карточку при желании');
 };
 
+window.commitMobileRecord = async function(targetStatus = 'pending') {
+    const rec = window.__mobileRec;
+    if (!rec || rec.committing) return;
+    if (!rec.buffer && !rec.blob) {
+        window.showToast('Нет записи для сохранения');
+        return;
+    }
+    window._stopMobileRecPreview();
+    rec.committing = true;
+    const status = targetStatus === 'draft' ? 'draft' : 'pending';
+    try {
+        const file = await window._buildMobileRecWavFile();
+        const prepared = await window._prepareMobileRecAddForm(file);
+        if (!prepared.coords) {
+            rec.committing = false;
+            window.showToast('Нужна точка — откройте карточку и отметьте место');
+            await window.openMobileRecordInEditor();
+            return;
+        }
+        const overlay = document.getElementById('mobile-record-overlay');
+        if (overlay) overlay.classList.add('hidden');
+        window.__mobileRec = window._emptyMobileRecState();
+        if (window.publishSound) await window.publishSound(status);
+    } catch (err) {
+        console.warn(err);
+        window.showToast(err?.message || 'Не удалось сохранить запись');
+        if (window.__mobileRec) window.__mobileRec.committing = false;
+        /* Form still holds the file — open card so the user can retry */
+        if (window.toggleAddModal) {
+            const m = document.getElementById('add-modal');
+            if (m && m.classList.contains('hidden')) window.toggleAddModal(false, null, true);
+        }
+    }
+};
+
+/** Open recorder UI and arm the mic (does not start capturing until «Запись»). */
 window.startMobileRecord = async function() {
     if (window.innerWidth >= 768) {
         if (window.toggleAddModal) window.toggleAddModal();
@@ -8231,32 +8578,6 @@ window.startMobileRecord = async function() {
         window.showToast('Нет доступа к микрофону');
         return;
     }
-    const candidates = [
-        'audio/webm;codecs=opus',
-        'audio/webm',
-        'audio/mp4',
-        'audio/ogg;codecs=opus'
-    ];
-    let mime = '';
-    for (const c of candidates) {
-        if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) {
-            mime = c;
-            break;
-        }
-    }
-    let recorder;
-    try {
-        recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
-    } catch (err) {
-        console.warn(err);
-        stream.getTracks().forEach((t) => t.stop());
-        window.showToast('Не удалось начать запись');
-        return;
-    }
-    const chunks = [];
-    recorder.ondataavailable = (e) => {
-        if (e.data && e.data.size) chunks.push(e.data);
-    };
 
     let audioCtx = null;
     let analyser = null;
@@ -8275,21 +8596,15 @@ window.startMobileRecord = async function() {
     }
 
     window.__mobileRec = {
+        ...window._emptyMobileRecState(),
         stream,
-        recorder,
-        chunks,
-        startedAt: Date.now(),
-        timerId: setInterval(() => window._tickMobileRecTimer(), 250),
         audioCtx,
         analyser,
         sourceNode,
-        rafId: null,
-        peaks: [],
-        blob: null,
-        buffer: null,
-        trimStart: 0,
-        trimEnd: 1
+        armed: true,
+        peaks: []
     };
+    window._captureMobileRecContext();
 
     const overlay = document.getElementById('mobile-record-overlay');
     const timer = document.getElementById('mobile-record-timer');
@@ -8299,9 +8614,58 @@ window.startMobileRecord = async function() {
     if (dbEl) dbEl.textContent = '−∞ dB';
     if (bar) { bar.style.width = '0%'; bar.classList.remove('is-hot'); }
     window._setMobileRecStage('record');
+    window._setMobileRecRecordingUi(false);
     if (overlay) overlay.classList.remove('hidden');
-
     if (analyser) window._drawMobileRecLive();
+};
+
+/** Start MediaRecorder after the user presses «Запись». */
+window.beginMobileRecording = async function() {
+    const rec = window.__mobileRec;
+    if (!rec || !rec.stream) {
+        window.showToast('Микрофон не готов');
+        return;
+    }
+    if (rec.recording) return;
+
+    const candidates = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus'
+    ];
+    let mime = '';
+    for (const c of candidates) {
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) {
+            mime = c;
+            break;
+        }
+    }
+    let recorder;
+    try {
+        recorder = mime ? new MediaRecorder(rec.stream, { mimeType: mime }) : new MediaRecorder(rec.stream);
+    } catch (err) {
+        console.warn(err);
+        window.showToast('Не удалось начать запись');
+        return;
+    }
+
+    /* Refresh timestamp at the moment capture actually starts; keep geo if already fixed */
+    window._captureMobileRecContext({ keepCoords: true });
+
+    const chunks = [];
+    recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size) chunks.push(e.data);
+    };
+    rec.recorder = recorder;
+    rec.chunks = chunks;
+    rec.startedAt = Date.now();
+    rec.recording = true;
+    if (rec.timerId) clearInterval(rec.timerId);
+    rec.timerId = setInterval(() => window._tickMobileRecTimer(), 250);
+    window._setMobileRecRecordingUi(true);
+    const timer = document.getElementById('mobile-record-timer');
+    if (timer) timer.textContent = '0:00';
 
     try {
         recorder.start(250);

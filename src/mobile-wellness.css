@@ -771,7 +771,92 @@
         margin-top: 0.25rem;
     }
     .mobile-record__actions .ds-btn {
-        min-width: 7.5rem;
+        flex: 1;
+        min-width: 0;
+        min-height: 2.85rem;
+    }
+    .mobile-record__actions--triple {
+        flex-wrap: wrap;
+    }
+    .mobile-record__actions--triple .ds-btn {
+        flex: 1 1 calc(33% - 0.5rem);
+        min-width: 5.5rem;
+    }
+    .mobile-rec-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem 0.75rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--ink-muted);
+    }
+    .mobile-rec-meta span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        min-width: 0;
+    }
+    .mobile-rec-meta i {
+        font-size: 0.85rem;
+        color: var(--well-peach);
+    }
+    .mobile-rec-preview-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .mobile-rec-play {
+        width: 2.85rem;
+        height: 2.85rem;
+        border-radius: 999px;
+        border: none;
+        background: var(--well-ink);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .mobile-rec-play i {
+        color: #fff;
+        font-size: 1rem;
+        margin-left: 0.1rem;
+    }
+    .mobile-rec-play.is-playing i {
+        margin-left: 0;
+    }
+    .mobile-rec-play-time {
+        font-size: 0.9rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: var(--well-ink);
+    }
+    .mobile-rec-editor-link {
+        border: none;
+        background: transparent;
+        color: var(--ink-muted);
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-decoration: underline;
+        text-underline-offset: 0.15em;
+        padding: 0.15rem;
+        cursor: pointer;
+        align-self: center;
+    }
+    #mobile-record-overlay.is-recording #mobile-record-title::after {
+        content: '';
+        display: inline-block;
+        width: 0.45rem;
+        height: 0.45rem;
+        margin-left: 0.45rem;
+        border-radius: 50%;
+        background: #963417;
+        vertical-align: middle;
+        animation: mobile-rec-pulse 1s ease infinite;
+    }
+    @keyframes mobile-rec-pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.45; transform: scale(0.85); }
     }
 
     /* —— Modals: soft top sheet feel, cream —— */
