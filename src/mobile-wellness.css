@@ -566,15 +566,26 @@
     #player-card .player-title {
         font-size: 0.84rem !important;
         font-weight: 700;
-        line-height: 1.2;
+        line-height: 1.25 !important;
         color: var(--well-ink) !important;
         cursor: pointer;
         margin: 0;
-        display: block !important;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
+        width: 100%;
         max-width: 100%;
+        white-space: normal !important;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        overflow: hidden !important;
+        display: -webkit-box !important;
+        -webkit-box-orient: vertical !important;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        max-height: calc(1.25em * 2);
+        text-overflow: unset;
+    }
+    #player-card .player-main-meta {
+        min-width: 0;
+        overflow: hidden;
     }
     #player-card .player-main-sub {
         display: flex;
