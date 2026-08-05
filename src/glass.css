@@ -41,22 +41,25 @@
     --panel-shadow: var(--glass-elev);
     --control-rim: 2px solid var(--ink);
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    /* App type scale (product chrome — not marketing display) */
-    --text-caption: 0.75rem;
+    /* App type scale — Geologica UI · Klukva brand */
+    --text-caption: 0.6875rem;
     --text-body-sm: 0.8125rem;
-    --text-body: 0.9375rem;
-    --text-subheading: 1.125rem;
-    --text-heading-sm: 1.35rem;
-    --text-heading: 1.75rem;
-    --leading-tight: 0.95;
-    --leading-ui: 1.3;
+    --text-body: 1rem;
+    --text-subheading: 1.25rem;
+    --text-heading-sm: 1.5rem;
+    --text-heading: 2rem;
+    --text-display: 2.5rem;
+    --leading-tight: 1.05;
+    --leading-ui: 1.35;
+    --leading-body: 1.5;
     --tracking-brand: -0.02em;
+    --tracking-eyebrow: 0.1em;
     /* Soft cream radii — keep in sync with style.css */
-    --radius-sm: 0.625rem;
-    --radius-md: 0.875rem;
-    --radius-lg: 1.125rem;
-    --radius-xl: 1.375rem;
-    --radius-2xl: 1.625rem;
+    --radius-sm: 0.75rem;
+    --radius-md: 1rem;
+    --radius-lg: 1.5rem;
+    --radius-xl: 1.75rem;
+    --radius-2xl: 2rem;
     --radius-tag: 0.5rem;
     --radius-pill: 999px;
     --dur: 180ms;

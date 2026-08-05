@@ -7404,7 +7404,8 @@ window.syncMobileNavActive = function(nav) {
     if (!root) return;
     const id = nav || 'map';
     root.querySelectorAll('[data-nav]').forEach((btn) => {
-        btn.classList.toggle('is-active', btn.getAttribute('data-nav') === id);
+        /* Map is the default listen surface — no tab stays lit */
+        btn.classList.toggle('is-active', id !== 'map' && btn.getAttribute('data-nav') === id);
     });
 };
 
@@ -7421,6 +7422,17 @@ window.mobileNavGo = async function(dest) {
     if (authOpen && window.dismissAuthModalForNavigation) {
         const ok = await window.dismissAuthModalForNavigation();
         if (ok === false) return;
+    }
+
+    /* Re-tap active section → back to map (no dedicated Map tab; + is Add) */
+    const activeBtn = document.querySelector('#mobile-bottom-nav .mobile-nav-btn.is-active');
+    const activeNav = activeBtn && activeBtn.getAttribute('data-nav');
+    if (activeNav && activeNav === target && target !== 'map') {
+        if (window.closeEventsSheet) window.closeEventsSheet();
+        if (window.hideDockPanel) window.hideDockPanel();
+        if (window.closeCabinet) window.closeCabinet();
+        window.syncMobileNavActive('map');
+        return;
     }
 
     if (target === 'map') {

@@ -47,8 +47,8 @@ Source: Wispr Flow style reference (`Downloads/Design/1`). Mobile chrome metrics
 | UI / body / buttons | Figtree | **Geologica** — all interactive chrome |
 | Marketing display 48–120px | Garamond | Landing only later — **not** in map chrome |
 
-Product type scale (app, not broadsheet):  
-`--text-caption` 12 · `--text-body-sm` 13 · `--text-body` 15 · `--text-subheading` 18 · `--text-heading-sm` 22 · `--text-heading` 28 · `--leading-ui` 1.3 · `--leading-tight` 0.95
+Product type scale (app):  
+`--text-caption` 11 · `--text-body-sm` 13 · `--text-body` 16 · `--text-subheading` 20 · `--text-heading-sm` 24 · `--text-heading` 32 · `--text-display` 40 · eyebrow tracking `--tracking-eyebrow`
 
 ### Structure map (Wispr recipes → our classes)
 
@@ -107,8 +107,8 @@ Utilities: `.mobile-grid-4`, `.mobile-pad-x`.
 | `#map-top-toolbar` | Search + active filter chips |
 | `#map-top-right-controls` | Events (both); messages/notifications on mobile after login |
 | `#player-card` | Compact playback + `.wave-pill` live indicator |
-| `#fab-add` | Add sound only (Guessr → Help FAQ) |
-| `#mobile-bottom-nav` | Peach bar + soft/accent SVG wave lip |
+| `#fab-add` | Desktop: add sound. Mobile: center white FAB in bottom nav |
+| `#mobile-bottom-nav` | Peach wave bar · icons · elevated white **+** · re-tap section → map |
 
 ## Color tokens (resolved)
 
@@ -126,18 +126,33 @@ Utilities: `.mobile-grid-4`, `.mobile-pad-x`.
 | Muted | `#6b5340` | `#b8a894` | Secondary labels |
 
 ## Radii
-Coherent soft scale (cream product, not balloon):
+Soft wellness scale (cream cards ~24–32px):
 | Token | rem | Use |
 |-------|-----|-----|
-| `--radius-sm` | 0.625 | nested chips |
-| `--radius-md` | 0.875 | inputs, compact rows |
-| `--radius-lg` | 1.125 | cards / sections |
-| `--radius-xl` | 1.375 | dock / sheets |
-| `--radius-2xl` | 1.625 | modals (`.app-modal-panel`) |
+| `--radius-sm` | 0.75 | nested chips |
+| `--radius-md` | 1 | inputs, compact rows |
+| `--radius-lg` | 1.5 | cards / sections |
+| `--radius-xl` | 1.75 | dock / sheets / mobile nav top |
+| `--radius-2xl` | 2 | modals (`.app-modal-panel`) |
 | `--radius-tag` | 0.5 | square tags |
 | `--radius-pill` | 999px | buttons, badges, wave-pill |
 
-Do not invent one-off `rounded-[2.5rem]` — use tokens. Selection / focus: ink rim, **no colored glow halo**.
+Selection / focus: ink rim, **no colored glow halo**.
+
+## Typography
+Keep **Geologica** (UI) + **Klukva** (brand @400). Product ramp (~1.2):
+
+| Token | Size | Role |
+|-------|------|------|
+| `--text-caption` | 11 | `.type-eyebrow` — ALL CAPS, tracking |
+| `--text-body-sm` | 13 | `.type-meta` |
+| `--text-body` | 16 | `.type-body` |
+| `--text-subheading` | 20 | `.type-subtitle` |
+| `--text-heading-sm` | 24 | `.type-title--sm` / metrics |
+| `--text-heading` | 32 | `.type-title` |
+| `--text-display` | 40 | rare mobile hero |
+
+Accent word in titles: `.type-accent` / `.ds-title-accent` → peach. Dense chrome (player title) stays Geologica bold — not Klukva.
 
 ## Buttons
 - **Primary** `.ds-btn--primary` — charcoal (Полёвка CTA) + 2px rim (Wispr)

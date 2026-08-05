@@ -30,23 +30,26 @@
     --font-ui: "Geologica", "Satoshi", "Plus Jakarta Sans", system-ui, sans-serif;
     --font-brand: "Klukva", "Geologica", system-ui, sans-serif;
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    --text-caption: 0.75rem;
+    --text-caption: 0.6875rem;
     --text-body-sm: 0.8125rem;
-    --text-body: 0.9375rem;
-    --text-subheading: 1.125rem;
-    --text-heading-sm: 1.35rem;
-    --text-heading: 1.75rem;
-    --leading-tight: 0.95;
-    --leading-ui: 1.3;
+    --text-body: 1rem;
+    --text-subheading: 1.25rem;
+    --text-heading-sm: 1.5rem;
+    --text-heading: 2rem;
+    --text-display: 2.5rem;
+    --leading-tight: 1.05;
+    --leading-ui: 1.35;
+    --leading-body: 1.5;
     --tracking-brand: -0.02em;
+    --tracking-eyebrow: 0.1em;
     --danger: #c2410c;
-    /* Soft cream radii — tight enough for product, not balloon-pill everywhere */
-    --radius-sm: 0.625rem;   /* 10 — nested chips */
-    --radius-md: 0.875rem;   /* 14 — inputs, compact rows */
-    --radius-lg: 1.125rem;   /* 18 — cards / sections */
-    --radius-xl: 1.375rem;   /* 22 — dock / sheets */
-    --radius-2xl: 1.625rem;  /* 26 — modals */
-    --radius-tag: 0.5rem;    /* 8 — square tags */
+    /* Soft cream radii — wellness ref ~24–32px cards */
+    --radius-sm: 0.75rem;
+    --radius-md: 1rem;
+    --radius-lg: 1.5rem;
+    --radius-xl: 1.75rem;
+    --radius-2xl: 2rem;
+    --radius-tag: 0.5rem;
     --radius-pill: 999px;
     --map-btn-size: 3rem;
     --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -1633,7 +1636,7 @@ body.dark-mode .modal-input::placeholder,
     --mobile-touch: 3rem;           /* 48 Android comfortable */
     --mobile-top-bar-h: 2.75rem;    /* 44 content nav / icon row */
     --mobile-nav-h: 3.5rem;         /* 56 bottom nav content (Material) */
-    --mobile-nav-wave-h: 1.15rem;
+    --mobile-nav-wave-h: 1.5rem;    /* room for elevated center FAB */
     /* Mobile fullscreen surfaces end above the bottom rail + wave lip */
     --mobile-fs-bottom: calc(var(--mobile-nav-h) + var(--mobile-nav-wave-h) + var(--sab));
 }
@@ -2382,11 +2385,14 @@ html.dark .search-suggestions,
     display: none !important;
 }
 
-/* Mobile bottom navigation — peach bar + soft/accent wave lip (Персик two-tone) */
+/* Mobile bottom navigation — peach wave + elevated white Add FAB (wellness ref) */
 .mobile-bottom-nav {
     display: none;
 }
 @media (max-width: 767px) {
+    #fab-add {
+        display: none !important;
+    }
     .mobile-bottom-nav {
         position: fixed;
         left: 0;
@@ -2404,16 +2410,15 @@ html.dark .search-suggestions,
         box-sizing: border-box;
         background: var(--accent, #FBAB57);
         border-top: none;
-        border-radius: 0;
-        box-shadow: 0 -8px 28px rgba(34, 34, 34, 0.12);
+        border-radius: var(--radius-xl, 1.75rem) var(--radius-xl, 1.75rem) 0 0;
+        box-shadow: 0 -10px 28px rgba(34, 34, 34, 0.1);
         pointer-events: auto;
         overflow: visible;
     }
     html.dark .mobile-bottom-nav,
     .dark .mobile-bottom-nav {
         background: var(--accent, #FBAB57);
-        border-top: none;
-        box-shadow: 0 -10px 32px rgba(0, 0, 0, 0.4);
+        box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.35);
     }
     .mobile-bottom-nav__wave {
         position: absolute;
@@ -2436,80 +2441,117 @@ html.dark .search-suggestions,
         position: relative;
         z-index: 2;
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         justify-content: space-around;
-        gap: 0.1rem;
+        gap: 0.15rem;
         height: var(--mobile-nav-h);
-        padding: 0.15rem 0.2rem 0;
+        padding: 0 0.35rem;
         box-sizing: border-box;
-        background: var(--accent, #FBAB57);
+        background: transparent;
     }
     .mobile-nav-btn {
         position: relative;
         flex: 1 1 0;
         min-width: 0;
+        min-height: var(--mobile-touch-min, 2.75rem);
         height: var(--mobile-nav-h);
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 0.15rem;
-        padding: 0.2rem 0.15rem;
+        gap: 0;
+        padding: 0.35rem;
         border: none;
-        border-radius: var(--radius-md, 1.35rem);
+        border-radius: var(--radius-pill);
         background: transparent;
         color: #222222;
-        font-size: 0.6rem;
-        font-weight: 700;
-        letter-spacing: 0.01em;
-        line-height: 1.05;
         cursor: pointer;
         transition: color 0.18s ease, background 0.18s ease, transform 0.18s ease;
         -webkit-tap-highlight-color: transparent;
     }
     .mobile-nav-btn i {
-        font-size: 1.22rem;
+        font-size: 1.35rem;
         line-height: 1;
     }
-    .mobile-nav-btn span:not(.mobile-nav-badge) {
-        max-width: 100%;
+    .mobile-nav-btn__label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
         overflow: hidden;
-        text-overflow: ellipsis;
+        clip: rect(0, 0, 0, 0);
         white-space: nowrap;
+        border: 0;
     }
     .mobile-nav-btn.is-active {
         color: #222222;
-        background: color-mix(in srgb, #222222 12%, transparent);
+        background: color-mix(in srgb, #222222 10%, transparent);
     }
-    .mobile-nav-btn--map {
+    .mobile-nav-btn.is-active::after {
+        content: '';
+        position: absolute;
+        bottom: 0.35rem;
+        left: 50%;
+        width: 0.28rem;
+        height: 0.28rem;
+        border-radius: 50%;
+        background: #222222;
+        transform: translateX(-50%);
+    }
+    .mobile-nav-fab {
         position: relative;
+        flex: 0 0 auto;
+        width: 3.5rem;
+        height: 3.5rem;
+        margin-top: -1.65rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        border-radius: 50%;
+        background: #ffffff;
+        color: #222222;
+        box-shadow: 0 8px 20px rgba(34, 34, 34, 0.18);
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        transition: transform 0.18s var(--ease-out, ease), box-shadow 0.18s ease;
+        z-index: 3;
     }
-    .mobile-nav-btn--map i {
-        font-size: 1.35rem;
+    .mobile-nav-fab i {
+        font-size: 1.55rem;
+        line-height: 1;
+        pointer-events: none;
     }
-    .mobile-nav-btn--map.is-active {
-        color: var(--on-accent, #222222);
-        background: var(--palette-secondary, #FEC674);
-        box-shadow: 0 4px 14px color-mix(in srgb, var(--accent, #FBAB57) 35%, transparent);
+    .mobile-nav-fab:active {
+        transform: scale(0.96);
+    }
+    html.dark .mobile-nav-fab,
+    .dark .mobile-nav-fab {
+        background: #ffffff;
+        color: #222222;
     }
     .mobile-nav-btn:active {
         transform: scale(0.96);
     }
     .mobile-nav-badge {
         position: absolute;
-        top: 0.2rem;
-        right: calc(50% - 1.2rem);
+        top: 0.35rem;
+        right: calc(50% - 1.15rem);
         min-width: 0.95rem;
         height: 0.95rem;
         padding: 0 0.22rem;
         border-radius: 999px;
-        background: #ef4444;
+        background: #222222;
         color: #fff;
-        font-size: 9px;
-        font-weight: 800;
+        font-size: 0.6rem;
+        font-weight: 700;
         line-height: 0.95rem;
         text-align: center;
     }
+}
+
+@media (max-width: 767px) {
     body.dock-view-cabinet.cab-mobile-home #dock-mobile-close,
     body.dock-view-cabinet.cab-mobile-home .dock-header #dock-mobile-close {
         display: none !important;
