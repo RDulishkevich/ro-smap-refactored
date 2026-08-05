@@ -1638,9 +1638,13 @@ window.renderWaveformTimeMarkers = function() {
         .map((m) => {
             const sec = Math.max(0, Number(m.t) || 0);
             const pct = Math.max(0, Math.min(100, (sec / duration) * 100));
-            const label = esc(m.label || '');
-            const title = label || (window.formatTime ? window.formatTime(sec) : `${sec}s`);
-            return `<button type="button" class="waveform-marker" style="left:${pct}%" title="${title}" data-t="${sec}" aria-label="${title}"></button>`;
+            const label = String(m.label || '').trim();
+            const time = window.formatTime ? window.formatTime(sec) : `${sec}s`;
+            const tip = label || time;
+            const edge = pct < 12 ? 'is-edge-left' : (pct > 88 ? 'is-edge-right' : '');
+            return `<button type="button" class="waveform-marker ${edge}" style="left:${pct}%" data-t="${sec}" aria-label="${esc(tip)}">`
+                + `<span class="waveform-marker__tip" role="tooltip">${esc(tip)}</span>`
+                + `</button>`;
         })
         .join('');
     if (layer.dataset.bound !== '1') {
