@@ -1064,21 +1064,20 @@ html.dark .glass-seg__btn.is-active,
     align-items: center;
     gap: 0.75rem 1rem;
 }
-.player-main-meta { min-width: 0; flex: 1; }
+.player-main-meta { min-width: 0; flex: 1 1 0%; }
 .player-title {
     font-size: 0.9rem;
     font-weight: 700;
     cursor: pointer;
     min-width: 0;
     max-width: 100%;
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    white-space: normal;
-    word-break: break-word;
     margin: 0;
+    color: var(--ink, #222222);
+    overflow: hidden;
+    display: block;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    line-height: 1.25;
 }
 .player-main-sub {
     display: flex;
@@ -1148,17 +1147,18 @@ html.dark .glass-seg__btn.is-active,
     #player-card .player-title {
         font-size: 1rem;
         line-height: 1.3;
-        -webkit-line-clamp: 2;
-        line-clamp: 2;
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
+        display: block;
+        overflow: visible;
         white-space: normal;
+        text-overflow: unset;
         word-break: break-word;
+        color: var(--ink, #222222);
+        -webkit-line-clamp: unset;
+        line-clamp: unset;
     }
     #player-card .player-main-meta {
         flex: 1 1 auto;
-        min-width: 0;
+        min-width: 5.5rem;
         padding-right: 0.35rem;
     }
     #player-card .player-main-actions {

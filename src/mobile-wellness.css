@@ -567,9 +567,14 @@
         font-size: 0.84rem !important;
         font-weight: 700;
         line-height: 1.2;
-        color: var(--well-ink);
+        color: var(--well-ink) !important;
         cursor: pointer;
         margin: 0;
+        display: block !important;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        max-width: 100%;
     }
     #player-card .player-main-sub {
         display: flex;
