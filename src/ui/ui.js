@@ -1,10 +1,29 @@
+/** Fold nested mail rows into fingerprint (soft-delete / read must change the key). */
+window.__fingerprintMailRows = function(rows, extrasRef, maxTsRef) {
+    if (!Array.isArray(rows)) return;
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row || typeof row !== 'object') continue;
+        extrasRef.v = (extrasRef.v + ((row.deleted ? 7919 : 0) + (row.read ? 7927 : 0))) >>> 0;
+        const id = String(row.id || i);
+        for (let j = 0; j < id.length; j++) {
+            extrasRef.v = (Math.imul(extrasRef.v, 31) + id.charCodeAt(j)) >>> 0;
+        }
+        const tsRaw = row.editedAt || row.unreadAt || row.readAt || row.updatedAt || row.date || row.createdAt || '';
+        if (tsRaw) {
+            const t = typeof tsRaw === 'number' ? tsRaw : (Date.parse(tsRaw) || 0);
+            if (t > maxTsRef.v) maxTsRef.v = t;
+        }
+    }
+};
+
 /** Cheap change key for poll/sync – avoids JSON.stringify of whole datasets on the main thread. */
 window.fingerprintDataset = function(arr) {
     if (!Array.isArray(arr)) return 'x';
     const n = arr.length;
     let h = (n * 2654435761) >>> 0;
-    let maxTs = 0;
-    let extras = 0;
+    const maxTsRef = { v: 0 };
+    const extrasRef = { v: 0 };
     for (let i = 0; i < n; i++) {
         const item = arr[i];
         if (!item || typeof item !== 'object') continue;
@@ -14,26 +33,32 @@ window.fingerprintDataset = function(arr) {
             || item.joinedAt || item.createdAt || item.at || item.lastSeen || '';
         if (tsRaw) {
             const t = typeof tsRaw === 'number' ? tsRaw : (Date.parse(tsRaw) || 0);
-            if (t > maxTs) maxTs = t;
+            if (t > maxTsRef.v) maxTsRef.v = t;
         }
-        if (item.deleted) extras += 9973;
-        if (item.plays != null) extras += (item.plays | 0) * 17;
-        if (item.downloads != null) extras += (item.downloads | 0) * 19;
-        if (Array.isArray(item.comments)) extras += item.comments.length * 23;
-        if (Array.isArray(item.likedBy)) extras += item.likedBy.length * 29;
-        if (Array.isArray(item.dislikedBy)) extras += item.dislikedBy.length * 31;
-        if (Array.isArray(item.inbox)) extras += item.inbox.length * 1009;
-        if (Array.isArray(item.notifications)) extras += item.notifications.length * 1013;
+        if (item.deleted) extrasRef.v = (extrasRef.v + 9973) >>> 0;
+        if (item.plays != null) extrasRef.v = (extrasRef.v + (item.plays | 0) * 17) >>> 0;
+        if (item.downloads != null) extrasRef.v = (extrasRef.v + (item.downloads | 0) * 19) >>> 0;
+        if (Array.isArray(item.comments)) extrasRef.v = (extrasRef.v + item.comments.length * 23) >>> 0;
+        if (Array.isArray(item.likedBy)) extrasRef.v = (extrasRef.v + item.likedBy.length * 29) >>> 0;
+        if (Array.isArray(item.dislikedBy)) extrasRef.v = (extrasRef.v + item.dislikedBy.length * 31) >>> 0;
+        if (Array.isArray(item.inbox)) {
+            extrasRef.v = (extrasRef.v + item.inbox.length * 1009) >>> 0;
+            window.__fingerprintMailRows(item.inbox, extrasRef, maxTsRef);
+        }
+        if (Array.isArray(item.notifications)) {
+            extrasRef.v = (extrasRef.v + item.notifications.length * 1013) >>> 0;
+            window.__fingerprintMailRows(item.notifications, extrasRef, maxTsRef);
+        }
         if (item.typing && item.typing.at) {
-            extras += String(item.typing.at).length * 37 + String(item.typing.to || '').length * 41;
+            extrasRef.v = (extrasRef.v + String(item.typing.at).length * 37 + String(item.typing.to || '').length * 41) >>> 0;
         }
         if (item.status) {
             const st = String(item.status);
             for (let j = 0; j < st.length; j++) h = (Math.imul(h, 31) + st.charCodeAt(j)) >>> 0;
         }
     }
-    h = (h + extras) >>> 0;
-    return `${n}:${maxTs}:${h.toString(36)}`;
+    h = (h + extrasRef.v) >>> 0;
+    return `${n}:${maxTsRef.v}:${h.toString(36)}`;
 };
 
 window.showToast = function(message, opts = {}) {
@@ -427,6 +452,8 @@ window.updateOnboardingStep = function() {
     const topSafe = Math.max(16, (window.visualViewport && window.visualViewport.offsetTop) || 0) + 8;
 
     const placeCardCentered = () => {
+        overlay.classList.remove('is-spotlight');
+        highlight.classList.remove('is-on');
         highlight.style.opacity = '0';
         highlight.style.pointerEvents = 'none';
         highlight.style.width = '0';
@@ -439,6 +466,8 @@ window.updateOnboardingStep = function() {
 
     const placeCardNear = (rect, opts = {}) => {
         const pad = opts.pad ?? 10;
+        overlay.classList.add('is-spotlight');
+        highlight.classList.add('is-on');
         highlight.style.opacity = '1';
         highlight.style.display = 'block';
         highlight.style.pointerEvents = 'none';
@@ -551,8 +580,10 @@ window.dismissOnboarding = function() {
     const overlay = document.getElementById('onboarding-overlay');
     if (overlay) {
         overlay.classList.add('hidden');
-        overlay.classList.remove('pointer-events-auto');
+        overlay.classList.remove('pointer-events-auto', 'is-spotlight');
     }
+    const highlight = document.getElementById('onboarding-highlight');
+    if (highlight) highlight.classList.remove('is-on');
     document.body.classList.remove('onboarding-open');
 };
 
@@ -621,32 +652,43 @@ window.bindSwipeReplyRows = function(container, onReply) {
     container.querySelectorAll('.swipe-reply-row').forEach(row => {
         if (row.dataset.swipeBound === '1') return;
         row.dataset.swipeBound = '1';
-        let startX = 0, startY = 0, dx = 0, active = false;
-        const threshold = 56;
+        let startX = 0, startY = 0, dx = 0, active = false, locked = false;
+        const threshold = 48;
         const reset = () => {
             row.style.transform = '';
             row.classList.remove('is-swiping');
             active = false;
+            locked = false;
             dx = 0;
         };
         const onStart = (clientX, clientY) => {
             startX = clientX;
             startY = clientY;
             active = true;
+            locked = false;
             dx = 0;
         };
-        const onMove = (clientX, clientY) => {
+        const onMove = (clientX, clientY, ev) => {
             if (!active) return;
             const mx = clientX - startX;
             const my = clientY - startY;
-            if (Math.abs(my) > Math.abs(mx) && Math.abs(my) > 12) {
-                reset();
-                return;
+            if (!locked) {
+                if (Math.abs(my) > Math.abs(mx) && Math.abs(my) > 10) {
+                    reset();
+                    return;
+                }
+                if (Math.abs(mx) > 10 && Math.abs(mx) >= Math.abs(my)) locked = true;
             }
+            if (!locked) return;
+            if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
             if (mx < 0) {
-                dx = Math.max(mx, -96);
+                dx = Math.max(mx, -104);
                 row.style.transform = `translateX(${dx}px)`;
                 row.classList.add('is-swiping');
+            } else {
+                dx = 0;
+                row.style.transform = '';
+                row.classList.remove('is-swiping');
             }
         };
         const onEnd = () => {
@@ -667,12 +709,11 @@ window.bindSwipeReplyRows = function(container, onReply) {
         }, { passive: true });
         row.addEventListener('touchmove', (e) => {
             if (!e.touches[0]) return;
-            onMove(e.touches[0].clientX, e.touches[0].clientY);
-        }, { passive: true });
+            onMove(e.touches[0].clientX, e.touches[0].clientY, e);
+        }, { passive: false });
         row.addEventListener('touchend', onEnd, { passive: true });
         row.addEventListener('touchcancel', reset, { passive: true });
 
-        // Desktop / trackpad
         row.addEventListener('pointerdown', (e) => {
             if (e.pointerType === 'touch') return;
             if (e.button !== 0) return;
@@ -681,7 +722,7 @@ window.bindSwipeReplyRows = function(container, onReply) {
         });
         row.addEventListener('pointermove', (e) => {
             if (e.pointerType === 'touch') return;
-            onMove(e.clientX, e.clientY);
+            onMove(e.clientX, e.clientY, e);
         });
         row.addEventListener('pointerup', (e) => {
             if (e.pointerType === 'touch') return;
@@ -2091,8 +2132,8 @@ window.__putCloudJson = async function(fileName, data) {
 
 window.__recordTime = function(item) {
     if (!item) return 0;
-    // readAt / reactedAt важнее date: иначе mark-as-read и снятие реакции проигрывают CDN.
-    const raw = item.editedAt || item.reactedAt || item.updatedAt || item.readAt || item.date || item.createdAt || item.profileUpdatedAt || 0;
+    // unreadAt / readAt / reactedAt важнее date: иначе mark-as-read/unread и реакции проигрывают CDN.
+    const raw = item.editedAt || item.reactedAt || item.updatedAt || item.unreadAt || item.readAt || item.date || item.createdAt || item.profileUpdatedAt || 0;
     const t = new Date(raw).getTime();
     return Number.isFinite(t) ? t : 0;
 };
@@ -2125,10 +2166,25 @@ window.__mergeKeyedArrays = function(a = [], b = [], idKey = 'id') {
         const newer = nextT >= prevT ? item : prev;
         const older = nextT >= prevT ? prev : item;
         const deleted = !!(newer.deleted || (older.deleted && nextT <= prevT));
-        // read монотонен: прочитанное не откатывается устаревшим CDN.
-        const read = !!(newer.read || older.read);
+        // read/unread: побеждает более свежий readAt/unreadAt (можно снова отметить непрочитанным).
+        const readStateAt = (row) => {
+            const r = row?.readAt ? Date.parse(row.readAt) : 0;
+            const u = row?.unreadAt ? Date.parse(row.unreadAt) : 0;
+            return Math.max(Number.isFinite(r) ? r : 0, Number.isFinite(u) ? u : 0);
+        };
+        const preferUnread = (row) => {
+            if (!row) return false;
+            const r = row.readAt ? Date.parse(row.readAt) : 0;
+            const u = row.unreadAt ? Date.parse(row.unreadAt) : 0;
+            return Number.isFinite(u) && u > 0 && (!Number.isFinite(r) || u >= r);
+        };
+        const stateWinner = readStateAt(newer) >= readStateAt(older) ? newer : older;
+        const read = preferUnread(stateWinner) ? false : !!(newer.read || older.read);
         const readAt = read
             ? (window.__laterIso(older.readAt, newer.readAt) || newer.readAt || older.readAt)
+            : undefined;
+        const unreadAt = !read
+            ? (window.__laterIso(older.unreadAt, newer.unreadAt) || newer.unreadAt || older.unreadAt)
             : undefined;
         map.set(item[idKey], {
             ...older,
@@ -2136,6 +2192,7 @@ window.__mergeKeyedArrays = function(a = [], b = [], idKey = 'id') {
             deleted: deleted || undefined,
             read: read || undefined,
             readAt: readAt || undefined,
+            unreadAt: unreadAt || undefined,
             reactions: window.__mergeReactions(older.reactions, newer.reactions),
             reports: window.__mergeKeyedArrays(older.reports || [], newer.reports || [])
         });
@@ -5406,11 +5463,15 @@ window.selectSound = function(id) {
 
     window.clearMapRoutes();
     const ambiBtn = document.getElementById('btn-ambi-toggle');
-    if(s.channels && s.channels.toLowerCase().includes('ambisonics')) {
+    const ambiControl = document.getElementById('ambisonics-control');
+    if (window.isAmbisonicMode && window.disableAmbisonicMode) window.disableAmbisonicMode();
+    window.isAmbisonicMode = false;
+    window.stopFoaBufferSource?.();
+    if (ambiControl) ambiControl.classList.add('hidden');
+    if (s.channels && s.channels.toLowerCase().includes('ambisonics')) {
         if (ambiBtn) { ambiBtn.classList.remove('hidden'); }
-        window.isAmbisonicMode = false;
     } else {
-        if(ambiBtn) ambiBtn.classList.add('hidden');
+        if (ambiBtn) ambiBtn.classList.add('hidden');
     }
 
     if (s.route && s.route.length > 1 && window.map) {
@@ -5484,6 +5545,14 @@ window.selectSound = function(id) {
         try { window.audioElement.crossOrigin = 'anonymous'; } catch (_) {}
     }
     if (window.loadWaveformForSound) window.loadWaveformForSound(s);
+    /* Warm a couple of neighbors in the filtered list while this one plays */
+    if (window.ensureWaveformPeaks) {
+        const filtered = window.getFilteredSounds ? window.getFilteredSounds() : [];
+        const idx = filtered.findIndex((x) => x.id === id);
+        [filtered[idx + 1], filtered[idx + 2], filtered[idx - 1]].forEach((n) => {
+            if (n) window.ensureWaveformPeaks(n);
+        });
+    }
 
     if (s.url) {
         if (window.resetPlaybackPitch) window.resetPlaybackPitch();
@@ -5787,7 +5856,7 @@ window.openDetailsModal = function() {
                     const sec = Number(m.t) || 0;
                     const label = esc(m.label || '');
                     const time = window.formatTime ? window.formatTime(sec) : `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
-                    return `<li><span class="t">${time}</span><span class="l">${label}</span></li>`;
+                    return `<li><button type="button" class="details-time-marker-btn" onclick="window.seekToTimeMarker && window.seekToTimeMarker(${sec})"><span class="t">${time}</span><span class="l">${label}</span></button></li>`;
                 })
                 .join('');
         }

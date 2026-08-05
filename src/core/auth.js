@@ -1795,6 +1795,11 @@ export function initAuth() {
             const on = window.uiSoundsEnabled !== false;
             sfxSwitch.setAttribute('aria-checked', on ? 'true' : 'false');
         }
+        const multiWaveSwitch = document.getElementById('multi-wave-glass-switch');
+        if (multiWaveSwitch) {
+            const on = !!(window.isMultiChannelWaveformEnabled && window.isMultiChannelWaveformEnabled());
+            multiWaveSwitch.setAttribute('aria-checked', on ? 'true' : 'false');
+        }
 
         scaleButtons.forEach(btn => {
             const size = btn.getAttribute('data-scale');
@@ -4228,6 +4233,7 @@ export function initAuth() {
         const byPeer = new Map();
         const peerKeyOf = (v) => String(v || '').toLowerCase();
         inbox.forEach(msg => {
+            if (!msg || msg.deleted) return;
             const peer = peerKeyOf(msg.fromId);
             if (!peer) return;
             const prev = byPeer.get(peer);
@@ -4238,6 +4244,7 @@ export function initAuth() {
 
         (window.profilesData || []).forEach(p => {
             (p.inbox || []).forEach(msg => {
+                if (!msg || msg.deleted) return;
                 if (peerKeyOf(msg.fromId) === myLogin) {
                     const peer = peerKeyOf(p.loginName);
                     const synthetic = { ...msg, fromId: peer, fromName: p.displayName || peer, _outgoingHint: true };
@@ -4293,7 +4300,7 @@ export function initAuth() {
                 : (window.formatPresenceLabel ? window.formatPresenceLabel(profile) : (online ? 'в сети' : 'не в сети'));
             const openFn = `window.openMessageThread('${peer}')`;
             return `
-            <button onclick="${openFn}" class="notif-item ${unread ? 'unread' : ''} ${isSupport ? 'msg-support-row' : ''} w-full text-left">
+            <button type="button" data-peer="${peer}" onclick="${openFn}" class="notif-item msg-conv-row ${unread ? 'unread' : ''} ${isSupport ? 'msg-support-row' : ''} w-full text-left">
                 <div class="relative shrink-0">${avatar}<span class="msg-online-dot ${online ? 'on' : ''}"></span></div>
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center justify-between gap-2">
@@ -4305,6 +4312,181 @@ export function initAuth() {
                 </div>
             </button>`;
         }).join('');
+        if (window.bindConversationRowMenus) window.bindConversationRowMenus(conv);
+    };
+
+    window.bindConversationRowMenus = function(container) {
+        if (!container) return;
+        container.querySelectorAll('.msg-conv-row[data-peer]').forEach((row) => {
+            if (row.dataset.menuBound === '1') return;
+            row.dataset.menuBound = '1';
+            const peer = row.dataset.peer;
+            if (!peer) return;
+
+            row.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const point = window.eventClientPoint ? window.eventClientPoint(e) : { clientX: e.clientX, clientY: e.clientY };
+                if (window.openConversationMenu) window.openConversationMenu(peer, point);
+            });
+
+            let pressTimer = null;
+            let startX = 0;
+            let startY = 0;
+            const clearPress = () => {
+                if (pressTimer) {
+                    clearTimeout(pressTimer);
+                    pressTimer = null;
+                }
+            };
+
+            row.addEventListener('touchstart', (e) => {
+                if (!e.touches?.[0]) return;
+                clearPress();
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+                pressTimer = setTimeout(() => {
+                    pressTimer = null;
+                    try { if (navigator.vibrate) navigator.vibrate(12); } catch (_) {}
+                    if (window.openConversationMenu) {
+                        window.openConversationMenu(peer, { clientX: startX, clientY: startY });
+                    }
+                }, 480);
+            }, { passive: true });
+
+            row.addEventListener('touchmove', (e) => {
+                if (!pressTimer || !e.touches?.[0]) return;
+                const dx = Math.abs(e.touches[0].clientX - startX);
+                const dy = Math.abs(e.touches[0].clientY - startY);
+                if (dx > 12 || dy > 12) clearPress();
+            }, { passive: true });
+
+            row.addEventListener('touchend', clearPress, { passive: true });
+            row.addEventListener('touchcancel', clearPress, { passive: true });
+        });
+    };
+
+    window.openConversationMenu = function(peerLogin, position) {
+        const peer = String(peerLogin || '').toLowerCase();
+        if (!peer || !window.currentUser) return;
+        const isSupport = peer === String(window.SUPPORT_LOGIN || '').toLowerCase();
+        const profile = window.getProfileByLogin ? window.getProfileByLogin(peer) : null;
+        const name = isSupport ? window.SUPPORT_NAME : (profile?.displayName || peer);
+        const items = [];
+
+        if (!isSupport) {
+            items.push({
+                icon: 'icon-profile-circle',
+                label: 'Перейти в профиль',
+                onClick: () => window.openPublicProfile(peer, profile?.displayName || peer)
+            });
+        }
+
+        items.push({
+            icon: 'icon-notification',
+            label: 'Отметить непрочитанным',
+            onClick: () => window.markConversationUnread(peer)
+        });
+
+        items.push({
+            icon: 'icon-trash',
+            label: 'Удалить чат',
+            danger: true,
+            onClick: () => window.deleteConversation(peer)
+        });
+
+        const menuOpts = {
+            title: name,
+            clientX: position?.clientX,
+            clientY: position?.clientY
+        };
+        if (window.openActionsMenu) window.openActionsMenu(items, menuOpts);
+        else if (window.ActionSheet) window.ActionSheet.open(items);
+    };
+
+    window.markConversationUnread = async function(peerLogin) {
+        if (!window.currentUser) return;
+        const myLogin = String(window.currentUser.loginName || window.currentUser.username || '').toLowerCase();
+        const peer = String(peerLogin || '').toLowerCase();
+        const updated = [...(window.profilesData || [])];
+        const idx = updated.findIndex((p) => String(p.loginName || '').toLowerCase() === myLogin);
+        if (idx < 0) return;
+        const now = new Date().toISOString();
+        let changed = false;
+        const inbox = (updated[idx].inbox || []).map((m) => {
+            if (String(m.fromId || '').toLowerCase() !== peer || m.deleted) return m;
+            changed = true;
+            return { ...m, read: false, readAt: undefined, unreadAt: now };
+        });
+        if (!changed) {
+            window.showToast('Нет входящих сообщений в этом чате');
+            return;
+        }
+        updated[idx] = { ...updated[idx], inbox, profileUpdatedAt: now };
+        const ok = await window.syncProfilesData(updated);
+        window.refreshMessagesUI();
+        if (window.showMessagesConversations) window.showMessagesConversations();
+        window.showToast(ok ? 'Чат отмечен непрочитанным' : 'Не удалось обновить чат');
+    };
+
+    window.deleteConversation = async function(peerLogin) {
+        if (!window.currentUser) return;
+        const peer = String(peerLogin || '').toLowerCase();
+        const isSupport = peer === String(window.SUPPORT_LOGIN || '').toLowerCase();
+        const okConfirm = await window.CustomUI.open({
+            title: '<i class="icon-trash mr-2"></i>Удалить чат',
+            message: isSupport
+                ? 'История переписки с поддержкой будет очищена у вас.'
+                : 'Чат будет удалён из вашего списка. Сообщения исчезнут для вас.',
+            confirmText: 'Удалить',
+            confirmClass: 'ds-btn ds-btn--primary'
+        });
+        if (!okConfirm) return;
+
+        const myLogin = String(window.currentUser.loginName || window.currentUser.username || '').toLowerCase();
+        const updated = [...(window.profilesData || [])];
+        const now = new Date().toISOString();
+        const softDelete = (msg) => ({
+            ...msg,
+            deleted: true,
+            text: '',
+            image: undefined,
+            reactions: {},
+            date: now,
+            editedAt: now
+        });
+
+        const myIdx = updated.findIndex((p) => String(p.loginName || '').toLowerCase() === myLogin);
+        if (myIdx >= 0) {
+            updated[myIdx] = {
+                ...updated[myIdx],
+                inbox: (updated[myIdx].inbox || []).map((m) =>
+                    String(m.fromId || '').toLowerCase() === peer ? softDelete(m) : m
+                ),
+                profileUpdatedAt: now
+            };
+        }
+
+        // Soft-delete my outgoing messages in the peer inbox (best-effort).
+        const peerIdx = updated.findIndex((p) => String(p.loginName || '').toLowerCase() === peer);
+        if (peerIdx >= 0) {
+            updated[peerIdx] = {
+                ...updated[peerIdx],
+                inbox: (updated[peerIdx].inbox || []).map((m) =>
+                    String(m.fromId || '').toLowerCase() === myLogin ? softDelete(m) : m
+                ),
+                profileUpdatedAt: now
+            };
+        }
+
+        const ok = await window.syncProfilesData(updated);
+        window.refreshMessagesUI();
+        if (window.__activeMessagePeer === peer) {
+            if (window.showMessagesConversations) window.showMessagesConversations();
+        } else if (window.showMessagesConversations) {
+            window.showMessagesConversations();
+        }
+        window.showToast(ok ? 'Чат удалён' : 'Не удалось удалить чат');
     };
 
     window.updateThreadPeerHeader = function(peerLogin) {
@@ -4400,8 +4582,8 @@ export function initAuth() {
                 users?.length ? `<span class="msg-reaction-chip">${emoji} ${users.length}</span>` : ''
             ).join('')}</div>`
             : '';
-        return `<div class="msg-bubble ${m._mine ? 'mine' : ''} ${m._mine ? '' : 'swipe-reply-row'}" data-msg-id="${m.id}">
-            ${m._mine ? '' : '<span class="swipe-reply-hint"><i class="icon-undo"></i></span>'}
+        return `<div class="msg-bubble ${m._mine ? 'mine' : ''} swipe-reply-row" data-msg-id="${m.id}">
+            <span class="swipe-reply-hint"><i class="icon-undo"></i></span>
             ${reply}${img}
             ${m.text ? `<p class="text-[13px] leading-snug">${window.escMsgHtml(m.text)}</p>` : ''}
             ${reactions}

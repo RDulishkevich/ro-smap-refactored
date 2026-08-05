@@ -1,14 +1,14 @@
 import { initGlobalState } from './state.js?v=20260726c';
 import './api.js?v=20260721t';
-import { initAuth } from './auth.js?v=20260806g';
+import { initAuth } from './auth.js?v=20260806j';
 
 import './sfx.js?v=20260721t';
 import './antispam.js?v=20260721t';
 import '../ui/file-xfer.js?v=20260805j';
 import '../ui/like-shake.js?v=20260805j';
-import '../ui/ui.js?v=20260806g';
-import './audio.js?v=20260806f';
-import './map.js?v=20260806d';
+import '../ui/ui.js?v=20260806j';
+import './audio.js?v=20260806j';
+import './map.js?v=20260806i';
 import './mapbox-map.js?v=20260806d';
 import './dgis-map.js?v=20260721t';
 import './google-earth-map.js?v=20260721t';
@@ -166,6 +166,7 @@ export function bootstrapApp() {
             if (window.startLiveCloudPolling) window.startLiveCloudPolling();
             if (window.touchMyPresence) window.touchMyPresence(true);
             if (window.refreshAdminSupportBadge) window.refreshAdminSupportBadge();
+            if (window.scheduleWaveformPrefetch) window.scheduleWaveformPrefetch();
             if (window.apiHealth) {
                 window.apiHealth().then((h) => {
                     window.__apiHealth = h;

@@ -209,15 +209,74 @@ window.initOmnitone = async function() {
 }
 
 window.routeAmbisonics = function() {
-    if (!window.audioContext || !window.foaDecoder || !window.audioElementSource) return;
+    if (!window.audioContext || !window.foaDecoder) return;
     window.disconnectAudioGraph();
-    window.audioElementSource.connect(window.foaDecoder.input);
-    window.foaDecoder.output.connect(window.audioContext.destination);
+    // FOA: декодированный BufferSource → Omnitone (MediaElement часто даунмиксует 4ch → stereo).
+    if (window.gainNode) {
+        window.foaDecoder.output.connect(window.gainNode);
+        window.gainNode.connect(window.audioContext.destination);
+    } else {
+        window.foaDecoder.output.connect(window.audioContext.destination);
+    }
     window.connectAnalyzerTaps(window.foaDecoder.output);
     window.foaDecoder.setRenderingMode('ambisonic');
     window._ambiAudioRouted = true;
     window._normalAudioRouted = false;
 }
+
+window.stopFoaBufferSource = function() {
+    if (!window.__foaSourceNode) return;
+    try { window.__foaSourceNode.onended = null; } catch (_) {}
+    try { window.__foaSourceNode.stop(); } catch (_) {}
+    try { window.__foaSourceNode.disconnect(); } catch (_) {}
+    window.__foaSourceNode = null;
+};
+
+window.ensureFoaAudioBuffer = async function(url) {
+    if (!url) return null;
+    if (window.__foaBufferUrl === url && window.__foaAudioBuffer) return window.__foaAudioBuffer;
+    const res = await fetch(url, { mode: 'cors', credentials: 'omit', cache: 'force-cache' });
+    if (!res.ok) throw new Error(`foa fetch ${res.status}`);
+    const ab = await res.arrayBuffer();
+    const buffer = await window.__decodeAudioArrayBuffer(ab);
+    window.__foaAudioBuffer = buffer;
+    window.__foaBufferUrl = url;
+    return buffer;
+};
+
+window.startFoaBufferPlayback = function(offsetSec) {
+    if (!window.isAmbisonicMode || !window.foaDecoder || !window.__foaAudioBuffer || !window.audioContext) return;
+    window.stopFoaBufferSource();
+    const src = window.audioContext.createBufferSource();
+    src.buffer = window.__foaAudioBuffer;
+    src.connect(window.foaDecoder.input);
+    const rate = window.audioElement ? (window.audioElement.playbackRate || 1) : 1;
+    try { src.playbackRate.value = rate; } catch (_) {}
+    const offset = Math.max(0, Math.min(offsetSec || 0, Math.max(0, src.buffer.duration - 0.05)));
+    src.onended = () => {
+        if (window.__foaSourceNode !== src) return;
+        window.__foaSourceNode = null;
+        if (window.isAmbisonicMode && window.isPlaying) {
+            window.isPlaying = false;
+            if (window.audioElement) try { window.audioElement.pause(); } catch (_) {}
+            if (window.updateUIState) window.updateUIState();
+        }
+    };
+    try {
+        src.start(0, offset);
+        window.__foaSourceNode = src;
+    } catch (err) {
+        console.error('FOA start error:', err);
+        window.__foaSourceNode = null;
+    }
+};
+
+window.syncFoaBufferPlayback = function() {
+    if (!window.isAmbisonicMode) return;
+    const t = window.audioElement ? (window.audioElement.currentTime || 0) : 0;
+    if (window.isPlaying) window.startFoaBufferPlayback(t);
+    else window.stopFoaBufferSource();
+};
 
 window.updateAmbisonicRotation = function(yawAngle, pitchAngle) {
     if (window.foaDecoder && window.isAmbisonicMode) {
@@ -276,45 +335,85 @@ window.setupAmbisonicSphere = function() {
 }
 
 window.enableAmbisonicMode = async function() {
+    const okGraph = await window.ensureAudioGraph();
+    if (!okGraph) {
+        window.showToast('Амбисоник недоступен в этом браузере');
+        return false;
+    }
     if (!window.omnitoneInitialized) {
         const success = await window.initOmnitone();
-        if (success) window.routeAmbisonics();
-    } else {
-        if(window.audioContext && window.audioContext.state === 'suspended') window.audioContext.resume();
-        window.routeAmbisonics();
+        if (!success) {
+            window.showToast('Не удалось инициализировать Omnitone');
+            return false;
+        }
+    } else if (window.audioContext && window.audioContext.state === 'suspended') {
+        await window.audioContext.resume();
     }
+
+    const s = (window.soundsData || []).find((x) => x.id === window.currentPlayingId);
+    const url = s && (s.url || s.audioUrl);
+    if (!url) {
+        window.showToast('Нет аудио для амбисоника');
+        return false;
+    }
+    try {
+        await window.ensureFoaAudioBuffer(url);
+    } catch (err) {
+        console.error(err);
+        window.showToast('Не удалось загрузить FOA-буфер');
+        return false;
+    }
+
+    window.routeAmbisonics();
+    window.syncFoaBufferPlayback();
     const panSlider = document.getElementById('stereo-panner-slider');
     if (panSlider) panSlider.disabled = true;
+    return true;
 }
 
 window.disableAmbisonicMode = function() {
-    if (!window.audioContext || !window.audioElementSource) return;
+    window.stopFoaBufferSource();
+    if (!window.audioContext || !window.audioElementSource) {
+        window.isAmbisonicMode = false;
+        window._ambiAudioRouted = false;
+        return;
+    }
     window.routeNormalAudio();
     const panSlider = document.getElementById('stereo-panner-slider');
     if (panSlider) panSlider.disabled = false;
 }
 
-window.toggleAmbisonics = function() {
+window.toggleAmbisonics = async function() {
     const control = document.getElementById('ambisonics-control');
     const btn = document.getElementById('btn-ambi-toggle');
     if (!control || !btn) return;
-            
-    window.isAmbisonicMode = !window.isAmbisonicMode;
-    if(window.isAmbisonicMode) {
-        window.enableAmbisonicMode(); 
+
+    if (!window.isAmbisonicMode) {
+        window.isAmbisonicMode = true;
+        const ok = await window.enableAmbisonicMode();
+        if (!ok) {
+            window.isAmbisonicMode = false;
+            control.classList.add('hidden');
+            btn.classList.add('text-[color:var(--accent-ink)]');
+            btn.classList.remove('text-[color:var(--accent)]');
+            return;
+        }
         control.classList.remove('hidden');
-        btn.classList.remove('text-[color:var(--accent-ink)]'); btn.classList.add('text-[color:var(--accent)]');
+        btn.classList.remove('text-[color:var(--accent-ink)]');
+        btn.classList.add('text-[color:var(--accent)]');
         window.showToast(translations[window.currentLang].ambisonics_pan + " ON");
         window.resizeAmbiGoniometerCanvas();
         window.syncAnalyzerAnimation();
     } else {
-        window.disableAmbisonicMode(); 
+        window.isAmbisonicMode = false;
+        window.disableAmbisonicMode();
         control.classList.add('hidden');
-        btn.classList.add('text-[color:var(--accent-ink)]'); btn.classList.remove('text-[color:var(--accent)]');
+        btn.classList.add('text-[color:var(--accent-ink)]');
+        btn.classList.remove('text-[color:var(--accent)]');
         const dot = document.getElementById('ambi-dot');
-        if(dot) { dot.style.left = '50%'; dot.style.top = '50%'; }
+        if (dot) { dot.style.left = '50%'; dot.style.top = '50%'; }
         const angleDisplay = document.getElementById('ambi-angle-val');
-        if(angleDisplay) angleDisplay.textContent = `Y: 0° | P: 0°`;
+        if (angleDisplay) angleDisplay.textContent = `Y: 0° | P: 0°`;
         window.updateAmbisonicRotation(0, 0);
         window.clearAmbiGoniometerCanvas();
         window.syncAnalyzerAnimation();
@@ -355,6 +454,9 @@ window.setPlaybackPitch = function(semitones) {
         try { window.audioElement.mozPreservesPitch = false; } catch (_) {}
         try { window.audioElement.webkitPreservesPitch = false; } catch (_) {}
         window.audioElement.playbackRate = rate;
+    }
+    if (window.__foaSourceNode && window.__foaSourceNode.playbackRate) {
+        try { window.__foaSourceNode.playbackRate.value = rate; } catch (_) {}
     }
     const label = document.getElementById('pitch-value');
     if (label) label.textContent = st === 0 ? '0 st' : `${st > 0 ? '+' : ''}${st} st`;
@@ -991,7 +1093,8 @@ window.toggleMainPlay = function() {
             
     if (window.isPlaying) { 
         window.isPlaying = false;
-        if(window.audioElement) window.audioElement.pause(); 
+        if(window.audioElement) window.audioElement.pause();
+        if (window.isAmbisonicMode) window.stopFoaBufferSource();
         if (window.mockInterval) clearInterval(window.mockInterval);
         if (window.animationFrameId) cancelAnimationFrame(window.animationFrameId);
         if (window.playSfx) window.playSfx('pause');
@@ -1001,7 +1104,10 @@ window.toggleMainPlay = function() {
         if (s.url && window.audioElement && window.audioElement.src) {
             const playPromise = window.audioElement.play();
             if (playPromise !== undefined) {
-                playPromise.then(() => window.startTimelineAnimation()).catch((err) => { 
+                playPromise.then(() => {
+                    if (window.isAmbisonicMode) window.syncFoaBufferPlayback();
+                    window.startTimelineAnimation();
+                }).catch((err) => { 
                     if (err.name !== 'AbortError') {
                         console.error("Audio playback error:", err);
                         window.startMockPlayback(s); 
@@ -1062,42 +1168,303 @@ window.updateUIState = function() {
     else if (window.renderList) window.renderList();
 }
 
-window.__waveformPeaksCache = window.__waveformPeaksCache || Object.create(null);
-window.__waveformRequestId = 0;
-window.__waveformPeaks = null;
-window.__waveformProgress = 0;
-window.__waveformBuffered = 0;
-
-/** Extract normalized peak magnitudes (0–1) for a continuous waveform path. */
-window.peaksFromAudioBuffer = function(buffer, sampleCount) {
-    const n = Math.max(64, Math.min(320, sampleCount | 0 || 180));
+/** Extract normalized peak magnitudes (0–1). Multi-channel → { lanes, labels } when enabled. */
+window.peaksFromAudioBuffer = function(buffer, sampleCount, opts = {}) {
+    const n = Math.max(64, Math.min(220, sampleCount | 0 || 160));
+    const multi = !!(opts.multi ?? (window.isMultiChannelWaveformEnabled && window.isMultiChannelWaveformEnabled()));
     if (!buffer || !buffer.length) {
-        return Array.from({ length: n }, (_, i) => 0.12 + 0.08 * Math.sin(i / 6));
+        const fake = Array.from({ length: n }, (_, i) => 0.12 + 0.08 * Math.sin(i / 6));
+        return multi ? { lanes: [fake], labels: ['M'] } : fake;
     }
-    const chCount = buffer.numberOfChannels || 1;
-    const len = buffer.length;
-    const block = Math.max(1, Math.floor(len / n));
-    const peaks = new Array(n);
-    let maxPeak = 0.0001;
-    for (let i = 0; i < n; i++) {
-        const start = i * block;
-        const end = Math.min(len, start + block);
-        let peak = 0;
-        for (let c = 0; c < chCount; c++) {
-            const data = buffer.getChannelData(c);
-            for (let j = start; j < end; j++) {
+    const channelCount = Math.max(1, buffer.numberOfChannels || 1);
+    const useChannels = multi ? Math.min(8, channelCount) : 1;
+    const labels = (opts.labels && opts.labels.length)
+        ? opts.labels.slice(0, useChannels)
+        : Array.from({ length: useChannels }, (_, i) => (useChannels === 1 ? 'M' : `Ch${i + 1}`));
+
+    const buildLane = (ch) => {
+        const len = buffer.length;
+        const block = Math.max(1, Math.floor(len / n));
+        const data = buffer.getChannelData(Math.min(ch, channelCount - 1));
+        const peaks = new Array(n);
+        let maxPeak = 0.0001;
+        const stride = Math.max(1, Math.floor(block / 48));
+        for (let i = 0; i < n; i++) {
+            const start = i * block;
+            const end = Math.min(len, start + block);
+            let peak = 0;
+            for (let j = start; j < end; j += stride) {
                 const v = Math.abs(data[j]);
                 if (v > peak) peak = v;
             }
+            peaks[i] = peak;
+            if (peak > maxPeak) maxPeak = peak;
         }
-        peaks[i] = peak;
-        if (peak > maxPeak) maxPeak = peak;
+        for (let i = 0; i < n; i++) {
+            const norm = peaks[i] / maxPeak;
+            peaks[i] = Math.max(0.04, Math.min(1, Math.pow(norm, 0.72)));
+        }
+        return peaks;
+    };
+
+    if (!multi || useChannels <= 1) return buildLane(0);
+    return {
+        lanes: Array.from({ length: useChannels }, (_, c) => buildLane(c)),
+        labels
+    };
+};
+
+/** Fast PCM WAV → peaks without AudioContext.decodeAudioData (much quicker for large files). */
+window.peaksFromWavArrayBuffer = function(ab, sampleCount, opts = {}) {
+    if (!ab || ab.byteLength < 44) return null;
+    const view = new DataView(ab);
+    if (view.getUint32(0, false) !== 0x52494646 || view.getUint32(8, false) !== 0x57415645) return null; // RIFF / WAVE
+    let offset = 12;
+    let channels = 1;
+    let bits = 16;
+    let dataOffset = -1;
+    let dataSize = 0;
+    while (offset + 8 <= view.byteLength) {
+        const id = view.getUint32(offset, false);
+        const size = view.getUint32(offset + 4, true);
+        const next = offset + 8 + size + (size % 2);
+        if (id === 0x666d7420) { // fmt
+            channels = Math.max(1, view.getUint16(offset + 10, true) || 1);
+            bits = view.getUint16(offset + 22, true) || 16;
+            const format = view.getUint16(offset + 8, true);
+            if (format !== 1 && format !== 3) return null; // PCM or IEEE float
+            if (format === 3) bits = 32;
+        } else if (id === 0x64617461) { // data
+            dataOffset = offset + 8;
+            dataSize = size;
+            break;
+        }
+        offset = next;
     }
-    for (let i = 0; i < n; i++) {
-        const norm = peaks[i] / maxPeak;
-        peaks[i] = Math.max(0.04, Math.min(1, Math.pow(norm, 0.72)));
+    if (dataOffset < 0 || dataSize <= 0) return null;
+    const n = Math.max(64, Math.min(220, sampleCount | 0 || 160));
+    const bytesPerSample = Math.max(1, bits / 8);
+    const frameSize = bytesPerSample * channels;
+    const totalFrames = Math.floor(dataSize / frameSize);
+    if (totalFrames < 8) return null;
+    const block = Math.max(1, Math.floor(totalFrames / n));
+    const stride = Math.max(1, Math.floor(block / 48));
+    const endByte = Math.min(view.byteLength, dataOffset + dataSize);
+    const multi = !!(opts.multi ?? (window.isMultiChannelWaveformEnabled && window.isMultiChannelWaveformEnabled()));
+    const useChannels = multi ? Math.min(8, channels) : 1;
+
+    const readSample = (byteOffset) => {
+        if (byteOffset + bytesPerSample > endByte) return 0;
+        if (bits === 8) return (view.getUint8(byteOffset) - 128) / 128;
+        if (bits === 16) return view.getInt16(byteOffset, true) / 32768;
+        if (bits === 24) {
+            const b0 = view.getUint8(byteOffset);
+            const b1 = view.getUint8(byteOffset + 1);
+            const b2 = view.getUint8(byteOffset + 2);
+            let sample = (b2 << 16) | (b1 << 8) | b0;
+            if (sample & 0x800000) sample |= ~0xffffff;
+            return sample / 8388608;
+        }
+        if (bits === 32) return view.getFloat32(byteOffset, true);
+        return null;
+    };
+
+    const buildLane = (ch) => {
+        const peaks = new Array(n);
+        let maxPeak = 0.0001;
+        for (let i = 0; i < n; i++) {
+            const startFrame = i * block;
+            const endFrame = Math.min(totalFrames, startFrame + block);
+            let peak = 0;
+            for (let f = startFrame; f < endFrame; f += stride) {
+                const o = dataOffset + f * frameSize + ch * bytesPerSample;
+                const v = readSample(o);
+                if (v == null) return null;
+                const a = Math.abs(v);
+                if (a > peak) peak = a;
+            }
+            peaks[i] = peak;
+            if (peak > maxPeak) maxPeak = peak;
+        }
+        for (let i = 0; i < n; i++) {
+            const norm = peaks[i] / maxPeak;
+            peaks[i] = Math.max(0.04, Math.min(1, Math.pow(norm, 0.72)));
+        }
+        return peaks;
+    };
+
+    if (!multi || useChannels <= 1) return buildLane(0);
+    const lanes = [];
+    for (let c = 0; c < useChannels; c++) {
+        const lane = buildLane(c);
+        if (!lane) return null;
+        lanes.push(lane);
     }
-    return peaks;
+    const defaultLabels = channels === 2 ? ['L', 'R']
+        : (channels === 4 ? ['W', 'X', 'Y', 'Z'] : Array.from({ length: useChannels }, (_, i) => `Ch${i + 1}`));
+    return { lanes, labels: (opts.labels || defaultLabels).slice(0, useChannels) };
+};
+
+window.isMultiChannelWaveformEnabled = function() {
+    try { return localStorage.getItem('rosmap_multi_waveform') === '1'; } catch (_) { return false; }
+};
+
+window.setMultiChannelWaveformEnabled = function(enabled, skipSave = false) {
+    const on = !!enabled;
+    if (!skipSave) {
+        try { localStorage.setItem('rosmap_multi_waveform', on ? '1' : '0'); } catch (_) {}
+    }
+    const sw = document.getElementById('multi-wave-glass-switch');
+    if (sw) sw.setAttribute('aria-checked', on ? 'true' : 'false');
+    // Bust peak cache so lanes rebuild for the current track.
+    window.__waveformPeaksCache = Object.create(null);
+    window.__waveformInflight = Object.create(null);
+    const s = (window.soundsData || []).find((x) => x.id === window.currentPlayingId);
+    if (s && window.loadWaveformForSound) window.loadWaveformForSound(s);
+    else if (window.drawWaveformCanvas) window.drawWaveformCanvas();
+};
+
+window.__waveformPeaksCache = window.__waveformPeaksCache || Object.create(null);
+window.__waveformInflight = window.__waveformInflight || Object.create(null);
+window.__waveformRequestId = window.__waveformRequestId || 0;
+window.__waveformPeaks = window.__waveformPeaks ?? null;
+window.__waveformProgress = window.__waveformProgress || 0;
+window.__waveformBuffered = window.__waveformBuffered || 0;
+
+window.__waveformCacheKey = function(soundOrUrl) {
+    if (!soundOrUrl) return '';
+    const base = typeof soundOrUrl === 'string'
+        ? soundOrUrl
+        : (soundOrUrl.url || soundOrUrl.audioUrl || soundOrUrl.id || '');
+    const multi = window.isMultiChannelWaveformEnabled && window.isMultiChannelWaveformEnabled() ? 'm' : 's';
+    return `${base}|${multi}`;
+};
+
+window.__normalizeWaveformPeaks = function(peaks) {
+    if (!peaks) return null;
+    if (Array.isArray(peaks)) return { lanes: [peaks], labels: [''] };
+    if (peaks.lanes && Array.isArray(peaks.lanes) && peaks.lanes.length) {
+        return { lanes: peaks.lanes, labels: peaks.labels || [] };
+    }
+    return null;
+};
+
+window.__fetchWaveformPeaks = async function(url) {
+    const res = await fetch(url, { mode: 'cors', credentials: 'omit', cache: 'force-cache' });
+    if (!res.ok) throw new Error(`fetch ${res.status}`);
+    const ab = await res.arrayBuffer();
+    const multi = window.isMultiChannelWaveformEnabled && window.isMultiChannelWaveformEnabled();
+    const fast = window.peaksFromWavArrayBuffer ? window.peaksFromWavArrayBuffer(ab, 160, { multi }) : null;
+    if (fast && (Array.isArray(fast) ? fast.length : fast.lanes?.length)) return fast;
+    const buffer = await window.__decodeAudioArrayBuffer(ab);
+    return window.peaksFromAudioBuffer(buffer, 160, { multi });
+};
+
+/** Prefetch peaks into cache without forcing a canvas redraw (unless this sound is current). */
+window.ensureWaveformPeaks = function(soundOrUrl, opts = {}) {
+    const sound = (soundOrUrl && typeof soundOrUrl === 'object') ? soundOrUrl : null;
+    const url = typeof soundOrUrl === 'string'
+        ? soundOrUrl
+        : (sound && (sound.url || sound.audioUrl)) || '';
+    const cacheKey = window.__waveformCacheKey(soundOrUrl);
+    if (!url || url.length < 8 || !cacheKey) return Promise.resolve(null);
+
+    if (window.__waveformPeaksCache[cacheKey]) {
+        if (opts.render) window.renderWaveformBars(window.__waveformPeaksCache[cacheKey]);
+        return Promise.resolve(window.__waveformPeaksCache[cacheKey]);
+    }
+    if (window.__waveformInflight[cacheKey]) {
+        return window.__waveformInflight[cacheKey].then((peaks) => {
+            if (opts.render && peaks) window.renderWaveformBars(peaks);
+            return peaks;
+        });
+    }
+
+    const job = window.__fetchWaveformPeaks(url).then((peaks) => {
+        if (peaks) window.__waveformPeaksCache[cacheKey] = peaks;
+        delete window.__waveformInflight[cacheKey];
+        if (opts.render || (sound && sound.id && sound.id === window.currentPlayingId)
+            || (url && window.audioElement && (window.audioElement.src === url || window.audioElement.src.endsWith(url)))) {
+            window.renderWaveformBars(peaks);
+        }
+        return peaks;
+    }).catch((err) => {
+        delete window.__waveformInflight[cacheKey];
+        console.warn('waveform prefetch failed', err);
+        return null;
+    });
+    window.__waveformInflight[cacheKey] = job;
+    return job;
+};
+
+window.loadWaveformForSound = async function(soundOrUrl) {
+    const reqId = ++window.__waveformRequestId;
+    const sound = (soundOrUrl && typeof soundOrUrl === 'object') ? soundOrUrl : null;
+    const url = typeof soundOrUrl === 'string'
+        ? soundOrUrl
+        : (sound && (sound.url || sound.audioUrl)) || '';
+    const cacheKey = window.__waveformCacheKey(soundOrUrl);
+
+    if (!url || url.length < 8) {
+        window.renderWaveformBars(null);
+        return;
+    }
+
+    if (cacheKey && window.__waveformPeaksCache[cacheKey]) {
+        window.renderWaveformBars(window.__waveformPeaksCache[cacheKey]);
+        return;
+    }
+
+    /* Keep previous visual while warming — avoid empty flash if possible */
+    if (!window.__waveformPeaks) window.renderWaveformBars(null);
+
+    try {
+        const peaks = await window.ensureWaveformPeaks(soundOrUrl, { render: false });
+        if (reqId !== window.__waveformRequestId) return;
+        if (peaks) window.renderWaveformBars(peaks);
+        else window.renderWaveformBars(null);
+    } catch (err) {
+        console.warn('waveform load failed', err);
+        if (reqId !== window.__waveformRequestId) return;
+        window.renderWaveformBars(null);
+    }
+};
+
+/** Idle-prefetch waveforms for visible / upcoming sounds. */
+window.prefetchVisibleWaveforms = function(limit = 10) {
+    const list = (window.getFilteredSounds ? window.getFilteredSounds() : (window.soundsData || []))
+        .filter((s) => s && (s.url || s.audioUrl) && (!s.status || s.status === 'published'));
+    if (!list.length) return;
+    const queue = [];
+    for (const s of list) {
+        const key = window.__waveformCacheKey(s);
+        if (!key || window.__waveformPeaksCache[key] || window.__waveformInflight[key]) continue;
+        queue.push(s);
+        if (queue.length >= limit) break;
+    }
+    if (!queue.length) return;
+
+    let i = 0;
+    const step = () => {
+        if (i >= queue.length) return;
+        const s = queue[i++];
+        window.ensureWaveformPeaks(s).finally(() => {
+            if (typeof requestIdleCallback === 'function') {
+                requestIdleCallback(step, { timeout: 1800 });
+            } else {
+                setTimeout(step, 120);
+            }
+        });
+    };
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(step, { timeout: 1200 });
+    else setTimeout(step, 250);
+};
+
+window.scheduleWaveformPrefetch = function() {
+    if (window.__waveformPrefetchTimer) clearTimeout(window.__waveformPrefetchTimer);
+    window.__waveformPrefetchTimer = setTimeout(() => {
+        if (window.prefetchVisibleWaveforms) window.prefetchVisibleWaveforms(12);
+    }, 600);
 };
 
 window.drawWaveformCanvas = function() {
@@ -1120,6 +1487,19 @@ window.drawWaveformCanvas = function() {
         }
     }
 
+    const normalized = window.__normalizeWaveformPeaks(window.__waveformPeaks)
+        || { lanes: [Array.from({ length: 96 }, (_, i) => 0.1 + 0.06 * Math.abs(Math.sin(i * 0.35)))], labels: [''] };
+    const laneCount = Math.max(1, normalized.lanes.length);
+    const multi = laneCount > 1;
+    wrap.classList.toggle('waveform-wrapper--multi', multi);
+    wrap.style.setProperty('--wave-lanes', String(laneCount));
+    if (multi) {
+        const targetH = Math.min(120, Math.max(56, 28 * laneCount + 8));
+        wrap.style.height = `${targetH}px`;
+    } else {
+        wrap.style.height = '';
+    }
+
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const cssW = Math.max(1, Math.round(wrap.clientWidth || 280));
     const cssH = Math.max(28, Math.round(wrap.clientHeight || 48));
@@ -1135,86 +1515,154 @@ window.drawWaveformCanvas = function() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssW, cssH);
 
-    const peaks = Array.isArray(window.__waveformPeaks) && window.__waveformPeaks.length
-        ? window.__waveformPeaks
-        : Array.from({ length: 96 }, (_, i) => 0.1 + 0.06 * Math.abs(Math.sin(i * 0.35)));
-    const mid = cssH / 2;
-    const amp = cssH * 0.46;
     const progress = Math.max(0, Math.min(1, Number(window.__waveformProgress) || 0));
     const buffered = Math.max(progress, Math.min(1, Number(window.__waveformBuffered) || 0));
-
     const ink = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#222222';
     const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#FBAB57';
+    const laneH = cssH / laneCount;
+    const gap = multi ? 2 : 0;
 
-    const buildPath = () => {
-        const step = cssW / Math.max(1, peaks.length - 1);
+    const paintLane = (peaks, top, height) => {
+        const mid = top + height / 2;
+        const amp = (height - gap) * 0.42;
+        const buildPath = () => {
+            const step = cssW / Math.max(1, peaks.length - 1);
+            ctx.beginPath();
+            ctx.moveTo(0, mid);
+            for (let i = 0; i < peaks.length; i++) {
+                const x = i * step;
+                const y = mid - peaks[i] * amp;
+                ctx.lineTo(x, y);
+            }
+            for (let i = peaks.length - 1; i >= 0; i--) {
+                const x = i * step;
+                const y = mid + peaks[i] * amp * 0.92;
+                ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+        };
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, top, cssW * buffered, height);
+        ctx.clip();
+        buildPath();
+        ctx.fillStyle = ink;
+        ctx.globalAlpha = 0.22;
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(cssW * buffered, top, cssW * (1 - buffered) + 1, height);
+        ctx.clip();
+        buildPath();
+        ctx.fillStyle = ink;
+        ctx.globalAlpha = 0.14;
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, top, cssW * progress, height);
+        ctx.clip();
+        buildPath();
+        ctx.fillStyle = accent;
+        ctx.globalAlpha = 0.95;
+        ctx.fill();
+        ctx.restore();
+
+        ctx.globalAlpha = 0.16;
+        ctx.strokeStyle = ink;
+        ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(0, mid);
-        for (let i = 0; i < peaks.length; i++) {
-            const x = i * step;
-            const y = mid - peaks[i] * amp;
-            if (i === 0) ctx.lineTo(x, y);
-            else ctx.lineTo(x, y);
-        }
-        for (let i = peaks.length - 1; i >= 0; i--) {
-            const x = i * step;
-            const y = mid + peaks[i] * amp * 0.92;
-            ctx.lineTo(x, y);
-        }
-        ctx.closePath();
+        ctx.lineTo(cssW, mid);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
     };
 
-    // Buffered (muted)
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, cssW * buffered, cssH);
-    ctx.clip();
-    buildPath();
-    ctx.fillStyle = ink;
-    ctx.globalAlpha = 0.22;
-    ctx.fill();
-    ctx.restore();
+    normalized.lanes.forEach((lane, idx) => {
+        const top = idx * laneH;
+        paintLane(lane, top, laneH);
+        const label = normalized.labels[idx];
+        if (multi && label) {
+            ctx.globalAlpha = 0.45;
+            ctx.fillStyle = ink;
+            ctx.font = '600 9px Geologica, system-ui, sans-serif';
+            ctx.fillText(label, 4, top + 11);
+            ctx.globalAlpha = 1;
+        }
+    });
 
-    // Remaining track
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(cssW * buffered, 0, cssW * (1 - buffered) + 1, cssH);
-    ctx.clip();
-    buildPath();
-    ctx.fillStyle = ink;
-    ctx.globalAlpha = 0.14;
-    ctx.fill();
-    ctx.restore();
-
-    // Played
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, cssW * progress, cssH);
-    ctx.clip();
-    buildPath();
-    ctx.fillStyle = accent;
-    ctx.globalAlpha = 0.95;
-    ctx.fill();
-    ctx.restore();
-
-    // Center baseline
-    ctx.globalAlpha = 0.18;
-    ctx.strokeStyle = ink;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, mid);
-    ctx.lineTo(cssW, mid);
-    ctx.stroke();
-    ctx.globalAlpha = 1;
+    if (window.renderWaveformTimeMarkers) window.renderWaveformTimeMarkers();
 };
 
 window.renderWaveformBars = function(peaks) {
-    window.__waveformPeaks = Array.isArray(peaks) && peaks.length ? peaks : null;
+    const norm = window.__normalizeWaveformPeaks(peaks);
+    window.__waveformPeaks = norm || null;
     window.drawWaveformCanvas();
 };
 
 window.renderWaveform = function(peaks) {
     window.renderWaveformBars(peaks);
+};
+
+window.renderWaveformTimeMarkers = function() {
+    const wrap = document.getElementById('waveform-wrapper');
+    let layer = document.getElementById('waveform-markers');
+    if (!wrap) return;
+    if (!layer) {
+        layer = document.createElement('div');
+        layer.id = 'waveform-markers';
+        layer.className = 'waveform-markers';
+        layer.setAttribute('aria-hidden', 'true');
+        wrap.appendChild(layer);
+    }
+    const s = (window.soundsData || []).find((x) => x.id === window.currentPlayingId);
+    const markers = Array.isArray(s?.timeMarkers) ? s.timeMarkers : [];
+    const duration = (window.audioElement && window.audioElement.duration)
+        || (s && s.durationSec)
+        || 0;
+    if (!markers.length || !(duration > 0)) {
+        layer.innerHTML = '';
+        layer.classList.add('hidden');
+        return;
+    }
+    layer.classList.remove('hidden');
+    const esc = (t) => String(t ?? '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    layer.innerHTML = markers
+        .slice()
+        .sort((a, b) => (Number(a.t) || 0) - (Number(b.t) || 0))
+        .map((m) => {
+            const sec = Math.max(0, Number(m.t) || 0);
+            const pct = Math.max(0, Math.min(100, (sec / duration) * 100));
+            const label = esc(m.label || '');
+            const title = label || (window.formatTime ? window.formatTime(sec) : `${sec}s`);
+            return `<button type="button" class="waveform-marker" style="left:${pct}%" title="${title}" data-t="${sec}" aria-label="${title}"></button>`;
+        })
+        .join('');
+    if (layer.dataset.bound !== '1') {
+        layer.dataset.bound = '1';
+        layer.addEventListener('click', (e) => {
+            const btn = e.target.closest('.waveform-marker');
+            if (!btn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const sec = Number(btn.dataset.t) || 0;
+            if (window.audioElement && window.audioElement.duration) {
+                const ratio = (sec / window.audioElement.duration) * 100;
+                if (window.seekAudio) window.seekAudio(ratio);
+            }
+        });
+    }
+};
+
+window.seekToTimeMarker = function(sec) {
+    if (!window.audioElement || !window.audioElement.duration) return;
+    const ratio = (Math.max(0, Number(sec) || 0) / window.audioElement.duration) * 100;
+    if (window.seekAudio) window.seekAudio(ratio);
 };
 
 window.__decodeAudioArrayBuffer = async function(ab) {
@@ -1231,60 +1679,6 @@ window.__decodeAudioArrayBuffer = async function(ab) {
     return await new Promise((resolve, reject) => {
         ctx.decodeAudioData(copy, resolve, reject);
     });
-};
-
-window.loadWaveformForSound = async function(soundOrUrl) {
-    const reqId = ++window.__waveformRequestId;
-    const sound = (soundOrUrl && typeof soundOrUrl === 'object') ? soundOrUrl : null;
-    const url = typeof soundOrUrl === 'string'
-        ? soundOrUrl
-        : (sound && (sound.url || sound.audioUrl)) || '';
-    const cacheKey = url || (sound && sound.id) || '';
-
-    if (!url || url.length < 8) {
-        window.renderWaveformBars(null);
-        return;
-    }
-
-    if (cacheKey && window.__waveformPeaksCache[cacheKey]) {
-        window.renderWaveformBars(window.__waveformPeaksCache[cacheKey]);
-        return;
-    }
-
-    window.renderWaveformBars(null);
-
-    const finish = (peaks) => {
-        if (reqId !== window.__waveformRequestId) return;
-        if (cacheKey) window.__waveformPeaksCache[cacheKey] = peaks;
-        window.renderWaveformBars(peaks);
-    };
-
-    try {
-        const res = await fetch(url, { mode: 'cors', credentials: 'omit', cache: 'force-cache' });
-        if (!res.ok) throw new Error(`fetch ${res.status}`);
-        const ab = await res.arrayBuffer();
-        const buffer = await window.__decodeAudioArrayBuffer(ab);
-        if (reqId !== window.__waveformRequestId) return;
-        finish(window.peaksFromAudioBuffer(buffer, 200));
-        return;
-    } catch (err) {
-        console.warn('waveform decode failed, retry via File', err);
-    }
-
-    try {
-        if (!window.decodeAudioFile) throw new Error('no decoder');
-        const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
-        if (!res.ok) throw new Error('fetch failed');
-        const blob = await res.blob();
-        const file = new File([blob], 'wave.wav', { type: blob.type || 'audio/wav' });
-        const buffer = await window.decodeAudioFile(file);
-        if (reqId !== window.__waveformRequestId) return;
-        finish(window.peaksFromAudioBuffer(buffer, 200));
-    } catch (err2) {
-        console.warn('waveform fallback failed', err2);
-        if (reqId !== window.__waveformRequestId) return;
-        window.renderWaveformBars(null);
-    }
 };
 
 window.updateBufferProgress = function() {
@@ -1346,7 +1740,8 @@ window.seekAudio = function(v) {
     const s = window.soundsData.find(x => x.id === window.currentPlayingId);
     if (s && s.url && window.audioElement) { 
         if (window.audioElement.duration) { 
-            window.audioElement.currentTime = ratio * window.audioElement.duration; 
+            window.audioElement.currentTime = ratio * window.audioElement.duration;
+            if (window.isAmbisonicMode) window.syncFoaBufferPlayback();
             if (!window.isPlaying) window.updatePlayerVisuals(window.audioElement.currentTime, window.audioElement.duration);
         } 
     } else {
@@ -1361,7 +1756,8 @@ window.setupAudioEvents = function() {
     window.audioElement.onended = () => { window.isPlaying = false; window.updateUIState(); }; 
     window.audioElement.onloadedmetadata = () => { 
         const tTotal = document.getElementById('time-total');
-        if(tTotal) tTotal.textContent = window.formatTime(window.audioElement.duration); 
+        if(tTotal) tTotal.textContent = window.formatTime(window.audioElement.duration);
+        if (window.renderWaveformTimeMarkers) window.renderWaveformTimeMarkers();
     };
             
     window.audioElement.onwaiting = () => {
@@ -1421,7 +1817,11 @@ window.closePlayerCard = function(opts) {
 
     const ambiControl = document.getElementById('ambisonics-control');
     if (ambiControl) ambiControl.classList.add('hidden');
+    if (window.isAmbisonicMode && window.disableAmbisonicMode) window.disableAmbisonicMode();
     window.isAmbisonicMode = false;
+    window.stopFoaBufferSource?.();
+    window.__foaAudioBuffer = null;
+    window.__foaBufferUrl = '';
 
     window.currentPlayingId = null;
     window.clearMapRoutes();

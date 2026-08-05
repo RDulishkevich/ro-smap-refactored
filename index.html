@@ -29,7 +29,7 @@
 
     <!-- Tailwind (self-hosted build — без Play CDN / без unsafe-eval) -->
     <link rel="stylesheet" href="./src/tailwind.built.css?v=20260722c">
-    <link rel="stylesheet" href="./src/style.css?v=20260806g">
+    <link rel="stylesheet" href="./src/style.css?v=20260806j">
     <link rel="stylesheet" href="./src/glass.css?v=20260806g">
     <!-- fonts.css after glass so data-font tokens win over :root -->
     <link rel="stylesheet" href="./src/fonts.css?v=20260805m">
@@ -53,7 +53,8 @@
 
     <!-- Онбординг для новых пользователей -->
     <div id="onboarding-overlay" onclick="window.handleOnboardingBackdrop(event)" class="fixed inset-0 z-[400] hidden pointer-events-none">
-        <div id="onboarding-highlight" class="absolute rounded-[var(--radius-xl)] border-2 border-[color:var(--ink)] shadow-[0_0_0_9999px_rgba(34,34,34,0.58)] pointer-events-none opacity-0" style="left:0;top:0;width:0;height:0;"></div>
+        <div id="onboarding-scrim" class="onboarding-scrim" aria-hidden="true"></div>
+        <div id="onboarding-highlight" class="onboarding-highlight" aria-hidden="true" style="left:0;top:0;width:0;height:0;"></div>
         <div id="onboarding-card" class="absolute bg-white dark:bg-slate-800 rounded-[var(--radius-xl)] shadow-2xl border border-slate-100 dark:border-slate-700 p-5 w-[min(92vw,22rem)] pointer-events-auto" style="left:50%;top:50%;transform:translate(-50%,-50%);">
             <div class="flex items-center justify-between mb-3">
                 <span id="onboarding-step-label" class="text-[10px] font-bold uppercase tracking-wider ds-link">Шаг 1 / 3</span>
@@ -795,8 +796,8 @@
         </div>
 
         <!-- Player -->
-        <div id="player-anchor" class="player-anchor absolute bottom-0 left-0 right-0 w-full pointer-events-none flex justify-center md:justify-start pb-4 md:pb-6 z-40">
-            <div id="player-card" class="player-shell pointer-events-auto p-4 md:p-5 w-[94%] max-w-md md:max-w-2xl transform translate-y-[150%] opacity-0 relative max-h-[85vh] overflow-y-auto custom-scrollbar" data-player-sheet>
+        <div id="player-anchor" class="player-anchor absolute bottom-0 left-0 right-0 w-full pointer-events-none flex justify-center md:justify-start pb-4 md:pb-8 z-40">
+            <div id="player-card" class="player-shell pointer-events-auto p-4 md:p-4 w-[94%] max-w-md transform translate-y-[150%] opacity-0 relative max-h-[85vh] overflow-y-auto custom-scrollbar" data-player-sheet>
 
                 <button type="button" id="player-sheet-handle" class="player-sheet-handle" title="Свернуть / закрыть" aria-label="Управление плеером">
                     <span class="drag-handle" aria-hidden="true"></span>
@@ -850,6 +851,7 @@
 
                 <div id="waveform-wrapper" class="player-wave-block relative w-full h-12 md:h-14 cursor-pointer group">
                     <canvas id="waveform-canvas" class="waveform-canvas" aria-hidden="true"></canvas>
+                    <div id="waveform-markers" class="waveform-markers hidden" aria-hidden="true"></div>
                     <div id="playhead" class="absolute top-0 bottom-0 w-[1.5px] bg-slate-800 dark:bg-white rounded-full pointer-events-none z-10" style="left: 0%;"></div>
                     <input type="range" id="audio-timeline" min="0" max="100" value="0" step="0.01" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30 m-0" oninput="window.seekAudio(this.value)" aria-label="Позиция воспроизведения">
                     <!-- legacy layers kept empty for any leftover selectors -->
@@ -858,19 +860,25 @@
                     <div id="waveform-active" class="hidden" aria-hidden="true"></div>
                 </div>
 
-                <div id="ambisonics-control" class="hidden mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 pointer-events-auto transition-all flex flex-col items-center">
-                    <div class="w-full flex justify-between items-center text-[10px] font-bold uppercase tracking-wider mb-2 px-1" style="color: var(--ink-muted)">
-                        <span><i class="icon-glass mr-1" style="color: var(--accent-ink)" aria-hidden="true"></i><span data-lang="ambisonics_pan">Звуковая сфера</span></span>
-                        <span id="ambi-angle-val" style="color: var(--accent-ink)">Y: 0° | P: 0°</span>
+                <div id="ambisonics-control" class="ambi-panel hidden mt-3 pointer-events-auto transition-all flex flex-col items-center gap-2">
+                    <div class="ambi-panel__head w-full flex justify-between items-center px-1">
+                        <span class="ambi-panel__title"><i class="icon-3dcube mr-1" aria-hidden="true"></i><span data-lang="ambisonics_pan">Звуковая сфера</span></span>
+                        <span id="ambi-angle-val" class="ambi-panel__angle">Y: 0° | P: 0°</span>
                     </div>
-                    <div id="ambi-sphere-pad" class="border-2 border-[color:color-mix(in_srgb,var(--accent)_35%,transparent)] bg-gradient-to-tr from-[color:var(--panel-elevated)] to-[color:var(--panel-solid)] shadow-inner overflow-hidden cursor-crosshair touch-none">
-                        <canvas id="ambi-goniometer-canvas" class="absolute inset-0 w-full h-full pointer-events-none opacity-80"></canvas>
-                        <div class="absolute inset-0 rounded-full border border-[color:color-mix(in_srgb,var(--accent)_25%,transparent)] scale-[0.6] pointer-events-none"></div>
-                        <div class="absolute top-1/2 left-0 w-full h-[1px] bg-[color:color-mix(in_srgb,var(--accent)_30%,transparent)] pointer-events-none"></div>
-                        <div class="absolute top-0 left-1/2 w-[1px] h-full bg-[color:color-mix(in_srgb,var(--accent)_30%,transparent)] pointer-events-none"></div>
-                        <div id="ambi-dot" class="absolute w-4 h-4 bg-[color:var(--accent)] rounded-full border-2 border-[color:var(--ink)] -ml-2 -mt-2 pointer-events-none transition-none" style="left: 50%; top: 50%;"></div>
+                    <div id="ambi-sphere-pad" class="ambi-sphere" role="application" aria-label="Вращение амбисоник-сцены">
+                        <div class="ambi-sphere__sectors" aria-hidden="true">
+                            <span class="ambi-sphere__sector ambi-sphere__sector--w" data-ch="W">W</span>
+                            <span class="ambi-sphere__sector ambi-sphere__sector--x" data-ch="X">X</span>
+                            <span class="ambi-sphere__sector ambi-sphere__sector--y" data-ch="Y">Y</span>
+                            <span class="ambi-sphere__sector ambi-sphere__sector--z" data-ch="Z">Z</span>
+                        </div>
+                        <canvas id="ambi-goniometer-canvas" class="ambi-sphere__goniometer"></canvas>
+                        <div class="ambi-sphere__ring" aria-hidden="true"></div>
+                        <div class="ambi-sphere__cross ambi-sphere__cross--h" aria-hidden="true"></div>
+                        <div class="ambi-sphere__cross ambi-sphere__cross--v" aria-hidden="true"></div>
+                        <div id="ambi-dot" class="ambi-sphere__dot" style="left: 50%; top: 50%;"></div>
                     </div>
-                    <p class="text-[8px] text-slate-400 mt-2 text-center">Перемещайте точку (Yaw & Pitch) · след показывает направление звука</p>
+                    <p class="ambi-panel__hint">Секторы W·X·Y·Z · тяните точку (Yaw &amp; Pitch)</p>
                 </div>
             </div>
         </div>
@@ -1075,6 +1083,18 @@
                             <span class="glass-switch-row__hint" data-lang="ui_sounds_hint">Короткие звуки для уведомлений, тостов, окон и действий.</span>
                         </div>
                         <button type="button" role="switch" id="sfx-glass-switch" class="glass-switch" aria-checked="true" onclick="window.setUiSoundsEnabled(!(window.uiSoundsEnabled !== false))" title="UI sounds">
+                            <span class="glass-switch__thumb" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="modal-label text-slate-500 dark:text-slate-400"><i class="icon-chart-2 mr-1"></i> Волна по каналам</label>
+                    <div class="glass-switch-row mt-1">
+                        <div>
+                            <span class="glass-switch-row__label">Отдельные дорожки каналов</span>
+                            <span class="glass-switch-row__hint">Стерео — 2 волны, амбисоник — 4. По умолчанию одна общая волна.</span>
+                        </div>
+                        <button type="button" role="switch" id="multi-wave-glass-switch" class="glass-switch" aria-checked="false" onclick="window.setMultiChannelWaveformEnabled(!(window.isMultiChannelWaveformEnabled && window.isMultiChannelWaveformEnabled()))" title="Multi-channel waveform">
                             <span class="glass-switch__thumb" aria-hidden="true"></span>
                         </button>
                     </div>
@@ -2476,7 +2496,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260806g"></script>
+    <script type="module" src="./src/main.js?v=20260806j"></script>
 
 </body>
 </html>

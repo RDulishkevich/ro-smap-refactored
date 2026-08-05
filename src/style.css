@@ -1115,42 +1115,44 @@ html.dark .glass-seg__btn.is-active,
     #player-card.player-shell {
         display: flex;
         flex-direction: column;
-        gap: 0.45rem;
-        width: min(42rem, calc(100vw - var(--rail-w, 4.5rem) - var(--dock-w-expanded, 0px) - 3rem)) !important;
-        max-width: 42rem !important;
+        gap: 0.35rem;
+        width: min(26rem, calc(100vw - var(--rail-w, 4.5rem) - var(--dock-w-expanded, 0px) - 3rem)) !important;
+        max-width: 26rem !important;
+        padding: 0.85rem 1rem !important;
     }
-    #player-card .player-sheet-handle { order: 0; }
-    #player-card .player-wave-block { order: 1; }
+    #player-card .player-sheet-handle { order: 0; height: 1.1rem; }
+    #player-card .player-wave-block { order: 1; height: 2.75rem !important; }
     #player-card .player-main-row { order: 2; align-items: flex-start; }
-    #player-card .player-expand-panel { order: 3; margin-top: 0.25rem; }
+    #player-card .player-expand-panel { order: 3; margin-top: 0.15rem; }
     #player-card #ambisonics-control { order: 4; }
     #player-card .player-more-btn { display: none !important; }
     #player-card .player-description { display: none !important; }
     #player-wave-pill { display: none !important; }
     #player-card .player-play-btn {
-        width: 3rem !important;
-        height: 3rem !important;
-        min-width: 3rem !important;
-        min-height: 3rem !important;
+        width: 2.75rem !important;
+        height: 2.75rem !important;
+        min-width: 2.75rem !important;
+        min-height: 2.75rem !important;
         margin-top: 0.1rem;
     }
     #player-card .player-icon-btn {
-        width: 2.5rem !important;
-        height: 2.5rem !important;
-        min-width: 2.5rem !important;
-        min-height: 2.5rem !important;
+        width: 2.35rem !important;
+        height: 2.35rem !important;
+        min-width: 2.35rem !important;
+        min-height: 2.35rem !important;
     }
     #player-card .player-icon-btn i,
     #player-card #btn-ambi-toggle i {
-        font-size: 1rem !important;
+        font-size: 0.95rem !important;
     }
     #player-card .player-title {
-        font-size: 1.1rem;
+        font-size: 1rem;
         line-height: 1.3;
-        -webkit-line-clamp: unset;
-        line-clamp: unset;
-        display: block;
-        overflow: visible;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
         white-space: normal;
         word-break: break-word;
     }
@@ -1162,7 +1164,7 @@ html.dark .glass-seg__btn.is-active,
     #player-card .player-main-actions {
         align-items: center;
         align-self: center;
-        gap: 0.35rem;
+        gap: 0.3rem;
     }
     #player-card .player-volume-row {
         margin-left: 0.15rem;
@@ -1174,7 +1176,7 @@ html.dark .glass-seg__btn.is-active,
         font-size: 0.65rem;
         font-weight: 600;
         color: var(--ink-muted);
-        margin-top: 0.25rem;
+        margin-top: 0.2rem;
     }
     #player-card .player-expand-panel {
         max-height: none !important;
@@ -1183,6 +1185,9 @@ html.dark .glass-seg__btn.is-active,
         pointer-events: auto !important;
         overflow: visible !important;
         padding: 0 !important;
+    }
+    #player-anchor.player-anchor {
+        padding-bottom: calc(1.65rem + var(--sab)) !important;
     }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -3173,7 +3178,7 @@ html.dark .search-suggestions,
         justify-content: flex-start;
         padding-left: calc(var(--chrome-inset-left) + var(--rail-w) + var(--chrome-gap) + var(--dock-w-expanded) + var(--chrome-gap));
         padding-right: calc(5.5rem + var(--sar));
-        padding-bottom: var(--sab);
+        padding-bottom: calc(1.65rem + var(--sab));
     }
     body.dock-is-hidden #player-anchor.player-anchor {
         padding-left: calc(var(--chrome-inset-left) + var(--rail-w) + var(--chrome-gap));
@@ -4187,13 +4192,189 @@ textarea.modal-input {
 .walker-marker.walker-anthro { background-color: var(--eco-anthro, #963417); }
 .dark .walker-marker { border-color: #0f172a; }
 
-/* Ambisonic Sphere Pad */
+/* Ambisonic Sphere Pad — brand peach/cream sectors W·X·Y·Z */
+.ambi-panel {
+    width: 100%;
+    padding-top: 0.75rem;
+    border-top: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.ambi-panel__head {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-muted, #6b5340);
+}
+.ambi-panel__title { color: var(--ink, #222); }
+.ambi-panel__title i { color: var(--accent, #FBAB57); }
+.ambi-panel__angle { color: var(--accent-ink, #963417); font-variant-numeric: tabular-nums; }
+.ambi-panel__hint {
+    margin: 0;
+    font-size: 9px;
+    text-align: center;
+    color: var(--ink-muted, #6b5340);
+    opacity: 0.85;
+}
+#ambi-sphere-pad,
+.ambi-sphere {
+    position: relative;
+    width: 148px;
+    height: 148px;
+    border-radius: 50%;
+    touch-action: none;
+    cursor: crosshair;
+    overflow: hidden;
+    border: 2px solid color-mix(in srgb, var(--accent, #FBAB57) 45%, transparent);
+    background:
+        radial-gradient(circle at 50% 50%,
+            color-mix(in srgb, var(--panel-elevated, #fff) 92%, transparent) 0%,
+            color-mix(in srgb, var(--surface-stone, #F5E6D4) 80%, transparent) 70%,
+            color-mix(in srgb, var(--accent, #FBAB57) 18%, transparent) 100%);
+    box-shadow: inset 0 1px 8px color-mix(in srgb, var(--ink) 8%, transparent);
+}
+.ambi-sphere__sectors {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+}
+.ambi-sphere__sector {
+    position: absolute;
+    width: 50%;
+    height: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: color-mix(in srgb, var(--ink) 55%, transparent);
+    border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+    box-sizing: border-box;
+}
+.ambi-sphere__sector--w {
+    top: 0; left: 0;
+    border-radius: 100% 0 0 0;
+    background: color-mix(in srgb, var(--accent, #FBAB57) 16%, transparent);
+}
+.ambi-sphere__sector--x {
+    top: 0; right: 0; left: auto;
+    border-radius: 0 100% 0 0;
+    background: color-mix(in srgb, #4C6A73 14%, transparent);
+}
+.ambi-sphere__sector--y {
+    bottom: 0; left: 0; top: auto;
+    border-radius: 0 0 0 100%;
+    background: color-mix(in srgb, #6B7F4E 14%, transparent);
+}
+.ambi-sphere__sector--z {
+    bottom: 0; right: 0; top: auto; left: auto;
+    border-radius: 0 0 100% 0;
+    background: color-mix(in srgb, #963417 12%, transparent);
+}
+.ambi-sphere__goniometer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.75;
+    z-index: 2;
+}
+.ambi-sphere__ring {
+    position: absolute;
+    inset: 20%;
+    border-radius: 50%;
+    border: 1px solid color-mix(in srgb, var(--accent, #FBAB57) 28%, transparent);
+    pointer-events: none;
+    z-index: 2;
+}
+.ambi-sphere__cross {
+    position: absolute;
+    background: color-mix(in srgb, var(--accent, #FBAB57) 28%, transparent);
+    pointer-events: none;
+    z-index: 2;
+}
+.ambi-sphere__cross--h { top: 50%; left: 0; width: 100%; height: 1px; }
+.ambi-sphere__cross--v { top: 0; left: 50%; width: 1px; height: 100%; }
+.ambi-sphere__dot {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    margin-left: -8px;
+    margin-top: -8px;
+    border-radius: 50%;
+    background: var(--accent, #FBAB57);
+    border: 2px solid var(--ink, #222);
+    pointer-events: none;
+    z-index: 3;
+    box-shadow: 0 1px 4px color-mix(in srgb, var(--ink) 25%, transparent);
+}
+
+.waveform-markers {
+    position: absolute;
+    inset: 0;
+    z-index: 35;
+    pointer-events: none;
+}
+.waveform-markers.hidden { display: none !important; }
+.waveform-marker {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 10px;
+    margin-left: -5px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    pointer-events: auto;
+    cursor: pointer;
+    z-index: 36;
+}
+.waveform-marker::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 2px;
+    margin-left: -1px;
+    background: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.waveform-marker::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 50%;
+    width: 7px;
+    height: 7px;
+    margin-left: -3.5px;
+    border-radius: 50%;
+    background: var(--accent, #FBAB57);
+    border: 1.5px solid var(--ink, #222);
+}
+.waveform-wrapper--multi {
+    transition: height 0.2s ease;
+}
+.details-time-marker-btn {
+    display: flex;
+    width: 100%;
+    align-items: baseline;
+    gap: 0.5rem;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    padding: 0.15rem 0;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+}
+.details-time-marker-btn:hover .t { color: var(--accent-ink, #963417); }
+
+/* Ambisonic Sphere Pad (legacy selector kept) */
 #ambi-sphere-pad {
     position: relative;
-    width: 120px;
-    height: 120px;
-    border-radius: 50%;
-    touch-action: none; 
+    touch-action: none;
 }
 
 /* --- ????????? ??????? ?????????? + ????????? ?????? ?????????? --- */
@@ -4509,8 +4690,16 @@ textarea.modal-input {
     transition: transform 0.15s ease;
     touch-action: pan-y;
 }
+.swipe-reply-row.is-swiping {
+    transition: none;
+    touch-action: none;
+}
 .swipe-reply-row.is-swiping .swipe-reply-hint { opacity: 1; }
 .msg-bubble.swipe-reply-row { transition: transform 0.15s ease; }
+.msg-bubble.mine .swipe-reply-hint {
+    right: auto;
+    left: 0.75rem;
+}
 
 .pp-follow-stats {
     display: flex;
@@ -5936,12 +6125,56 @@ body.dock-view-messages #messages-compose-bar {
                 width 0.45s cubic-bezier(0.22, 1, 0.36, 1),
                 height 0.45s cubic-bezier(0.22, 1, 0.36, 1),
                 opacity 0.35s ease,
-                transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+                transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.35s ease;
 }
 #onboarding-overlay {
     z-index: 10080 !important;
 }
+/* Built Tailwind has no arbitrary shadow-[9999px…] — dim here in real CSS */
+#onboarding-overlay:not(.hidden) {
+    pointer-events: auto !important;
+}
+#onboarding-scrim,
+.onboarding-scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(34, 34, 34, 0.62);
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+html.dark #onboarding-scrim,
+.dark #onboarding-scrim {
+    background: rgba(8, 8, 8, 0.72);
+}
+#onboarding-highlight,
+.onboarding-highlight {
+    position: absolute;
+    border: 2px solid var(--ink, #222);
+    border-radius: 1.25rem;
+    background: transparent;
+    pointer-events: none;
+    opacity: 0;
+    /* Spotlight: punch a hole through the scrim via enormous ring shadow */
+    box-shadow: 0 0 0 9999px rgba(34, 34, 34, 0.62);
+    z-index: 1;
+}
+html.dark #onboarding-highlight,
+.dark #onboarding-highlight {
+    border-color: #fff3e2;
+    box-shadow: 0 0 0 9999px rgba(8, 8, 8, 0.72);
+}
+#onboarding-highlight.is-on,
+.onboarding-highlight.is-on {
+    opacity: 1;
+}
+/* When spotlight is on, scrim is redundant (shadow draws the dim) */
+#onboarding-overlay.is-spotlight #onboarding-scrim {
+    opacity: 0;
+}
 #onboarding-card {
+    z-index: 2;
     width: min(92vw, 22rem);
     max-width: min(92vw, 22rem);
 }

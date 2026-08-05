@@ -1105,18 +1105,22 @@ window.updateMapMarkers = function() {
     const p = window.normalizeMapProvider ? window.normalizeMapProvider(window.currentMapProvider) : window.currentMapProvider;
     if (window.isMapLibreProvider && window.isMapLibreProvider(p)) {
         if (window.updateMapboxMarkers) window.updateMapboxMarkers();
+        if (window.scheduleWaveformPrefetch) window.scheduleWaveformPrefetch();
         return;
     }
     if (p === 'dgis') {
         if (window.updateDgisMarkers) window.updateDgisMarkers();
+        if (window.scheduleWaveformPrefetch) window.scheduleWaveformPrefetch();
         return;
     }
     if (p === 'googleearth') {
         if (window.updateGoogleEarthMarkers) window.updateGoogleEarthMarkers();
+        if (window.scheduleWaveformPrefetch) window.scheduleWaveformPrefetch();
         return;
     }
     if (p === 'yandex3') {
         if (window.updateYandex3Markers) window.updateYandex3Markers();
+        if (window.scheduleWaveformPrefetch) window.scheduleWaveformPrefetch();
         return;
     }
     if (!window.map || typeof ymaps === 'undefined') return;
@@ -1228,6 +1232,7 @@ window.updateMapMarkers = function() {
             });
         });
     }
+    if (window.scheduleWaveformPrefetch) window.scheduleWaveformPrefetch();
 }
 
 window.getDistance = function(p1, p2) {
