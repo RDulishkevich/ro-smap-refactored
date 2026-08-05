@@ -1,14 +1,39 @@
 # Полёвка — Design
 
 ## Design read
-**Reading this as:** sound map first — listen, find, and add field recordings on a full-bleed map. Soft cream windows, peach accents (not flat peach fills), charcoal CTAs. Type pair **Geologica (UI) + Klukva (brand)**. Brand: **Полёвка**.
+**Reading this as:** sound map first — listen, find, and add field recordings on a full-bleed map. Soft cream windows, peach accents, charcoal CTAs. Type pair **Geologica (UI) + Klukva (brand)**. Brand: **Полёвка**.
+
+**Mobile (<768):** design system is the **Wellness peach/cream reference** (floating peach dock, white center +, soft 24–32px cards, cream pages, heavy Geologica titles with peach accent words). Desktop keeps map chrome + Wispr rim grammar.
 
 ## Product focus
 Карта звуков: слушать · находить · добавлять. Social / expeditions / admin are secondary surfaces — never crowd the listen loop.
 
 ---
 
-## Symbiosis: Полёвка × Wispr Flow
+## Mobile Wellness DS (canonical for &lt;768)
+
+Source: mobile peach/cream/charcoal reference (Health & Wellness mock). Implementation: `src/mobile-wellness.css`.
+
+| Token / pattern | Value / rule |
+|-----------------|--------------|
+| Page | cream `#FFF8F0` (dark `#1A1A1A`) |
+| Accent dock / fills | peach `#FBAB57` · soft `#FEC674` |
+| Contrast cards | charcoal `#222` / `#1A1A1A` |
+| Elevated cards | white / `#2c2c2c` dark · soft diffuse shadow |
+| Radii | cards 24 · sheets 28 · dock 32 (`--well-radius-*`) |
+| Bottom nav | **floating** peach pill (side inset + bottom gap), icons only, active = black dot |
+| Center FAB | white circle + charcoal `+`, elevated over dock |
+| Titles | Geologica **700**, tight tracking; peach `.type-accent` on key word |
+| Eyebrows | ALL CAPS · tracking ~0.12em · muted |
+| Brand wordmark | Klukva @400 only |
+| Map chrome | solid cream/white pills, soft shadow, no blur |
+| Card primitives | `.ds-card` · `.ds-card--peach` · `.ds-card--ink` |
+
+Do **not** invent a second mobile chrome. Desktop FAB `#fab-add` stays; on mobile it is hidden (Add = nav FAB).
+
+---
+
+## Symbiosis: Полёвка × Wispr Flow (desktop / shared grammar)
 
 We do **not** paste Wispr’s lavender/teal marketing palette or Garamond/Figtree into the app.  
 We keep **Полёвка identity** and adopt **Wispr’s structural grammar** (rim, surfaces, live ember, badges, waveform, elevation).
@@ -107,8 +132,8 @@ Utilities: `.mobile-grid-4`, `.mobile-pad-x`.
 | `#map-top-toolbar` | Search + active filter chips |
 | `#map-top-right-controls` | Events (both); messages/notifications on mobile after login |
 | `#player-card` | Compact playback + `.wave-pill` live indicator |
-| `#fab-add` | Desktop: add sound. Mobile: center white FAB in bottom nav |
-| `#mobile-bottom-nav` | Peach wave bar · icons · elevated white **+** · re-tap section → map |
+| `#fab-add` | Desktop only. Mobile: white center FAB in floating peach dock |
+| `#mobile-bottom-nav` | Wellness floating peach pill · icons · elevated white **+** · re-tap → map |
 
 ## Color tokens (resolved)
 
@@ -124,6 +149,9 @@ Utilities: `.mobile-grid-4`, `.mobile-pad-x`.
 | Elevated | `#FFFFFF` | `#363636` | Inputs |
 | Stone | `#F5E6D4` | `#3a3228` | Tags / dividers |
 | Muted | `#6b5340` | `#b8a894` | Secondary labels |
+| Eco geo | `#4C6A73` | same / slightly lightened | Геофония markers |
+| Eco bio | `#6B7F4E` | same / slightly lightened | Биофония markers |
+| Eco anthro | `#963417` | same / slightly lightened | Антропофония markers |
 
 ## Radii
 Soft wellness scale (cream cards ~24–32px):

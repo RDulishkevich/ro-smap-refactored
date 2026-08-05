@@ -54,6 +54,10 @@
     --leading-body: 1.5;
     --tracking-brand: -0.02em;
     --tracking-eyebrow: 0.1em;
+    /* Eco layers (map markers / chips) */
+    --eco-geo: #4C6A73;
+    --eco-bio: #6B7F4E;
+    --eco-anthro: #963417;
     /* Soft cream radii — keep in sync with style.css */
     --radius-sm: 0.75rem;
     --radius-md: 1rem;

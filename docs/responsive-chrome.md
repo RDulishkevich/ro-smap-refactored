@@ -45,19 +45,19 @@ DESKTOP (≥768)
 │                            [FAB +]                       │
 └──────────────────────────────────────────────────────────┘
 
-MOBILE (<768)
+MOBILE (<768) — Wellness DS
 ┌──────────────────────────────────────────────────────────┐
-│  [search]                         [events][msg][notif]   │
+│  [search pill]                    [events][msg][notif]   │
 │                                                          │
 │                         MAP                              │
-│                     ∿ wave lip ∿                         │
-│  ┌─────┬─────┬─────┬─────┬─────┐                         │
-│  │ Lib │Feed │ [+] │ Exp │Prof │  icons + white FAB      │
-│  └─────┴─────┴─────┴─────┴─────┘                         │
+│                                                          │
+│           ╭──────────────────────────────╮               │
+│           │ Lib  Feed  ( + )  Exp  Prof  │  floating     │
+│           ╰──────────────────────────────╯  peach dock   │
 └──────────────────────────────────────────────────────────┘
 ```
 
-Центр nav — белый FAB **Добавить** (не «Карта»). Карта = фон по умолчанию; повторный тап по активному разделу закрывает dock/кабинет. Десктопный `#fab-add` на mobile скрыт. Иконки без подписей (aria-label). Верх `#mobile-bottom-nav` — SVG-волна (`--accent` / `--palette-secondary`).
+Центр — белый FAB **Добавить**. Карта = фон; повторный тап по разделу закрывает dock. `#fab-add` на mobile скрыт. Иконки без подписей. Dock — **floating peach pill** (inset + soft shadow), не edge-to-edge Haikei wave. Полный mobile DS: `src/mobile-wellness.css` + `DESIGN.md` § Mobile Wellness.
 
 Настройки на mobile — через **Профиль** (кабинет). Аудио-угадайка — в **Помощь → FAQ**.
 

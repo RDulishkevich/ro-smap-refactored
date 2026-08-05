@@ -36,7 +36,7 @@
 | Бренд / заголовки | `--font-brand` / `font-brand` | по `data-font` (по умолчанию Klukva) |
 | Моно | `--font-mono` / `font-mono` | ui-monospace → Menlo / Consolas |
 
-Источники: локальные `assets/fonts/` (Geologica, Klukva, …) + Fontshare (Satoshi/Clash опционально) + Jakarta fallback. По умолчанию `data-font="geo-klukva"`. Порядок в `index.html`: **Iconsax → текстовые шрифты → Tailwind → style.css → glass.css → fonts.css**. Токены держать синхронно в `style.css`, `glass.css`, `fonts.css`.
+Источники: локальные `assets/fonts/` (Geologica, Klukva, …) + Fontshare (Satoshi/Clash опционально) + Jakarta fallback. По умолчанию `data-font="geo-klukva"`. Порядок в `index.html`: **Iconsax → текстовые шрифты → Tailwind → style.css → glass.css → fonts.css → mobile-wellness.css** (mobile DS last). Токены держать синхронно в `style.css`, `glass.css`, `fonts.css`; mobile overrides — только в `mobile-wellness.css`.
 
 **Иконки:** только [Iconsax](https://iconsax.io) (`icon-*` через `iconsax-font-icon`). Скрытие — класс **`hidden`**. В app CSS:
 

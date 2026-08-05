@@ -43,6 +43,10 @@
     --tracking-brand: -0.02em;
     --tracking-eyebrow: 0.1em;
     --danger: #c2410c;
+    /* Eco layers (map markers / chips) */
+    --eco-geo: #4C6A73;
+    --eco-bio: #6B7F4E;
+    --eco-anthro: #963417;
     /* Soft cream radii — wellness ref ~24–32px cards */
     --radius-sm: 0.75rem;
     --radius-md: 1rem;
@@ -1560,12 +1564,12 @@ body.dark-mode .modal-input::placeholder,
     margin-bottom: 2px;
 }
 .dark .marker-hover-card__eco { color: #94a3b8; }
-.marker-hover-card__eco.is-geo { color: #0284c7; }
-.marker-hover-card__eco.is-bio { color: #16a34a; }
-.marker-hover-card__eco.is-anthro { color: #ea580c; }
-.dark .marker-hover-card__eco.is-geo { color: #38bdf8; }
-.dark .marker-hover-card__eco.is-bio { color: #4ade80; }
-.dark .marker-hover-card__eco.is-anthro { color: #fb923c; }
+.marker-hover-card__eco.is-geo { color: var(--eco-geo, #4C6A73); }
+.marker-hover-card__eco.is-bio { color: var(--eco-bio, #6B7F4E); }
+.marker-hover-card__eco.is-anthro { color: var(--eco-anthro, #963417); }
+.dark .marker-hover-card__eco.is-geo { color: color-mix(in srgb, var(--eco-geo, #4C6A73) 75%, white); }
+.dark .marker-hover-card__eco.is-bio { color: color-mix(in srgb, var(--eco-bio, #6B7F4E) 75%, white); }
+.dark .marker-hover-card__eco.is-anthro { color: color-mix(in srgb, var(--eco-anthro, #963417) 70%, white); }
 .marker-hover-card__title {
     font-size: 12px;
     font-weight: 700;
@@ -1604,9 +1608,9 @@ body.dark-mode .modal-input::placeholder,
 }
 
 /* ????? ????? */
-.marker-geo { background-color: #38bdf8; } 
-.marker-bio { background-color: #4ade80; } 
-.marker-anthro { background-color: #f97316; } 
+.marker-geo { background-color: var(--eco-geo, #4C6A73); }
+.marker-bio { background-color: var(--eco-bio, #6B7F4E); }
+.marker-anthro { background-color: var(--eco-anthro, #963417); }
 
 /* ??? Map-first chrome: rail + floating dock + top toolbar ??? */
 :root {
@@ -1635,10 +1639,11 @@ body.dark-mode .modal-input::placeholder,
     --mobile-touch-min: 2.75rem;    /* 44 iOS floor */
     --mobile-touch: 3rem;           /* 48 Android comfortable */
     --mobile-top-bar-h: 2.75rem;    /* 44 content nav / icon row */
-    --mobile-nav-h: 3.5rem;         /* 56 bottom nav content (Material) */
-    --mobile-nav-wave-h: 1.5rem;    /* room for elevated center FAB */
-    /* Mobile fullscreen surfaces end above the bottom rail + wave lip */
-    --mobile-fs-bottom: calc(var(--mobile-nav-h) + var(--mobile-nav-wave-h) + var(--sab));
+    --mobile-nav-h: 4rem;
+    --mobile-nav-wave-h: 0px;
+    --mobile-nav-float-gap: 0.65rem;
+    /* Mobile fullscreen surfaces end above the floating peach dock */
+    --mobile-fs-bottom: calc(var(--mobile-nav-h) + var(--mobile-nav-float-gap) + var(--sab) + 0.35rem);
 }
 
 @media (min-width: 768px) {
@@ -3710,9 +3715,9 @@ textarea.modal-input {
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; color: white; font-size: 12px;
     transition: transform 0.1s linear; 
 }
-.walker-marker.walker-geo { background-color: #38bdf8; }
-.walker-marker.walker-bio { background-color: #4ade80; }
-.walker-marker.walker-anthro { background-color: #f97316; }
+.walker-marker.walker-geo { background-color: var(--eco-geo, #4C6A73); }
+.walker-marker.walker-bio { background-color: var(--eco-bio, #6B7F4E); }
+.walker-marker.walker-anthro { background-color: var(--eco-anthro, #963417); }
 .dark .walker-marker { border-color: #0f172a; }
 
 /* Ambisonic Sphere Pad */
@@ -3778,12 +3783,36 @@ textarea.modal-input {
 }
 .badge-chip-verified { background: var(--accent-soft); color: var(--accent-ink); border-color: #222222; }
 .dark .badge-chip-verified { background: rgba(251, 171, 87, 0.22); color: var(--accent-ink); border-color: #222222; }
-.badge-chip-geo { background: #e0f2fe; color: #0369a1; border-color: color-mix(in srgb, #0369a1 35%, transparent); }
-.dark .badge-chip-geo { background: rgba(3, 105, 161, 0.25); color: #38bdf8; border-color: rgba(3, 105, 161, 0.4); }
-.badge-chip-bio { background: #dcfce7; color: #15803d; border-color: color-mix(in srgb, #15803d 35%, transparent); }
-.dark .badge-chip-bio { background: rgba(21, 128, 61, 0.25); color: #4ade80; border-color: rgba(21, 128, 61, 0.4); }
-.badge-chip-anthro { background: var(--accent-soft); color: var(--accent-ink); border-color: #222222; }
-.dark .badge-chip-anthro { background: rgba(251, 171, 87, 0.22); color: var(--accent-ink); border-color: #222222; }
+.badge-chip-geo {
+    background: color-mix(in srgb, var(--eco-geo, #4C6A73) 16%, white);
+    color: var(--eco-geo, #4C6A73);
+    border-color: color-mix(in srgb, var(--eco-geo, #4C6A73) 40%, transparent);
+}
+.dark .badge-chip-geo {
+    background: color-mix(in srgb, var(--eco-geo, #4C6A73) 28%, transparent);
+    color: color-mix(in srgb, var(--eco-geo, #4C6A73) 70%, white);
+    border-color: color-mix(in srgb, var(--eco-geo, #4C6A73) 45%, transparent);
+}
+.badge-chip-bio {
+    background: color-mix(in srgb, var(--eco-bio, #6B7F4E) 16%, white);
+    color: var(--eco-bio, #6B7F4E);
+    border-color: color-mix(in srgb, var(--eco-bio, #6B7F4E) 40%, transparent);
+}
+.dark .badge-chip-bio {
+    background: color-mix(in srgb, var(--eco-bio, #6B7F4E) 28%, transparent);
+    color: color-mix(in srgb, var(--eco-bio, #6B7F4E) 70%, white);
+    border-color: color-mix(in srgb, var(--eco-bio, #6B7F4E) 45%, transparent);
+}
+.badge-chip-anthro {
+    background: color-mix(in srgb, var(--eco-anthro, #963417) 14%, white);
+    color: var(--eco-anthro, #963417);
+    border-color: color-mix(in srgb, var(--eco-anthro, #963417) 40%, transparent);
+}
+.dark .badge-chip-anthro {
+    background: color-mix(in srgb, var(--eco-anthro, #963417) 28%, transparent);
+    color: color-mix(in srgb, var(--eco-anthro, #963417) 65%, white);
+    border-color: color-mix(in srgb, var(--eco-anthro, #963417) 45%, transparent);
+}
 
 /* ?????? ?? ??????? ???????????????? ??????? ? ????????? ??????? */
 .profile-link-chip {
@@ -3841,12 +3870,30 @@ textarea.modal-input {
 .dark .portfolio-card:hover { box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35); }
 .portfolio-card-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 0.4rem; flex-wrap: wrap; }
 .portfolio-card-eco { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; padding: 2px 7px; border-radius: 9999px; }
-.portfolio-card-eco.eco-geophony { background: #e0f2fe; color: #0369a1; }
-.dark .portfolio-card-eco.eco-geophony { background: rgba(3, 105, 161, 0.25); color: #38bdf8; }
-.portfolio-card-eco.eco-biophony { background: #dcfce7; color: #15803d; }
-.dark .portfolio-card-eco.eco-biophony { background: rgba(21, 128, 61, 0.25); color: #4ade80; }
-.portfolio-card-eco.eco-anthrophony { background: #ffedd5; color: #c2410c; }
-.dark .portfolio-card-eco.eco-anthrophony { background: rgba(194, 65, 12, 0.25); color: #fb923c; }
+.portfolio-card-eco.eco-geophony {
+    background: color-mix(in srgb, var(--eco-geo, #4C6A73) 14%, white);
+    color: var(--eco-geo, #4C6A73);
+}
+.dark .portfolio-card-eco.eco-geophony {
+    background: color-mix(in srgb, var(--eco-geo, #4C6A73) 28%, transparent);
+    color: color-mix(in srgb, var(--eco-geo, #4C6A73) 70%, white);
+}
+.portfolio-card-eco.eco-biophony {
+    background: color-mix(in srgb, var(--eco-bio, #6B7F4E) 14%, white);
+    color: var(--eco-bio, #6B7F4E);
+}
+.dark .portfolio-card-eco.eco-biophony {
+    background: color-mix(in srgb, var(--eco-bio, #6B7F4E) 28%, transparent);
+    color: color-mix(in srgb, var(--eco-bio, #6B7F4E) 70%, white);
+}
+.portfolio-card-eco.eco-anthrophony {
+    background: color-mix(in srgb, var(--eco-anthro, #963417) 12%, white);
+    color: var(--eco-anthro, #963417);
+}
+.dark .portfolio-card-eco.eco-anthrophony {
+    background: color-mix(in srgb, var(--eco-anthro, #963417) 28%, transparent);
+    color: color-mix(in srgb, var(--eco-anthro, #963417) 65%, white);
+}
 .portfolio-card-title {
     font-size: 0.8rem;
     font-weight: 700;

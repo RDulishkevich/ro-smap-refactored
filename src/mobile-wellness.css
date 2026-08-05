@@ -1,0 +1,391 @@
+/**
+ * Mobile Wellness DS — copied from the peach/cream/charcoal mobile reference.
+ * Scope: max-width 767px only. Desktop keeps map chrome / Wispr rim grammar.
+ * Fonts stay Geologica (UI) + Klukva (brand wordmarks).
+ */
+:root {
+    --well-cream: #FFF8F0;
+    --well-cream-deep: #F5E6D4;
+    --well-peach: #FBAB57;
+    --well-peach-soft: #FEC674;
+    --well-ink: #1A1A1A;
+    --well-muted: #6b5340;
+    --well-white: #FFFFFF;
+    --well-shadow: 0 10px 28px rgba(26, 26, 26, 0.08);
+    --well-shadow-strong: 0 14px 36px rgba(26, 26, 26, 0.14);
+    --well-radius-card: 1.5rem;   /* 24 */
+    --well-radius-sheet: 1.75rem; /* 28 */
+    --well-radius-dock: 2rem;     /* 32 */
+    --well-pad: 1.15rem;
+    --well-gap: 0.85rem;
+}
+
+@media (max-width: 767px) {
+    :root {
+        --surface-page: var(--well-cream);
+        --surface-window: var(--well-cream);
+        --panel-solid: var(--well-cream);
+        --panel-elevated: var(--well-white);
+        --surface-stone: var(--well-cream-deep);
+        --accent: var(--well-peach);
+        --palette-secondary: var(--well-peach-soft);
+        --ink: var(--well-ink);
+        --ink-muted: var(--well-muted);
+        --glass-elev: var(--well-shadow);
+        --panel-shadow: var(--well-shadow);
+        --radius-md: 1rem;
+        --radius-lg: var(--well-radius-card);
+        --radius-xl: var(--well-radius-sheet);
+        --radius-2xl: var(--well-radius-dock);
+        --mobile-nav-h: 4rem;
+        --mobile-nav-wave-h: 0px; /* solid floating dock — no Haikei lip */
+        --mobile-nav-float-gap: 0.65rem;
+        --mobile-fs-bottom: calc(
+            var(--mobile-nav-h) + var(--mobile-nav-float-gap) + var(--sab) + 0.35rem
+        );
+        --mobile-margin: 1.15rem;
+        --mobile-gutter: 0.85rem;
+    }
+
+    html.dark,
+    .dark {
+        --well-cream: #1A1A1A;
+        --well-cream-deep: #2c2c2c;
+        --well-ink: #FFF3E2;
+        --well-muted: #b8a894;
+        --well-white: #2c2c2c;
+        --well-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+        --surface-page: #1A1A1A;
+        --surface-window: #1A1A1A;
+        --panel-solid: #1A1A1A;
+        --panel-elevated: #2c2c2c;
+        --ink: #FFF3E2;
+        --ink-muted: #b8a894;
+    }
+
+    /* —— Floating peach dock (reference) —— */
+    #fab-add {
+        display: none !important;
+    }
+    .mobile-bottom-nav {
+        position: fixed;
+        left: max(0.75rem, var(--sal));
+        right: max(0.75rem, var(--sar));
+        bottom: max(var(--mobile-nav-float-gap), var(--sab));
+        z-index: 220;
+        display: flex !important;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: center;
+        height: var(--mobile-nav-h);
+        min-height: var(--mobile-nav-h);
+        padding: 0;
+        padding-bottom: 0;
+        box-sizing: border-box;
+        background: var(--well-peach) !important;
+        border: none !important;
+        border-radius: var(--well-radius-dock) !important;
+        box-shadow: var(--well-shadow-strong) !important;
+        overflow: visible;
+        pointer-events: auto;
+    }
+    .mobile-bottom-nav__wave {
+        display: none !important;
+    }
+    .mobile-bottom-nav__row {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.15rem;
+        height: 100%;
+        padding: 0 0.55rem;
+        box-sizing: border-box;
+        background: transparent !important;
+    }
+    .mobile-nav-btn {
+        position: relative;
+        flex: 1 1 0;
+        min-width: 0;
+        min-height: var(--mobile-touch-min);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0;
+        padding: 0.4rem;
+        border: none;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--well-ink);
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        transition: transform 0.18s ease, background 0.18s ease;
+    }
+    html.dark .mobile-nav-btn,
+    .dark .mobile-nav-btn {
+        color: #222222;
+    }
+    .mobile-nav-btn i {
+        font-size: 1.4rem;
+        line-height: 1;
+    }
+    .mobile-nav-btn__label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+    .mobile-nav-btn.is-active {
+        background: transparent;
+        color: #222222;
+    }
+    .mobile-nav-btn.is-active::after {
+        content: '';
+        position: absolute;
+        bottom: 0.45rem;
+        left: 50%;
+        width: 0.3rem;
+        height: 0.3rem;
+        border-radius: 50%;
+        background: #222222;
+        transform: translateX(-50%);
+    }
+    .mobile-nav-fab {
+        position: relative;
+        flex: 0 0 auto;
+        width: 3.65rem;
+        height: 3.65rem;
+        margin-top: -1.85rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        border-radius: 50%;
+        background: #ffffff !important;
+        color: #222222 !important;
+        box-shadow: 0 10px 24px rgba(26, 26, 26, 0.18);
+        cursor: pointer;
+        z-index: 3;
+        -webkit-tap-highlight-color: transparent;
+        transition: transform 0.18s var(--ease-out, ease);
+    }
+    .mobile-nav-fab i {
+        font-size: 1.6rem;
+        line-height: 1;
+        pointer-events: none;
+    }
+    .mobile-nav-fab:active,
+    .mobile-nav-btn:active {
+        transform: scale(0.96);
+    }
+    .mobile-nav-badge {
+        position: absolute;
+        top: 0.4rem;
+        right: calc(50% - 1.1rem);
+        min-width: 0.95rem;
+        height: 0.95rem;
+        padding: 0 0.22rem;
+        border-radius: 999px;
+        background: #222222;
+        color: #fff;
+        font-size: 0.6rem;
+        font-weight: 700;
+        line-height: 0.95rem;
+        text-align: center;
+    }
+
+    /* —— Soft map chrome —— */
+    #map-top-toolbar.map-top-toolbar,
+    #map-top-right-controls .map-icon-btn,
+    #burger-btn {
+        background: var(--well-white) !important;
+        background-color: var(--well-white) !important;
+        border: none !important;
+        box-shadow: var(--well-shadow) !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        color: var(--well-ink) !important;
+    }
+    #map-top-toolbar.map-top-toolbar {
+        border-radius: 999px !important;
+        padding: 0.3rem !important;
+    }
+    #map-top-right-controls .map-icon-btn,
+    #burger-btn {
+        border-radius: 999px !important;
+        width: var(--mobile-touch) !important;
+        height: var(--mobile-touch) !important;
+    }
+
+    /* —— Dock / sheets = cream page + soft cards —— */
+    #sidebar.sidebar-panel,
+    #sidebar {
+        background: var(--well-cream) !important;
+        background-color: var(--well-cream) !important;
+        border: none !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+    }
+    #sidebar .dock-header,
+    #sidebar .rounded-2xl,
+    #sidebar .rounded-xl,
+    #sidebar .bg-white,
+    #sidebar .bg-slate-50,
+    #events-sheet .events-sheet-panel,
+    .notif-panel {
+        border-radius: var(--well-radius-card) !important;
+        border-color: transparent !important;
+        box-shadow: var(--well-shadow) !important;
+    }
+    #sidebar .bg-white,
+    #sidebar .dark\:bg-slate-800 {
+        background: var(--well-white) !important;
+    }
+    .dock-view-title {
+        font-family: var(--font-ui) !important;
+        font-weight: 700 !important;
+        font-size: var(--text-heading-sm, 1.5rem) !important;
+        letter-spacing: -0.03em !important;
+        line-height: 1.1 !important;
+    }
+
+    /* —— Player card —— */
+    #player-card.player-shell {
+        background: var(--well-white) !important;
+        background-color: var(--well-white) !important;
+        border: none !important;
+        border-radius: var(--well-radius-sheet) !important;
+        box-shadow: var(--well-shadow-strong) !important;
+        margin-left: max(0.75rem, var(--sal)) !important;
+        margin-right: max(0.75rem, var(--sar)) !important;
+        bottom: calc(var(--mobile-fs-bottom) + 0.35rem) !important;
+        max-width: calc(100vw - 1.5rem - var(--sal) - var(--sar)) !important;
+    }
+
+    /* —— Modals: soft top sheet feel, cream —— */
+    .app-modal-overlay > .app-modal-panel,
+    .app-modal-overlay > [id$="-modal-content"],
+    #auth-modal > #auth-modal-content,
+    #events-sheet .events-sheet-panel {
+        background: var(--well-cream) !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    #ui-modal-overlay > #ui-modal-content {
+        border-radius: var(--well-radius-sheet) !important;
+        background: var(--well-white) !important;
+        border: none !important;
+        box-shadow: var(--well-shadow-strong) !important;
+    }
+
+    /* —— Type roles on mobile (Geologica heavy titles like reference) —— */
+    .type-eyebrow,
+    .modal-label,
+    #sidebar .text-\[10px\].font-bold.uppercase,
+    #sidebar .uppercase.tracking-wider,
+    #sidebar .uppercase.tracking-widest {
+        font-family: var(--font-ui) !important;
+        font-size: 0.6875rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.12em !important;
+        text-transform: uppercase !important;
+        color: var(--ink-muted) !important;
+    }
+    .type-title,
+    .type-title--sm {
+        font-family: var(--font-ui) !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.03em !important;
+        line-height: 1.08 !important;
+        color: var(--ink) !important;
+    }
+    .type-title {
+        font-size: clamp(1.75rem, 7vw, 2.35rem) !important;
+    }
+    .type-title--sm {
+        font-size: clamp(1.35rem, 5.5vw, 1.65rem) !important;
+    }
+    .type-accent,
+    .ds-title-accent {
+        color: var(--well-peach) !important;
+    }
+    .brand-title,
+    .app-rail__brand {
+        font-family: var(--font-brand) !important;
+        font-weight: 400 !important;
+    }
+    .type-metric {
+        font-family: var(--font-ui) !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.025em !important;
+    }
+
+    /* —— Soft card primitives —— */
+    .ds-card {
+        border-radius: var(--well-radius-card);
+        background: var(--well-white);
+        box-shadow: var(--well-shadow);
+        border: none;
+        padding: var(--well-pad);
+    }
+    .ds-card--peach {
+        background: var(--well-peach);
+        color: #222222;
+        box-shadow: var(--well-shadow);
+    }
+    .ds-card--ink {
+        background: #222222;
+        color: #FFF3E2;
+        box-shadow: var(--well-shadow);
+    }
+    html.dark .ds-card--ink,
+    .dark .ds-card--ink {
+        background: #111111;
+        color: #FFF3E2;
+    }
+
+    /* Sound list / feed rows → soft cards */
+    #sounds-list > *,
+    #sidebar-feed .feed-card,
+    #panel-expeditions > * {
+        border-radius: var(--well-radius-card) !important;
+    }
+
+    /* Segmented controls → soft peach active */
+    .glass-seg {
+        background: var(--well-cream-deep) !important;
+        border-radius: 999px !important;
+        border: none !important;
+        padding: 0.25rem !important;
+    }
+    .glass-seg__btn.is-active,
+    .glass-seg__btn.is-active--accent {
+        background: var(--well-peach) !important;
+        color: #222222 !important;
+        border-radius: 999px !important;
+        box-shadow: none !important;
+    }
+
+    /* Primary CTAs on mobile: charcoal soft pill (reference) */
+    .ds-btn--primary,
+    #auth-action-btn,
+    #publish-btn {
+        border-radius: 999px !important;
+        box-shadow: var(--well-shadow) !important;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .mobile-nav-btn,
+        .mobile-nav-fab {
+            transition: none !important;
+        }
+    }
+}

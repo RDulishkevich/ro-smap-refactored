@@ -146,9 +146,9 @@ window.renderRegionStats = function(targetId = 'region-stats-grid') {
         { value: stats.withAudio, label: 'С аудио', color: 'text-[color:var(--ink-muted)]' },
         { value: stats.recordists, label: 'Авторов', color: 'text-[color:var(--ink)]' },
         { value: window.formatTotalDuration(stats.totalSecs), label: 'Длительность', color: 'text-[color:var(--accent-ink)]' },
-        { value: stats.byEco.geophony, label: 'Геофония', color: 'text-[color:var(--accent-ink)]' },
-        { value: stats.byEco.biophony, label: 'Биофония', color: 'text-[color:var(--ink)]' },
-        { value: stats.byEco.anthrophony, label: 'Антропофония', color: 'text-[color:var(--ink-muted)]' },
+        { value: stats.byEco.geophony, label: 'Геофония', color: 'text-[color:var(--eco-geo)]' },
+        { value: stats.byEco.biophony, label: 'Биофония', color: 'text-[color:var(--eco-bio)]' },
+        { value: stats.byEco.anthrophony, label: 'Антропофония', color: 'text-[color:var(--eco-anthro)]' },
         { value: stats.topUcs[0] ? stats.topUcs[0][0] : '–', label: stats.topUcs[0] ? `Топ UCS (${stats.topUcs[0][1]})` : 'Топ UCS', color: 'ds-link' }
     ];
     grid.innerHTML = cards.map(c => `

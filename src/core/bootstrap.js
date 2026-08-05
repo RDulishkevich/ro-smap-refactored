@@ -6,7 +6,7 @@ import './sfx.js?v=20260721t';
 import './antispam.js?v=20260721t';
 import '../ui/file-xfer.js?v=20260805j';
 import '../ui/like-shake.js?v=20260805j';
-import '../ui/ui.js?v=20260805j';
+import '../ui/ui.js?v=20260805k';
 import './audio.js?v=20260805i';
 import './map.js?v=20260805j';
 import './mapbox-map.js?v=20260721t';
@@ -26,7 +26,7 @@ import './audioConvert.js?v=20260721t';
 import '../data/publishRules.js?v=20260721t';
 import '../data/legalDocs.js?v=20260721t';
 import '../data/gearCatalog.js?v=20260721t';
-import '../widgets/analytics-widget.js?v=20260805i';
+import '../widgets/analytics-widget.js?v=20260805k';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;

@@ -29,10 +29,11 @@
 
     <!-- Tailwind (self-hosted build — без Play CDN / без unsafe-eval) -->
     <link rel="stylesheet" href="./src/tailwind.built.css?v=20260722c">
-    <link rel="stylesheet" href="./src/style.css?v=20260805j">
-    <link rel="stylesheet" href="./src/glass.css?v=20260805j">
+    <link rel="stylesheet" href="./src/style.css?v=20260805m">
+    <link rel="stylesheet" href="./src/glass.css?v=20260805m">
     <!-- fonts.css after glass so data-font tokens win over :root -->
-    <link rel="stylesheet" href="./src/fonts.css?v=20260805j">
+    <link rel="stylesheet" href="./src/fonts.css?v=20260805m">
+    <link rel="stylesheet" href="./src/mobile-wellness.css?v=20260805m">
     
     <!-- Omnitone (Maps JS API key loaded at runtime via Secure API publicConfig — not in source) -->
     <script src="https://cdn.jsdelivr.net/npm/omnitone@1.3.0/build/omnitone.min.js" integrity="sha384-5aveyyKpKISYg2tL5r5SiN4i9TsY23neueM/OhYxhAEUxVpDwQNUPAePirLqvCOe" crossorigin="anonymous"></script>
@@ -654,12 +655,8 @@
             </button>
         </div>
 
-        <!-- Mobile bottom navigation: peach bar + wave + elevated center Add (soft wellness ref) -->
+        <!-- Mobile bottom navigation: floating peach dock + white center Add (wellness DS) -->
         <nav id="mobile-bottom-nav" class="mobile-bottom-nav md:hidden" aria-label="Основная навигация">
-            <svg class="mobile-bottom-nav__wave" viewBox="0 0 1200 48" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-                <rect class="mobile-bottom-nav__wave-soft" width="1200" height="48"></rect>
-                <path class="mobile-bottom-nav__wave-accent" d="M0 0h1200v22c-80 14-160-10-240 4S780 44 600 26 420 4 300 18 100 42 0 24V0z"></path>
-            </svg>
             <div class="mobile-bottom-nav__row">
                 <button type="button" class="mobile-nav-btn" data-nav="library" onclick="window.mobileNavGo('library')" aria-label="Библиотека">
                     <i class="icon-document-text" aria-hidden="true"></i>
@@ -2375,7 +2372,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260805j"></script>
+    <script type="module" src="./src/main.js?v=20260805m"></script>
 
 </body>
 </html>

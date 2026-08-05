@@ -127,9 +127,9 @@ if (!React || !ReactDOM) {
         }, []);
 
         const ecoSegments = [
-            { label: 'Геофония', value: data.byEco.geophony || 0, color: '#0284c7' },
-            { label: 'Биофония', value: data.byEco.biophony || 0, color: '#16a34a' },
-            { label: 'Антропофония', value: data.byEco.anthrophony || 0, color: '#ea580c' }
+            { label: 'Геофония', value: data.byEco.geophony || 0, color: '#4C6A73' },
+            { label: 'Биофония', value: data.byEco.biophony || 0, color: '#6B7F4E' },
+            { label: 'Антропофония', value: data.byEco.anthrophony || 0, color: '#963417' }
         ];
 
         return h('div', { ref: rootRef, className: 'analytics-widget', style: { opacity: 0 } },
