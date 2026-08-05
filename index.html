@@ -29,8 +29,8 @@
 
     <!-- Tailwind (self-hosted build — без Play CDN / без unsafe-eval) -->
     <link rel="stylesheet" href="./src/tailwind.built.css?v=20260722c">
-    <link rel="stylesheet" href="./src/style.css?v=20260805f">
-    <link rel="stylesheet" href="./src/glass.css?v=20260805f">
+    <link rel="stylesheet" href="./src/style.css?v=20260805g">
+    <link rel="stylesheet" href="./src/glass.css?v=20260805h">
     <!-- fonts.css after glass so data-font tokens win over :root -->
     <link rel="stylesheet" href="./src/fonts.css?v=20260805e">
     
@@ -1338,24 +1338,17 @@
             <div class="p-6 overflow-y-auto custom-scrollbar flex flex-col gap-6">
                 <!-- Блок 1: Основная информация (Загрузка файла и Фото) -->
                 <div class="space-y-4">
-                    <div id="drop-zone" class="bg-white dark:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors relative">
+                    <div id="drop-zone" class="file-xfer-drop relative">
                         <input type="file" id="audio-file-input" accept="audio/*,.wav,.flac,.aiff,.aif,.mp3,.m4a,.ogg,.aac,.webm" class="hidden">
-                        <div id="drop-zone-content" class="pointer-events-none w-full flex flex-col items-center">
-                            <i class="icon-document-upload text-4xl text-slate-300 dark:text-slate-500 mb-3"></i>
-                            <div class="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400 mb-2">
-                                <span class="text-sm font-bold" data-lang="drag_drop">Нажмите или перетащите аудиофайл</span>
-                            </div>
-                            <p class="text-[10px] text-slate-400">Любой формат → WAV; частота и битность определяются автоматически</p>
-                        </div>
+                        <div id="audio-xfer" class="file-xfer file-xfer--block" data-mode="upload" data-state="idle" role="presentation"></div>
+                        <p class="file-xfer-hint" data-lang="drag_drop">Нажмите или перетащите аудиофайл · любой формат → WAV</p>
                     </div>
 
-                    <div class="bg-white dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-600 rounded-2xl p-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors" onclick="document.getElementById('image-file-input').click()">
+                    <div id="image-drop-zone" class="file-xfer-drop relative" onclick="document.getElementById('image-file-input').click()">
                         <input type="file" id="image-file-input" accept="image/*" multiple class="hidden" onchange="window.handleImageFilesWrapper(this.files)">
-                        <div class="flex flex-col items-center justify-center text-center text-slate-500 dark:text-slate-400">
-                            <i class="icon-camera text-2xl mb-2 opacity-70"></i>
-                            <span class="text-xs font-bold" data-lang="add_photo">Прикрепить фото (до 3-х шт.)</span>
-                        </div>
-                        <div id="image-preview-container" class="image-preview-grid hidden mt-3"></div>
+                        <div id="image-xfer" class="file-xfer file-xfer--block" data-mode="photo" data-state="idle" role="presentation"></div>
+                        <p class="file-xfer-hint" data-lang="add_photo">Прикрепить фото (до 3-х шт.)</p>
+                        <div id="image-preview-container" class="image-preview-grid hidden mt-1"></div>
                     </div>
 
                     <div>
@@ -1454,7 +1447,7 @@
                             </div>
                             <div>
                                 <label class="modal-label text-slate-400" data-lang="coords">Координаты</label>
-                                <input id="add-coords" type="text" value="47.222, 39.718" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white py-1.5 font-semibold text-xs font-mono" readonly>
+                                <input id="add-coords" type="text" value="47.222, 39.718" class="modal-input t-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white py-1.5 font-semibold text-xs font-mono" readonly>
                                 <button id="add-clear-route" type="button" class="hidden text-[10px] text-red-500 underline mt-1" onclick="window.clearAddModalRoute()">Очистить маршрут</button>
                             </div>
                         </div>
@@ -1595,13 +1588,12 @@
                 <p class="text-xs text-slate-500 dark:text-slate-400 text-center mb-3">
                     <span class="inline-flex items-center gap-1.5" data-lang="moderation_notice"><i class="icon-cloud"></i> Данные сохраняются на облако</span>
                 </p>
-                <div class="flex gap-3">
+                <div class="flex gap-3 items-stretch">
                     <button id="draft-btn" onclick="window.publishSound('draft')" class="flex-1 py-3.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-all active:scale-[0.98]">
                         <i class="icon-archive mr-2"></i>Черновик
                     </button>
-                    <button id="publish-btn" onclick="window.publishSound('pending')" class="flex-1 py-3.5 ds-btn ds-btn--primary">
-                        <i class="icon-document-upload mr-2"></i><span id="publish-btn-text" data-lang="publish">Опубликовать звук</span>
-                    </button>
+                    <div id="publish-xfer" class="file-xfer file-xfer--block flex-1" data-mode="upload" data-state="idle" role="button" tabindex="0" aria-label="Опубликовать звук" onclick="window.publishSound('pending')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.publishSound('pending')}"></div>
+                    <button id="publish-btn" class="hidden" aria-hidden="true" tabindex="-1"></button>
                 </div>
             </div>
         </div>
@@ -1756,9 +1748,7 @@
             <div id="expedition-view-body" class="p-5 overflow-y-auto custom-scrollbar flex-1 space-y-3 min-h-0"></div>
             <div class="expedition-view-footer p-4 border-t border-slate-100 dark:border-slate-700 shrink-0 flex gap-2">
                 <button id="expedition-view-filter-btn" onclick="window.applyExpeditionViewFilter()" class="flex-1 py-2.5 rounded-xl ds-btn ds-btn--primary">Показать звуки</button>
-                <button id="expedition-view-download-btn" type="button" onclick="window.downloadExpeditionArchive()" title="Скачать архив записей экспедиции" class="shrink-0 px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-sm font-bold transition-colors">
-                    <i class="icon-archive"></i>
-                </button>
+                <div id="expedition-view-download-btn" class="file-xfer file-xfer--compact shrink-0" data-mode="download" role="button" tabindex="0" title="Скачать архив записей экспедиции" aria-label="Скачать ZIP" onclick="window.downloadExpeditionArchive()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.downloadExpeditionArchive()}"></div>
             </div>
         </div>
     </div>
@@ -2124,13 +2114,11 @@
                         <p id="details-filename" class="text-xs font-mono text-slate-400 dark:text-slate-500 break-all"></p>
                     </div>
                     
-                    <div id="details-download-group" class="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+                    <div id="details-download-group" class="flex flex-col sm:flex-row gap-2 flex-shrink-0 items-stretch">
                         <button id="details-admin-actions-btn" onclick="window.openDetailsAdminActions(event)" class="hidden bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md hover:bg-amber-600 transition-all active:scale-95 items-center justify-center gap-2">
                             <i class="icon-more"></i> Действия
                         </button>
-                        <button onclick="window.downloadSound('wav')" class="ds-btn ds-btn--primary text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md transition-all active:scale-95 flex items-center justify-center gap-2">
-                            <i class="icon-sound text-sm"></i> WAV
-                        </button>
+                        <div id="details-download-xfer" class="file-xfer file-xfer--compact" data-mode="download" role="button" tabindex="0" aria-label="Скачать WAV" onclick="window.downloadSound('wav')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.downloadSound('wav')}"></div>
                     </div>
                 </div>
                 
@@ -2140,8 +2128,10 @@
                 <div class="flex items-center gap-2 flex-wrap">
                     <span class="details-stat-chip" title="Прослушиваний"><i class="icon-headphone"></i><span id="det-stat-plays">0</span></span>
                     <span class="details-stat-chip" title="Скачиваний"><i class="icon-document-download"></i><span id="det-stat-downloads">0</span></span>
-                    <button id="det-like-btn" onclick="window.toggleSoundReaction('like')" class="details-reaction-btn" title="Нравится">
-                        <i class="icon-like-1"></i><span id="det-like-count">0</span>
+                    <button id="det-like-btn" type="button" onclick="window.toggleSoundReaction('like')" class="details-reaction-btn t-like" data-liked="false" title="Нравится" aria-pressed="false">
+                        <span class="t-like-icon"><i class="icon-like-1 t-like-heart" aria-hidden="true"></i></span>
+                        <span class="t-like-particles" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+                        <span id="det-like-count" class="t-like-count">0</span>
                     </button>
                     <button id="det-dislike-btn" onclick="window.toggleSoundReaction('dislike')" class="details-reaction-btn" title="Не нравится">
                         <i class="icon-dislike"></i><span id="det-dislike-count">0</span>
@@ -2400,7 +2390,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260726c"></script>
+    <script type="module" src="./src/main.js?v=20260805h"></script>
 
 </body>
 </html>

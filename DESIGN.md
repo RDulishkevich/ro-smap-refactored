@@ -144,6 +144,17 @@ From Wispr grammar: `--radius-tag` 8px (square tags) · `--radius-pill` (badges 
 ## Live audio
 `.wave-pill` — Wispr waveform recipe; peach ember when `.is-live`.
 
+## File transfer (upload / download / drag-drop)
+Reference motion (cream pill → peach “Uploading…” with fill → charcoal Completed):
+- Component: `.file-xfer` + `window.FileXfer` (`src/ui/file-xfer.js`)
+- States: `idle` · `drag` · `loading` · `done`
+- Wired: add-audio dropzone, photo attach, publish, details WAV, expedition ZIP, list download feedback
+- Do not invent a second progress pattern — reuse `FileXfer.run` / `setState`
+
+## Micro-motion (Transitions.dev)
+- **Like burst:** `.t-like` + `window.LikeBurst` — peach particles + spring pop (`--like-color` → accent). Details / feed / comments.
+- **Input shake:** `.t-input-wrap` / `.t-input` / `.t-error-msg` + `window.InputShake.shake` — auth validation, publish coords, bad credentials.
+
 ## Typography
 | Role | Family | Weight |
 |------|--------|--------|

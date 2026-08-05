@@ -1461,3 +1461,363 @@ a.bg-blue-600 {
         animation: none !important;
     }
 }
+
+/* ── File transfer (upload / download / drag-drop) — reference motion ──
+ * Idle: cream pill + peach action · Loading: full peach + progress fill · Done: charcoal + check
+ */
+.file-xfer {
+    --xfer-p: 0%;
+    position: relative;
+    display: block;
+    width: 100%;
+    max-width: 22rem;
+    min-height: 3.35rem;
+    margin-inline: auto;
+    isolation: isolate;
+}
+.file-xfer--enter {
+    animation: file-xfer-in 0.4s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+@keyframes file-xfer-in {
+    from { opacity: 0; transform: translateY(1.25rem); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.file-xfer__track {
+    display: flex;
+    align-items: stretch;
+    gap: 0.35rem;
+    min-height: 3.35rem;
+    padding: 0.3rem;
+    border-radius: var(--radius-pill, 999px);
+    background: var(--panel-elevated, #fff);
+    border: var(--control-rim, 2px solid var(--ink, #222));
+    box-shadow: 0 8px 24px rgba(34, 34, 34, 0.08);
+    transition: background 0.28s var(--ease-out), border-color 0.28s ease, box-shadow 0.28s ease, transform 0.28s var(--ease-out);
+}
+.file-xfer__file {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0 0.65rem 0 0.75rem;
+    transition: opacity 0.28s ease, max-width 0.35s var(--ease-out), padding 0.28s ease, flex 0.35s var(--ease-out);
+}
+.file-xfer__clip {
+    flex-shrink: 0;
+    font-size: 1.1rem;
+    color: var(--ink-muted, #6b5340);
+}
+.file-xfer__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-ui);
+    font-size: var(--text-body-sm, 0.8125rem);
+    font-weight: 600;
+    color: var(--ink, #222);
+}
+.file-xfer__action {
+    position: relative;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 5.5rem;
+    padding: 0 1.1rem;
+    border: none;
+    border-radius: calc(var(--radius-pill, 999px) - 2px);
+    background: var(--accent, #FBAB57);
+    color: #222222;
+    font-family: var(--font-ui);
+    font-size: var(--text-body-sm, 0.8125rem);
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    overflow: hidden;
+    box-shadow: inset 0 -3px 0 rgba(34, 34, 34, 0.18);
+    transition: flex 0.35s var(--ease-out), min-width 0.35s var(--ease-out), background 0.28s ease, color 0.28s ease, border-radius 0.28s ease, box-shadow 0.28s ease;
+}
+.file-xfer__action:active { transform: scale(0.98); }
+.file-xfer__progress {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--xfer-p, 0%);
+    background: color-mix(in srgb, #fff 35%, var(--accent, #FBAB57));
+    pointer-events: none;
+    transition: width 0.25s var(--ease-out);
+    z-index: 0;
+}
+.file-xfer__action-label {
+    position: relative;
+    z-index: 1;
+}
+.file-xfer__action-label--busy { display: none; }
+.file-xfer__done {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    border-radius: var(--radius-pill, 999px);
+    background: var(--cta, #222222);
+    color: var(--cta-ink, #FFF3E2);
+    border: 2px solid #222222;
+    font-family: var(--font-ui);
+    font-size: var(--text-body-sm, 0.8125rem);
+    font-weight: 700;
+    opacity: 0;
+    transform: scale(0.96);
+    pointer-events: none;
+    transition: opacity 0.28s var(--ease-out), transform 0.28s var(--ease-out);
+    box-shadow: 0 8px 24px rgba(34, 34, 34, 0.14);
+}
+.file-xfer__done i { font-size: 1.15rem; }
+
+/* Drag */
+.file-xfer[data-state="drag"] .file-xfer__track,
+.file-xfer-drop.is-dragover .file-xfer__track {
+    background: color-mix(in srgb, var(--accent) 18%, var(--panel-elevated));
+    border-color: #222222;
+    box-shadow: 0 10px 28px color-mix(in srgb, var(--accent) 28%, transparent);
+    transform: scale(1.02);
+}
+.file-xfer[data-state="drag"] .file-xfer__action {
+    background: var(--accent-hover, #e8953f);
+}
+
+/* Loading — action expands, file fades */
+.file-xfer[data-state="loading"] .file-xfer__file {
+    opacity: 0;
+    max-width: 0;
+    padding: 0;
+    flex: 0 0 0;
+    overflow: hidden;
+}
+.file-xfer[data-state="loading"] .file-xfer__action {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    cursor: wait;
+    border-radius: calc(var(--radius-pill, 999px) - 2px);
+}
+.file-xfer[data-state="loading"] .file-xfer__action-label[data-idle] { display: none; }
+.file-xfer[data-state="loading"] .file-xfer__action-label--busy { display: inline; }
+.file-xfer[data-state="loading"] .file-xfer__track {
+    background: var(--accent, #FBAB57);
+    padding: 0.3rem;
+}
+
+/* Done */
+.file-xfer[data-state="done"] .file-xfer__track {
+    opacity: 0;
+    pointer-events: none;
+}
+.file-xfer[data-state="done"] .file-xfer__done {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+}
+
+/* Drop host */
+.file-xfer-drop {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+    padding: 1rem;
+    border-radius: var(--radius-lg, 1.85rem);
+    border: 2px dashed color-mix(in srgb, var(--ink) 18%, transparent);
+    background: var(--panel-elevated, #fff);
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s var(--ease-out);
+}
+.file-xfer-drop.is-dragover {
+    border-style: solid;
+    border-color: #222222;
+    background: color-mix(in srgb, var(--accent) 14%, var(--panel-elevated));
+}
+.file-xfer-drop .file-xfer { max-width: none; }
+.file-xfer-hint {
+    margin: 0;
+    text-align: center;
+    font-size: var(--text-caption, 0.75rem);
+    color: var(--ink-muted);
+    pointer-events: none;
+}
+
+/* Compact (list row / details) */
+.file-xfer--compact {
+    max-width: 11rem;
+    min-height: 2.5rem;
+}
+.file-xfer--compact .file-xfer__track { min-height: 2.5rem; padding: 0.2rem; }
+.file-xfer--compact .file-xfer__action { min-width: 4.5rem; padding: 0 0.75rem; font-size: 0.7rem; }
+.file-xfer--compact .file-xfer__name { font-size: 0.7rem; }
+.file-xfer--block { max-width: none; }
+
+html.dark .file-xfer__track,
+.dark .file-xfer__track {
+    background: var(--panel-elevated, #363636);
+}
+html.dark .file-xfer__action,
+.dark .file-xfer__action {
+    color: #222222;
+}
+html.dark .file-xfer-drop,
+.dark .file-xfer-drop {
+    background: var(--panel-solid, #2c2c2c);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .file-xfer--enter { animation: none; }
+    .file-xfer__track,
+    .file-xfer__file,
+    .file-xfer__action,
+    .file-xfer__done,
+    .file-xfer__progress {
+        transition: none;
+    }
+}
+
+/* ── Transitions.dev — Like burst (peach live) ── */
+:root {
+    --like-color: var(--accent, #FBAB57);
+    --like-fill: 150ms;
+    --like-pop: 350ms;
+    --like-pop-ease: cubic-bezier(0.34, 1.96, 0.64, 1);
+    --like-particle-dur: 600ms;
+    --like-particle-dist: 20px;
+    --like-particle-size: 2.5px;
+    --like-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --shake-distance: 6px;
+    --shake-overshoot: 4px;
+    --shake-dur-a: 80ms;
+    --shake-dur-b: 60ms;
+    --shake-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --revert-hold: 3000ms;
+    --revert-dur: 280ms;
+}
+
+.t-like {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+.t-like-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+.t-like-heart {
+    color: currentColor;
+    transition: color var(--like-fill) var(--like-ease);
+}
+.t-like-heart path {
+    fill: transparent;
+    stroke: currentColor;
+    transition: fill var(--like-fill) var(--like-ease), stroke var(--like-fill) var(--like-ease);
+}
+.t-like[data-liked="true"] .t-like-heart,
+.t-like.is-active .t-like-heart,
+.details-reaction-btn.t-like.active .t-like-heart,
+.comment-reaction-btn.t-like.active .t-like-heart,
+.feed-social__btn.t-like.is-active .t-like-heart {
+    color: var(--like-color);
+}
+.t-like[data-liked="true"] .t-like-heart path {
+    fill: currentColor;
+}
+.t-like[data-liked="true"] .t-like-icon,
+.t-like.is-bursting .t-like-icon {
+    animation: t-like-pop var(--like-pop) var(--like-pop-ease);
+}
+@keyframes t-like-pop {
+    0% { transform: scale(1); }
+    30% { transform: scale(0.82); }
+    100% { transform: scale(1); }
+}
+
+.t-like-particles {
+    position: absolute;
+    left: 0.65rem;
+    top: 50%;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+    color: var(--like-color);
+    z-index: 2;
+}
+.t-like-particles i {
+    position: absolute;
+    left: calc(var(--like-particle-size) * var(--psize, 1) / -2);
+    top: calc(var(--like-particle-size) * var(--psize, 1) / -2);
+    width: calc(var(--like-particle-size) * var(--psize, 1));
+    height: calc(var(--like-particle-size) * var(--psize, 1));
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0;
+}
+@keyframes t-like-burst {
+    0% { opacity: 0; transform: translate(0, 0) scale(0.4); }
+    20% { opacity: 1; transform: translate(calc(var(--px) * 0.25), calc(var(--py) * 0.25)) scale(1); }
+    100% { opacity: 0; transform: translate(var(--px), var(--py)) scale(var(--p-end-scale, 0.6)); }
+}
+.t-like.is-bursting .t-like-particles i {
+    animation: t-like-burst var(--pdur, var(--like-particle-dur)) ease-out var(--pdelay, 0ms) forwards;
+}
+
+/* ── Transitions.dev — Input error shake ── */
+.t-input-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+.t-input {
+    transition: border-color 150ms ease-out;
+    will-change: transform;
+}
+.t-input.is-error {
+    border-color: var(--danger, #c2410c) !important;
+    transition: border-color var(--revert-dur, 280ms) ease-out;
+}
+.t-error-msg {
+    margin: 0;
+    font-size: var(--text-caption, 0.75rem);
+    font-weight: 600;
+    color: var(--danger, #c2410c);
+    opacity: 0;
+    visibility: hidden;
+    transition:
+        opacity var(--revert-dur, 280ms) ease-out,
+        visibility 0s linear var(--revert-dur, 280ms);
+}
+.t-input-wrap.is-error .t-error-msg {
+    opacity: 1;
+    visibility: visible;
+    transition:
+        opacity var(--revert-dur, 280ms) ease-out,
+        visibility 0s linear 0s;
+}
+.t-input.is-shaking {
+    animation: t-input-shake calc(var(--shake-dur-a) * 2 + var(--shake-dur-b) * 2) linear;
+}
+@keyframes t-input-shake {
+    0% { transform: translateX(0); animation-timing-function: var(--shake-ease); }
+    28.57% { transform: translateX(var(--shake-distance)); animation-timing-function: var(--shake-ease); }
+    57.14% { transform: translateX(calc(var(--shake-distance) * -1)); animation-timing-function: var(--shake-ease); }
+    78.57% { transform: translateX(var(--shake-overshoot)); animation-timing-function: var(--shake-ease); }
+    100% { transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .t-like-icon,
+    .t-like-particles i { animation: none !important; }
+    .t-input { animation: none !important; transform: none !important; }
+}
+
+

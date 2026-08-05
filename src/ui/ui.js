@@ -3156,7 +3156,25 @@ window.openSoundDetailsFromList = function(soundId) {
 
 window.downloadSoundFromList = async function(soundId) {
     if (!soundId) return;
-    if (window.downloadSound) await window.downloadSound(null, soundId);
+    const row = document.querySelector(`.sidebar-sound-row[data-sound-id="${String(soundId).replace(/"/g, '')}"]`);
+    const btn = row?.querySelector('[aria-label="Скачать"]');
+    const prev = btn?.innerHTML;
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="icon-refresh-2 icon-spin text-xs" aria-hidden="true"></i>';
+    }
+    try {
+        if (window.downloadSound) await window.downloadSound('wav', soundId);
+        if (btn) btn.innerHTML = '<i class="icon-tick-circle text-xs" aria-hidden="true"></i>';
+    } catch (_) {
+        if (btn && prev) btn.innerHTML = prev;
+    } finally {
+        setTimeout(() => {
+            if (!btn) return;
+            btn.innerHTML = '<i class="icon-document-download text-xs" aria-hidden="true"></i>';
+            btn.disabled = false;
+        }, 900);
+    }
 };
 
 window.renderListWindow = function(force = false) {
@@ -3874,8 +3892,10 @@ window.renderSidebarFeed = function() {
         return `
         <div class="feed-social" onclick="event.stopPropagation()">
             <div class="feed-social__stats">
-                <button type="button" class="feed-social__btn ${reacted ? 'is-active' : ''}" onclick="window.toggleFeedReaction('${p.id}')" aria-pressed="${reacted ? 'true' : 'false'}" title="Нравится">
-                    <i class="icon-heart"></i><span>${hearts || ''}</span>
+                <button type="button" class="feed-social__btn t-like ${reacted ? 'is-active' : ''}" data-liked="${reacted ? 'true' : 'false'}" data-feed-like="${p.id}" onclick="window.toggleFeedReaction('${p.id}')" aria-pressed="${reacted ? 'true' : 'false'}" title="Нравится">
+                    ${window.LikeBurst
+                        ? window.LikeBurst.buttonInner({ icon: 'icon-heart', count: hearts || '' })
+                        : `<i class="icon-heart"></i><span>${hearts || ''}</span>`}
                 </button>
                 <button type="button" class="feed-social__btn ${open ? 'is-open' : ''}" onclick="window.toggleFeedComments('${p.id}')" title="Комментарии">
                     <i class="icon-message"></i><span>${comments || ''}</span>
@@ -4006,8 +4026,10 @@ window.renderFeedCommentsBlock = function(p) {
                     </div>
                 </div>
                 <p class="feed-comment__text">${esc(c.text)}</p>
-                <button type="button" class="comment-reaction-btn ${reactedByMe ? 'active' : ''}" onclick="window.toggleFeedCommentReaction('${p.id}', '${esc(c.id)}')">
-                    <i class="icon-heart"></i>${reactionCount > 0 ? reactionCount : ''}
+                <button type="button" class="comment-reaction-btn t-like ${reactedByMe ? 'active' : ''}" data-liked="${reactedByMe ? 'true' : 'false'}" data-comment-react="${p.id}:${esc(c.id)}" onclick="window.toggleFeedCommentReaction('${p.id}', '${esc(c.id)}')">
+                    ${window.LikeBurst
+                        ? window.LikeBurst.buttonInner({ icon: 'icon-heart', count: reactionCount > 0 ? reactionCount : '' })
+                        : `<i class="icon-heart"></i>${reactionCount > 0 ? reactionCount : ''}`}
                 </button>
             </div>`;
         }).join('')
@@ -4092,12 +4114,14 @@ window.toggleFeedCommentReaction = async function(postId, commentId) {
         : { ok: true };
     if (!guard.ok) { window.spamGuardToast(guard); return; }
     const now = new Date().toISOString();
+    let adding = false;
     const next = (window.feedPosts || []).map((p) => {
         if (p.id !== postId) return p;
         const comments = (p.comments || []).map((c) => {
             if (c.id !== commentId) return c;
             const reactedBy = [...(c.reactedBy || [])];
             const idx = reactedBy.indexOf(login);
+            adding = idx < 0;
             if (idx >= 0) reactedBy.splice(idx, 1); else reactedBy.push(login);
             return { ...c, reactedBy, reactedAt: now, updatedAt: now };
         });
@@ -4105,6 +4129,12 @@ window.toggleFeedCommentReaction = async function(postId, commentId) {
     });
     window.__feedOpenComments = postId;
     await window.syncFeedPosts(next);
+    if (adding && window.LikeBurst) {
+        requestAnimationFrame(() => {
+            const btn = document.querySelector(`[data-comment-react="${postId}:${commentId}"]`);
+            if (btn) window.LikeBurst.play(btn);
+        });
+    }
 };
 
 window.deleteFeedComment = async function(postId, commentId) {
@@ -4138,15 +4168,23 @@ window.toggleFeedReaction = async function(postId) {
     const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
     const guard = window.spamGuardCheck ? window.spamGuardCheck(`feed-react:${login}`, { minIntervalMs: 400, maxPerWindow: 40, windowMs: 60000 }) : { ok: true };
     if (!guard.ok) { window.spamGuardToast(guard); return; }
+    let adding = false;
     const next = (window.feedPosts || []).map((p) => {
         if (p.id !== postId) return p;
         const reactedBy = [...(p.reactedBy || [])];
         const idx = reactedBy.indexOf(login);
+        adding = idx < 0;
         if (idx >= 0) reactedBy.splice(idx, 1); else reactedBy.push(login);
         const now = new Date().toISOString();
         return { ...p, reactedBy, reactedAt: now, updatedAt: now };
     });
     await window.syncFeedPosts(next);
+    if (adding && window.LikeBurst) {
+        requestAnimationFrame(() => {
+            const btn = document.querySelector(`[data-feed-like="${postId}"]`);
+            if (btn) window.LikeBurst.play(btn);
+        });
+    }
 };
 
 window.toggleFeedPin = async function(postId) {
@@ -5134,7 +5172,6 @@ window.downloadSound = async function(format, soundId) {
         window.showToast('Файл недоступен для скачивания.');
         return;
     }
-    // Prefer UCS fileName – never fall back to platform soundId in the download name
     const fileName = s.fileName
         || (window.buildUcsFileName && window.buildUcsFileName({
             catId: s.typeTag,
@@ -5145,10 +5182,16 @@ window.downloadSound = async function(format, soundId) {
             location: s.location
         }))
         || 'recording.wav';
-    try {
+
+    const xfer = (!soundId || soundId === window.currentPlayingId)
+        ? document.getElementById('details-download-xfer')
+        : null;
+    const runDownload = async (setProgress) => {
         const res = await fetch(s.url);
         if (!res.ok) throw new Error('fetch_failed');
+        if (setProgress) setProgress(55);
         const blob = await res.blob();
+        if (setProgress) setProgress(92);
         const a = document.createElement('a');
         const objUrl = URL.createObjectURL(blob);
         a.href = objUrl;
@@ -5158,9 +5201,28 @@ window.downloadSound = async function(format, soundId) {
         a.remove();
         setTimeout(() => URL.revokeObjectURL(objUrl), 2000);
         window.incrementDownloadCount(s.id);
+    };
+
+    try {
+        if (xfer && window.FileXfer) {
+            await window.FileXfer.run(xfer, ({ setProgress }) => runDownload(setProgress), {
+                mode: 'download',
+                name: fileName.replace(/\.wav$/i, '') || 'WAV',
+                actionLabel: 'Скачать',
+                loadingLabel: 'Скачивание…',
+                doneLabel: 'Готово',
+                indeterminate: false,
+                doneHoldMs: 900
+            });
+        } else {
+            await runDownload();
+        }
     } catch (_) {
         window.open(s.url, '_blank');
         window.incrementDownloadCount(s.id);
+        if (xfer && window.FileXfer) {
+            window.FileXfer.setState(xfer, 'idle', { name: 'WAV', actionLabel: 'Скачать' });
+        }
     }
 };
 
@@ -5211,7 +5273,18 @@ window.downloadExpeditionArchive = async function(sessionId) {
     }
 
     const btn = document.getElementById('expedition-view-download-btn');
-    if (btn) btn.disabled = true;
+    if (btn && btn.tagName === 'BUTTON') btn.disabled = true;
+    if (btn && window.FileXfer) {
+        window.FileXfer.mount(btn, {
+            mode: 'download',
+            name: 'ZIP',
+            actionLabel: 'ZIP',
+            loadingLabel: 'Сборка…',
+            doneLabel: 'Готово'
+        });
+        window.FileXfer.setState(btn, 'loading', { loadingLabel: 'Сборка…', progress: 12 });
+        btn.style.pointerEvents = 'none';
+    }
     window.showToast(`Сборка архива (${sounds.length})…`);
 
     try {
@@ -5249,6 +5322,9 @@ window.downloadExpeditionArchive = async function(sessionId) {
                 usedNames.add(name.toLowerCase());
                 zip.file(name, blob);
                 added += 1;
+                if (btn && window.FileXfer) {
+                    window.FileXfer.setProgress(btn, Math.min(85, 12 + (added / sounds.length) * 70));
+                }
             } catch (err) {
                 console.warn('expedition archive skip', s.id, err);
             }
@@ -5256,6 +5332,10 @@ window.downloadExpeditionArchive = async function(sessionId) {
 
         if (!added) {
             window.showToast('Не удалось скачать файлы экспедиции');
+            if (btn && window.FileXfer) {
+                window.FileXfer.setState(btn, 'idle', { name: 'ZIP', actionLabel: 'ZIP' });
+                btn.style.pointerEvents = '';
+            }
             return;
         }
 
@@ -5273,11 +5353,23 @@ window.downloadExpeditionArchive = async function(sessionId) {
         a.remove();
         setTimeout(() => URL.revokeObjectURL(objUrl), 4000);
         window.showToast(`Архив готов: ${added} файл(ов)`);
+        if (btn && window.FileXfer) {
+            window.FileXfer.setState(btn, 'done', { doneLabel: 'Готово', progress: 100 });
+            setTimeout(() => {
+                window.FileXfer.setState(btn, 'idle', { name: 'ZIP', actionLabel: 'ZIP' });
+                btn.style.pointerEvents = '';
+            }, 900);
+        }
     } catch (err) {
         console.error(err);
         window.showToast('Не удалось собрать архив');
+        if (btn && window.FileXfer) {
+            window.FileXfer.setState(btn, 'idle', { name: 'ZIP', actionLabel: 'ZIP' });
+            btn.style.pointerEvents = '';
+        }
     } finally {
-        if (btn) btn.disabled = false;
+        if (btn && btn.tagName === 'BUTTON') btn.disabled = false;
+        else if (btn) btn.style.pointerEvents = '';
     }
 };
 
@@ -5459,8 +5551,10 @@ window.renderComments = function(sound) {
                 </div>
             </div>
             <p class="text-[12px] text-slate-600 dark:text-slate-300">${escHtml(r.text)}</p>
-            <button onclick="window.toggleCommentReaction('${escJs(sound.id)}', '${escJs(r.id)}')" class="comment-reaction-btn ${reactedByMe ? 'active' : ''}">
-                <i class="icon-heart"></i>${reactionCount > 0 ? reactionCount : ''}
+            <button type="button" onclick="window.toggleCommentReaction('${escJs(sound.id)}', '${escJs(r.id)}')" class="comment-reaction-btn t-like ${reactedByMe ? 'active' : ''}" data-liked="${reactedByMe ? 'true' : 'false'}" data-comment-react="${escJs(sound.id)}:${escJs(r.id)}">
+                ${window.LikeBurst
+                    ? window.LikeBurst.buttonInner({ icon: 'icon-heart', count: reactionCount > 0 ? reactionCount : '' })
+                    : `<i class="icon-heart"></i>${reactionCount > 0 ? reactionCount : ''}`}
             </button>
         </div>`;
     };
@@ -5481,8 +5575,10 @@ window.renderComments = function(sound) {
                 </div>
             </div>
             <p class="text-[13px] text-slate-600 dark:text-slate-300 mb-1.5">${escHtml(c.text)}</p>
-            <button onclick="window.toggleCommentReaction('${escJs(sound.id)}', '${escJs(c.id)}')" class="comment-reaction-btn ${reactedByMe ? 'active' : ''}">
-                <i class="icon-heart"></i>${reactionCount > 0 ? reactionCount : ''}
+            <button type="button" onclick="window.toggleCommentReaction('${escJs(sound.id)}', '${escJs(c.id)}')" class="comment-reaction-btn t-like ${reactedByMe ? 'active' : ''}" data-liked="${reactedByMe ? 'true' : 'false'}" data-comment-react="${escJs(sound.id)}:${escJs(c.id)}">
+                ${window.LikeBurst
+                    ? window.LikeBurst.buttonInner({ icon: 'icon-heart', count: reactionCount > 0 ? reactionCount : '' })
+                    : `<i class="icon-heart"></i>${reactionCount > 0 ? reactionCount : ''}`}
             </button>
             ${(c.replies && c.replies.length) ? `<div class="comment-replies">${c.replies.map(renderReply).join('')}</div>` : ''}
         </div>`;
@@ -5744,6 +5840,12 @@ window.toggleCommentReaction = async function(soundId, commentId) {
     c.updatedAt = c.reactedAt;
     if (parent) parent.updatedAt = c.reactedAt;
     window.renderComments(s);
+    if (adding && window.LikeBurst) {
+        requestAnimationFrame(() => {
+            const btn = document.querySelector(`[data-comment-react="${soundId}:${commentId}"]`);
+            if (btn) window.LikeBurst.play(btn);
+        });
+    }
 
     const updatedCloud = [...window.cloudDataCache];
     const cIdx = updatedCloud.findIndex(x => x.id === soundId);
@@ -5836,6 +5938,10 @@ window.toggleSoundReaction = async function(kind) {
     const ti = target.indexOf(login);
     const adding = ti < 0;
     if (ti >= 0) target.splice(ti, 1); else target.push(login);
+    if (adding && kind === 'like') {
+        const likeBtn = document.getElementById('det-like-btn');
+        if (window.LikeBurst && likeBtn) window.LikeBurst.play(likeBtn);
+    }
     window.renderDetailsReactions(s);
 
     const reactionSet = adding;
@@ -5902,8 +6008,16 @@ window.renderDetailsReactions = function(s) {
     const dislikeCount = document.getElementById('det-dislike-count');
     if (likeCount) likeCount.textContent = (s.likedBy || []).length;
     if (dislikeCount) dislikeCount.textContent = (s.dislikedBy || []).length;
-    if (likeBtn) likeBtn.classList.toggle('active', !!login && (s.likedBy || []).includes(login));
-    if (dislikeBtn) dislikeBtn.classList.toggle('active', !!login && (s.dislikedBy || []).includes(login));
+    const liked = !!login && (s.likedBy || []).includes(login);
+    const disliked = !!login && (s.dislikedBy || []).includes(login);
+    if (likeBtn) {
+        if (window.LikeBurst) window.LikeBurst.setLiked(likeBtn, liked);
+        else {
+            likeBtn.classList.toggle('active', liked);
+            likeBtn.dataset.liked = liked ? 'true' : 'false';
+        }
+    }
+    if (dislikeBtn) dislikeBtn.classList.toggle('active', disliked);
 };
 
 // Добавление Аудио
@@ -5942,8 +6056,15 @@ window.handleAudioFiles = async function(files) {
         return;
     }
 
+    const xfer = document.getElementById('audio-xfer');
     const dropContent = document.getElementById('drop-zone-content');
-    if (dropContent) {
+    if (window.FileXfer && xfer) {
+        window.FileXfer.setState(xfer, 'loading', {
+            name: file.name,
+            loadingLabel: 'Обработка…',
+            progress: 18
+        });
+    } else if (dropContent) {
         dropContent.innerHTML = `<span class="text-sm font-bold ds-link">Обработка: ${file.name}…</span>`;
     }
 
@@ -5970,7 +6091,15 @@ window.handleAudioFiles = async function(files) {
             window.__uploadedAudioDuration = window.formatTime ? window.formatTime(secs) : `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`;
         }).catch(() => { window.__uploadedAudioDuration = '0:00'; });
 
-        if (dropContent) {
+        if (window.FileXfer && xfer) {
+            window.FileXfer.setState(xfer, 'done', { name: ready.name, doneLabel: 'Готово', progress: 100 });
+            setTimeout(() => {
+                window.FileXfer.setState(xfer, 'idle', {
+                    name: ready.name,
+                    actionLabel: 'Заменить'
+                });
+            }, 700);
+        } else if (dropContent) {
             dropContent.innerHTML = `<span class="text-sm font-bold ds-link">Готов к загрузке: ${ready.name}</span>`;
         }
 
@@ -5986,7 +6115,9 @@ window.handleAudioFiles = async function(files) {
     } catch (err) {
         console.warn(err);
         window.showToast('Не удалось прочитать аудио. Попробуйте другой файл.');
-        if (dropContent) {
+        if (window.FileXfer && xfer) {
+            window.FileXfer.setState(xfer, 'idle', { name: 'Аудиофайл', actionLabel: 'Выбрать' });
+        } else if (dropContent) {
             dropContent.innerHTML = `<span class="text-sm font-bold text-slate-500">Нажмите или перетащите аудиофайл</span>`;
         }
     }
@@ -6321,7 +6452,15 @@ window.handleImageFilesWrapper = function(files) {
     const remaining = Math.max(0, 3 - window.pendingImages.length);
     if (remaining === 0) { window.showToast('Можно прикрепить максимум 3 фото'); return; }
 
+    const xfer = document.getElementById('image-xfer');
     const toProcess = Array.from(files).slice(0, remaining);
+    if (window.FileXfer && xfer) {
+        window.FileXfer.setState(xfer, 'loading', {
+            name: toProcess[0]?.name || 'Фото',
+            loadingLabel: 'Загрузка…',
+            progress: 40
+        });
+    }
     toProcess.forEach(file => {
         if (!file.type || !file.type.startsWith('image/')) return;
         if (file.size > (window.MAX_IMAGE_UPLOAD_BYTES || 30 * 1024 * 1024)) {
@@ -6332,6 +6471,16 @@ window.handleImageFilesWrapper = function(files) {
         window.pendingImages.push({ preview, file });
     });
     window.renderPendingImagesPreview();
+    if (window.FileXfer && xfer) {
+        const n = (window.pendingImages || []).length;
+        window.FileXfer.setState(xfer, 'done', { doneLabel: 'Готово', progress: 100 });
+        setTimeout(() => {
+            window.FileXfer.setState(xfer, 'idle', {
+                name: n ? `Фото · ${n}` : 'Фото',
+                actionLabel: n >= 3 ? 'Макс. 3' : 'Ещё'
+            });
+        }, 650);
+    }
 };
 
 window.pendingImageSrc = function(item) {
@@ -6506,6 +6655,8 @@ window.collectAddFormEmbedMeta = function({ soundId, title, coords, fileName, lo
 // Логика перехода статусов при редактировании – см. комментарий у поле status ниже.
 window.publishSound = async function(targetStatus = 'pending') {
     if (!window.currentUser) { window.showToast('Войдите, чтобы опубликовать звук'); return; }
+    const pubBusy = document.getElementById('publish-xfer');
+    if (pubBusy?.dataset?.state === 'loading') return;
     const loginKey = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
     const guard = window.spamGuardCheck
         ? window.spamGuardCheck(`publish:${loginKey}`, { minIntervalMs: 4000, maxPerWindow: 6, windowMs: 120000 })
@@ -6514,7 +6665,11 @@ window.publishSound = async function(targetStatus = 'pending') {
 
     const val = elId => (document.getElementById(elId)?.value || '').trim();
     const coords = window.tempAddCoords || window.parseCoordinateString(val('add-coords'));
-    if (!coords) { window.showToast('Выберите точку на карте перед публикацией'); return; }
+    if (!coords) {
+        if (window.InputShake) window.InputShake.shake(document.getElementById('add-coords'), { message: 'Укажите точку на карте' });
+        window.showToast('Выберите точку на карте перед публикацией');
+        return;
+    }
     const title = val('add-display-title') || val('add-user-defined') || 'Новая запись';
 
     const isEdit = !!window.editingSoundId;
@@ -6524,8 +6679,19 @@ window.publishSound = async function(targetStatus = 'pending') {
     const login = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
     const btn = document.getElementById('publish-btn');
     const draftBtn = document.getElementById('draft-btn');
+    const pubXfer = document.getElementById('publish-xfer');
     if (btn) btn.disabled = true;
     if (draftBtn) draftBtn.disabled = true;
+    if (pubXfer) {
+        pubXfer.style.pointerEvents = 'none';
+        if (window.FileXfer) {
+            window.FileXfer.setState(pubXfer, 'loading', {
+                name: title,
+                loadingLabel: targetStatus === 'draft' ? 'Сохранение…' : 'Публикация…',
+                progress: 10
+            });
+        }
+    }
     window.showToast(targetStatus === 'draft' ? 'Сохранение черновика...' : (isEdit ? 'Сохранение изменений...' : 'Публикация...'));
 
     if (window.currentUploadedFileUrl && (!window.__uploadedAudioDuration || window.__uploadedAudioDuration === '0:00') && window.probeAudioDuration) {
@@ -6683,6 +6849,7 @@ window.publishSound = async function(targetStatus = 'pending') {
         if (window.isSoundwalkPrinciple() && (!soundObj.route || soundObj.route.length < 2)) {
             if (btn) btn.disabled = false;
             if (draftBtn) draftBtn.disabled = false;
+            if (window.resetPublishXfer) window.resetPublishXfer();
             window.showToast('Для звуковой прогулки нарисуйте маршрут (минимум 2 точки)');
             return;
         }
@@ -6691,11 +6858,16 @@ window.publishSound = async function(targetStatus = 'pending') {
         const idx = updatedCloud.findIndex(x => x.id === soundObj.id);
         if (idx >= 0) updatedCloud[idx] = soundObj; else updatedCloud.push(soundObj);
 
+        if (pubXfer && window.FileXfer) window.FileXfer.setProgress(pubXfer, 72);
         const success = await window.syncCloudData(updatedCloud);
         if (btn) btn.disabled = false;
         if (draftBtn) draftBtn.disabled = false;
 
         if (success) {
+            if (pubXfer && window.FileXfer) {
+                window.FileXfer.setState(pubXfer, 'done', { doneLabel: 'Готово', progress: 100 });
+                setTimeout(() => { if (window.resetPublishXfer) window.resetPublishXfer(); }, 800);
+            }
             const msg = soundObj.status === 'draft'
                 ? 'Черновик сохранён!'
                 : (wasResubmit
@@ -6738,13 +6910,36 @@ window.publishSound = async function(targetStatus = 'pending') {
                 window.evaluateFieldProgress();
             }
             window.toggleAddModal(true);
+        } else if (window.resetPublishXfer) {
+            window.resetPublishXfer();
         }
     } catch (err) {
         console.error(err);
         if (btn) btn.disabled = false;
         if (draftBtn) draftBtn.disabled = false;
+        if (window.resetPublishXfer) window.resetPublishXfer();
         window.showToast(err.message || 'Не удалось сохранить запись');
     }
+};
+
+window.resetPublishXfer = function() {
+    const pubXfer = document.getElementById('publish-xfer');
+    if (!pubXfer || !window.FileXfer) return;
+    pubXfer.style.pointerEvents = '';
+    const editing = !!window.editingSoundId;
+    const existing = editing ? window.soundsData.find(x => x.id === window.editingSoundId) : null;
+    let action = 'Опубликовать';
+    if (existing) {
+        action = (existing.status === 'rejected' || existing.status === 'draft')
+            ? 'На модерацию'
+            : 'Сохранить';
+    }
+    window.FileXfer.setState(pubXfer, 'idle', {
+        name: 'Публикация',
+        actionLabel: action,
+        loadingLabel: 'Публикация…',
+        doneLabel: 'Готово'
+    });
 };
 
 // Заполняет выпадающий список сессий в модалке добавления. selectedId (если передан) выбирается
@@ -6818,13 +7013,22 @@ window.editSound = function(id) {
 
     window.renderPendingImagesPreview();
 
-    const dropContent = document.getElementById('drop-zone-content');
-    if (dropContent) dropContent.innerHTML = s.url
-        ? `<i class="icon-sound text-4xl ds-link mb-3"></i><span class="text-sm font-bold text-slate-500 dark:text-slate-400">Аудиофайл уже сохранён. Выберите новый, чтобы заменить.</span>`
-        : `<i class="icon-document-upload text-4xl text-slate-300 dark:text-slate-500 mb-3"></i><span class="text-sm font-bold text-slate-500 dark:text-slate-400">Нажмите или перетащите аудиофайл</span>`;
+    const audioXfer = document.getElementById('audio-xfer');
+    if (window.FileXfer && audioXfer) {
+        window.FileXfer.setState(audioXfer, 'idle', {
+            name: s.url ? (s.fileName || 'Аудио сохранено') : 'Аудиофайл',
+            actionLabel: s.url ? 'Заменить' : 'Выбрать'
+        });
+    } else {
+        const dropContent = document.getElementById('drop-zone-content');
+        if (dropContent) dropContent.innerHTML = s.url
+            ? `<i class="icon-sound text-4xl ds-link mb-3"></i><span class="text-sm font-bold text-slate-500 dark:text-slate-400">Аудиофайл уже сохранён. Выберите новый, чтобы заменить.</span>`
+            : `<i class="icon-document-upload text-4xl text-slate-300 dark:text-slate-500 mb-3"></i><span class="text-sm font-bold text-slate-500 dark:text-slate-400">Нажмите или перетащите аудиофайл</span>`;
+    }
 
     const headerTitle = document.getElementById('add-modal-header-title');
     if (headerTitle) headerTitle.innerHTML = `<i class="icon-edit-2 mr-2 ds-link"></i>Редактировать запись`;
+    if (window.resetPublishXfer) window.resetPublishXfer();
     const publishText = document.getElementById('publish-btn-text');
     if (publishText) {
         publishText.textContent = (s.status === 'rejected' || s.status === 'draft')
@@ -6848,9 +7052,18 @@ window.resetAddModalToCreateMode = function() {
 
     const headerTitle = document.getElementById('add-modal-header-title');
     if (headerTitle) headerTitle.innerHTML = `<i class="icon-musicnote mr-2 ds-link"></i><span data-lang="add_audio_title">Добавить аудио</span>`;
+    if (window.resetPublishXfer) window.resetPublishXfer();
     const publishText = document.getElementById('publish-btn-text');
     if (publishText) publishText.textContent = 'Опубликовать звук';
 
+    const audioXfer = document.getElementById('audio-xfer');
+    if (window.FileXfer && audioXfer) {
+        window.FileXfer.setState(audioXfer, 'idle', { name: 'Аудиофайл', actionLabel: 'Выбрать' });
+    }
+    const imageXfer = document.getElementById('image-xfer');
+    if (window.FileXfer && imageXfer) {
+        window.FileXfer.setState(imageXfer, 'idle', { name: 'Фото', actionLabel: 'Выбрать' });
+    }
     const dropContent = document.getElementById('drop-zone-content');
     if (dropContent) dropContent.innerHTML = `<i class="icon-document-upload text-4xl text-slate-300 dark:text-slate-500 mb-3"></i><div class="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400 mb-2"><span class="text-sm font-bold" data-lang="drag_drop">Нажмите или перетащите аудиофайл</span></div><p class="text-[10px] text-slate-400">Любой формат → WAV; частота и битность определяются автоматически</p>`;
 

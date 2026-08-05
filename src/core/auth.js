@@ -96,13 +96,15 @@ export function initAuth() {
             btnReg.className = inactiveClass;
             actionBtn.textContent = 'Войти';
             container.innerHTML = `
-                <div>
+                <div class="t-input-wrap">
                     <label class="modal-label">Логин (Имя / CreatorID)</label>
-                    <input type="text" id="auth-username" class="modal-input dark:bg-slate-900" placeholder="Ваш псевдоним" onkeydown="if(event.key==='Enter') window.submitAuth()">
+                    <input type="text" id="auth-username" class="modal-input t-input dark:bg-slate-900" placeholder="Ваш псевдоним" onkeydown="if(event.key==='Enter') window.submitAuth()">
+                    <p class="t-error-msg"></p>
                 </div>
-                <div>
+                <div class="t-input-wrap">
                     <label class="modal-label">Пароль</label>
-                    <input type="password" id="auth-password" class="modal-input dark:bg-slate-900" placeholder="Ваш пароль" onkeydown="if(event.key==='Enter') window.submitAuth()">
+                    <input type="password" id="auth-password" class="modal-input t-input dark:bg-slate-900" placeholder="Ваш пароль" onkeydown="if(event.key==='Enter') window.submitAuth()">
+                    <p class="t-error-msg"></p>
                 </div>
                 <p class="text-center">
                     <button type="button" class="text-sm ds-link font-semibold hover:underline" onclick="window.openPasswordResetFlow()">Забыли пароль?</button>
@@ -113,28 +115,32 @@ export function initAuth() {
             btnLogin.className = inactiveClass;
             actionBtn.textContent = 'Зарегистрироваться';
             container.innerHTML = `
-                <div>
+                <div class="t-input-wrap">
                     <label class="modal-label">Логин (Имя / CreatorID)</label>
-                    <input type="text" id="auth-username" class="modal-input dark:bg-slate-900" placeholder="Придумайте псевдоним" onkeydown="if(event.key==='Enter') window.submitAuth()">
+                    <input type="text" id="auth-username" class="modal-input t-input dark:bg-slate-900" placeholder="Придумайте псевдоним" onkeydown="if(event.key==='Enter') window.submitAuth()">
+                    <p class="t-error-msg"></p>
                 </div>
-                <div>
+                <div class="t-input-wrap">
                     <label class="modal-label">Email</label>
-                    <input type="email" id="auth-email" class="modal-input dark:bg-slate-900" placeholder="name@example.com" autocomplete="email" onkeydown="if(event.key==='Enter') window.submitAuth()">
-                    <p class="text-[10px] text-slate-400 mt-1">На него придёт код подтверждения. Нужен для восстановления доступа.</p>
+                    <input type="email" id="auth-email" class="modal-input t-input dark:bg-slate-900" placeholder="name@example.com" autocomplete="email" onkeydown="if(event.key==='Enter') window.submitAuth()">
+                    <p class="text-[10px] text-slate-400 mt-0">На него придёт код подтверждения. Нужен для восстановления доступа.</p>
+                    <p class="t-error-msg"></p>
                 </div>
-                <div>
+                <div class="t-input-wrap">
                     <label class="modal-label">Пароль</label>
-                    <input type="password" id="auth-password" class="modal-input dark:bg-slate-900" placeholder="Придумайте пароль" onkeydown="if(event.key==='Enter') window.submitAuth()">
+                    <input type="password" id="auth-password" class="modal-input t-input dark:bg-slate-900" placeholder="Придумайте пароль" onkeydown="if(event.key==='Enter') window.submitAuth()">
+                    <p class="t-error-msg"></p>
                 </div>
-                <div>
+                <div class="t-input-wrap">
                     <label class="modal-label">Уровень умений в полевой записи</label>
-                    <select id="auth-skill-level" class="modal-input dark:bg-slate-900 text-sm">
+                    <select id="auth-skill-level" class="modal-input t-input dark:bg-slate-900 text-sm">
                         <option value="">Выберите…</option>
                         <option value="beginner">Новичок – только начинаю</option>
                         <option value="intermediate">Любитель – уже записываю</option>
                         <option value="advanced">Продвинутый – регулярно в поле</option>
                         <option value="pro">Профи – работа / исследования</option>
                     </select>
+                    <p class="t-error-msg"></p>
                 </div>
                 <div>
                     <label class="modal-label">Для чего хотите использовать Полёвку?</label>
@@ -287,9 +293,20 @@ export function initAuth() {
     window.submitAuth = async function() {
         const name = document.getElementById('auth-username').value.trim();
         const pass = document.getElementById('auth-password').value.trim();
+        const shake = (id, message) => {
+            if (window.InputShake) window.InputShake.shake(document.getElementById(id), { message });
+            else window.showToast(message);
+        };
 
-        if (!name || !pass) return window.showToast('Заполните все поля!');
-        if (pass.length < 8) return window.showToast('Пароль слишком короткий (мин. 8)');
+        if (!name || !pass) {
+            if (!name) shake('auth-username', 'Введите логин');
+            if (!pass) shake('auth-password', 'Введите пароль');
+            return window.showToast('Заполните все поля!');
+        }
+        if (pass.length < 8) {
+            shake('auth-password', 'Минимум 8 символов');
+            return window.showToast('Пароль слишком короткий (мин. 8)');
+        }
 
         let regSurvey = null;
         let regEmail = '';
@@ -298,10 +315,14 @@ export function initAuth() {
             if (!pd?.checked) return window.showToast('Нужно согласие на обработку персональных данных');
             regEmail = (document.getElementById('auth-email')?.value || '').trim().toLowerCase();
             if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail)) {
+                shake('auth-email', 'Некорректный email');
                 return window.showToast('Введите корректный email');
             }
             const skill = (document.getElementById('auth-skill-level')?.value || '').trim();
-            if (!skill) return window.showToast('Укажите уровень умений');
+            if (!skill) {
+                shake('auth-skill-level', 'Выберите уровень');
+                return window.showToast('Укажите уровень умений');
+            }
             const intents = Array.from(document.querySelectorAll('input[name="auth-intent"]:checked')).map((el) => el.value);
             if (!intents.length) return window.showToast('Выберите хотя бы одну цель использования');
             regSurvey = {
@@ -430,7 +451,13 @@ export function initAuth() {
                         return window.showToast('Пользователь не найден. Зарегистрируйтесь заново.');
                     }
                     if (err.code === 'blocked') return window.showToast('Аккаунт заблокирован администратором');
-                    if (err.code === 'bad_credentials') return window.showToast('Неверный логин или пароль!');
+                    if (err.code === 'bad_credentials') {
+                        if (window.InputShake) {
+                            window.InputShake.shake(document.getElementById('auth-username'));
+                            window.InputShake.shake(document.getElementById('auth-password'), { message: 'Неверный логин или пароль' });
+                        }
+                        return window.showToast('Неверный логин или пароль!');
+                    }
                     if (err.code === 'bad_totp') return window.showToast('Неверный код 2FA');
                     if (err.code === 'login_locked') {
                         const sec = err.data?.retryAfterSec;

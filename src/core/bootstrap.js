@@ -1,10 +1,12 @@
 import { initGlobalState } from './state.js?v=20260726c';
 import './api.js?v=20260721t';
-import { initAuth } from './auth.js?v=20260726c';
+import { initAuth } from './auth.js?v=20260805h';
 
 import './sfx.js?v=20260721t';
 import './antispam.js?v=20260721t';
-import '../ui/ui.js?v=20260802c';
+import '../ui/file-xfer.js?v=20260805g';
+import '../ui/like-shake.js?v=20260805h';
+import '../ui/ui.js?v=20260805h';
 import './audio.js?v=20260721t';
 import './map.js?v=20260726b';
 import './mapbox-map.js?v=20260721t';
@@ -209,23 +211,104 @@ export function bootstrapApp() {
 
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('audio-file-input');
+        const audioXfer = document.getElementById('audio-xfer');
+        if (window.FileXfer) {
+            if (audioXfer) {
+                window.FileXfer.mount(audioXfer, {
+                    mode: 'upload',
+                    name: 'Аудиофайл',
+                    actionLabel: 'Выбрать',
+                    loadingLabel: 'Обработка…',
+                    doneLabel: 'Готово'
+                });
+            }
+            const imageXfer = document.getElementById('image-xfer');
+            if (imageXfer) {
+                window.FileXfer.mount(imageXfer, {
+                    mode: 'photo',
+                    name: 'Фото',
+                    actionLabel: 'Выбрать',
+                    loadingLabel: 'Загрузка…',
+                    doneLabel: 'Готово'
+                });
+            }
+            const pubXfer = document.getElementById('publish-xfer');
+            if (pubXfer) {
+                window.FileXfer.mount(pubXfer, {
+                    mode: 'upload',
+                    name: 'Публикация',
+                    actionLabel: 'Опубликовать',
+                    loadingLabel: 'Публикация…',
+                    doneLabel: 'Готово'
+                });
+            }
+            const dlXfer = document.getElementById('details-download-xfer');
+            if (dlXfer) {
+                window.FileXfer.mount(dlXfer, {
+                    mode: 'download',
+                    name: 'WAV',
+                    actionLabel: 'Скачать',
+                    loadingLabel: 'Скачивание…',
+                    doneLabel: 'Готово'
+                });
+            }
+            const zipXfer = document.getElementById('expedition-view-download-btn');
+            if (zipXfer && zipXfer.classList.contains('file-xfer')) {
+                window.FileXfer.mount(zipXfer, {
+                    mode: 'download',
+                    name: 'ZIP',
+                    actionLabel: 'ZIP',
+                    loadingLabel: 'Сборка…',
+                    doneLabel: 'Готово'
+                });
+            }
+        }
         if (dropZone && fileInput) {
-            dropZone.addEventListener('click', () => fileInput.click());
+            dropZone.addEventListener('click', (e) => {
+                if (e.target.closest('[data-file-xfer-action]') || e.target.closest('.file-xfer__action')) {
+                    fileInput.click();
+                    return;
+                }
+                if (e.target.closest('.file-xfer__done')) return;
+                fileInput.click();
+            });
             fileInput.addEventListener('change', e => {
                 if (window.handleAudioFiles) window.handleAudioFiles(e.target.files);
             });
-            dropZone.addEventListener('dragover', e => {
-                e.preventDefault();
-                dropZone.classList.add('border-blue-500', 'bg-blue-50', 'dark:bg-slate-700');
-            });
-            dropZone.addEventListener('dragleave', e => {
-                e.preventDefault();
-                dropZone.classList.remove('border-blue-500', 'bg-blue-50', 'dark:bg-slate-700');
-            });
-            dropZone.addEventListener('drop', e => {
-                e.preventDefault();
-                dropZone.classList.remove('border-blue-500', 'bg-blue-50', 'dark:bg-slate-700');
-                if (window.handleAudioFiles) window.handleAudioFiles(e.dataTransfer.files);
+            if (window.FileXfer && audioXfer) {
+                window.FileXfer.bindDropHost(dropZone, audioXfer, {
+                    mode: 'upload',
+                    onFiles: (files) => window.handleAudioFiles && window.handleAudioFiles(files)
+                });
+            } else {
+                dropZone.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    dropZone.classList.add('is-dragover');
+                });
+                dropZone.addEventListener('dragleave', e => {
+                    e.preventDefault();
+                    dropZone.classList.remove('is-dragover');
+                });
+                dropZone.addEventListener('drop', e => {
+                    e.preventDefault();
+                    dropZone.classList.remove('is-dragover');
+                    if (window.handleAudioFiles) window.handleAudioFiles(e.dataTransfer.files);
+                });
+            }
+        }
+
+        const imageDrop = document.getElementById('image-drop-zone');
+        const imageXferEl = document.getElementById('image-xfer');
+        if (imageDrop && imageXferEl && window.FileXfer) {
+            window.FileXfer.bindDropHost(imageDrop, imageXferEl, {
+                mode: 'photo',
+                onFiles: (files) => {
+                    const input = document.getElementById('image-file-input');
+                    if (window.handleImageFilesWrapper) window.handleImageFilesWrapper(files);
+                    else if (input) {
+                        /* fallthrough */
+                    }
+                }
             });
         }
 
