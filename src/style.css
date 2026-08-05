@@ -645,17 +645,17 @@ i[class*=" icon-"] {
 .map-fab:hover { transform: translateY(-2px) scale(1.04); }
 .map-fab:active { transform: scale(0.96); }
 
-/* Touch targets ≥44px for compact chrome controls */
+/* Touch targets: iOS ≥44 (--mobile-touch-min), Android ≥48 (--mobile-touch on map chrome) */
 .player-icon-btn,
 .settings-modal-close,
 .dock-mobile-close,
 button[aria-label="Закрыть"] {
-    min-width: 2.75rem;
-    min-height: 2.75rem;
+    min-width: var(--mobile-touch-min, 2.75rem);
+    min-height: var(--mobile-touch-min, 2.75rem);
 }
 .player-icon-btn {
-    width: 2.75rem;
-    height: 2.75rem;
+    width: var(--mobile-touch-min, 2.75rem);
+    height: var(--mobile-touch-min, 2.75rem);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1608,7 +1608,18 @@ body.dark-mode .modal-input::placeholder,
     --chrome-inset-right: calc(var(--chrome-pad) + var(--sar));
     --chrome-inset-bottom: calc(var(--chrome-pad) + var(--sab));
     --chrome-inset-left: calc(var(--chrome-pad) + var(--sal));
-    --mobile-nav-h: 3.35rem;
+    /*
+     * Mobile grid — platform metrics (not Wispr). See DESIGN.md symbiosis.
+     * Gutters 16 (Android); touch 44 floor / 48 map chrome; nav content 56.
+     * System insets: env(safe-area-*) only.
+     */
+    --mobile-cols: 4;
+    --mobile-gutter: 1rem;          /* 16 */
+    --mobile-margin: 1rem;          /* 16 — iOS ref 20; keep dense for map */
+    --mobile-touch-min: 2.75rem;    /* 44 iOS floor */
+    --mobile-touch: 3rem;           /* 48 Android comfortable */
+    --mobile-top-bar-h: 2.75rem;    /* 44 content nav / icon row */
+    --mobile-nav-h: 3.5rem;         /* 56 bottom nav content (Material) */
     --mobile-nav-wave-h: 1.15rem;
     /* Mobile fullscreen surfaces end above the bottom rail + wave lip */
     --mobile-fs-bottom: calc(var(--mobile-nav-h) + var(--mobile-nav-wave-h) + var(--sab));
@@ -1889,8 +1900,8 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
     #map-top-toolbar.is-search-open,
     #map-top-toolbar:has(.map-search-cluster.is-open),
     #map-top-toolbar:has(.map-search-cluster:focus-within) {
-        left: max(0.75rem, env(safe-area-inset-left, 0px));
-        right: max(0.75rem, env(safe-area-inset-right, 0px));
+        left: max(var(--mobile-margin), var(--sal));
+        right: max(var(--mobile-margin), var(--sar));
         max-width: none;
         width: auto;
         z-index: 70;
@@ -1904,18 +1915,22 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
     #map-top-right-controls {
         top: var(--chrome-inset-top);
         right: var(--chrome-inset-right);
-        gap: 0.45rem;
+        gap: var(--mobile-gutter);
     }
     #map-top-right-controls .map-icon-btn {
-        width: 2.75rem;
-        height: 2.75rem;
+        width: var(--mobile-touch);
+        height: var(--mobile-touch);
+        min-width: var(--mobile-touch);
+        min-height: var(--mobile-touch);
         border-radius: 0.95rem !important;
     }
     #burger-btn {
         top: var(--chrome-inset-top);
         left: var(--chrome-inset-left);
-        width: 2.75rem;
-        height: 2.75rem;
+        width: var(--mobile-touch);
+        height: var(--mobile-touch);
+        min-width: var(--mobile-touch);
+        min-height: var(--mobile-touch);
     }
     #sidebar {
         top: 0;
@@ -1951,9 +1966,9 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
     }
     /* FAB stays top-right — away from bottom rail */
     #fab-add {
-        top: calc(var(--sat) + 4.35rem);
+        top: calc(var(--sat) + var(--mobile-top-bar-h) + var(--mobile-gutter) + var(--mobile-touch));
         bottom: auto;
-        right: max(0.75rem, env(safe-area-inset-right, 0px));
+        right: max(var(--mobile-margin), var(--sar));
         flex-direction: column;
         gap: 0.65rem;
     }
@@ -1967,8 +1982,8 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
         display: inline-flex !important;
     }
     #map-top-toolbar.map-top-toolbar {
-        left: max(0.75rem, var(--sal));
-        max-width: calc(100vw - 5.75rem - var(--sal) - var(--sar));
+        left: max(var(--mobile-margin), var(--sal));
+        max-width: calc(100vw - var(--mobile-touch) - var(--mobile-gutter) - 3.5rem - var(--sal) - var(--sar));
         z-index: 70;
     }
     #map-top-right-controls {
@@ -2510,6 +2525,22 @@ html.dark .search-suggestions,
 
 @media (prefers-reduced-motion: reduce) {
     .mobile-nav-btn { transition: none; }
+}
+
+/* 4-column mobile content grid (iOS/Android grid system) */
+@media (max-width: 767px) {
+    .mobile-grid-4 {
+        display: grid;
+        grid-template-columns: repeat(var(--mobile-cols, 4), minmax(0, 1fr));
+        gap: var(--mobile-gutter, 1rem);
+        padding-inline: var(--mobile-margin, 1rem);
+        box-sizing: border-box;
+    }
+    .mobile-grid-4 > .mobile-grid-4__span-2 { grid-column: span 2; }
+    .mobile-grid-4 > .mobile-grid-4__span-4 { grid-column: span 4; }
+    .mobile-pad-x {
+        padding-inline: var(--mobile-margin, 1rem);
+    }
 }
 
 /* Dock: always expanded width; hide via .sidebar-hidden */

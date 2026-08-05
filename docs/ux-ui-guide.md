@@ -343,6 +343,8 @@ window.showToast('…', { silent: true }); // без звука
 На `&lt;768px` основные поверхности занимают **весь экран кроме нижнего rail**:
 
 - CSS-переменная: `--mobile-fs-bottom: calc(var(--mobile-nav-h) + var(--mobile-nav-wave-h) + var(--sab))`
+- Сетка: 4 колонки, margin/gutter `--mobile-margin` / `--mobile-gutter` (16). Touch: `--mobile-touch` 48 на map chrome, floor 44. Safe areas только через `env()`.
+- Утилиты: `.mobile-grid-4`, `.mobile-pad-x`
 - Поверхности: `#sidebar`, `#events-sheet`, `.app-modal-overlay` (+ их панели/контент)
 - Без внутренних отступов оверлея, без `max-h-[92dvh]` half-sheet, без скруглений у края экрана
 - Исключение: `#ui-modal-overlay` (confirm/prompt) — компактная карточка по центру
@@ -354,16 +356,15 @@ window.showToast('…', { silent: true }); // без звука
 
 ## 14. Тема и цвет
 
-- Тёмная тема: класс `html.dark` (`setTheme`).
-- В разметке пары: `bg-white dark:bg-slate-800`, `text-slate-600 dark:text-slate-300`.
-- **Brand DS (default `coral` / «Персик»):** cream windows `#FFF9F0` on page `#FFF3E2`, peach accents `#FBAB57` / soft `#FEC674` ≤10%, `#222222` ink/CTA. Dark: elevated panels `#2c2c2c`. Soft radii. Iconsax. Fonts/palettes under Settings → «Эксперимент». Zoom allowed. Accent ≤10% of UI.
-- **Buttons:** primary = charcoal CTA + **2px rim**; accent/soft = peach + **2px #222 rim**; outline = cream + ink rim; ghost = rim. Press `scale(0.97)`.
-- **Tags vs badges:** square `.ds-tag` / keyword chips (`--radius-tag`) for categories; pill `.ds-badge` / `.badge-chip` for status. Peach = live/active only.
-- **Live audio:** `#player-wave-pill.wave-pill` pulses with `.is-live` while playing.
-- **Brand type:** Klukva at weight **400** (size, not bold). Scribble: `.ds-scribble`.
-- Шрифт по умолчанию: `geo-klukva` — Geologica (UI) + Klukva (brand, оптически +16%). Чистая Klukva — `--font-optical: 1.12`.
-- **Яндекс API 3** (`yandex3`): стандартная схема Яндекса (`light`/`dark` + скрытие POI). Без tint под палитру UI.
-- Не вводить «ещё один purple gradient» вне существующей системы стекла/панелей.
+Канон симбиоза Полёвка × Wispr Flow: **[`DESIGN.md`](../DESIGN.md)** (таблица Wispr → наши токены). Кратко:
+
+- **Наше:** peach `#FBAB57` / soft `#FEC674` ≤10%, cream windows, charcoal CTA, Geologica + Klukva, Iconsax, map chrome.
+- **От Wispr (грамматика):** 2px ink rim, fill+rim elevation, ember=live only, square tags vs pill badges, `.wave-pill`, Klukva @400, `.ds-scribble`.
+- **Не берём:** lavender, forest teal, Garamond/Figtree, marketing 120px display в product UI.
+- **Buttons:** `.ds-btn--primary` charcoal; accent/soft peach + 2px `#222` rim; outline cream + ink rim.
+- Шрифт по умолчанию: `geo-klukva`. Палитры/шрифты — Settings → «Эксперимент».
+- **Яндекс API 3:** stock `light`/`dark`, без tint.
+- Не вводить «ещё один purple/lavender» вне канона.
 
 ---
 

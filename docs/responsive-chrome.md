@@ -3,7 +3,7 @@
 Каноническая схема chrome Полёвки. Breakpoint: **desktop ≥ 768px**, **mobile &lt; 768px**  
 (`window.innerWidth < 768` / Tailwind `md:`).
 
-Связано: [`ux-ui-guide.md`](ux-ui-guide.md), `.cursor/rules/ux-ui.mdc`.
+Связано: [`ux-ui-guide.md`](ux-ui-guide.md), [`DESIGN.md`](../DESIGN.md) (симбиоз Полёвка × Wispr + mobile grid), `.cursor/rules/ux-ui.mdc`.
 
 ---
 
@@ -59,6 +59,21 @@ MOBILE (<768)
 ```
 
 Настройки на mobile — через **Профиль** (кабинет). Аудио-угадайка — в **Помощь → FAQ**, не как второй FAB на карте. Верх `#mobile-bottom-nav` — SVG-волна (`--accent` / `--palette-secondary`), не плоский radius.
+
+### Mobile grid tokens (platform layer — see DESIGN.md)
+
+| Token | Value | Maps to |
+|-------|-------|---------|
+| `--mobile-cols` | 4 | Both platforms |
+| `--mobile-margin` / `--mobile-gutter` | 16px (`1rem`) | Android 16; denser than iOS 20 for map |
+| `--mobile-touch-min` | 44px | iOS HIG floor |
+| `--mobile-touch` | 48px | Android Material floor (map chrome buttons) |
+| `--mobile-top-bar-h` | 44px | iOS nav bar content |
+| `--mobile-nav-h` | 56px | Android bottom nav content |
+| `--sab` / `--sat` | `env(safe-area-*)` | Never hardcoded |
+
+Utility: `.mobile-grid-4` + `.mobile-pad-x` for sheet/list content.
+Visual grammar of the peach bar / wave / CTAs → **DESIGN.md symbiosis**, not this table.
 
 ---
 
