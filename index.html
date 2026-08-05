@@ -29,11 +29,11 @@
 
     <!-- Tailwind (self-hosted build — без Play CDN / без unsafe-eval) -->
     <link rel="stylesheet" href="./src/tailwind.built.css?v=20260722c">
-    <link rel="stylesheet" href="./src/style.css?v=20260805q">
+    <link rel="stylesheet" href="./src/style.css?v=20260805r">
     <link rel="stylesheet" href="./src/glass.css?v=20260805m">
     <!-- fonts.css after glass so data-font tokens win over :root -->
     <link rel="stylesheet" href="./src/fonts.css?v=20260805m">
-    <link rel="stylesheet" href="./src/mobile-wellness.css?v=20260805q">
+    <link rel="stylesheet" href="./src/mobile-wellness.css?v=20260805r">
     
     <!-- Omnitone (Maps JS API key loaded at runtime via Secure API publicConfig — not in source) -->
     <script src="https://cdn.jsdelivr.net/npm/omnitone@1.3.0/build/omnitone.min.js" integrity="sha384-5aveyyKpKISYg2tL5r5SiN4i9TsY23neueM/OhYxhAEUxVpDwQNUPAePirLqvCOe" crossorigin="anonymous"></script>
@@ -562,33 +562,51 @@
             </div>
         </div>
 
-        <!-- Плеер: floating contextual card -->
+        <!-- Player -->
         <div id="player-anchor" class="player-anchor absolute bottom-0 left-0 right-0 w-full pointer-events-none flex justify-center md:justify-start pb-4 md:pb-6 z-40">
             <div id="player-card" class="player-shell pointer-events-auto p-4 md:p-5 w-[94%] max-w-md transform translate-y-[150%] opacity-0 relative max-h-[85vh] overflow-y-auto custom-scrollbar" data-player-sheet>
 
-                <div id="player-sheet-handle" class="player-sheet-handle absolute top-0 left-0 right-0 h-6 md:h-8 flex justify-center items-center cursor-pointer z-50" title="Свернуть / закрыть" aria-label="Управление плеером">
-                    <div class="drag-handle mt-1"></div>
-                </div>
+                <button type="button" id="player-sheet-handle" class="player-sheet-handle" title="Свернуть / закрыть" aria-label="Управление плеером">
+                    <span class="drag-handle" aria-hidden="true"></span>
+                </button>
 
-                <!-- Mobile expand: description only (swipe-up). Desktop: tags/gear under controls via CSS order. -->
+                <!-- Swipe-up: description only (mobile). Desktop: tags/gear after main. -->
                 <div id="player-expand-panel" class="player-expand-panel">
-                    <p id="player-description" class="player-description type-body text-sm leading-relaxed"></p>
-                    <div id="player-tags" class="flex flex-wrap gap-1.5 mb-1 mt-2"></div>
-                    <p id="player-gear" class="text-[9px] font-semibold truncate mt-1" style="color: var(--ink-muted)"><i class="icon-radar mr-1" aria-hidden="true"></i>Recorder Name</p>
+                    <p id="player-description" class="player-description"></p>
+                    <div id="player-tags" class="flex flex-wrap gap-1.5 mt-2"></div>
+                    <p id="player-gear" class="player-gear-line"><i class="icon-radar mr-1" aria-hidden="true"></i><span id="player-gear-text">Recorder</span></p>
                 </div>
 
-                <div id="waveform-wrapper" class="relative w-full h-12 md:h-16 cursor-pointer group mb-2 mt-4 player-wave-block">
-                    <div id="waveform-bg" class="absolute inset-0 flex items-center justify-between gap-[2px] text-slate-100 dark:text-slate-700"></div>
-                    <div id="waveform-buffered" class="absolute inset-0 flex items-center justify-between gap-[2px] text-slate-300 dark:text-slate-600 pointer-events-none transition-all duration-300 ease-out" style="clip-path: inset(0 100% 0 0);"></div>
-                    <div id="waveform-active" class="absolute inset-0 flex items-center justify-between gap-[2px] pointer-events-none" style="clip-path: inset(0 100% 0 0);"></div>
-                    
-                    <div id="playhead" class="absolute top-0 bottom-0 w-[1.5px] bg-slate-800 dark:bg-white rounded-full pointer-events-none z-10 shadow-[0_0_4px_rgba(0,0,0,0.2)]" style="left: 0%;"></div>
-                    <input type="range" id="audio-timeline" min="0" max="100" value="0" step="0.01" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30 m-0" oninput="window.seekAudio(this.value)">
-                </div>
-                
-                <div class="player-meta-row flex justify-between items-center text-[10px] md:text-[11px] font-semibold text-slate-900 dark:text-slate-200 mb-4 px-0.5">
-                    <div class="flex items-center gap-2 min-w-0">
-                        <span id="player-wave-pill" class="wave-pill" aria-hidden="true" title="Воспроизведение">
+                <div class="player-main-row">
+                    <button id="main-play-btn" onclick="window.toggleMainPlay()" class="player-play-btn w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center active:scale-95 transition-transform shadow-md flex-shrink-0 relative overflow-hidden" aria-label="Воспроизведение">
+                        <i id="main-play-icon" class="icon-play text-sm md:text-base translate-x-0.5 pointer-events-none" aria-hidden="true"></i>
+                        <i id="main-pause-icon" class="icon-pause text-sm md:text-base hidden pointer-events-none" aria-hidden="true"></i>
+                        <i id="main-load-icon" class="icon-refresh-2 icon-spin text-sm md:text-base hidden pointer-events-none" aria-hidden="true"></i>
+                    </button>
+
+                    <div class="player-main-meta min-w-0 flex-1">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <h2 id="player-title" onclick="window.onPlayerTitleActivate(event)" class="player-title truncate">Title</h2>
+                            <button id="btn-ambi-toggle" onclick="window.toggleAmbisonics()" class="hidden player-desktop-only text-[color:var(--accent-ink)] flex-shrink-0" title="Звуковая сфера 360°" aria-label="Звуковая сфера 360°">
+                                <i class="icon-global text-sm pointer-events-none" aria-hidden="true"></i>
+                            </button>
+                            <button type="button" onclick="window.openDetailsModal()" class="player-icon-btn player-desktop-only rounded-full flex items-center justify-center flex-shrink-0" title="Подробнее" aria-label="Подробнее о звуке">
+                                <i class="icon-info-circle text-[13px] pointer-events-none" aria-hidden="true"></i>
+                            </button>
+                            <button id="btn-analyzer-toggle" onclick="window.togglePlayerAnalyzers()" class="player-icon-btn player-icon-btn--muted player-desktop-only rounded-full flex items-center justify-center flex-shrink-0" title="Анализаторы" aria-label="Анализаторы">
+                                <i id="btn-analyzer-icon" class="icon-chart-2 text-[12px] pointer-events-none" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                        <div class="player-main-sub">
+                            <span id="time-current">0:00</span>
+                            <span class="player-main-sub__sep">/</span>
+                            <span id="time-total">0:00</span>
+                            <span id="player-gear-compact" class="player-gear-compact truncate"></span>
+                        </div>
+                    </div>
+
+                    <div class="player-main-actions">
+                        <span id="player-wave-pill" class="wave-pill player-desktop-only" aria-hidden="true" title="Воспроизведение">
                             <span class="wave-pill__bar" style="--wave-h:7px"></span>
                             <span class="wave-pill__bar" style="--wave-h:14px"></span>
                             <span class="wave-pill__bar" style="--wave-h:10px"></span>
@@ -597,61 +615,34 @@
                             <span class="wave-pill__bar" style="--wave-h:15px"></span>
                             <span class="wave-pill__bar" style="--wave-h:8px"></span>
                         </span>
-                        <span id="time-current">0:00</span>
-                        <span class="text-slate-300 dark:text-slate-600 mx-0.5">/</span>
-                        <span id="time-total" class="text-slate-400 dark:text-slate-500">0:00</span>
-                    </div>
-                    
-                    <div class="player-volume-row flex items-center gap-2 pointer-events-auto">
-                        <button onclick="window.toggleMute()" class="text-slate-400 hover:text-[color:var(--accent-ink)] transition-colors shrink-0" title="Громкость" aria-label="Громкость">
-                            <i id="volume-icon" class="icon-volume-high pointer-events-none text-sm w-4 text-center" aria-hidden="true"></i>
-                        </button>
-                        <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1" class="w-16 md:w-20 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer" oninput="window.changeVolume(this.value)">
-                    </div>
-                </div>
-
-                <!-- Desktop: single row. Mobile: two wings with FAB gap (see .player-dock-row). -->
-                <div class="player-dock-row">
-                    <div class="player-wing player-wing--left">
-                        <button id="main-play-btn" onclick="window.toggleMainPlay()" class="player-play-btn w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shadow-md flex-shrink-0 relative overflow-hidden" aria-label="Воспроизведение">
-                            <i id="main-play-icon" class="icon-play text-sm md:text-base translate-x-0.5 pointer-events-none" aria-hidden="true"></i>
-                            <i id="main-pause-icon" class="icon-pause text-sm md:text-base hidden pointer-events-none" aria-hidden="true"></i>
-                            <i id="main-load-icon" class="icon-refresh-2 icon-spin text-sm md:text-base hidden pointer-events-none" aria-hidden="true"></i>
-                        </button>
-                        <div class="player-wing__meta min-w-0 flex-grow text-left">
-                            <div class="flex items-center gap-2 min-w-0">
-                                <h2 id="player-title" onclick="window.onPlayerTitleActivate(event)" class="text-[13px] md:text-[15px] font-bold text-slate-800 dark:text-white cursor-pointer transition-colors truncate">Title</h2>
-                                <button id="btn-ambi-toggle" onclick="window.toggleAmbisonics()" class="hidden text-[color:var(--accent-ink)] hover:opacity-80 flex-shrink-0 transition-opacity player-desktop-only" title="Включить 360 вращение" aria-label="Звуковая сфера 360°">
-                                    <i class="icon-global text-sm pointer-events-none" aria-hidden="true"></i>
-                                </button>
-                                <button type="button" onclick="window.openDetailsModal()" class="player-icon-btn rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-95 ml-1 player-desktop-only" title="Подробнее" aria-label="Подробнее о звуке">
-                                    <i class="icon-info-circle text-[13px] md:text-[15px] pointer-events-none" aria-hidden="true"></i>
-                                </button>
-                                <button id="btn-analyzer-toggle" onclick="window.togglePlayerAnalyzers()" class="player-icon-btn player-icon-btn--muted rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-95 player-desktop-only" title="Анализаторы" data-lang-title="analyzers_title" aria-label="Анализаторы">
-                                    <i id="btn-analyzer-icon" class="icon-chart-2 text-[12px] md:text-[13px] pointer-events-none" aria-hidden="true"></i>
-                                </button>
-                            </div>
-                            <p id="player-gear-compact" class="player-gear-compact text-[9px] font-semibold truncate md:hidden" style="color: var(--ink-muted)"></p>
+                        <div class="player-volume-row flex items-center gap-2">
+                            <button onclick="window.toggleMute()" class="text-slate-400 hover:text-[color:var(--accent-ink)] transition-colors shrink-0" title="Громкость" aria-label="Громкость">
+                                <i id="volume-icon" class="icon-volume-high pointer-events-none text-sm w-4 text-center" aria-hidden="true"></i>
+                            </button>
+                            <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1" class="w-16 md:w-20 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer" oninput="window.changeVolume(this.value)">
                         </div>
-                    </div>
-                    <div class="player-fab-gap" aria-hidden="true"></div>
-                    <div class="player-wing player-wing--right">
-                        <span class="player-wing__time md:hidden" aria-hidden="true">
-                            <span id="time-current-wing">0:00</span>
-                        </span>
-                        <button type="button" id="player-more-btn" onclick="window.openPlayerActionsMenu(event)" class="player-more-btn player-icon-btn rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-95" title="Действия" aria-label="Действия плеера" aria-haspopup="menu">
+                        <button type="button" id="player-more-btn" onclick="window.openPlayerActionsMenu(event)" class="player-more-btn player-icon-btn rounded-full flex items-center justify-center flex-shrink-0" title="Действия" aria-label="Действия плеера" aria-haspopup="menu">
                             <i class="icon-more pointer-events-none" aria-hidden="true"></i>
                         </button>
                     </div>
                 </div>
 
-                <!-- Звуковая сфера -->
+                <div id="waveform-wrapper" class="player-wave-block relative w-full h-12 md:h-16 cursor-pointer group">
+                    <div id="waveform-bg" class="absolute inset-0 flex items-center justify-between gap-[2px] text-slate-100 dark:text-slate-700"></div>
+                    <div id="waveform-buffered" class="absolute inset-0 flex items-center justify-between gap-[2px] text-slate-300 dark:text-slate-600 pointer-events-none transition-all duration-300 ease-out" style="clip-path: inset(0 100% 0 0);"></div>
+                    <div id="waveform-active" class="absolute inset-0 flex items-center justify-between gap-[2px] pointer-events-none" style="clip-path: inset(0 100% 0 0);"></div>
+                    <div id="playhead" class="absolute top-0 bottom-0 w-[1.5px] bg-slate-800 dark:bg-white rounded-full pointer-events-none z-10" style="left: 0%;"></div>
+                    <input type="range" id="audio-timeline" min="0" max="100" value="0" step="0.01" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30 m-0" oninput="window.seekAudio(this.value)">
+                </div>
+
+                <!-- Visual cup around the raised + FAB (mobile only) -->
+                <div class="player-fab-notch" aria-hidden="true"></div>
+
                 <div id="ambisonics-control" class="hidden mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 pointer-events-auto transition-all flex flex-col items-center">
                     <div class="w-full flex justify-between items-center text-[10px] font-bold uppercase tracking-wider mb-2 px-1" style="color: var(--ink-muted)">
                         <span><i class="icon-glass mr-1" style="color: var(--accent-ink)" aria-hidden="true"></i><span data-lang="ambisonics_pan">Звуковая сфера</span></span>
                         <span id="ambi-angle-val" style="color: var(--accent-ink)">Y: 0° | P: 0°</span>
                     </div>
-                    
                     <div id="ambi-sphere-pad" class="border-2 border-[color:color-mix(in_srgb,var(--accent)_35%,transparent)] bg-gradient-to-tr from-[color:var(--panel-elevated)] to-[color:var(--panel-solid)] shadow-inner overflow-hidden cursor-crosshair touch-none">
                         <canvas id="ambi-goniometer-canvas" class="absolute inset-0 w-full h-full pointer-events-none opacity-80"></canvas>
                         <div class="absolute inset-0 rounded-full border border-[color:color-mix(in_srgb,var(--accent)_25%,transparent)] scale-[0.6] pointer-events-none"></div>
@@ -664,51 +655,48 @@
             </div>
         </div>
 
-        <!-- FABs: mobile above bottom nav; desktop bottom-right -->
-        <!-- Primary FAB: desktop only — on mobile the + lives in the bottom nav wave (reference) -->
+        <!-- FABs: desktop only — on mobile the + lives in the bottom nav -->
         <div id="fab-add" class="absolute bottom-24 right-4 md:top-auto md:bottom-8 md:right-8 pointer-events-auto z-40 flex flex-col gap-3 items-end">
             <button id="fab-add-sound" onclick="window.toggleAddModal()" class="map-fab map-fab--primary" title="Добавить звук" aria-label="Добавить звук">
                 <i class="icon-add text-2xl pointer-events-none" aria-hidden="true"></i>
             </button>
         </div>
 
-        <!-- Mobile bottom navigation: floating peach dock + white center Add (wellness DS) -->
-        <nav id="mobile-bottom-nav" class="mobile-bottom-nav md:hidden" aria-label="Основная навигация">
-            <div id="mobile-add-menu" class="mobile-add-menu" aria-hidden="true">
-                <button type="button" class="mobile-add-menu__btn" onclick="window.mobileAddMenuPick('upload')" aria-label="Добавить звук" title="Добавить звук">
-                    <i class="icon-musicnote" aria-hidden="true"></i>
-                </button>
-                <button type="button" class="mobile-add-menu__btn mobile-add-menu__btn--record" onclick="window.mobileAddMenuPick('record')" aria-label="Записать" title="Записать">
-                    <i class="icon-microphone" aria-hidden="true"></i>
-                </button>
-            </div>
-            <div class="mobile-bottom-nav__row">
-                <button type="button" class="mobile-nav-btn" data-nav="library" onclick="window.mobileNavGo('library')" aria-label="Библиотека">
-                    <i class="icon-document-text" aria-hidden="true"></i>
-                    <span class="mobile-nav-btn__label">Библиотека</span>
-                </button>
-                <button type="button" class="mobile-nav-btn" data-nav="feed" onclick="window.mobileNavGo('feed')" aria-label="Лента">
-                    <i class="icon-note-2" aria-hidden="true"></i>
-                    <span class="mobile-nav-btn__label">Лента</span>
-                </button>
-                <button type="button" id="mobile-nav-fab" class="mobile-nav-fab" onclick="window.toggleMobileAddMenu()" aria-label="Добавить" title="Добавить" aria-expanded="false" aria-controls="mobile-add-menu">
-                    <i class="icon-add" aria-hidden="true"></i>
-                </button>
-                <button type="button" class="mobile-nav-btn" data-nav="expeditions" onclick="window.mobileNavGo('expeditions')" aria-label="Экспедиции">
-                    <i class="icon-routing" aria-hidden="true"></i>
-                    <span class="mobile-nav-btn__label">Экспедиции</span>
-                </button>
-                <button type="button" class="mobile-nav-btn" data-nav="profile" onclick="window.mobileNavGo('profile')" aria-label="Профиль">
-                    <i class="icon-profile-circle" aria-hidden="true"></i>
-                    <span class="mobile-nav-btn__label">Профиль</span>
-                    <span id="mobile-nav-inbox-badge" class="mobile-nav-badge hidden">0</span>
-                </button>
-            </div>
-        </nav>
-
     </div>
 
-    <!-- Body-level: outside pointer-events-none chrome so taps work -->
+    <!-- Body-level mobile chrome: same stacking context so scrim cannot cover the + menu -->
+    <nav id="mobile-bottom-nav" class="mobile-bottom-nav md:hidden" aria-label="Основная навигация">
+        <div id="mobile-add-menu" class="mobile-add-menu" aria-hidden="true">
+            <button type="button" class="mobile-add-menu__btn" onclick="window.mobileAddMenuPick('upload')" aria-label="Добавить звук" title="Добавить звук">
+                <i class="icon-musicnote" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="mobile-add-menu__btn mobile-add-menu__btn--record" onclick="window.mobileAddMenuPick('record')" aria-label="Записать" title="Записать">
+                <i class="icon-microphone" aria-hidden="true"></i>
+            </button>
+        </div>
+        <div class="mobile-bottom-nav__row">
+            <button type="button" class="mobile-nav-btn" data-nav="library" onclick="window.mobileNavGo('library')" aria-label="Библиотека">
+                <i class="icon-document-text" aria-hidden="true"></i>
+                <span class="mobile-nav-btn__label">Библиотека</span>
+            </button>
+            <button type="button" class="mobile-nav-btn" data-nav="feed" onclick="window.mobileNavGo('feed')" aria-label="Лента">
+                <i class="icon-note-2" aria-hidden="true"></i>
+                <span class="mobile-nav-btn__label">Лента</span>
+            </button>
+            <button type="button" id="mobile-nav-fab" class="mobile-nav-fab" onclick="window.toggleMobileAddMenu()" aria-label="Добавить" title="Добавить" aria-expanded="false" aria-controls="mobile-add-menu">
+                <i class="icon-add" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="mobile-nav-btn" data-nav="expeditions" onclick="window.mobileNavGo('expeditions')" aria-label="Экспедиции">
+                <i class="icon-routing" aria-hidden="true"></i>
+                <span class="mobile-nav-btn__label">Экспедиции</span>
+            </button>
+            <button type="button" class="mobile-nav-btn" data-nav="profile" onclick="window.mobileNavGo('profile')" aria-label="Профиль">
+                <i class="icon-profile-circle" aria-hidden="true"></i>
+                <span class="mobile-nav-btn__label">Профиль</span>
+                <span id="mobile-nav-inbox-badge" class="mobile-nav-badge hidden">0</span>
+            </button>
+        </div>
+    </nav>
     <div id="mobile-add-scrim" class="mobile-add-menu__scrim" onclick="window.closeMobileAddMenu()"></div>
 
     <div id="mobile-record-overlay" class="hidden pointer-events-auto" role="dialog" aria-modal="true" aria-labelledby="mobile-record-title">
@@ -2439,7 +2427,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260805q"></script>
+    <script type="module" src="./src/main.js?v=20260805r"></script>
 
 </body>
 </html>

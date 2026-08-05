@@ -5028,7 +5028,7 @@ window.selectSound = function(id) {
     if (titleEl) titleEl.textContent = s.title;
     const gearHtml = `<i class="icon-radar mr-1 text-slate-400"></i>${s.gear || ''}`;
     if (gearEl) gearEl.innerHTML = gearHtml;
-    if (gearCompact) gearCompact.innerHTML = gearHtml;
+    if (gearCompact) gearCompact.textContent = s.gear ? `· ${s.gear}` : '';
     if (descEl) {
         const raw = String(s.description || s.desc || '').trim();
         descEl.textContent = raw || 'Описание не указано';
