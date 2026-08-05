@@ -149,7 +149,7 @@ body {
 .brand-title,
 .font-brand {
     font-size: calc(1em * var(--font-brand-optical, 1));
-    font-weight: 700;
+    font-weight: 400;
     text-wrap: balance;
 }
 /* Tool titles (player track, dense UI) stay on Geologica — not display Klukva */

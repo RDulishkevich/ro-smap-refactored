@@ -1050,6 +1050,13 @@ window.updateUIState = function() {
         if (window.isPlaying) { p.classList.add('hidden'); l.classList.add('hidden'); s.classList.remove('hidden'); } 
         else { l.classList.add('hidden'); s.classList.add('hidden'); p.classList.remove('hidden'); }
     }
+    const wavePill = document.getElementById('player-wave-pill');
+    if (wavePill) {
+        wavePill.classList.toggle('is-live', !!window.isPlaying);
+        wavePill.setAttribute('aria-hidden', window.isPlaying ? 'false' : 'true');
+        wavePill.title = window.isPlaying ? 'Сейчас играет' : 'Воспроизведение';
+    }
+    document.body.classList.toggle('audio-is-live', !!window.isPlaying);
     if (window.syncAnalyzerAnimation) window.syncAnalyzerAnimation();
     if (window.refreshPlayingListRow) window.refreshPlayingListRow();
     else if (window.renderList) window.renderList();

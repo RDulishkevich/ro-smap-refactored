@@ -342,7 +342,7 @@ window.showToast('…', { silent: true }); // без звука
 
 На `&lt;768px` основные поверхности занимают **весь экран кроме нижнего rail**:
 
-- CSS-переменная: `--mobile-fs-bottom: calc(var(--mobile-nav-h) + var(--sab))`
+- CSS-переменная: `--mobile-fs-bottom: calc(var(--mobile-nav-h) + var(--mobile-nav-wave-h) + var(--sab))`
 - Поверхности: `#sidebar`, `#events-sheet`, `.app-modal-overlay` (+ их панели/контент)
 - Без внутренних отступов оверлея, без `max-h-[92dvh]` half-sheet, без скруглений у края экрана
 - Исключение: `#ui-modal-overlay` (confirm/prompt) — компактная карточка по центру
@@ -357,7 +357,10 @@ window.showToast('…', { silent: true }); // без звука
 - Тёмная тема: класс `html.dark` (`setTheme`).
 - В разметке пары: `bg-white dark:bg-slate-800`, `text-slate-600 dark:text-slate-300`.
 - **Brand DS (default `coral` / «Персик»):** cream windows `#FFF9F0` on page `#FFF3E2`, peach accents `#FBAB57` / soft `#FEC674` ≤10%, `#222222` ink/CTA. Dark: elevated panels `#2c2c2c`. Soft radii. Iconsax. Fonts/palettes under Settings → «Эксперимент». Zoom allowed. Accent ≤10% of UI.
-- **Buttons:** primary = charcoal CTA; accent fill always uses `--on-accent` `#222` (never white on peach); soft = secondary; ghost = rim. Press `scale(0.97)`.
+- **Buttons:** primary = charcoal CTA + **2px rim**; accent/soft = peach + **2px #222 rim**; outline = cream + ink rim; ghost = rim. Press `scale(0.97)`.
+- **Tags vs badges:** square `.ds-tag` / keyword chips (`--radius-tag`) for categories; pill `.ds-badge` / `.badge-chip` for status. Peach = live/active only.
+- **Live audio:** `#player-wave-pill.wave-pill` pulses with `.is-live` while playing.
+- **Brand type:** Klukva at weight **400** (size, not bold). Scribble: `.ds-scribble`.
 - Шрифт по умолчанию: `geo-klukva` — Geologica (UI) + Klukva (brand, оптически +16%). Чистая Klukva — `--font-optical: 1.12`.
 - **Яндекс API 3** (`yandex3`): стандартная схема Яндекса (`light`/`dark` + скрытие POI). Без tint под палитру UI.
 - Не вводить «ещё один purple gradient» вне существующей системы стекла/панелей.

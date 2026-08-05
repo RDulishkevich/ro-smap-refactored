@@ -73,6 +73,11 @@ window.setSoundsListLoading = function(isLoading) {
 window.renderSoundTags = function(sound, containerId, clickable = false) {
     const container = document.getElementById(containerId);
     if (!container || !sound) return;
+    const esc = (t) => String(t)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     const tags = [];
     if (sound.ecoCategory) {
         const ecoLabel = window.translations[window.currentLang]?.[`filter_${sound.ecoCategory}`] || sound.ecoCategory;
@@ -85,12 +90,15 @@ window.renderSoundTags = function(sound, containerId, clickable = false) {
         const clickAttr = clickable && tag.type === 'gen'
             ? `onclick="window.toggleGenTag('${String(tag.value).replace(/'/g, "\\'")}')"`
             : '';
-        const colors = tag.type === 'eco'
-            ? 'bg-orange-50 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800'
+        const role = tag.type === 'eco'
+            ? 'ds-tag ds-tag--live'
             : tag.type === 'ucsSub'
-                ? 'bg-stone-100 text-stone-700 border-stone-200 dark:bg-stone-800/50 dark:text-stone-300 dark:border-stone-600'
-                : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600';
-        return `<span ${clickAttr} class="tag-pill ${colors} border">${tag.label}</span>`;
+                ? 'ds-tag'
+                : 'ds-tag ds-tag--muted';
+        const clickableCls = clickable && tag.type === 'gen' ? ' cursor-pointer' : '';
+        const tagEl = clickable && tag.type === 'gen' ? 'button' : 'span';
+        const typeAttr = tagEl === 'button' ? ' type="button"' : '';
+        return `<${tagEl}${typeAttr} ${clickAttr} class="${role}${clickableCls}">${esc(tag.label)}</${tagEl}>`;
     }).join('');
 };
 
@@ -263,7 +271,14 @@ window.updateOnboardingStep = function() {
     if (!step || !overlay || !highlight || !card) return;
 
     document.getElementById('onboarding-step-label').textContent = `${window.t('tour_step')} ${window.__onboardingStep + 1} / ${window.onboardingSteps.length}`;
-    document.getElementById('onboarding-title').textContent = step.title;
+    const titleEl = document.getElementById('onboarding-title');
+    if (titleEl) {
+        titleEl.textContent = '';
+        const mark = document.createElement('span');
+        mark.className = 'ds-scribble';
+        mark.textContent = step.title;
+        titleEl.appendChild(mark);
+    }
     document.getElementById('onboarding-text').textContent = step.text;
 
     const prevBtn = document.getElementById('onboarding-prev');
@@ -4790,6 +4805,7 @@ window.selectSound = function(id) {
     const gearEl = document.getElementById('player-gear');
     if (titleEl) titleEl.textContent = s.title;
     if (gearEl) gearEl.innerHTML = `<i class="icon-radar mr-1 text-slate-400"></i>${s.gear}`;
+    if (window.renderSoundTags) window.renderSoundTags(s, 'player-tags');
 
     if (s.url) {
         if (window.resetPlaybackPitch) window.resetPlaybackPitch();

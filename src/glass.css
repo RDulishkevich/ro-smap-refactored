@@ -10,9 +10,10 @@
     --glass-fill-strong: rgba(255, 249, 240, 0.9);
     --glass-fill-soft: rgba(255, 243, 226, 0.42);
     --glass-rim: rgba(255, 255, 255, 0.65);
-    --glass-rim-outer: rgba(34, 34, 34, 0.1);
+    --glass-rim-outer: rgba(34, 34, 34, 0.14);
     --glass-shine: inset 0 1px 0 rgba(255, 255, 255, 0.7);
-    --glass-elev: 0 12px 32px rgba(34, 34, 34, 0.1);
+    /* Border-first elevation — soft shadow only */
+    --glass-elev: 0 6px 20px rgba(34, 34, 34, 0.08);
     --glass-blur: 18px;
     --grain-opacity: 0.035;
     --accent: #FBAB57;
@@ -22,20 +23,38 @@
     --on-accent: #222222;
     --palette-secondary: #FEC674;
     --surface-soft: #FEC674;
+    /* Surface hierarchy (page → window → elevated → live) */
+    --surface-page: #FFF3E2;
+    --surface-window: #FFF9F0;
+    --surface-elevated: #FFFFFF;
+    --surface-stone: #F5E6D4;
+    --surface-live: var(--accent);
     --cta: #222222;
     --cta-ink: #FFF3E2;
     --cta-hover: #3a3a3a;
     --panel: var(--glass-fill-strong);
     --panel-solid: #FFF9F0;
     --panel-elevated: #FFFFFF;
-    --panel-border: rgba(34, 34, 34, 0.1);
+    --panel-border: rgba(34, 34, 34, 0.14);
     --panel-shadow: var(--glass-elev);
+    --control-rim: 2px solid var(--ink);
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    /* App type scale (product chrome — not marketing display) */
+    --text-caption: 0.75rem;
+    --text-body-sm: 0.8125rem;
+    --text-body: 0.9375rem;
+    --text-subheading: 1.125rem;
+    --text-heading-sm: 1.35rem;
+    --text-heading: 1.75rem;
+    --leading-tight: 0.95;
+    --leading-ui: 1.3;
+    --tracking-brand: -0.02em;
     --radius-sm: 0.9rem;
     --radius-md: 1.35rem;
     --radius-lg: 1.85rem;
     --radius-xl: 2.15rem;
     --radius-2xl: 2.5rem;
+    --radius-tag: 0.5rem; /* 8px — square tags vs pill badges */
     --radius-pill: 999px;
     --dur: 180ms;
     --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -49,9 +68,9 @@ html.dark,
     --glass-fill-strong: rgba(44, 44, 44, 0.94);
     --glass-fill-soft: rgba(34, 34, 34, 0.55);
     --glass-rim: rgba(255, 243, 226, 0.1);
-    --glass-rim-outer: rgba(255, 243, 226, 0.1);
+    --glass-rim-outer: rgba(255, 243, 226, 0.16);
     --glass-shine: inset 0 1px 0 rgba(254, 198, 116, 0.12);
-    --glass-elev: 0 14px 40px rgba(0, 0, 0, 0.5);
+    --glass-elev: 0 8px 28px rgba(0, 0, 0, 0.4);
     --glass-blur: 20px;
     --grain-opacity: 0.05;
     --accent: #FBAB57;
@@ -61,14 +80,20 @@ html.dark,
     --on-accent: #222222;
     --palette-secondary: #FEC674;
     --surface-soft: #3a3228;
+    --surface-page: #1a1a1a;
+    --surface-window: #2c2c2c;
+    --surface-elevated: #363636;
+    --surface-stone: #3a3228;
+    --surface-live: var(--accent);
     --cta: #FFF3E2;
     --cta-ink: #222222;
     --cta-hover: #ffe8cc;
     --panel: var(--glass-fill-strong);
     --panel-solid: #2c2c2c;
     --panel-elevated: #363636;
-    --panel-border: rgba(255, 243, 226, 0.1);
+    --panel-border: rgba(255, 243, 226, 0.16);
     --panel-shadow: var(--glass-elev);
+    --control-rim: 2px solid var(--ink);
 }
 
 html[data-palette="coral"] {
@@ -767,8 +792,8 @@ body {
     color: var(--ink);
     background: var(--panel-solid) !important;
     background-color: var(--panel-solid) !important;
-    border: 1px solid var(--glass-rim-outer) !important;
-    /* Drop inset shine — it can align with dock borders and look like a full-bleed rule */
+    border: 1.5px solid var(--glass-rim-outer) !important;
+    /* Fill + rim first; soft shadow only */
     box-shadow: var(--glass-elev) !important;
 }
 #player-card.player-shell {
@@ -1089,7 +1114,7 @@ html.dark .app-modal-overlay,
     transform: scale(0.97);
 }
 
-/* Design-system button primitives */
+/* Design-system button primitives — 2px ink rim defines soft fills */
 .ds-btn {
     display: inline-flex;
     align-items: center;
@@ -1098,21 +1123,34 @@ html.dark .app-modal-overlay,
     min-height: 2.65rem;
     padding: 0.65rem 1.15rem;
     border-radius: var(--radius-pill);
-    border: 1px solid transparent;
+    border: var(--control-rim, 2px solid var(--ink));
     font-family: var(--font-ui);
-    font-size: var(--text-sm, 0.8125rem);
-    font-weight: 700;
+    font-size: var(--text-body-sm, 0.8125rem);
+    font-weight: 600;
     letter-spacing: 0.01em;
     line-height: 1.2;
     cursor: pointer;
+    box-shadow: none;
     transition: transform var(--dur) var(--ease-out), background-color var(--dur) ease, border-color var(--dur) ease, color var(--dur) ease;
 }
 .ds-btn:active { transform: scale(0.97); }
-.ds-btn--primary { background: var(--cta); color: var(--cta-ink); }
+.ds-btn--primary { background: var(--cta); color: var(--cta-ink); border-color: var(--cta); }
 .ds-btn--primary:hover:not(:disabled) { background: var(--cta-hover, var(--cta)); }
-.ds-btn--accent { background: var(--accent); color: var(--on-accent, #222222); }
+.ds-btn--accent { background: var(--accent); color: var(--on-accent, #222222); border-color: #222222; }
 .ds-btn--accent:hover:not(:disabled) { background: var(--accent-hover); }
-.ds-btn--soft { background: var(--surface-soft, var(--palette-secondary)); color: #222222; }
+.ds-btn--soft {
+    background: var(--surface-soft, var(--palette-secondary));
+    color: #222222;
+    border-color: #222222;
+}
+.ds-btn--outline {
+    background: var(--surface-window, var(--panel-solid));
+    color: var(--ink);
+    border-color: var(--ink);
+}
+.ds-btn--outline:hover:not(:disabled) {
+    background: var(--surface-stone, var(--accent-soft));
+}
 .ds-btn--ghost {
     background: transparent;
     color: var(--ink);
@@ -1120,7 +1158,13 @@ html.dark .app-modal-overlay,
 }
 .ds-btn--ghost:hover:not(:disabled) {
     background: var(--accent-soft);
-    border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--ink));
+}
+html.dark .ds-btn--accent,
+.dark .ds-btn--accent,
+html.dark .ds-btn--soft,
+.dark .ds-btn--soft {
+    border-color: #222222;
 }
 
 .ds-link {
@@ -1137,6 +1181,126 @@ html.dark .ds-soft-fill,
 .dark .ds-soft-fill {
     background: var(--accent-soft) !important;
     color: var(--accent-ink) !important;
+}
+
+/* Square tags (category / keywords) vs pill badges (status) */
+.ds-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    max-width: 10rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: var(--radius-tag, 0.5rem);
+    border: 1px solid color-mix(in srgb, var(--ink) 16%, transparent);
+    background: var(--surface-stone, #F5E6D4);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: var(--text-caption, 0.75rem);
+    font-weight: 600;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: default;
+}
+.ds-tag--live {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.ds-tag--muted {
+    background: color-mix(in srgb, var(--ink) 6%, var(--panel-elevated));
+    color: var(--ink-muted);
+}
+button.ds-tag {
+    cursor: pointer;
+}
+button.ds-tag:hover {
+    filter: brightness(0.97);
+}
+
+.ds-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.65rem;
+    border-radius: var(--radius-pill);
+    border: 1.5px solid color-mix(in srgb, var(--ink) 18%, transparent);
+    background: var(--panel-elevated);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: var(--text-caption, 0.75rem);
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+.ds-badge--live {
+    background: var(--accent);
+    color: #222222;
+    border-color: #222222;
+}
+.ds-badge--soft {
+    background: var(--surface-soft, var(--palette-secondary));
+    color: #222222;
+    border-color: #222222;
+}
+
+/* Waveform pill — live audio indicator (peach = playing) */
+.wave-pill {
+    display: inline-flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 2.5px;
+    height: 1.65rem;
+    padding: 0.3rem 0.55rem;
+    border-radius: var(--radius-pill);
+    background: var(--panel-elevated, #fff);
+    border: var(--control-rim, 2px solid var(--ink));
+    box-sizing: border-box;
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+.wave-pill__bar {
+    display: block;
+    width: 2.5px;
+    height: var(--wave-h, 8px);
+    border-radius: 999px;
+    background: var(--ink);
+    transform-origin: center bottom;
+    transition: background-color var(--dur) ease;
+}
+.wave-pill.is-live {
+    background: color-mix(in srgb, var(--accent) 28%, var(--panel-elevated));
+    border-color: #222222;
+}
+.wave-pill.is-live .wave-pill__bar {
+    background: var(--accent);
+    animation: wave-pill-pulse 0.85s var(--ease-out) infinite alternate;
+}
+.wave-pill.is-live .wave-pill__bar:nth-child(2) { animation-delay: 0.08s; }
+.wave-pill.is-live .wave-pill__bar:nth-child(3) { animation-delay: 0.16s; }
+.wave-pill.is-live .wave-pill__bar:nth-child(4) { animation-delay: 0.04s; }
+.wave-pill.is-live .wave-pill__bar:nth-child(5) { animation-delay: 0.2s; }
+.wave-pill.is-live .wave-pill__bar:nth-child(6) { animation-delay: 0.12s; }
+.wave-pill.is-live .wave-pill__bar:nth-child(7) { animation-delay: 0.24s; }
+@keyframes wave-pill-pulse {
+    from { transform: scaleY(0.45); }
+    to { transform: scaleY(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .wave-pill.is-live .wave-pill__bar {
+        animation: none;
+        transform: scaleY(0.85);
+    }
+}
+
+/* Brand scribble underline (editorial accent → peach live) */
+.ds-scribble {
+    text-decoration-line: underline;
+    text-decoration-style: wavy;
+    text-decoration-color: var(--accent);
+    text-decoration-thickness: 2.5px;
+    text-underline-offset: 0.18em;
 }
 
 /* Remap legacy Tailwind blue → coral accent / black CTAs (refs) */
