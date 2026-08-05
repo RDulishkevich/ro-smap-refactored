@@ -4895,6 +4895,15 @@ textarea.modal-input {
 .dark .details-report-btn { background: rgba(220, 38, 38, 0.15); color: #f87171; }
 .details-report-btn:hover { background: #fee2e2; }
 .dark .details-report-btn:hover { background: rgba(220, 38, 38, 0.28); }
+.details-report-footer {
+    display: flex;
+    justify-content: flex-start;
+    margin-top: 0.25rem;
+}
+.details-report-footer .details-report-btn {
+    width: 100%;
+    justify-content: center;
+}
 
 /* --- ???????????: ???? ?? ?????? -> ???????, ???? "...", ???????, ?????? --- */
 .comment-author-link {

@@ -29,7 +29,7 @@
 
     <!-- Tailwind (self-hosted build — без Play CDN / без unsafe-eval) -->
     <link rel="stylesheet" href="./src/tailwind.built.css?v=20260722c">
-    <link rel="stylesheet" href="./src/style.css?v=20260806j">
+    <link rel="stylesheet" href="./src/style.css?v=20260806k">
     <link rel="stylesheet" href="./src/glass.css?v=20260806g">
     <!-- fonts.css after glass so data-font tokens win over :root -->
     <link rel="stylesheet" href="./src/fonts.css?v=20260805m">
@@ -2215,10 +2215,6 @@
                     </div>
                     
                     <div class="details-header-actions flex items-center gap-2 flex-shrink-0 self-end md:self-start md:items-start">
-                        <button type="button" id="details-report-btn" onclick="window.openReportModal('sound', window.currentPlayingId)" class="details-report-btn" title="Пожаловаться" aria-label="Пожаловаться">
-                            <i class="icon-flag pointer-events-none" aria-hidden="true"></i>
-                            <span>Пожаловаться</span>
-                        </button>
                         <button id="details-admin-actions-btn" onclick="window.openDetailsAdminActions(event)" class="hidden bg-amber-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md hover:bg-amber-600 transition-all active:scale-95 items-center justify-center gap-2">
                             <i class="icon-more"></i> Действия
                         </button>
@@ -2233,7 +2229,7 @@
                     <ul id="details-time-markers-list" class="details-time-markers__list"></ul>
                 </div>
 
-                <!-- Статистика, лайк/дизлайк и жалоба -->
+                <!-- Статистика и лайк/дизлайк -->
                 <div class="flex items-center gap-2 flex-wrap">
                     <span class="details-stat-chip" title="Прослушиваний"><i class="icon-headphone"></i><span id="det-stat-plays">0</span></span>
                     <span class="details-stat-chip" title="Скачиваний"><i class="icon-document-download"></i><span id="det-stat-downloads">0</span></span>
@@ -2321,6 +2317,13 @@
                             <i class="icon-send-2"></i>
                         </button>
                     </div>
+                </div>
+
+                <div class="details-report-footer pt-2 border-t border-slate-100 dark:border-slate-700/50">
+                    <button type="button" id="details-report-btn" onclick="window.openReportModal('sound', window.currentPlayingId)" class="details-report-btn" title="Пожаловаться" aria-label="Пожаловаться">
+                        <i class="icon-flag pointer-events-none" aria-hidden="true"></i>
+                        <span>Пожаловаться</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -2496,7 +2499,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260806j"></script>
+    <script type="module" src="./src/main.js?v=20260806k"></script>
 
 </body>
 </html>
