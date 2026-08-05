@@ -1665,6 +1665,24 @@ a.bg-blue-600 {
 .file-xfer--compact .file-xfer__action { min-width: 4.5rem; padding: 0 0.75rem; font-size: 0.7rem; }
 .file-xfer--compact .file-xfer__name { font-size: 0.7rem; }
 .file-xfer--block { max-width: none; }
+/* Single primary CTA (publish / save) — no split «label | action» that reads as two buttons */
+.file-xfer--cta .file-xfer__file {
+    display: none !important;
+}
+.file-xfer--cta .file-xfer__track {
+    padding: 0.28rem;
+}
+.file-xfer--cta .file-xfer__action {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    min-height: 2.75rem;
+    border-radius: calc(var(--radius-pill, 999px) - 2px);
+}
+.file-xfer--cta[data-state="done"] .file-xfer__track {
+    opacity: 0;
+    pointer-events: none;
+}
 
 html.dark .file-xfer__track,
 .dark .file-xfer__track {

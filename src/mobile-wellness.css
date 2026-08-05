@@ -436,6 +436,27 @@
             transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
             opacity 0.28s ease !important;
     }
+    #player-card.player-shell.is-dragging {
+        transition: none !important;
+        will-change: transform, opacity;
+    }
+    #player-card.player-shell.is-gesture-settle,
+    #player-card.player-shell.is-gesture-closing {
+        transition:
+            transform 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+            opacity 0.28s ease !important;
+        will-change: transform, opacity;
+    }
+    #sidebar.is-dragging {
+        transition: none !important;
+        will-change: transform, opacity;
+    }
+    #sidebar.is-gesture-settle {
+        transition:
+            transform 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+            opacity 0.28s ease !important;
+        will-change: transform, opacity;
+    }
     body.dock-view-details #player-anchor.player-anchor {
         opacity: 0 !important;
         pointer-events: none !important;

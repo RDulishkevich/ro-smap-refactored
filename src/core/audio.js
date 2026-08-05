@@ -1242,8 +1242,9 @@ window.setupAudioEvents = function() {
         document.body.classList.add('player-visible');
     };
 
-window.closePlayerCard = function() {
+window.closePlayerCard = function(opts) {
     const card = document.getElementById('player-card');
+    const skipAnim = !!(opts && opts.skipAnim);
 
     if (window.isPlaying || window.audioElement) {
         window.isPlaying = false;
@@ -1262,7 +1263,19 @@ window.closePlayerCard = function() {
     if (window.resetPlaybackPitch) window.resetPlaybackPitch();
     if (window.collapsePlayerSheet) window.collapsePlayerSheet();
 
-    if (card) card.classList.add('translate-y-[150%]', 'opacity-0');
+    if (card) {
+        card.classList.remove('is-dragging', 'is-gesture-settle', 'is-gesture-closing');
+        card.style.transform = '';
+        card.style.opacity = '';
+        if (skipAnim) {
+            card.style.transition = 'none';
+            card.classList.add('translate-y-[150%]', 'opacity-0');
+            void card.offsetWidth;
+            card.style.transition = '';
+        } else {
+            card.classList.add('translate-y-[150%]', 'opacity-0');
+        }
+    }
     document.body.classList.remove('player-visible');
     if (window.playSfx) window.playSfx('close');
 

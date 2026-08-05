@@ -236,7 +236,7 @@ export function bootstrapApp() {
             if (pubXfer) {
                 window.FileXfer.mount(pubXfer, {
                     mode: 'upload',
-                    name: 'Публикация',
+                    name: 'Опубликовать',
                     actionLabel: 'Опубликовать',
                     loadingLabel: 'Публикация…',
                     doneLabel: 'Готово'

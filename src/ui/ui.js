@@ -1091,6 +1091,12 @@ window.closeDetailsToPlayer = function() {
         if (window.closeDetailsModal) window.closeDetailsModal();
         return;
     }
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+        sidebar.classList.remove('is-dragging', 'is-gesture-settle');
+        sidebar.style.transform = '';
+        sidebar.style.opacity = '';
+    }
     const returnToMapPlayer = document.body.classList.contains('player-visible') && window.innerWidth < 768;
     if (returnToMapPlayer) {
         window.__dockReturnView = null;
@@ -1122,32 +1128,73 @@ window.closeDetailsToPlayer = function() {
         let startY = 0;
         let startX = 0;
         let tracking = false;
-        let moved = false;
+        let dragging = false;
+        let lastDy = 0;
+        const THRESH = 72;
+        const MAX_UP = -140;
 
         const blockGhostClick = () => {
             window.__playerGestureBlockClicks = true;
             setTimeout(() => { window.__playerGestureBlockClicks = false; }, 350);
         };
 
+        const clearDragVisual = () => {
+            card.classList.remove('is-dragging');
+            card.style.transform = '';
+            card.style.opacity = '';
+        };
+
+        const springBack = () => {
+            card.classList.remove('is-dragging');
+            card.classList.add('is-gesture-settle');
+            card.style.transform = 'translateY(0)';
+            card.style.opacity = '1';
+            const done = () => {
+                card.classList.remove('is-gesture-settle');
+                clearDragVisual();
+                card.removeEventListener('transitionend', done);
+            };
+            card.addEventListener('transitionend', done);
+            setTimeout(done, 420);
+        };
+
+        const applyDrag = (dy) => {
+            const dragY = dy < 0
+                ? Math.max(MAX_UP, dy * 0.55)
+                : dy;
+            card.classList.add('is-dragging');
+            card.classList.remove('is-gesture-settle');
+            card.style.transform = `translate3d(0, ${dragY}px, 0)`;
+            if (dy > 0) {
+                card.style.opacity = String(Math.max(0.4, 1 - dy / 320));
+            } else {
+                card.style.opacity = '1';
+            }
+        };
+
+        const isBlockedTarget = (el) => !!(el && el.closest && (
+            el.closest('#audio-timeline')
+            || el.closest('#volume-slider')
+            || el.closest('#main-play-btn')
+            || el.closest('#player-more-btn')
+            || el.closest('#ambi-sphere-pad')
+            || el.closest('#player-analyzers')
+            || el.closest('button')
+            || el.closest('a')
+            || el.closest('input')
+        ));
+
         const onStart = (e) => {
             if (window.innerWidth >= 768) return;
+            if (window.analyzersOpen) return;
             const t = e.touches && e.touches[0];
             if (!t) return;
-            const el = e.target;
-            if (el && el.closest && (
-                el.closest('#audio-timeline')
-                || el.closest('#volume-slider')
-                || el.closest('#main-play-btn')
-                || el.closest('#player-more-btn')
-                || el.closest('#ambi-sphere-pad')
-                || el.closest('button')
-                || el.closest('a')
-                || el.closest('input')
-            )) return;
+            if (isBlockedTarget(e.target)) return;
             startY = t.clientY;
             startX = t.clientX;
             tracking = true;
-            moved = false;
+            dragging = false;
+            lastDy = 0;
         };
         const onMove = (e) => {
             if (!tracking) return;
@@ -1155,37 +1202,70 @@ window.closeDetailsToPlayer = function() {
             if (!t) return;
             const dy = t.clientY - startY;
             const dx = t.clientX - startX;
-            if (Math.abs(dy) > 10 || Math.abs(dx) > 10) moved = true;
-            if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 12) {
-                e.preventDefault();
+            if (!dragging) {
+                if (Math.abs(dy) < 8 && Math.abs(dx) < 8) return;
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    tracking = false;
+                    return;
+                }
+                dragging = true;
             }
+            lastDy = dy;
+            e.preventDefault();
+            applyDrag(dy);
         };
         const onEnd = (e) => {
             if (!tracking) return;
             tracking = false;
             const t = (e.changedTouches && e.changedTouches[0]) || null;
-            if (!t) return;
-            const dy = t.clientY - startY;
-            const dx = t.clientX - startX;
-            if (Math.abs(dy) < 40 || Math.abs(dy) < Math.abs(dx)) {
-                if (!moved && handle && (e.target === handle || (handle.contains && handle.contains(e.target)))) {
+            const dy = t ? (t.clientY - startY) : lastDy;
+            const dx = t ? (t.clientX - startX) : 0;
+
+            if (!dragging) {
+                if (handle && (e.target === handle || (handle.contains && handle.contains(e.target)))) {
                     blockGhostClick();
+                    clearDragVisual();
                     if (window.closePlayerCard) window.closePlayerCard();
                 }
                 return;
             }
+
             blockGhostClick();
-            if (dy < -40) {
-                if (window.openDetailsModal) window.openDetailsModal();
-            } else if (dy > 40) {
-                if (window.closePlayerCard) window.closePlayerCard();
+            if (Math.abs(dy) < Math.abs(dx)) {
+                springBack();
+                dragging = false;
+                return;
             }
+            if (dy > THRESH) {
+                card.classList.remove('is-dragging');
+                card.classList.add('is-gesture-closing');
+                card.style.transform = 'translate3d(0, 120%, 0)';
+                card.style.opacity = '0';
+                setTimeout(() => {
+                    clearDragVisual();
+                    card.classList.remove('is-gesture-closing');
+                    if (window.closePlayerCard) window.closePlayerCard({ skipAnim: true });
+                }, 300);
+            } else if (dy < -THRESH) {
+                clearDragVisual();
+                if (window.openDetailsModal) window.openDetailsModal();
+            } else {
+                springBack();
+            }
+            dragging = false;
+        };
+
+        const onCancel = () => {
+            if (!tracking && !dragging) return;
+            tracking = false;
+            dragging = false;
+            springBack();
         };
 
         card.addEventListener('touchstart', onStart, { passive: true });
         card.addEventListener('touchmove', onMove, { passive: false });
         card.addEventListener('touchend', onEnd, { passive: true });
-        card.addEventListener('touchcancel', () => { tracking = false; }, { passive: true });
+        card.addEventListener('touchcancel', onCancel, { passive: true });
 
         if (handle) {
             handle.addEventListener('click', (e) => {
@@ -1207,17 +1287,37 @@ window.closeDetailsToPlayer = function() {
 
 (function bindDetailsSwipeToPlayer() {
     const bind = () => {
-        const host = document.getElementById('dock-details')
-            || document.getElementById('dock-details-host')
-            || document.getElementById('sidebar');
-        if (!host || host.__detailsSwipeBound) return;
-        host.__detailsSwipeBound = true;
+        const sidebar = document.getElementById('sidebar');
+        if (!sidebar || sidebar.__detailsSwipeBound) return;
+        sidebar.__detailsSwipeBound = true;
 
         let startY = 0;
         let startX = 0;
         let tracking = false;
+        let dragging = false;
+        let lastDy = 0;
+        const THRESH = 90;
 
-        host.addEventListener('touchstart', (e) => {
+        const clearDrag = () => {
+            sidebar.classList.remove('is-dragging', 'is-gesture-settle');
+            sidebar.style.transform = '';
+            sidebar.style.opacity = '';
+        };
+
+        const springBack = () => {
+            sidebar.classList.remove('is-dragging');
+            sidebar.classList.add('is-gesture-settle');
+            sidebar.style.transform = 'translate3d(0, 0, 0)';
+            sidebar.style.opacity = '1';
+            const done = () => {
+                clearDrag();
+                sidebar.removeEventListener('transitionend', done);
+            };
+            sidebar.addEventListener('transitionend', done);
+            setTimeout(done, 420);
+        };
+
+        sidebar.addEventListener('touchstart', (e) => {
             if (window.innerWidth >= 768) return;
             if (window.__dockView !== 'details') return;
             const t = e.touches && e.touches[0];
@@ -1237,19 +1337,63 @@ window.closeDetailsToPlayer = function() {
             startY = t.clientY;
             startX = t.clientX;
             tracking = true;
+            dragging = false;
+            lastDy = 0;
         }, { passive: true });
 
-        host.addEventListener('touchend', (e) => {
-            if (!tracking) return;
-            tracking = false;
-            if (window.__dockView !== 'details') return;
-            const t = e.changedTouches && e.changedTouches[0];
+        sidebar.addEventListener('touchmove', (e) => {
+            if (!tracking || window.__dockView !== 'details') return;
+            const t = e.touches && e.touches[0];
             if (!t) return;
             const dy = t.clientY - startY;
             const dx = t.clientX - startX;
-            if (dy > 70 && Math.abs(dy) > Math.abs(dx)) {
-                if (window.closeDetailsToPlayer) window.closeDetailsToPlayer();
+            if (!dragging) {
+                if (Math.abs(dy) < 10 && Math.abs(dx) < 10) return;
+                if (Math.abs(dx) >= Math.abs(dy) || dy < 0) {
+                    tracking = false;
+                    return;
+                }
+                dragging = true;
             }
+            lastDy = dy;
+            e.preventDefault();
+            sidebar.classList.add('is-dragging');
+            sidebar.classList.remove('is-gesture-settle');
+            const y = Math.max(0, dy);
+            sidebar.style.transform = `translate3d(0, ${y}px, 0)`;
+            sidebar.style.opacity = String(Math.max(0.45, 1 - y / 420));
+        }, { passive: false });
+
+        sidebar.addEventListener('touchend', (e) => {
+            if (!tracking) return;
+            tracking = false;
+            if (window.__dockView !== 'details') {
+                clearDrag();
+                return;
+            }
+            const t = e.changedTouches && e.changedTouches[0];
+            const dy = t ? (t.clientY - startY) : lastDy;
+            if (!dragging) return;
+            dragging = false;
+            if (dy > THRESH) {
+                sidebar.classList.remove('is-dragging');
+                sidebar.classList.add('is-gesture-settle');
+                sidebar.style.transform = 'translate3d(0, 110%, 0)';
+                sidebar.style.opacity = '0';
+                setTimeout(() => {
+                    clearDrag();
+                    if (window.closeDetailsToPlayer) window.closeDetailsToPlayer();
+                }, 280);
+            } else {
+                springBack();
+            }
+        }, { passive: true });
+
+        sidebar.addEventListener('touchcancel', () => {
+            if (!tracking && !dragging) return;
+            tracking = false;
+            dragging = false;
+            springBack();
         }, { passive: true });
     };
     if (document.readyState === 'loading') {
@@ -7213,7 +7357,7 @@ window.resetPublishXfer = function() {
             : 'Сохранить';
     }
     window.FileXfer.setState(pubXfer, 'idle', {
-        name: 'Публикация',
+        name: action,
         actionLabel: action,
         loadingLabel: 'Публикация…',
         doneLabel: 'Готово'
@@ -8553,62 +8697,5 @@ window.initSwipeHandlers = function() {
             }
         }, { passive: true });
     }
-
-    const playerCardEl = document.getElementById('player-card');
-    if (playerCardEl) {
-        let playerTouchStartY = 0;
-        let playerTouchActive = false;
-
-        // Swipe-to-navigate only makes sense while the card's own content fits on screen.
-        // Once the analyzers panel expands the card into a scrollable sheet, a vertical
-        // drag must scroll that content instead of closing the player or opening details.
-        const isSwipeNavBlocked = (e) => {
-            if (window.analyzersOpen) return true;
-            if (e.target.closest('#ambi-sphere-pad') || e.target.closest('#player-analyzers')) return true;
-            if (e.target.tagName.toLowerCase() === 'input') return true;
-            return false;
-        };
-
-        playerCardEl.addEventListener('touchstart', e => {
-            if (isSwipeNavBlocked(e)) { playerTouchActive = false; return; }
-            playerTouchStartY = e.touches[0].screenY;
-            playerTouchActive = true;
-        }, { passive: true });
-
-        playerCardEl.addEventListener('touchend', e => {
-            if (!playerTouchActive) return;
-            playerTouchActive = false;
-            if (isSwipeNavBlocked(e)) return;
-
-            const playerTouchEndY = e.changedTouches[0].screenY;
-            const diffY = playerTouchEndY - playerTouchStartY;
-            if (Math.abs(diffY) > 50) {
-                if (diffY > 0) window.closePlayerCard();
-                else window.openDetailsModal();
-            }
-        }, { passive: true });
-
-        // Mouse-drag equivalent for desktop: click-drag up/down on the card mirrors the
-        // mobile swipe (open details / close player), so the gesture isn't phone-only.
-        let playerMouseStartY = 0;
-        let playerMouseActive = false;
-
-        playerCardEl.addEventListener('mousedown', e => {
-            if (isSwipeNavBlocked(e)) { playerMouseActive = false; return; }
-            playerMouseStartY = e.clientY;
-            playerMouseActive = true;
-        });
-
-        window.addEventListener('mouseup', e => {
-            if (!playerMouseActive) return;
-            playerMouseActive = false;
-            if (isSwipeNavBlocked(e)) return;
-
-            const diffY = e.clientY - playerMouseStartY;
-            if (Math.abs(diffY) > 50) {
-                if (diffY > 0) window.closePlayerCard();
-                else window.openDetailsModal();
-            }
-        });
-    }
+    /* Player / details vertical swipes: bindPlayerSheetGestures + bindDetailsSwipeToPlayer (live drag). */
 };
