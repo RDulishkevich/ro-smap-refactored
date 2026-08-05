@@ -140,7 +140,6 @@ body {
 
 .brand-title,
 .font-brand,
-#player-title,
 .dock-view-title,
 .app-rail__brand {
     font-family: var(--font-brand) !important;
@@ -148,11 +147,17 @@ body {
     line-height: var(--leading-tight);
 }
 .brand-title,
-.font-brand,
-#player-title {
+.font-brand {
     font-size: calc(1em * var(--font-brand-optical, 1));
     font-weight: 700;
     text-wrap: balance;
+}
+/* Tool titles (player track, dense UI) stay on Geologica — not display Klukva */
+#player-title {
+    font-family: var(--font-ui) !important;
+    letter-spacing: var(--tracking-ui, 0);
+    line-height: var(--leading-tight, 1.25);
+    font-weight: 700;
 }
 
 .modal-label,

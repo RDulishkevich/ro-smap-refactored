@@ -42,7 +42,7 @@ DESKTOP (≥768)
 │   logout?                                                │
 │                                                          │
 │  [dock panel]              MAP                           │
-│                            [FAB + / Guessr]              │
+│                            [FAB +]                       │
 └──────────────────────────────────────────────────────────┘
 
 MOBILE (<768)
@@ -50,13 +50,15 @@ MOBILE (<768)
 │  [search]                         [events][msg][notif]   │
 │                                                          │
 │                         MAP                              │
-│                     [FAB + / Guessr]                     │
+│                        [FAB +]                           │
 │                                                          │
-│  ┌──────────┬──────┬─────┬────────┬─────────┐            │
-│  │Библиотека│Лента │Карта│Настрой.│ Профиль │  bottom   │
-│  └──────────┴──────┴─────┴────────┴─────────┘            │
+│  ┌──────────┬──────┬─────┬──────────┬─────────┐            │
+│  │Библиотека│Лента │Карта│Экспедиц. │ Профиль │  bottom   │
+│  └──────────┴──────┴─────┴──────────┴─────────┘            │
 └──────────────────────────────────────────────────────────┘
 ```
+
+Настройки на mobile — через **Профиль** (кабинет). Аудио-угадайка — в **Помощь → FAQ**, не как второй FAB на карте.
 
 ---
 
@@ -77,11 +79,11 @@ MOBILE (<768)
 
 | ID | Назначение |
 |----|------------|
-| `#mobile-bottom-nav` | 5 пунктов: library, feed, map, settings, profile |
+| `#mobile-bottom-nav` | 5 пунктов: library, feed, map, expeditions, profile |
 | `#msg-wrap-mobile` / `#notif-wrap-mobile` | Конверт и колокол у карты (после логина) |
 | `#events-sheet` | Полноэкранный/sheet ивентов |
-| `#cabinet-mobile-menu` | Строки кабинета (в т.ч. «Сообщения») |
-| `#dock-mobile-tabs` | Библиотека / Экспедиции внутри dock |
+| `#cabinet-mobile-menu` | Строки кабинета (настройки, сообщения, …) |
+| `#dock-mobile-tabs` | Библиотека / Экспедиции / Помощь внутри dock |
 
 ### Shared
 
@@ -89,7 +91,7 @@ MOBILE (<768)
 |----|---------|--------|
 | `#events-fab` | Открывает панель | Открывает sheet |
 | `#map-top-toolbar` | Поиск | Поиск |
-| `#fab-add` / `#fab-guessr` | Низ-справа | Выше bottom nav |
+| `#fab-add` | Низ-справа · только «Добавить звук» | Выше bottom nav |
 | `#sidebar` | Левый dock | Fullscreen минус `--mobile-fs-bottom` |
 | Модалки `app-modal-*` | Центр | Fullscreen минус bottom rail (кроме компактных confirm) |
 
@@ -121,8 +123,10 @@ Legacy / скрыты намеренно: `#burger-btn`, `#settings-btn-mobile`,
 
 ### Mobile
 
-- Bottom nav → `mobileNavGo('library'|'feed'|'map'|'settings'|'profile')`.
+- Bottom nav → `mobileNavGo('library'|'feed'|'map'|'expeditions'|'profile')`.
 - «Карта» закрывает dock / events sheet.
+- Настройки: Профиль → кабинет → «Настройки» (desktop: `#settings-btn` в rail).
+- Аудио-угадайка: Помощь → FAQ → «Играть» (не FAB на карте).
 - Сообщения: конверт у карты **или** Профиль → кабинет → «Сообщения».
 - Уведомления: колокол у карты (после логина).
 - Ивенты: FAB → `#events-sheet`.

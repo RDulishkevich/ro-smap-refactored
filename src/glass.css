@@ -3,15 +3,15 @@
  * Safe rules: no backdrop-filter on scrolling player; never override .hidden.
  */
 :root {
-    /* Surface = cream page · windows/panels = soft peach cards (ref) */
+    /* Cream windows · peach accents (not flat peach panels) */
     --ink: #222222;
     --ink-muted: #6b5340;
-    --glass-fill: rgba(254, 198, 116, 0.48);
-    --glass-fill-strong: rgba(254, 198, 116, 0.88);
-    --glass-fill-soft: rgba(255, 243, 226, 0.55);
-    --glass-rim: rgba(255, 243, 226, 0.55);
-    --glass-rim-outer: rgba(34, 34, 34, 0.08);
-    --glass-shine: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+    --glass-fill: rgba(255, 243, 226, 0.55);
+    --glass-fill-strong: rgba(255, 249, 240, 0.9);
+    --glass-fill-soft: rgba(255, 243, 226, 0.42);
+    --glass-rim: rgba(255, 255, 255, 0.65);
+    --glass-rim-outer: rgba(34, 34, 34, 0.1);
+    --glass-shine: inset 0 1px 0 rgba(255, 255, 255, 0.7);
     --glass-elev: 0 12px 32px rgba(34, 34, 34, 0.1);
     --glass-blur: 18px;
     --grain-opacity: 0.035;
@@ -26,12 +26,11 @@
     --cta-ink: #FFF3E2;
     --cta-hover: #3a3a3a;
     --panel: var(--glass-fill-strong);
-    --panel-solid: #FEC674;
-    --panel-elevated: #FFF3E2;
-    --panel-border: rgba(34, 34, 34, 0.08);
+    --panel-solid: #FFF9F0;
+    --panel-elevated: #FFFFFF;
+    --panel-border: rgba(34, 34, 34, 0.1);
     --panel-shadow: var(--glass-elev);
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    /* Ref cards ~24–36px */
     --radius-sm: 0.9rem;
     --radius-md: 1.35rem;
     --radius-lg: 1.85rem;
@@ -61,13 +60,13 @@ html.dark,
     --accent-ink: #FEC674;
     --on-accent: #222222;
     --palette-secondary: #FEC674;
-    --surface-soft: #FBAB57;
+    --surface-soft: #3a3228;
     --cta: #FFF3E2;
     --cta-ink: #222222;
     --cta-hover: #ffe8cc;
     --panel: var(--glass-fill-strong);
     --panel-solid: #2c2c2c;
-    --panel-elevated: #222222;
+    --panel-elevated: #363636;
     --panel-border: rgba(255, 243, 226, 0.1);
     --panel-shadow: var(--glass-elev);
 }
@@ -75,12 +74,12 @@ html.dark,
 html[data-palette="coral"] {
     --ink: #222222;
     --ink-muted: #6b5340;
-    --glass-fill: rgba(254, 198, 116, 0.48);
-    --glass-fill-strong: rgba(254, 198, 116, 0.88);
-    --glass-fill-soft: rgba(255, 243, 226, 0.55);
-    --glass-rim: rgba(255, 243, 226, 0.55);
-    --glass-rim-outer: rgba(34, 34, 34, 0.08);
-    --glass-shine: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+    --glass-fill: rgba(255, 243, 226, 0.55);
+    --glass-fill-strong: rgba(255, 249, 240, 0.9);
+    --glass-fill-soft: rgba(255, 243, 226, 0.42);
+    --glass-rim: rgba(255, 255, 255, 0.65);
+    --glass-rim-outer: rgba(34, 34, 34, 0.1);
+    --glass-shine: inset 0 1px 0 rgba(255, 255, 255, 0.7);
     --glass-elev: 0 12px 32px rgba(34, 34, 34, 0.1);
     --accent: #FBAB57;
     --accent-hover: #e8953f;
@@ -92,9 +91,9 @@ html[data-palette="coral"] {
     --cta: #222222;
     --cta-ink: #FFF3E2;
     --cta-hover: #3a3a3a;
-    --panel-solid: #FEC674;
-    --panel-elevated: #FFF3E2;
-    --panel-border: rgba(34, 34, 34, 0.08);
+    --panel-solid: #FFF9F0;
+    --panel-elevated: #FFFFFF;
+    --panel-border: rgba(34, 34, 34, 0.1);
 }
 html.dark[data-palette="coral"],
 html[data-palette="coral"].dark,
@@ -114,12 +113,12 @@ html[data-palette="coral"].dark,
     --accent-ink: #FEC674;
     --on-accent: #222222;
     --palette-secondary: #FEC674;
-    --surface-soft: #FBAB57;
+    --surface-soft: #3a3228;
     --cta: #FFF3E2;
     --cta-ink: #222222;
     --cta-hover: #ffe8cc;
     --panel-solid: #2c2c2c;
-    --panel-elevated: #222222;
+    --panel-elevated: #363636;
     --panel-border: rgba(255, 243, 226, 0.1);
 }
 
@@ -784,8 +783,9 @@ body {
     -webkit-overflow-scrolling: touch;
 }
 #sidebar.sidebar-panel {
-    backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
+    /* Opaque solid panel — no blur on scrolling dock (matches player) */
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
 }
 
 /* Final lock: .hidden beats FA / chrome display rules (see style.css) */
@@ -1123,6 +1123,22 @@ html.dark .app-modal-overlay,
     border-color: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
+.ds-link {
+    color: var(--accent-ink) !important;
+}
+.ds-link:hover {
+    opacity: 0.88;
+}
+.ds-soft-fill {
+    background: var(--accent-soft) !important;
+    color: var(--accent-ink) !important;
+}
+html.dark .ds-soft-fill,
+.dark .ds-soft-fill {
+    background: var(--accent-soft) !important;
+    color: var(--accent-ink) !important;
+}
+
 /* Remap legacy Tailwind blue → coral accent / black CTAs (refs) */
 .bg-blue-600,
 .bg-blue-500,
@@ -1191,6 +1207,16 @@ html.dark .text-blue-400,
 .text-green-600,
 .hover\:text-green-500:hover {
     color: var(--accent) !important;
+}
+
+/* Legacy indigo accents → brand accent-ink */
+.text-indigo-500,
+.text-indigo-600,
+.text-indigo-400,
+.hover\:text-indigo-400:hover,
+.dark\:text-indigo-400,
+.dark\:hover\:text-indigo-400:hover {
+    color: var(--accent-ink) !important;
 }
 
 /* Primary modal CTAs → pill black (login ref) */

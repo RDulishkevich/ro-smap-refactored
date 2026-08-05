@@ -642,7 +642,7 @@ window.CustomUI = window.CustomUI || {
         if (messageEl) messageEl.innerHTML = opts.message || '';
         if (btn) {
             btn.textContent = opts.confirmText || 'ОК';
-            btn.className = opts.confirmClass || 'px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-md';
+            btn.className = opts.confirmClass || 'ds-btn ds-btn--primary';
         }
 
         if (content) {
@@ -794,8 +794,8 @@ window.openLegalDocModal = function(docId) {
     const ver = document.getElementById('legal-doc-version');
     if (titleEl) {
         titleEl.innerHTML = id === 'terms'
-            ? '<i class="icon-document mr-2 text-blue-500"></i>Пользовательское соглашение'
-            : '<i class="icon-shield-tick mr-2 text-blue-500"></i>Политика конфиденциальности';
+            ? '<i class="icon-document mr-2 ds-link"></i>Пользовательское соглашение'
+            : '<i class="icon-shield-tick mr-2 ds-link"></i>Политика конфиденциальности';
     }
     if (body && window.renderLegalDocHtml) {
         body.innerHTML = window.renderLegalDocHtml(id);
@@ -1013,7 +1013,7 @@ window.CtxPopup = {
         }
 
         const toneColor = {
-            primary: 'text-blue-500',
+            primary: 'ds-link',
             success: 'text-emerald-500',
             warning: 'text-amber-500',
             danger: 'text-red-500'
@@ -2559,7 +2559,7 @@ window.renderPublicFollowUI = function(profileLogin, isOwn) {
     btn.textContent = on ? window.t('unfollow') : window.t('follow');
     btn.className = on
         ? 'mt-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold transition-colors'
-        : 'mt-2 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold transition-colors';
+        : 'mt-2 px-3 py-1.5 rounded-xl ds-btn ds-btn--primary text-white text-[11px] font-bold transition-colors';
 };
 
 window.toggleFollowFromProfile = async function() {
@@ -3652,9 +3652,10 @@ window.__openDockViewImpl = function(view) {
 
     if (window.showDockPanel) window.showDockPanel();
     if (window.syncMobileNavActive) {
-        if (next === 'cabinet' || next === 'messages') window.syncMobileNavActive('profile');
-        else if (next === 'settings') window.syncMobileNavActive('settings');
+        if (next === 'cabinet' || next === 'messages' || next === 'settings') window.syncMobileNavActive('profile');
         else if (next === 'feed') window.syncMobileNavActive('feed');
+        else if (next === 'expeditions' || next === 'expedition') window.syncMobileNavActive('expeditions');
+        else if (next === 'help') window.syncMobileNavActive('library');
         else window.syncMobileNavActive('library');
     }
 };
@@ -4418,7 +4419,7 @@ window.openFeedPostEditor = function(postId = null) {
     document.querySelectorAll('input[name="feed-post-type"]').forEach(r => {
         r.checked = (r.value === (post?.type || 'notice'));
     });
-    if (header) header.innerHTML = `<i class="icon-edit mr-2 text-blue-500"></i>${post ? 'Редактировать пост' : 'Новый пост'}`;
+    if (header) header.innerHTML = `<i class="icon-edit mr-2 ds-link"></i>${post ? 'Редактировать пост' : 'Новый пост'}`;
     window.updateFeedPostTypeUI();
     window.applyFeedTitlePreview();
     window.__feedPostSnapshot = {
@@ -4745,7 +4746,7 @@ window.selectSound = function(id) {
     window.clearMapRoutes();
     const ambiBtn = document.getElementById('btn-ambi-toggle');
     if(s.channels && s.channels.toLowerCase().includes('ambisonics')) {
-        if (ambiBtn) { ambiBtn.classList.remove('hidden'); ambiBtn.classList.add('text-indigo-500'); }
+        if (ambiBtn) { ambiBtn.classList.remove('hidden'); ambiBtn.classList.add('ds-link'); }
         window.isAmbisonicMode = false;
     } else {
         if(ambiBtn) ambiBtn.classList.add('hidden');
@@ -5023,7 +5024,7 @@ window.openDetailsModal = function() {
             expEl.innerHTML = '';
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'meta-value--action cursor-pointer text-left text-blue-600 dark:text-blue-400 hover:underline';
+            btn.className = 'meta-value--action cursor-pointer text-left ds-link hover:underline';
             btn.textContent = label;
             btn.onclick = (ev) => {
                 ev.stopPropagation();
@@ -5927,7 +5928,7 @@ window.handleAudioFiles = async function(files) {
 
     const dropContent = document.getElementById('drop-zone-content');
     if (dropContent) {
-        dropContent.innerHTML = `<span class="text-sm font-bold text-blue-600">Обработка: ${file.name}…</span>`;
+        dropContent.innerHTML = `<span class="text-sm font-bold ds-link">Обработка: ${file.name}…</span>`;
     }
 
     try {
@@ -5954,7 +5955,7 @@ window.handleAudioFiles = async function(files) {
         }).catch(() => { window.__uploadedAudioDuration = '0:00'; });
 
         if (dropContent) {
-            dropContent.innerHTML = `<span class="text-sm font-bold text-blue-600">Готов к загрузке: ${ready.name}</span>`;
+            dropContent.innerHTML = `<span class="text-sm font-bold ds-link">Готов к загрузке: ${ready.name}</span>`;
         }
 
         const formatEl = document.getElementById('add-format');
@@ -6214,7 +6215,7 @@ window.openUcsRecommendations = async function() {
             title: '<i class="icon-lamp-on mr-2 text-amber-500"></i>Рекомендации по UCS',
             message,
             confirmText: 'Понятно',
-            confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-md'
+            confirmClass: 'ds-btn ds-btn--primary'
         });
         return;
     }
@@ -6803,11 +6804,11 @@ window.editSound = function(id) {
 
     const dropContent = document.getElementById('drop-zone-content');
     if (dropContent) dropContent.innerHTML = s.url
-        ? `<i class="icon-sound text-4xl text-blue-400 mb-3"></i><span class="text-sm font-bold text-slate-500 dark:text-slate-400">Аудиофайл уже сохранён. Выберите новый, чтобы заменить.</span>`
+        ? `<i class="icon-sound text-4xl ds-link mb-3"></i><span class="text-sm font-bold text-slate-500 dark:text-slate-400">Аудиофайл уже сохранён. Выберите новый, чтобы заменить.</span>`
         : `<i class="icon-document-upload text-4xl text-slate-300 dark:text-slate-500 mb-3"></i><span class="text-sm font-bold text-slate-500 dark:text-slate-400">Нажмите или перетащите аудиофайл</span>`;
 
     const headerTitle = document.getElementById('add-modal-header-title');
-    if (headerTitle) headerTitle.innerHTML = `<i class="icon-edit-2 mr-2 text-blue-600"></i>Редактировать запись`;
+    if (headerTitle) headerTitle.innerHTML = `<i class="icon-edit-2 mr-2 ds-link"></i>Редактировать запись`;
     const publishText = document.getElementById('publish-btn-text');
     if (publishText) {
         publishText.textContent = (s.status === 'rejected' || s.status === 'draft')
@@ -6830,7 +6831,7 @@ window.resetAddModalToCreateMode = function() {
     window.updateSoundwalkRouteUI();
 
     const headerTitle = document.getElementById('add-modal-header-title');
-    if (headerTitle) headerTitle.innerHTML = `<i class="icon-musicnote mr-2 text-blue-600"></i><span data-lang="add_audio_title">Добавить аудио</span>`;
+    if (headerTitle) headerTitle.innerHTML = `<i class="icon-musicnote mr-2 ds-link"></i><span data-lang="add_audio_title">Добавить аудио</span>`;
     const publishText = document.getElementById('publish-btn-text');
     if (publishText) publishText.textContent = 'Опубликовать звук';
 
@@ -7211,11 +7212,24 @@ window.mobileNavGo = async function(dest) {
         window.syncMobileNavActive('feed');
         return;
     }
-    if (target === 'settings') {
+    if (target === 'expeditions') {
         if (window.closeEventsSheet) window.closeEventsSheet();
+        if (window.switchSidebarTab) window.switchSidebarTab('expeditions');
+        else if (window.openDockView) window.openDockView('expeditions');
+        window.syncMobileNavActive('expeditions');
+        return;
+    }
+    if (target === 'settings') {
+        /* Legacy: settings live under Profile on mobile */
+        if (window.closeEventsSheet) window.closeEventsSheet();
+        if (!window.currentUser) {
+            if (window.openAuthModal) window.openAuthModal();
+            window.syncMobileNavActive('profile');
+            return;
+        }
         if (window.openSettingsPanel) window.openSettingsPanel();
         else if (window.openDockView) window.openDockView('settings');
-        window.syncMobileNavActive('settings');
+        window.syncMobileNavActive('profile');
         return;
     }
     if (target === 'profile') {

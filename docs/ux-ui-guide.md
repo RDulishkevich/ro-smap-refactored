@@ -356,7 +356,7 @@ window.showToast('…', { silent: true }); // без звука
 
 - Тёмная тема: класс `html.dark` (`setTheme`).
 - В разметке пары: `bg-white dark:bg-slate-800`, `text-slate-600 dark:text-slate-300`.
-- **Brand DS (default `coral` / «Персик»):** `#FBAB57` accent, `#FEC674` windows/panels, `#FFF3E2` page cream, `#222222` ink/CTA. Dark: cream ink on `#222222` page, elevated panels `#2c2c2c`, same peach accent. Soft radii (`--radius-xl` ~2.15rem). Iconsax (`icon-*`). Accent ≤10% of UI.
+- **Brand DS (default `coral` / «Персик»):** cream windows `#FFF9F0` on page `#FFF3E2`, peach accents `#FBAB57` / soft `#FEC674` ≤10%, `#222222` ink/CTA. Dark: elevated panels `#2c2c2c`. Soft radii. Iconsax. Fonts/palettes under Settings → «Эксперимент». Zoom allowed. Accent ≤10% of UI.
 - **Buttons:** primary = charcoal CTA; accent fill always uses `--on-accent` `#222` (never white on peach); soft = secondary; ghost = rim. Press `scale(0.97)`.
 - Шрифт по умолчанию: `geo-klukva` — Geologica (UI) + Klukva (brand, оптически +16%). Чистая Klukva — `--font-optical: 1.12`.
 - **Яндекс API 3** (`yandex3`): стандартная схема Яндекса (`light`/`dark` + скрытие POI). Без tint под палитру UI.

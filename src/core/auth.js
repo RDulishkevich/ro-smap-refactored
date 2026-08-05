@@ -83,7 +83,7 @@ export function initAuth() {
         const container = document.getElementById('auth-form-container');
         const actionBtn = document.getElementById('auth-action-btn');
 
-        const activeClass = "flex-1 py-3 text-sm font-bold text-blue-600 border-b-2 border-blue-600 transition-colors";
+        const activeClass = "flex-1 py-3 text-sm font-bold ds-link border-b-2 border-[color:var(--accent)] transition-colors";
         const inactiveClass = "flex-1 py-3 text-sm font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors";
 
         if (actionBtn) {
@@ -105,7 +105,7 @@ export function initAuth() {
                     <input type="password" id="auth-password" class="modal-input dark:bg-slate-900" placeholder="Ваш пароль" onkeydown="if(event.key==='Enter') window.submitAuth()">
                 </div>
                 <p class="text-center">
-                    <button type="button" class="text-sm text-blue-600 dark:text-blue-400 font-semibold hover:underline" onclick="window.openPasswordResetFlow()">Забыли пароль?</button>
+                    <button type="button" class="text-sm ds-link font-semibold hover:underline" onclick="window.openPasswordResetFlow()">Забыли пароль?</button>
                 </p>
             `;
         } else {
@@ -149,7 +149,7 @@ export function initAuth() {
                 </div>
                 <label class="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300 leading-snug">
                     <input type="checkbox" id="auth-pd-consent" class="mt-0.5 rounded shrink-0">
-                    <span>Согласен(на) на обработку персональных данных (логин, email, профиль, активность) для работы сервиса Полёвка. <button type="button" class="text-blue-600 dark:text-blue-400 font-semibold hover:underline" onclick="event.preventDefault(); window.openPdConsentInfo && window.openPdConsentInfo()">Подробнее</button>. Регистрируясь, вы принимаете <button type="button" class="text-blue-600 dark:text-blue-400 font-semibold hover:underline" onclick="event.preventDefault(); window.openLegalDocModal && window.openLegalDocModal('terms')">пользовательское соглашение</button>.</span>
+                    <span>Согласен(на) на обработку персональных данных (логин, email, профиль, активность) для работы сервиса Полёвка. <button type="button" class="ds-link font-semibold hover:underline" onclick="event.preventDefault(); window.openPdConsentInfo && window.openPdConsentInfo()">Подробнее</button>. Регистрируясь, вы принимаете <button type="button" class="ds-link font-semibold hover:underline" onclick="event.preventDefault(); window.openLegalDocModal && window.openLegalDocModal('terms')">пользовательское соглашение</button>.</span>
                 </label>
                 <p class="text-[10px] text-slate-400 leading-tight">Этот логин будет автоматически использоваться как CreatorID при добавлении ваших аудиозаписей.</p>
             `;
@@ -184,7 +184,7 @@ export function initAuth() {
                     <input type="text" id="auth-reset-login" class="modal-input dark:bg-slate-900" placeholder="логин или name@example.com" autocomplete="username" onkeydown="if(event.key==='Enter'){event.preventDefault();window.submitPasswordResetRequest()}">
                 </div>
                 <p class="text-center">
-                    <button type="button" class="text-sm text-slate-500 hover:text-blue-600 font-semibold hover:underline" onclick="window.switchAuthTab('login')">← Назад ко входу</button>
+                    <button type="button" class="text-sm text-slate-500 font-semibold hover:underline" onclick="window.switchAuthTab('login')">← Назад ко входу</button>
                 </p>
             `;
             setTimeout(() => document.getElementById('auth-reset-login')?.focus(), 50);
@@ -212,8 +212,8 @@ export function initAuth() {
                     <input type="password" id="auth-reset-password" class="modal-input dark:bg-slate-900" placeholder="Минимум 8 символов" autocomplete="new-password" onkeydown="if(event.key==='Enter'){event.preventDefault();window.submitPasswordResetConfirm()}">
                 </div>
                 <p class="text-center space-x-3">
-                    <button type="button" class="text-sm text-slate-500 hover:text-blue-600 font-semibold hover:underline" onclick="window.openPasswordResetFlow()">Другой логин / email</button>
-                    <button type="button" class="text-sm text-slate-500 hover:text-blue-600 font-semibold hover:underline" onclick="window.switchAuthTab('login')">Войти</button>
+                    <button type="button" class="text-sm text-slate-500 font-semibold hover:underline" onclick="window.openPasswordResetFlow()">Другой логин / email</button>
+                    <button type="button" class="text-sm text-slate-500 font-semibold hover:underline" onclick="window.switchAuthTab('login')">Войти</button>
                 </p>
             `;
             setTimeout(() => document.getElementById('auth-reset-code')?.focus(), 50);
@@ -411,7 +411,7 @@ export function initAuth() {
                     let data = await window.apiLogin(login, pass);
                     if (data?.needsTotp) {
                         const totpCode = await window.CustomUI.open({
-                            title: '<i class="icon-shield-tick mr-2 text-blue-500"></i>Двухфакторная защита',
+                            title: '<i class="icon-shield-tick mr-2 ds-link"></i>Двухфакторная защита',
                             message: 'Введите 6-значный код из приложения аутентификатора (Google Authenticator, Aegis и т.п.).',
                             showInput: true,
                             inputPlaceholder: '000000',
@@ -830,7 +830,7 @@ export function initAuth() {
                     }).join('')}
                 </div>` : `<p class="text-xs text-slate-400 italic mt-2">Пока нет записей – привяжите звук к сессии в вкладке "Мои звуки".</p>`}
                 ${draftCount > 0 ? `
-                <button onclick="event.stopPropagation(); window.publishSessionDrafts('${session.id}')" class="mt-3 w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-sm">
+                <button onclick="event.stopPropagation(); window.publishSessionDrafts('${session.id}')" class="mt-3 w-full py-2.5 rounded-xl ds-btn ds-btn--primary">
                     <i class="icon-document-upload mr-1.5"></i>Опубликовать все черновики (${draftCount})
                 </button>` : ''}
             </div>`;
@@ -864,7 +864,7 @@ export function initAuth() {
                 <div class="text-center py-6 text-slate-400 dark:text-slate-500">
                     <i class="icon-routing text-3xl mb-2 opacity-30 block"></i>
                     <p class="text-xs font-medium">Пока никто не создал экспедиций.</p>
-                    ${myLogin ? `<button onclick="window.openSessionModal()" class="mt-3 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors shadow-sm"><i class="icon-add mr-1"></i>Создать</button>` : ''}
+                    ${myLogin ? `<button onclick="window.openSessionModal()" class="mt-3 px-4 py-2 rounded-xl ds-btn ds-btn--primary"><i class="icon-add mr-1"></i>Создать</button>` : ''}
                 </div>`;
             return;
         }
@@ -895,8 +895,8 @@ export function initAuth() {
                         </p>
                         ${dateStr || session.route ? `<p class="text-[10px] text-slate-400 mt-0.5 truncate">${dateStr ? `<i class="icon-calendar mr-1"></i>${dateStr}` : ''}${dateStr && session.route ? ' · ' : ''}${session.route ? `<i class="icon-routing mr-1"></i>${session.route}` : ''}</p>` : ''}
                         <div class="flex gap-1.5 mt-2">
-                            <button type="button" onclick="event.stopPropagation(); window.openExpeditionViewModal('${session.id}')" class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700/80 text-[10px] font-bold text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 transition-colors"><i class="icon-eye mr-1"></i>Посмотреть</button>
-                            <button type="button" onclick="event.stopPropagation(); window.setSidebarSessionFilter('${session.id}')" class="px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-100 transition-colors"><i class="icon-filter mr-1"></i>Фильтр</button>
+                            <button type="button" onclick="event.stopPropagation(); window.openExpeditionViewModal('${session.id}')" class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700/80 text-[10px] font-bold text-slate-600 dark:text-slate-300 transition-colors"><i class="icon-eye mr-1"></i>Посмотреть</button>
+                            <button type="button" onclick="event.stopPropagation(); window.setSidebarSessionFilter('${session.id}')" class="px-2 py-1 rounded-lg ds-soft-fill text-[10px] font-bold ds-link transition-colors"><i class="icon-filter mr-1"></i>Фильтр</button>
                         </div>
                     </div>
                 </div>
@@ -914,7 +914,7 @@ export function initAuth() {
 
         const titleEl = document.getElementById('expedition-view-title');
         const body = document.getElementById('expedition-view-body');
-        if (titleEl) titleEl.innerHTML = `<i class="icon-routing mr-2 text-blue-500"></i>${session.title}`;
+        if (titleEl) titleEl.innerHTML = `<i class="icon-routing mr-2 ds-link"></i>${session.title}`;
 
         const dateStr = session.date ? new Date(session.date).toLocaleDateString('ru-RU') : '–';
         const count = (window.soundsData || []).filter(s =>
@@ -934,7 +934,7 @@ export function initAuth() {
         const ownerSafe = String(ownerLogin).replace(/'/g, "\\'");
         const ownerNameSafe = String(session.ownerName || ownerLogin).replace(/'/g, "\\'");
         const ownerHtml = ownerLogin
-            ? `<button type="button" class="font-semibold text-blue-600 dark:text-blue-400 hover:underline truncate text-left" onclick="window.closeExpeditionViewModal(); window.openPublicProfile('${ownerSafe}', '${ownerNameSafe}')">${window.escMsgHtml ? window.escMsgHtml(session.ownerName || ownerLogin) : (session.ownerName || ownerLogin)}</button>`
+            ? `<button type="button" class="font-semibold ds-link hover:underline truncate text-left" onclick="window.closeExpeditionViewModal(); window.openPublicProfile('${ownerSafe}', '${ownerNameSafe}')">${window.escMsgHtml ? window.escMsgHtml(session.ownerName || ownerLogin) : (session.ownerName || ownerLogin)}</button>`
             : `<p class="font-semibold text-slate-700 dark:text-slate-200 truncate">${session.ownerName || '–'}</p>`;
         const photos = session.photos || [];
         const links = [...(session.links || []), ...(session.videoLinks || [])];
@@ -954,10 +954,10 @@ export function initAuth() {
                         ? `window.closeExpeditionViewModal(); window.selectSound('${st.soundId}')`
                         : `window.closeExpeditionViewModal(); if(window.map){window.map.setCenter([${Number(st.lat)},${Number(st.lng)}], 14);}`;
                     return `<button type="button" class="session-route-stop w-full text-left" onclick="${click}"><span class="session-route-stop__num">${i + 1}</span><span class="truncate flex-1 font-semibold text-slate-700 dark:text-slate-200">${title}${st.lat != null ? ` · ${Number(st.lat).toFixed(4)}, ${Number(st.lng).toFixed(4)}` : ''}</span></button>`;
-                }).join('')}</div>${session.routeStops.length > 1 ? `<button type="button" onclick="window.showExpeditionRouteOnMap('${session.id}')" class="mt-2 w-full py-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 text-xs font-bold"><i class="icon-location mr-1"></i>Показать маршрут на карте</button>` : ''}</div>` : ''}
+                }).join('')}</div>${session.routeStops.length > 1 ? `<button type="button" onclick="window.showExpeditionRouteOnMap('${session.id}')" class="mt-2 w-full py-2 rounded-xl ds-soft-fill ds-link text-xs font-bold"><i class="icon-location mr-1"></i>Показать маршрут на карте</button>` : ''}</div>` : ''}
                 ${session.purpose ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Цель</p><p class="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">${session.purpose}</p></div>` : ''}
                 ${participantChips.length || guestChips.length ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1.5">Участники</p><div class="flex flex-wrap gap-1.5">${participantChips.join('')}${guestChips.join('')}</div></div>` : ''}
-                ${links.length ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Ссылки</p><ul class="space-y-1">${links.map(l => `<li><a href="${l}" target="_blank" rel="noopener" class="text-sm text-blue-600 hover:underline break-all">${l}</a></li>`).join('')}</ul></div>` : ''}
+                ${links.length ? `<div><p class="text-[10px] text-slate-400 font-bold uppercase mb-1">Ссылки</p><ul class="space-y-1">${links.map(l => `<li><a href="${l}" target="_blank" rel="noopener" class="text-sm ds-link hover:underline break-all">${l}</a></li>`).join('')}</ul></div>` : ''}
             `;
         }
 
@@ -1080,7 +1080,7 @@ export function initAuth() {
 
         const titleEl = document.getElementById('session-modal-title');
         const saveTextEl = document.getElementById('session-form-save-text');
-        if (titleEl) titleEl.innerHTML = `<i class="icon-routing mr-2 text-blue-600"></i>${session ? 'Редактировать экспедицию' : 'Новая экспедиция'}`;
+        if (titleEl) titleEl.innerHTML = `<i class="icon-routing mr-2 ds-link"></i>${session ? 'Редактировать экспедицию' : 'Новая экспедиция'}`;
         if (saveTextEl) saveTextEl.textContent = session ? 'Сохранить изменения' : 'Создать экспедицию';
 
         const m = document.getElementById('session-modal');
@@ -1147,8 +1147,8 @@ export function initAuth() {
             <div class="session-route-stop">
                 <span class="session-route-stop__num">${i + 1}</span>
                 <span class="truncate flex-1 font-semibold text-slate-700 dark:text-slate-200">${stop.title || `Точка ${i + 1}`} · ${Number(stop.lat).toFixed(4)}, ${Number(stop.lng).toFixed(4)}</span>
-                <button type="button" onclick="window.moveSessionRouteStop(${i}, -1)" class="text-slate-400 hover:text-blue-500 px-1" title="Выше"><i class="icon-arrow-up text-[10px]"></i></button>
-                <button type="button" onclick="window.moveSessionRouteStop(${i}, 1)" class="text-slate-400 hover:text-blue-500 px-1" title="Ниже"><i class="icon-arrow-down text-[10px]"></i></button>
+                <button type="button" onclick="window.moveSessionRouteStop(${i}, -1)" class="text-slate-400 px-1" title="Выше"><i class="icon-arrow-up text-[10px]"></i></button>
+                <button type="button" onclick="window.moveSessionRouteStop(${i}, 1)" class="text-slate-400 px-1" title="Ниже"><i class="icon-arrow-down text-[10px]"></i></button>
                 <button type="button" onclick="window.removeSessionRouteStop(${i})" class="text-red-400 hover:text-red-500 px-1"><i class="icon-close-circle"></i></button>
             </div>
         `).join('');
@@ -1407,7 +1407,7 @@ export function initAuth() {
                 roleEl.className = 'text-[11px] font-bold text-red-500 uppercase tracking-wider';
             } else if (isModerator) {
                 roleEl.textContent = 'Модератор';
-                roleEl.className = 'text-[11px] font-bold text-indigo-500 uppercase tracking-wider';
+                roleEl.className = 'text-[11px] font-bold ds-link uppercase tracking-wider';
             } else {
                 roleEl.textContent = 'Рекордист';
                 roleEl.className = 'text-[11px] font-bold text-slate-400 uppercase tracking-wider';
@@ -2141,11 +2141,11 @@ export function initAuth() {
             return `
             <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow gap-3">
                 <div class="flex items-center gap-3 overflow-hidden">
-                    <button onclick="window.selectSound('${s.id}'); window.closeCabinet();" class="w-10 h-10 rounded-full bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 hover:scale-105 transition-transform" title="Воспроизвести на карте">
+                    <button onclick="window.selectSound('${s.id}'); window.closeCabinet();" class="w-10 h-10 rounded-full ds-soft-fill dark:bg-slate-700 ds-link flex items-center justify-center shrink-0 hover:scale-105 transition-transform" title="Воспроизвести на карте">
                         <i class="icon-play text-sm translate-x-[1px] pointer-events-none"></i>
                     </button>
                     <div class="flex-1 min-w-0 pr-2">
-                        <p class="text-sm font-bold text-slate-800 dark:text-white truncate cursor-pointer hover:text-blue-600 dark:hover:text-blue-400" onclick="window.selectSound('${s.id}'); window.closeCabinet(); window.openDetailsModal();">${s.title}</p>
+                        <p class="text-sm font-bold text-slate-800 dark:text-white truncate cursor-pointer dark:" onclick="window.selectSound('${s.id}'); window.closeCabinet(); window.openDetailsModal();">${s.title}</p>
                         <div class="flex items-center gap-2 mt-0.5 flex-wrap">
                             <span class="pub-status-pill ${st.cls}">${st.label}</span>
                             <span class="text-[10px] text-slate-500 font-mono bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded truncate max-w-[120px] sm:max-w-none">${s.fileName}</span>
@@ -2159,7 +2159,7 @@ export function initAuth() {
                 </div>
                 <div class="flex items-center gap-2 shrink-0 sm:pr-2">
                     ${canResubmit ? `
-                    <button onclick="window.editSound('${s.id}'); window.closeCabinet();" class="flex-1 sm:flex-none h-9 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-colors shadow-sm font-bold text-xs gap-1.5" title="Исправить и отправить снова">
+                    <button onclick="window.editSound('${s.id}'); window.closeCabinet();" class="flex-1 sm:flex-none h-9 px-3 rounded-xl ds-btn ds-btn--primary text-white flex items-center justify-center transition-colors shadow-sm font-bold text-xs gap-1.5" title="Исправить и отправить снова">
                         <i class="icon-send-2"></i><span>Исправить</span>
                     </button>` : `
                     <button onclick="window.editSound('${s.id}'); window.closeCabinet();" class="flex-1 sm:flex-none sm:w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-colors shadow-sm font-bold text-xs" title="Редактировать">
@@ -2459,8 +2459,8 @@ export function initAuth() {
                     ? '<i class="icon-danger mr-2 text-red-500"></i>Причина отклонения'
                     : '<i class="icon-clock mr-2 text-amber-500"></i>Причина возврата на модерацию',
                 message: isReject
-                    ? 'Запись вернётся автору в черновик. Выберите пункт правил или напишите причину – она будет в уведомлении и в кабинете. <button type="button" class="text-blue-600 dark:text-blue-400 font-bold hover:underline" onclick="window.openPublishRulesModal()">Открыть правила</button>'
-                    : 'Укажите, зачем запись снова в очереди модерации – причина сохранится в карточке и уйдёт автору при необходимости. <button type="button" class="text-blue-600 dark:text-blue-400 font-bold hover:underline" onclick="window.openPublishRulesModal()">Открыть правила</button>',
+                    ? 'Запись вернётся автору в черновик. Выберите пункт правил или напишите причину – она будет в уведомлении и в кабинете. <button type="button" class="ds-link font-bold hover:underline" onclick="window.openPublishRulesModal()">Открыть правила</button>'
+                    : 'Укажите, зачем запись снова в очереди модерации – причина сохранится в карточке и уйдёт автору при необходимости. <button type="button" class="ds-link font-bold hover:underline" onclick="window.openPublishRulesModal()">Открыть правила</button>',
                 confirmText: isReject ? 'Отклонить' : 'На модерацию',
                 confirmClass: isReject
                     ? 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
@@ -2632,7 +2632,7 @@ export function initAuth() {
             const pct = total ? Math.round((n / total) * 100) : 0;
             return `<div class="space-y-1">
                 <div class="flex justify-between text-xs"><span>${label}</span><span class="font-bold">${n} · ${pct}%</span></div>
-                <div class="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div class="h-full bg-blue-500 rounded-full" style="width:${pct}%"></div></div>
+                <div class="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div class="h-full bg-[color:var(--accent)] rounded-full" style="width:${pct}%"></div></div>
             </div>`;
         };
         const total = profiles.length || 1;
@@ -2977,7 +2977,7 @@ export function initAuth() {
                 : '';
             return `
             <button type="button" onclick="window.openMessagesModal('${safePeer}', { asSupport: true })" class="notif-item ${unread ? 'unread' : ''} msg-support-row w-full text-left">
-                <span class="w-9 h-9 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center shrink-0 overflow-hidden">
+                <span class="w-9 h-9 rounded-full ds-soft-fill ds-link flex items-center justify-center shrink-0 overflow-hidden">
                     ${profile?.avatar ? `<img src="${profile.avatar}" class="w-full h-full object-cover" alt="">` : `<i class="icon-headphone"></i>`}
                 </span>
                 <div class="min-w-0 flex-1">
@@ -3060,20 +3060,20 @@ export function initAuth() {
         if (!target) return;
 
         const subject = await window.CustomUI.open({
-            title: '<i class="icon-sms mr-2 text-blue-500"></i>Письмо пользователю',
+            title: '<i class="icon-sms mr-2 ds-link"></i>Письмо пользователю',
             message: `Тема письма для @${target} (можно оставить пустой и нажать «Далее»).`,
             confirmText: 'Далее',
-            confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-md',
+            confirmClass: 'ds-btn ds-btn--primary',
             showInput: true,
             inputPlaceholder: 'Сообщение от поддержки Полёвки'
         });
         if (subject === false) return;
 
         const message = await window.CustomUI.open({
-            title: '<i class="icon-edit-2 mr-2 text-blue-500"></i>Текст письма',
+            title: '<i class="icon-edit-2 mr-2 ds-link"></i>Текст письма',
             message: `Напишите текст для @${target}. Уйдёт только на подтверждённый email.`,
             confirmText: 'Отправить',
-            confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-md',
+            confirmClass: 'ds-btn ds-btn--primary',
             showInput: true,
             inputPlaceholder: 'Текст письма…'
         });
@@ -3203,7 +3203,7 @@ export function initAuth() {
             confirmText: blocked ? 'Заблокировать' : 'Разблокировать',
             confirmClass: blocked
                 ? 'px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors shadow-md'
-                : 'px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-md'
+                : 'ds-btn ds-btn--primary'
         });
         if (!confirmed) return;
         updated[idx] = { ...updated[idx], blocked: !!blocked, profileUpdatedAt: new Date().toISOString() };
@@ -3228,10 +3228,10 @@ export function initAuth() {
             user: 'Ваша роль изменена на обычного пользователя'
         };
         const confirmed = await window.CustomUI.open({
-            title: '<i class="icon-user mr-2 text-indigo-500"></i>Изменить роль?',
+            title: '<i class="icon-user mr-2 ds-link"></i>Изменить роль?',
             message: `@${login} станет ${labels[nextRole] || 'пользователем'}.`,
             confirmText: 'Назначить',
-            confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors shadow-md'
+            confirmClass: 'ds-btn ds-btn--primary px-5'
         });
         if (!confirmed) return;
         updated[idx] = { ...updated[idx], role: nextRole, profileUpdatedAt: new Date().toISOString() };
@@ -3415,13 +3415,13 @@ export function initAuth() {
         };
 
         const icons = {
-            sound_add: 'icon-add text-blue-500',
+            sound_add: 'icon-add ds-link',
             sound_delete: 'icon-trash text-red-500',
-            reply: 'icon-undo text-indigo-500',
+            reply: 'icon-undo ds-link',
             comment: 'icon-message text-slate-500',
             quest: 'icon-cup text-amber-500',
             expedition_join: 'icon-routing text-emerald-500',
-            like: 'icon-like-1 text-blue-500',
+            like: 'icon-like-1 ds-link',
             dislike: 'icon-dislike text-slate-400',
             reaction: 'icon-heart text-rose-500'
         };
@@ -4085,7 +4085,7 @@ export function initAuth() {
             const name = isSupport ? window.SUPPORT_NAME : (profile?.displayName || last.fromName || peer);
             const online = isSupport ? true : window.isUserOnline(profile);
             const avatar = isSupport
-                ? `<span class="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 flex items-center justify-center text-sm"><i class="icon-headphone"></i></span>`
+                ? `<span class="w-9 h-9 rounded-full ds-soft-fill ds-link flex items-center justify-center text-sm"><i class="icon-headphone"></i></span>`
                 : (profile?.avatar
                     ? `<img src="${profile.avatar}" class="w-9 h-9 rounded-full object-cover" alt="">`
                     : `<span class="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 text-sm"><i class="icon-user"></i></span>`);
@@ -4106,8 +4106,8 @@ export function initAuth() {
                 <div class="relative shrink-0">${avatar}<span class="msg-online-dot ${online ? 'on' : ''}"></span></div>
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center justify-between gap-2">
-                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${window.escMsgHtml(name)}${isSupport ? ' <span class="text-[9px] text-blue-500 font-bold">поддержка</span>' : ''}</p>
-                        ${unread ? `<span class="text-[10px] font-bold text-blue-600">${unread}</span>` : ticks}
+                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">${window.escMsgHtml(name)}${isSupport ? ' <span class="text-[9px] ds-link font-bold">поддержка</span>' : ''}</p>
+                        ${unread ? `<span class="text-[10px] font-bold ds-link">${unread}</span>` : ticks}
                     </div>
                     <p class="text-[10px] ${online ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'} truncate mt-0.5">${window.escMsgHtml(presence)}</p>
                     <p class="text-[11px] text-slate-500 truncate mt-0.5">${window.escMsgHtml(preview)}</p>
@@ -4742,10 +4742,10 @@ export function initAuth() {
         if (found.msg.fromId !== myLogin) return;
 
         const next = await window.CustomUI.open({
-            title: '<i class="icon-edit-2 mr-2 text-blue-500"></i>Редактировать',
+            title: '<i class="icon-edit-2 mr-2 ds-link"></i>Редактировать',
             message: 'Измените текст сообщения',
             confirmText: 'Сохранить',
-            confirmClass: 'px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-md',
+            confirmClass: 'ds-btn ds-btn--primary',
             showInput: true,
             inputPlaceholder: 'Текст сообщения',
             inputValue: found.msg.text || ''
@@ -5180,9 +5180,9 @@ export function initAuth() {
 
         container.innerHTML = `
             <div class="analytics-cards-row">
-                <div class="analytics-stat-card"><div class="analytics-stat-icon"><i class="icon-headphone text-blue-500"></i></div><div class="analytics-stat-value">${data.totalPlays}</div><div class="analytics-stat-label">Прослушиваний</div></div>
+                <div class="analytics-stat-card"><div class="analytics-stat-icon"><i class="icon-headphone ds-link"></i></div><div class="analytics-stat-value">${data.totalPlays}</div><div class="analytics-stat-label">Прослушиваний</div></div>
                 <div class="analytics-stat-card"><div class="analytics-stat-icon"><i class="icon-document-download text-emerald-500"></i></div><div class="analytics-stat-value">${data.totalDownloads}</div><div class="analytics-stat-label">Скачиваний</div></div>
-                <div class="analytics-stat-card"><div class="analytics-stat-icon"><i class="icon-musicnote text-indigo-500"></i></div><div class="analytics-stat-value">${data.totalPublished}</div><div class="analytics-stat-label">Опубликовано</div></div>
+                <div class="analytics-stat-card"><div class="analytics-stat-icon"><i class="icon-musicnote ds-link"></i></div><div class="analytics-stat-value">${data.totalPublished}</div><div class="analytics-stat-label">Опубликовано</div></div>
             </div>
 
             <div class="analytics-chart-card">
