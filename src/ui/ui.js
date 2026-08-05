@@ -1356,15 +1356,15 @@ window.CtxPopup = {
         }
 
         const toneColor = {
-            primary: 'ds-link',
-            success: 'text-emerald-500',
-            warning: 'text-amber-500',
-            danger: 'text-red-500'
+            primary: 'text-slate-400',
+            success: 'text-slate-400',
+            warning: 'text-slate-400',
+            danger: 'text-slate-500'
         };
         itemsEl.innerHTML = items.map((item, i) => {
             const tone = item.tone || (item.danger ? 'danger' : '');
             const iconTone = toneColor[tone] || 'text-slate-400';
-            const textTone = tone === 'danger' ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-200';
+            const textTone = 'text-slate-700 dark:text-slate-200';
             const icon = String(item.icon || 'icon-record-circle').replace(/^fa-(solid|regular|brands)\s+/, '').replace(/^fa-/, 'icon-');
             return `<button type="button" onclick="window.CtxPopup.trigger(${i})" class="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold ${textTone} transition-colors text-left ctx-popup-item">
                 <i class="${icon} ${iconTone} w-4 text-center"></i>
@@ -3001,7 +3001,7 @@ window.openPublicProfile = function(login, displayName) {
     if (presenceEl) {
         const online = window.isUserOnline ? window.isUserOnline(profile) : false;
         const label = window.formatPresenceLabel ? window.formatPresenceLabel(profile) : (online ? 'в сети' : 'не в сети');
-        presenceEl.innerHTML = `<i class="icon-record-circle text-[7px] ${online ? 'text-emerald-500' : 'text-slate-400'}"></i>${label}`;
+        presenceEl.innerHTML = `<i class="icon-record-circle text-[7px] ${online ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400'}"></i>${label}`;
     }
 
     const bioEl = document.getElementById('pp-bio');
@@ -3440,9 +3440,18 @@ window.getFilteredSounds = function(forceRefresh = false) {
     return filtered;
 }
 
-window.__listVirt = window.__listVirt || { rowH: 72, overscan: 8, items: [], key: '' };
-window.__listVirt.rowH = 72;
+window.__listVirt = window.__listVirt || { rowH: 80, overscan: 8, items: [], key: '' };
+window.__listVirt.rowH = 80;
 window.__listVirt.overscan = window.__listVirt.overscan || 8;
+
+window.toggleLibrarySoundPlay = function(soundId) {
+    if (!soundId) return;
+    if (window.currentPlayingId === soundId) {
+        if (window.toggleMainPlay) window.toggleMainPlay();
+        return;
+    }
+    if (window.selectSound) window.selectSound(soundId);
+};
 
 window.buildSoundListRowHtml = function(sound) {
     const isSelected = window.currentPlayingId === sound.id;
@@ -3450,6 +3459,8 @@ window.buildSoundListRowHtml = function(sound) {
     const thumb = (sound.images && sound.images[0]) || '';
     const eco = window.translations[window.currentLang][`filter_${sound.ecoCategory}`] || sound.ecoCategory || '';
     const cat = sound.ucsCat || sound.typeTag || '';
+    const author = String(sound.recordist || sound.author || '').trim();
+    const duration = String(sound.duration || '').trim();
     const esc = window.escMsgHtml || ((t) => String(t ?? '')
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'));
     const safeId = String(sound.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
@@ -3461,21 +3472,23 @@ window.buildSoundListRowHtml = function(sound) {
             .filter(Boolean);
     const shownTags = tags.slice(0, 2);
     const canDownload = !!(sound.url && String(sound.url).length > 10 && !String(sound.url).startsWith('blob:'));
+    const subBits = [duration, author].filter(Boolean);
     return `
-        <div class="sidebar-sound-row${isSelected ? ' is-active' : ''}" data-sound-id="${esc(sound.id)}" onclick="window.selectSound('${safeId}')">
+        <div class="sidebar-sound-row${isSelected ? ' is-active' : ''}${playing ? ' is-playing' : ''}" data-sound-id="${esc(sound.id)}" onclick="window.selectSound('${safeId}')">
             ${thumb
                 ? `<img src="${esc(thumb)}" alt="" class="sidebar-sound-thumb" decoding="async" fetchpriority="low">`
                 : `<span class="sidebar-sound-thumb sidebar-sound-thumb--empty" aria-hidden="true"><i class="icon-sound"></i></span>`}
             <div class="sidebar-sound-row__body">
                 <h3 class="sidebar-sound-row__title">${esc(sound.title || 'Без названия')}</h3>
+                ${subBits.length ? `<p class="sidebar-sound-row__sub">${subBits.map((b) => esc(b)).join(' · ')}</p>` : ''}
                 <div class="sidebar-sound-row__meta">
-                    ${eco ? `<span class="sidebar-sound-row__chip sidebar-sound-row__chip--eco">${esc(eco)}</span>` : ''}
+                    ${eco ? `<span class="sidebar-sound-row__chip">${esc(eco)}</span>` : ''}
                     ${cat ? `<span class="sidebar-sound-row__chip">${esc(cat)}</span>` : ''}
                 </div>
                 ${shownTags.length ? `<div class="sidebar-sound-row__tags">${shownTags.map((t) => `<span class="sidebar-sound-row__tag">${esc(t)}</span>`).join('')}</div>` : ''}
             </div>
             <div class="sidebar-sound-row__actions" onclick="event.stopPropagation()">
-                <button type="button" class="sidebar-sound-row__play${playing ? ' is-playing' : ''}" title="Воспроизвести" aria-label="Воспроизвести" onclick="window.selectSound('${safeId}')">
+                <button type="button" class="sidebar-sound-row__play${playing ? ' is-playing' : ''}" title="${playing ? 'Пауза' : 'Воспроизвести'}" aria-label="${playing ? 'Пауза' : 'Воспроизвести'}" onclick="window.toggleLibrarySoundPlay('${safeId}')">
                     ${playing ? '<i class="icon-pause text-xs"></i>' : '<i class="icon-play text-xs translate-x-[1px]"></i>'}
                 </button>
                 <button type="button" class="sidebar-sound-row__action" title="Скачать" aria-label="Скачать" ${canDownload ? '' : 'disabled'} onclick="window.downloadSoundFromList('${safeId}')">
@@ -3493,9 +3506,12 @@ window.syncSoundListRowState = function(row, sound) {
     const isSelected = window.currentPlayingId === sound.id;
     const playing = isSelected && window.isPlaying;
     row.classList.toggle('is-active', isSelected);
+    row.classList.toggle('is-playing', playing);
     const playBtn = row.querySelector('.sidebar-sound-row__play');
     if (playBtn) {
         playBtn.classList.toggle('is-playing', playing);
+        playBtn.title = playing ? 'Пауза' : 'Воспроизвести';
+        playBtn.setAttribute('aria-label', playing ? 'Пауза' : 'Воспроизвести');
         playBtn.innerHTML = playing
             ? '<i class="icon-pause text-xs"></i>'
             : '<i class="icon-play text-xs translate-x-[1px]"></i>';
@@ -3652,9 +3668,12 @@ window.refreshPlayingListRow = function() {
         if (isSelected) found = true;
         const playing = isSelected && window.isPlaying;
         row.classList.toggle('is-active', isSelected);
+        row.classList.toggle('is-playing', playing);
         const playBtn = row.querySelector('.sidebar-sound-row__play');
         if (playBtn) {
             playBtn.classList.toggle('is-playing', playing);
+            playBtn.title = playing ? 'Пауза' : 'Воспроизвести';
+            playBtn.setAttribute('aria-label', playing ? 'Пауза' : 'Воспроизвести');
             playBtn.innerHTML = playing
                 ? '<i class="icon-pause text-xs"></i>'
                 : '<i class="icon-play text-xs translate-x-[1px]"></i>';
@@ -5256,7 +5275,7 @@ window.selectSound = function(id) {
     window.clearMapRoutes();
     const ambiBtn = document.getElementById('btn-ambi-toggle');
     if(s.channels && s.channels.toLowerCase().includes('ambisonics')) {
-        if (ambiBtn) { ambiBtn.classList.remove('hidden'); ambiBtn.classList.add('ds-link'); }
+        if (ambiBtn) { ambiBtn.classList.remove('hidden'); }
         window.isAmbisonicMode = false;
     } else {
         if(ambiBtn) ambiBtn.classList.add('hidden');

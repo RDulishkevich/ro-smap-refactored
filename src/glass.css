@@ -1243,19 +1243,20 @@ html.dark .ds-btn--soft,
 }
 
 .ds-link {
-    color: var(--accent-ink) !important;
+    color: var(--ink-muted, #6b5340) !important;
 }
 .ds-link:hover {
-    opacity: 0.88;
+    color: var(--ink, #222222) !important;
+    opacity: 1;
 }
 .ds-soft-fill {
-    background: var(--accent-soft) !important;
-    color: var(--accent-ink) !important;
+    background: var(--surface-stone, #F5E6D4) !important;
+    color: var(--ink, #222222) !important;
 }
 html.dark .ds-soft-fill,
 .dark .ds-soft-fill {
-    background: var(--accent-soft) !important;
-    color: var(--accent-ink) !important;
+    background: var(--surface-stone, #3a3228) !important;
+    color: var(--ink, #FFF3E2) !important;
 }
 
 /* Square tags (category / keywords) vs pill badges (status) */
@@ -1369,12 +1370,12 @@ button.ds-tag:hover {
     }
 }
 
-/* Brand scribble underline (editorial accent → peach live) */
+/* Brand scribble underline — quiet ink, no peach wash */
 .ds-scribble {
     text-decoration-line: underline;
-    text-decoration-style: wavy;
-    text-decoration-color: var(--accent);
-    text-decoration-thickness: 2.5px;
+    text-decoration-style: solid;
+    text-decoration-color: color-mix(in srgb, var(--ink) 35%, transparent);
+    text-decoration-thickness: 1.5px;
     text-underline-offset: 0.18em;
 }
 
@@ -1445,17 +1446,17 @@ html.dark .text-blue-400,
 .text-green-500,
 .text-green-600,
 .hover\:text-green-500:hover {
-    color: var(--accent) !important;
+    color: var(--ink-muted, #6b5340) !important;
 }
 
-/* Legacy indigo accents → brand accent-ink */
+/* Legacy indigo accents → muted ink */
 .text-indigo-500,
 .text-indigo-600,
 .text-indigo-400,
 .hover\:text-indigo-400:hover,
 .dark\:text-indigo-400,
 .dark\:hover\:text-indigo-400:hover {
-    color: var(--accent-ink) !important;
+    color: var(--ink-muted, #6b5340) !important;
 }
 
 /* Primary modal CTAs → pill black (login ref) */

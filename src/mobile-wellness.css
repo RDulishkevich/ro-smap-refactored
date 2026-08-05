@@ -1038,7 +1038,8 @@
     }
     .type-accent,
     .ds-title-accent {
-        color: var(--well-peach) !important;
+        color: var(--well-ink) !important;
+        font-weight: 700;
     }
     .brand-title,
     .app-rail__brand {
