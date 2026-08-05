@@ -1070,6 +1070,7 @@ html.dark .glass-seg__btn.is-active,
     font-weight: 700;
     cursor: pointer;
     min-width: 0;
+    max-width: 100%;
     overflow: hidden;
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -1077,6 +1078,7 @@ html.dark .glass-seg__btn.is-active,
     line-clamp: 2;
     white-space: normal;
     word-break: break-word;
+    margin: 0;
 }
 .player-main-sub {
     display: flex;
@@ -1091,8 +1093,13 @@ html.dark .glass-seg__btn.is-active,
 .player-main-actions {
     display: flex;
     align-items: center;
-    gap: 0.45rem;
+    gap: 0.4rem;
     flex-shrink: 0;
+}
+.player-volume-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
 }
 .player-sheet-handle {
     display: flex;
@@ -1108,37 +1115,59 @@ html.dark .glass-seg__btn.is-active,
     #player-card.player-shell {
         display: flex;
         flex-direction: column;
-        gap: 0.35rem;
+        gap: 0.45rem;
+        width: min(42rem, calc(100vw - var(--rail-w, 4.5rem) - var(--dock-w-expanded, 0px) - 3rem)) !important;
+        max-width: 42rem !important;
     }
     #player-card .player-sheet-handle { order: 0; }
     #player-card .player-wave-block { order: 1; }
-    #player-card .player-main-row { order: 2; }
+    #player-card .player-main-row { order: 2; align-items: flex-start; }
     #player-card .player-expand-panel { order: 3; margin-top: 0.25rem; }
     #player-card #ambisonics-control { order: 4; }
     #player-card .player-more-btn { display: none !important; }
     #player-card .player-description { display: none !important; }
     #player-wave-pill { display: none !important; }
+    #player-card .player-play-btn {
+        width: 3rem !important;
+        height: 3rem !important;
+        min-width: 3rem !important;
+        min-height: 3rem !important;
+        margin-top: 0.1rem;
+    }
     #player-card .player-icon-btn {
-        width: 2.75rem !important;
-        height: 2.75rem !important;
-        min-width: 2.75rem !important;
-        min-height: 2.75rem !important;
+        width: 2.5rem !important;
+        height: 2.5rem !important;
+        min-width: 2.5rem !important;
+        min-height: 2.5rem !important;
     }
     #player-card .player-icon-btn i,
     #player-card #btn-ambi-toggle i {
-        font-size: 1.05rem !important;
+        font-size: 1rem !important;
     }
     #player-card .player-title {
-        font-size: 1.05rem;
-        -webkit-line-clamp: 2;
-        line-clamp: 2;
+        font-size: 1.1rem;
+        line-height: 1.3;
+        -webkit-line-clamp: unset;
+        line-clamp: unset;
+        display: block;
+        overflow: visible;
+        white-space: normal;
+        word-break: break-word;
     }
     #player-card .player-main-meta {
         flex: 1 1 auto;
         min-width: 0;
+        padding-right: 0.35rem;
     }
-    #player-card .player-main-meta > .flex {
-        align-items: flex-start;
+    #player-card .player-main-actions {
+        align-items: center;
+        align-self: center;
+        gap: 0.35rem;
+    }
+    #player-card .player-volume-row {
+        margin-left: 0.15rem;
+        padding-left: 0.35rem;
+        border-left: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
     }
     #player-card .player-gear-line {
         display: block;
@@ -5908,6 +5937,36 @@ body.dock-view-messages #messages-compose-bar {
                 height 0.45s cubic-bezier(0.22, 1, 0.36, 1),
                 opacity 0.35s ease,
                 transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#onboarding-overlay {
+    z-index: 10080 !important;
+}
+#onboarding-card {
+    width: min(92vw, 22rem);
+    max-width: min(92vw, 22rem);
+}
+@media (min-width: 768px) {
+    #onboarding-card {
+        width: min(28rem, 42vw);
+        max-width: min(28rem, 42vw);
+        padding: 1.35rem 1.4rem;
+    }
+    #onboarding-title {
+        font-size: 1.25rem;
+    }
+    #onboarding-text {
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+}
+@media (max-width: 767px) {
+    body.onboarding-open #onboarding-card {
+        margin-bottom: var(--mobile-fs-bottom, 5rem);
+    }
+}
+body.hide-mobile-nav #auth-modal > #auth-modal-content,
+body.hide-mobile-nav #auth-modal > .app-modal-panel {
+    padding-bottom: max(0.85rem, var(--sab)) !important;
 }
 /* --- ??????? "??????????" ? ????? ?????? ?????? --- */
 .sidebar-expedition-reset {

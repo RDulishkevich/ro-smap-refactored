@@ -1,12 +1,12 @@
 import { initGlobalState } from './state.js?v=20260726c';
 import './api.js?v=20260721t';
-import { initAuth } from './auth.js?v=20260806f';
+import { initAuth } from './auth.js?v=20260806g';
 
 import './sfx.js?v=20260721t';
 import './antispam.js?v=20260721t';
 import '../ui/file-xfer.js?v=20260805j';
 import '../ui/like-shake.js?v=20260805j';
-import '../ui/ui.js?v=20260806f';
+import '../ui/ui.js?v=20260806g';
 import './audio.js?v=20260806f';
 import './map.js?v=20260806d';
 import './mapbox-map.js?v=20260806d';

@@ -203,58 +203,191 @@ window.exportSoundsData = function(format, allSounds = false) {
     window.showToast(`Экспортировано ${sounds.length} точек (GeoJSON)`);
 };
 
-window.onboardingStepsRu = [
-    {
-        target: null,
-        title: 'Полёвка',
-        text: 'Слушайте полевые записи прямо на карте. Три коротких шага – и вы в деле.'
-    },
-    {
-        mapHint: true,
-        title: 'Нажмите на метку',
-        text: 'Каждая точка на карте – звук. Тапните по маркеру, чтобы послушать запись.'
-    },
-    {
-        target: '#fab-add-sound',
-        title: 'Меню и свои записи',
-        text: 'Меню слева – библиотека и экспедиции. Кнопка «+» – добавить звук. На телефоне удерживайте палец на карте, чтобы поставить метку.'
+window.buildOnboardingSteps = function() {
+    const mobile = window.innerWidth < 768;
+    const en = window.currentLang === 'en';
+    if (mobile) {
+        return en ? [
+            {
+                target: null,
+                title: 'Polevka',
+                text: 'Field recordings on the map. A short tour of the main controls.'
+            },
+            {
+                mapHint: true,
+                title: 'Tap a marker',
+                text: 'Every pin is a sound. Tap a marker to open the player and listen.'
+            },
+            {
+                target: '#search-toggle-btn, #map-search-cluster',
+                title: 'Search',
+                text: 'Open search to find recordings by title, tags, or author.'
+            },
+            {
+                target: '#events-fab',
+                title: 'Events',
+                text: 'Contests and meetups live here. Open the list anytime from the top right.'
+            },
+            {
+                target: '#mobile-nav-fab',
+                title: 'Add a sound',
+                text: 'The center “+” opens upload or live record. Long-press the map to drop a pin.'
+            },
+            {
+                target: '#mobile-bottom-nav [data-nav="library"]',
+                title: 'Bottom navigation',
+                text: 'Library, feed, settings, and profile are in the bottom bar. Tap again to return to the map.'
+            }
+        ] : [
+            {
+                target: null,
+                title: 'Полёвка',
+                text: 'Полевые записи прямо на карте. Короткий тур по главным элементам.'
+            },
+            {
+                mapHint: true,
+                title: 'Нажмите на метку',
+                text: 'Каждая точка – звук. Тапните по маркеру, чтобы открыть плеер и послушать запись.'
+            },
+            {
+                target: '#search-toggle-btn, #map-search-cluster',
+                title: 'Поиск',
+                text: 'Откройте поиск, чтобы найти записи по названию, тегам или автору.'
+            },
+            {
+                target: '#events-fab',
+                title: 'Ивенты',
+                text: 'Конкурсы и встречи – здесь. Список всегда доступен справа сверху.'
+            },
+            {
+                target: '#mobile-nav-fab',
+                title: 'Добавить звук',
+                text: 'Центральный «+» открывает загрузку или запись. Долгое нажатие на карту ставит метку.'
+            },
+            {
+                target: '#mobile-bottom-nav [data-nav="library"]',
+                title: 'Нижняя панель',
+                text: 'Библиотека, лента, настройки и профиль – в нижней панели. Повторный тап возвращает на карту.'
+            }
+        ];
     }
-];
-window.onboardingStepsEn = [
-    {
-        target: null,
-        title: 'Polevka',
-        text: 'Listen to field recordings right on the map. Three short steps – and you’re in.'
-    },
-    {
-        mapHint: true,
-        title: 'Tap a marker',
-        text: 'Every pin on the map is a sound. Tap a marker to listen.'
-    },
-    {
-        target: '#fab-add-sound',
-        title: 'Menu and your uploads',
-        text: 'The left menu opens the library and expeditions. The “+” button adds a sound. On mobile, long-press the map to place a pin.'
-    }
-];
+    return en ? [
+        {
+            target: null,
+            title: 'Polevka',
+            text: 'Listen to field recordings on the map. Here’s a quick tour of the desktop layout.'
+        },
+        {
+            mapHint: true,
+            title: 'Click a marker',
+            text: 'Every pin is a sound. Click a marker to open the player.'
+        },
+        {
+            target: '#app-rail',
+            title: 'Left rail',
+            text: 'Library, expeditions, feed, help, and your account open from this rail.'
+        },
+        {
+            target: '#map-search-cluster, #search-toggle-btn',
+            title: 'Search',
+            text: 'Search the map for titles, tags, authors, and expeditions.'
+        },
+        {
+            target: '#events-fab',
+            title: 'Events',
+            text: 'Contests and community events open from the top-right calendar.'
+        },
+        {
+            target: '#fab-add-sound, #fab-add',
+            title: 'Add a sound',
+            text: 'Use “+” to publish a recording. Right-click the map to place a pin quickly.'
+        }
+    ] : [
+        {
+            target: null,
+            title: 'Полёвка',
+            text: 'Слушайте полевые записи на карте. Короткий тур по интерфейсу на компьютере.'
+        },
+        {
+            mapHint: true,
+            title: 'Нажмите на метку',
+            text: 'Каждая точка – звук. Клик по маркеру открывает плеер.'
+        },
+        {
+            target: '#app-rail',
+            title: 'Левая панель',
+            text: 'Библиотека, экспедиции, лента, помощь и аккаунт открываются из этой колонки.'
+        },
+        {
+            target: '#map-search-cluster, #search-toggle-btn',
+            title: 'Поиск',
+            text: 'Ищите записи по названию, тегам, авторам и экспедициям.'
+        },
+        {
+            target: '#events-fab',
+            title: 'Ивенты',
+            text: 'Конкурсы и встречи – в календаре справа сверху.'
+        },
+        {
+            target: '#fab-add-sound, #fab-add',
+            title: 'Добавить звук',
+            text: 'Кнопка «+» публикует запись. Правый клик по карте быстро ставит метку.'
+        }
+    ];
+};
+
 Object.defineProperty(window, 'onboardingSteps', {
-    get() { return window.currentLang === 'en' ? window.onboardingStepsEn : window.onboardingStepsRu; }
+    get() { return window.buildOnboardingSteps(); }
 });
+
+window.resolveOnboardingTarget = function(selector) {
+    if (!selector) return null;
+    const parts = String(selector).split(',').map((s) => s.trim()).filter(Boolean);
+    for (const sel of parts) {
+        const el = document.querySelector(sel);
+        if (!el) continue;
+        const style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden') continue;
+        if (el.getClientRects().length === 0) continue;
+        return el;
+    }
+    return null;
+};
 
 window.startOnboarding = function(step = 0) {
     const overlay = document.getElementById('onboarding-overlay');
     if (!overlay) return;
 
     const sb = document.getElementById('sidebar');
-    if (window.innerWidth < 768 && sb && !sb.classList.contains('sidebar-hidden')) window.toggleSidebar();
+    if (window.innerWidth < 768 && sb && !sb.classList.contains('sidebar-hidden') && window.hideDockPanel) {
+        window.hideDockPanel();
+    }
     if (window.closePlayerCard) window.closePlayerCard();
+    if (window.closeEventsSheet) window.closeEventsSheet();
+    if (window.closeMobileAddMenu) window.closeMobileAddMenu();
     window.__onboardingDemoPlayer = false;
+    window.__onboardingLayout = window.innerWidth < 768 ? 'mobile' : 'desktop';
 
-    window.__onboardingStep = step;
+    window.__onboardingStep = Math.max(0, Math.min(step, window.onboardingSteps.length - 1));
     overlay.classList.remove('hidden');
     overlay.classList.add('pointer-events-auto');
+    document.body.classList.add('onboarding-open');
     if (window.playSfx) window.playSfx('whoosh');
     window.updateOnboardingStep();
+
+    if (!window.__onboardingResizeBound) {
+        window.__onboardingResizeBound = true;
+        window.addEventListener('resize', () => {
+            const ov = document.getElementById('onboarding-overlay');
+            if (!ov || ov.classList.contains('hidden')) return;
+            const nextLayout = window.innerWidth < 768 ? 'mobile' : 'desktop';
+            if (nextLayout !== window.__onboardingLayout) {
+                window.__onboardingLayout = nextLayout;
+                window.__onboardingStep = 0;
+            }
+            window.updateOnboardingStep();
+        });
+    }
 };
 
 window.cleanupOnboardingPlayer = function() {
@@ -264,13 +397,14 @@ window.cleanupOnboardingPlayer = function() {
 };
 
 window.updateOnboardingStep = function() {
-    const step = window.onboardingSteps[window.__onboardingStep || 0];
+    const steps = window.onboardingSteps;
+    const step = steps[window.__onboardingStep || 0];
     const overlay = document.getElementById('onboarding-overlay');
     const highlight = document.getElementById('onboarding-highlight');
     const card = document.getElementById('onboarding-card');
     if (!step || !overlay || !highlight || !card) return;
 
-    document.getElementById('onboarding-step-label').textContent = `${window.t('tour_step')} ${window.__onboardingStep + 1} / ${window.onboardingSteps.length}`;
+    document.getElementById('onboarding-step-label').textContent = `${window.t('tour_step')} ${window.__onboardingStep + 1} / ${steps.length}`;
     const titleEl = document.getElementById('onboarding-title');
     if (titleEl) {
         titleEl.textContent = '';
@@ -285,55 +419,71 @@ window.updateOnboardingStep = function() {
     if (prevBtn) prevBtn.style.visibility = window.__onboardingStep === 0 ? 'hidden' : 'visible';
 
     const nextBtn = document.getElementById('onboarding-next');
-    if (nextBtn) nextBtn.textContent = window.__onboardingStep === window.onboardingSteps.length - 1 ? window.t('tour_done') : window.t('tour_next');
+    if (nextBtn) nextBtn.textContent = window.__onboardingStep === steps.length - 1 ? window.t('tour_done') : window.t('tour_next');
+
+    const bottomSafe = window.innerWidth < 768
+        ? Math.max(88, parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mobile-fs-bottom')) || 88)
+        : 24;
+    const topSafe = Math.max(16, (window.visualViewport && window.visualViewport.offsetTop) || 0) + 8;
 
     const placeCardCentered = () => {
         highlight.style.opacity = '0';
         highlight.style.pointerEvents = 'none';
-        highlight.style.borderRadius = '1.5rem';
+        highlight.style.width = '0';
+        highlight.style.height = '0';
         card.style.left = '50%';
-        card.style.top = '50%';
+        card.style.top = `calc(50% - ${bottomSafe / 4}px)`;
         card.style.transform = 'translate(-50%, -50%)';
+        card.style.maxWidth = window.innerWidth < 768 ? 'min(92vw, 22rem)' : 'min(28rem, 42vw)';
     };
 
     const placeCardNear = (rect, opts = {}) => {
-        const pad = opts.pad ?? 8;
+        const pad = opts.pad ?? 10;
         highlight.style.opacity = '1';
         highlight.style.display = 'block';
         highlight.style.pointerEvents = 'none';
-        highlight.style.borderRadius = opts.round || '1.5rem';
-        highlight.style.left = `${rect.left - pad}px`;
-        highlight.style.top = `${rect.top - pad}px`;
+        highlight.style.borderRadius = opts.round || '1.25rem';
+        highlight.style.left = `${Math.max(0, rect.left - pad)}px`;
+        highlight.style.top = `${Math.max(0, rect.top - pad)}px`;
         highlight.style.width = `${rect.width + pad * 2}px`;
         highlight.style.height = `${rect.height + pad * 2}px`;
 
         requestAnimationFrame(() => {
             const cardRect = card.getBoundingClientRect();
-            const cardWidth = cardRect.width || 320;
-            const cardHeight = cardRect.height || 180;
+            const cardWidth = cardRect.width || (window.innerWidth < 768 ? 320 : 360);
+            const cardHeight = cardRect.height || 200;
             const margin = 16;
-            const topSafe = Math.max(margin, (window.visualViewport && window.visualViewport.offsetTop) || 0);
+            const bottomLimit = window.innerHeight - bottomSafe - margin;
 
-            let top = rect.bottom + 16;
-            let left = rect.left;
+            let top = rect.bottom + 14;
+            let left = window.innerWidth < 768
+                ? (window.innerWidth - cardWidth) / 2
+                : Math.min(Math.max(margin, rect.left), window.innerWidth - cardWidth - margin);
 
-            if (top + cardHeight > window.innerHeight - margin) {
-                top = rect.top - cardHeight - 16;
-            }
-            if (window.innerWidth < 640) {
-                left = (window.innerWidth - cardWidth) / 2;
-            } else {
-                if (left + cardWidth > window.innerWidth - margin) left = window.innerWidth - cardWidth - margin;
-                if (left < margin) left = margin;
+            if (top + cardHeight > bottomLimit) {
+                top = rect.top - cardHeight - 14;
             }
             if (top < topSafe) {
-                top = Math.max(topSafe, (window.innerHeight - cardHeight) / 2);
-                left = (window.innerWidth - cardWidth) / 2;
+                /* Prefer side placement on desktop when vertical space is tight */
+                if (window.innerWidth >= 768 && rect.right + 16 + cardWidth < window.innerWidth - margin) {
+                    left = rect.right + 16;
+                    top = Math.min(Math.max(topSafe, rect.top), bottomLimit - cardHeight);
+                } else if (window.innerWidth >= 768 && rect.left - 16 - cardWidth > margin) {
+                    left = rect.left - cardWidth - 16;
+                    top = Math.min(Math.max(topSafe, rect.top), bottomLimit - cardHeight);
+                } else {
+                    top = Math.max(topSafe, (window.innerHeight - bottomSafe - cardHeight) / 2);
+                    left = (window.innerWidth - cardWidth) / 2;
+                }
+            }
+            if (top + cardHeight > bottomLimit) {
+                top = Math.max(topSafe, bottomLimit - cardHeight);
             }
 
             card.style.left = `${left}px`;
             card.style.top = `${top}px`;
             card.style.transform = 'none';
+            card.style.maxWidth = window.innerWidth < 768 ? 'min(92vw, 22rem)' : 'min(28rem, 42vw)';
         });
     };
 
@@ -343,9 +493,9 @@ window.updateOnboardingStep = function() {
         const mapRect = mapEl
             ? mapEl.getBoundingClientRect()
             : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
-        const size = Math.min(132, Math.max(88, mapRect.width * 0.22));
-        const cx = mapRect.left + mapRect.width / 2;
-        const cy = mapRect.top + mapRect.height * 0.42;
+        const size = Math.min(window.innerWidth < 768 ? 112 : 140, Math.max(84, mapRect.width * 0.16));
+        const cx = mapRect.left + mapRect.width * (window.innerWidth < 768 ? 0.5 : 0.55);
+        const cy = mapRect.top + mapRect.height * (window.innerWidth < 768 ? 0.38 : 0.42);
         placeCardNear({
             left: cx - size / 2,
             top: cy - size / 2,
@@ -353,25 +503,7 @@ window.updateOnboardingStep = function() {
             height: size,
             bottom: cy + size / 2,
             right: cx + size / 2
-        }, { pad: 4, round: '999px' });
-        return;
-    }
-
-    if (step.showPlayer) {
-        const demo = (window.soundsData || []).find(s => !s.status || s.status === 'published') || (window.soundsData || [])[0];
-        if (demo && window.selectSound) {
-            window.__onboardingDemoPlayer = true;
-            window.selectSound(demo.id);
-            setTimeout(() => {
-                if (!window.__onboardingDemoPlayer) return;
-                const el = document.querySelector('#player-card');
-                if (!el) return;
-                const rect = el.getBoundingClientRect();
-                if (rect.height < 40) return;
-                placeCardNear(rect);
-            }, 450);
-        }
-        placeCardCentered();
+        }, { pad: 6, round: '999px' });
         return;
     }
 
@@ -382,18 +514,22 @@ window.updateOnboardingStep = function() {
         return;
     }
 
-    const el = document.querySelector(step.target);
-    if (!el || el.classList.contains('hidden') || el.offsetParent === null) {
+    const el = window.resolveOnboardingTarget(step.target);
+    if (!el) {
         placeCardCentered();
         return;
     }
 
-    placeCardNear(el.getBoundingClientRect());
+    placeCardNear(el.getBoundingClientRect(), {
+        pad: el.id === 'app-rail' || el.classList?.contains('app-rail') ? 6 : 10,
+        round: el.id === 'mobile-nav-fab' || el.classList?.contains('mobile-nav-fab') ? '999px' : '1.25rem'
+    });
 };
 
 window.nextOnboardingStep = function() {
     window.cleanupOnboardingPlayer();
-    if (window.__onboardingStep >= window.onboardingSteps.length - 1) {
+    const steps = window.onboardingSteps;
+    if (window.__onboardingStep >= steps.length - 1) {
         window.dismissOnboarding();
         return;
     }
@@ -417,26 +553,13 @@ window.dismissOnboarding = function() {
         overlay.classList.add('hidden');
         overlay.classList.remove('pointer-events-auto');
     }
+    document.body.classList.remove('onboarding-open');
 };
 
 window.handleOnboardingBackdrop = function(e) {
-    // Клик по затемнению / highlight или «мимо» карточки – скрыть демо-плеер на шаге 3
     const card = document.getElementById('onboarding-card');
     if (card && card.contains(e.target)) return;
-    if (window.__onboardingDemoPlayer) {
-        window.cleanupOnboardingPlayer();
-        const highlight = document.getElementById('onboarding-highlight');
-        if (highlight) {
-            highlight.style.opacity = '0';
-            highlight.style.width = '0';
-            highlight.style.height = '0';
-        }
-        if (card) {
-            card.style.left = '50%';
-            card.style.top = '50%';
-            card.style.transform = 'translate(-50%, -50%)';
-        }
-    }
+    /* Ignore backdrop dismiss — keep tour intentional via Далее / Пропустить */
 };
 
 /** Долгое нажатие / ПКМ по пузырю сообщения → меню действий. */
@@ -901,7 +1024,9 @@ window.syncMobileChromeHidden = function() {
         || window.__dockView === 'messages';
     const eventsOpen = document.body.classList.contains('events-open');
     const searchOpen = document.body.classList.contains('search-is-open');
-    const hide = addOpen || recOpen || detailsOpen || messagesOpen || eventsOpen || searchOpen;
+    const auth = document.getElementById('auth-modal');
+    const authOpen = !!(auth && !auth.classList.contains('hidden') && !auth.classList.contains('opacity-0'));
+    const hide = addOpen || recOpen || detailsOpen || messagesOpen || eventsOpen || searchOpen || authOpen;
     document.body.classList.toggle('hide-mobile-nav', hide);
 };
 
@@ -5338,7 +5463,10 @@ window.selectSound = function(id) {
     const gearEl = document.getElementById('player-gear');
     const gearCompact = document.getElementById('player-gear-compact');
     const descEl = document.getElementById('player-description');
-    if (titleEl) titleEl.textContent = s.title;
+    if (titleEl) {
+        titleEl.textContent = s.title;
+        titleEl.setAttribute('title', s.title || '');
+    }
     const gearHtml = `<i class="icon-radar mr-1 text-slate-400"></i>${s.gear || ''}`;
     if (gearEl) gearEl.innerHTML = gearHtml;
     if (gearCompact) {
