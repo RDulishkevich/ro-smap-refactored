@@ -126,8 +126,18 @@ Utilities: `.mobile-grid-4`, `.mobile-pad-x`.
 | Muted | `#6b5340` | `#b8a894` | Secondary labels |
 
 ## Radii
-Product soft radii stay ours: `--radius-md`…`--radius-2xl`.  
-From Wispr grammar: `--radius-tag` 8px (square tags) · `--radius-pill` (badges / wave-pill / buttons).
+Coherent soft scale (cream product, not balloon):
+| Token | rem | Use |
+|-------|-----|-----|
+| `--radius-sm` | 0.625 | nested chips |
+| `--radius-md` | 0.875 | inputs, compact rows |
+| `--radius-lg` | 1.125 | cards / sections |
+| `--radius-xl` | 1.375 | dock / sheets |
+| `--radius-2xl` | 1.625 | modals (`.app-modal-panel`) |
+| `--radius-tag` | 0.5 | square tags |
+| `--radius-pill` | 999px | buttons, badges, wave-pill |
+
+Do not invent one-off `rounded-[2.5rem]` — use tokens. Selection / focus: ink rim, **no colored glow halo**.
 
 ## Buttons
 - **Primary** `.ds-btn--primary` — charcoal (Полёвка CTA) + 2px rim (Wispr)

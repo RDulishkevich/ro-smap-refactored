@@ -142,14 +142,14 @@ window.renderRegionStats = function(targetId = 'region-stats-grid') {
     }
 
     const cards = [
-        { value: stats.total, label: 'Записей', color: 'text-[#ff5a3d] dark:text-[#ff7a5c]' },
-        { value: stats.withAudio, label: 'С аудио', color: 'text-stone-600 dark:text-stone-300' },
-        { value: stats.recordists, label: 'Авторов', color: 'text-slate-700 dark:text-slate-300' },
-        { value: window.formatTotalDuration(stats.totalSecs), label: 'Длительность', color: 'text-amber-600 dark:text-amber-400' },
-        { value: stats.byEco.geophony, label: 'Геофония', color: 'text-sky-600 dark:text-sky-400' },
-        { value: stats.byEco.biophony, label: 'Биофония', color: 'text-orange-700 dark:text-orange-300' },
-        { value: stats.byEco.anthrophony, label: 'Антропофония', color: 'text-stone-600 dark:text-stone-300' },
-        { value: stats.topUcs[0] ? stats.topUcs[0][0] : '–', label: stats.topUcs[0] ? `Топ UCS (${stats.topUcs[0][1]})` : 'Топ UCS', color: 'text-violet-600 dark:text-violet-400' }
+        { value: stats.total, label: 'Записей', color: 'ds-link' },
+        { value: stats.withAudio, label: 'С аудио', color: 'text-[color:var(--ink-muted)]' },
+        { value: stats.recordists, label: 'Авторов', color: 'text-[color:var(--ink)]' },
+        { value: window.formatTotalDuration(stats.totalSecs), label: 'Длительность', color: 'text-[color:var(--accent-ink)]' },
+        { value: stats.byEco.geophony, label: 'Геофония', color: 'text-[color:var(--accent-ink)]' },
+        { value: stats.byEco.biophony, label: 'Биофония', color: 'text-[color:var(--ink)]' },
+        { value: stats.byEco.anthrophony, label: 'Антропофония', color: 'text-[color:var(--ink-muted)]' },
+        { value: stats.topUcs[0] ? stats.topUcs[0][0] : '–', label: stats.topUcs[0] ? `Топ UCS (${stats.topUcs[0][1]})` : 'Топ UCS', color: 'ds-link' }
     ];
     grid.innerHTML = cards.map(c => `
         <div class="stat-card">

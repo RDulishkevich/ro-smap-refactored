@@ -186,7 +186,7 @@ body {
     align-items: stretch;
     gap: 0.2rem;
     padding: 0.55rem 0.6rem;
-    border-radius: 1rem;
+    border-radius: var(--radius-md, 0.875rem);
     border: 1px solid var(--panel-border, rgba(34, 34, 34, 0.1));
     background: color-mix(in srgb, var(--panel-solid, #FFF3E2) 70%, transparent);
     color: inherit;
@@ -199,9 +199,9 @@ body {
     border-color: color-mix(in srgb, var(--accent, #FBAB57) 45%, transparent);
 }
 .font-card.is-active {
-    border-color: var(--accent, #FBAB57);
-    background: var(--accent-soft, rgba(251, 171, 87, 0.18));
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent, #FBAB57) 35%, transparent);
+    border: 2px solid var(--ink, #222222);
+    background: var(--surface-stone, #F5E6D4);
+    box-shadow: none;
 }
 .font-card__sample {
     font-size: 1.05rem;

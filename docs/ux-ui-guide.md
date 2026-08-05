@@ -21,6 +21,9 @@
 6. **Данные через merge + sync.** Не перезаписывать JSON «вслепую»; использовать существующие `sync*` / merge-хелперы.
 7. **Desktop ≥ 768px, mobile &lt; 768.** В JS: `window.innerWidth < 768`. В CSS/Tailwind: `md:`.
 8. **Шрифты и `.hidden` — один контракт** (см. §1.1 ниже). Не чинить иконки точечными `display` override.
+9. **Без glow-подсветки.** Выделение = ink rim / stone fill / scale. Не `ring-amber`, не blue/peach halo, не `0 0 Npx accent glow`.
+10. **Радиусы только из токенов** (`--radius-sm`…`--radius-2xl`, tag, pill). Модалки → `--radius-2xl` на `.app-modal-panel`.
+11. **Копирайт.** Не дублировать label подсказкой («Тёмная тема» + «ночной режим»). Подсказки — только когда без них нельзя выполнить действие.
 
 ---
 
@@ -29,8 +32,8 @@
 **Текстовый стек (канон):**
 | Роль | CSS | Значение |
 |------|-----|----------|
-| UI | `--font-ui` / `font-sans` | по `data-font` (по умолчанию Satoshi → Plus Jakarta Sans → system-ui) |
-| Бренд / заголовки | `--font-brand` / `font-brand` | по `data-font` (по умолчанию Clash Display → Satoshi) |
+| UI | `--font-ui` / `font-sans` | по `data-font` (по умолчанию Geologica) |
+| Бренд / заголовки | `--font-brand` / `font-brand` | по `data-font` (по умолчанию Klukva) |
 | Моно | `--font-mono` / `font-mono` | ui-monospace → Menlo / Consolas |
 
 Источники: локальные `assets/fonts/` (Geologica, Klukva, …) + Fontshare (Satoshi/Clash опционально) + Jakarta fallback. По умолчанию `data-font="geo-klukva"`. Порядок в `index.html`: **Iconsax → текстовые шрифты → Tailwind → style.css → glass.css → fonts.css**. Токены держать синхронно в `style.css`, `glass.css`, `fonts.css`.

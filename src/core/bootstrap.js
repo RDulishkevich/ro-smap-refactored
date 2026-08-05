@@ -1,14 +1,14 @@
 import { initGlobalState } from './state.js?v=20260726c';
 import './api.js?v=20260721t';
-import { initAuth } from './auth.js?v=20260805h';
+import { initAuth } from './auth.js?v=20260805i';
 
 import './sfx.js?v=20260721t';
 import './antispam.js?v=20260721t';
-import '../ui/file-xfer.js?v=20260805g';
-import '../ui/like-shake.js?v=20260805h';
-import '../ui/ui.js?v=20260805h';
-import './audio.js?v=20260721t';
-import './map.js?v=20260726b';
+import '../ui/file-xfer.js?v=20260805i';
+import '../ui/like-shake.js?v=20260805i';
+import '../ui/ui.js?v=20260805i';
+import './audio.js?v=20260805i';
+import './map.js?v=20260805i';
 import './mapbox-map.js?v=20260721t';
 import './dgis-map.js?v=20260721t';
 import './google-earth-map.js?v=20260721t';
@@ -26,7 +26,7 @@ import './audioConvert.js?v=20260721t';
 import '../data/publishRules.js?v=20260721t';
 import '../data/legalDocs.js?v=20260721t';
 import '../data/gearCatalog.js?v=20260721t';
-import '../widgets/analytics-widget.js?v=20260721t';
+import '../widgets/analytics-widget.js?v=20260805i';
 
 export function bootstrapApp() {
     if (window.__appBootstrapped) return;

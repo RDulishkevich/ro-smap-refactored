@@ -134,10 +134,10 @@ if (!React || !ReactDOM) {
 
         return h('div', { ref: rootRef, className: 'analytics-widget', style: { opacity: 0 } },
             h('div', { className: 'analytics-cards-row' },
-                h(StatCard, { icon: 'icon-microphone', value: data.total, label: 'Записей', colorClass: 'text-blue-500', delay: 0 }),
-                h(StatCard, { icon: 'icon-volume-high', value: data.withAudio, label: 'С аудио', colorClass: 'text-emerald-500', delay: 0.06 }),
-                h(StatCard, { icon: 'icon-people', value: data.recordists, label: 'Авторов', colorClass: 'text-indigo-500', delay: 0.12 }),
-                h(StatCard, { icon: 'icon-clock', value: data.totalMinutes, decimals: 1, label: 'Минут звука', colorClass: 'text-amber-500', delay: 0.18 })
+                h(StatCard, { icon: 'icon-microphone', value: data.total, label: 'Записей', colorClass: 'ds-link', delay: 0 }),
+                h(StatCard, { icon: 'icon-volume-high', value: data.withAudio, label: 'С аудио', colorClass: 'ds-link', delay: 0.06 }),
+                h(StatCard, { icon: 'icon-people', value: data.recordists, label: 'Авторов', colorClass: 'ds-link', delay: 0.12 }),
+                h(StatCard, { icon: 'icon-clock', value: data.totalMinutes, decimals: 1, label: 'Минут звука', colorClass: 'ds-link', delay: 0.18 })
             ),
             h('div', { className: 'analytics-charts-row' },
                 h('div', { className: 'analytics-chart-card' },

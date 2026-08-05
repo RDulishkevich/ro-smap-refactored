@@ -3145,7 +3145,7 @@ export function initAuth() {
         if (list) {
             const badges = new Set(profile?.badges || []);
             list.innerHTML = Object.entries(window.BADGE_CATALOG || {}).map(([key, b]) => `
-                <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/40 ${badges.has(key) ? 'ring-2 ring-amber-400/60' : ''}">
+                <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/40 ${badges.has(key) ? 'border-[color:var(--ink)] bg-[color:var(--surface-stone)]' : ''}">
                     <input type="checkbox" class="accent-amber-500" ${badges.has(key) ? 'checked' : ''} onchange="window.toggleUserBadge('${login}', '${key}', this.checked)">
                     <span class="w-8 h-8 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 flex items-center justify-center shrink-0"><i class="${b.icon}"></i></span>
                     <span class="text-sm font-bold text-slate-700 dark:text-slate-200">${b.label}</span>
@@ -3192,7 +3192,7 @@ export function initAuth() {
                 if (list) {
                     const badges = new Set(profile?.badges || []);
                     list.innerHTML = Object.entries(window.BADGE_CATALOG || {}).map(([key, b]) => `
-                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/40 ${badges.has(key) ? 'ring-2 ring-amber-400/60' : ''}">
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/40 ${badges.has(key) ? 'border-[color:var(--ink)] bg-[color:var(--surface-stone)]' : ''}">
                             <input type="checkbox" class="accent-amber-500" ${badges.has(key) ? 'checked' : ''} onchange="window.toggleUserBadge('${login}', '${key}', this.checked)">
                             <span class="w-8 h-8 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 flex items-center justify-center shrink-0"><i class="${b.icon}"></i></span>
                             <span class="text-sm font-bold text-slate-700 dark:text-slate-200">${b.label}</span>

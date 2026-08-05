@@ -303,14 +303,14 @@ window.toggleAmbisonics = function() {
     if(window.isAmbisonicMode) {
         window.enableAmbisonicMode(); 
         control.classList.remove('hidden');
-        btn.classList.remove('text-indigo-500'); btn.classList.add('text-[#ff5a3d]');
+        btn.classList.remove('text-[color:var(--accent-ink)]'); btn.classList.add('text-[color:var(--accent)]');
         window.showToast(translations[window.currentLang].ambisonics_pan + " ON");
         window.resizeAmbiGoniometerCanvas();
         window.syncAnalyzerAnimation();
     } else {
         window.disableAmbisonicMode(); 
         control.classList.add('hidden');
-        btn.classList.add('text-indigo-500'); btn.classList.remove('text-[#ff5a3d]');
+        btn.classList.add('text-[color:var(--accent-ink)]'); btn.classList.remove('text-[color:var(--accent)]');
         const dot = document.getElementById('ambi-dot');
         if(dot) { dot.style.left = '50%'; dot.style.top = '50%'; }
         const angleDisplay = document.getElementById('ambi-angle-val');

@@ -226,29 +226,18 @@ window.setMapProvider = function(provider, skipSave = false) {
 
 window.updateMapProviderHint = function() {
     const hint = document.getElementById('map-provider-hint');
-    if (!hint || !window.translations) return;
+    if (!hint) return;
+    const p = window.normalizeMapProvider(window.currentMapProvider);
+    /* Only show copy when an API key / special setup is required */
+    if (p !== 'dgis' && p !== 'googleearth') {
+        hint.textContent = '';
+        return;
+    }
+    if (!window.translations) return;
     const lang = window.currentLang || 'ru';
     const t = window.translations[lang] || {};
-    const p = window.normalizeMapProvider(window.currentMapProvider);
-    const keyMap = {
-        mapbox: 'map_provider_osm_hint',
-        ozon: 'map_provider_ozon_hint',
-        carto: 'map_provider_carto_hint',
-        opentopo: 'map_provider_opentopo_hint',
-        esri: 'map_provider_esri_hint',
-        esristreet: 'map_provider_esristreet_hint',
-        esritopo: 'map_provider_esritopo_hint',
-        cyclosm: 'map_provider_cyclosm_hint',
-        hot: 'map_provider_hot_hint',
-        osmde: 'map_provider_osmde_hint',
-        osmbright: 'map_provider_osmbright_hint',
-        dgis: 'map_provider_dgis_hint',
-        googleearth: 'map_provider_google_hint',
-        yandex3: 'map_provider_yandex3_hint',
-        yandex: 'map_provider_yandex_hint'
-    };
-    const key = keyMap[p] || 'map_provider_yandex_hint';
-    hint.textContent = t[key] || hint.textContent;
+    const key = p === 'dgis' ? 'map_provider_dgis_hint' : 'map_provider_google_hint';
+    hint.textContent = t[key] || '';
 };
 
 window.updateMapProviderKeyFields = function() {
