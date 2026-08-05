@@ -7399,6 +7399,214 @@ window.hideDockPanel = function() {
     if (window.syncMobileNavActive) window.syncMobileNavActive('map');
 };
 
+window.closeMobileAddMenu = function() {
+    const menu = document.getElementById('mobile-add-menu');
+    const fab = document.getElementById('mobile-nav-fab');
+    const scrim = document.getElementById('mobile-add-scrim');
+    if (menu) {
+        menu.classList.remove('is-open');
+        menu.setAttribute('aria-hidden', 'true');
+    }
+    if (fab) {
+        fab.classList.remove('is-open');
+        fab.setAttribute('aria-expanded', 'false');
+    }
+    if (scrim) scrim.classList.remove('is-open');
+};
+
+window.toggleMobileAddMenu = function() {
+    if (window.innerWidth >= 768) {
+        if (window.toggleAddModal) window.toggleAddModal();
+        return;
+    }
+    const menu = document.getElementById('mobile-add-menu');
+    const open = !(menu && menu.classList.contains('is-open'));
+    if (!open) {
+        window.closeMobileAddMenu();
+        return;
+    }
+    if (!window.currentUser) {
+        window.showToast('Нужно войти в аккаунт, чтобы добавлять звук');
+        if (window.openAuthModal) window.openAuthModal();
+        return;
+    }
+    const fab = document.getElementById('mobile-nav-fab');
+    const scrim = document.getElementById('mobile-add-scrim');
+    if (menu) {
+        menu.classList.add('is-open');
+        menu.setAttribute('aria-hidden', 'false');
+    }
+    if (fab) {
+        fab.classList.add('is-open');
+        fab.setAttribute('aria-expanded', 'true');
+    }
+    if (scrim) scrim.classList.add('is-open');
+};
+
+window.mobileAddMenuPick = function(action) {
+    window.closeMobileAddMenu();
+    const pick = String(action || '');
+    if (pick === 'upload') {
+        if (window.toggleAddModal) window.toggleAddModal();
+        return;
+    }
+    if (pick === 'record') {
+        if (window.startMobileRecord) window.startMobileRecord();
+    }
+};
+
+window.__mobileRec = {
+    stream: null,
+    recorder: null,
+    chunks: [],
+    startedAt: 0,
+    timerId: null
+};
+
+window._formatMobileRecTime = function(ms) {
+    const sec = Math.max(0, Math.floor(ms / 1000));
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+};
+
+window._tickMobileRecTimer = function() {
+    const el = document.getElementById('mobile-record-timer');
+    const started = window.__mobileRec && window.__mobileRec.startedAt;
+    if (!el || !started) return;
+    el.textContent = window._formatMobileRecTime(Date.now() - started);
+};
+
+window.cancelMobileRecord = function() {
+    const rec = window.__mobileRec || {};
+    try {
+        if (rec.recorder && rec.recorder.state !== 'inactive') rec.recorder.stop();
+    } catch (_) {}
+    if (rec.timerId) clearInterval(rec.timerId);
+    if (rec.stream) {
+        try { rec.stream.getTracks().forEach((t) => t.stop()); } catch (_) {}
+    }
+    window.__mobileRec = { stream: null, recorder: null, chunks: [], startedAt: 0, timerId: null };
+    const overlay = document.getElementById('mobile-record-overlay');
+    const pulse = document.getElementById('mobile-record-pulse');
+    if (overlay) overlay.classList.add('hidden');
+    if (pulse) pulse.classList.remove('is-live');
+};
+
+window.stopMobileRecord = function() {
+    const rec = window.__mobileRec;
+    if (!rec || !rec.recorder) {
+        window.cancelMobileRecord();
+        return;
+    }
+    if (rec.recorder.state === 'inactive') {
+        window.cancelMobileRecord();
+        return;
+    }
+    rec.recorder.onstop = async () => {
+        const chunks = rec.chunks || [];
+        const mime = (rec.recorder && rec.recorder.mimeType) || 'audio/webm';
+        const blob = new Blob(chunks, { type: mime });
+        if (rec.timerId) clearInterval(rec.timerId);
+        if (rec.stream) {
+            try { rec.stream.getTracks().forEach((t) => t.stop()); } catch (_) {}
+        }
+        window.__mobileRec = { stream: null, recorder: null, chunks: [], startedAt: 0, timerId: null };
+        const overlay = document.getElementById('mobile-record-overlay');
+        const pulse = document.getElementById('mobile-record-pulse');
+        if (overlay) overlay.classList.add('hidden');
+        if (pulse) pulse.classList.remove('is-live');
+
+        if (!blob.size) {
+            window.showToast('Запись пустая — попробуйте ещё раз');
+            return;
+        }
+        const ext = mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : 'webm';
+        const file = new File([blob], `polevka-record-${Date.now()}.${ext}`, { type: mime });
+        if (window.toggleAddModal) window.toggleAddModal();
+        if (window.handleAudioFiles) await window.handleAudioFiles([file]);
+        if (window.showToast) window.showToast('Запись добавлена — заполните карточку');
+    };
+    try { rec.recorder.stop(); } catch (_) { window.cancelMobileRecord(); }
+};
+
+window.startMobileRecord = async function() {
+    if (window.innerWidth >= 768) {
+        if (window.toggleAddModal) window.toggleAddModal();
+        return;
+    }
+    if (!window.currentUser) {
+        window.showToast('Нужно войти в аккаунт, чтобы записывать');
+        if (window.openAuthModal) window.openAuthModal();
+        return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        window.showToast('Запись с микрофона недоступна в этом браузере');
+        return;
+    }
+    window.cancelMobileRecord();
+    let stream;
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false
+            }
+        });
+    } catch (err) {
+        console.warn(err);
+        window.showToast('Нет доступа к микрофону');
+        return;
+    }
+    const candidates = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus'
+    ];
+    let mime = '';
+    for (const c of candidates) {
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(c)) {
+            mime = c;
+            break;
+        }
+    }
+    let recorder;
+    try {
+        recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+    } catch (err) {
+        console.warn(err);
+        stream.getTracks().forEach((t) => t.stop());
+        window.showToast('Не удалось начать запись');
+        return;
+    }
+    const chunks = [];
+    recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size) chunks.push(e.data);
+    };
+    window.__mobileRec = {
+        stream,
+        recorder,
+        chunks,
+        startedAt: Date.now(),
+        timerId: setInterval(() => window._tickMobileRecTimer(), 250)
+    };
+    const overlay = document.getElementById('mobile-record-overlay');
+    const pulse = document.getElementById('mobile-record-pulse');
+    const timer = document.getElementById('mobile-record-timer');
+    if (timer) timer.textContent = '0:00';
+    if (pulse) pulse.classList.add('is-live');
+    if (overlay) overlay.classList.remove('hidden');
+    try {
+        recorder.start(250);
+    } catch (err) {
+        console.warn(err);
+        window.cancelMobileRecord();
+        window.showToast('Не удалось начать запись');
+    }
+};
+
 window.syncMobileNavActive = function(nav) {
     const root = document.getElementById('mobile-bottom-nav');
     if (!root) return;
@@ -7412,6 +7620,7 @@ window.syncMobileNavActive = function(nav) {
 window.mobileNavGo = async function(dest) {
     const target = String(dest || 'map');
     if (window.innerWidth >= 768) return;
+    if (window.closeMobileAddMenu) window.closeMobileAddMenu();
 
     const auth = document.getElementById('auth-modal');
     const authOpen = !!(auth && !auth.classList.contains('hidden') && !auth.classList.contains('opacity-0'));

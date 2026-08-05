@@ -29,11 +29,11 @@
 
     <!-- Tailwind (self-hosted build — без Play CDN / без unsafe-eval) -->
     <link rel="stylesheet" href="./src/tailwind.built.css?v=20260722c">
-    <link rel="stylesheet" href="./src/style.css?v=20260805m">
+    <link rel="stylesheet" href="./src/style.css?v=20260805n">
     <link rel="stylesheet" href="./src/glass.css?v=20260805m">
     <!-- fonts.css after glass so data-font tokens win over :root -->
     <link rel="stylesheet" href="./src/fonts.css?v=20260805m">
-    <link rel="stylesheet" href="./src/mobile-wellness.css?v=20260805m">
+    <link rel="stylesheet" href="./src/mobile-wellness.css?v=20260805n">
     
     <!-- Omnitone (Maps JS API key loaded at runtime via Secure API publicConfig — not in source) -->
     <script src="https://cdn.jsdelivr.net/npm/omnitone@1.3.0/build/omnitone.min.js" integrity="sha384-5aveyyKpKISYg2tL5r5SiN4i9TsY23neueM/OhYxhAEUxVpDwQNUPAePirLqvCOe" crossorigin="anonymous"></script>
@@ -657,6 +657,14 @@
 
         <!-- Mobile bottom navigation: floating peach dock + white center Add (wellness DS) -->
         <nav id="mobile-bottom-nav" class="mobile-bottom-nav md:hidden" aria-label="Основная навигация">
+            <div id="mobile-add-menu" class="mobile-add-menu" aria-hidden="true">
+                <button type="button" class="mobile-add-menu__btn" onclick="window.mobileAddMenuPick('upload')" aria-label="Добавить звук" title="Добавить звук">
+                    <i class="icon-musicnote" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="mobile-add-menu__btn mobile-add-menu__btn--record" onclick="window.mobileAddMenuPick('record')" aria-label="Записать" title="Записать">
+                    <i class="icon-microphone" aria-hidden="true"></i>
+                </button>
+            </div>
             <div class="mobile-bottom-nav__row">
                 <button type="button" class="mobile-nav-btn" data-nav="library" onclick="window.mobileNavGo('library')" aria-label="Библиотека">
                     <i class="icon-document-text" aria-hidden="true"></i>
@@ -666,7 +674,7 @@
                     <i class="icon-note-2" aria-hidden="true"></i>
                     <span class="mobile-nav-btn__label">Лента</span>
                 </button>
-                <button type="button" class="mobile-nav-fab" onclick="window.toggleAddModal()" aria-label="Добавить звук" title="Добавить звук">
+                <button type="button" id="mobile-nav-fab" class="mobile-nav-fab" onclick="window.toggleMobileAddMenu()" aria-label="Добавить" title="Добавить" aria-expanded="false" aria-controls="mobile-add-menu">
                     <i class="icon-add" aria-hidden="true"></i>
                 </button>
                 <button type="button" class="mobile-nav-btn" data-nav="expeditions" onclick="window.mobileNavGo('expeditions')" aria-label="Экспедиции">
@@ -680,6 +688,20 @@
                 </button>
             </div>
         </nav>
+        <div id="mobile-add-scrim" class="mobile-add-menu__scrim" onclick="window.closeMobileAddMenu()"></div>
+
+        <div id="mobile-record-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="mobile-record-title">
+            <p id="mobile-record-title" class="type-eyebrow">Запись</p>
+            <div id="mobile-record-pulse" class="mobile-record__pulse" aria-hidden="true">
+                <i class="icon-microphone"></i>
+            </div>
+            <div id="mobile-record-timer" class="mobile-record__timer">0:00</div>
+            <p class="mobile-record__hint">Говорите / ловите звук — затем остановите и продолжите в форме публикации</p>
+            <div class="mobile-record__actions">
+                <button type="button" class="ds-btn ds-btn--ghost" onclick="window.cancelMobileRecord()">Отмена</button>
+                <button type="button" id="mobile-record-stop" class="ds-btn ds-btn--primary" onclick="window.stopMobileRecord()">Стоп</button>
+            </div>
+        </div>
 
     </div>
 
@@ -2372,7 +2394,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260805m"></script>
+    <script type="module" src="./src/main.js?v=20260805n"></script>
 
 </body>
 </html>

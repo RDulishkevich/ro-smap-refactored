@@ -128,9 +128,18 @@
     .dark .mobile-nav-btn {
         color: #222222;
     }
-    .mobile-nav-btn i {
-        font-size: 1.4rem;
+    .mobile-nav-btn i,
+    .mobile-nav-fab i {
+        font-size: 1.55rem;
         line-height: 1;
+        /* Iconsax is a thin outline set — thicken for wellness dock */
+        -webkit-text-stroke: 0.55px currentColor;
+        paint-order: stroke fill;
+        font-weight: 700;
+    }
+    .mobile-nav-fab i {
+        font-size: 1.75rem;
+        -webkit-text-stroke: 0.7px currentColor;
     }
     .mobile-nav-btn__label {
         position: absolute;
@@ -178,13 +187,195 @@
         transition: transform 0.18s var(--ease-out, ease);
     }
     .mobile-nav-fab i {
-        font-size: 1.6rem;
+        font-size: 1.75rem;
         line-height: 1;
         pointer-events: none;
+        -webkit-text-stroke: 0.7px currentColor;
+        paint-order: stroke fill;
+        font-weight: 700;
     }
     .mobile-nav-fab:active,
     .mobile-nav-btn:active {
         transform: scale(0.96);
+    }
+    .mobile-nav-fab.is-open {
+        transform: rotate(45deg);
+    }
+    .mobile-nav-fab.is-open:active {
+        transform: rotate(45deg) scale(0.96);
+    }
+
+    /* —— Plus speed-dial (upload / record) —— */
+    .mobile-add-menu {
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 0.85rem);
+        transform: translateX(-50%) translateY(0.5rem);
+        display: flex;
+        flex-direction: column-reverse;
+        align-items: center;
+        gap: 0.65rem;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s var(--ease-out, ease), transform 0.22s var(--ease-out, ease);
+        z-index: 5;
+    }
+    .mobile-add-menu.is-open {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateX(-50%) translateY(0);
+    }
+    .mobile-add-menu__btn {
+        width: 3.25rem;
+        height: 3.25rem;
+        border: none;
+        border-radius: 50%;
+        background: #ffffff;
+        color: #222222;
+        box-shadow: var(--well-shadow-strong);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        transition: transform 0.18s ease;
+    }
+    .mobile-add-menu__btn i {
+        font-size: 1.45rem;
+        -webkit-text-stroke: 0.55px currentColor;
+        pointer-events: none;
+    }
+    .mobile-add-menu__btn:active {
+        transform: scale(0.95);
+    }
+    .mobile-add-menu__btn--record {
+        background: #222222;
+        color: #FFF3E2;
+    }
+    .mobile-add-menu__scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 219;
+        background: rgba(26, 26, 26, 0.28);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+    }
+    .mobile-add-menu__scrim.is-open {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* —— Record overlay —— */
+    #mobile-record-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 240;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1.25rem;
+        padding: 1.5rem;
+        padding-bottom: calc(var(--mobile-fs-bottom) + 1rem);
+        background: var(--well-cream);
+        color: var(--ink);
+    }
+    #mobile-record-overlay.hidden {
+        display: none !important;
+    }
+    .mobile-record__pulse {
+        width: 5.5rem;
+        height: 5.5rem;
+        border-radius: 50%;
+        background: var(--well-peach);
+        color: #222;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: var(--well-shadow-strong);
+    }
+    .mobile-record__pulse.is-live {
+        animation: mobile-record-pulse 1.1s ease-in-out infinite;
+    }
+    .mobile-record__pulse i {
+        font-size: 2rem;
+        -webkit-text-stroke: 0.6px currentColor;
+    }
+    @keyframes mobile-record-pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.06); }
+    }
+    .mobile-record__timer {
+        font-family: var(--font-ui);
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        font-variant-numeric: tabular-nums;
+    }
+    .mobile-record__hint {
+        font-size: 0.8125rem;
+        color: var(--ink-muted);
+        text-align: center;
+    }
+    .mobile-record__actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 0.5rem;
+    }
+    .mobile-record__actions .ds-btn {
+        min-width: 7.5rem;
+    }
+
+    /* —— True fullscreen surfaces: no map peek —— */
+    #sidebar.sidebar-panel,
+    #sidebar,
+    #events-sheet,
+    .app-modal-overlay {
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        top: 0 !important;
+    }
+    #sidebar.sidebar-panel,
+    #sidebar {
+        background: var(--well-cream) !important;
+        background-color: var(--well-cream) !important;
+        z-index: 200 !important;
+    }
+    #events-sheet {
+        background: var(--well-cream) !important;
+        z-index: 205 !important;
+    }
+    .app-modal-overlay {
+        background: color-mix(in srgb, var(--well-ink) 45%, transparent) !important;
+        z-index: 210 !important;
+    }
+    .app-modal-overlay > .app-modal-panel,
+    .app-modal-overlay > [id$="-modal-content"],
+    #auth-modal > #auth-modal-content,
+    #events-sheet .events-sheet-panel {
+        background: var(--well-cream) !important;
+        height: 100% !important;
+        max-height: none !important;
+        border-radius: 0 !important;
+    }
+    /* Confirm stays compact-centered */
+    #ui-modal-overlay.app-modal-overlay {
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 1rem !important;
+        background: color-mix(in srgb, var(--well-ink) 45%, transparent) !important;
+    }
+    #ui-modal-overlay > #ui-modal-content {
+        height: auto !important;
+        max-height: min(85dvh, 32rem) !important;
+        border-radius: var(--well-radius-sheet) !important;
+        background: var(--well-white) !important;
+    }
+    /* Dock stays above fullscreen cream panels */
+    .mobile-bottom-nav {
+        z-index: 230 !important;
     }
     .mobile-nav-badge {
         position: absolute;

@@ -133,7 +133,8 @@ Utilities: `.mobile-grid-4`, `.mobile-pad-x`.
 | `#map-top-right-controls` | Events (both); messages/notifications on mobile after login |
 | `#player-card` | Compact playback + `.wave-pill` live indicator |
 | `#fab-add` | Desktop only. Mobile: white center FAB in floating peach dock |
-| `#mobile-bottom-nav` | Wellness floating peach pill · icons · elevated white **+** · re-tap → map |
+| `#mobile-bottom-nav` | Wellness floating peach pill · bold icons · **+** opens speed-dial (upload / record) |
+| Mobile surfaces | Full viewport (`bottom: 0`) — no map peek; dock stays above |
 
 ## Color tokens (resolved)
 

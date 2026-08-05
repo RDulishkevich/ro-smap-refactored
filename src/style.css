@@ -1957,13 +1957,13 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
         top: 0;
         left: 0;
         right: 0;
-        bottom: var(--mobile-fs-bottom);
+        bottom: 0;
         width: auto;
         border-radius: 0;
         max-height: none;
         padding-top: var(--sat);
         padding-bottom: 0;
-        z-index: 80;
+        z-index: 200;
     }
     .sidebar-hidden {
         transform: translateY(calc(100% + 2rem)) !important;
@@ -2623,20 +2623,20 @@ html.dark .search-suggestions,
 @media (max-width: 767px) {
     /*
      * Mobile fullscreen rule (canonical):
-     * primary surfaces (dock, sheet, app-modal) fill the viewport
-     * except the bottom rail (--mobile-fs-bottom). No inset half-sheets.
+     * primary surfaces fill the entire viewport — no map peek under/around chrome.
+     * Bottom dock stays above (z-index). Confirm dialogs stay compact-centered.
      */
     #sidebar {
         top: 0;
         left: 0;
         right: 0;
-        bottom: var(--mobile-fs-bottom);
+        bottom: 0;
         width: auto;
         border-radius: 0;
         max-height: none;
         padding-top: var(--sat);
         padding-bottom: 0;
-        z-index: 80;
+        z-index: 200;
     }
     .sidebar-hidden {
         transform: translateY(calc(100% + 2rem)) !important;
@@ -2651,12 +2651,12 @@ html.dark .search-suggestions,
         top: 0 !important;
         right: 0 !important;
         left: 0 !important;
-        bottom: var(--mobile-fs-bottom) !important;
+        bottom: 0 !important;
         height: auto !important;
     }
     #events-sheet {
-        background: transparent !important;
-        z-index: 200 !important;
+        background: var(--panel-solid, #FFF8F0) !important;
+        z-index: 205 !important;
     }
     #events-sheet .events-sheet-panel,
     .app-modal-overlay > .app-modal-panel,

@@ -57,7 +57,9 @@ MOBILE (<768) — Wellness DS
 └──────────────────────────────────────────────────────────┘
 ```
 
-Центр — белый FAB **Добавить**. Карта = фон; повторный тап по разделу закрывает dock. `#fab-add` на mobile скрыт. Иконки без подписей. Dock — **floating peach pill** (inset + soft shadow), не edge-to-edge Haikei wave. Полный mobile DS: `src/mobile-wellness.css` + `DESIGN.md` § Mobile Wellness.
+- Bottom nav → `mobileNavGo(...)`. **+** → `toggleMobileAddMenu` (иконки: добавить звук / записать).
+- Поверхности (dock / модалки / events sheet) — **на весь экран**, без просвета карты; confirm остаётся компактным.
+- Повторный тап по разделу закрывает dock. `#fab-add` на mobile скрыт.
 
 Настройки на mobile — через **Профиль** (кабинет). Аудио-угадайка — в **Помощь → FAQ**.
 
