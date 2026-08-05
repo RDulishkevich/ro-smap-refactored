@@ -1016,6 +1016,32 @@ html.dark .glass-seg__btn.is-active,
 #player-card {
     max-height: min(85vh, calc(100dvh - 1rem - env(safe-area-inset-bottom, 0px))) !important;
 }
+.player-description { display: none; }
+.player-gear-compact { display: none; }
+.player-more-btn { display: none; }
+@media (min-width: 768px) {
+    #player-card.player-shell {
+        display: flex;
+        flex-direction: column;
+    }
+    #player-card .player-sheet-handle { order: 0; }
+    #player-card .player-wave-block { order: 1; }
+    #player-card .player-meta-row { order: 2; }
+    #player-card .player-compact-row { order: 3; }
+    #player-card .player-expand-panel { order: 4; }
+    #player-card #ambisonics-control { order: 5; }
+    #player-card .player-expand-panel {
+        margin-top: 0.35rem;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    #player-card.player-shell,
+    #player-card .player-wave-block,
+    #player-card .player-meta-row,
+    #player-card .player-expand-panel {
+        transition: none !important;
+    }
+}
 /* ?? ???????? ??? ???????????? ?????? FAB (Guessr / ???????? ????) ? ??????? ?????? ?
    ?? ???????? ??? ????????, ????? ?? ???????????. */
 @media (max-width: 767px) {
@@ -1195,8 +1221,8 @@ html.dark .glass-seg__btn.is-active,
     background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
-/* Public profile — no decorative cover banner */
-.pp-modal { max-height: min(92dvh, 760px); }
+/* Public profile — quiet surfaces, no glow / peach halo */
+.pp-modal { max-height: min(92dvh, 760px); box-shadow: none; }
 .pp-hero__cover {
     display: none;
 }
@@ -1235,12 +1261,12 @@ html.dark .glass-seg__btn.is-active,
     height: 4.5rem;
     border-radius: 9999px;
     object-fit: cover;
-    border: 3px solid #fff;
-    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+    border: 2px solid color-mix(in srgb, var(--ink) 12%, transparent);
+    box-shadow: none;
     cursor: pointer;
-    background: #f1f5f9;
+    background: var(--surface-stone, #F5E6D4);
 }
-.dark .pp-avatar { border-color: #0f172a; }
+.dark .pp-avatar { border-color: color-mix(in srgb, var(--ink) 18%, transparent); }
 .pp-avatar--fallback {
     display: flex;
     align-items: center;
@@ -1264,11 +1290,11 @@ html.dark .glass-seg__btn.is-active,
 }
 .dark .pp-meta-chip { background: var(--surface-stone, #3a3228); color: var(--ink-muted); }
 .pp-meta-chip--level {
-    color: #222222;
-    background: var(--accent);
-    border-color: #222222;
+    color: var(--ink);
+    background: transparent;
+    border-color: color-mix(in srgb, var(--ink) 28%, transparent);
 }
-.dark .pp-meta-chip--level { color: #222222; background: var(--accent); }
+.dark .pp-meta-chip--level { color: var(--ink); background: transparent; }
 .pp-btn {
     display: inline-flex;
     align-items: center;
@@ -1277,7 +1303,7 @@ html.dark .glass-seg__btn.is-active,
     border-radius: 0.75rem;
     font-size: 11px;
     font-weight: 700;
-    transition: background 0.15s ease, color 0.15s ease;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 .pp-btn--ghost {
     background: #f1f5f9;
@@ -1287,10 +1313,12 @@ html.dark .glass-seg__btn.is-active,
 .dark .pp-btn--ghost { background: #1e293b; color: #e2e8f0; }
 .dark .pp-btn--ghost:hover { background: #334155; }
 .pp-btn--primary {
-    background: var(--accent, #FBAB57);
-    color: var(--on-accent, #222222);
+    background: var(--cta, #222222);
+    color: #fff;
+    border: 2px solid var(--ink, #222222);
+    filter: none;
 }
-.pp-btn--primary:hover { filter: brightness(0.96); }
+.pp-btn--primary:hover { filter: none; background: #333; }
 .pp-stats {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1962,7 +1990,7 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
         border-radius: 0;
         max-height: none;
         padding-top: var(--sat);
-        padding-bottom: 0;
+        padding-bottom: calc(var(--mobile-fs-bottom) + 1.25rem);
         z-index: 200;
     }
     .sidebar-hidden {
@@ -2011,7 +2039,9 @@ body.dock-is-hidden #map-top-toolbar.map-top-toolbar {
         z-index: 70;
     }
     #player-anchor.player-anchor {
-        padding-bottom: calc(var(--mobile-fs-bottom) + 0.5rem);
+        padding-bottom: calc(var(--mobile-fs-bottom) + 0.35rem);
+        padding-left: max(0.75rem, var(--sal));
+        padding-right: max(0.75rem, var(--sar));
     }
     /* Keep sidebar above map chrome, below bottom nav */
     #sidebar {
@@ -2635,7 +2665,7 @@ html.dark .search-suggestions,
         border-radius: 0;
         max-height: none;
         padding-top: var(--sat);
-        padding-bottom: 0;
+        padding-bottom: calc(var(--mobile-fs-bottom) + 1.25rem);
         z-index: 200;
     }
     .sidebar-hidden {
@@ -2659,7 +2689,7 @@ html.dark .search-suggestions,
         z-index: 205 !important;
     }
     #events-sheet .events-sheet-panel,
-    .app-modal-overlay > .app-modal-panel,
+    .app-modal-overlay > .app-modal-panel:not(#ui-modal-content),
     #auth-modal > #auth-modal-content,
     #auth-modal > .app-modal-panel {
         width: 100% !important;
@@ -2668,6 +2698,8 @@ html.dark .search-suggestions,
         max-height: none !important;
         margin: 0 !important;
         border-radius: 0 !important;
+        padding-bottom: calc(var(--mobile-fs-bottom) + 1.25rem) !important;
+        box-sizing: border-box !important;
     }
     #auth-modal.app-modal-overlay {
         z-index: 210 !important;
@@ -2681,6 +2713,18 @@ html.dark .search-suggestions,
         max-height: none !important;
         margin: 0 !important;
         border-radius: 0 !important;
+        padding-bottom: calc(var(--mobile-fs-bottom) + 1.25rem) !important;
+        box-sizing: border-box !important;
+    }
+    /* Scroll hosts inside fullscreen panels also clear the dock */
+    #sidebar .custom-scrollbar,
+    #events-sheet-body,
+    .pp-body,
+    .settings-modal-body,
+    .app-modal-overlay .overflow-y-auto,
+    .app-modal-overlay .custom-scrollbar {
+        padding-bottom: calc(var(--mobile-fs-bottom) + 0.75rem);
+        scroll-padding-bottom: calc(var(--mobile-fs-bottom) + 0.75rem);
     }
     #ui-modal-overlay.app-modal-overlay {
         align-items: center !important;
@@ -3836,20 +3880,26 @@ textarea.modal-input {
 .pp-filter-btn {
     flex-shrink: 0;
     padding: 6px 14px;
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     font-size: 11px;
     font-weight: 700;
-    border: 1px solid #e2e8f0;
-    background: #fff;
-    color: #64748b;
-    transition: all 0.15s ease;
+    border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+    background: var(--panel-elevated, #fff);
+    color: var(--ink-muted);
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
     white-space: nowrap;
 }
 .dark .pp-filter-btn { background: #1e293b; color: #94a3b8; border-color: #334155; }
-.pp-filter-btn:hover { background: #f1f5f9; }
+.pp-filter-btn:hover { background: var(--surface-stone, #F5E6D4); color: var(--ink); }
 .dark .pp-filter-btn:hover { background: #0f172a; }
-.pp-filter-btn.active { background: var(--accent); color: var(--on-accent, #222222); border-color: var(--accent); }
-.dark .pp-filter-btn.active { background: var(--accent); border-color: var(--accent); }
+.pp-filter-btn.active {
+    background: transparent;
+    color: var(--ink);
+    border-color: var(--ink);
+    box-shadow: none;
+    filter: none;
+}
+.dark .pp-filter-btn.active { background: transparent; border-color: var(--ink); color: var(--ink); }
 
 /* ????? ???????? ????????? */
 .portfolio-grid {
@@ -3863,11 +3913,12 @@ textarea.modal-input {
     border-radius: 1rem;
     padding: 0.75rem 0.85rem;
     cursor: pointer;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+    box-shadow: none;
 }
-.portfolio-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08); }
+.portfolio-card:hover { transform: none; box-shadow: none; border-color: color-mix(in srgb, var(--ink) 28%, transparent); }
 .dark .portfolio-card { background: #1e293b; border-color: #334155; }
-.dark .portfolio-card:hover { box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35); }
+.dark .portfolio-card:hover { box-shadow: none; }
 .portfolio-card-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 0.4rem; flex-wrap: wrap; }
 .portfolio-card-eco { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; padding: 2px 7px; border-radius: 9999px; }
 .portfolio-card-eco.eco-geophony {

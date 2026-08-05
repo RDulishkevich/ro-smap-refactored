@@ -997,6 +997,161 @@ window.openActionsMenu = function(items, opts = {}) {
     if (window.ActionSheet) window.ActionSheet.open(items, opts);
 };
 
+/* —— Mobile player sheet: compact dock hug + swipe-up description —— */
+window.isPlayerSheetExpanded = function() {
+    const card = document.getElementById('player-card');
+    return !!(card && card.classList.contains('is-expanded'));
+};
+
+window.expandPlayerSheet = function() {
+    const card = document.getElementById('player-card');
+    if (!card) return;
+    card.classList.add('is-expanded');
+    document.body.classList.add('player-sheet-expanded');
+};
+
+window.collapsePlayerSheet = function() {
+    const card = document.getElementById('player-card');
+    if (!card) return;
+    card.classList.remove('is-expanded');
+    document.body.classList.remove('player-sheet-expanded');
+};
+
+window.togglePlayerSheet = function() {
+    if (window.isPlayerSheetExpanded()) window.collapsePlayerSheet();
+    else window.expandPlayerSheet();
+};
+
+window.openPlayerActionsMenu = function(ev) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    const s = (window.soundsData || []).find((x) => x.id === window.currentPlayingId);
+    const items = [
+        {
+            label: 'Описание',
+            icon: 'icon-document-text',
+            onClick: () => {
+                if (window.innerWidth < 768) window.expandPlayerSheet();
+                else if (window.openDetailsModal) window.openDetailsModal();
+            }
+        },
+        {
+            label: 'Анализаторы',
+            icon: 'icon-chart-2',
+            onClick: () => { if (window.togglePlayerAnalyzers) window.togglePlayerAnalyzers(); }
+        }
+    ];
+    const hasAmbi = !!(s && s.channels && String(s.channels).toLowerCase().includes('ambisonics'));
+    if (hasAmbi) {
+        items.push({
+            label: 'Амбисоник',
+            icon: 'icon-global',
+            onClick: () => { if (window.toggleAmbisonics) window.toggleAmbisonics(); }
+        });
+    }
+    items.push({
+        label: 'Карточка звука',
+        icon: 'icon-info-circle',
+        onClick: () => { if (window.openDetailsModal) window.openDetailsModal(); }
+    });
+    if (window.openActionsMenu) {
+        window.openActionsMenu(items, {
+            title: s?.title || 'Плеер',
+            event: ev || null,
+            anchor: document.getElementById('player-more-btn')
+        });
+    }
+};
+
+(function bindPlayerSheetGestures() {
+    const bind = () => {
+        const card = document.getElementById('player-card');
+        const handle = document.getElementById('player-sheet-handle');
+        if (!card || card.__playerSheetBound) return;
+        card.__playerSheetBound = true;
+
+        let startY = 0;
+        let startX = 0;
+        let tracking = false;
+        let moved = false;
+
+        const onStart = (e) => {
+            if (window.innerWidth >= 768) return;
+            const t = e.touches && e.touches[0];
+            if (!t) return;
+            /* Don't steal scrubbing on the timeline / volume. */
+            const el = e.target;
+            if (el && el.closest && (
+                el.closest('#audio-timeline')
+                || el.closest('#volume-slider')
+                || el.closest('#main-play-btn')
+                || el.closest('#player-more-btn')
+                || el.closest('#ambi-sphere-pad')
+                || el.closest('button')
+                || el.closest('a')
+                || el.closest('input')
+            )) return;
+            startY = t.clientY;
+            startX = t.clientX;
+            tracking = true;
+            moved = false;
+        };
+        const onMove = (e) => {
+            if (!tracking) return;
+            const t = e.touches && e.touches[0];
+            if (!t) return;
+            const dy = t.clientY - startY;
+            const dx = t.clientX - startX;
+            if (Math.abs(dy) > 10 || Math.abs(dx) > 10) moved = true;
+            if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 12) {
+                e.preventDefault();
+            }
+        };
+        const onEnd = (e) => {
+            if (!tracking) return;
+            tracking = false;
+            const t = (e.changedTouches && e.changedTouches[0]) || null;
+            if (!t) return;
+            const dy = t.clientY - startY;
+            const dx = t.clientX - startX;
+            if (Math.abs(dy) < 40 || Math.abs(dy) < Math.abs(dx)) {
+                /* Tap on handle: expand toggle / collapse→close */
+                if (!moved && handle && (e.target === handle || handle.contains(e.target))) {
+                    if (window.isPlayerSheetExpanded()) window.collapsePlayerSheet();
+                    else if (window.closePlayerCard) window.closePlayerCard();
+                }
+                return;
+            }
+            if (dy < -40) window.expandPlayerSheet();
+            else if (dy > 40) {
+                if (window.isPlayerSheetExpanded()) window.collapsePlayerSheet();
+                else if (window.closePlayerCard) window.closePlayerCard();
+            }
+        };
+
+        card.addEventListener('touchstart', onStart, { passive: true });
+        card.addEventListener('touchmove', onMove, { passive: false });
+        card.addEventListener('touchend', onEnd, { passive: true });
+        card.addEventListener('touchcancel', () => { tracking = false; }, { passive: true });
+
+        if (handle) {
+            handle.addEventListener('click', (e) => {
+                if (window.innerWidth >= 768) {
+                    if (window.closePlayerCard) window.closePlayerCard();
+                    return;
+                }
+                e.preventDefault();
+                if (window.isPlayerSheetExpanded()) window.collapsePlayerSheet();
+                else if (window.closePlayerCard) window.closePlayerCard();
+            });
+        }
+    };
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bind);
+    } else {
+        bind();
+    }
+})();
+
 /** Всплывающее контекстное меню у курсора (как ПКМ по карте), без модальной шторки. */
 window.CtxPopup = {
     _actions: [],
@@ -4841,9 +4996,19 @@ window.selectSound = function(id) {
 
     const titleEl = document.getElementById('player-title');
     const gearEl = document.getElementById('player-gear');
+    const gearCompact = document.getElementById('player-gear-compact');
+    const descEl = document.getElementById('player-description');
     if (titleEl) titleEl.textContent = s.title;
-    if (gearEl) gearEl.innerHTML = `<i class="icon-radar mr-1 text-slate-400"></i>${s.gear}`;
+    const gearHtml = `<i class="icon-radar mr-1 text-slate-400"></i>${s.gear || ''}`;
+    if (gearEl) gearEl.innerHTML = gearHtml;
+    if (gearCompact) gearCompact.innerHTML = gearHtml;
+    if (descEl) {
+        const raw = String(s.description || s.desc || '').trim();
+        descEl.textContent = raw || 'Описание не указано';
+        descEl.classList.toggle('is-empty', !raw);
+    }
     if (window.renderSoundTags) window.renderSoundTags(s, 'player-tags');
+    if (window.collapsePlayerSheet) window.collapsePlayerSheet();
 
     if (s.url) {
         if (window.resetPlaybackPitch) window.resetPlaybackPitch();
@@ -7194,6 +7359,10 @@ window.changeGUISize = function(size, skipSave = false) {
     document.documentElement.style.fontSize = scales[size];
     if (!skipSave && window.saveUserSettings) window.saveUserSettings('guiScale', size);
     if (window.refreshSettingsUI) window.refreshSettingsUI();
+    /* Rem-based dock height changes → resync Yandex bottom margin. */
+    if (typeof window.recoverMobileMapViewport === 'function') {
+        window.recoverMobileMapViewport();
+    }
 }
 window.setLanguage = function(lang, skipSave = false) {
     window.currentLang = lang === 'en' ? 'en' : 'ru';

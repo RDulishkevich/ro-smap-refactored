@@ -33,7 +33,13 @@ export function initAuth() {
         m.classList.add('opacity-0', 'pointer-events-none');
         const panel = document.getElementById('auth-modal-content') || m.firstElementChild;
         if (panel) panel.classList.add('scale-95');
-        setTimeout(() => { if(m.classList.contains('opacity-0')) m.classList.add('hidden') }, 300);
+        setTimeout(() => {
+            if (m.classList.contains('opacity-0')) m.classList.add('hidden');
+            /* Auth + keyboard often leave the map shifted up on mobile. */
+            if (typeof window.recoverMobileMapViewport === 'function') {
+                window.recoverMobileMapViewport();
+            }
+        }, 300);
     };
 
     /** Close auth when user navigates elsewhere. Returns false if they cancel a dirty-form discard. */
@@ -370,6 +376,9 @@ export function initAuth() {
             }
             window.showToast('Успешный вход: ' + (window.currentUser.username || login));
             window.applyUserSettings();
+            if (typeof window.recoverMobileMapViewport === 'function') {
+                window.recoverMobileMapViewport();
+            }
             if (isNewRegistration && window.saveMyProfile) {
                 window.currentUser.email = regEmail || window.currentUser.email || '';
                 window.currentUser.emailVerified = false;

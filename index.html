@@ -29,11 +29,11 @@
 
     <!-- Tailwind (self-hosted build — без Play CDN / без unsafe-eval) -->
     <link rel="stylesheet" href="./src/tailwind.built.css?v=20260722c">
-    <link rel="stylesheet" href="./src/style.css?v=20260805n">
+    <link rel="stylesheet" href="./src/style.css?v=20260805o">
     <link rel="stylesheet" href="./src/glass.css?v=20260805m">
     <!-- fonts.css after glass so data-font tokens win over :root -->
     <link rel="stylesheet" href="./src/fonts.css?v=20260805m">
-    <link rel="stylesheet" href="./src/mobile-wellness.css?v=20260805n">
+    <link rel="stylesheet" href="./src/mobile-wellness.css?v=20260805o">
     
     <!-- Omnitone (Maps JS API key loaded at runtime via Secure API publicConfig — not in source) -->
     <script src="https://cdn.jsdelivr.net/npm/omnitone@1.3.0/build/omnitone.min.js" integrity="sha384-5aveyyKpKISYg2tL5r5SiN4i9TsY23neueM/OhYxhAEUxVpDwQNUPAePirLqvCOe" crossorigin="anonymous"></script>
@@ -564,13 +564,20 @@
 
         <!-- Плеер: floating contextual card -->
         <div id="player-anchor" class="player-anchor absolute bottom-0 left-0 right-0 w-full pointer-events-none flex justify-center md:justify-start pb-4 md:pb-6 z-40">
-            <div id="player-card" class="player-shell pointer-events-auto p-4 md:p-5 w-[94%] max-w-md transform translate-y-[150%] opacity-0 relative max-h-[85vh] overflow-y-auto custom-scrollbar">
-                
-                <div onclick="window.closePlayerCard()" class="absolute top-0 left-0 right-0 h-6 md:h-8 flex justify-center items-center cursor-pointer z-50">
+            <div id="player-card" class="player-shell pointer-events-auto p-4 md:p-5 w-[94%] max-w-md transform translate-y-[150%] opacity-0 relative max-h-[85vh] overflow-y-auto custom-scrollbar" data-player-sheet>
+
+                <div id="player-sheet-handle" class="player-sheet-handle absolute top-0 left-0 right-0 h-6 md:h-8 flex justify-center items-center cursor-pointer z-50" title="Свернуть / закрыть" aria-label="Управление плеером">
                     <div class="drag-handle mt-1"></div>
                 </div>
 
-                <div id="waveform-wrapper" class="relative w-full h-12 md:h-16 cursor-pointer group mb-2 mt-4">
+                <!-- Expanded: description (mobile swipe-up) -->
+                <div id="player-expand-panel" class="player-expand-panel">
+                    <p id="player-description" class="player-description type-body text-sm leading-relaxed"></p>
+                    <div id="player-tags" class="flex flex-wrap gap-1.5 mb-1 mt-2"></div>
+                    <p id="player-gear" class="text-[9px] font-semibold truncate mt-1" style="color: var(--ink-muted)"><i class="icon-radar mr-1" aria-hidden="true"></i>Recorder Name</p>
+                </div>
+
+                <div id="waveform-wrapper" class="relative w-full h-12 md:h-16 cursor-pointer group mb-2 mt-4 player-wave-block">
                     <div id="waveform-bg" class="absolute inset-0 flex items-center justify-between gap-[2px] text-slate-100 dark:text-slate-700"></div>
                     <div id="waveform-buffered" class="absolute inset-0 flex items-center justify-between gap-[2px] text-slate-300 dark:text-slate-600 pointer-events-none transition-all duration-300 ease-out" style="clip-path: inset(0 100% 0 0);"></div>
                     <div id="waveform-active" class="absolute inset-0 flex items-center justify-between gap-[2px] pointer-events-none" style="clip-path: inset(0 100% 0 0);"></div>
@@ -579,7 +586,7 @@
                     <input type="range" id="audio-timeline" min="0" max="100" value="0" step="0.01" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30 m-0" oninput="window.seekAudio(this.value)">
                 </div>
                 
-                <div class="flex justify-between items-center text-[10px] md:text-[11px] font-semibold text-slate-900 dark:text-slate-200 mb-4 px-0.5">
+                <div class="player-meta-row flex justify-between items-center text-[10px] md:text-[11px] font-semibold text-slate-900 dark:text-slate-200 mb-4 px-0.5">
                     <div class="flex items-center gap-2 min-w-0">
                         <span id="player-wave-pill" class="wave-pill" aria-hidden="true" title="Воспроизведение">
                             <span class="wave-pill__bar" style="--wave-h:7px"></span>
@@ -595,7 +602,7 @@
                         <span id="time-total" class="text-slate-400 dark:text-slate-500">0:00</span>
                     </div>
                     
-                    <div class="flex items-center gap-2 pointer-events-auto">
+                    <div class="player-volume-row flex items-center gap-2 pointer-events-auto">
                         <button onclick="window.toggleMute()" class="text-slate-400 hover:text-[color:var(--accent-ink)] transition-colors shrink-0" title="Громкость" aria-label="Громкость">
                             <i id="volume-icon" class="icon-volume-high pointer-events-none text-sm w-4 text-center" aria-hidden="true"></i>
                         </button>
@@ -603,7 +610,7 @@
                     </div>
                 </div>
 
-                <div class="flex items-center gap-3 md:gap-4">
+                <div class="player-compact-row flex items-center gap-3 md:gap-4">
                     <button id="main-play-btn" onclick="window.toggleMainPlay()" class="player-play-btn w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shadow-md flex-shrink-0 relative overflow-hidden" aria-label="Воспроизведение">
                         <i id="main-play-icon" class="icon-play text-sm md:text-base translate-x-0.5 pointer-events-none" aria-hidden="true"></i>
                         <i id="main-pause-icon" class="icon-pause text-sm md:text-base hidden pointer-events-none" aria-hidden="true"></i>
@@ -613,18 +620,20 @@
                     <div class="flex-grow min-w-0 text-left">
                         <div class="flex items-center mb-0.5 gap-2">
                             <h2 id="player-title" onclick="window.openDetailsModal()" class="text-[13px] md:text-[15px] font-bold text-slate-800 dark:text-white cursor-pointer transition-colors truncate">Title</h2>
-                            <button id="btn-ambi-toggle" onclick="window.toggleAmbisonics()" class="hidden text-[color:var(--accent-ink)] hover:opacity-80 flex-shrink-0 transition-opacity" title="Включить 360 вращение" aria-label="Звуковая сфера 360°">
+                            <button id="btn-ambi-toggle" onclick="window.toggleAmbisonics()" class="hidden text-[color:var(--accent-ink)] hover:opacity-80 flex-shrink-0 transition-opacity player-desktop-only" title="Включить 360 вращение" aria-label="Звуковая сфера 360°">
                                 <i class="icon-global text-sm pointer-events-none" aria-hidden="true"></i>
                             </button>
-                            <button onclick="window.openDetailsModal()" class="player-icon-btn rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-95 ml-1" title="Подробнее" aria-label="Подробнее о звуке">
+                            <button onclick="window.openDetailsModal()" class="player-icon-btn rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-95 ml-1 player-desktop-only" title="Подробнее" aria-label="Подробнее о звуке">
                                 <i class="icon-info-circle text-[13px] md:text-[15px] pointer-events-none" aria-hidden="true"></i>
                             </button>
-                            <button id="btn-analyzer-toggle" onclick="window.togglePlayerAnalyzers()" class="player-icon-btn player-icon-btn--muted rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-95" title="Анализаторы" data-lang-title="analyzers_title" aria-label="Анализаторы">
+                            <button id="btn-analyzer-toggle" onclick="window.togglePlayerAnalyzers()" class="player-icon-btn player-icon-btn--muted rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-95 player-desktop-only" title="Анализаторы" data-lang-title="analyzers_title" aria-label="Анализаторы">
                                 <i id="btn-analyzer-icon" class="icon-chart-2 text-[12px] md:text-[13px] pointer-events-none" aria-hidden="true"></i>
                             </button>
+                            <button type="button" id="player-more-btn" onclick="window.openPlayerActionsMenu(event)" class="player-more-btn player-icon-btn rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-95 ml-auto" title="Действия" aria-label="Действия плеера" aria-haspopup="menu">
+                                <i class="icon-more pointer-events-none" aria-hidden="true"></i>
+                            </button>
                         </div>
-                        <div id="player-tags" class="flex flex-wrap gap-1.5 mb-1 mt-0.5"></div>
-                        <p id="player-gear" class="text-[9px] font-semibold truncate" style="color: var(--ink-muted)"><i class="icon-radar mr-1" aria-hidden="true"></i>Recorder Name</p>
+                        <p id="player-gear-compact" class="player-gear-compact text-[9px] font-semibold truncate md:hidden" style="color: var(--ink-muted)"></p>
                     </div>
                 </div>
 
@@ -1605,7 +1614,7 @@
 
     <!-- Модальное окно: ПУБЛИЧНЫЙ ПРОФИЛЬ РЕКОРДИСТА -->
     <div id="public-profile-modal" onmousedown="if(event.target === this) window.closePublicProfileModal()" class="fixed inset-0 z-[240] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="public-profile-modal-content" class="pp-modal bg-white dark:bg-slate-900 rounded-[1.75rem] shadow-2xl w-full max-w-2xl app-modal-panel flex flex-col overflow-hidden min-h-0 transform scale-95 transition-all pointer-events-auto border border-slate-200/80 dark:border-slate-700">
+        <div id="public-profile-modal-content" class="pp-modal bg-white dark:bg-slate-900 rounded-[1.75rem] w-full max-w-2xl app-modal-panel flex flex-col overflow-hidden min-h-0 transform scale-95 transition-all pointer-events-auto border border-slate-200/80 dark:border-slate-700">
 
             <div class="pp-hero relative shrink-0">
                 <button type="button" onclick="window.closePublicProfileModal()" class="pp-hero__close" aria-label="Закрыть">
@@ -1642,7 +1651,7 @@
                             </button>
                         </div>
                     </div>
-                    <p id="pp-view-own-note" class="hidden text-[11px] text-[color:var(--accent)] font-semibold mt-2"><i class="icon-eye mr-1"></i>Так ваш профиль видят другие</p>
+                    <p id="pp-view-own-note" class="hidden text-[11px] text-[color:var(--ink-muted)] font-semibold mt-2"><i class="icon-eye mr-1"></i>Так ваш профиль видят другие</p>
                 </div>
             </div>
 
@@ -2394,7 +2403,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260805n"></script>
+    <script type="module" src="./src/main.js?v=20260805o"></script>
 
 </body>
 </html>

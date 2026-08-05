@@ -267,7 +267,30 @@ window.initMap = function() {
     window.startMainMap();
 };
 
-/** Reserve bottom chrome so Yandex keeps logo + «Условия» in one intact row above the rail. */
+/** Resolve --mobile-fs-bottom to CSS px (stable; ignores transient keyboard height). */
+window.getMobileFsBottomPx = function() {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--mobile-fs-bottom').trim();
+    if (!raw) return 88;
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;height:' + raw;
+    document.body.appendChild(probe);
+    const h = Math.ceil(probe.getBoundingClientRect().height) || 88;
+    probe.remove();
+    return Math.max(72, h);
+};
+
+/** True when soft keyboard (or similar) has shrunk the visual viewport. */
+window.isMobileKeyboardOpen = function() {
+    if (window.innerWidth >= 768 || !window.visualViewport) return false;
+    const vv = window.visualViewport;
+    return (window.innerHeight - vv.height - (vv.offsetTop || 0)) > 72;
+};
+
+/**
+ * Reserve bottom chrome so Yandex keeps logo + «Условия» above the rail.
+ * Prefer CSS token over live nav geometry so login / keyboard / guiScale
+ * cannot leave a permanent upward map shift.
+ */
 window.syncYandexMapChromeMargins = function() {
     const map = window.map;
     if (!map || !map.margin || typeof map.margin.setDefaultMargin !== 'function') return;
@@ -275,24 +298,51 @@ window.syncYandexMapChromeMargins = function() {
         map.margin.setDefaultMargin(0);
         return;
     }
+    /* Skip while keyboard is open — innerHeight/nav rect are lying. */
+    if (window.isMobileKeyboardOpen && window.isMobileKeyboardOpen()) return;
+
+    let bottomPx = window.getMobileFsBottomPx ? window.getMobileFsBottomPx() : 88;
     const nav = document.getElementById('mobile-bottom-nav');
-    let bottomPx = 88;
     if (nav && !nav.classList.contains('hidden')) {
         const rect = nav.getBoundingClientRect();
-        if (rect.height > 0) {
-            bottomPx = Math.max(72, Math.ceil(window.innerHeight - rect.top + 6));
-        }
-    } else {
-        const raw = getComputedStyle(document.documentElement).getPropertyValue('--mobile-fs-bottom').trim();
-        if (raw) {
-            const probe = document.createElement('div');
-            probe.style.cssText = 'position:absolute;visibility:hidden;height:' + raw;
-            document.body.appendChild(probe);
-            bottomPx = Math.max(72, Math.ceil(probe.getBoundingClientRect().height) || 88);
-            probe.remove();
+        if (rect.height > 0 && rect.top > 0) {
+            /* Fine-tune from layout, but never exceed token + small slack. */
+            const measured = Math.ceil(window.innerHeight - rect.top + 4);
+            bottomPx = Math.min(Math.max(bottomPx, measured), bottomPx + 16);
         }
     }
     map.margin.setDefaultMargin([0, 0, bottomPx, 0]);
+};
+
+/** After auth / modal / keyboard: reset scroll + reflow map so it doesn't stay shifted up. */
+window.recoverMobileMapViewport = function() {
+    if (window.innerWidth >= 768) return;
+    try {
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+    } catch (_) {}
+    const run = () => {
+        if (typeof window.syncYandexMapChromeMargins === 'function') {
+            window.syncYandexMapChromeMargins();
+        }
+        const map = window.map;
+        try {
+            if (map && map.container && typeof map.container.fitToViewport === 'function') {
+                map.container.fitToViewport();
+            }
+        } catch (_) {}
+        try {
+            if (window.yandex3Map && typeof window.yandex3Map.update === 'function') {
+                window.yandex3Map.update();
+            }
+        } catch (_) {}
+    };
+    requestAnimationFrame(() => {
+        run();
+        setTimeout(run, 60);
+        setTimeout(run, 280);
+    });
 };
 
 window.initYandexMap = function() {
@@ -1112,12 +1162,20 @@ window.clearMapRoutes = function() {
 
 (function bindYandexChromeMarginResize() {
     let t = 0;
-    window.addEventListener('resize', () => {
+    const schedule = () => {
         clearTimeout(t);
         t = setTimeout(() => {
-            if (typeof window.syncYandexMapChromeMargins === 'function') {
+            if (window.isMobileKeyboardOpen && window.isMobileKeyboardOpen()) return;
+            if (typeof window.recoverMobileMapViewport === 'function') {
+                window.recoverMobileMapViewport();
+            } else if (typeof window.syncYandexMapChromeMargins === 'function') {
                 window.syncYandexMapChromeMargins();
             }
         }, 120);
-    }, { passive: true });
+    };
+    window.addEventListener('resize', schedule, { passive: true });
+    window.addEventListener('orientationchange', schedule, { passive: true });
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', schedule, { passive: true });
+    }
 })();

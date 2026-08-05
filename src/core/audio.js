@@ -1181,6 +1181,7 @@ window.closePlayerCard = function() {
     window.collapsePlayerAnalyzers();
     window.resetStereoPan();
     if (window.resetPlaybackPitch) window.resetPlaybackPitch();
+    if (window.collapsePlayerSheet) window.collapsePlayerSheet();
 
     if (card) card.classList.add('translate-y-[150%]', 'opacity-0');
     document.body.classList.remove('player-visible');

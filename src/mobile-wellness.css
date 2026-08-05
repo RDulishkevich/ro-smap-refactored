@@ -360,7 +360,7 @@
         max-height: none !important;
         border-radius: 0 !important;
     }
-    /* Confirm stays compact-centered */
+    /* Confirm stays compact-centered — no dock padding */
     #ui-modal-overlay.app-modal-overlay {
         align-items: center !important;
         justify-content: center !important;
@@ -372,6 +372,7 @@
         max-height: min(85dvh, 32rem) !important;
         border-radius: var(--well-radius-sheet) !important;
         background: var(--well-white) !important;
+        padding-bottom: 1rem !important;
     }
     /* Dock stays above fullscreen cream panels */
     .mobile-bottom-nav {
@@ -448,17 +449,134 @@
         line-height: 1.1 !important;
     }
 
-    /* —— Player card —— */
+    /* —— Player card: compact pill hugging the peach dock —— */
+    #player-anchor.player-anchor {
+        z-index: 215 !important;
+        justify-content: stretch !important;
+        padding-left: max(0.75rem, var(--sal)) !important;
+        padding-right: max(0.75rem, var(--sar)) !important;
+        padding-bottom: calc(var(--mobile-fs-bottom) + 0.4rem) !important;
+    }
     #player-card.player-shell {
         background: var(--well-white) !important;
         background-color: var(--well-white) !important;
         border: none !important;
-        border-radius: var(--well-radius-sheet) !important;
+        border-radius: 1.35rem !important;
         box-shadow: var(--well-shadow-strong) !important;
-        margin-left: max(0.75rem, var(--sal)) !important;
-        margin-right: max(0.75rem, var(--sar)) !important;
-        bottom: calc(var(--mobile-fs-bottom) + 0.35rem) !important;
-        max-width: calc(100vw - 1.5rem - var(--sal) - var(--sar)) !important;
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0.45rem 0.7rem 0.55rem !important;
+        max-height: min(62dvh, 28rem) !important;
+        overflow: hidden !important;
+        transition:
+            transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+            opacity 0.28s ease,
+            padding 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+            border-radius 0.32s ease !important;
+    }
+    #player-card.player-shell.is-expanded {
+        padding: 0.55rem 0.75rem 0.7rem !important;
+        border-radius: 1.5rem !important;
+        overflow-y: auto !important;
+    }
+    #player-card .player-sheet-handle {
+        height: 1.1rem;
+    }
+    #player-card .drag-handle {
+        width: 2.25rem;
+        height: 0.28rem;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--ink) 22%, transparent);
+    }
+    #player-card .player-desktop-only {
+        display: none !important;
+    }
+    #player-card .player-more-btn {
+        display: inline-flex !important;
+        width: 2rem;
+        height: 2rem;
+        margin-left: auto;
+        color: var(--well-ink);
+        background: var(--well-cream);
+    }
+    #player-card .player-more-btn:active {
+        transform: scale(0.96);
+    }
+    #player-card .player-gear-compact {
+        display: block;
+        margin-top: 0.1rem;
+    }
+    #player-card .player-play-btn {
+        width: 2.35rem !important;
+        height: 2.35rem !important;
+        min-width: 2.35rem;
+        min-height: 2.35rem;
+    }
+    #player-card #player-title {
+        font-size: 0.82rem !important;
+        line-height: 1.2;
+    }
+    #player-card .player-compact-row {
+        gap: 0.65rem;
+    }
+    /* Collapsed: hide wave / volume / expand panel */
+    #player-card .player-wave-block,
+    #player-card .player-meta-row,
+    #player-card .player-expand-panel {
+        max-height: 0;
+        opacity: 0;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden;
+        pointer-events: none;
+        transform: translateY(8px);
+        transition:
+            max-height 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+            opacity 0.28s ease,
+            transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    #player-card.is-expanded .player-expand-panel {
+        max-height: 9.5rem;
+        opacity: 1;
+        margin-bottom: 0.45rem !important;
+        margin-top: 0.35rem !important;
+        pointer-events: auto;
+        transform: translateY(0);
+        overflow-y: auto;
+    }
+    #player-card.is-expanded .player-wave-block {
+        max-height: 3.25rem;
+        opacity: 1;
+        margin: 0.35rem 0 0.15rem !important;
+        pointer-events: auto;
+        transform: translateY(0);
+        height: 2.4rem !important;
+    }
+    #player-card.is-expanded .player-meta-row {
+        max-height: 2rem;
+        opacity: 1;
+        margin-bottom: 0.45rem !important;
+        pointer-events: auto;
+        transform: translateY(0);
+    }
+    #player-card .player-description {
+        display: block;
+        color: var(--ink-muted);
+        font-size: 0.8rem;
+        line-height: 1.4;
+        margin: 0;
+    }
+    #player-card .player-description.is-empty {
+        font-style: italic;
+        opacity: 0.75;
+    }
+    #player-card .player-volume-row {
+        display: none !important;
+    }
+    #player-card #ambisonics-control:not(.hidden) {
+        margin-top: 0.65rem;
+        padding-top: 0.65rem;
     }
 
     /* —— Modals: soft top sheet feel, cream —— */
