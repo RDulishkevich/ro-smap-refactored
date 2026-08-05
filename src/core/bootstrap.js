@@ -1,18 +1,18 @@
 import { initGlobalState } from './state.js?v=20260726c';
 import './api.js?v=20260721t';
-import { initAuth } from './auth.js?v=20260805p';
+import { initAuth } from './auth.js?v=20260806b';
 
 import './sfx.js?v=20260721t';
 import './antispam.js?v=20260721t';
 import '../ui/file-xfer.js?v=20260805j';
 import '../ui/like-shake.js?v=20260805j';
-import '../ui/ui.js?v=20260806a';
+import '../ui/ui.js?v=20260806c';
 import './audio.js?v=20260805x';
-import './map.js?v=20260805o';
-import './mapbox-map.js?v=20260721t';
+import './map.js?v=20260806b';
+import './mapbox-map.js?v=20260806b';
 import './dgis-map.js?v=20260721t';
 import './google-earth-map.js?v=20260721t';
-import './yandex3-map.js?v=20260802a';
+import './yandex3-map.js?v=20260806b';
 import './achievements.js?v=20260721t';
 import './guessr.js?v=20260721t';
 import './admin-console.js?v=20260721t';

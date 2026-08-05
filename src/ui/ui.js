@@ -893,7 +893,9 @@ window.syncMobileChromeHidden = function() {
     const recOpen = !!(rec && !rec.classList.contains('hidden'));
     const detailsOpen = document.body.classList.contains('dock-view-details')
         || window.__dockView === 'details';
-    const hide = addOpen || recOpen || detailsOpen;
+    const messagesOpen = document.body.classList.contains('dock-view-messages')
+        || window.__dockView === 'messages';
+    const hide = addOpen || recOpen || detailsOpen || messagesOpen;
     document.body.classList.toggle('hide-mobile-nav', hide);
 };
 
@@ -3373,10 +3375,33 @@ window.renderActiveTags = function() {
     if (window.syncLibraryFiltersToggle) window.syncLibraryFiltersToggle(pills.length);
 }
 
+window.__librarySearchQuery = window.__librarySearchQuery || '';
+
+window.onLibrarySearchInput = function(value) {
+    window.__librarySearchQuery = String(value || '');
+    const clearBtn = document.getElementById('library-search-clear');
+    if (clearBtn) clearBtn.classList.toggle('hidden', !window.__librarySearchQuery.trim());
+    window.__filteredSoundsCache = null;
+    window.__filteredSoundsCacheKey = '';
+    if (window.renderList) window.renderList();
+    if (window.updateMapMarkers) window.updateMapMarkers();
+};
+
+window.clearLibrarySearch = function() {
+    const input = document.getElementById('library-search-input');
+    if (input) input.value = '';
+    window.onLibrarySearchInput('');
+};
+
 window.getFilteredSounds = function(forceRefresh = false) {
     const queryEl = document.getElementById('search-input');
-    const query = queryEl ? queryEl.value.trim().toLowerCase() : '';
-    const cacheKey = `${query}|gen:${Array.from(window.activeGenTags || []).sort().join(',')}|${window.activeEcoLayer.size}|${Array.from(window.activeEcoLayer).sort().join(',')}|${window.activeUcsCat.size}|${Array.from(window.activeUcsCat).sort().join(',')}|${window.activeUcsSub.size}|${Array.from(window.activeUcsSub).sort().join(',')}|${window.activePrinciple.size}|${Array.from(window.activePrinciple).sort().join(',')}|${window.activeGear.size}|${Array.from(window.activeGear).sort().join(',')}|${window.activeMic.size}|${Array.from(window.activeMic).sort().join(',')}|${window.activeChannels.size}|${Array.from(window.activeChannels).sort().join(',')}|${window.activeLicense.size}|${Array.from(window.activeLicense).sort().join(',')}|${window.activeRecordist.size}|${Array.from(window.activeRecordist).sort().join(',')}|${window.activeWeather.size}|${Array.from(window.activeWeather).sort().join(',')}|${window.activeDate.size}|${Array.from(window.activeDate).sort().join(',')}|session:${window.activeSessionId || ''}`;
+    const libEl = document.getElementById('library-search-input');
+    const mapQuery = queryEl ? queryEl.value.trim().toLowerCase() : '';
+    const libQuery = (window.__librarySearchQuery != null
+        ? String(window.__librarySearchQuery)
+        : (libEl ? libEl.value : '')).trim().toLowerCase();
+    const query = libQuery || mapQuery;
+    const cacheKey = `${query}|lib:${libQuery}|map:${mapQuery}|gen:${Array.from(window.activeGenTags || []).sort().join(',')}|${window.activeEcoLayer.size}|${Array.from(window.activeEcoLayer).sort().join(',')}|${window.activeUcsCat.size}|${Array.from(window.activeUcsCat).sort().join(',')}|${window.activeUcsSub.size}|${Array.from(window.activeUcsSub).sort().join(',')}|${window.activePrinciple.size}|${Array.from(window.activePrinciple).sort().join(',')}|${window.activeGear.size}|${Array.from(window.activeGear).sort().join(',')}|${window.activeMic.size}|${Array.from(window.activeMic).sort().join(',')}|${window.activeChannels.size}|${Array.from(window.activeChannels).sort().join(',')}|${window.activeLicense.size}|${Array.from(window.activeLicense).sort().join(',')}|${window.activeRecordist.size}|${Array.from(window.activeRecordist).sort().join(',')}|${window.activeWeather.size}|${Array.from(window.activeWeather).sort().join(',')}|${window.activeDate.size}|${Array.from(window.activeDate).sort().join(',')}|session:${window.activeSessionId || ''}`;
 
     if (!forceRefresh && window.__filteredSoundsCacheKey === cacheKey && window.__filteredSoundsCache) {
         return window.__filteredSoundsCache;
@@ -3411,8 +3436,8 @@ window.getFilteredSounds = function(forceRefresh = false) {
     return filtered;
 }
 
-window.__listVirt = window.__listVirt || { rowH: 108, overscan: 8, items: [], key: '' };
-window.__listVirt.rowH = 108;
+window.__listVirt = window.__listVirt || { rowH: 72, overscan: 8, items: [], key: '' };
+window.__listVirt.rowH = 72;
 window.__listVirt.overscan = window.__listVirt.overscan || 8;
 
 window.buildSoundListRowHtml = function(sound) {
@@ -3430,7 +3455,7 @@ window.buildSoundListRowHtml = function(sound) {
             .split(/[,;]+/)
             .map((t) => t.trim())
             .filter(Boolean);
-    const shownTags = tags.slice(0, 3);
+    const shownTags = tags.slice(0, 2);
     const canDownload = !!(sound.url && String(sound.url).length > 10 && !String(sound.url).startsWith('blob:'));
     return `
         <div class="sidebar-sound-row${isSelected ? ' is-active' : ''}" data-sound-id="${esc(sound.id)}" onclick="window.selectSound('${safeId}')">
@@ -3562,7 +3587,11 @@ window.renderList = function() {
     if (filtered.length === 0) {
         window.__listVirt.items = [];
         window.__listVirt.key = '';
-        const query = (document.getElementById('search-input')?.value || '').trim();
+        const query = (
+            (window.__librarySearchQuery || '')
+            || (document.getElementById('library-search-input')?.value || '')
+            || (document.getElementById('search-input')?.value || '')
+        ).trim();
         const hasFilters = !!(window.activeEcoLayer.size || window.activeUcsCat.size || window.activeUcsSub.size
             || window.activeGenTags.size || window.activePrinciple.size || window.activeGear.size
             || window.activeMic.size || window.activeChannels.size || window.activeLicense.size
@@ -5053,7 +5082,7 @@ window.closeFeedArticleModal = function() {
     setTimeout(() => { if (m.classList.contains('opacity-0')) m.classList.add('hidden'); }, 300);
 };
 
-window.__libraryFiltersOpen = true;
+window.__libraryFiltersOpen = false;
 
 window.syncLibraryFiltersToggle = function(count) {
     const n = typeof count === 'number'

@@ -91,7 +91,6 @@ window.openMarkerAdminContext = function(soundId, e) {
             if (dom && typeof dom.stopPropagation === 'function') dom.stopPropagation();
         } catch (_) {}
     }
-    if (window.hideMarkerHoverCard) window.hideMarkerHoverCard(true);
 
     const s = (window.soundsData || []).find(x => x.id === soundId);
     if (!s || !window.getAdminSoundActionItems) return false;
@@ -114,6 +113,64 @@ window.openMarkerAdminContext = function(soundId, e) {
         window.openAdminSoundActions(soundId);
     }
     return true;
+};
+
+/** RMB / long-press on marker: preview card for everyone; staff also get actions menu. */
+window.openMarkerContext = function(soundId, e) {
+    if (e) {
+        try {
+            if (typeof e.preventDefault === 'function') e.preventDefault();
+            if (typeof e.stopPropagation === 'function') e.stopPropagation();
+            const dom = e.get?.('domEvent');
+            if (dom && typeof dom.preventDefault === 'function') dom.preventDefault();
+            if (dom && typeof dom.stopPropagation === 'function') dom.stopPropagation();
+        } catch (_) {}
+    }
+    const sound = (window.soundsData || []).find((x) => x.id === soundId);
+    if (sound && window.showMarkerHoverCard) {
+        window.showMarkerHoverCard(sound, { force: true });
+    }
+    if (window.isCurrentUserStaff && window.isCurrentUserStaff() && window.openMarkerAdminContext) {
+        window.openMarkerAdminContext(soundId, e);
+    }
+    return true;
+};
+
+window.bindMarkerLongPress = function(el, soundId) {
+    if (!el || el.__markerLongPressBound) return;
+    el.__markerLongPressBound = true;
+    let timer = null;
+    let startX = 0;
+    let startY = 0;
+    const clear = () => {
+        if (timer) {
+            clearTimeout(timer);
+            timer = null;
+        }
+    };
+    el.addEventListener('touchstart', (e) => {
+        if (!e.touches || e.touches.length !== 1) return;
+        const t = e.touches[0];
+        startX = t.clientX;
+        startY = t.clientY;
+        clear();
+        timer = setTimeout(() => {
+            timer = null;
+            window.openMarkerContext(soundId, {
+                clientX: startX,
+                clientY: startY,
+                preventDefault() {},
+                stopPropagation() {}
+            });
+        }, 480);
+    }, { passive: true });
+    el.addEventListener('touchmove', (e) => {
+        if (!timer || !e.touches || !e.touches[0]) return;
+        const t = e.touches[0];
+        if (Math.abs(t.clientX - startX) > 12 || Math.abs(t.clientY - startY) > 12) clear();
+    }, { passive: true });
+    el.addEventListener('touchend', clear, { passive: true });
+    el.addEventListener('touchcancel', clear, { passive: true });
 };
 
 window.destroyYandexMap = function() {
@@ -506,9 +563,10 @@ window.positionMarkerHoverCard = function() {
     }
 };
 
-window.showMarkerHoverCard = function(sound) {
+window.showMarkerHoverCard = function(sound, opts = {}) {
     if (!sound || !window.map) return;
-    if (window.matchMedia && window.matchMedia('(hover: none)').matches) return;
+    const force = !!(opts && opts.force);
+    if (!force && window.matchMedia && window.matchMedia('(hover: none)').matches) return;
 
     if (window.__markerHoverHideTimer) {
         clearTimeout(window.__markerHoverHideTimer);
@@ -703,6 +761,11 @@ window.initMapLongPress = function() {
     container.addEventListener('touchstart', (e) => {
         if (e.touches.length !== 1) { cancel(); return; }
         const touch = e.touches[0];
+        const target = e.target;
+        if (target && typeof target.closest === 'function' && target.closest('.custom-marker, .marker-hover-card')) {
+            cancel();
+            return;
+        }
         moved = false;
         start = { x: touch.clientX, y: touch.clientY, pageX: touch.pageX, pageY: touch.pageY };
         timer = setTimeout(() => {
@@ -1064,11 +1127,15 @@ window.updateMapMarkers = function() {
                     e.preventDefault();
                     e.stopPropagation();
                 } catch (_) {}
-                window.openMarkerAdminContext(sound.id, e);
+                window.openMarkerContext(sound.id, e);
             });
             window.bindMarkerHover(placemark, sound.id);
             window.map.geoObjects.add(placemark);
             window.markerCache.set(sound.id, placemark);
+            requestAnimationFrame(() => {
+                const el = document.getElementById(`marker-${sound.id}`);
+                if (el && window.bindMarkerLongPress) window.bindMarkerLongPress(el, sound.id);
+            });
         } else {
             const coords = placemark.geometry.getCoordinates();
             if (!coords || coords[0] !== sound.lat || coords[1] !== sound.lng) {
@@ -1078,6 +1145,13 @@ window.updateMapMarkers = function() {
             if (placemark.__rosmapLayoutKey !== layoutKey) {
                 placemark.options.set('iconLayout', createMarkerLayout(colorClass, sound.id, isSoundwalk, isAmbisonic, isSelected));
                 placemark.__rosmapLayoutKey = layoutKey;
+                requestAnimationFrame(() => {
+                    const el = document.getElementById(`marker-${sound.id}`);
+                    if (el && window.bindMarkerLongPress) {
+                        el.__markerLongPressBound = false;
+                        window.bindMarkerLongPress(el, sound.id);
+                    }
+                });
             }
             if (placemark.__rosmapHitRadius !== hitRadius) {
                 placemark.options.set('iconShape', { type: 'Circle', coordinates: [0, 0], radius: hitRadius });

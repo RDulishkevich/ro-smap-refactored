@@ -1227,23 +1227,142 @@ export function initAuth() {
         window.renderSessionRouteStops();
     };
 
-    // Список участников – чипы-чекбоксы по всем ЗАРЕГИСТРИРОВАННЫМ пользователям (кроме себя);
-    // незарегистрированных вписывают отдельным текстовым полем (session-form-guests).
+    // Участники: typeahead — список появляется только после ввода имени.
+    window.__sessionFormSelectedParticipants = window.__sessionFormSelectedParticipants || [];
+
     window.renderSessionParticipantsPicker = function(selectedLogins) {
+        const selected = Array.isArray(selectedLogins)
+            ? selectedLogins.filter(Boolean)
+            : [];
+        window.__sessionFormSelectedParticipants = [...new Set(selected.map(String))];
+        const search = document.getElementById('session-participant-search');
+        if (search) search.value = '';
+        window.renderSessionParticipantChips();
+        window.hideSessionParticipantSuggestions();
+    };
+
+    window.renderSessionParticipantChips = function() {
         const container = document.getElementById('session-form-participants');
-        if (!container || !window.currentUser) return;
-        const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
-        const profiles = (window.profilesData || []).filter(p => p.loginName !== myLogin);
-        if (!profiles.length) {
-            container.innerHTML = `<span class="text-xs text-slate-400">Других зарегистрированных пользователей пока нет.</span>`;
+        if (!container) return;
+        const selected = window.__sessionFormSelectedParticipants || [];
+        const profiles = window.profilesData || [];
+        const esc = (t) => String(t ?? '')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        if (!selected.length) {
+            container.innerHTML = '';
             return;
         }
-        container.innerHTML = profiles.map(p => `
-            <label class="badge-toggle-chip ${selectedLogins.includes(p.loginName) ? 'active' : ''}">
-                <input type="checkbox" class="hidden" value="${p.loginName}" ${selectedLogins.includes(p.loginName) ? 'checked' : ''} onchange="this.closest('label').classList.toggle('active', this.checked)">
-                <i class="icon-user"></i>${p.displayName || p.loginName}
-            </label>
-        `).join('');
+        container.innerHTML = selected.map((login) => {
+            const p = profiles.find((x) => x.loginName === login);
+            const name = esc(p?.displayName || login);
+            const safeLogin = esc(login).replace(/'/g, '&#39;');
+            return `<span class="session-participant-chip">
+                <i class="icon-user" aria-hidden="true"></i>${name}
+                <button type="button" aria-label="Убрать" onclick="window.removeSessionParticipant('${safeLogin}')"><i class="icon-close-circle"></i></button>
+            </span>`;
+        }).join('');
+    };
+
+    window.hideSessionParticipantSuggestions = function() {
+        const box = document.getElementById('session-participant-suggestions');
+        if (!box) return;
+        box.classList.add('hidden');
+        box.innerHTML = '';
+        window.__sessionParticipantSuggestIndex = -1;
+    };
+
+    window.filterSessionParticipantSuggestions = function(raw) {
+        const box = document.getElementById('session-participant-suggestions');
+        if (!box || !window.currentUser) return;
+        const q = String(raw || '').trim().toLowerCase();
+        if (q.length < 1) {
+            window.hideSessionParticipantSuggestions();
+            return;
+        }
+        const myLogin = window.currentUser.loginName || String(window.currentUser.username || '').toLowerCase();
+        const selected = new Set(window.__sessionFormSelectedParticipants || []);
+        const esc = (t) => String(t ?? '')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const matches = (window.profilesData || [])
+            .filter((p) => p.loginName && p.loginName !== myLogin && !selected.has(p.loginName))
+            .filter((p) => {
+                const name = String(p.displayName || '').toLowerCase();
+                const login = String(p.loginName || '').toLowerCase();
+                return name.includes(q) || login.includes(q);
+            })
+            .slice(0, 8);
+        if (!matches.length) {
+            box.innerHTML = `<div class="px-3 py-2 text-xs text-slate-400">Никого не найдено</div>`;
+            box.classList.remove('hidden');
+            window.__sessionParticipantSuggestIndex = -1;
+            return;
+        }
+        box.innerHTML = matches.map((p, i) => {
+            const login = esc(p.loginName);
+            const name = esc(p.displayName || p.loginName);
+            const safe = login.replace(/'/g, '&#39;');
+            return `<button type="button" role="option" data-idx="${i}" class="${i === 0 ? 'is-active' : ''}" onclick="window.addSessionParticipant('${safe}')">
+                <i class="icon-user opacity-70" aria-hidden="true"></i>
+                <span>${name}</span>
+                <span class="session-participant-suggestions__login">@${login}</span>
+            </button>`;
+        }).join('');
+        box.classList.remove('hidden');
+        window.__sessionParticipantSuggestIndex = 0;
+        window.__sessionParticipantSuggestLogins = matches.map((p) => p.loginName);
+    };
+
+    window.onSessionParticipantSearchKeydown = function(e) {
+        if (!e) return;
+        const box = document.getElementById('session-participant-suggestions');
+        const open = box && !box.classList.contains('hidden');
+        const logins = window.__sessionParticipantSuggestLogins || [];
+        if (e.key === 'Escape') {
+            window.hideSessionParticipantSuggestions();
+            return;
+        }
+        if (!open || !logins.length) {
+            if (e.key === 'Enter') e.preventDefault();
+            return;
+        }
+        let idx = Number(window.__sessionParticipantSuggestIndex);
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            idx = Math.min(logins.length - 1, (Number.isFinite(idx) ? idx : -1) + 1);
+            window.__sessionParticipantSuggestIndex = idx;
+            box.querySelectorAll('button[role="option"]').forEach((btn, i) => btn.classList.toggle('is-active', i === idx));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            idx = Math.max(0, (Number.isFinite(idx) ? idx : 0) - 1);
+            window.__sessionParticipantSuggestIndex = idx;
+            box.querySelectorAll('button[role="option"]').forEach((btn, i) => btn.classList.toggle('is-active', i === idx));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            const pick = logins[Number.isFinite(idx) && idx >= 0 ? idx : 0];
+            if (pick) window.addSessionParticipant(pick);
+        }
+    };
+
+    window.addSessionParticipant = function(login) {
+        const value = String(login || '').trim();
+        if (!value) return;
+        const selected = window.__sessionFormSelectedParticipants || [];
+        if (!selected.includes(value)) {
+            selected.push(value);
+            window.__sessionFormSelectedParticipants = selected;
+        }
+        const search = document.getElementById('session-participant-search');
+        if (search) search.value = '';
+        window.renderSessionParticipantChips();
+        window.hideSessionParticipantSuggestions();
+    };
+
+    window.removeSessionParticipant = function(login) {
+        const value = String(login || '').trim();
+        window.__sessionFormSelectedParticipants = (window.__sessionFormSelectedParticipants || []).filter((x) => x !== value);
+        window.renderSessionParticipantChips();
+        const search = document.getElementById('session-participant-search');
+        if (search && search.value.trim()) window.filterSessionParticipantSuggestions(search.value);
     };
 
     window.handleSessionPhotos = function(files) {
@@ -1291,7 +1410,7 @@ export function initAuth() {
         const guests = (document.getElementById('session-form-guests')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
         const videoLinks = (document.getElementById('session-form-videos')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
         const links = (document.getElementById('session-form-links')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
-        const participants = Array.from(document.querySelectorAll('#session-form-participants input:checked')).map(el => el.value);
+        const participants = [...(window.__sessionFormSelectedParticipants || [])];
         const photos = [...(window.__sessionFormPhotos || [])]
             .filter((u) => window.isHttpMediaUrl ? window.isHttpMediaUrl(u) : (typeof u === 'string' && /^https?:\/\//i.test(u)));
         const routeStops = [...(window.__sessionRouteStops || [])];

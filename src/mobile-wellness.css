@@ -379,6 +379,14 @@
         left: max(0.75rem, var(--sal)) !important;
         right: auto !important;
     }
+    #map-top-toolbar.map-top-toolbar.is-search-open,
+    #map-top-toolbar.map-top-toolbar:has(.map-search-cluster.is-open),
+    #map-top-toolbar.map-top-toolbar:has(.map-search-cluster:focus-within) {
+        right: calc(var(--chrome-inset-right) + (3 * var(--mobile-touch)) + (2 * var(--mobile-gutter)) + 0.5rem) !important;
+        left: max(var(--mobile-margin, 0.75rem), var(--sal)) !important;
+        max-width: none !important;
+        width: auto !important;
+    }
     #map-top-right-controls .map-icon-btn,
     #burger-btn {
         border-radius: 999px !important;
@@ -1068,7 +1076,9 @@
     }
 
     /* Sound list / feed rows → soft cards */
-    #sounds-list > *,
+    #sounds-list .sidebar-sound-row {
+        border-radius: 0.9rem !important;
+    }
     #sidebar-feed .feed-card,
     #panel-expeditions > * {
         border-radius: var(--well-radius-card) !important;
@@ -1137,17 +1147,31 @@
         overflow-x: hidden !important;
     }
     #add-modal-content {
-        overflow-x: hidden !important;
+        overflow: hidden !important;
         max-width: 100vw !important;
+        min-height: 0 !important;
     }
     #add-modal-content > .px-6 {
         padding-left: 1rem !important;
         padding-right: 1rem !important;
     }
-    #add-modal-content > .p-6 {
+    #add-modal-content > .add-modal-body,
+    #add-modal-content > .add-modal-footer {
         padding: 1rem !important;
-        gap: 1.15rem !important;
         overflow-x: hidden !important;
+    }
+    #add-modal-content > .add-modal-body {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        gap: 1.15rem !important;
+        -webkit-overflow-scrolling: touch;
+    }
+    #add-modal-content > .add-modal-footer {
+        flex-shrink: 0 !important;
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
     }
     #add-modal-content .modal-input,
     #add-modal-content select.modal-input,

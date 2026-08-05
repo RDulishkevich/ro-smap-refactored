@@ -213,7 +213,7 @@ window.yandex3MarkerHtml = function yandex3MarkerHtml(sound, isSelected) {
     el.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (window.openMarkerAdminContext) window.openMarkerAdminContext(sound.id, e);
+        if (window.openMarkerContext) window.openMarkerContext(sound.id, e);
     });
     el.addEventListener('mouseenter', () => {
         if (window.showMarkerHoverCard) window.showMarkerHoverCard(sound);
@@ -221,6 +221,7 @@ window.yandex3MarkerHtml = function yandex3MarkerHtml(sound, isSelected) {
     el.addEventListener('mouseleave', () => {
         if (window.hideMarkerHoverCard) window.hideMarkerHoverCard();
     });
+    if (window.bindMarkerLongPress) window.bindMarkerLongPress(el, sound.id);
     return el;
 };
 

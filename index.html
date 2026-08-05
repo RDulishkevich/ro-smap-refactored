@@ -29,11 +29,11 @@
 
     <!-- Tailwind (self-hosted build — без Play CDN / без unsafe-eval) -->
     <link rel="stylesheet" href="./src/tailwind.built.css?v=20260722c">
-    <link rel="stylesheet" href="./src/style.css?v=20260806a">
+    <link rel="stylesheet" href="./src/style.css?v=20260806c">
     <link rel="stylesheet" href="./src/glass.css?v=20260805v">
     <!-- fonts.css after glass so data-font tokens win over :root -->
     <link rel="stylesheet" href="./src/fonts.css?v=20260805m">
-    <link rel="stylesheet" href="./src/mobile-wellness.css?v=20260806a">
+    <link rel="stylesheet" href="./src/mobile-wellness.css?v=20260806c">
     
     <!-- Omnitone (Maps JS API key loaded at runtime via Secure API publicConfig — not in source) -->
     <script src="https://cdn.jsdelivr.net/npm/omnitone@1.3.0/build/omnitone.min.js" integrity="sha384-5aveyyKpKISYg2tL5r5SiN4i9TsY23neueM/OhYxhAEUxVpDwQNUPAePirLqvCOe" crossorigin="anonymous"></script>
@@ -219,51 +219,58 @@
 
             <!-- Библиотека: фильтры + список звуков -->
             <div id="sidebar-library" class="flex flex-col flex-1 min-h-0">
-                <div class="library-filters-bar px-4 pt-2 pb-1.5 shrink-0">
-                    <button type="button" id="library-filters-toggle" class="dock-filters-open-btn is-open" onclick="window.toggleLibraryFilters()" aria-expanded="true" aria-controls="dock-filters">
+                <div class="library-chrome px-3 pt-2 pb-1.5 shrink-0 flex flex-col gap-1.5">
+                    <label class="library-search-field" for="library-search-input">
+                        <i class="icon-search-normal library-search-field__icon" aria-hidden="true"></i>
+                        <input id="library-search-input" type="search" enterkeyhint="search" autocomplete="off" spellcheck="false" placeholder="Поиск…" aria-label="Поиск в библиотеке" oninput="window.onLibrarySearchInput(this.value)">
+                        <button type="button" id="library-search-clear" class="library-search-field__clear hidden" onclick="window.clearLibrarySearch()" aria-label="Очистить поиск">
+                            <i class="icon-close-circle" aria-hidden="true"></i>
+                        </button>
+                    </label>
+                    <button type="button" id="library-filters-toggle" class="dock-filters-open-btn" onclick="window.toggleLibraryFilters()" aria-expanded="false" aria-controls="dock-filters">
                         <span class="dock-filters-open-btn__lead"><i class="icon-filter" aria-hidden="true"></i><span data-lang="library_filters_btn">Фильтр</span></span>
                         <span id="library-filters-count" class="library-filters-count hidden">0</span>
                         <i class="icon-arrow-down dock-filters-open-btn__chev" aria-hidden="true"></i>
                     </button>
                 </div>
-                <div id="dock-filters" class="dock-filters">
+                <div id="dock-filters" class="dock-filters is-collapsed">
                     <div class="dock-filter-tabs flex border-b border-slate-100/80 dark:border-slate-700/50 flex-shrink-0 bg-slate-50/50 dark:bg-slate-900/30">
                         <button onclick="window.switchFilterTab('ucs')" id="tab-ucs" class="ui-tab ui-tab--filter is-active" data-lang="filter_tab_ucs"><i class="icon-sound mr-1"></i>Слои</button>
                         <button onclick="window.switchFilterTab('tags')" id="tab-tags" class="ui-tab ui-tab--filter" data-lang="filter_tab_tags"><i class="icon-hashtag mr-1"></i>Теги</button>
                         <button onclick="window.switchFilterTab('meta')" id="tab-meta" class="ui-tab ui-tab--filter" data-lang="filter_tab_meta"><i class="icon-slider-horizontal mr-1"></i>Параметры</button>
                     </div>
 
-                    <div id="panel-ucs" class="px-5 py-4 border-b border-slate-100 dark:border-slate-700/50 overflow-y-auto max-h-56 custom-scrollbar flex flex-col gap-3 flex-shrink-0">
+                    <div id="panel-ucs" class="library-filter-panel px-3 py-2.5 border-b border-slate-100 dark:border-slate-700/50 overflow-y-auto max-h-40 custom-scrollbar flex flex-col gap-2 flex-shrink-0">
                         <div>
-                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="ucs_layer">Слои аудиоландшафта</p>
-                            <div class="flex flex-wrap gap-1.5" id="filter-eco-layer"></div>
+                            <p class="library-filter-label" data-lang="ucs_layer">Слои аудиоландшафта</p>
+                            <div class="flex flex-wrap gap-1" id="filter-eco-layer"></div>
                         </div>
                         <div>
-                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="ucs_category">Категория (UCS)</p>
-                            <div class="flex flex-wrap gap-1.5" id="filter-ucs-categories"></div>
+                            <p class="library-filter-label" data-lang="ucs_category">Категория (UCS)</p>
+                            <div class="flex flex-wrap gap-1" id="filter-ucs-categories"></div>
                         </div>
                         <div>
-                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="ucs_sub">Субкатегория (CatID)</p>
-                            <div class="flex flex-wrap gap-1.5" id="filter-ucs-subcategories"></div>
+                            <p class="library-filter-label" data-lang="ucs_sub">Субкатегория (CatID)</p>
+                            <div class="flex flex-wrap gap-1" id="filter-ucs-subcategories"></div>
                         </div>
                     </div>
 
-                    <div id="panel-tags" class="hidden px-5 py-4 border-b border-slate-100 dark:border-slate-700/50 overflow-y-auto max-h-56 custom-scrollbar flex flex-wrap gap-1.5 flex-shrink-0"></div>
+                    <div id="panel-tags" class="library-filter-panel hidden px-3 py-2.5 border-b border-slate-100 dark:border-slate-700/50 overflow-y-auto max-h-40 custom-scrollbar flex flex-wrap gap-1 flex-shrink-0"></div>
 
-                    <div id="panel-meta" class="hidden px-5 py-4 border-b border-slate-100 dark:border-slate-700/50 overflow-y-auto max-h-56 custom-scrollbar flex flex-col gap-4 flex-shrink-0">
-                        <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_principle">Принцип записи</p><div class="flex flex-wrap gap-1.5" id="filter-meta-principle"></div></div>
-                        <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_gear">Рекордер</p><div class="flex flex-wrap gap-1.5" id="filter-meta-gear"></div></div>
-                        <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="mic_type">Микрофон</p><div class="flex flex-wrap gap-1.5" id="filter-meta-mic"></div></div>
-                        <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_channels">Система / Каналы</p><div class="flex flex-wrap gap-1.5" id="filter-meta-channels"></div></div>
-                        <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_recordist">Автор</p><div class="flex flex-wrap gap-1.5" id="filter-meta-recordist"></div></div>
-                        <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_weather">Погода</p><div class="flex flex-wrap gap-1.5" id="filter-meta-weather"></div></div>
-                        <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_license">Лицензия</p><div class="flex flex-wrap gap-1.5" id="filter-meta-license"></div></div>
-                        <div><p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2" data-lang="meta_date">Дата</p><div class="flex flex-wrap gap-1.5" id="filter-meta-date"></div></div>
+                    <div id="panel-meta" class="library-filter-panel hidden px-3 py-2.5 border-b border-slate-100 dark:border-slate-700/50 overflow-y-auto max-h-40 custom-scrollbar flex flex-col gap-2.5 flex-shrink-0">
+                        <div><p class="library-filter-label" data-lang="meta_principle">Принцип записи</p><div class="flex flex-wrap gap-1" id="filter-meta-principle"></div></div>
+                        <div><p class="library-filter-label" data-lang="meta_gear">Рекордер</p><div class="flex flex-wrap gap-1" id="filter-meta-gear"></div></div>
+                        <div><p class="library-filter-label" data-lang="mic_type">Микрофон</p><div class="flex flex-wrap gap-1" id="filter-meta-mic"></div></div>
+                        <div><p class="library-filter-label" data-lang="meta_channels">Система / Каналы</p><div class="flex flex-wrap gap-1" id="filter-meta-channels"></div></div>
+                        <div><p class="library-filter-label" data-lang="meta_recordist">Автор</p><div class="flex flex-wrap gap-1" id="filter-meta-recordist"></div></div>
+                        <div><p class="library-filter-label" data-lang="meta_weather">Погода</p><div class="flex flex-wrap gap-1" id="filter-meta-weather"></div></div>
+                        <div><p class="library-filter-label" data-lang="meta_license">Лицензия</p><div class="flex flex-wrap gap-1" id="filter-meta-license"></div></div>
+                        <div><p class="library-filter-label" data-lang="meta_date">Дата</p><div class="flex flex-wrap gap-1" id="filter-meta-date"></div></div>
                     </div>
                 </div>
 
-                <div id="library-active-filters" class="library-active-filters px-4 pt-2 empty:hidden flex flex-wrap gap-1.5 flex-shrink-0 md:hidden"></div>
-                <div id="sounds-list" class="flex-1 overflow-y-auto p-4 flex flex-col gap-2 min-h-0"></div>
+                <div id="library-active-filters" class="library-active-filters px-3 pt-1.5 empty:hidden flex flex-wrap gap-1 flex-shrink-0 md:hidden"></div>
+                <div id="sounds-list" class="flex-1 overflow-y-auto px-2.5 py-2 flex flex-col gap-1 min-h-0"></div>
             </div>
 
             <!-- Лента -->
@@ -1393,7 +1400,7 @@
                 </div>
             </div>
 
-            <div class="p-6 overflow-y-auto custom-scrollbar flex flex-col gap-6">
+            <div class="add-modal-body p-6 overflow-y-auto custom-scrollbar flex flex-col gap-6 flex-1 min-h-0">
                 <!-- Блок 1: Основная информация (Загрузка файла и Фото) -->
                 <div class="space-y-4">
                     <div id="drop-zone" class="file-xfer-drop relative">
@@ -1664,7 +1671,7 @@
                 
             </div>
 
-            <div class="p-6 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700">
+            <div class="add-modal-footer p-6 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700 shrink-0">
                 <p class="text-xs text-slate-500 dark:text-slate-400 text-center mb-3">
                     <span class="inline-flex items-center gap-1.5" data-lang="moderation_notice"><i class="icon-cloud"></i> Данные сохраняются на облако</span>
                 </p>
@@ -2139,7 +2146,12 @@
                 </div>
                 <div>
                     <label class="modal-label text-slate-400">Участники – зарегистрированные пользователи</label>
-                    <div id="session-form-participants" class="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto custom-scrollbar p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"></div>
+                    <p class="text-[11px] text-slate-400 mb-2">Начните вводить имя пользователя, чтобы добавить участника.</p>
+                    <div class="relative">
+                        <input id="session-participant-search" type="text" autocomplete="off" spellcheck="false" placeholder="Начните вводить имя…" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-xs" oninput="window.filterSessionParticipantSuggestions(this.value)" onkeydown="window.onSessionParticipantSearchKeydown(event)">
+                        <div id="session-participant-suggestions" class="session-participant-suggestions hidden" role="listbox"></div>
+                    </div>
+                    <div id="session-form-participants" class="mt-2 flex flex-wrap gap-1.5 max-h-28 overflow-y-auto custom-scrollbar empty:hidden"></div>
                 </div>
                 <div>
                     <label class="modal-label text-slate-400">Другие участники (не зарегистрированы, через запятую)</label>
@@ -2475,7 +2487,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260806a"></script>
+    <script type="module" src="./src/main.js?v=20260806c"></script>
 
 </body>
 </html>
