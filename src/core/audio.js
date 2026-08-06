@@ -189,21 +189,76 @@ window.routeNormalAudio = function() {
 };
 
 // --- Ambisonics ---
-window.initOmnitone = async function() {
-    if (window.omnitoneInitialized) return true;
-    try {
-        const ok = await window.ensureAudioGraph();
-        if (!ok) return false;
+window.ensureOmnitoneLibrary = function() {
+    if (window.Omnitone && typeof window.Omnitone.createFOARenderer === 'function') {
+        return Promise.resolve(window.Omnitone);
+    }
+    if (window.__omnitoneLoadPromise) return window.__omnitoneLoadPromise;
 
-        window.foaDecoder = Omnitone.createFOARenderer(window.audioContext, {
-            hrirPathUrl: 'https://cdn.jsdelivr.net/npm/omnitone@1.3.0/build/resources/'
+    window.__omnitoneLoadPromise = new Promise((resolve, reject) => {
+        const tryUrls = [
+            './vendor/omnitone.min.js',
+            'https://cdn.jsdelivr.net/npm/omnitone@1.3.0/build/omnitone.min.js',
+            'https://unpkg.com/omnitone@1.3.0/build/omnitone.min.js'
+        ];
+        let i = 0;
+        const next = () => {
+            if (window.Omnitone && typeof window.Omnitone.createFOARenderer === 'function') {
+                resolve(window.Omnitone);
+                return;
+            }
+            if (i >= tryUrls.length) {
+                reject(new Error('Omnitone library missing'));
+                return;
+            }
+            const url = tryUrls[i++];
+            const existing = document.querySelector(`script[data-omnitone-src="${url}"]`);
+            if (existing) {
+                existing.addEventListener('load', () => next());
+                existing.addEventListener('error', () => next());
+                return;
+            }
+            const s = document.createElement('script');
+            s.src = url;
+            s.async = true;
+            s.dataset.omnitoneSrc = url;
+            s.onload = () => next();
+            s.onerror = () => next();
+            document.head.appendChild(s);
+        };
+        next();
+    }).finally(() => {
+        if (!(window.Omnitone && window.Omnitone.createFOARenderer)) {
+            window.__omnitoneLoadPromise = null;
+        }
+    });
+    return window.__omnitoneLoadPromise;
+};
+
+window.initOmnitone = async function() {
+    if (window.omnitoneInitialized && window.foaDecoder) return true;
+    try {
+        const Omni = await window.ensureOmnitoneLibrary();
+        const ok = await window.ensureAudioGraph();
+        if (!ok || !window.audioContext) return false;
+        if (window.audioContext.state === 'suspended') {
+            await window.audioContext.resume();
+        }
+
+        // No hrirPathUrl — Omnitone 1.3 embeds FOA HRIRs as base64. The old
+        // CDN /build/resources/ path 404s and must not be used.
+        window.foaDecoder = Omni.createFOARenderer(window.audioContext, {
+            renderingMode: 'ambisonic'
         });
         await window.foaDecoder.initialize();
 
         window.omnitoneInitialized = true;
         return true;
     } catch (err) {
-        console.error("Omnitone error:", err);
+        console.error('Omnitone error:', err);
+        window.omnitoneInitialized = false;
+        window.foaDecoder = null;
+        window.__lastOmnitoneError = err && (err.message || String(err));
         return false;
     }
 }
@@ -343,7 +398,8 @@ window.enableAmbisonicMode = async function() {
     if (!window.omnitoneInitialized) {
         const success = await window.initOmnitone();
         if (!success) {
-            window.showToast('Не удалось инициализировать Omnitone');
+            const detail = window.__lastOmnitoneError ? ` (${window.__lastOmnitoneError})` : '';
+            window.showToast('Не удалось инициализировать амбисоник' + (detail.length < 80 ? detail : ''));
             return false;
         }
     } else if (window.audioContext && window.audioContext.state === 'suspended') {
