@@ -35,9 +35,8 @@
     <link rel="stylesheet" href="./src/fonts.css?v=20260805m">
     <link rel="stylesheet" href="./src/mobile-wellness.css?v=20260806o">
     
-    <!-- Omnitone FOA decoder (local first; CDN fallback if vendor missing) -->
-    <script src="./vendor/omnitone.min.js" integrity="sha384-5aveyyKpKISYg2tL5r5SiN4i9TsY23neueM/OhYxhAEUxVpDwQNUPAePirLqvCOe" crossorigin="anonymous"
-        onerror="this.onerror=null;this.removeAttribute('integrity');this.src='https://cdn.jsdelivr.net/npm/omnitone@1.3.0/build/omnitone.min.js';"></script>
+    <!-- Omnitone FOA (same-origin, no SRI/crossorigin — those break local loads without CORS) -->
+    <script src="./vendor/omnitone.min.js"></script>
     <!-- React (панель "Статистика региона" рисуется React-компонентом, см. src/widgets/analytics-widget.js) -->
     <script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js" integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js" integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1" crossorigin="anonymous"></script>
@@ -2499,7 +2498,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260806p"></script>
+    <script type="module" src="./src/main.js?v=20260806q"></script>
 
 </body>
 </html>

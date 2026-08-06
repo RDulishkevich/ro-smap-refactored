@@ -89,6 +89,7 @@ window.disconnectAudioGraph = function() {
         window.gainNode,
         window.analyserNode,
         window.channelSplitter,
+        window.foaDecoder && window.foaDecoder.input,
         window.foaDecoder && window.foaDecoder.output
     ];
     if (Array.isArray(window.channelAnalysers)) {
@@ -189,26 +190,107 @@ window.routeNormalAudio = function() {
 };
 
 // --- Ambisonics ---
+/** Stereo virtual-mic decode of FOA (Ambix/SN3D). Always available — no HRIR fetch. */
+window.buildMatrixFoaDecoder = function() {
+    const ctx = window.audioContext;
+    if (!ctx) return null;
+
+    const input = ctx.createGain();
+    input.channelCount = 4;
+    input.channelCountMode = 'explicit';
+    input.channelInterpretation = 'discrete';
+
+    const splitter = ctx.createChannelSplitter(4);
+    input.connect(splitter);
+
+    const pair = (ch) => {
+        const gL = ctx.createGain();
+        const gR = ctx.createGain();
+        try { splitter.connect(gL, ch); } catch (_) {}
+        try { splitter.connect(gR, ch); } catch (_) {}
+        return { gL, gR };
+    };
+    const W = pair(0);
+    const X = pair(1);
+    const Y = pair(2);
+    const Z = pair(3);
+
+    const merger = ctx.createChannelMerger(2);
+    [W, X, Y, Z].forEach(({ gL, gR }) => {
+        try { gL.connect(merger, 0, 0); } catch (_) {}
+        try { gR.connect(merger, 0, 1); } catch (_) {}
+    });
+
+    const output = ctx.createGain();
+    merger.connect(output);
+
+    const SQRT_HALF = Math.SQRT1_2;
+    const apply = (yawDeg = 0, pitchDeg = 0) => {
+        const yaw = (Number(yawDeg) || 0) * Math.PI / 180;
+        const pitch = (Number(pitchDeg) || 0) * Math.PI / 180;
+        const cy = Math.cos(yaw);
+        const sy = Math.sin(yaw);
+        const cp = Math.cos(pitch);
+        const sp = Math.sin(pitch);
+        // Same basis as Omnitone setRotationMatrix3 used elsewhere in this file.
+        const m00 = cy * cp, m01 = -sy, m02 = cy * sp;
+        const m10 = sy * cp, m11 = cy, m12 = sy * sp;
+        // Stereo cardioids from rotated X'/Y' (+ light Z for pitch).
+        W.gL.gain.value = SQRT_HALF;
+        W.gR.gain.value = SQRT_HALF;
+        X.gL.gain.value = 0.5 * m00 + 0.5 * m10;
+        X.gR.gain.value = 0.5 * m00 - 0.5 * m10;
+        Y.gL.gain.value = 0.5 * m01 + 0.5 * m11;
+        Y.gR.gain.value = 0.5 * m01 - 0.5 * m11;
+        Z.gL.gain.value = 0.35 * m02 + 0.35 * m12;
+        Z.gR.gain.value = 0.35 * m02 - 0.35 * m12;
+    };
+    apply(0, 0);
+
+    return {
+        input,
+        output,
+        _matrix: true,
+        _yaw: 0,
+        _pitch: 0,
+        setRenderingMode() {},
+        setRotationMatrix3() {},
+        setRotationMatrix() {},
+        setRotation(yaw, pitch) {
+            this._yaw = yaw;
+            this._pitch = pitch;
+            apply(yaw, pitch);
+        }
+    };
+};
+
 window.ensureOmnitoneLibrary = function() {
     if (window.Omnitone && typeof window.Omnitone.createFOARenderer === 'function') {
         return Promise.resolve(window.Omnitone);
     }
     if (window.__omnitoneLoadPromise) return window.__omnitoneLoadPromise;
 
-    window.__omnitoneLoadPromise = new Promise((resolve, reject) => {
+    window.__omnitoneLoadPromise = new Promise((resolve) => {
         const tryUrls = [
             './vendor/omnitone.min.js',
             'https://cdn.jsdelivr.net/npm/omnitone@1.3.0/build/omnitone.min.js',
             'https://unpkg.com/omnitone@1.3.0/build/omnitone.min.js'
         ];
         let i = 0;
-        const next = () => {
+        const finish = () => {
             if (window.Omnitone && typeof window.Omnitone.createFOARenderer === 'function') {
                 resolve(window.Omnitone);
+            } else {
+                resolve(null);
+            }
+        };
+        const next = () => {
+            if (window.Omnitone && typeof window.Omnitone.createFOARenderer === 'function') {
+                finish();
                 return;
             }
             if (i >= tryUrls.length) {
-                reject(new Error('Omnitone library missing'));
+                finish();
                 return;
             }
             const url = tryUrls[i++];
@@ -216,6 +298,8 @@ window.ensureOmnitoneLibrary = function() {
             if (existing) {
                 existing.addEventListener('load', () => next());
                 existing.addEventListener('error', () => next());
+                // Already finished loading earlier
+                setTimeout(() => next(), 0);
                 return;
             }
             const s = document.createElement('script');
@@ -238,35 +322,59 @@ window.ensureOmnitoneLibrary = function() {
 window.initOmnitone = async function() {
     if (window.omnitoneInitialized && window.foaDecoder) return true;
     try {
-        const Omni = await window.ensureOmnitoneLibrary();
         const ok = await window.ensureAudioGraph();
         if (!ok || !window.audioContext) return false;
         if (window.audioContext.state === 'suspended') {
-            await window.audioContext.resume();
+            try { await window.audioContext.resume(); } catch (_) {}
         }
 
-        // No hrirPathUrl — Omnitone 1.3 embeds FOA HRIRs as base64. The old
-        // CDN /build/resources/ path 404s and must not be used.
-        window.foaDecoder = Omni.createFOARenderer(window.audioContext, {
-            renderingMode: 'ambisonic'
-        });
-        await window.foaDecoder.initialize();
+        // Prefer Omnitone HRTF when available; otherwise matrix FOA→stereo.
+        let usedOmnitone = false;
+        try {
+            const Omni = await window.ensureOmnitoneLibrary();
+            if (Omni && typeof Omni.createFOARenderer === 'function') {
+                const renderer = Omni.createFOARenderer(window.audioContext, {});
+                await Promise.race([
+                    renderer.initialize(),
+                    new Promise((_, rej) => setTimeout(() => rej(new Error('Omnitone init timeout')), 8000))
+                ]);
+                window.foaDecoder = renderer;
+                usedOmnitone = true;
+            }
+        } catch (omniErr) {
+            console.warn('Omnitone HRTF unavailable, using matrix FOA decode', omniErr);
+            window.__lastOmnitoneError = omniErr && (omniErr.message || String(omniErr));
+        }
+
+        if (!usedOmnitone) {
+            window.foaDecoder = window.buildMatrixFoaDecoder();
+            if (!window.foaDecoder) return false;
+        }
 
         window.omnitoneInitialized = true;
+        window.__foaDecoderKind = usedOmnitone ? 'omnitone' : 'matrix';
         return true;
     } catch (err) {
-        console.error('Omnitone error:', err);
+        console.error('FOA decoder init error:', err);
+        // Last resort: matrix path
+        try {
+            window.foaDecoder = window.buildMatrixFoaDecoder();
+            if (window.foaDecoder) {
+                window.omnitoneInitialized = true;
+                window.__foaDecoderKind = 'matrix';
+                return true;
+            }
+        } catch (_) {}
         window.omnitoneInitialized = false;
         window.foaDecoder = null;
         window.__lastOmnitoneError = err && (err.message || String(err));
         return false;
     }
-}
+};
 
 window.routeAmbisonics = function() {
     if (!window.audioContext || !window.foaDecoder) return;
     window.disconnectAudioGraph();
-    // FOA: декодированный BufferSource → Omnitone (MediaElement часто даунмиксует 4ch → stereo).
     if (window.gainNode) {
         window.foaDecoder.output.connect(window.gainNode);
         window.gainNode.connect(window.audioContext.destination);
@@ -274,10 +382,12 @@ window.routeAmbisonics = function() {
         window.foaDecoder.output.connect(window.audioContext.destination);
     }
     window.connectAnalyzerTaps(window.foaDecoder.output);
-    window.foaDecoder.setRenderingMode('ambisonic');
+    if (typeof window.foaDecoder.setRenderingMode === 'function') {
+        try { window.foaDecoder.setRenderingMode('ambisonic'); } catch (_) {}
+    }
     window._ambiAudioRouted = true;
     window._normalAudioRouted = false;
-}
+};
 
 window.stopFoaBufferSource = function() {
     if (!window.__foaSourceNode) return;
@@ -302,8 +412,34 @@ window.ensureFoaAudioBuffer = async function(url) {
 window.startFoaBufferPlayback = function(offsetSec) {
     if (!window.isAmbisonicMode || !window.foaDecoder || !window.__foaAudioBuffer || !window.audioContext) return;
     window.stopFoaBufferSource();
+    let buffer = window.__foaAudioBuffer;
+    // Pad mono/stereo up to 4 channels so splitter/FOA input always gets WXYZ.
+    if (buffer.numberOfChannels < 4) {
+        const ctx = window.audioContext;
+        const out = ctx.createBuffer(4, buffer.length, buffer.sampleRate);
+        for (let c = 0; c < 4; c++) {
+            const src = buffer.getChannelData(Math.min(c, buffer.numberOfChannels - 1));
+            out.copyToChannel(src, c);
+        }
+        // Silence X/Y/Z if we only had W (mono) / keep L/R mapped for stereo→W/X-ish
+        if (buffer.numberOfChannels === 1) {
+            out.getChannelData(1).fill(0);
+            out.getChannelData(2).fill(0);
+            out.getChannelData(3).fill(0);
+        } else if (buffer.numberOfChannels === 2) {
+            // Treat as W + Y mid/side-ish: keep ch0 as W, ch1 as Y, zero X/Z
+            out.copyToChannel(buffer.getChannelData(0), 0);
+            out.getChannelData(1).fill(0);
+            out.copyToChannel(buffer.getChannelData(1), 2);
+            out.getChannelData(3).fill(0);
+        }
+        buffer = out;
+    }
     const src = window.audioContext.createBufferSource();
-    src.buffer = window.__foaAudioBuffer;
+    src.buffer = buffer;
+    src.channelCount = 4;
+    src.channelCountMode = 'explicit';
+    src.channelInterpretation = 'discrete';
     src.connect(window.foaDecoder.input);
     const rate = window.audioElement ? (window.audioElement.playbackRate || 1) : 1;
     try { src.playbackRate.value = rate; } catch (_) {}
@@ -334,25 +470,28 @@ window.syncFoaBufferPlayback = function() {
 };
 
 window.updateAmbisonicRotation = function(yawAngle, pitchAngle) {
-    if (window.foaDecoder && window.isAmbisonicMode) {
-        const yaw = yawAngle * Math.PI / 180;
-        const pitch = pitchAngle * Math.PI / 180;
-        const cy = Math.cos(yaw), sy = Math.sin(yaw);
-        const cp = Math.cos(pitch), sp = Math.sin(pitch);
-        const rotationMatrix = new Float32Array([
-            cy*cp, -sy, cy*sp,
-            sy*cp,  cy, sy*sp,
-            -sp,    0,  cp
-        ]);
-        if (typeof window.foaDecoder.setRotationMatrix3 === 'function') {
-            window.foaDecoder.setRotationMatrix3(rotationMatrix);
-        } else if (typeof window.foaDecoder.setRotationMatrix === 'function') {
-            window.foaDecoder.setRotationMatrix(rotationMatrix);
-        } else if (window.foaDecoder.foaRotator && typeof window.foaDecoder.foaRotator.setRotationMatrix3 === 'function') {
-            window.foaDecoder.foaRotator.setRotationMatrix3(rotationMatrix);
-        }
+    if (!window.foaDecoder || !window.isAmbisonicMode) return;
+    if (window.foaDecoder._matrix && typeof window.foaDecoder.setRotation === 'function') {
+        window.foaDecoder.setRotation(yawAngle, pitchAngle);
+        return;
     }
-}
+    const yaw = yawAngle * Math.PI / 180;
+    const pitch = pitchAngle * Math.PI / 180;
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const rotationMatrix = new Float32Array([
+        cy*cp, -sy, cy*sp,
+        sy*cp,  cy, sy*sp,
+        -sp,    0,  cp
+    ]);
+    if (typeof window.foaDecoder.setRotationMatrix3 === 'function') {
+        window.foaDecoder.setRotationMatrix3(rotationMatrix);
+    } else if (typeof window.foaDecoder.setRotationMatrix === 'function') {
+        window.foaDecoder.setRotationMatrix(rotationMatrix);
+    } else if (window.foaDecoder.foaRotator && typeof window.foaDecoder.foaRotator.setRotationMatrix3 === 'function') {
+        window.foaDecoder.foaRotator.setRotationMatrix3(rotationMatrix);
+    }
+};
 
 window.setupAmbisonicSphere = function() {
     const pad = document.getElementById('ambi-sphere-pad');
@@ -398,8 +537,7 @@ window.enableAmbisonicMode = async function() {
     if (!window.omnitoneInitialized) {
         const success = await window.initOmnitone();
         if (!success) {
-            const detail = window.__lastOmnitoneError ? ` (${window.__lastOmnitoneError})` : '';
-            window.showToast('Не удалось инициализировать амбисоник' + (detail.length < 80 ? detail : ''));
+            window.showToast('Не удалось включить амбисоник');
             return false;
         }
     } else if (window.audioContext && window.audioContext.state === 'suspended') {
