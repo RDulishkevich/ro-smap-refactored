@@ -46,6 +46,9 @@
     /* Peach tactile «каблук» — FileXfer action · ds-btn accent/soft */
     --control-thumb: inset 0 -3px 0 rgba(34, 34, 34, 0.18);
     --control-thumb-pressed: inset 0 -1px 0 rgba(34, 34, 34, 0.22);
+    --scrollbar-size: 8px;
+    --scrollbar-thumb: color-mix(in srgb, var(--ink) 26%, transparent);
+    --scrollbar-thumb-hover: color-mix(in srgb, var(--ink) 44%, transparent);
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     /* App type scale — Geologica UI · Klukva brand */
     --text-caption: 0.6875rem;
@@ -111,6 +114,8 @@ html.dark,
     --panel-border: rgba(255, 243, 226, 0.16);
     --panel-shadow: var(--glass-elev);
     --control-rim: 2px solid var(--ink);
+    --scrollbar-thumb: color-mix(in srgb, var(--ink) 32%, transparent);
+    --scrollbar-thumb-hover: color-mix(in srgb, var(--ink) 52%, transparent);
 }
 
 html[data-palette="coral"] {

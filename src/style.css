@@ -1702,48 +1702,89 @@ body.dark-mode .modal-input::placeholder,
     opacity: 1;
 }
 
-/* ????????? ????????? */
-.custom-scrollbar {
+/* Custom scrollbars — cream/ink DS (not cool slate) */
+:root {
+    --scrollbar-size: 8px;
+    --scrollbar-thumb: color-mix(in srgb, var(--ink, #222) 26%, transparent);
+    --scrollbar-thumb-hover: color-mix(in srgb, var(--ink, #222) 44%, transparent);
+}
+html.dark,
+.dark {
+    --scrollbar-thumb: color-mix(in srgb, var(--ink, #FFF3E2) 32%, transparent);
+    --scrollbar-thumb-hover: color-mix(in srgb, var(--ink, #FFF3E2) 52%, transparent);
+}
+
+.custom-scrollbar,
+#sounds-list,
+#player-card,
+#action-sheet-content,
+.events-panel__body,
+.app-modal-overlay .overflow-y-auto,
+.sidebar-panel .overflow-y-auto,
+.feed-pane {
     scrollbar-width: thin;
-    scrollbar-color: #94a3b8 transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 }
-.custom-scrollbar::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+.custom-scrollbar::-webkit-scrollbar,
+#sounds-list::-webkit-scrollbar,
+#player-card::-webkit-scrollbar,
+#action-sheet-content::-webkit-scrollbar,
+.events-panel__body::-webkit-scrollbar,
+.app-modal-overlay .overflow-y-auto::-webkit-scrollbar,
+.sidebar-panel .overflow-y-auto::-webkit-scrollbar,
+.feed-pane::-webkit-scrollbar {
+    width: var(--scrollbar-size);
+    height: var(--scrollbar-size);
 }
-.custom-scrollbar::-webkit-scrollbar-track {
+.custom-scrollbar::-webkit-scrollbar-track,
+#sounds-list::-webkit-scrollbar-track,
+#player-card::-webkit-scrollbar-track,
+#action-sheet-content::-webkit-scrollbar-track,
+.events-panel__body::-webkit-scrollbar-track,
+.app-modal-overlay .overflow-y-auto::-webkit-scrollbar-track,
+.sidebar-panel .overflow-y-auto::-webkit-scrollbar-track,
+.feed-pane::-webkit-scrollbar-track {
     background: transparent;
     margin: 4px 0;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #94a3b8;
+.custom-scrollbar::-webkit-scrollbar-thumb,
+#sounds-list::-webkit-scrollbar-thumb,
+#player-card::-webkit-scrollbar-thumb,
+#action-sheet-content::-webkit-scrollbar-thumb,
+.events-panel__body::-webkit-scrollbar-thumb,
+.app-modal-overlay .overflow-y-auto::-webkit-scrollbar-thumb,
+.sidebar-panel .overflow-y-auto::-webkit-scrollbar-thumb,
+.feed-pane::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
     border-radius: 999px;
     border: 2px solid transparent;
     background-clip: padding-box;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #64748b;
-    border: 2px solid transparent;
-    background-clip: padding-box;
-}
-.dark .custom-scrollbar {
-    scrollbar-color: #64748b transparent;
-}
-.dark .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #64748b;
-    border: 2px solid transparent;
-    background-clip: padding-box;
-}
-.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+.custom-scrollbar::-webkit-scrollbar-thumb:hover,
+#sounds-list::-webkit-scrollbar-thumb:hover,
+#player-card::-webkit-scrollbar-thumb:hover,
+#action-sheet-content::-webkit-scrollbar-thumb:hover,
+.events-panel__body::-webkit-scrollbar-thumb:hover,
+.app-modal-overlay .overflow-y-auto::-webkit-scrollbar-thumb:hover,
+.sidebar-panel .overflow-y-auto::-webkit-scrollbar-thumb:hover,
+.feed-pane::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
     border: 2px solid transparent;
     background-clip: padding-box;
 }
 
-::-webkit-scrollbar { width: 6px; }
+/* Fallback for any other scroll surface in the app shell */
+::-webkit-scrollbar { width: var(--scrollbar-size, 8px); height: var(--scrollbar-size, 8px); }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-.dark ::-webkit-scrollbar-thumb { background: #475569; }
+::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb, #c4b5a5);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover, #a8907a);
+}
 
 [class*="gototech"] { display: none !important; }
 
@@ -3382,19 +3423,7 @@ html.dark .search-suggestions,
     overflow-x: visible;
 }
 .cabinet-tabs::-webkit-scrollbar { display: none; height: 0; width: 0; }
-#cabinet-modal-content .custom-scrollbar,
-#dock-cabinet-host.custom-scrollbar,
-#cabinet-modal-content .overflow-y-auto {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-}
-#cabinet-modal-content .custom-scrollbar::-webkit-scrollbar,
-#dock-cabinet-host.custom-scrollbar::-webkit-scrollbar,
-#cabinet-modal-content .overflow-y-auto::-webkit-scrollbar {
-    display: none;
-    width: 0;
-    height: 0;
-}
+/* Cabinet content uses the same cosmetic scrollbar as the rest of the app */
 .cab-tab {
     flex: 0 0 auto;
     padding: 0.55rem 0.7rem;

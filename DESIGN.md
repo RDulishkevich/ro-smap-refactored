@@ -143,6 +143,7 @@ Utilities: `.mobile-grid-4`, `.mobile-pad-x`.
 | Accent / live (ember) | `#FBAB57` | `#FBAB57` | Playing, active, switches, mobile nav — **not** panel fills |
 | Soft | `#FEC674` | `#3a3228` | Soft action islands, selected chips |
 | Ink / CTA | `#222222` | cream inverted | Text, primary buttons, rims |
+| Scrollbar thumb | ink @26% | ink @32% | `--scrollbar-thumb` · `.custom-scrollbar` |
 | Accent ink | `#9a6420` | `#FEC674` | Links |
 | On accent | `#222222` | `#222222` | Ink on peach |
 | Page | `#FFF3E2` | `#1a1a1a` | Behind chrome |

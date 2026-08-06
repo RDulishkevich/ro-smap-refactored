@@ -67,6 +67,8 @@
 
 **Вложенные «окна»** (анализаторы, waveform в плеере, FileXfer drop): пунктирная обводка `.ds-frame` / `--frame-dashed` — не solid `--control-rim` (rim = действие, dashed = группировка).
 
+**Скролл:** контентные панели — `.custom-scrollbar` (токены `--scrollbar-thumb`). Горизонтальные чип/таб-рейлы могут скрывать полосу (`scrollbar-width: none`).
+
 ---
 
 ## 3. Модалки (окна)
