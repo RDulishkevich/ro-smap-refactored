@@ -440,7 +440,8 @@
         margin: 0 !important;
         padding: 0.4rem 0.75rem 0.65rem !important;
         max-height: min(58dvh, 28rem) !important;
-        overflow: visible !important;
+        overflow-x: hidden !important;
+        overflow-y: hidden !important;
         display: flex !important;
         flex-direction: column !important;
         gap: 0.35rem;
@@ -501,6 +502,10 @@
     }
     #player-card.player-shell.is-expanded {
         padding-top: 0.45rem !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+    }
+    #player-card.player-shell:has(#ambisonics-control:not(.hidden)) {
         overflow-y: auto !important;
     }
     #player-card .player-sheet-handle {
@@ -553,9 +558,11 @@
     }
     #player-card .player-main-row {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 0.55rem;
         min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
     }
     #player-card .player-play-btn {
         width: 2.4rem !important;
@@ -586,17 +593,22 @@
     #player-card .player-main-meta {
         min-width: 0;
         overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        gap: 0.22rem;
     }
     #player-card .player-main-sub {
         display: flex;
         align-items: center;
         gap: 0.25rem;
-        margin-top: 0.12rem;
+        margin: 0;
         font-size: 0.68rem;
         font-weight: 700;
         color: var(--ink-muted);
         font-variant-numeric: tabular-nums;
         min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
     }
     #player-card .player-main-sub__sep {
         opacity: 0.45;
@@ -611,8 +623,10 @@
     #player-card .player-main-actions {
         display: flex;
         align-items: center;
+        flex-wrap: wrap;
         gap: 0.25rem;
-        flex-shrink: 0;
+        min-width: 0;
+        max-width: 100%;
     }
     #player-card .player-more-btn {
         display: inline-flex !important;
