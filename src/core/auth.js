@@ -93,7 +93,8 @@ export function initAuth() {
         const actionBtn = document.getElementById('auth-action-btn');
 
         const activeClass = "flex-1 py-3 text-sm font-bold ds-link border-b-2 border-[color:var(--accent)] transition-colors";
-        const inactiveClass = "flex-1 py-3 text-sm font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors";
+        const inactiveClass = "flex-1 py-3 text-sm font-bold border-b-2 border-transparent transition-colors";
+        const inactiveStyle = "color:var(--ink-muted)";
 
         if (actionBtn) {
             actionBtn.disabled = false;
@@ -102,17 +103,19 @@ export function initAuth() {
 
         if (mode === 'login') {
             btnLogin.className = activeClass;
+            btnLogin.removeAttribute('style');
             btnReg.className = inactiveClass;
+            btnReg.style.cssText = inactiveStyle;
             actionBtn.textContent = 'Войти';
             container.innerHTML = `
                 <div class="t-input-wrap">
                     <label class="modal-label">Логин (Имя / CreatorID)</label>
-                    <input type="text" id="auth-username" class="modal-input t-input dark:bg-slate-900" placeholder="Ваш псевдоним" onkeydown="if(event.key==='Enter') window.submitAuth()">
+                    <input type="text" id="auth-username" class="modal-input t-input" placeholder="Ваш псевдоним" onkeydown="if(event.key==='Enter') window.submitAuth()">
                     <p class="t-error-msg"></p>
                 </div>
                 <div class="t-input-wrap">
                     <label class="modal-label">Пароль</label>
-                    <input type="password" id="auth-password" class="modal-input t-input dark:bg-slate-900" placeholder="Ваш пароль" onkeydown="if(event.key==='Enter') window.submitAuth()">
+                    <input type="password" id="auth-password" class="modal-input t-input" placeholder="Ваш пароль" onkeydown="if(event.key==='Enter') window.submitAuth()">
                     <p class="t-error-msg"></p>
                 </div>
                 <p class="text-center">
@@ -121,28 +124,30 @@ export function initAuth() {
             `;
         } else {
             btnReg.className = activeClass;
+            btnReg.removeAttribute('style');
             btnLogin.className = inactiveClass;
+            btnLogin.style.cssText = inactiveStyle;
             actionBtn.textContent = 'Зарегистрироваться';
             container.innerHTML = `
                 <div class="t-input-wrap">
                     <label class="modal-label">Логин (Имя / CreatorID)</label>
-                    <input type="text" id="auth-username" class="modal-input t-input dark:bg-slate-900" placeholder="Придумайте псевдоним" onkeydown="if(event.key==='Enter') window.submitAuth()">
+                    <input type="text" id="auth-username" class="modal-input t-input" placeholder="Придумайте псевдоним" onkeydown="if(event.key==='Enter') window.submitAuth()">
                     <p class="t-error-msg"></p>
                 </div>
                 <div class="t-input-wrap">
                     <label class="modal-label">Email</label>
-                    <input type="email" id="auth-email" class="modal-input t-input dark:bg-slate-900" placeholder="name@example.com" autocomplete="email" onkeydown="if(event.key==='Enter') window.submitAuth()">
-                    <p class="text-[10px] text-slate-400 mt-0">На него придёт код подтверждения. Нужен для восстановления доступа.</p>
+                    <input type="email" id="auth-email" class="modal-input t-input" placeholder="name@example.com" autocomplete="email" onkeydown="if(event.key==='Enter') window.submitAuth()">
+                    <p class="text-[10px] mt-0" style="color:var(--ink-muted)">На него придёт код подтверждения. Нужен для восстановления доступа.</p>
                     <p class="t-error-msg"></p>
                 </div>
                 <div class="t-input-wrap">
                     <label class="modal-label">Пароль</label>
-                    <input type="password" id="auth-password" class="modal-input t-input dark:bg-slate-900" placeholder="Придумайте пароль" onkeydown="if(event.key==='Enter') window.submitAuth()">
+                    <input type="password" id="auth-password" class="modal-input t-input" placeholder="Придумайте пароль" onkeydown="if(event.key==='Enter') window.submitAuth()">
                     <p class="t-error-msg"></p>
                 </div>
                 <div class="t-input-wrap">
                     <label class="modal-label">Уровень умений в полевой записи</label>
-                    <select id="auth-skill-level" class="modal-input t-input dark:bg-slate-900 text-sm">
+                    <select id="auth-skill-level" class="modal-input t-input text-sm">
                         <option value="">Выберите…</option>
                         <option value="beginner">Новичок – только начинаю</option>
                         <option value="intermediate">Любитель – уже записываю</option>
@@ -153,7 +158,7 @@ export function initAuth() {
                 </div>
                 <div>
                     <label class="modal-label">Для чего хотите использовать Полёвку?</label>
-                    <div class="space-y-1.5 text-sm text-slate-700 dark:text-slate-200">
+                    <div class="space-y-1.5 text-sm" style="color:var(--ink)">
                         <label class="flex items-center gap-2"><input type="checkbox" name="auth-intent" value="listen" class="rounded"> Слушать карту и открывать места</label>
                         <label class="flex items-center gap-2"><input type="checkbox" name="auth-intent" value="publish" class="rounded"> Публиковать свои записи</label>
                         <label class="flex items-center gap-2"><input type="checkbox" name="auth-intent" value="research" class="rounded"> Исследования / учёба</label>
@@ -162,11 +167,11 @@ export function initAuth() {
                         <label class="flex items-center gap-2"><input type="checkbox" name="auth-intent" value="other" class="rounded"> Другое</label>
                     </div>
                 </div>
-                <label class="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-300 leading-snug">
+                <label class="flex items-start gap-2 text-xs leading-snug" style="color:var(--ink-muted)">
                     <input type="checkbox" id="auth-pd-consent" class="mt-0.5 rounded shrink-0">
                     <span>Согласен(на) на обработку персональных данных (логин, email, профиль, активность) для работы сервиса Полёвка. <button type="button" class="ds-link font-semibold hover:underline" onclick="event.preventDefault(); window.openPdConsentInfo && window.openPdConsentInfo()">Подробнее</button>. Регистрируясь, вы принимаете <button type="button" class="ds-link font-semibold hover:underline" onclick="event.preventDefault(); window.openLegalDocModal && window.openLegalDocModal('terms')">пользовательское соглашение</button>.</span>
                 </label>
-                <p class="text-[10px] text-slate-400 leading-tight">Этот логин будет автоматически использоваться как CreatorID при добавлении ваших аудиозаписей.</p>
+                <p class="text-[10px] leading-tight" style="color:var(--ink-muted)">Этот логин будет автоматически использоваться как CreatorID при добавлении ваших аудиозаписей.</p>
             `;
         }
     };
@@ -184,22 +189,28 @@ export function initAuth() {
         const btnReg = document.getElementById('auth-tab-register');
         const container = document.getElementById('auth-form-container');
         const actionBtn = document.getElementById('auth-action-btn');
-        const inactiveClass = "flex-1 py-3 text-sm font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors";
-        if (btnLogin) btnLogin.className = inactiveClass;
-        if (btnReg) btnReg.className = inactiveClass;
+        const inactiveClass = "flex-1 py-3 text-sm font-bold border-b-2 border-transparent transition-colors";
+        if (btnLogin) {
+            btnLogin.className = inactiveClass;
+            btnLogin.style.cssText = 'color:var(--ink-muted)';
+        }
+        if (btnReg) {
+            btnReg.className = inactiveClass;
+            btnReg.style.cssText = 'color:var(--ink-muted)';
+        }
         if (actionBtn) {
             actionBtn.textContent = 'Отправить код';
             actionBtn.onclick = () => window.submitPasswordResetRequest();
         }
         if (container) {
             container.innerHTML = `
-                <p class="text-sm text-slate-600 dark:text-slate-300">Укажите логин или email – пришлём код для сброса пароля.</p>
+                <p class="text-sm" style="color:var(--ink-muted)">Укажите логин или email – пришлём код для сброса пароля.</p>
                 <div>
                     <label class="modal-label">Логин или email</label>
-                    <input type="text" id="auth-reset-login" class="modal-input dark:bg-slate-900" placeholder="логин или name@example.com" autocomplete="username" onkeydown="if(event.key==='Enter'){event.preventDefault();window.submitPasswordResetRequest()}">
+                    <input type="text" id="auth-reset-login" class="modal-input" placeholder="логин или name@example.com" autocomplete="username" onkeydown="if(event.key==='Enter'){event.preventDefault();window.submitPasswordResetRequest()}">
                 </div>
                 <p class="text-center">
-                    <button type="button" class="text-sm text-slate-500 font-semibold hover:underline" onclick="window.switchAuthTab('login')">← Назад ко входу</button>
+                    <button type="button" class="text-sm font-semibold hover:underline" style="color:var(--ink-muted)" onclick="window.switchAuthTab('login')">← Назад ко входу</button>
                 </p>
             `;
             setTimeout(() => document.getElementById('auth-reset-login')?.focus(), 50);
@@ -217,18 +228,18 @@ export function initAuth() {
         }
         if (container) {
             container.innerHTML = `
-                <p class="text-sm text-slate-600 dark:text-slate-300">Код отправлен. Введите его и новый пароль.</p>
+                <p class="text-sm" style="color:var(--ink-muted)">Код отправлен. Введите его и новый пароль.</p>
                 <div>
                     <label class="modal-label">Код из письма (6 цифр)</label>
-                    <input type="text" id="auth-reset-code" inputmode="numeric" maxlength="6" class="modal-input dark:bg-slate-900 text-center tracking-[0.3em] font-mono" placeholder="000000" onkeydown="if(event.key==='Enter'){event.preventDefault();window.submitPasswordResetConfirm()}">
+                    <input type="text" id="auth-reset-code" inputmode="numeric" maxlength="6" class="modal-input text-center tracking-[0.3em] font-mono" placeholder="000000" onkeydown="if(event.key==='Enter'){event.preventDefault();window.submitPasswordResetConfirm()}">
                 </div>
                 <div>
                     <label class="modal-label">Новый пароль</label>
-                    <input type="password" id="auth-reset-password" class="modal-input dark:bg-slate-900" placeholder="Минимум 8 символов" autocomplete="new-password" onkeydown="if(event.key==='Enter'){event.preventDefault();window.submitPasswordResetConfirm()}">
+                    <input type="password" id="auth-reset-password" class="modal-input" placeholder="Минимум 8 символов" autocomplete="new-password" onkeydown="if(event.key==='Enter'){event.preventDefault();window.submitPasswordResetConfirm()}">
                 </div>
                 <p class="text-center space-x-3">
-                    <button type="button" class="text-sm text-slate-500 font-semibold hover:underline" onclick="window.openPasswordResetFlow()">Другой логин / email</button>
-                    <button type="button" class="text-sm text-slate-500 font-semibold hover:underline" onclick="window.switchAuthTab('login')">Войти</button>
+                    <button type="button" class="text-sm font-semibold hover:underline" style="color:var(--ink-muted)" onclick="window.openPasswordResetFlow()">Другой логин / email</button>
+                    <button type="button" class="text-sm font-semibold hover:underline" style="color:var(--ink-muted)" onclick="window.switchAuthTab('login')">Войти</button>
                 </p>
             `;
             setTimeout(() => document.getElementById('auth-reset-code')?.focus(), 50);

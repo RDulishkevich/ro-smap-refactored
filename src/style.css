@@ -16,6 +16,8 @@
     --panel-border: rgba(34, 34, 34, 0.14);
     --panel-shadow: 0 6px 20px rgba(34, 34, 34, 0.08);
     --control-rim: 2px solid var(--ink);
+    --frame-dashed: 2px dashed color-mix(in srgb, var(--ink) 18%, transparent);
+    --frame-radius: var(--radius-lg, 1.5rem);
     --control-thumb: inset 0 -3px 0 rgba(34, 34, 34, 0.18);
     --control-thumb-pressed: inset 0 -1px 0 rgba(34, 34, 34, 0.22);
     --accent: #FBAB57;
@@ -3742,12 +3744,12 @@ html.dark,
 }
 
 .analyzer-panel {
-    border-radius: var(--radius-lg, 1.125rem);
-    border: 1px solid color-mix(in srgb, var(--accent, #FBAB57) 45%, var(--panel-border, #e8dcc8));
+    border-radius: var(--frame-radius, var(--radius-lg, 1.125rem));
+    border: var(--frame-dashed, 2px dashed color-mix(in srgb, var(--ink) 18%, transparent));
     padding: 0.75rem 0.85rem;
     background: var(--panel-elevated, #fff);
     box-shadow: none;
-    transition: background 0.2s ease, border-color 0.2s ease;
+    transition: background 0.2s ease, border-color 0.2s ease, border-style 0.2s ease;
 }
 .dark .analyzer-panel {
     background: var(--panel-elevated, #363636);
@@ -3756,12 +3758,12 @@ html.dark,
 .analyzer-panel-sky,
 .analyzer-panel-fuchsia,
 .analyzer-panel-emerald {
-    border-color: color-mix(in srgb, var(--accent, #FBAB57) 45%, var(--panel-border, #e8dcc8));
+    border-color: color-mix(in srgb, var(--ink) 18%, transparent);
 }
 .dark .analyzer-panel-sky,
 .dark .analyzer-panel-fuchsia,
 .dark .analyzer-panel-emerald {
-    border-color: color-mix(in srgb, var(--accent, #FBAB57) 35%, #333);
+    border-color: color-mix(in srgb, var(--ink) 22%, transparent);
 }
 .analyzer-range {
     accent-color: var(--accent, #FBAB57);
@@ -4287,7 +4289,7 @@ textarea.modal-input {
     touch-action: none;
     cursor: crosshair;
     overflow: hidden;
-    border: 2px solid color-mix(in srgb, var(--accent, #FBAB57) 45%, transparent);
+    border: var(--frame-dashed, 2px dashed color-mix(in srgb, var(--ink) 18%, transparent));
     background:
         radial-gradient(circle at 50% 50%,
             color-mix(in srgb, var(--panel-elevated, #fff) 92%, transparent) 0%,
@@ -4932,8 +4934,17 @@ textarea.modal-input {
 .dark .badge-toggle-chip { background: #0f172a; color: #94a3b8; border-color: #334155; }
 .badge-toggle-chip:hover { background: #e2e8f0; }
 .dark .badge-toggle-chip:hover { background: #1e293b; }
-.badge-toggle-chip.active { background: var(--accent); color: var(--on-accent, #222222); border-color: var(--accent); }
-.dark .badge-toggle-chip.active { background: #3b82f6; border-color: #3b82f6; }
+.badge-toggle-chip.active {
+    background: var(--accent);
+    color: var(--on-accent, #222222);
+    border-color: #222222;
+    box-shadow: var(--control-thumb, inset 0 -3px 0 rgba(34, 34, 34, 0.18));
+}
+.dark .badge-toggle-chip.active {
+    background: var(--accent);
+    border-color: #222222;
+    color: var(--on-accent, #222222);
+}
 
 /* --- ??????????/??????: ??????????? ?????? ????? ???????? ??????????? (???????) --- */
 .session-card {
@@ -5209,7 +5220,7 @@ textarea.modal-input {
     width: 2.45rem;
     height: 2.45rem;
     border-radius: 999px;
-    border: none;
+    border: 2px solid #222222;
     background: var(--accent, #FBAB57);
     color: var(--on-accent, #222222);
     display: inline-flex;
@@ -5217,9 +5228,14 @@ textarea.modal-input {
     justify-content: center;
     cursor: pointer;
     flex-shrink: 0;
-    transition: transform 150ms var(--ease-out, ease), background 150ms ease;
+    box-shadow: var(--control-thumb, inset 0 -3px 0 rgba(34, 34, 34, 0.18));
+    transition: transform 150ms var(--ease-out, ease), background 150ms ease, box-shadow 150ms ease;
 }
 .feed-head__create:hover { background: var(--accent-hover, #e8953f); transform: scale(1.04); }
+.feed-head__create:active {
+    transform: scale(0.97);
+    box-shadow: var(--control-thumb-pressed, inset 0 -1px 0 rgba(34, 34, 34, 0.22));
+}
 @media (max-width: 767px) {
     /* Dock chrome already shows «Лента» + subtitle */
     .feed-head__text {
@@ -5473,14 +5489,20 @@ html.dark .feed-post__cover,
     margin-top: 0.85rem;
     padding: 0.55rem 0.95rem;
     border-radius: var(--radius-pill);
-    border: none;
+    border: 2px solid #222222;
     background: var(--accent);
     color: var(--on-accent, #222222);
     font-size: 0.75rem;
     font-weight: 700;
     cursor: pointer;
+    box-shadow: var(--control-thumb, inset 0 -3px 0 rgba(34, 34, 34, 0.18));
+    transition: background 150ms ease, box-shadow 150ms ease, transform 150ms var(--ease-out, ease);
 }
 .feed-admin-create:hover { background: var(--accent-hover, #e8953f); }
+.feed-admin-create:active {
+    transform: scale(0.97);
+    box-shadow: var(--control-thumb-pressed, inset 0 -1px 0 rgba(34, 34, 34, 0.22));
+}
 .feed-section-label {
     font-size: 0.625rem;
     font-weight: 800;
@@ -5834,7 +5856,7 @@ html.dark .feed-post__cover,
 }
 .events-panel__sub {
     font-size: 11px;
-    color: #64748b;
+    color: var(--ink-muted, #6b5340);
     margin: 0.1rem 0 0;
 }
 .events-panel__close {

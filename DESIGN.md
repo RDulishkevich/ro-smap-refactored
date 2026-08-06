@@ -168,6 +168,18 @@ Soft wellness scale (cream cards ~24–32px):
 
 Selection / focus: ink rim, **no colored glow halo**.
 
+### Dashed window frame
+Soft structural outline for nested “windows” inside cream chrome (not a CTA rim):
+
+| Token / class | Value | Use |
+|---|---|---|
+| `--frame-dashed` | `2px dashed` ink @18% | Analyzer cards, player waveform, FileXfer drop host |
+| `--frame-radius` | `--radius-lg` | Same family as cards |
+| `.ds-frame` | applies dashed + elevated fill | Reuse anywhere a soft window grouping is needed |
+| `.ds-frame.is-active` / drag | solid ink + peach tint | Drop / focus |
+
+Solid **`--control-rim`** stays for interactive pills (FileXfer track, ds-btn outline). Dashed = grouping; solid ink = action.
+
 ## Typography
 Keep **Geologica** (UI) + **Klukva** (brand @400). Product ramp (~1.2):
 

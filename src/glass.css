@@ -40,6 +40,9 @@
     --panel-border: rgba(34, 34, 34, 0.14);
     --panel-shadow: var(--glass-elev);
     --control-rim: 2px solid var(--ink);
+    /* Soft dashed window rim — FileXfer drop · analyzers · waveform */
+    --frame-dashed: 2px dashed color-mix(in srgb, var(--ink) 18%, transparent);
+    --frame-radius: var(--radius-lg, 1.5rem);
     /* Peach tactile «каблук» — FileXfer action · ds-btn accent/soft */
     --control-thumb: inset 0 -3px 0 rgba(34, 34, 34, 0.18);
     --control-thumb-pressed: inset 0 -1px 0 rgba(34, 34, 34, 0.22);
@@ -1068,13 +1071,15 @@ html.dark .waveform-layer--buf,
     display: block;
     width: 100%;
     height: 100%;
-    border-radius: 0.65rem;
+    border-radius: calc(var(--frame-radius, 1.5rem) - 0.35rem);
     pointer-events: none;
 }
 #waveform-wrapper.player-wave-block {
-    background: color-mix(in srgb, var(--ink) 4%, transparent);
-    border-radius: 0.75rem;
-    overflow: hidden;
+    background: var(--panel-elevated, #fff);
+    border: var(--frame-dashed);
+    border-radius: var(--frame-radius);
+    overflow: visible;
+    box-sizing: border-box;
 }
 #playhead {
     background: var(--ink) !important;
@@ -1266,6 +1271,24 @@ html.dark .app-modal-overlay,
     background: var(--accent-soft);
     border-color: color-mix(in srgb, var(--accent) 45%, var(--ink));
 }
+
+/* Soft dashed window — FileXfer drop · analyzer cards · waveform */
+.ds-frame {
+    border: var(--frame-dashed);
+    border-radius: var(--frame-radius);
+    background: var(--panel-elevated, #fff);
+    box-sizing: border-box;
+}
+.ds-frame--pad {
+    padding: 1rem;
+}
+.ds-frame.is-active,
+.ds-frame.is-dragover {
+    border-style: solid;
+    border-color: var(--ink);
+    background: color-mix(in srgb, var(--accent) 14%, var(--panel-elevated, #fff));
+}
+
 html.dark .ds-btn--accent,
 .dark .ds-btn--accent,
 html.dark .ds-btn--soft,
@@ -1671,15 +1694,15 @@ a.bg-blue-600 {
     pointer-events: auto;
 }
 
-/* Drop host */
+/* Drop host — shares .ds-frame dashed window grammar */
 .file-xfer-drop {
     display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: 0.65rem;
     padding: 1rem;
-    border-radius: var(--radius-lg, 1.85rem);
-    border: 2px dashed color-mix(in srgb, var(--ink) 18%, transparent);
+    border-radius: var(--frame-radius, var(--radius-lg, 1.85rem));
+    border: var(--frame-dashed, 2px dashed color-mix(in srgb, var(--ink) 18%, transparent));
     background: var(--panel-elevated, #fff);
     cursor: pointer;
     transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s var(--ease-out);
@@ -1937,6 +1960,167 @@ html.dark .file-xfer-drop,
     .t-like-icon,
     .t-like-particles i { animation: none !important; }
     .t-input { animation: none !important; transform: none !important; }
+}
+
+/* ── Slate → DS token bridge ─────────────────────────────────────────
+   Legacy Tailwind slate utilities still dominate HTML/JS templates.
+   Remap them onto cream/ink tokens so the live map matches design-system.html.
+   Scrims (bg-slate-900/60+, bg-slate-950*) stay dark — not remapped. */
+.ds-shell {
+    background: var(--panel-solid);
+    border: 1px solid var(--panel-border);
+    color: var(--ink);
+}
+.ds-shell--stone {
+    background: var(--surface-stone);
+    border: 1px solid var(--panel-border);
+    color: var(--ink);
+}
+
+/* Solid surfaces */
+.bg-white,
+.bg-slate-50,
+.bg-slate-100,
+.bg-slate-200 {
+    background-color: var(--panel-solid) !important;
+}
+.bg-slate-50,
+.bg-slate-100 {
+    background-color: var(--surface-stone) !important;
+}
+.bg-white\/95 {
+    background-color: color-mix(in srgb, var(--panel-solid) 95%, transparent) !important;
+}
+.bg-slate-50\/50 {
+    background-color: color-mix(in srgb, var(--surface-stone) 50%, transparent) !important;
+}
+.bg-slate-50\/80,
+.bg-slate-100\/60,
+.bg-slate-100\/80 {
+    background-color: color-mix(in srgb, var(--surface-stone) 80%, transparent) !important;
+}
+
+html.dark .dark\:bg-white,
+.dark .dark\:bg-white,
+html.dark .dark\:bg-slate-700,
+.dark .dark\:bg-slate-700,
+html.dark .dark\:bg-slate-800,
+.dark .dark\:bg-slate-800,
+html.dark .dark\:bg-slate-900,
+.dark .dark\:bg-slate-900 {
+    background-color: var(--panel-solid) !important;
+}
+html.dark .dark\:bg-slate-700\/80,
+.dark .dark\:bg-slate-700\/80,
+html.dark .dark\:bg-slate-800\/50,
+.dark .dark\:bg-slate-800\/50,
+html.dark .dark\:bg-slate-800\/80,
+.dark .dark\:bg-slate-800\/80,
+html.dark .dark\:bg-slate-800\/95,
+.dark .dark\:bg-slate-800\/95,
+html.dark .dark\:bg-slate-900\/30,
+.dark .dark\:bg-slate-900\/30,
+html.dark .dark\:bg-slate-900\/40,
+.dark .dark\:bg-slate-900\/40,
+html.dark .dark\:bg-slate-900\/50,
+.dark .dark\:bg-slate-900\/50 {
+    background-color: color-mix(in srgb, var(--surface-stone) 72%, transparent) !important;
+}
+
+.hover\:bg-slate-50:hover,
+.hover\:bg-slate-100:hover,
+.hover\:bg-slate-200:hover,
+.hover\:bg-slate-300:hover {
+    background-color: color-mix(in srgb, var(--accent) 16%, var(--surface-stone)) !important;
+}
+html.dark .dark\:hover\:bg-slate-600:hover,
+.dark .dark\:hover\:bg-slate-600:hover,
+html.dark .dark\:hover\:bg-slate-700:hover,
+.dark .dark\:hover\:bg-slate-700:hover,
+html.dark .dark\:hover\:bg-slate-700\/50:hover,
+.dark .dark\:hover\:bg-slate-700\/50:hover,
+html.dark .dark\:hover\:bg-slate-800\/60:hover,
+.dark .dark\:hover\:bg-slate-800\/60:hover,
+html.dark .dark\:hover\:bg-slate-900\/40:hover,
+.dark .dark\:hover\:bg-slate-900\/40:hover {
+    background-color: color-mix(in srgb, var(--accent) 18%, var(--surface-stone)) !important;
+}
+
+/* Borders */
+.border-slate-100,
+.border-slate-100\/80,
+.border-slate-200,
+.border-slate-200\/50,
+.border-slate-200\/80,
+.border-slate-300,
+.border-slate-600,
+.border-slate-700,
+.border-slate-800 {
+    border-color: var(--panel-border) !important;
+}
+html.dark .dark\:border-slate-600,
+.dark .dark\:border-slate-600,
+html.dark .dark\:border-slate-700,
+.dark .dark\:border-slate-700,
+html.dark .dark\:border-slate-700\/50,
+.dark .dark\:border-slate-700\/50,
+html.dark .dark\:border-slate-700\/60,
+.dark .dark\:border-slate-700\/60,
+html.dark .dark\:border-slate-800,
+.dark .dark\:border-slate-800 {
+    border-color: var(--panel-border) !important;
+}
+
+/* Ink */
+.text-slate-700,
+.text-slate-800,
+.text-slate-900 {
+    color: var(--ink) !important;
+}
+.text-slate-300,
+.text-slate-400,
+.text-slate-500,
+.text-slate-600 {
+    color: var(--ink-muted) !important;
+}
+html.dark .dark\:text-white,
+.dark .dark\:text-white,
+html.dark .dark\:text-slate-100,
+.dark .dark\:text-slate-100,
+html.dark .dark\:text-slate-200,
+.dark .dark\:text-slate-200 {
+    color: var(--ink) !important;
+}
+html.dark .dark\:text-slate-300,
+.dark .dark\:text-slate-300,
+html.dark .dark\:text-slate-400,
+.dark .dark\:text-slate-400,
+html.dark .dark\:text-slate-500,
+.dark .dark\:text-slate-500,
+html.dark .dark\:text-slate-600,
+.dark .dark\:text-slate-600,
+html.dark .dark\:text-slate-700,
+.dark .dark\:text-slate-700 {
+    color: var(--ink-muted) !important;
+}
+.hover\:text-slate-600:hover,
+.hover\:text-slate-800:hover,
+html.dark .dark\:hover\:text-slate-200:hover,
+.dark .dark\:hover\:text-slate-200:hover {
+    color: var(--ink) !important;
+}
+
+/* Modal shells: cream grammar (scrim overlays keep their own classes) */
+.app-modal-panel {
+    color: var(--ink);
+    border-color: var(--panel-border);
+}
+.app-modal-panel:not(.ds-shell):not(.ds-shell--stone) {
+    background-color: var(--panel-solid);
+}
+.app-modal-panel.ds-shell--stone,
+.ds-shell--stone.app-modal-panel {
+    background-color: var(--surface-stone);
 }
 
 

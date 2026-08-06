@@ -29,11 +29,11 @@
 
     <!-- Tailwind (self-hosted build — без Play CDN / без unsafe-eval) -->
     <link rel="stylesheet" href="./src/tailwind.built.css?v=20260722c">
-    <link rel="stylesheet" href="./src/style.css?v=20260806u">
-    <link rel="stylesheet" href="./src/glass.css?v=20260806u">
+    <link rel="stylesheet" href="./src/style.css?v=20260806x">
+    <link rel="stylesheet" href="./src/glass.css?v=20260806x">
     <!-- fonts.css after glass so data-font tokens win over :root -->
     <link rel="stylesheet" href="./src/fonts.css?v=20260805m">
-    <link rel="stylesheet" href="./src/mobile-wellness.css?v=20260806u">
+    <link rel="stylesheet" href="./src/mobile-wellness.css?v=20260806x">
     
     <!-- Omnitone FOA (same-origin, no SRI/crossorigin — those break local loads without CORS) -->
     <script src="./vendor/omnitone.min.js"></script>
@@ -55,16 +55,16 @@
     <div id="onboarding-overlay" onclick="window.handleOnboardingBackdrop(event)" class="fixed inset-0 z-[400] hidden pointer-events-none">
         <div id="onboarding-scrim" class="onboarding-scrim" aria-hidden="true"></div>
         <div id="onboarding-highlight" class="onboarding-highlight" aria-hidden="true" style="left:0;top:0;width:0;height:0;"></div>
-        <div id="onboarding-card" class="absolute bg-white dark:bg-slate-800 rounded-[var(--radius-xl)] shadow-2xl border border-slate-100 dark:border-slate-700 p-5 w-[min(92vw,22rem)] pointer-events-auto" style="left:50%;top:50%;transform:translate(-50%,-50%);">
+        <div id="onboarding-card" class="absolute rounded-[var(--radius-xl)] shadow-2xl p-5 w-[min(92vw,22rem)] pointer-events-auto" style="left:50%;top:50%;transform:translate(-50%,-50%);background:var(--panel-solid);border:1px solid var(--panel-border);color:var(--ink)">
             <div class="flex items-center justify-between mb-3">
-                <span id="onboarding-step-label" class="text-[10px] font-bold uppercase tracking-wider ds-link">Шаг 1 / 3</span>
-                <button onclick="window.dismissOnboarding()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-semibold">Пропустить</button>
+                <span id="onboarding-step-label" class="type-eyebrow" style="margin:0">Шаг 1 / 3</span>
+                <button type="button" onclick="window.dismissOnboarding()" class="text-sm font-semibold" style="color:var(--ink-muted)">Пропустить</button>
             </div>
-            <h3 id="onboarding-title" class="text-lg font-bold text-slate-800 dark:text-white mb-2">Добро пожаловать</h3>
-            <p id="onboarding-text" class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-4">Краткий тур по карте.</p>
+            <h3 id="onboarding-title" class="type-title type-title--sm mb-2" style="color:var(--ink)">Добро пожаловать</h3>
+            <p id="onboarding-text" class="text-sm leading-relaxed mb-4" style="color:var(--ink-muted)">Краткий тур по карте.</p>
             <div class="flex items-center justify-between gap-3">
-                <button id="onboarding-prev" onclick="window.prevOnboardingStep()" class="px-4 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">Назад</button>
-                <button id="onboarding-next" onclick="window.nextOnboardingStep()" class="px-5 py-2.5 ds-btn ds-btn--primary">Далее</button>
+                <button type="button" id="onboarding-prev" onclick="window.prevOnboardingStep()" class="ds-btn ds-btn--outline" style="min-height:2.4rem">Назад</button>
+                <button type="button" id="onboarding-next" onclick="window.nextOnboardingStep()" class="ds-btn ds-btn--primary">Далее</button>
             </div>
         </div>
     </div>
@@ -291,7 +291,7 @@
                     <div class="flex items-center justify-between px-0.5">
                         <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider"><i class="icon-sound mr-1 text-[color:var(--accent)]"></i><span data-lang="analyzers_title">Анализаторы</span></span>
                     </div>
-                    <div class="analyzer-panel">
+                    <div class="analyzer-panel ds-frame">
                         <div class="flex justify-between items-center mb-2">
                             <span class="text-[10px] uppercase font-bold tracking-widest" style="color: var(--ink-muted)" data-lang="goniometer_title">Гониометр (Стереокартина)</span>
                             <span id="goniometer-meta" class="text-[9px] font-mono font-semibold" style="color: var(--accent-ink)">L / R</span>
@@ -323,7 +323,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="analyzer-panel">
+                    <div class="analyzer-panel ds-frame">
                         <div class="flex justify-between items-center mb-2">
                             <span class="text-[10px] uppercase font-bold tracking-widest" style="color: var(--ink-muted)" data-lang="frequency_analyzer_title">Спектрограмма</span>
                             <span class="text-[9px] font-mono font-semibold" style="color: var(--ink-muted)">Hz · dB→color</span>
@@ -333,7 +333,7 @@
                             <canvas id="spectrum-canvas" width="600" height="130"></canvas>
                         </div>
                     </div>
-                    <div class="analyzer-panel">
+                    <div class="analyzer-panel ds-frame">
                         <div class="flex justify-between items-center mb-2">
                             <span class="text-[10px] uppercase font-bold tracking-widest" style="color: var(--ink-muted)" data-lang="loudness_meter">Loudness Meter</span>
                             <span id="loudness-db-label" class="text-[10px] font-mono font-semibold" style="color: var(--accent-ink)">−∞ dB</span>
@@ -385,10 +385,10 @@
                     <div id="admin-section-sounds" class="space-y-4">
                         <div id="admin-stats-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2"></div>
                         <div class="flex gap-2">
-                            <button onclick="window.exportSoundsData('csv', true)" class="flex-1 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                            <button onclick="window.exportSoundsData('csv', true)" class="flex-1 ds-btn ds-btn--outline" style="min-height:2.25rem">
                                 <i class="icon-document mr-1"></i>CSV
                             </button>
-                            <button onclick="window.exportSoundsData('geojson', true)" class="flex-1 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                            <button onclick="window.exportSoundsData('geojson', true)" class="flex-1 ds-btn ds-btn--outline" style="min-height:2.25rem">
                                 <i class="icon-map mr-1"></i>GeoJSON
                             </button>
                         </div>
@@ -657,14 +657,14 @@
                         <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider" for="dgis-api-key-input">Ключ 2GIS MapGL</label>
                         <div class="flex gap-2">
                             <input type="password" id="dgis-api-key-input" autocomplete="off" spellcheck="false" placeholder="API key" class="modal-input flex-1 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-xs">
-                            <button type="button" onclick="window.saveDgisApiKey(document.getElementById('dgis-api-key-input').value)" class="px-3 rounded-xl bg-slate-800 dark:bg-slate-700 text-white text-xs font-bold shrink-0">Сохранить</button>
+                            <button type="button" onclick="window.saveDgisApiKey(document.getElementById('dgis-api-key-input').value)" class="ds-btn ds-btn--primary shrink-0" style="min-height:2.25rem;padding:0.4rem 0.75rem;font-size:0.75rem">Сохранить</button>
                         </div>
                     </div>
                     <div id="google-key-wrap" class="hidden mt-3 space-y-1.5">
                         <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider" for="google-api-key-input">Ключ Google Maps</label>
                         <div class="flex gap-2">
                             <input type="password" id="google-api-key-input" autocomplete="off" spellcheck="false" placeholder="API key" class="modal-input flex-1 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white text-xs">
-                            <button type="button" onclick="window.saveGoogleMapsApiKey(document.getElementById('google-api-key-input').value)" class="px-3 rounded-xl bg-slate-800 dark:bg-slate-700 text-white text-xs font-bold shrink-0">Сохранить</button>
+                            <button type="button" onclick="window.saveGoogleMapsApiKey(document.getElementById('google-api-key-input').value)" class="ds-btn ds-btn--primary shrink-0" style="min-height:2.25rem;padding:0.4rem 0.75rem;font-size:0.75rem">Сохранить</button>
                         </div>
                     </div>
                 </div>
@@ -706,89 +706,89 @@
                 </div>
                 <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 space-y-4">
                     <div id="help-panel-support" class="space-y-4">
-                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
-                            <h4 class="font-bold text-slate-800 dark:text-white mb-1">Поддержка и помощь</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Сначала ответит бот по частым вопросам. Если ответ не подойдёт – напишите «обращение», и создастся тикет с номером для оператора.</p>
-                            <button onclick="window.contactSupport()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl ds-btn ds-btn--primary">
-                                <i class="icon-message-question"></i>Открыть чат поддержки
+                        <div class="rounded-2xl p-4 space-y-3" style="border:1px solid var(--panel-border);background:var(--surface-stone)">
+                            <h4 class="font-bold mb-1" style="color:var(--ink)">Поддержка и помощь</h4>
+                            <p class="text-sm" style="color:var(--ink-muted)">Сначала ответит бот по частым вопросам. Если ответ не подойдёт – напишите «обращение», и создастся тикет с номером для оператора.</p>
+                            <button type="button" onclick="window.contactSupport()" class="w-full ds-btn ds-btn--primary">
+                                <i class="icon-message-question" aria-hidden="true"></i>Открыть чат поддержки
                             </button>
-                            <p class="text-xs text-slate-500 dark:text-slate-400">Пока пишите в чат в приложении. Планируемый адрес: <span class="font-semibold text-slate-600 dark:text-slate-300" id="help-support-email">support@polevka.art</span></p>
+                            <p class="text-xs" style="color:var(--ink-muted)">Пока пишите в чат в приложении. Планируемый адрес: <span class="font-semibold" style="color:var(--ink)" id="help-support-email">support@polevka.art</span></p>
                         </div>
                     </div>
                     <div id="help-panel-faq" class="hidden space-y-4">
-                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
-                            <h4 class="font-bold text-slate-800 dark:text-white mb-1">Тур по карте</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Короткий обзор интерфейса – библиотека, плеер, фильтры и навигация.</p>
-                            <button onclick="window.restartOnboarding()" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                        <div class="rounded-2xl p-4 space-y-3" style="border:1px solid var(--panel-border);background:var(--surface-stone)">
+                            <h4 class="font-bold mb-1" style="color:var(--ink)">Тур по карте</h4>
+                            <p class="text-sm" style="color:var(--ink-muted)">Короткий обзор интерфейса – библиотека, плеер, фильтры и навигация.</p>
+                            <button type="button" onclick="window.restartOnboarding()" class="w-full ds-btn ds-btn--outline" style="min-height:2.5rem">
                                 <i class="icon-discover" aria-hidden="true"></i>Показать тур по карте
                             </button>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
-                            <h4 class="font-bold text-slate-800 dark:text-white mb-1">Аудио-угадайка</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Мини-игра: угадайте место по звуку с карты. Не мешает основному слушанию.</p>
-                            <button type="button" onclick="window.openAudioGuessr && window.openAudioGuessr()" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                        <div class="rounded-2xl p-4 space-y-3" style="border:1px solid var(--panel-border);background:var(--surface-stone)">
+                            <h4 class="font-bold mb-1" style="color:var(--ink)">Аудио-угадайка</h4>
+                            <p class="text-sm" style="color:var(--ink-muted)">Мини-игра: угадайте место по звуку с карты. Не мешает основному слушанию.</p>
+                            <button type="button" onclick="window.openAudioGuessr && window.openAudioGuessr()" class="w-full ds-btn ds-btn--outline" style="min-height:2.5rem">
                                 <i class="icon-headphone" aria-hidden="true"></i>Играть
                             </button>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
-                            <h4 class="font-bold text-slate-800 dark:text-white mb-1">Добавить на экран «Домой»</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">На iPhone: Safari → «Поделиться» → «На экран „Домой“». На Android часто появляется кнопка установки.</p>
-                            <button type="button" id="btn-add-to-home" onclick="window.openAddToHomeScreenHelp()" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                                <i class="icon-mobile"></i>Как добавить на Домой
+                        <div class="rounded-2xl p-4 space-y-3" style="border:1px solid var(--panel-border);background:var(--surface-stone)">
+                            <h4 class="font-bold mb-1" style="color:var(--ink)">Добавить на экран «Домой»</h4>
+                            <p class="text-sm" style="color:var(--ink-muted)">На iPhone: Safari → «Поделиться» → «На экран „Домой“». На Android часто появляется кнопка установки.</p>
+                            <button type="button" id="btn-add-to-home" onclick="window.openAddToHomeScreenHelp()" class="w-full ds-btn ds-btn--outline" style="min-height:2.5rem">
+                                <i class="icon-mobile" aria-hidden="true"></i>Как добавить на Домой
                             </button>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
-                            <h4 class="font-bold text-slate-800 dark:text-white mb-1">Документы и правила</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Политика конфиденциальности, пользовательское соглашение и правила публикации.</p>
-                            <button type="button" onclick="window.openLegalDocModal('privacy')" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                                <i class="icon-shield-tick"></i>Политика конфиденциальности
+                        <div class="rounded-2xl p-4 space-y-3" style="border:1px solid var(--panel-border);background:var(--surface-stone)">
+                            <h4 class="font-bold mb-1" style="color:var(--ink)">Документы и правила</h4>
+                            <p class="text-sm" style="color:var(--ink-muted)">Политика конфиденциальности, пользовательское соглашение и правила публикации.</p>
+                            <button type="button" onclick="window.openLegalDocModal('privacy')" class="w-full ds-btn ds-btn--outline" style="min-height:2.5rem">
+                                <i class="icon-shield-tick" aria-hidden="true"></i>Политика конфиденциальности
                             </button>
-                            <button type="button" onclick="window.openLegalDocModal('terms')" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                                <i class="icon-document"></i>Пользовательское соглашение
+                            <button type="button" onclick="window.openLegalDocModal('terms')" class="w-full ds-btn ds-btn--outline" style="min-height:2.5rem">
+                                <i class="icon-document" aria-hidden="true"></i>Пользовательское соглашение
                             </button>
-                            <button type="button" onclick="window.openPublishRulesModal()" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                                <i class="icon-book"></i>Правила публикации
+                            <button type="button" onclick="window.openPublishRulesModal()" class="w-full ds-btn ds-btn--outline" style="min-height:2.5rem">
+                                <i class="icon-book" aria-hidden="true"></i>Правила публикации
                             </button>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
-                            <h4 class="font-bold text-slate-800 dark:text-white mb-2">Как добавить новый звук?</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Нажмите на плюс внизу, войдите в аккаунт и заполните форму. Перед отправкой загляните в правила публикации.</p>
+                        <div class="rounded-2xl p-4" style="border:1px solid var(--panel-border);background:var(--surface-stone)">
+                            <h4 class="font-bold mb-2" style="color:var(--ink)">Как добавить новый звук?</h4>
+                            <p class="text-sm" style="color:var(--ink-muted)">Нажмите на плюс внизу, войдите в аккаунт и заполните форму. Перед отправкой загляните в правила публикации.</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
-                            <h4 class="font-bold text-slate-800 dark:text-white mb-2">Как фильтровать звуки?</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Откройте боковую панель → «Библиотека»: внутри есть фильтры «Слои», «Теги» и «Параметры».</p>
+                        <div class="rounded-2xl p-4" style="border:1px solid var(--panel-border);background:var(--surface-stone)">
+                            <h4 class="font-bold mb-2" style="color:var(--ink)">Как фильтровать звуки?</h4>
+                            <p class="text-sm" style="color:var(--ink-muted)">Откройте боковую панель → «Библиотека»: внутри есть фильтры «Слои», «Теги» и «Параметры».</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
-                            <h4 class="font-bold text-slate-800 dark:text-white mb-2">Что делать, если звук не воспроизводится?</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Проверьте подключение и попробуйте другой звук или браузер.</p>
+                        <div class="rounded-2xl p-4" style="border:1px solid var(--panel-border);background:var(--surface-stone)">
+                            <h4 class="font-bold mb-2" style="color:var(--ink)">Что делать, если звук не воспроизводится?</h4>
+                            <p class="text-sm" style="color:var(--ink-muted)">Проверьте подключение и попробуйте другой звук или браузер.</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
-                            <h4 class="font-bold text-slate-800 dark:text-white mb-2">Нужна ли регистрация?</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Карту можно смотреть без входа, но добавление звуков доступно только авторизованным пользователям.</p>
+                        <div class="rounded-2xl p-4" style="border:1px solid var(--panel-border);background:var(--surface-stone)">
+                            <h4 class="font-bold mb-2" style="color:var(--ink)">Нужна ли регистрация?</h4>
+                            <p class="text-sm" style="color:var(--ink-muted)">Карту можно смотреть без входа, но добавление звуков доступно только авторизованным пользователям.</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
-                            <h4 class="font-bold text-slate-800 dark:text-white mb-2">Можно ли менять тему и стиль карты?</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Да, это доступно в настройках (шестерёнка в левой панели).</p>
+                        <div class="rounded-2xl p-4" style="border:1px solid var(--panel-border);background:var(--surface-stone)">
+                            <h4 class="font-bold mb-2" style="color:var(--ink)">Можно ли менять тему и стиль карты?</h4>
+                            <p class="text-sm" style="color:var(--ink-muted)">Да, это доступно в настройках (шестерёнка в левой панели).</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
-                            <h4 class="font-bold text-slate-800 dark:text-white mb-2">Где посмотреть описание записи?</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Откройте карточку звука или нажмите на название в плеере.</p>
+                        <div class="rounded-2xl p-4" style="border:1px solid var(--panel-border);background:var(--surface-stone)">
+                            <h4 class="font-bold mb-2" style="color:var(--ink)">Где посмотреть описание записи?</h4>
+                            <p class="text-sm" style="color:var(--ink-muted)">Откройте карточку звука или нажмите на название в плеере.</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
-                            <h4 class="font-bold text-slate-800 dark:text-white mb-2">Поддерживается ли 360-звук?</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Да, для некоторых записей доступен режим звуковой сферы.</p>
+                        <div class="rounded-2xl p-4" style="border:1px solid var(--panel-border);background:var(--surface-stone)">
+                            <h4 class="font-bold mb-2" style="color:var(--ink)">Поддерживается ли 360-звук?</h4>
+                            <p class="text-sm" style="color:var(--ink-muted)">Да, для некоторых записей доступен режим звуковой сферы.</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
-                            <h4 class="font-bold text-slate-800 dark:text-white mb-2">Можно ли пользоваться на телефоне?</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Да, интерфейс адаптирован и под мобильные устройства. На iPhone можно добавить ярлык: Safari → «Поделиться» → «На экран „Домой“».</p>
+                        <div class="rounded-2xl p-4" style="border:1px solid var(--panel-border);background:var(--surface-stone)">
+                            <h4 class="font-bold mb-2" style="color:var(--ink)">Можно ли пользоваться на телефоне?</h4>
+                            <p class="text-sm" style="color:var(--ink-muted)">Да, интерфейс адаптирован и под мобильные устройства. На iPhone можно добавить ярлык: Safari → «Поделиться» → «На экран „Домой“».</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
-                            <h4 class="font-bold text-slate-800 dark:text-white mb-2">Куда отправить вопрос?</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Откройте вкладку «Поддержка» или напишите через сообщения.</p>
+                        <div class="rounded-2xl p-4" style="border:1px solid var(--panel-border);background:var(--surface-stone)">
+                            <h4 class="font-bold mb-2" style="color:var(--ink)">Куда отправить вопрос?</h4>
+                            <p class="text-sm" style="color:var(--ink-muted)">Откройте вкладку «Поддержка» или напишите через сообщения.</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40">
-                            <h4 class="font-bold text-slate-800 dark:text-white mb-2">Кто может видеть мои добавленные записи?</h4>
-                            <p class="text-sm text-slate-600 dark:text-slate-300">Записи видны всем пользователям карты, а администраторы могут управлять ими.</p>
+                        <div class="rounded-2xl p-4" style="border:1px solid var(--panel-border);background:var(--surface-stone)">
+                            <h4 class="font-bold mb-2" style="color:var(--ink)">Кто может видеть мои добавленные записи?</h4>
+                            <p class="text-sm" style="color:var(--ink-muted)">Записи видны всем пользователям карты, а администраторы могут управлять ими.</p>
                         </div>
                     </div>
                 </div>
@@ -848,7 +848,7 @@
                     </div>
                 </div>
 
-                <div id="waveform-wrapper" class="player-wave-block relative w-full h-12 md:h-14 cursor-pointer group">
+                <div id="waveform-wrapper" class="player-wave-block ds-frame relative w-full h-12 md:h-14 cursor-pointer group">
                     <canvas id="waveform-canvas" class="waveform-canvas" aria-hidden="true"></canvas>
                     <div id="waveform-markers" class="waveform-markers hidden" aria-hidden="true"></div>
                     <div id="playhead" class="absolute top-0 bottom-0 w-[1.5px] bg-slate-800 dark:bg-white rounded-full pointer-events-none z-10" style="left: 0%;"></div>
@@ -1004,31 +1004,31 @@
 
     <!-- Модальное окно: АВТОРИЗАЦИЯ -->
     <div id="auth-modal" onmousedown="if(event.target === this) window.requestCloseAuthModal()" class="fixed inset-0 z-[210] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="auth-modal-content" class="bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-sm app-modal-panel flex flex-col overflow-hidden min-h-0 transform scale-95 transition-all pointer-events-auto">
-            <div class="px-6 py-5 flex justify-between items-center border-b border-slate-100 dark:border-slate-700 shrink-0">
+        <div id="auth-modal-content" class="rounded-[2.5rem] shadow-2xl w-full max-w-sm app-modal-panel flex flex-col overflow-hidden min-h-0 transform scale-95 transition-all pointer-events-auto" style="background:var(--panel-solid);border:1px solid var(--panel-border);color:var(--ink)">
+            <div class="px-6 py-5 flex justify-between items-center border-b shrink-0" style="border-color:var(--panel-border)">
                 <div class="flex items-center gap-3 min-w-0">
                     <img src="./Logo.png" alt="" width="40" height="40" decoding="async" class="rounded-xl shrink-0" aria-hidden="true">
                     <div class="min-w-0">
                         <p class="type-eyebrow">Полёвка</p>
-                        <h3 class="type-title type-title--sm text-slate-800 dark:text-white leading-tight">Вход / <span class="type-accent">Регистрация</span></h3>
+                        <h3 class="type-title type-title--sm leading-tight" style="color:var(--ink)">Вход / <span class="type-accent">Регистрация</span></h3>
                     </div>
                 </div>
-                <button type="button" onclick="window.requestCloseAuthModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none shrink-0" aria-label="Закрыть">
+                <button type="button" onclick="window.requestCloseAuthModal()" class="outline-none shrink-0" style="color:var(--ink-muted)" aria-label="Закрыть">
                     <i class="icon-close-circle text-xl pointer-events-none"></i>
                 </button>
             </div>
             
             <!-- Переключатель вкладок Вход/Регистрация -->
-            <div class="flex border-b border-slate-100 dark:border-slate-700 shrink-0">
+            <div class="flex border-b shrink-0" style="border-color:var(--panel-border)">
                 <button type="button" onclick="window.switchAuthTab('login')" id="auth-tab-login" class="flex-1 py-3 text-sm font-bold ds-link border-b-2 border-[color:var(--accent)] transition-colors">Вход</button>
-                <button type="button" onclick="window.switchAuthTab('register')" id="auth-tab-register" class="flex-1 py-3 text-sm font-bold text-slate-500 dark:text-slate-400 border-b-2 border-transparent hover:text-slate-800 dark:hover:text-slate-200 transition-colors">Новый аккаунт</button>
+                <button type="button" onclick="window.switchAuthTab('register')" id="auth-tab-register" class="flex-1 py-3 text-sm font-bold border-b-2 border-transparent transition-colors" style="color:var(--ink-muted)">Новый аккаунт</button>
             </div>
 
             <div class="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1 min-h-0" id="auth-form-container">
                 <!-- Поля генерируются через JS -->
             </div>
             
-            <div class="px-6 pb-6 pt-3 border-t border-slate-100 dark:border-slate-700 shrink-0">
+            <div class="px-6 pb-6 pt-3 border-t shrink-0" style="border-color:var(--panel-border)">
                 <button type="button" id="auth-action-btn" onclick="window.submitAuth()" class="w-full py-3.5 ds-btn ds-btn--primary">Войти</button>
             </div>
         </div>
@@ -1036,10 +1036,10 @@
 
     <!-- Модальное окно: НАСТРОЙКИ -->
     <div id="settings-modal" onmousedown="if(event.target === this) window.requestCloseSettingsModal()" class="fixed inset-0 z-[250] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="settings-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto border border-slate-100 dark:border-slate-800">
-            <div class="settings-modal-header px-6 py-5 flex justify-between items-center border-b border-slate-100 dark:border-slate-700">
-                <h3 class="type-title type-title--sm text-slate-800 dark:text-white"><span data-lang="settings_title">Настройки</span></h3>
-                <button type="button" onclick="window.requestCloseSettingsModal()" class="settings-modal-close text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none" aria-label="Закрыть">
+        <div id="settings-modal-content" class="rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto" style="background:var(--panel-solid);border:1px solid var(--panel-border);color:var(--ink)">
+            <div class="settings-modal-header px-6 py-5 flex justify-between items-center border-b" style="border-color:var(--panel-border)">
+                <h3 class="type-title type-title--sm" style="color:var(--ink)"><span data-lang="settings_title">Настройки</span></h3>
+                <button type="button" onclick="window.requestCloseSettingsModal()" class="settings-modal-close outline-none" style="color:var(--ink-muted)" aria-label="Закрыть">
                     <i class="icon-close-circle text-xl pointer-events-none"></i>
                 </button>
             </div>
@@ -1065,17 +1065,17 @@
                     </div>
                 </div>
                 <div>
-                    <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="lang_app"><i class="icon-language-circle mr-1"></i> Язык приложения</label>
+                    <label class="modal-label" data-lang="lang_app"><i class="icon-language-circle mr-1" aria-hidden="true"></i> Язык приложения</label>
                     <div class="relative">
-                        <select onchange="window.setLanguage(this.value)" id="lang-select" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white font-semibold appearance-none cursor-pointer">
-                            <option value="ru">🇷🇺 Русский</option>
-                            <option value="en">🇬🇧 English</option>
+                        <select onchange="window.setLanguage(this.value)" id="lang-select" class="modal-input font-semibold appearance-none cursor-pointer">
+                            <option value="ru">Русский</option>
+                            <option value="en">English</option>
                         </select>
-                        <i class="icon-arrow-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                        <i class="icon-arrow-down absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" style="color:var(--ink-muted)" aria-hidden="true"></i>
                     </div>
                 </div>
                 <div>
-                    <label class="modal-label text-slate-500 dark:text-slate-400" data-lang="ui_sounds"><i class="icon-notification mr-1"></i> Звуки интерфейса</label>
+                    <label class="modal-label" data-lang="ui_sounds"><i class="icon-notification mr-1" aria-hidden="true"></i> Звуки интерфейса</label>
                     <div class="glass-switch-row mt-1">
                         <div>
                             <span class="glass-switch-row__label" data-lang="ui_sounds">Звуки интерфейса</span>
@@ -1087,7 +1087,7 @@
                     </div>
                 </div>
                 <div>
-                    <label class="modal-label text-slate-500 dark:text-slate-400"><i class="icon-chart-2 mr-1"></i> Волна по каналам</label>
+                    <label class="modal-label"><i class="icon-chart-2 mr-1" aria-hidden="true"></i> Волна по каналам</label>
                     <div class="glass-switch-row mt-1">
                         <div>
                             <span class="glass-switch-row__label">Отдельные дорожки каналов</span>
@@ -1098,50 +1098,50 @@
                         </button>
                     </div>
                 </div>
-                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4 space-y-3">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider"><i class="icon-chart-2 mr-1"></i> Статистика региона</p>
+                <div class="rounded-2xl p-4 space-y-3" style="border:1px solid var(--panel-border);background:var(--surface-stone)">
+                    <p class="type-eyebrow" style="margin:0"><i class="icon-chart-2 mr-1" aria-hidden="true"></i> Статистика региона</p>
                     <div id="region-stats-grid"></div>
                     <div class="flex gap-2">
-                        <button onclick="window.exportSoundsData('csv')" class="flex-1 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                            <i class="icon-document mr-1"></i>CSV
+                        <button type="button" onclick="window.exportSoundsData('csv')" class="flex-1 ds-btn ds-btn--outline" style="min-height:2.4rem">
+                            <i class="icon-document mr-1" aria-hidden="true"></i>CSV
                         </button>
-                        <button onclick="window.exportSoundsData('geojson')" class="flex-1 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                            <i class="icon-map mr-1"></i>GeoJSON
+                        <button type="button" onclick="window.exportSoundsData('geojson')" class="flex-1 ds-btn ds-btn--outline" style="min-height:2.4rem">
+                            <i class="icon-map mr-1" aria-hidden="true"></i>GeoJSON
                         </button>
                     </div>
                 </div>
-                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4 space-y-3">
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider"><i class="icon-message-question mr-1"></i> Помощь</p>
-                    <button onclick="window.closeSettingsModal(); window.restartOnboarding();" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl ds-btn ds-btn--primary">
-                        <i class="icon-discover"></i>
+                <div class="rounded-2xl p-4 space-y-3" style="border:1px solid var(--panel-border);background:var(--surface-stone)">
+                    <p class="type-eyebrow" style="margin:0"><i class="icon-message-question mr-1" aria-hidden="true"></i> Помощь</p>
+                    <button type="button" onclick="window.closeSettingsModal(); window.restartOnboarding();" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl ds-btn ds-btn--primary">
+                        <i class="icon-discover" aria-hidden="true"></i>
                         Пройти тур по карте
                     </button>
-                    <button type="button" id="btn-add-to-home-settings" onclick="window.closeSettingsModal(); window.openAddToHomeScreenHelp();" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                        <i class="icon-mobile"></i>
+                    <button type="button" id="btn-add-to-home-settings" onclick="window.closeSettingsModal(); window.openAddToHomeScreenHelp();" class="w-full ds-btn ds-btn--outline" style="min-height:2.5rem">
+                        <i class="icon-mobile" aria-hidden="true"></i>
                         На экран «Домой»
                     </button>
-                    <button type="button" onclick="window.enableDeviceNotifications && window.enableDeviceNotifications()" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                        <i class="icon-notification"></i>
+                    <button type="button" onclick="window.enableDeviceNotifications && window.enableDeviceNotifications()" class="w-full ds-btn ds-btn--outline" style="min-height:2.5rem">
+                        <i class="icon-notification" aria-hidden="true"></i>
                         Включить уведомления
                     </button>
-                    <button onclick="window.closeSettingsModal(); if(window.openSupportModal) window.openSupportModal(); else if(window.openMessagesModal) window.openMessagesModal(window.SUPPORT_LOGIN || 'support');" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                        <i class="icon-headphone"></i>
+                    <button type="button" onclick="window.closeSettingsModal(); if(window.openSupportModal) window.openSupportModal(); else if(window.openMessagesModal) window.openMessagesModal(window.SUPPORT_LOGIN || 'support');" class="w-full ds-btn ds-btn--outline" style="min-height:2.5rem">
+                        <i class="icon-headphone" aria-hidden="true"></i>
                         Написать в поддержку
                     </button>
-                    <button type="button" onclick="window.openLegalDocModal('privacy')" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                        <i class="icon-shield-tick"></i>
+                    <button type="button" onclick="window.openLegalDocModal('privacy')" class="w-full ds-btn ds-btn--outline" style="min-height:2.5rem">
+                        <i class="icon-shield-tick" aria-hidden="true"></i>
                         Политика конфиденциальности
                     </button>
-                    <button type="button" onclick="window.openLegalDocModal('terms')" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                        <i class="icon-document"></i>
+                    <button type="button" onclick="window.openLegalDocModal('terms')" class="w-full ds-btn ds-btn--outline" style="min-height:2.5rem">
+                        <i class="icon-document" aria-hidden="true"></i>
                         Пользовательское соглашение
                     </button>
-                    <button type="button" onclick="window.openPublishRulesModal()" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                        <i class="icon-book"></i>
+                    <button type="button" onclick="window.openPublishRulesModal()" class="w-full ds-btn ds-btn--outline" style="min-height:2.5rem">
+                        <i class="icon-book" aria-hidden="true"></i>
                         Правила публикации
                     </button>
-                    <button type="button" onclick="window.closeSettingsModal(); window.switchSidebarTab('help');" class="hidden md:flex w-full items-center justify-center gap-2 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                        <i class="icon-message-question"></i>
+                    <button type="button" onclick="window.closeSettingsModal(); window.switchSidebarTab('help');" class="hidden md:flex w-full ds-btn ds-btn--outline" style="min-height:2.5rem">
+                        <i class="icon-message-question" aria-hidden="true"></i>
                         Открыть раздел «Помощь»
                     </button>
                 </div>
@@ -1151,24 +1151,24 @@
 
     <!-- Модальное окно: ЛИЧНЫЙ КАБИНЕТ -->
     <div id="cabinet-modal" onmousedown="if(event.target === this) window.requestCloseCabinet()" class="fixed inset-0 z-[200] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="cabinet-modal-content" class="bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-2xl app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto border border-slate-100 dark:border-slate-800">
-            <div class="cabinet-modal-header px-5 py-4 flex items-start gap-3 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
+        <div id="cabinet-modal-content" class="rounded-[2.5rem] shadow-2xl w-full max-w-2xl app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto" style="background:var(--surface-stone);border:1px solid var(--panel-border);color:var(--ink)">
+            <div class="cabinet-modal-header px-5 py-4 flex items-start gap-3 border-b" style="background:var(--panel-solid);border-color:var(--panel-border)">
                 <label class="relative cursor-pointer group shrink-0">
-                    <img id="cabinet-avatar" class="hidden w-12 h-12 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-sm" alt="avatar">
-                    <div id="cabinet-avatar-fallback" class="w-12 h-12 rounded-full ds-soft-fill dark:bg-slate-700 flex items-center justify-center ds-link text-lg shadow-inner">
+                    <img id="cabinet-avatar" class="hidden w-12 h-12 rounded-full object-cover shadow-sm" alt="avatar" style="border:1px solid var(--panel-border)">
+                    <div id="cabinet-avatar-fallback" class="w-12 h-12 rounded-full ds-soft-fill flex items-center justify-center ds-link text-lg shadow-inner">
                         <i class="icon-profile-circle"></i>
                     </div>
                     <input type="file" id="avatar-input" accept="image/*" class="hidden" onchange="window.uploadProfilePhoto(this.files)">
                     <span class="absolute inset-0 rounded-full bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[10px] font-bold text-white">Фото</span>
                 </label>
                 <div class="min-w-0 flex-1">
-                    <h3 id="cabinet-user-name" class="text-base font-bold text-slate-800 dark:text-white leading-snug break-words">Имя Пользователя</h3>
-                    <p id="cabinet-user-role" class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Рекордист</p>
-                    <p id="cabinet-user-login" class="hidden text-[11px] text-slate-400 mt-0.5"></p>
-                    <div class="flex flex-wrap gap-1.5 mt-2 text-[10px] text-slate-500 dark:text-slate-400">
-                        <span id="cabinet-user-joined" class="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full"><i class="icon-calendar"></i>Дата</span>
-                        <span id="cabinet-user-stats" class="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full"><i class="icon-microphone"></i>0 звуков</span>
-                        <span id="cabinet-user-level" class="hidden inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full font-semibold text-slate-600 dark:text-slate-300"><i class="icon-flash"></i>Lv 1</span>
+                    <h3 id="cabinet-user-name" class="text-base font-bold leading-snug break-words" style="color:var(--ink)">Имя Пользователя</h3>
+                    <p id="cabinet-user-role" class="type-eyebrow mt-0.5" style="margin-top:0.125rem">Рекордист</p>
+                    <p id="cabinet-user-login" class="hidden text-[11px] mt-0.5" style="color:var(--ink-muted)"></p>
+                    <div class="flex flex-wrap gap-1.5 mt-2 text-[10px]" style="color:var(--ink-muted)">
+                        <span id="cabinet-user-joined" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full" style="background:var(--surface-stone)"><i class="icon-calendar"></i>Дата</span>
+                        <span id="cabinet-user-stats" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full" style="background:var(--surface-stone)"><i class="icon-microphone"></i>0 звуков</span>
+                        <span id="cabinet-user-level" class="hidden inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold" style="background:var(--surface-stone);color:var(--ink)"><i class="icon-flash"></i>Lv 1</span>
                     </div>
                     <div id="cabinet-member-badge" class="cabinet-member-badge hidden mt-2"></div>
                     <button type="button" onclick="window.openOwnPublicProfile()" class="cabinet-public-profile-btn mt-2.5 inline-flex items-center gap-1.5 text-[11px] font-bold ds-link hover:underline">
@@ -1177,7 +1177,7 @@
                 </div>
             </div>
 
-            <div id="cabinet-tabs" class="cabinet-tabs flex flex-wrap bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 px-2 gap-x-1 shrink-0">
+            <div id="cabinet-tabs" class="cabinet-tabs flex flex-wrap border-b px-2 gap-x-1 shrink-0" style="background:var(--panel-solid);border-color:var(--panel-border)">
                 <button type="button" onclick="window.switchCabinetTab('sounds')" id="cab-tab-sounds" data-cab-tab="sounds" class="cab-tab active" data-lang="cab_tab_sounds">Мои звуки</button>
                 <button type="button" onclick="window.switchCabinetTab('quests')" id="cab-tab-quests" data-cab-tab="quests" class="cab-tab" data-lang="cab_tab_quests">Задания</button>
                 <button type="button" onclick="window.switchCabinetTab('sessions')" id="cab-tab-sessions" data-cab-tab="sessions" class="cab-tab" data-lang="cab_tab_sessions">Экспедиции</button>
@@ -1200,11 +1200,11 @@
                         <button type="button" id="cab-mobile-admin" class="cabinet-mobile-row hidden" onclick="window.openAdminPanel()"><span class="cabinet-mobile-row__icon"><i class="icon-shield-tick"></i></span><span class="cabinet-mobile-row__label" data-lang="cab_tab_admin">Админ-панель</span><i class="icon-arrow-right-2 cabinet-mobile-row__chev"></i></button>
                     </div>
                     <div class="grid grid-cols-2 gap-4 mb-4">
-                        <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-center items-center text-center">
+                        <div class="ds-shell p-4 rounded-2xl shadow-sm flex flex-col justify-center items-center text-center">
                             <span class="text-3xl font-black ds-link mb-1" id="cabinet-stat-count">0</span>
                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider" data-lang="loaded_sounds">Загружено звуков</span>
                         </div>
-                        <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm flex flex-col justify-center items-center text-center">
+                        <div class="ds-shell p-4 rounded-2xl shadow-sm flex flex-col justify-center items-center text-center">
                             <span class="text-2xl font-black ds-link mb-1" id="cabinet-stat-duration">0:00</span>
                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider" data-lang="total_duration">Общая длительность</span>
                         </div>
@@ -1250,7 +1250,7 @@
                 </div>
 
                 <div id="cab-panel-settings" data-cab-panel="settings" class="hidden space-y-4">
-                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
+                    <div class="rounded-2xl ds-shell--stone p-4 space-y-3">
                         <div>
                             <h4 class="font-bold text-slate-800 dark:text-white mb-1">Общие настройки</h4>
                             <p class="text-sm text-slate-600 dark:text-slate-300">Тема, стиль карты, язык и масштаб интерфейса.</p>
@@ -1259,7 +1259,7 @@
                             <i class="icon-setting-2"></i>Открыть настройки
                         </button>
                     </div>
-                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
+                    <div class="rounded-2xl ds-shell--stone p-4 space-y-3">
                         <div>
                             <h4 class="font-bold text-slate-800 dark:text-white mb-1">Профиль</h4>
                             <p class="text-sm text-slate-600 dark:text-slate-300">Имя, фото и данные аккаунта.</p>
@@ -1271,11 +1271,11 @@
                         <button onclick="window.saveDisplayNameFromSettings()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl ds-btn ds-btn--primary">
                             <i class="icon-edit-2"></i>Изменить имя
                         </button>
-                        <button onclick="document.getElementById('avatar-input').click()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-700 hover:bg-slate-800 text-white font-semibold transition-colors shadow-sm">
+                        <button onclick="document.getElementById('avatar-input').click()" class="w-full ds-btn ds-btn--primary">
                             <i class="icon-gallery"></i>Загрузить фото профиля
                         </button>
                     </div>
-                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
+                    <div class="rounded-2xl ds-shell--stone p-4 space-y-3">
                         <div class="flex items-center justify-between gap-2">
                             <h4 class="font-bold text-slate-800 dark:text-white mb-1"><i class="icon-sms mr-1.5 ds-link"></i>Почта</h4>
                             <span id="email-verified-badge" class="email-status-text email-status-text--pending">Не подтверждена</span>
@@ -1285,7 +1285,7 @@
                             <label class="modal-label text-slate-400">Email</label>
                             <input id="profile-email" type="email" placeholder="you@example.com" class="modal-input bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm">
                         </div>
-                        <button id="email-send-code-btn" onclick="window.startEmailVerification()" class="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-700 hover:bg-slate-800 text-white font-semibold transition-colors shadow-sm">
+                        <button id="email-send-code-btn" onclick="window.startEmailVerification()" class="w-full ds-btn ds-btn--primary">
                             <i class="icon-send-2"></i>Отправить код подтверждения
                         </button>
                         <div id="email-code-block" class="hidden space-y-2">
@@ -1297,13 +1297,13 @@
                                 <button onclick="window.confirmEmailCode()" class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl ds-btn ds-btn--primary text-sm">
                                     <i class="icon-tick-circle"></i>Подтвердить
                                 </button>
-                                <button onclick="window.startEmailVerification()" class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-500 dark:text-slate-300 font-semibold transition-colors text-sm">
+                                <button onclick="window.startEmailVerification()" class="ds-btn ds-btn--outline" style="min-height:2.4rem">
                                     Ещё раз
                                 </button>
                             </div>
                         </div>
                     </div>
-                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
+                    <div class="rounded-2xl ds-shell--stone p-4 space-y-3">
                         <div>
                             <h4 class="font-bold text-slate-800 dark:text-white mb-1"><i class="icon-profile-circle mr-1.5 ds-link"></i>Публичная визитка</h4>
                             <p class="text-sm text-slate-600 dark:text-slate-300">Эти данные видны всем в вашем публичном профиле – вместе с личной картой и портфолио звуков.</p>
@@ -1327,7 +1327,7 @@
                 </div>
 
                 <div id="cab-panel-security" data-cab-panel="security" class="hidden space-y-4">
-                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
+                    <div class="rounded-2xl ds-shell--stone p-4 space-y-3">
                         <div>
                             <h4 class="font-bold text-slate-800 dark:text-white mb-1">Безопасность аккаунта</h4>
                             <p class="text-sm text-slate-600 dark:text-slate-300">Смените пароль для входа в профиль. После смены другие устройства выйдут из аккаунта.</p>
@@ -1340,7 +1340,7 @@
                         </button>
                     </div>
 
-                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
+                    <div class="rounded-2xl ds-shell--stone p-4 space-y-3">
                         <div>
                             <h4 class="font-bold text-slate-800 dark:text-white mb-1">Двухфакторная защита (TOTP)</h4>
                             <p id="cab-totp-status" class="text-sm text-slate-500 dark:text-slate-400">2FA выключена</p>
@@ -1349,7 +1349,7 @@
                         <button type="button" id="cab-totp-setup-btn" onclick="window.startTotpSetup()" class="w-full py-3 rounded-xl ds-btn ds-btn--primary">
                             <i class="icon-shield-tick"></i> Включить 2FA
                         </button>
-                        <div id="cab-totp-setup-box" class="hidden space-y-2 rounded-xl border border-slate-200 dark:border-slate-700 p-3 bg-white dark:bg-slate-800">
+                        <div id="cab-totp-setup-box" class="hidden space-y-2 rounded-xl ds-shell p-3">
                             <p class="text-xs text-slate-500 dark:text-slate-400">Секрет (или отсканируйте otpauth):</p>
                             <code id="cab-totp-secret" class="block text-xs break-all select-all text-slate-800 dark:text-slate-100"></code>
                             <a id="cab-totp-otpauth" href="#" class="text-xs font-semibold ds-link underline">Открыть в приложении-аутентификаторе</a>
@@ -1359,11 +1359,11 @@
                         <div id="cab-totp-disable-wrap" class="hidden space-y-2">
                             <input id="cab-totp-disable-password" type="password" class="modal-input dark:bg-slate-900" placeholder="Пароль для отключения 2FA">
                             <input id="cab-totp-disable-code" type="text" inputmode="numeric" maxlength="6" class="modal-input dark:bg-slate-900" placeholder="Код 2FA">
-                            <button type="button" onclick="window.disableTotp()" class="w-full py-2.5 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white text-sm font-semibold">Отключить 2FA</button>
+                            <button type="button" onclick="window.disableTotp()" class="w-full ds-btn ds-btn--outline" style="min-height:2.5rem">Отключить 2FA</button>
                         </div>
                     </div>
 
-                    <div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
+                    <div class="rounded-2xl ds-shell--stone p-4 space-y-3">
                         <div>
                             <h4 class="font-bold text-slate-800 dark:text-white mb-1">Сессии</h4>
                             <p class="text-sm text-slate-600 dark:text-slate-300">Завершить вход на всех устройствах (инвалидация refresh через tokenVersion).</p>
@@ -1376,7 +1376,7 @@
 
             </div>
 
-            <div id="cabinet-logout-footer" class="hidden p-6 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700">
+            <div id="cabinet-logout-footer" class="hidden p-6 border-t" style="background:var(--panel-solid);border-color:var(--panel-border)">
                 <button onclick="window.logoutUser()" class="w-full py-3.5 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 dark:bg-slate-700 dark:hover:bg-red-900/30 dark:text-slate-300 dark:hover:text-red-400 font-bold rounded-xl transition-all shadow-sm active:scale-[0.98]">
                     <i class="icon-logout mr-2"></i>Выйти из аккаунта
                 </button>
@@ -1387,9 +1387,9 @@
 
     <!-- Модальное окно ADD AUDIO -->
     <div id="add-modal" onmousedown="if(event.target === this) window.closeAddModalSafely()" class="fixed inset-0 z-[200] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="add-modal-content" class="bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all border border-slate-100 dark:border-slate-800 pointer-events-auto">
+        <div id="add-modal-content" class="ds-shell--stone rounded-[2.5rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
             
-            <div class="px-6 py-5 flex justify-between items-center bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
+            <div class="px-6 py-5 flex justify-between items-center border-b" style="background:var(--panel-solid);border-color:var(--panel-border)">
                 <div class="flex items-center gap-3 min-w-0 flex-1">
                     <button id="add-modal-back-btn" onclick="window.goBackFromAdd()" class="hidden text-slate-400 transition-colors outline-none shrink-0">
                         <i class="icon-arrow-left text-xl pointer-events-none"></i>
@@ -1410,7 +1410,7 @@
             <div class="add-modal-body p-6 overflow-y-auto custom-scrollbar flex flex-col gap-6 flex-1 min-h-0">
                 <!-- Блок 1: Основная информация (Загрузка файла и Фото) -->
                 <div class="space-y-4">
-                    <div id="drop-zone" class="file-xfer-drop relative">
+                    <div id="drop-zone" class="file-xfer-drop ds-frame relative">
                         <input type="file" id="audio-file-input" accept="audio/*,.wav,.flac,.aiff,.aif,.mp3,.m4a,.ogg,.aac,.webm" class="hidden">
                         <div id="audio-xfer" class="file-xfer file-xfer--block" data-mode="upload" data-state="idle" role="presentation"></div>
                         <p class="file-xfer-hint" data-lang="drag_drop">Нажмите или перетащите аудиофайл · любой формат → WAV</p>
@@ -1438,7 +1438,7 @@
                         <audio id="add-audio-preview" preload="metadata" class="hidden"></audio>
                     </div>
 
-                    <div id="image-drop-zone" class="file-xfer-drop relative" onclick="document.getElementById('image-file-input').click()">
+                    <div id="image-drop-zone" class="file-xfer-drop ds-frame relative" onclick="document.getElementById('image-file-input').click()">
                         <input type="file" id="image-file-input" accept="image/*" multiple class="hidden" onchange="window.handleImageFilesWrapper(this.files)">
                         <div id="image-xfer" class="file-xfer file-xfer--block" data-mode="photo" data-state="idle" role="presentation"></div>
                         <p class="file-xfer-hint" data-lang="add_photo">Прикрепить фото (до 3-х шт.)</p>
@@ -1473,7 +1473,7 @@
                 </div>
 
                 <!-- Блок 2: UCS Tags -->
-                <div class="space-y-3 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
+                <div class="space-y-3 ds-shell p-4 rounded-2xl">
                     <div class="flex items-center justify-between gap-2">
                         <p class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest type-eyebrow"><i class="icon-document-text mr-1"></i><span data-lang="ucs_block_title">Классификация UCS</span></p>
                         <button type="button" onclick="window.openUcsRecommendations()" class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold ds-link ds-soft-fill transition-colors">
@@ -1510,7 +1510,7 @@
                         <div id="add-tags-chips" class="tag-chips-wrap mb-2"></div>
                         <div class="flex gap-2">
                             <input id="add-tags-input" type="text" value="" placeholder="Тег → Enter или «Добавить»" class="modal-input bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white py-1.5 text-xs flex-1" autocomplete="off">
-                            <button type="button" id="add-tags-add-btn" onclick="window.commitAddTagChip()" class="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Добавить</button>
+                            <button type="button" id="add-tags-add-btn" onclick="window.commitAddTagChip()" class="shrink-0 ds-btn ds-btn--outline" style="min-height:2rem;padding:0.35rem 0.75rem;font-size:0.75rem">Добавить</button>
                         </div>
                         <p class="text-[10px] text-slate-400 mt-1">По одному тегу: Enter или кнопка «Добавить». Запятые не нужны.</p>
                     </div>
@@ -1518,7 +1518,7 @@
 
                 <!-- Блок 3: Location, Date, Time, Weather -->
                 <div class="flex flex-col gap-4 items-start">
-                    <div class="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 space-y-3">
+                    <div class="w-full rounded-2xl ds-shell p-4 space-y-3">
                         <div class="flex items-center justify-between gap-3">
                             <div>
                                 <p class="text-sm font-bold text-slate-700 dark:text-slate-200">Точка на карте</p>
@@ -1571,7 +1571,7 @@
                 </div>
 
                 <!-- Блок 4: Technical & Legal -->
-                <div class="space-y-3 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
+                <div class="space-y-3 ds-shell p-4 rounded-2xl">
                     <div class="glass-switch-row">
                         <div class="min-w-0">
                             <span class="glass-switch-row__label">Запись на смартфон</span>
@@ -1683,8 +1683,8 @@
                     <span class="inline-flex items-center gap-1.5" data-lang="moderation_notice"><i class="icon-cloud"></i> Данные сохраняются на облако</span>
                 </p>
                 <div class="flex gap-3 items-stretch">
-                    <button id="draft-btn" onclick="window.publishSound('draft')" class="flex-1 py-3.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-all active:scale-[0.98]">
-                        <i class="icon-archive mr-2"></i>Черновик
+                    <button id="draft-btn" onclick="window.publishSound('draft')" class="flex-1 ds-btn ds-btn--outline">
+                        <i class="icon-archive mr-2" aria-hidden="true"></i>Черновик
                     </button>
                     <div id="publish-xfer" class="file-xfer file-xfer--block file-xfer--cta flex-1" data-mode="upload" data-state="idle" role="button" tabindex="0" aria-label="Опубликовать звук" onclick="window.publishSound('pending')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.publishSound('pending')}"></div>
                     <button id="publish-btn" class="hidden" aria-hidden="true" tabindex="-1"></button>
@@ -1695,7 +1695,7 @@
 
     <!-- Модальное окно: ПУБЛИЧНЫЙ ПРОФИЛЬ РЕКОРДИСТА -->
     <div id="public-profile-modal" onmousedown="if(event.target === this) window.closePublicProfileModal()" class="fixed inset-0 z-[240] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="public-profile-modal-content" class="pp-modal bg-white dark:bg-slate-900 rounded-[1.75rem] w-full max-w-2xl app-modal-panel flex flex-col overflow-hidden min-h-0 transform scale-95 transition-all pointer-events-auto border border-slate-200/80 dark:border-slate-700">
+        <div id="public-profile-modal-content" class="pp-modal ds-shell rounded-[1.75rem] w-full max-w-2xl app-modal-panel flex flex-col overflow-hidden min-h-0 transform scale-95 transition-all pointer-events-auto">
 
             <div class="pp-hero relative shrink-0">
                 <button type="button" onclick="window.closePublicProfileModal()" class="pp-hero__close" aria-label="Закрыть">
@@ -1793,7 +1793,7 @@
 
     <!-- Модальное окно сообщений -->
     <div id="messages-modal" onmousedown="if(event.target === this) window.requestCloseMessagesModal()" class="fixed inset-0 z-[225] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-3 sm:p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="messages-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel h-[min(92dvh,640px)] flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
+        <div id="messages-modal-content" class="ds-shell rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel h-[min(92dvh,640px)] flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
             <div class="messages-modal-header p-4 sm:p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
                 <h3 id="messages-modal-title" class="text-lg font-bold text-slate-800 dark:text-white"><i class="icon-sms mr-2 ds-link"></i><span data-lang="messages_title">Сообщения</span></h3>
                 <button onclick="window.requestCloseMessagesModal()" class="messages-modal-close text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i class="icon-close-circle text-lg"></i></button>
@@ -1834,7 +1834,7 @@
 
     <!-- Просмотр экспедиции (только чтение; в основном окне – через dock) -->
     <div id="expedition-view-modal" onmousedown="if(event.target === this) window.closeExpeditionViewModal()" class="fixed inset-0 z-[216] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="expedition-view-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto h-[min(92dvh,640px)]">
+        <div id="expedition-view-modal-content" class="ds-shell rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto h-[min(92dvh,640px)]">
             <div class="expedition-view-header p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
                 <h3 id="expedition-view-title" class="text-lg font-bold text-slate-800 dark:text-white truncate pr-2"><i class="icon-routing mr-2 ds-link"></i>Экспедиция</h3>
                 <button type="button" onclick="window.closeExpeditionViewModal()" class="expedition-view-close text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"><i class="icon-close-circle text-lg"></i></button>
@@ -1849,7 +1849,7 @@
 
     <!-- Редактор поста ленты (админ) -->
     <div id="feed-post-modal" onmousedown="if(event.target === this) window.requestCloseFeedPostModal()" class="fixed inset-0 z-[218] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-3 sm:p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="feed-post-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
+        <div id="feed-post-modal-content" class="ds-shell rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
             <div class="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
                 <h3 id="feed-post-modal-title" class="text-lg font-bold text-slate-800 dark:text-white"><i class="icon-edit mr-2 ds-link"></i>Новый пост</h3>
                 <button onclick="window.requestCloseFeedPostModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i class="icon-close-circle text-lg"></i></button>
@@ -1927,7 +1927,7 @@
 
     <!-- Просмотр статьи ленты -->
     <div id="feed-article-modal" onmousedown="if(event.target === this) window.closeFeedArticleModal()" class="fixed inset-0 z-[219] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-3 sm:p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="feed-article-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl w-full max-w-xl app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
+        <div id="feed-article-modal-content" class="ds-shell rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl w-full max-w-xl app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
             <div class="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-700 flex items-start justify-between gap-3 shrink-0">
                 <div class="min-w-0">
                     <p class="text-[10px] font-bold uppercase tracking-wider text-violet-600 mb-1">Статья</p>
@@ -1956,7 +1956,7 @@
 
     <!-- Event editor (admin) -->
     <div id="event-editor-modal" onmousedown="if(event.target === this) window.requestCloseEventEditor()" class="fixed inset-0 z-[220] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-3 sm:p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="event-editor-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto max-h-[92dvh]">
+        <div id="event-editor-modal-content" class="ds-shell rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto max-h-[92dvh]">
             <div class="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
                 <h3 id="event-editor-title" class="text-lg font-bold text-slate-800 dark:text-white"><i class="icon-calendar-add mr-2 text-amber-500"></i>Новый ивент</h3>
                 <button type="button" onclick="window.requestCloseEventEditor()" class="text-slate-400 hover:text-slate-600"><i class="icon-close-circle text-lg"></i></button>
@@ -2060,7 +2060,7 @@
 
     <!-- Кадрирование фото -->
     <div id="image-crop-modal" onmousedown="if(event.target === this) window.requestCloseImageCropModal()" class="fixed inset-0 z-[260] bg-slate-900/70 backdrop-blur-none hidden flex items-center justify-center p-3 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="image-crop-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.5rem] shadow-2xl w-full max-w-md app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
+        <div id="image-crop-modal-content" class="ds-shell rounded-[1.5rem] shadow-2xl w-full max-w-md app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
             <div class="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
                 <h3 class="text-base font-bold text-slate-800 dark:text-white"><i class="icon-crop mr-2 ds-link"></i>Кадрирование</h3>
                 <button onclick="window.requestCloseImageCropModal()" class="text-slate-400"><i class="icon-close-circle text-lg"></i></button>
@@ -2085,7 +2085,7 @@
 
     <!-- Audio Guessr -->
     <div id="guessr-modal" onmousedown="if(event.target === this) window.requestCloseAudioGuessr()" class="fixed inset-0 z-[230] bg-slate-900/70 dark:bg-slate-900/85 backdrop-blur-none hidden flex items-center justify-center p-2 sm:p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="guessr-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl w-full max-w-3xl app-modal-panel h-[min(92dvh,720px)] flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
+        <div id="guessr-modal-content" class="ds-shell rounded-[1.5rem] sm:rounded-[2rem] shadow-2xl w-full max-w-3xl app-modal-panel h-[min(92dvh,720px)] flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
             <div class="p-3 sm:p-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between gap-2 shrink-0">
                 <div class="min-w-0">
                     <h3 class="text-base sm:text-lg font-bold text-slate-800 dark:text-white truncate"><i class="icon-headphone mr-2 text-emerald-500" aria-hidden="true"></i>Аудио-угадайка</h3>
@@ -2106,7 +2106,7 @@
 
     <!-- Сводка действий пользователя (админ) -->
     <div id="user-activity-modal" onmousedown="if(event.target === this) window.closeUserActivityModal()" class="fixed inset-0 z-[220] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="user-activity-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
+        <div id="user-activity-modal-content" class="ds-shell rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
             <div class="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
                 <h3 id="user-activity-title" class="text-lg font-bold text-slate-800 dark:text-white">Сводка пользователя</h3>
                 <button onclick="window.closeUserActivityModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><i class="icon-close-circle text-lg"></i></button>
@@ -2117,7 +2117,7 @@
 
     <!-- Модальное окно: ПОЛНАЯ ФОРМА ЭКСПЕДИЦИИ (дата, цели, маршрут, участники, медиа, ссылки) -->
     <div id="session-modal" onmousedown="if(event.target === this) window.requestCloseSessionModal()" class="fixed inset-0 z-[215] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="session-modal-content" class="bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all border border-slate-100 dark:border-slate-800 pointer-events-auto">
+        <div id="session-modal-content" class="ds-shell--stone rounded-[2.5rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
             <div class="p-6 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 shrink-0">
                 <h3 id="session-modal-title" class="text-xl font-bold text-slate-800 dark:text-white"><i class="icon-routing mr-2 ds-link"></i>Новая экспедиция</h3>
                 <button onclick="window.requestCloseSessionModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none">
@@ -2188,7 +2188,7 @@
 
     <!-- Модальное окно Деталей звука -->
     <div id="details-modal" onmousedown="if(event.target === this) window.closeDetailsModal()" class="fixed inset-0 z-[200] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="details-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-3xl app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
+        <div id="details-modal-content" class="ds-shell rounded-[2rem] shadow-2xl w-full max-w-3xl app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
             <div class="relative details-gallery bg-slate-200 dark:bg-slate-700">
                 <img id="details-image" src="" class="details-gallery__img">
                 <div id="details-gallery-counter" class="details-gallery__counter hidden">1 / 1</div>
@@ -2341,7 +2341,7 @@
 
     <!-- Назначение званий (админ) -->
     <div id="badge-assign-modal" onmousedown="if(event.target === this) window.closeBadgeAssignModal()" class="fixed inset-0 z-[230] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="badge-assign-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.75rem] shadow-2xl w-full max-w-sm app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
+        <div id="badge-assign-modal-content" class="ds-shell rounded-[1.75rem] shadow-2xl w-full max-w-sm app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
             <div class="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
                 <div class="min-w-0">
                     <h3 class="text-base font-bold text-slate-800 dark:text-white"><i class="icon-medal mr-2 text-amber-500"></i>Звания</h3>
@@ -2358,7 +2358,7 @@
 
     <!-- Детали жалобы -->
     <div id="report-detail-modal" onmousedown="if(event.target === this) window.closeReportDetailModal()" class="fixed inset-0 z-[235] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="report-detail-modal-content" class="bg-white dark:bg-slate-800 rounded-[1.75rem] shadow-2xl w-full max-w-md app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
+        <div id="report-detail-modal-content" class="ds-shell rounded-[1.75rem] shadow-2xl w-full max-w-md app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto">
             <div class="p-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
                 <h3 id="report-detail-title" class="text-base font-bold text-slate-800 dark:text-white truncate pr-2">Жалоба</h3>
                 <button onclick="window.closeReportDetailModal()" class="text-slate-400 shrink-0"><i class="icon-close-circle text-lg"></i></button>
@@ -2405,7 +2405,7 @@
         </div>
     </div>
 
-    <div id="map-context-menu" class="fixed z-[9997] hidden w-52 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-800/95 shadow-2xl backdrop-blur-none overflow-hidden">
+    <div id="map-context-menu" class="fixed z-[9997] hidden w-52 rounded-2xl ds-shell shadow-2xl overflow-hidden">
         <div class="px-3 py-2 border-b border-slate-100 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/60">
             <div class="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Создать метку</div>
             <div id="map-context-menu-coords" class="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-1">0.000000, 0.000000</div>
@@ -2427,7 +2427,7 @@
 
     <!-- Кастомные UI Модальные окна -->
     <div id="ui-modal-overlay" onmousedown="if(event.target === this) window.requestCloseCustomUIBackdrop()" class="fixed inset-0 z-[9999] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 app-modal-overlay">
-        <div id="ui-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-sm app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all">
+        <div id="ui-modal-content" class="ds-shell rounded-[2rem] shadow-2xl w-full max-w-sm app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all">
             <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
                 <h3 id="ui-modal-title" class="font-bold text-slate-800 dark:text-white text-lg">Заголовок</h3>
                 <button onclick="window.CustomUI.close(false)" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 outline-none">
@@ -2448,7 +2448,7 @@
 
     <!-- Правила публикации / пользования -->
     <div id="publish-rules-modal" onmousedown="if(event.target === this) window.closePublishRulesModal()" class="fixed inset-0 z-[260] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="publish-rules-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto h-[min(92dvh,720px)] border border-slate-100 dark:border-slate-700">
+        <div id="publish-rules-modal-content" class="ds-shell rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto h-[min(92dvh,720px)]">
             <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0 bg-slate-50 dark:bg-slate-800/80">
                 <div class="min-w-0">
                     <h3 class="text-base sm:text-lg font-bold text-slate-800 dark:text-white leading-tight"><i class="icon-book mr-2 ds-link"></i>Правила Полёвки</h3>
@@ -2468,7 +2468,7 @@
 
     <!-- Политика / пользовательское соглашение -->
     <div id="legal-doc-modal" onmousedown="if(event.target === this) window.closeLegalDocModal()" class="fixed inset-0 z-[260] bg-slate-900/60 dark:bg-slate-900/80 backdrop-blur-none hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300 pointer-events-none app-modal-overlay">
-        <div id="legal-doc-modal-content" class="bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto h-[min(92dvh,720px)] border border-slate-100 dark:border-slate-700">
+        <div id="legal-doc-modal-content" class="ds-shell rounded-[2rem] shadow-2xl w-full max-w-lg app-modal-panel flex flex-col overflow-hidden transform scale-95 transition-all pointer-events-auto h-[min(92dvh,720px)]">
             <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0 bg-slate-50 dark:bg-slate-800/80">
                 <div class="min-w-0">
                     <h3 id="legal-doc-title" class="text-base sm:text-lg font-bold text-slate-800 dark:text-white leading-tight"><i class="icon-shield-tick mr-2 ds-link"></i>Документ</h3>
@@ -2498,7 +2498,7 @@
     </div>
 
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260806u"></script>
+    <script type="module" src="./src/main.js?v=20260806w"></script>
 
 </body>
 </html>
