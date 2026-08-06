@@ -1,7 +1,7 @@
 # Безопасность Полёвки (RO.SMap)
 
 Документ описывает модель угроз, текущие меры защиты, границы доверия и операционные чеклисты.  
-Актуально для Secure API **v13+** (cookie-сессии, refresh, TOTP, HMAC-целостность JSON).
+Актуально для Secure API **v14+** (cookie-сессии, refresh, TOTP, HMAC, cookie consent, обязательная 2FA для staff).
 
 Связанные материалы:
 
@@ -77,7 +77,14 @@ Object Storage
 - Действия: `totpSetup` → секрет + `otpauth://` URL; `totpConfirm` (код); `totpDisable` (пароль + код).
 - При включённой 2FA `login` без кода возвращает `{ needsTotp: true }` (без выдачи сессии).
 - UI: кабинет → вкладка безопасности; при входе — промпт кода.
-- Рекомендуется для `admin` / `moderator`.
+- **Обязательна для `admin` / `moderator`:** login/me возвращают `mustEnableTotp`; staff write/admin actions без TOTP → `403 totp_required`. Отключить 2FA staff нельзя (`totp_required_staff`).
+
+### 3.3a Cookie consent
+
+- Баннер `#cookie-consent-banner`: «Принять» (сессия + локальные настройки) / «Только необходимые».
+- Флаг в `localStorage` (`polevka_cookie_consent`, versioned). Вход без «Принять» блокируется (`requireCookieConsentForAuth`).
+- Политика: [`docs/privacy-policy.md`](privacy-policy.md) §2.1; UI — `legalDocs.js` v2026.08.
+- Повтор: Настройки → «Cookies и согласие».
 
 ### 3.4 Login lockout и rate limit
 
@@ -284,7 +291,7 @@ Private bucket: без публичного чтения; CORS только дл
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | версия / живость (`version: 13`) |
+| `health` | нет | версия / живость (`version: 14`) |
 | `publicConfig` | нет | Maps key + bucket URL (browser-safe) |
 | `register` / `login` | нет | учётка → cookies + access JWT (+ optional TOTP) |
 | `refresh` | refresh cookie | новая пара токенов |
@@ -322,6 +329,7 @@ Private bucket: без публичного чтения; CORS только дл
 | **v13 lockout** | 8 fails → 15 мин; security_events |
 | **v13 integrity** | HMAC на критичных JSON |
 | **v13 frontend** | Self-host Tailwind, CSP без `unsafe-eval` |
+| **v14 consent + staff 2FA** | Cookie banner; TOTP обязателен для staff write/admin |
 
 ---
 

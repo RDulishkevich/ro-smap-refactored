@@ -6927,3 +6927,94 @@ body.hide-mobile-nav #auth-modal > .app-modal-panel {
     min-width: 0;
     overflow-wrap: break-word;
 }
+
+/* Cookie consent banner — above mobile dock / bottom of viewport */
+.cookie-consent {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 280;
+    display: flex;
+    justify-content: center;
+    padding: 0.75rem 1rem calc(0.75rem + var(--sab, env(safe-area-inset-bottom, 0px)));
+    transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1), transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    transform: translateY(0);
+    pointer-events: none;
+}
+.cookie-consent:not(.hidden):not(.pointer-events-none) {
+    pointer-events: auto;
+}
+.cookie-consent.cookie-consent--hide {
+    transform: translateY(0.75rem);
+}
+.cookie-consent__panel {
+    width: min(36rem, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    padding: 1rem 1.1rem;
+    border-radius: var(--radius-lg, 1.5rem);
+    border: var(--control-rim, 2px solid #222);
+    background: var(--panel-solid, #FFF9F0);
+    box-shadow: var(--glass-elev, 0 10px 28px rgba(34, 34, 34, 0.12));
+    pointer-events: auto;
+}
+.cookie-consent__title {
+    margin: 0 0 0.35rem;
+    font-family: var(--font-ui, inherit);
+    font-weight: 700;
+    font-size: var(--text-body, 1rem);
+    color: var(--ink, #222);
+}
+.cookie-consent__text {
+    margin: 0;
+    color: var(--ink-muted, #6b5340);
+    font-size: var(--text-body-sm, 0.8125rem);
+    line-height: 1.45;
+    max-width: 65ch;
+}
+.cookie-consent__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-end;
+}
+.cookie-consent__btn {
+    min-height: 2.75rem;
+    flex: 1 1 auto;
+}
+@media (min-width: 768px) {
+    .cookie-consent {
+        padding-bottom: 1.25rem;
+    }
+    .cookie-consent__panel {
+        flex-direction: row;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 1.25rem;
+    }
+    .cookie-consent__copy {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+    .cookie-consent__actions {
+        flex: 0 0 auto;
+        flex-wrap: nowrap;
+    }
+    .cookie-consent__btn {
+        flex: 0 0 auto;
+        min-width: 9.5rem;
+    }
+}
+@media (max-width: 767px) {
+    .cookie-consent {
+        bottom: var(--mobile-fs-bottom, 5rem);
+        padding-bottom: 0.5rem;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .cookie-consent {
+        transition: opacity 0.15s linear;
+    }
+}

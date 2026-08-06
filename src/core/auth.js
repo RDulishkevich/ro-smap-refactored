@@ -16,6 +16,7 @@ export function initAuth() {
     window.authMode = 'login'; // 'login' or 'register'
 
     window.openAuthModal = function() {
+        if (window.requireCookieConsentForAuth && !window.requireCookieConsentForAuth()) return;
         const m = document.getElementById('auth-modal');
         if(!m) return;
         m.classList.remove('hidden');
@@ -311,6 +312,7 @@ export function initAuth() {
     };
 
     window.submitAuth = async function() {
+        if (window.requireCookieConsentForAuth && !window.requireCookieConsentForAuth()) return;
         const name = document.getElementById('auth-username').value.trim();
         const pass = document.getElementById('auth-password').value.trim();
         const shake = (id, message) => {
@@ -434,7 +436,14 @@ export function initAuth() {
             if (window.syncAccountChrome) window.syncAccountChrome();
             if (window.refreshCabinetTabs) window.refreshCabinetTabs();
             if (window.enableDeviceNotifications) window.enableDeviceNotifications({ quiet: true });
-            if (window.__pendingSupportOpen) {
+            if (data?.mustEnableTotp || data?.user?.mustEnableTotp) {
+                window.showToast('Для admin / moderator обязательна 2FA — настройте в кабинете');
+                if (window.openCabinet) window.openCabinet();
+                if (window.switchCabinetTab) window.switchCabinetTab('security');
+                if (window.startTotpSetup && !window.currentUser?.totpEnabled) {
+                    setTimeout(() => window.startTotpSetup(), 400);
+                }
+            } else if (window.__pendingSupportOpen) {
                 window.__pendingSupportOpen = false;
                 if (window.openMessagesModal) window.openMessagesModal(window.SUPPORT_LOGIN || 'support');
             }
@@ -1952,18 +1961,19 @@ export function initAuth() {
         const setupBtn = document.getElementById('cab-totp-setup-btn');
         const disableWrap = document.getElementById('cab-totp-disable-wrap');
         const enabled = !!(window.currentUser && window.currentUser.totpEnabled);
+        const isStaff = !!(window.isCurrentUserStaff && window.isCurrentUserStaff());
         if (status) {
             status.textContent = enabled
-                ? '2FA включена'
-                : (window.currentUser?.role === 'admin' || window.currentUser?.role === 'moderator'
-                    ? '2FA выключена — для staff рекомендуется включить'
+                ? (isStaff ? '2FA включена (обязательна для staff)' : '2FA включена')
+                : (isStaff
+                    ? '2FA выключена — обязательно для admin / moderator'
                     : '2FA выключена');
             status.className = enabled
                 ? 'text-sm text-emerald-600 dark:text-emerald-400 font-semibold'
                 : 'text-sm text-slate-500 dark:text-slate-400';
         }
         if (setupBtn) setupBtn.classList.toggle('hidden', enabled);
-        if (disableWrap) disableWrap.classList.toggle('hidden', !enabled);
+        if (disableWrap) disableWrap.classList.toggle('hidden', !enabled || isStaff);
         const setupBox = document.getElementById('cab-totp-setup-box');
         if (setupBox && enabled) setupBox.classList.add('hidden');
     };
@@ -2024,6 +2034,8 @@ export function initAuth() {
         } catch (err) {
             if (err.code === 'bad_credentials') return window.showToast('Неверный пароль');
             if (err.code === 'bad_totp') return window.showToast('Неверный код 2FA');
+            if (err.code === 'totp_required') return window.showToast('Сначала включите 2FA в кабинете');
+            if (err.code === 'totp_required_staff') return window.showToast('Staff не может отключить 2FA');
             window.showToast(err.message || 'Не удалось отключить 2FA');
         }
     };

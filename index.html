@@ -29,7 +29,7 @@
 
     <!-- Tailwind (self-hosted build — без Play CDN / без unsafe-eval) -->
     <link rel="stylesheet" href="./src/tailwind.built.css?v=20260722c">
-    <link rel="stylesheet" href="./src/style.css?v=20260806z">
+    <link rel="stylesheet" href="./src/style.css?v=20260806aa">
     <link rel="stylesheet" href="./src/glass.css?v=20260806z">
     <!-- fonts.css after glass so data-font tokens win over :root -->
     <link rel="stylesheet" href="./src/fonts.css?v=20260805m">
@@ -1131,6 +1131,10 @@
                     <button type="button" onclick="window.openLegalDocModal('privacy')" class="w-full ds-btn ds-btn--outline" style="min-height:2.5rem">
                         <i class="icon-shield-tick" aria-hidden="true"></i>
                         Политика конфиденциальности
+                    </button>
+                    <button type="button" onclick="window.closeSettingsModal(); window.openCookieConsentSettings && window.openCookieConsentSettings();" class="w-full ds-btn ds-btn--outline" style="min-height:2.5rem">
+                        <i class="icon-lock" aria-hidden="true"></i>
+                        Cookies и согласие
                     </button>
                     <button type="button" onclick="window.openLegalDocModal('terms')" class="w-full ds-btn ds-btn--outline" style="min-height:2.5rem">
                         <i class="icon-document" aria-hidden="true"></i>
@@ -2497,8 +2501,27 @@
         </div>
     </div>
 
+    <!-- Cookie consent (сессия HttpOnly + локальные настройки) -->
+    <div id="cookie-consent-banner" class="cookie-consent hidden opacity-0 pointer-events-none" role="dialog" aria-labelledby="cookie-consent-title" aria-live="polite">
+        <div class="cookie-consent__panel ds-shell">
+            <div class="cookie-consent__copy">
+                <p id="cookie-consent-title" class="cookie-consent__title type-subtitle">Cookies и локальные данные</p>
+                <p class="cookie-consent__text type-meta">
+                    Для входа в аккаунт мы ставим защищённые HttpOnly-cookies сессии.
+                    Настройки интерфейса хранятся локально на устройстве.
+                    Подробнее — в
+                    <button type="button" class="ds-link" onclick="window.openLegalDocModal && window.openLegalDocModal('privacy')">политике конфиденциальности</button>.
+                </p>
+            </div>
+            <div class="cookie-consent__actions">
+                <button type="button" class="ds-btn ds-btn--outline cookie-consent__btn" onclick="window.setCookieConsent('necessary')">Только необходимые</button>
+                <button type="button" class="ds-btn ds-btn--primary cookie-consent__btn" onclick="window.setCookieConsent('all')">Принять</button>
+            </div>
+        </div>
+    </div>
+
     <audio id="global-audio" crossorigin="anonymous" preload="auto"></audio>
-    <script type="module" src="./src/main.js?v=20260806w"></script>
+    <script type="module" src="./src/main.js?v=20260806x"></script>
 
 </body>
 </html>

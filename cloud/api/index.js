@@ -1413,8 +1413,27 @@ async function handleLogin(event, body) {
         login,
         ip: ipKey
     });
+    const mustEnableTotp = isStaffUser({ login, role }) && !row.totpEnabled;
     return authSuccessResponse(user, {
-        user: { ...publicUser(user), ...extractProfilePii(mergedPii), totpEnabled: !!row.totpEnabled }
+        mustEnableTotp,
+        user: {
+            ...publicUser(user),
+            ...extractProfilePii(mergedPii),
+            totpEnabled: !!row.totpEnabled,
+            mustEnableTotp
+        }
+    });
+}
+
+async function assertStaffTotp(authUser) {
+    if (!isStaffUser(authUser)) return null;
+    const users = await loadAuthUsers();
+    const row = users[authUser.login];
+    if (row?.totpEnabled) return null;
+    return respond(403, {
+        ok: false,
+        error: 'totp_required',
+        message: 'Для staff обязательна 2FA. Включите в кабинете → Безопасность.'
     });
 }
 
@@ -1596,7 +1615,13 @@ async function handleTotpDisable(event, body) {
     const authUser = await resolveAuthUser(payload);
     if (!authUser) return respond(401, { ok: false, error: 'unauthorized' });
     if (authUser.blocked) return respond(403, { ok: false, error: 'blocked' });
-
+    if (isStaffUser(authUser)) {
+        return respond(403, {
+            ok: false,
+            error: 'totp_required_staff',
+            message: 'Staff не может отключить 2FA'
+        });
+    }
     const password = String(body.password || '');
     const code = String(body.totpCode || body.code || '').trim();
     const users = await loadAuthUsers();
@@ -1637,6 +1662,9 @@ async function handleGetSecurityEvents(event, body) {
     const authUser = await resolveAuthUser(payload);
     if (!authUser) return respond(401, { ok: false, error: 'unauthorized' });
     if (authUser.blocked) return respond(403, { ok: false, error: 'blocked' });
+    const totpBlock = await assertStaffTotp(authUser);
+    if (totpBlock) return totpBlock;
+
     if (authUser.role !== 'admin') return respond(403, { ok: false, error: 'forbidden' });
 
     const list = await getJson(sessionSec.SECURITY_EVENTS_KEY, []);
@@ -1846,6 +1874,8 @@ async function handleAdminDeleteUser(event, body) {
     if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
     const actor = await resolveAuthUser(payload);
     if (!actor || !isAdminUser(actor)) return respond(403, { ok: false, error: 'forbidden' });
+    const totpBlock = await assertStaffTotp(actor);
+    if (totpBlock) return totpBlock;
 
     const target = normalizeLogin(body.login);
     if (!target || target === 'admin' || target === actor.login || target === 'support') {
@@ -1897,6 +1927,8 @@ async function handleAdminUnbindEmail(event, body) {
     if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
     const actor = await resolveAuthUser(payload);
     if (!actor || !isAdminUser(actor)) return respond(403, { ok: false, error: 'forbidden' });
+    const totpBlock = await assertStaffTotp(actor);
+    if (totpBlock) return totpBlock;
 
     const target = normalizeLogin(body.login);
     if (!target) return respond(400, { ok: false, error: 'bad_login' });
@@ -1921,6 +1953,8 @@ async function handleAdminSendEmail(event, body) {
     const actor = await resolveAuthUser(payload);
     if (!actor || !isStaffUser(actor)) return respond(403, { ok: false, error: 'forbidden' });
     if (actor.blocked) return respond(403, { ok: false, error: 'blocked' });
+    const totpBlock = await assertStaffTotp(actor);
+    if (totpBlock) return totpBlock;
 
     const target = normalizeLogin(body.login);
     if (!target) return respond(400, { ok: false, error: 'bad_login' });
@@ -2095,11 +2129,14 @@ async function handleMe(event, body) {
         }
     }
 
+    const mustEnableTotp = isStaffUser(user) && !user.totpEnabled;
     return authSuccessResponse(user, {
+        mustEnableTotp,
         user: {
             ...publicUser(user),
             ...extractProfilePii(pii),
-            totpEnabled: !!user.totpEnabled
+            totpEnabled: !!user.totpEnabled,
+            mustEnableTotp
         }
     });
 }
@@ -2120,6 +2157,8 @@ async function handleSync(event, body) {
     const user = await resolveAuthUser(payload);
     if (!user) return respond(401, { ok: false, error: 'unauthorized' });
     if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
+    const totpBlock = await assertStaffTotp(user);
+    if (totpBlock) return totpBlock;
 
     const fileName = String(body.fileName || '');
     if (!ALLOWED_JSON.has(fileName)) return respond(400, { ok: false, error: 'bad_file' });
@@ -2150,6 +2189,9 @@ async function handlePatchSound(event, body) {
     const user = await resolveAuthUser(payload);
     if (!user) return respond(401, { ok: false, error: 'unauthorized' });
     if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
+    const totpBlock = await assertStaffTotp(user);
+    if (totpBlock) return totpBlock;
+
 
     const soundId = String(body.soundId || '').trim();
     if (!soundId) return respond(400, { ok: false, error: 'bad_sound_id' });
@@ -2309,6 +2351,9 @@ async function handleCommit(event, body) {
     const user = await resolveAuthUser(payload);
     if (!user) return respond(401, { ok: false, error: 'unauthorized' });
     if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
+    const totpBlock = await assertStaffTotp(user);
+    if (totpBlock) return totpBlock;
+
 
     const fileName = String(body.fileName || '');
     if (!ALLOWED_JSON.has(fileName)) return respond(400, { ok: false, error: 'bad_file' });
@@ -2337,6 +2382,9 @@ async function handlePresign(event, body) {
     const user = await resolveAuthUser(payload);
     if (!user) return respond(401, { ok: false, error: 'unauthorized' });
     if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
+    const totpBlock = await assertStaffTotp(user);
+    if (totpBlock) return totpBlock;
+
 
     const fileName = String(body.fileName || '').replace(/^\/+/, '');
     const contentType = String(body.contentType || 'application/octet-stream');
@@ -2400,6 +2448,9 @@ async function handleTranslate(event, body) {
     const user = await resolveAuthUser(payload);
     if (!user) return respond(401, { ok: false, error: 'unauthorized' });
     if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
+    const totpBlock = await assertStaffTotp(user);
+    if (totpBlock) return totpBlock;
+
     if (!YC_TRANSLATE_API_KEY) {
         return respond(503, { ok: false, error: 'translate_unconfigured', message: 'YC_TRANSLATE_API_KEY is not set' });
     }
@@ -2464,7 +2515,7 @@ exports.handler = async function handler(event = {}) {
 
     // health / publicConfig — без секретов и без тяжёлых лимитов
     if (action === 'health') {
-        return respond(200, { ok: true, version: 13 });
+        return respond(200, { ok: true, version: 14 });
     }
     if (action === 'publicConfig') {
         return respond(200, {

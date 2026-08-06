@@ -3,7 +3,7 @@
  * Keep in sync with docs/privacy-policy.md and docs/terms-of-service.md
  */
 
-export const LEGAL_DOCS_VERSION = '2026.07';
+export const LEGAL_DOCS_VERSION = '2026.08';
 
 /** Planned mailbox; until DNS/SMTP ready, in-app support chat is the contact channel. */
 export const SUPPORT_PUBLIC_EMAIL = 'support@polevka.art';
@@ -53,8 +53,8 @@ export const LEGAL_DOCS = {
                     },
                     {
                         id: 'P5',
-                        title: 'Технические данные',
-                        body: 'Данные запросов к API для лимитов и безопасности. Cookies для сессии не используются: токен и настройки хранятся в localStorage на вашем устройстве.'
+                        title: 'Технические данные и cookies',
+                        body: 'Данные запросов к API для лимитов и безопасности. Для входа используются защищённые HttpOnly-cookies сессии (rosmap_at / rosmap_rt) на стороне Secure API. Настройки интерфейса (тема, язык, масштаб) и флаг согласия на cookies хранятся локально на вашем устройстве (localStorage / sessionStorage). Cookies сессии ставятся только после согласия «Принять» в баннере.'
                     }
                 ]
             },

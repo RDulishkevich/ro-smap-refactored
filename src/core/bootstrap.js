@@ -1,6 +1,7 @@
 import { initGlobalState } from './state.js?v=20260726c';
 import './api.js?v=20260721t';
-import { initAuth } from './auth.js?v=20260806w';
+import './cookie-consent.js?v=20260806x';
+import { initAuth } from './auth.js?v=20260806x';
 
 import './sfx.js?v=20260721t';
 import './antispam.js?v=20260721t';
@@ -24,7 +25,7 @@ import './wavMeta.js?v=20260721t';
 import './wavReadMeta.js?v=20260806r';
 import './audioConvert.js?v=20260721t';
 import '../data/publishRules.js?v=20260721t';
-import '../data/legalDocs.js?v=20260721t';
+import '../data/legalDocs.js?v=20260806x';
 import '../data/gearCatalog.js?v=20260721t';
 import '../widgets/analytics-widget.js?v=20260805k';
 
@@ -34,7 +35,7 @@ export function bootstrapApp() {
 
     initGlobalState();
     initAuth();
-
+    if (window.initCookieConsent) window.initCookieConsent();
     document.addEventListener('DOMContentLoaded', () => {
         window.audioElement = document.getElementById('global-audio');
         window.soundsData = window.rawSoundsData.map(window.formatSoundObject);
