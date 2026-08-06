@@ -58,6 +58,7 @@ MOBILE (<768) — Wellness DS
 ```
 
 - Bottom nav → `mobileNavGo(...)`. **+** → `toggleMobileAddMenu` (иконки: добавить звук / записать).
+- Nav tabs: white convex chips + `--control-thumb`; active = charcoal chip (`#1A1A1A`) + cream icon — **не** ink-dot.
 - Поверхности (dock / модалки / events sheet) — **на весь экран**, без просвета карты; контент скроллится с `padding-bottom: --mobile-fs-bottom`, чтобы низ не прятался под док. Confirm остаётся компактным.
 - Плеер — компактная кремовая таблетка над доком; **⋯** → описание / анализаторы / амбисоник; свайп вверх раскрывает описание.
 - Повторный тап по разделу закрывает dock. `#fab-add` на mobile скрыт.

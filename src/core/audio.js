@@ -955,8 +955,8 @@ window.drawAmbiGoniometerFrame = function() {
 
     ctx.strokeStyle = pal.ambiStroke;
     ctx.lineWidth = 1.4;
-    ctx.shadowColor = pal.ambiGlow;
-    ctx.shadowBlur = 4;
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
     ctx.beginPath();
     const step = Math.max(1, Math.floor(n / 220));
     // Повышенная чувствительность: большинство B-format материала сидит намного тише полной
@@ -1021,11 +1021,11 @@ window.drawGoniometerFrame = function() {
     analyserA.getFloatTimeDomainData(window._gonioBufA);
     analyserB.getFloatTimeDomainData(window._gonioBufB);
 
-    // Coral stroke with soft glow — kept light to protect frame rate
+    // Coral stroke — no glow
     ctx.strokeStyle = pal.stroke;
     ctx.lineWidth = 1.5;
-    ctx.shadowColor = pal.strokeGlow;
-    ctx.shadowBlur = 4;
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
     ctx.beginPath();
     const step = Math.max(1, Math.floor(n / 360));
     // Повышенная чувствительность: типичный полевой материал редко подходит к 0 dBFS, так что
@@ -1351,11 +1351,7 @@ window.updateUIState = function() {
         else { l.classList.add('hidden'); s.classList.add('hidden'); p.classList.remove('hidden'); }
     }
     const wavePill = document.getElementById('player-wave-pill');
-    if (wavePill) {
-        wavePill.classList.toggle('is-live', !!window.isPlaying);
-        wavePill.setAttribute('aria-hidden', window.isPlaying ? 'false' : 'true');
-        wavePill.title = window.isPlaying ? 'Сейчас играет' : 'Воспроизведение';
-    }
+    if (wavePill) wavePill.classList.add('hidden');
     document.body.classList.toggle('audio-is-live', !!window.isPlaying);
     if (window.syncAnalyzerAnimation) window.syncAnalyzerAnimation();
     if (window.refreshPlayingListRow) window.refreshPlayingListRow();

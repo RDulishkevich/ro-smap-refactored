@@ -23,7 +23,7 @@ Source: mobile peach/cream/charcoal reference (Health & Wellness mock). Implemen
 | Radii | cards 24 · sheets 28 · dock 32 (`--well-radius-*`) |
 | Bottom nav | **floating** peach pill (side inset + bottom gap), icons only, active = black dot |
 | Center FAB | white circle + charcoal `+`, elevated over dock |
-| Titles | Geologica **700**, tight tracking; peach `.type-accent` on key word |
+| Titles | Desktop: Klukva @400 (`.type-title`); Mobile: Geologica **700**; peach/ink `.type-accent` |
 | Eyebrows | ALL CAPS · tracking ~0.12em · muted |
 | Brand wordmark | Klukva @400 only |
 | Map chrome | solid cream/white pills, soft shadow, no blur |
@@ -82,7 +82,7 @@ Product type scale (app):
 | Primary CTA (lavender + 2px ink) | Soft fill needs **2px defined edge** | `.ds-btn--primary` charcoal + rim; `.ds-btn--accent` / `--soft` peach + **2px `#222` rim** |
 | Outlined secondary | Cream + 2px ink | `.ds-btn--outline` |
 | Ghost / text | No fill, underline on hover | `.ds-btn--ghost` / `.ds-link` |
-| Waveform visualizer | Cream pill, 2px ink, 5–7 bars, pulse when live | `#player-wave-pill.wave-pill` + `.is-live` (bars → peach ember) |
+| Waveform visualizer | Real `#waveform-wrapper` in player | Do **not** use retired `.wave-pill` |
 | Teal status badge | Pill status | `.ds-badge` / `.badge-chip` (peach/ink, not teal) |
 | Dark square badge | Sharp 8px tags | `.ds-tag`, `.details-keyword-chip`, sidebar tags (`--radius-tag` 8px) |
 | Hand-drawn underline | Accent scribble under key words | `.ds-scribble` (peach wavy underline) |
@@ -133,7 +133,7 @@ Utilities: `.mobile-grid-4`, `.mobile-pad-x`.
 | `#map-top-right-controls` | Events (both); messages/notifications on mobile after login |
 | `#player-card` | Compact cream card · waveform always on · bottom notch cups raised **+** · swipe-up = description · ⋯ menu |
 | `#fab-add` | Desktop only. Mobile: white center FAB in floating peach dock |
-| `#mobile-bottom-nav` | Wellness floating peach pill · bold icons · **+** opens speed-dial (upload / record) |
+| `#mobile-bottom-nav` | Wellness floating peach pill · **2px ink rim** · bold icons · **+** opens speed-dial (upload / record) |
 | Mobile surfaces | Full viewport; scroll padding clears dock; confirm stays compact |
 
 ## Color tokens (resolved)
@@ -162,7 +162,7 @@ Soft wellness scale (cream cards ~24–32px):
 | `--radius-md` | 1 | inputs, compact rows |
 | `--radius-lg` | 1.5 | cards / sections |
 | `--radius-xl` | 1.75 | dock / sheets / mobile nav top |
-| `--radius-2xl` | 2 | modals (`.app-modal-panel`) |
+| `--radius-2xl` | 1.25 | modals (`.app-modal-panel`) — soft, not balloon |
 | `--radius-tag` | 0.5 | square tags |
 | `--radius-pill` | 999px | buttons, badges, wave-pill |
 
@@ -185,10 +185,11 @@ Accent word in titles: `.type-accent` / `.ds-title-accent` → peach. Dense chro
 
 ## Buttons
 - **Primary** `.ds-btn--primary` — charcoal (Полёвка CTA) + 2px rim (Wispr)
-- **Accent / Soft** — peach fill + **2px `#222` rim** (Wispr edge on soft fill)
+- **Accent / Soft** — peach fill + **2px `#222` rim** (Wispr edge on soft fill) + **thumb** (`--control-thumb` inset bottom)
 - **Outline** — cream + 2px ink (Wispr secondary)
 - **Ghost / Link** — low emphasis
-- Press `scale(0.97)` · focus-visible accent ring · no `transition: all`
+- Thumb **only** on peach (accent/soft), nested FileXfer action, Mobile Wellness `.glass-seg__btn.is-active`, and **dock nav icon chips** (`.mobile-nav-btn i` + FAB) — not on primary, outline, ghost, map chrome
+- Press `scale(0.97)` · peach also `--control-thumb-pressed` · focus-visible accent ring · no `transition: all`
 
 ## Tags & badges
 - Square `.ds-tag` — categories / keywords (Wispr dark-square role)
@@ -196,12 +197,13 @@ Accent word in titles: `.type-accent` / `.ds-title-accent` → peach. Dense chro
 - Eco → `.ds-tag--live` (ember soft)
 
 ## Live audio
-`.wave-pill` — Wispr waveform recipe; peach ember when `.is-live`.
+Player waveform lives in `#waveform-wrapper`. Retired: `.wave-pill` (do not reintroduce).
 
 ## File transfer (upload / download / drag-drop)
 Reference motion (cream pill → peach “Uploading…” with fill → charcoal Completed):
 - Component: `.file-xfer` + `window.FileXfer` (`src/ui/file-xfer.js`)
 - States: `idle` · `drag` · `loading` · `done`
+- Nested action «Выбрать» uses `--control-thumb` (no own rim — parent track has `--control-rim`)
 - Wired: add-audio dropzone, photo attach, publish, details WAV, expedition ZIP, list download feedback
 - Do not invent a second progress pattern — reuse `FileXfer.run` / `setState`
 

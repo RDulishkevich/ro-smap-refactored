@@ -3820,6 +3820,7 @@ window.renderList = function() {
     }
 
     window.__listVirt.items = filtered;
+    if (window.ensureLibraryDurations) window.ensureLibraryDurations(filtered);
     if (!listContainer.__virtBound) {
         listContainer.__virtBound = true;
         listContainer.addEventListener('scroll', () => {
@@ -4493,7 +4494,7 @@ window.renderSidebarFeed = function() {
     const postsHtml = posts.length
         ? posts.map((p) => {
             const dateStr = relTime(p.createdAt);
-            const titleStyle = `font-family:${p.titleFont === 'serif' ? 'Georgia, "Times New Roman", serif' : 'var(--font-ui, inherit)'};font-size:${({ sm: '0.9375rem', md: '1.05rem', lg: '1.2rem', xl: '1.35rem' })[p.titleSize] || '1.05rem'}`;
+            const titleStyle = `font-family:${p.titleFont === 'serif' ? 'Georgia, "Times New Roman", serif' : 'var(--font-brand, var(--font-ui, inherit))'};font-size:${({ sm: '0.95rem', md: '1.1rem', lg: '1.28rem', xl: '1.45rem' })[p.titleSize] || '1.1rem'}`;
             const typeLabel = p.type === 'article' ? 'Статья' : 'Новость';
             const typeCls = p.type === 'article' ? 'feed-type--article' : 'feed-type--notice';
             const head = `
@@ -4513,8 +4514,8 @@ window.renderSidebarFeed = function() {
             if (p.type === 'article') {
                 const cover = p.coverImage || (p.html && (p.html.match(/<img[^>]+src="([^"]+)"/) || [])[1]) || '';
                 const plain = String(p.html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-                const teaser = plain.length > 140 ? `${plain.slice(0, 140)}…` : plain;
-                return `<article class="feed-post${p.pinned ? ' is-pinned' : ''}" data-feed-id="${esc(p.id)}">
+                const teaser = plain.length > 160 ? `${plain.slice(0, 160)}…` : plain;
+                return `<article class="feed-post feed-post--article${p.pinned ? ' is-pinned' : ''}" data-feed-id="${esc(p.id)}">
                     ${cover ? `<button type="button" class="feed-post__cover" onclick="window.openFeedArticle('${p.id}')"><img src="${esc(cover)}" alt=""></button>` : ''}
                     <div class="feed-post__body">
                         ${head}
@@ -4564,8 +4565,9 @@ window.renderSidebarFeed = function() {
             <div class="feed-toolbar">
                 <header class="feed-head">
                     <div class="feed-head__text">
+                        <p class="feed-head__eyebrow">Полёвка</p>
                         <h2 class="feed-head__title">Лента</h2>
-                        <p class="feed-head__sub">Новости карты и полевые заметки</p>
+                        <p class="feed-head__sub">Новости, статьи и свежие записи с карты</p>
                     </div>
                     ${isAdmin ? `<button type="button" class="feed-head__create" onclick="window.openFeedPostEditor()" title="Новый пост"><i class="icon-add"></i></button>` : ''}
                 </header>
@@ -6765,19 +6767,62 @@ window.probeAudioDuration = function(src) {
         if (!src) return reject(new Error('no src'));
         const a = new Audio();
         a.preload = 'metadata';
+        let settled = false;
         const done = (fn, val) => {
+            if (settled) return;
+            settled = true;
             a.onloadedmetadata = null;
+            a.ondurationchange = null;
             a.onerror = null;
             try { a.src = ''; } catch (_) {}
             fn(val);
         };
-        a.onloadedmetadata = () => {
+        const tryResolve = () => {
             const secs = a.duration;
-            if (!isFinite(secs) || secs <= 0) done(reject, new Error('bad duration'));
-            else done(resolve, secs);
+            if (isFinite(secs) && secs > 0) done(resolve, secs);
         };
+        a.onloadedmetadata = tryResolve;
+        a.ondurationchange = tryResolve;
         a.onerror = () => done(reject, new Error('audio error'));
         a.src = src;
+        // Some browsers report Infinity until more bytes load
+        setTimeout(() => {
+            tryResolve();
+            if (!settled) done(reject, new Error('timeout'));
+        }, 8000);
+    });
+};
+
+/** Re-probe library row durations when missing or stale (once per sound / session). */
+window.ensureLibraryDurations = function(sounds) {
+    if (!window.probeAudioDuration || !window.formatTime) return;
+    window.__durationProbed = window.__durationProbed || new Set();
+    window.__durationProbeBusy = window.__durationProbeBusy || new Set();
+    const need = (sounds || []).filter((s) => {
+        if (!s || !s.id || !s.url) return false;
+        if (window.__durationProbed.has(s.id) || window.__durationProbeBusy.has(s.id)) return false;
+        return true;
+    }).slice(0, 10);
+    if (!need.length) return;
+
+    need.forEach((s) => {
+        window.__durationProbeBusy.add(s.id);
+        window.probeAudioDuration(s.url).then((secs) => {
+            window.__durationProbed.add(s.id);
+            if (!(secs > 0)) return;
+            const prev = window.parseDuration ? window.parseDuration(s.duration) : 0;
+            const next = window.formatTime(secs);
+            if (prev > 0 && Math.abs(prev - secs) < 0.85) return;
+            s.duration = next;
+            const live = (window.soundsData || []).find((x) => x.id === s.id);
+            if (live) live.duration = next;
+            window.__listVirt.key = '';
+            if (window.renderListWindow) window.renderListWindow(true);
+        }).catch(() => {
+            window.__durationProbed.add(s.id);
+        }).finally(() => {
+            window.__durationProbeBusy.delete(s.id);
+        });
     });
 };
 
@@ -6826,10 +6871,15 @@ window.handleAudioFiles = async function(files) {
         }
         window.currentUploadedFileUrl = URL.createObjectURL(ready);
         window.__uploadedAudioDuration = '0:00';
-        window.probeAudioDuration(window.currentUploadedFileUrl).then(secs => {
-            window.__uploadedAudioDuration = window.formatTime ? window.formatTime(secs) : `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`;
+        const applyDurationSecs = (secs) => {
+            if (!isFinite(secs) || secs <= 0) return;
+            window.__uploadedAudioDuration = window.formatTime
+                ? window.formatTime(secs)
+                : `${Math.floor(secs / 60)}:${String(Math.floor(secs % 60)).padStart(2, '0')}`;
             if (window.syncAddAudioReview) window.syncAddAudioReview();
-        }).catch(() => { window.__uploadedAudioDuration = '0:00'; });
+        };
+        window.probeAudioDuration(window.currentUploadedFileUrl).then(applyDurationSecs)
+            .catch(() => { /* WAV header may fill this */ });
         if (window.syncAddAudioReview) window.syncAddAudioReview({ resetMarkers: true });
 
         if (window.FileXfer && xfer) {
@@ -6850,6 +6900,12 @@ window.handleAudioFiles = async function(files) {
         if (window.readWavFileMetadata) {
             window.readWavFileMetadata(ready).then((meta) => {
                 if (formatLabel && !meta.format) meta.format = formatLabel;
+                if (meta.durationSecs > 0) applyDurationSecs(meta.durationSecs);
+                else if (meta.duration && meta.duration !== '0:00'
+                    && (!window.__uploadedAudioDuration || window.__uploadedAudioDuration === '0:00')) {
+                    window.__uploadedAudioDuration = meta.duration;
+                    if (window.syncAddAudioReview) window.syncAddAudioReview();
+                }
                 window.applyUploadedAudioMeta(meta);
             }).catch((err) => console.warn(err));
         }
@@ -8369,6 +8425,35 @@ window.showDockPanel = function() {
 window.hideDockPanel = function() {
     const s = document.getElementById('sidebar');
     if (!s) return;
+    // Tear down nested dock views (messages/details/…) so hide-mobile-nav clears
+    const nested = window.__dockView;
+    if (nested === 'messages') {
+        window.__skipMessagesDockClose = true;
+        try {
+            if (window.undockMessagesContent) window.undockMessagesContent();
+            if (window.closeMessagesModal) window.closeMessagesModal();
+        } catch (_) { /* ignore */ }
+        window.__skipMessagesDockClose = false;
+        window.__activeMessagePeer = null;
+        if (window.cancelMessageReply) window.cancelMessageReply();
+        if (window.hideEmojiPicker) window.hideEmojiPicker();
+    } else if (nested === 'details' && window.undockDetailsContent) {
+        window.undockDetailsContent();
+    } else if (nested === 'settings' && window.undockSettingsContent) {
+        window.undockSettingsContent();
+    } else if (nested === 'cabinet' && window.undockCabinetContent) {
+        window.undockCabinetContent();
+    } else if (nested === 'expedition' && window.undockExpeditionContent) {
+        window.undockExpeditionContent();
+    }
+    document.body.classList.remove(
+        'dock-view-details', 'dock-view-analyzers', 'dock-view-settings',
+        'dock-view-cabinet', 'dock-view-messages', 'dock-view-expedition',
+        'dock-view-help', 'dock-view-admin'
+    );
+    window.__dockView = window.__sidebarTab || 'library';
+    window.__dockReturnView = null;
+
     s.classList.add('sidebar-hidden');
     s.classList.remove('is-dragging', 'is-gesture-settle');
     s.style.transform = '';
@@ -8380,6 +8465,7 @@ window.hideDockPanel = function() {
     if (playerCard) playerCard.style.marginLeft = '';
     if (window.clearRailTabActive) window.clearRailTabActive();
     if (window.syncMobileNavActive) window.syncMobileNavActive('map');
+    if (window.syncMobileChromeHidden) window.syncMobileChromeHidden();
 };
 
 window.closeMobileAddMenu = function() {
@@ -9302,7 +9388,10 @@ window.syncMobileNavActive = function(nav) {
     const id = nav || 'map';
     root.querySelectorAll('[data-nav]').forEach((btn) => {
         /* Map is the default listen surface — no tab stays lit */
-        btn.classList.toggle('is-active', id !== 'map' && btn.getAttribute('data-nav') === id);
+        const on = id !== 'map' && btn.getAttribute('data-nav') === id;
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        btn.setAttribute('aria-current', on ? 'page' : 'false');
     });
 };
 

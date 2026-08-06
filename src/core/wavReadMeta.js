@@ -147,6 +147,13 @@ export function readWavMetadataBuffer(buffer) {
     }
 
     let offset = 12;
+    let sampleRate = 0;
+    let byteRate = 0;
+    let blockAlign = 0;
+    let numChannels = 0;
+    let bitsPerSample = 0;
+    let dataSize = 0;
+
     while (offset + 8 <= buffer.byteLength) {
         const id = readFourCC(view, offset);
         const size = view.getUint32(offset + 4, true);
@@ -156,8 +163,11 @@ export function readWavMetadataBuffer(buffer) {
 
         if (id === 'fmt ' && size >= 16) {
             const audioFormat = view.getUint16(payloadStart, true);
-            const sampleRate = view.getUint32(payloadStart + 4, true);
-            let bitsPerSample = view.getUint16(payloadStart + 14, true);
+            numChannels = view.getUint16(payloadStart + 2, true);
+            sampleRate = view.getUint32(payloadStart + 4, true);
+            byteRate = view.getUint32(payloadStart + 8, true);
+            blockAlign = view.getUint16(payloadStart + 12, true);
+            bitsPerSample = view.getUint16(payloadStart + 14, true);
             let float = audioFormat === 3;
             if (audioFormat === 0xFFFE && size >= 40) {
                 bitsPerSample = view.getUint16(payloadStart + 14, true);
@@ -168,6 +178,8 @@ export function readWavMetadataBuffer(buffer) {
                 const khz = sampleRate % 1000 === 0 ? `${sampleRate / 1000}kHz` : `${sampleRate}Hz`;
                 out.format = `WAV ${khz} / ${float ? `${bitsPerSample}-bit Float` : `${bitsPerSample}-bit`}`;
             }
+        } else if (id === 'data') {
+            dataSize = size;
         } else if (id === 'bext' && size >= 256 + 32 + 32 + 10 + 8) {
             out.description = readAscii(view, payloadStart, 256) || out.description;
             out.originator = readAscii(view, payloadStart + 256, 32) || out.originator;
@@ -252,6 +264,23 @@ export function readWavMetadataBuffer(buffer) {
         offset = payloadStart + padded;
     }
 
+    // Prefer PCM math over free-form iXML DURATION strings (often wrong / non-timecode).
+    let secs = 0;
+    if (dataSize > 0 && byteRate > 0) {
+        secs = dataSize / byteRate;
+    } else if (dataSize > 0 && sampleRate > 0) {
+        const frame = blockAlign
+            || ((numChannels > 0 && bitsPerSample > 0) ? (numChannels * Math.ceil(bitsPerSample / 8)) : 0);
+        if (frame > 0) secs = (dataSize / frame) / sampleRate;
+    }
+    if (secs > 0 && isFinite(secs)) {
+        const total = Math.max(0, Math.round(secs));
+        const m = Math.floor(total / 60);
+        const s = total % 60;
+        out.duration = `${m}:${String(s).padStart(2, '0')}`;
+        out.durationSecs = secs;
+    }
+
     return out;
 }
 
@@ -323,6 +352,14 @@ export async function readWavFileMetadata(file) {
     result.recordist = snap?.recordist || chunk.recordist || chunk.artist || chunk.originator || '';
     result.sessionId = snap?.sessionId || chunk.sessionId || '';
     result.duration = snap?.duration || chunk.duration || '';
+    // Prefer PCM header math — free-form iXML / snapshot duration is often wrong
+    if (chunk.durationSecs > 0) {
+        const total = Math.max(0, Math.round(chunk.durationSecs));
+        const m = Math.floor(total / 60);
+        const s = total % 60;
+        result.duration = `${m}:${String(s).padStart(2, '0')}`;
+        result.durationSecs = chunk.durationSecs;
+    }
     result.fileName = snap?.fileName || chunk.fileName || '';
     result.lat = snap?.lat ?? chunk.lat ?? null;
     result.lng = snap?.lng ?? chunk.lng ?? null;
