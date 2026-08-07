@@ -36,7 +36,7 @@
 | Бренд / заголовки | `--font-brand` / `font-brand` | по `data-font` (по умолчанию Klukva) |
 | Моно | `--font-mono` / `font-mono` | ui-monospace → Menlo / Consolas |
 
-Источники: локальные `assets/fonts/` (Geologica, Klukva, …) + Fontshare (Satoshi/Clash опционально) + Jakarta fallback. По умолчанию `data-font="geo-klukva"`. Порядок в `index.html`: **Iconsax → текстовые шрифты → Tailwind → style.css → glass.css → fonts.css → mobile-wellness.css** (mobile DS last). Токены держать синхронно в `style.css`, `glass.css`, `fonts.css`; mobile overrides — только в `mobile-wellness.css`.
+Источники: локальные `assets/fonts/` (Geologica, Klukva, …) + Fontshare (Satoshi/Clash опционально). По умолчанию `data-font="geo-klukva"`. Порядок в `index.html`: **Iconsax → текстовые шрифты → Tailwind → style.css → glass.css → fonts.css → mobile-wellness.css** (mobile DS last). Токены держать синхронно в `style.css`, `glass.css`, `fonts.css`; mobile overrides — только в `mobile-wellness.css`.
 
 **Иконки:** только [Iconsax](https://iconsax.io) (`icon-*` через `iconsax-font-icon`). Скрытие — класс **`hidden`**. В app CSS:
 
@@ -76,7 +76,7 @@
 ### Разметка
 
 - Overlay: классы `app-modal-overlay` + `fixed inset-0` + `hidden` + `opacity-0` + `pointer-events-none` + `transition-opacity duration-300` + затемнение/blur.
-- Панель: `app-modal-panel` + `scale-95` + `transition-all` + скругление ~`1.75rem–2.5rem`.
+- Панель: `app-modal-panel` + `scale-95` + `transition: transform, opacity` (не `transition-all`) + скругление `--radius-2xl`.
 - Закрытие по фону: `onmousedown="if(event.target === this) window.close…()"`.
 
 ### Анимация open / close (обязательный ритуал)
@@ -339,7 +339,7 @@ window.showToast('…', { silent: true }); // без звука
 
 | Тема | Mobile | Desktop |
 |------|--------|---------|
-| Навигация | `#mobile-bottom-nav` + в доке `#dock-mobile-tabs` (Библиотека/Экспедиции) | `#app-rail` + dock |
+| Навигация | `#mobile-bottom-nav`: Lib · Feed · **+** · Exp · Prof; в доке `#dock-mobile-tabs` (Библиотека/Экспедиции). Настройки и Помощь — из Профиля / Settings | `#app-rail` + dock |
 | Ивенты | sheet `#events-sheet` | панель `#events-panel` |
 | CtxPopup / ActionSheet | у курсора / снизу (picker) | у курсора / по центру (picker) |
 | Модалки / dock / sheet | **fullscreen** над bottom rail (`--mobile-fs-bottom`) | по центру / боковые панели |
@@ -359,6 +359,14 @@ window.showToast('…', { silent: true }); // без звука
 
 Новый «боковой» контент на desktop → панель как events; на mobile → тот же fullscreen-паттерн с общим `*-body` рендерером.
 
+### Клавиатура → звук (лёгкий путь)
+
+Маркеры карты Yandex **не** получают массовый `tabindex`. Воспроизведение с клавиатуры:
+
+- Поиск карты (`#search-input`): стрелки по подсказкам, **Enter** выбирает/играет (звук через `selectSound`).
+- Библиотека: строки `.sidebar-sound-row` фокусируемы; **Enter/Space** → play. В `#library-search-input` **Enter** играет первый результат.
+- Desktop: skip-link «К библиотеке» в `#app-rail` (виден по Tab).
+
 ---
 
 ## 14. Тема и цвет
@@ -366,7 +374,7 @@ window.showToast('…', { silent: true }); // без звука
 Канон симбиоза Полёвка × Wispr Flow: **[`DESIGN.md`](../DESIGN.md)** (таблица Wispr → наши токены). Кратко:
 
 - **Наше:** peach `#FBAB57` / soft `#FEC674` ≤10%, cream windows, charcoal CTA, Geologica + Klukva, Iconsax, map chrome.
-- **От Wispr (грамматика):** 2px ink rim, fill+rim elevation, ember=live only, square tags vs pill badges, `.wave-pill`, Klukva @400, `.ds-scribble`.
+- **От Wispr (грамматика):** 2px ink rim, fill+rim elevation, ember=live only, square tags vs pill badges, Klukva @400, `.ds-scribble`. Waveform — `#waveform-wrapper` в плеере (не `.wave-pill`).
 - **Не берём:** lavender, forest teal, Garamond/Figtree, marketing 120px display в product UI.
 - **Buttons:** `.ds-btn--primary` charcoal; accent/soft peach + 2px `#222` rim; outline cream + ink rim.
 - Шрифт по умолчанию: `geo-klukva`. Палитры/шрифты — Settings → «Эксперимент».

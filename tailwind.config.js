@@ -8,15 +8,15 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Satoshi', 'Plus Jakarta Sans', 'system-ui', 'sans-serif'],
-        brand: ['Clash Display', 'Satoshi', 'sans-serif'],
+        sans: ['Geologica', 'Satoshi', 'system-ui', 'sans-serif'],
+        brand: ['Klukva', 'Geologica', 'system-ui', 'sans-serif'],
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace']
       },
       colors: {
         accent: {
-          DEFAULT: '#ff5a3d',
-          soft: '#ffe8e3',
-          dark: '#ff7a5c'
+          DEFAULT: '#FBAB57',
+          soft: '#FEC674',
+          dark: '#9a6420'
         }
       }
     }

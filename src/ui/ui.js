@@ -78,7 +78,113 @@ window.showToast = function(message, opts = {}) {
         const kind = opts.sfx || (window.sfxFromToastMessage ? window.sfxFromToastMessage(message) : 'toast');
         window.playSfx(kind, { throttleMs: 140 });
     }
-}
+};
+
+/** Focus trap + Esc for .app-modal-overlay dialogs. */
+window.ModalA11y = {
+    _prev: null,
+    _bound: false,
+    _onKey(e) {
+        const overlay = window.ModalA11y.getTopOpen();
+        if (!overlay) return;
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            window.ModalA11y.requestClose(overlay);
+            return;
+        }
+        if (e.key !== 'Tab') return;
+        const panel = overlay.querySelector('.app-modal-panel') || overlay.firstElementChild;
+        if (!panel) return;
+        const focusables = panel.querySelectorAll(
+            'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        const list = Array.from(focusables).filter((el) => el.offsetParent !== null || el === document.activeElement);
+        if (!list.length) return;
+        const first = list[0];
+        const last = list[list.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+        }
+    },
+    getTopOpen() {
+        const open = Array.from(document.querySelectorAll('.app-modal-overlay')).filter((el) =>
+            !el.classList.contains('hidden') && !el.classList.contains('opacity-0') && !el.classList.contains('pointer-events-none')
+        );
+        if (!open.length) return null;
+        open.sort((a, b) => (Number(getComputedStyle(b).zIndex) || 0) - (Number(getComputedStyle(a).zIndex) || 0));
+        return open[0];
+    },
+    requestClose(overlay) {
+        if (!overlay) return;
+        const id = overlay.id || '';
+        if (id === 'auth-modal' && window.requestCloseAuthModal) return window.requestCloseAuthModal();
+        if (id === 'settings-modal' && window.requestCloseSettingsModal) return window.requestCloseSettingsModal();
+        if (id === 'cabinet-modal' && window.requestCloseCabinet) return window.requestCloseCabinet();
+        if (id === 'add-modal' && window.closeAddModalSafely) return window.closeAddModalSafely();
+        if (id === 'ui-modal-overlay' && window.CustomUI) return window.CustomUI.close(false);
+        if (id === 'details-modal' && window.closeDetailsModal) return window.closeDetailsModal();
+        if (id === 'legal-doc-modal' && window.closeLegalDocModal) return window.closeLegalDocModal();
+        if (id === 'publish-rules-modal' && window.closePublishRulesModal) return window.closePublishRulesModal();
+        const closeBtn = overlay.querySelector('[aria-label="Закрыть"], .settings-modal-close, button[onclick*="close"]');
+        if (closeBtn) closeBtn.click();
+    },
+    activate(overlay) {
+        if (!overlay) return;
+        if (!overlay.getAttribute('role')) overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        this._prev = document.activeElement;
+        if (!this._bound) {
+            document.addEventListener('keydown', this._onKey, true);
+            this._bound = true;
+        }
+        const panel = overlay.querySelector('.app-modal-panel') || overlay.firstElementChild;
+        const focusTarget = panel && (
+            panel.querySelector('input:not([type="hidden"]), button, [tabindex]:not([tabindex="-1"])')
+            || panel
+        );
+        setTimeout(() => {
+            try { if (focusTarget && focusTarget.focus) focusTarget.focus(); } catch (_) {}
+        }, 40);
+    },
+    deactivate(overlay) {
+        const still = this.getTopOpen();
+        if (still && still !== overlay) return;
+        if (this._prev && this._prev.focus) {
+            try { this._prev.focus(); } catch (_) {}
+        }
+        this._prev = null;
+    },
+    enhanceAll() {
+        document.querySelectorAll('.app-modal-overlay').forEach((el) => {
+            if (!el.getAttribute('role')) el.setAttribute('role', 'dialog');
+            el.setAttribute('aria-modal', 'true');
+        });
+    }
+};
+
+(function bindModalA11yObserver() {
+    const boot = () => {
+        if (window.ModalA11y) window.ModalA11y.enhanceAll();
+        const obs = new MutationObserver((mutations) => {
+            mutations.forEach((m) => {
+                const el = m.target;
+                if (!el || !el.classList || !el.classList.contains('app-modal-overlay')) return;
+                const open = !el.classList.contains('hidden') && !el.classList.contains('opacity-0');
+                if (open) window.ModalA11y.activate(el);
+                else window.ModalA11y.deactivate(el);
+            });
+        });
+        document.querySelectorAll('.app-modal-overlay').forEach((el) => {
+            obs.observe(el, { attributes: true, attributeFilter: ['class'] });
+        });
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+    else boot();
+})();
 
 window.setSoundsListLoading = function(isLoading) {
     const list = document.getElementById('sounds-list');
@@ -261,7 +367,7 @@ window.buildOnboardingSteps = function() {
             {
                 target: '#mobile-bottom-nav [data-nav="library"]',
                 title: 'Bottom navigation',
-                text: 'Library, feed, settings, and profile are in the bottom bar. Tap again to return to the map.'
+                text: 'Library, feed, expeditions, and profile are in the bottom bar. Tap again to return to the map.'
             }
         ] : [
             {
@@ -292,7 +398,7 @@ window.buildOnboardingSteps = function() {
             {
                 target: '#mobile-bottom-nav [data-nav="library"]',
                 title: 'Нижняя панель',
-                text: 'Библиотека, лента, настройки и профиль – в нижней панели. Повторный тап возвращает на карту.'
+                text: 'Библиотека, лента, экспедиции и профиль – в нижней панели. Повторный тап возвращает на карту.'
             }
         ];
     }
@@ -1205,6 +1311,32 @@ window.collapsePlayerSheet = function() {
 
 window.togglePlayerSheet = function() {
     if (window.openDetailsModal) window.openDetailsModal();
+};
+
+/** Persistent mobile chip + one-time toast for player discovery. */
+window.dismissPlayerDiscoverChip = function() {
+    const chip = document.getElementById('player-discover-chip');
+    if (chip) chip.classList.add('hidden');
+    try { localStorage.setItem('polevka-player-discover-chip', '1'); } catch (_) {}
+};
+
+window.maybeShowPlayerDiscoverHint = function() {
+    if (window.innerWidth >= 768) return;
+    const chip = document.getElementById('player-discover-chip');
+    let chipDismissed = false;
+    try { chipDismissed = localStorage.getItem('polevka-player-discover-chip') === '1'; } catch (_) {}
+    if (chip && !chipDismissed) chip.classList.remove('hidden');
+
+    try {
+        if (localStorage.getItem('polevka-player-discover-hint') === '1') return;
+        localStorage.setItem('polevka-player-discover-hint', '1');
+    } catch (_) {
+        if (window.__playerDiscoverHintShown) return;
+        window.__playerDiscoverHintShown = true;
+    }
+    if (window.showToast) {
+        window.showToast('Свайп вверх или тап по названию — карточка. ⋯ — ещё');
+    }
 };
 
 /** Title tap opens the sound details card (mobile + desktop). */
@@ -3456,7 +3588,7 @@ window.renderFilterPanels = function() {
                 displayName = window.translations[window.currentLang][`filter_${val}`];
             }
 
-            return `<button type="button" onclick="${toggleFn}('${escAttr(val)}')" class="px-2.5 py-1 rounded-full text-[11px] font-bold transition-all border flex items-center ${isActive ? 'bg-[#141414] text-white border-[#141414] shadow-sm dark:bg-[#ff5a3d] dark:border-[#ff5a3d]' : 'bg-white/40 dark:bg-white/10 text-slate-600 dark:text-slate-300 border-white/50 dark:border-white/15 hover:bg-white/60 dark:hover:bg-white/15'}">
+            return `<button type="button" onclick="${toggleFn}('${escAttr(val)}')" class="px-2.5 py-1 rounded-full text-[11px] font-bold transition-[color,background-color,border-color,box-shadow,transform] border flex items-center ${isActive ? 'bg-[#141414] text-white border-[#141414] shadow-sm dark:bg-[color:var(--accent)] dark:border-[color:var(--accent)] dark:text-[color:var(--on-accent)]' : 'bg-white/40 dark:bg-white/10 text-slate-600 dark:text-slate-300 border-white/50 dark:border-white/15 hover:bg-white/60 dark:hover:bg-white/15'}">
                 ${icon ? `<i class="${icon} mr-1 opacity-70"></i>` : ''}${displayName} <span class="ml-1 text-[9px] font-normal opacity-60">(${count})</span>
             </button>`;
         }).join('');
@@ -3585,6 +3717,20 @@ window.clearLibrarySearch = function() {
     window.onLibrarySearchInput('');
 };
 
+window.bindLibrarySearchKeyboard = function() {
+    const input = document.getElementById('library-search-input');
+    if (!input || input.__kbBound) return;
+    input.__kbBound = true;
+    input.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const filtered = window.getFilteredSounds ? window.getFilteredSounds() : [];
+        const first = filtered[0];
+        if (first && window.toggleLibrarySoundPlay) window.toggleLibrarySoundPlay(first.id);
+        else if (window.openDockView) window.openDockView('library');
+    });
+};
+
 window.getFilteredSounds = function(forceRefresh = false) {
     const queryEl = document.getElementById('search-input');
     const libEl = document.getElementById('library-search-input');
@@ -3661,8 +3807,9 @@ window.buildSoundListRowHtml = function(sound) {
     const shownTags = tags.slice(0, 2);
     const canDownload = !!(sound.url && String(sound.url).length > 10 && !String(sound.url).startsWith('blob:'));
     const subBits = [duration, author].filter(Boolean);
+    const ariaTitle = esc(sound.title || 'Без названия');
     return `
-        <div class="sidebar-sound-row${isSelected ? ' is-active' : ''}${playing ? ' is-playing' : ''}" data-sound-id="${esc(sound.id)}" onclick="window.selectSound('${safeId}')">
+        <div class="sidebar-sound-row${isSelected ? ' is-active' : ''}${playing ? ' is-playing' : ''}" data-sound-id="${esc(sound.id)}" role="button" tabindex="0" aria-label="Воспроизвести: ${ariaTitle}" onclick="window.selectSound('${safeId}')">
             ${thumb
                 ? `<img src="${esc(thumb)}" alt="" class="sidebar-sound-thumb" decoding="async" fetchpriority="low">`
                 : `<span class="sidebar-sound-thumb sidebar-sound-thumb--empty" aria-hidden="true"><i class="icon-sound"></i></span>`}
@@ -3788,9 +3935,24 @@ window.renderListWindow = function(force = false) {
     });
 };
 
+window.bindLibraryListKeyboard = function() {
+    const listContainer = document.getElementById('sounds-list');
+    if (!listContainer || listContainer.__kbBound) return;
+    listContainer.__kbBound = true;
+    listContainer.addEventListener('keydown', (e) => {
+        const row = e.target.closest('.sidebar-sound-row[data-sound-id]');
+        if (!row || !listContainer.contains(row)) return;
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        const id = row.dataset.soundId;
+        if (id && window.toggleLibrarySoundPlay) window.toggleLibrarySoundPlay(id);
+    });
+};
+
 window.renderList = function() {
     const listContainer = document.getElementById('sounds-list');
     if (!listContainer) return;
+    if (window.bindLibraryListKeyboard) window.bindLibraryListKeyboard();
     const filtered = window.getFilteredSounds();
     if (filtered.length === 0) {
         window.__listVirt.items = [];
@@ -3813,7 +3975,7 @@ window.renderList = function() {
                 ${hasFilters ? `
                     <div class="flex flex-wrap justify-center gap-2 mt-4">
                         ${query ? `<button type="button" onclick="window.clearSearchQuery()" class="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200">Очистить поиск</button>` : ''}
-                        <button type="button" onclick="window.clearAllSoundFilters()" class="px-3 py-2 rounded-xl text-xs font-bold bg-[#141414] text-white dark:bg-[#ff5a3d]">Сбросить фильтры</button>
+                        <button type="button" onclick="window.clearAllSoundFilters()" class="px-3 py-2 rounded-xl text-xs font-bold bg-[#141414] text-white dark:bg-[color:var(--accent)] dark:text-[color:var(--on-accent)]">Сбросить фильтры</button>
                     </div>` : ''}
             </div>`;
         return;
@@ -4268,11 +4430,11 @@ window.__openDockViewImpl = function(view) {
 
     if (window.showDockPanel) window.showDockPanel();
     if (window.syncMobileNavActive) {
-        if (next === 'settings') window.syncMobileNavActive('settings');
+        if (next === 'settings') window.syncMobileNavActive('profile');
         else if (next === 'cabinet' || next === 'messages') window.syncMobileNavActive('profile');
         else if (next === 'feed') window.syncMobileNavActive('feed');
-        else if (next === 'expeditions' || next === 'expedition') window.syncMobileNavActive('library');
-        else if (next === 'help') window.syncMobileNavActive('library');
+        else if (next === 'expeditions' || next === 'expedition') window.syncMobileNavActive('expeditions');
+        else if (next === 'help') window.syncMobileNavActive('map');
         else window.syncMobileNavActive('library');
     }
     if (window.syncMobileChromeHidden) window.syncMobileChromeHidden();
@@ -5521,6 +5683,7 @@ window.selectSound = function(id) {
     }
     document.body.classList.add('player-visible');
     document.body.classList.remove('dock-view-details');
+    if (window.maybeShowPlayerDiscoverHint) window.maybeShowPlayerDiscoverHint();
 
     const titleEl = document.getElementById('player-title');
     const gearEl = document.getElementById('player-gear');
@@ -8138,13 +8301,21 @@ window.resetAddModalToCreateMode = function() {
 
 // ИЗМЕНЕНО: Принимаем координаты при клике ПКМ; isEdit=true пропускает сброс в режим "создания",
 // чтобы editSound() выше мог открыть модалку, уже предзаполненную данными редактируемого звука.
+window.syncAddParamsDetails = function() {
+    const mobile = window.innerWidth < 768;
+    document.querySelectorAll('[data-mobile-collapse]').forEach((el) => {
+        if (mobile) el.removeAttribute('open');
+        else el.setAttribute('open', '');
+    });
+};
+
 window.toggleAddModal = function(forceClose = false, coords = null, isEdit = false) {
     const m = document.getElementById('add-modal');
     const c = document.getElementById('add-modal-content');
     const coordsInput = document.getElementById('add-coords');
 
     if (!window.currentUser) {
-        window.showToast('Нужно войти в аккаунт, чтобы добавлять звук');
+        window.showToast('Чтобы добавить звук, войдите в аккаунт');
         if (window.openAuthModal) window.openAuthModal();
         return;
     }
@@ -8169,6 +8340,7 @@ window.toggleAddModal = function(forceClose = false, coords = null, isEdit = fal
         if (window.fillGearDatalists) window.fillGearDatalists();
         if (window.bindAddTagsChipInput) window.bindAddTagsChipInput();
         if (window.renderAddTagChips) window.renderAddTagChips();
+        if (window.syncAddParamsDetails) window.syncAddParamsDetails();
         if (window.syncMobileChromeHidden) window.syncMobileChromeHidden();
         return;
     }
@@ -8495,7 +8667,7 @@ window.toggleMobileAddMenu = function() {
         return;
     }
     if (!window.currentUser) {
-        window.showToast('Нужно войти в аккаунт, чтобы добавлять звук');
+        window.showToast('Чтобы добавить звук, войдите в аккаунт');
         if (window.openAuthModal) window.openAuthModal();
         return;
     }
@@ -9241,7 +9413,7 @@ window.startMobileRecord = async function() {
         return;
     }
     if (!window.currentUser) {
-        window.showToast('Нужно войти в аккаунт, чтобы записывать');
+        window.showToast('Чтобы записать звук, войдите в аккаунт');
         if (window.openAuthModal) window.openAuthModal();
         return;
     }
@@ -9417,8 +9589,7 @@ window.mobileNavGo = async function(dest) {
     if (activeNav && activeNav === target && target !== 'map') {
         if (window.closeEventsSheet) window.closeEventsSheet();
         if (window.hideDockPanel) window.hideDockPanel();
-        if (target === 'settings' && window.closeSettingsModal) window.closeSettingsModal();
-        else if (window.closeCabinet) window.closeCabinet();
+        if (window.closeCabinet) window.closeCabinet();
         window.syncMobileNavActive('map');
         return;
     }
@@ -9441,11 +9612,18 @@ window.mobileNavGo = async function(dest) {
         window.syncMobileNavActive('feed');
         return;
     }
+    if (target === 'expeditions') {
+        if (window.closeEventsSheet) window.closeEventsSheet();
+        if (window.openDockView) window.openDockView('expeditions');
+        window.syncMobileNavActive('expeditions');
+        return;
+    }
     if (target === 'settings') {
+        /* Legacy: settings live under Profile → cabinet / openSettingsPanel */
         if (window.closeEventsSheet) window.closeEventsSheet();
         if (window.openSettingsPanel) window.openSettingsPanel();
         else if (window.openDockView) window.openDockView('settings');
-        window.syncMobileNavActive('settings');
+        window.syncMobileNavActive('profile');
         return;
     }
     if (target === 'profile') {
@@ -9735,6 +9913,14 @@ window.initSearchChrome = function() {
                 window.applySearchSuggestion(items[0].type, items[0].id);
                 return;
             }
+            /* Enter with arrow focus already handled; bare Enter plays first sound hit if any */
+            if (suggVisible) {
+                const soundHit = items.find((it) => it.type === 'sound');
+                if (soundHit) {
+                    window.applySearchSuggestion(soundHit.type, soundHit.id);
+                    return;
+                }
+            }
             /* Enter = submit query as filter / open results */
             window.clearSearchSuggestions();
             if (window.syncSearchClearBtn) window.syncSearchClearBtn();
@@ -9743,6 +9929,8 @@ window.initSearchChrome = function() {
             if (input.value.trim() && window.openDockView) window.openDockView('library');
         }
     });
+
+    if (window.bindLibrarySearchKeyboard) window.bindLibrarySearchKeyboard();
 
     document.addEventListener('click', (e) => {
         const cluster = document.getElementById('map-search-cluster');

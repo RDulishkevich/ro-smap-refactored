@@ -75,7 +75,7 @@
 /* Default — Geologica UI + Klukva brand */
 html[data-font="geo-klukva"],
 html:not([data-font]) {
-    --font-ui: "Geologica", "Satoshi", "Plus Jakarta Sans", system-ui, sans-serif;
+    --font-ui: "Geologica", "Satoshi", system-ui, sans-serif;
     --font-brand: "Klukva", "Geologica", system-ui, sans-serif;
     --font-optical: 1.02;
     --font-brand-optical: 1.16;
@@ -83,7 +83,7 @@ html:not([data-font]) {
     --tracking-brand: 0.012em;
 }
 html[data-font="satoshi"] {
-    --font-ui: "Satoshi", "Plus Jakarta Sans", system-ui, sans-serif;
+    --font-ui: "Satoshi", system-ui, sans-serif;
     --font-brand: "Clash Display", "Satoshi", sans-serif;
     --font-optical: 1;
     --font-brand-optical: 1;

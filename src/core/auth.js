@@ -65,8 +65,6 @@ export function initAuth() {
             if ((document.getElementById('auth-reset-password')?.value || '').trim()) return true;
         }
         if (window.authMode === 'register') {
-            if ((document.getElementById('auth-skill-level')?.value || '').trim()) return true;
-            if (document.querySelector('input[name="auth-intent"]:checked')) return true;
             if (document.getElementById('auth-pd-consent')?.checked) return true;
             if ((document.getElementById('auth-email')?.value || '').trim()) return true;
         }
@@ -146,28 +144,6 @@ export function initAuth() {
                     <input type="password" id="auth-password" class="modal-input t-input" placeholder="Придумайте пароль" onkeydown="if(event.key==='Enter') window.submitAuth()">
                     <p class="t-error-msg"></p>
                 </div>
-                <div class="t-input-wrap">
-                    <label class="modal-label">Уровень умений в полевой записи</label>
-                    <select id="auth-skill-level" class="modal-input t-input text-sm">
-                        <option value="">Выберите…</option>
-                        <option value="beginner">Новичок – только начинаю</option>
-                        <option value="intermediate">Любитель – уже записываю</option>
-                        <option value="advanced">Продвинутый – регулярно в поле</option>
-                        <option value="pro">Профи – работа / исследования</option>
-                    </select>
-                    <p class="t-error-msg"></p>
-                </div>
-                <div>
-                    <label class="modal-label">Для чего хотите использовать Полёвку?</label>
-                    <div class="space-y-1.5 text-sm" style="color:var(--ink)">
-                        <label class="flex items-center gap-2"><input type="checkbox" name="auth-intent" value="listen" class="rounded"> Слушать карту и открывать места</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" name="auth-intent" value="publish" class="rounded"> Публиковать свои записи</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" name="auth-intent" value="research" class="rounded"> Исследования / учёба</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" name="auth-intent" value="education" class="rounded"> Обучение полевой записи</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" name="auth-intent" value="community" class="rounded"> Сообщество и экспедиции</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" name="auth-intent" value="other" class="rounded"> Другое</label>
-                    </div>
-                </div>
                 <label class="flex items-start gap-2 text-xs leading-snug" style="color:var(--ink-muted)">
                     <input type="checkbox" id="auth-pd-consent" class="mt-0.5 rounded shrink-0">
                     <span>Согласен(на) на обработку персональных данных (логин, email, профиль, активность) для работы сервиса Полёвка. <button type="button" class="ds-link font-semibold hover:underline" onclick="event.preventDefault(); window.openPdConsentInfo && window.openPdConsentInfo()">Подробнее</button>. Регистрируясь, вы принимаете <button type="button" class="ds-link font-semibold hover:underline" onclick="event.preventDefault(); window.openLegalDocModal && window.openLegalDocModal('terms')">пользовательское соглашение</button>.</span>
@@ -179,6 +155,69 @@ export function initAuth() {
 
     window.openPdConsentInfo = function() {
         if (window.openLegalDocModal) window.openLegalDocModal('privacy');
+    };
+
+    /** Soft post-register survey: skill + intents (optional, once). */
+    window.maybePromptProfileSurvey = async function() {
+        if (!window.currentUser) return;
+        const hasSkill = !!(window.currentUser.skillLevel || '').trim();
+        const hasIntents = Array.isArray(window.currentUser.platformIntents) && window.currentUser.platformIntents.length > 0;
+        if (hasSkill || hasIntents) return;
+        try {
+            if (localStorage.getItem('polevka-survey-dismissed') === '1') return;
+        } catch (_) {}
+        if (!window.CustomUI || !window.CustomUI.open) return;
+        const ok = await window.CustomUI.open({
+            title: 'Немного о себе',
+            message: 'Уровень и цели не обязательны для регистрации, но помогают карте. Заполнить сейчас?',
+            confirmText: 'Заполнить',
+            cancelText: 'Позже'
+        });
+        if (!ok) {
+            try { localStorage.setItem('polevka-survey-dismissed', '1'); } catch (_) {}
+            return;
+        }
+        if (window.openCabinet) window.openCabinet();
+        if (window.switchCabinetTab) window.switchCabinetTab('settings');
+        setTimeout(() => {
+            const el = document.getElementById('profile-survey-block');
+            if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 320);
+    };
+
+    window.saveProfileSurveyFromCabinet = async function() {
+        if (!window.currentUser) return;
+        const skill = (document.getElementById('profile-skill-level')?.value || '').trim();
+        const intents = Array.from(document.querySelectorAll('input[name="profile-intent"]:checked')).map((el) => el.value);
+        if (!skill && !intents.length) {
+            window.showToast('Выберите уровень или хотя бы одну цель');
+            return;
+        }
+        window.currentUser.skillLevel = skill || window.currentUser.skillLevel || '';
+        window.currentUser.platformIntents = intents;
+        if (window.saveMyProfile) {
+            await window.saveMyProfile({
+                skillLevel: window.currentUser.skillLevel,
+                platformIntents: intents
+            });
+        }
+        try { localStorage.setItem('polevka-survey-dismissed', '1'); } catch (_) {}
+        window.showToast('Сохранено');
+        if (window.refreshProfileSurveyUI) window.refreshProfileSurveyUI();
+    };
+
+    window.refreshProfileSurveyUI = function() {
+        const block = document.getElementById('profile-survey-block');
+        if (!block) return;
+        const skill = window.currentUser?.skillLevel || '';
+        const intents = Array.isArray(window.currentUser?.platformIntents) ? window.currentUser.platformIntents : [];
+        const sel = document.getElementById('profile-skill-level');
+        if (sel) sel.value = skill;
+        document.querySelectorAll('input[name="profile-intent"]').forEach((el) => {
+            el.checked = intents.includes(el.value);
+        });
+        const done = !!(skill || intents.length);
+        block.classList.toggle('is-complete', done);
     };
 
     window.__passwordResetLoginOrEmail = '';
@@ -340,16 +379,7 @@ export function initAuth() {
                 shake('auth-email', 'Некорректный email');
                 return window.showToast('Введите корректный email');
             }
-            const skill = (document.getElementById('auth-skill-level')?.value || '').trim();
-            if (!skill) {
-                shake('auth-skill-level', 'Выберите уровень');
-                return window.showToast('Укажите уровень умений');
-            }
-            const intents = Array.from(document.querySelectorAll('input[name="auth-intent"]:checked')).map((el) => el.value);
-            if (!intents.length) return window.showToast('Выберите хотя бы одну цель использования');
             regSurvey = {
-                skillLevel: skill,
-                platformIntents: intents,
                 pdConsentAt: new Date().toISOString(),
                 pdConsent: true
             };
@@ -446,6 +476,8 @@ export function initAuth() {
             } else if (window.__pendingSupportOpen) {
                 window.__pendingSupportOpen = false;
                 if (window.openMessagesModal) window.openMessagesModal(window.SUPPORT_LOGIN || 'support');
+            } else if (isNewRegistration && window.maybePromptProfileSurvey) {
+                setTimeout(() => window.maybePromptProfileSurvey(), 450);
             }
             // Do not auto-open profile/cabinet after login.
         };
@@ -2174,6 +2206,7 @@ export function initAuth() {
         } else if (tab === 'settings') {
             document.body.classList.remove('cab-mobile-home');
             if (window.fillProfileSettingsForm) window.fillProfileSettingsForm();
+            if (window.refreshProfileSurveyUI) window.refreshProfileSurveyUI();
         } else if (tab === 'security') {
             document.body.classList.remove('cab-mobile-home');
             if (window.refreshSecurityPanelUI) window.refreshSecurityPanelUI();

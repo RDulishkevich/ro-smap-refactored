@@ -99,11 +99,12 @@ Visual grammar of the peach bar / wave / CTAs → **DESIGN.md symbiosis**, not t
 
 | ID | Назначение |
 |----|------------|
-| `#mobile-bottom-nav` | 5 пунктов: library, feed, map, expeditions, profile |
+| `#mobile-bottom-nav` | 5 пунктов: library, feed, fab(+), expeditions, profile |
 | `#msg-wrap-mobile` / `#notif-wrap-mobile` | Конверт и колокол у карты (после логина) |
 | `#events-sheet` | Полноэкранный/sheet ивентов |
-| `#cabinet-mobile-menu` | Строки кабинета (настройки, сообщения, …) |
-| `#dock-mobile-tabs` | Библиотека / Экспедиции / Помощь внутри dock |
+| `#cabinet-mobile-menu` | Строки кабинета (настройки приложения, помощь, сообщения, …) |
+| `#dock-mobile-tabs` | Библиотека / Экспедиции внутри dock (Помощь — из Settings/Профиля) |
+| `#dock-mobile-close` | «На карту» — закрыть dock на mobile (плюс повторный тап по активному пункту nav) |
 
 ### Shared
 
@@ -111,7 +112,7 @@ Visual grammar of the peach bar / wave / CTAs → **DESIGN.md symbiosis**, not t
 |----|---------|--------|
 | `#events-fab` | Открывает панель | Открывает sheet |
 | `#map-top-toolbar` | Поиск | Поиск |
-| `#fab-add` | Низ-справа · только «Добавить звук» | Выше bottom nav |
+| `#fab-add` | Низ-справа · только «Добавить звук» | **Скрыт** на mobile (add через bottom-nav **+**) |
 | `#sidebar` | Левый dock | Fullscreen минус `--mobile-fs-bottom` |
 | Модалки `app-modal-*` | Центр | Fullscreen минус bottom rail (кроме компактных confirm) |
 
@@ -148,10 +149,12 @@ Legacy / скрыты намеренно: `#burger-btn`, `#settings-btn-mobile`,
 - Плеер — компактная таблетка над доком; **⋯** → описание / анализаторы / амбисоник; свайп вверх раскрывает описание.
 - «Карта» / повторный тап по разделу закрывает dock. `#fab-add` на mobile скрыт.
 - Настройки: Профиль → кабинет → «Настройки» (desktop: `#settings-btn` в rail).
+- Помощь / FAQ / аудио-угадайка: Профиль → «Помощь» или Settings → «Открыть раздел Помощь».
 - Аудио-угадайка: Помощь → FAQ → «Играть» (не FAB на карте).
 - Сообщения: конверт у карты **или** Профиль → кабинет → «Сообщения».
 - Уведомления: колокол у карты (после логина).
 - Ивенты: FAB → `#events-sheet`.
+- Возврат на карту: повторный тап по активному пункту nav **или** `#dock-mobile-close` («На карту»).
 
 ---
 

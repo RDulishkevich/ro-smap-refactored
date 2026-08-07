@@ -16,12 +16,12 @@ Source: mobile peach/cream/charcoal reference (Health & Wellness mock). Implemen
 
 | Token / pattern | Value / rule |
 |-----------------|--------------|
-| Page | cream `#FFF8F0` (dark `#1A1A1A`) |
+| Page | cream `#FFF3E2` (dark `#1A1A1A`) |
 | Accent dock / fills | peach `#FBAB57` · soft `#FEC674` |
 | Contrast cards | charcoal `#222` / `#1A1A1A` |
 | Elevated cards | white / `#2c2c2c` dark · soft diffuse shadow |
 | Radii | cards 24 · sheets 28 · dock 32 (`--well-radius-*`) |
-| Bottom nav | **floating** peach pill (side inset + bottom gap), icons only, active = black dot |
+| Bottom nav | **floating** peach pill (side inset + bottom gap), icons only, active = charcoal icon chip (`#1A1A1A` + cream icon) — not ink-dot |
 | Center FAB | white circle + charcoal `+`, elevated over dock |
 | Titles | Desktop: Klukva @400 (`.type-title`); Mobile: Geologica **700**; peach/ink `.type-accent` |
 | Eyebrows | ALL CAPS · tracking ~0.12em · muted |
@@ -131,9 +131,9 @@ Utilities: `.mobile-grid-4`, `.mobile-pad-x`.
 | Compact / Expanded | `#dock-expand-btn` + `localStorage` `rosmap-dock-expanded` |
 | `#map-top-toolbar` | Search + active filter chips |
 | `#map-top-right-controls` | Events (both); messages/notifications on mobile after login |
-| `#player-card` | Compact cream card · waveform always on · bottom notch cups raised **+** · swipe-up = description · ⋯ menu |
+| `#player-card` | Compact cream card · waveform always on · bottom notch cups raised **+** · swipe-up / title tap = sound card · ⋯ menu |
 | `#fab-add` | Desktop only. Mobile: white center FAB in floating peach dock |
-| `#mobile-bottom-nav` | Wellness floating peach pill · **2px ink rim** · bold icons · **+** opens speed-dial (upload / record) |
+| `#mobile-bottom-nav` | Lib · Feed · **+** · Exp · Prof · floating peach pill · **2px ink rim** · active = charcoal icon chip · Settings/Help via Profile |
 | Mobile surfaces | Full viewport; scroll padding clears dock; confirm stays compact |
 
 ## Color tokens (resolved)
@@ -165,7 +165,7 @@ Soft wellness scale (cream cards ~24–32px):
 | `--radius-xl` | 1.75 | dock / sheets / mobile nav top |
 | `--radius-2xl` | 1.25 | modals (`.app-modal-panel`) — soft, not balloon |
 | `--radius-tag` | 0.5 | square tags |
-| `--radius-pill` | 999px | buttons, badges, wave-pill |
+| `--radius-pill` | 999px | buttons, badges (not retired `.wave-pill`) |
 
 Selection / focus: ink rim, **no colored glow halo**.
 

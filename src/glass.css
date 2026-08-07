@@ -2119,6 +2119,14 @@ html.dark .dark\:hover\:text-slate-200:hover,
 .app-modal-panel {
     color: var(--ink);
     border-color: var(--panel-border);
+    transition-property: transform, opacity;
+    transition-duration: 300ms;
+    transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+}
+.app-modal-overlay {
+    transition-property: opacity;
+    transition-duration: 300ms;
+    transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
 }
 .app-modal-panel:not(.ds-shell):not(.ds-shell--stone) {
     background-color: var(--panel-solid);

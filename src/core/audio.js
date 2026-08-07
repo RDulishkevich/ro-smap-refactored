@@ -9,6 +9,12 @@ window.changeVolume = function(val) {
         icon.className = 'pointer-events-none text-sm w-4 text-center ' + 
             (num === 0 ? 'icon-volume-slash text-red-500' : (num < 0.5 ? 'icon-volume-low' : 'icon-volume-high'));
     }
+    const slider = document.getElementById('volume-slider');
+    if (slider) {
+        const pct = Math.round(Math.max(0, Math.min(1, num)) * 100);
+        slider.setAttribute('aria-valuenow', String(pct));
+        slider.setAttribute('aria-valuetext', `${pct} процентов`);
+    }
     if(num > 0) window.lastVolume = num;
 };
 
