@@ -612,7 +612,7 @@
     }
     #player-card .player-main-row {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         gap: 0.55rem;
         min-width: 0;
         max-width: 100%;
@@ -703,23 +703,16 @@
         text-underline-offset: 0.18em;
         cursor: pointer;
     }
-    #player-card .player-title::after {
-        content: '';
-        display: inline-block;
-        width: 0.45em;
-        height: 0.45em;
-        margin-left: 0.28em;
-        border-right: 2px solid currentColor;
-        border-bottom: 2px solid currentColor;
-        transform: rotate(-45deg) translateY(-0.05em);
-        opacity: 0.55;
-        vertical-align: middle;
-    }
     .player-discover-chip {
+        position: absolute;
+        top: 0.35rem;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 5;
         display: none;
         align-items: center;
         gap: 0.35rem;
-        margin: 0 0 0.45rem;
+        margin: 0;
         padding: 0.35rem 0.55rem;
         border-radius: 999px;
         background: var(--surface-stone, #F5E6D4);
@@ -728,7 +721,9 @@
         font-size: 0.72rem;
         font-weight: 700;
         width: fit-content;
-        max-width: 100%;
+        max-width: calc(100% - 1.5rem);
+        box-shadow: 0 4px 14px rgba(34, 34, 34, 0.1);
+        pointer-events: auto;
     }
     .player-discover-chip:not(.hidden) {
         display: inline-flex;

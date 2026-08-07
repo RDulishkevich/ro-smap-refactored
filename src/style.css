@@ -1150,7 +1150,7 @@ html.dark .glass-seg__btn.is-active,
 .player-fab-notch { display: none; }
 .player-main-row {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 0.65rem 0.85rem;
     min-width: 0;
     max-width: 100%;
@@ -1239,7 +1239,8 @@ html.dark .glass-seg__btn.is-active,
     }
     #player-card .player-sheet-handle { order: 0; height: 1.1rem; }
     #player-card .player-wave-block { order: 1; height: 2.75rem !important; }
-    #player-card .player-main-row { order: 2; align-items: flex-start; }
+    #player-card .player-main-row { order: 2; align-items: center; }
+    #player-card .player-discover-chip { order: 0; }
     #player-card .player-expand-panel { order: 3; margin-top: 0.15rem; }
     #player-card #ambisonics-control { order: 4; }
     #player-card .player-more-btn { display: none !important; }
@@ -1250,7 +1251,7 @@ html.dark .glass-seg__btn.is-active,
         height: 2.75rem !important;
         min-width: 2.75rem !important;
         min-height: 2.75rem !important;
-        margin-top: 0.1rem;
+        margin-top: 0;
     }
     #player-card .player-icon-btn {
         width: 2.2rem !important;
@@ -1858,8 +1859,8 @@ html {
 /* —— Polevka cursor (desktop / fine pointer; includes map) —— */
 @media (pointer: fine) and (hover: hover) {
     html {
-        --cursor-default: url("../assets/cursors/default.png") 4 2, url("../assets/cursors/default.svg") 4 2, auto;
-        --cursor-pointer: url("../assets/cursors/pointer.png") 4 2, url("../assets/cursors/pointer.svg") 4 2, pointer;
+        --cursor-default: url("../assets/cursors/default.png") 1 1, url("../assets/cursors/default.svg") 1 1, auto;
+        --cursor-pointer: url("../assets/cursors/pointer.png") 1 1, url("../assets/cursors/pointer.svg") 1 1, pointer;
         --cursor-text: url("../assets/cursors/text.png") 12 12, url("../assets/cursors/text.svg") 12 12, text;
         --cursor-grab: url("../assets/cursors/grab.png") 14 14, url("../assets/cursors/grab.svg") 14 14, grab;
     }

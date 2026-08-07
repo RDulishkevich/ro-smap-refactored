@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none">
-  <!-- Polevka arrow: charcoal + cream rim + peach tip -->
-  <path d="M4.5 3.2 L4.5 24.8 L10.6 19.2 L14.8 29.2 L19.2 27.4 L14.6 17.2 L23.8 17.2 Z"
-        fill="#222222" stroke="#FFF3E2" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
-  <path d="M4.5 3.2 L10.2 14.2 L13.2 11.6 Z" fill="#FBAB57"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="20" viewBox="0 0 16 20" fill="none">
+  <!-- Figma-like arrow · charcoal + cream rim + peach tip -->
+  <path d="M1.2 1.1 V15.6 L4.85 12.2 L6.95 17.35 L9.15 16.45 L7.05 11.3 H13.4 Z"
+        fill="#222222" stroke="#FFF3E2" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M1.2 1.1 L5.35 8.15 L7.15 6.55 Z" fill="#FBAB57"/>
 </svg>
