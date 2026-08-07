@@ -2166,13 +2166,14 @@ body.dock-view-analyzers .dock-header {
     font-size: 1rem;
 }
 .dock-view-icon.hidden { display: none !important; }
-body.dock-view-settings .dock-brand-mark { display: none; }
+body.dock-view-settings .dock-brand-mark,
+body.dock-view-settings .dock-brand-mark-wrap { display: none !important; }
 body.dock-view-settings .dock-view-icon { display: inline-flex !important; }
 
 .dock-brand-mark {
     width: 2.25rem;
     height: 2.25rem;
-    border-radius: 0.8rem;
+    border-radius: 0;
     object-fit: contain;
     margin-top: 0.2rem;
     background: transparent;
@@ -2181,6 +2182,14 @@ body.dock-view-settings .dock-view-icon { display: inline-flex !important; }
 html.dark .dock-brand-mark,
 .dark .dock-brand-mark {
     border: none;
+}
+.brand-mark-wrap {
+    display: inline-grid;
+    place-items: center;
+    line-height: 0;
+}
+.brand-mark-wrap > img {
+    grid-area: 1 / 1;
 }
 .app-rail__brand-mark,
 .brand-mark {
@@ -2191,9 +2200,20 @@ html.dark .dock-brand-mark,
     display: block;
     box-sizing: border-box;
     padding: 0;
-    border-radius: 0.75rem;
+    border-radius: 0;
 }
-/* New mark has its own olive plate — no cream overlay in dark */
+/* Transparent theme marks — light=charcoal, dark=cream */
+.brand-mark--on-dark {
+    display: none !important;
+}
+html.dark .brand-mark--on-light,
+.dark .brand-mark--on-light {
+    display: none !important;
+}
+html.dark .brand-mark--on-dark,
+.dark .brand-mark--on-dark {
+    display: block !important;
+}
 html.dark .app-rail__brand-mark,
 html.dark .brand-mark,
 html.dark .dock-brand-mark,
@@ -2201,7 +2221,6 @@ html.dark .dock-brand-mark,
 .dark .brand-mark,
 .dark .dock-brand-mark {
     background: transparent;
-    border-radius: 0.75rem;
     padding: 0;
 }
 html.dark .app-rail__brand,

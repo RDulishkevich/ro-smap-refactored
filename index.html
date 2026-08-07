@@ -82,7 +82,10 @@
         <nav id="app-rail" class="app-rail pointer-events-auto z-[61] hidden md:flex" aria-label="Навигация">
             <a href="#sounds-list" class="skip-to-library" onclick="if(window.switchSidebarTab){event.preventDefault();window.switchSidebarTab('library');const el=document.getElementById('library-search-input')||document.getElementById('sounds-list');if(el)el.focus();}">К библиотеке</a>
             <div class="app-rail__brand" title="Полёвка">
-                <img src="./Logo.svg" alt="Полёвка" width="40" height="40" decoding="async" class="app-rail__brand-mark">
+                <span class="brand-mark-wrap">
+                    <img src="./assets/polevka-mark-light.png" alt="Полёвка" width="40" height="40" decoding="async" class="app-rail__brand-mark brand-mark--on-light">
+                    <img src="./assets/polevka-mark-dark.png" alt="" width="40" height="40" decoding="async" class="app-rail__brand-mark brand-mark--on-dark" aria-hidden="true">
+                </span>
             </div>
             <button type="button" id="rail-library" class="app-rail__btn" onclick="window.switchSidebarTab('library')" title="Библиотека" aria-label="Библиотека">
                 <i class="icon-document-text" aria-hidden="true"></i>
@@ -194,7 +197,10 @@
                         <button type="button" id="dock-back-btn" onclick="window.hideDockPanel()" class="dock-back-btn shrink-0" title="Скрыть панель" aria-label="Скрыть панель">
                             <i class="icon-arrow-left text-sm pointer-events-none"></i>
                         </button>
-                        <img class="dock-brand-mark shrink-0" src="./Logo.svg" alt="" width="36" height="36" decoding="async" aria-hidden="true">
+                        <span class="brand-mark-wrap dock-brand-mark-wrap shrink-0">
+                            <img class="dock-brand-mark brand-mark--on-light" src="./assets/polevka-mark-light.png" alt="" width="36" height="36" decoding="async" aria-hidden="true">
+                            <img class="dock-brand-mark brand-mark--on-dark" src="./assets/polevka-mark-dark.png" alt="" width="36" height="36" decoding="async" aria-hidden="true">
+                        </span>
                         <span id="dock-view-icon" class="dock-view-icon hidden" aria-hidden="true"><i class="icon-setting-2"></i></span>
                         <div class="min-w-0">
                             <h1 id="dock-title" class="brand-title text-xl md:text-2xl text-slate-800 dark:text-white truncate" data-lang="title">Полёвка</h1>
@@ -1012,7 +1018,10 @@
         <div id="auth-modal-content" class="rounded-[2.5rem] shadow-2xl w-full max-w-sm app-modal-panel flex flex-col overflow-hidden min-h-0 transform scale-95 transition-all pointer-events-auto" style="background:var(--panel-solid);border:1px solid var(--panel-border);color:var(--ink)">
             <div class="px-6 py-5 flex justify-between items-center border-b shrink-0" style="border-color:var(--panel-border)">
                 <div class="flex items-center gap-3 min-w-0">
-                    <img src="./Logo.svg" alt="" width="40" height="40" decoding="async" class="brand-mark shrink-0" aria-hidden="true">
+                    <span class="brand-mark-wrap shrink-0">
+                        <img src="./assets/polevka-mark-light.png" alt="" width="40" height="40" decoding="async" class="brand-mark brand-mark--on-light" aria-hidden="true">
+                        <img src="./assets/polevka-mark-dark.png" alt="" width="40" height="40" decoding="async" class="brand-mark brand-mark--on-dark" aria-hidden="true">
+                    </span>
                     <div class="min-w-0">
                         <p class="type-eyebrow">Полёвка</p>
                         <h3 id="auth-modal-title" class="type-title type-title--sm leading-tight" style="color:var(--ink)">Вход / <span class="type-accent">Регистрация</span></h3>

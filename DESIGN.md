@@ -14,12 +14,13 @@
 
 | Asset | Use |
 |-------|-----|
-| `Logo.svg` / `favicon.svg` / `assets/polevka-mark.svg` | Compact mark (olive plate · cream vole · headphones) — UI / favicon |
-| `Logo.png` · `favicon.png` · `icons/logo-mark.png` | Raster fallbacks of the mark |
-| `assets/polevka-app-icon.svg` · `icons/icon-*.png` · `apple-touch-icon.png` | PWA / home-screen (hills landscape) |
-| `assets/polevka-mark.png` · `assets/polevka-app-icon.png` | Master raster sources |
+| `assets/polevka-favicon.png` → `favicon.svg` / `Logo.svg` / `Logo.png` | Circular olive plate — browser favicon & notifications |
+| `assets/polevka-mark-light.png` (+ `.svg`) | Charcoal vole — UI on cream / light |
+| `assets/polevka-mark-dark.png` (+ `.svg`) | Cream vole — UI on dark |
+| `assets/polevka-mark-alt.png` (+ `.svg`) | Terracotta accent variant (marketing / optional) |
+| `assets/polevka-app-icon.png` (+ `.svg`) · `icons/icon-*.png` · `apple-touch-icon.png` | PWA / home-screen (hills) |
 
-Olive plate `#6F7E4E` · sky `#9DB172` · cream vole · peach/terracotta headphones. Dark theme: no cream plate overlay — mark is self-contained.
+UI chrome swaps light/dark marks via `.brand-mark--on-light` / `.brand-mark--on-dark`. Regenerate SVG: `npm i imagetracerjs && node scripts/build-logo-svgs.mjs`.
 
 ---
 
