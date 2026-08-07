@@ -1,5 +1,5 @@
 /* Полёвка — service worker: PWA shell + Web Notifications (Safari / Chrome / installed app). */
-const CACHE = 'polevka-shell-v9';
+const CACHE = 'polevka-shell-v10';
 const PRECACHE = [
   './',
   './index.html',
@@ -19,7 +19,12 @@ const PRECACHE = [
   './assets/polevka-mark-dark.png',
   './assets/cursors/default.svg',
   './assets/cursors/pointer.svg',
-  './assets/cursors/text.svg'
+  './assets/cursors/text.svg',
+  './assets/cursors/grab.svg',
+  './assets/cursors/default.png',
+  './assets/cursors/pointer.png',
+  './assets/cursors/text.png',
+  './assets/cursors/grab.png'
 ];
 
 self.addEventListener('install', (event) => {

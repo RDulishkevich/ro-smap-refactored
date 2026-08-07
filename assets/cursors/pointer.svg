@@ -1,5 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none">
-  <!-- Pointer: soft ring + peach fill -->
-  <circle cx="8" cy="8" r="6.4" fill="#FBAB57" stroke="#222222" stroke-width="1.5"/>
-  <circle cx="8" cy="8" r="2.2" fill="#FFF3E2"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none">
+  <!-- Active/pointer: peach arrow with charcoal rim -->
+  <path d="M4.5 3.2 L4.5 24.8 L10.6 19.2 L14.8 29.2 L19.2 27.4 L14.6 17.2 L23.8 17.2 Z"
+        fill="#FBAB57" stroke="#222222" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M4.5 3.2 L10.2 14.2 L13.2 11.6 Z" fill="#FFF3E2"/>
 </svg>

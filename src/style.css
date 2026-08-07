@@ -1855,16 +1855,29 @@ html {
 }
 ::-webkit-scrollbar-corner { background: transparent; }
 
-/* —— Polevka cursor (desktop / fine pointer only; never touch) —— */
+/* —— Polevka cursor (desktop / fine pointer; includes map) —— */
 @media (pointer: fine) and (hover: hover) {
     html {
-        --cursor-default: url("../assets/cursors/default.svg") 6 6, auto;
-        --cursor-pointer: url("../assets/cursors/pointer.svg") 8 8, pointer;
-        --cursor-text: url("../assets/cursors/text.svg") 9 9, text;
+        --cursor-default: url("../assets/cursors/default.png") 4 2, url("../assets/cursors/default.svg") 4 2, auto;
+        --cursor-pointer: url("../assets/cursors/pointer.png") 4 2, url("../assets/cursors/pointer.svg") 4 2, pointer;
+        --cursor-text: url("../assets/cursors/text.png") 12 12, url("../assets/cursors/text.svg") 12 12, text;
+        --cursor-grab: url("../assets/cursors/grab.png") 14 14, url("../assets/cursors/grab.svg") 14 14, grab;
     }
     html,
-    body {
-        cursor: var(--cursor-default);
+    body,
+    #map,
+    #map canvas,
+    #map .ymaps3x0--map,
+    #map [class*="ymaps3"],
+    #map [class*="ymaps3"] *,
+    #map [class*="ymaps"],
+    #map [class*="ymaps"] *,
+    .ymaps3x0--map,
+    .ymaps3x0--map *,
+    [class*="ymaps3x0--"],
+    .leaflet-container,
+    .leaflet-container * {
+        cursor: var(--cursor-default) !important;
     }
     a[href],
     button:not(:disabled),
@@ -1885,31 +1898,40 @@ html {
     .sidebar-sound-row,
     .feed-card,
     .custom-marker,
+    .custom-marker *,
     .cursor-pointer,
-    select:not(:disabled) {
-        cursor: var(--cursor-pointer);
+    select:not(:disabled),
+    #map .custom-marker,
+    #map .custom-marker * {
+        cursor: var(--cursor-pointer) !important;
     }
     input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not(:disabled),
     textarea:not(:disabled),
     [contenteditable="true"] {
-        cursor: var(--cursor-text);
+        cursor: var(--cursor-text) !important;
     }
-    input[type="range"],
-    .ymaps3x0--map,
-    [class*="ymaps"] {
-        cursor: auto;
+    #map.is-dragging,
+    #map.is-dragging *,
+    #map:active,
+    #map:active canvas,
+    .ymaps3x0--map:active,
+    .ymaps3x0--map:active * {
+        cursor: var(--cursor-grab) !important;
+    }
+    input[type="range"] {
+        cursor: var(--cursor-default) !important;
     }
     :disabled,
     [aria-disabled="true"],
     .is-disabled {
-        cursor: not-allowed;
+        cursor: not-allowed !important;
     }
 }
 
 [class*="gototech"] { display: none !important; }
 
 /* ???????: ??????????? ??? ????????? */
-.custom-marker { border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(34, 34, 34, 0.28); transition: transform 0.2s; cursor: pointer; }
+.custom-marker { border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(34, 34, 34, 0.28); transition: transform 0.2s; cursor: var(--cursor-pointer, pointer); }
 .dark .custom-marker { border-color: #1e293b; }
 /* Selection = scale + ink rim — no colored glow halo (AI tell) */
 .custom-marker.selected {
