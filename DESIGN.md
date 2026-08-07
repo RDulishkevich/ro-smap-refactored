@@ -157,7 +157,8 @@ Utilities: `.mobile-grid-4`, `.mobile-pad-x`.
 | Accent / live (ember) | `#FBAB57` | `#FBAB57` | Playing, active, switches, mobile nav — **not** panel fills |
 | Soft | `#FEC674` | `#3a3228` | Soft action islands, selected chips |
 | Ink / CTA | `#222222` | cream inverted | Text, primary buttons, rims |
-| Scrollbar thumb | ink @26% | ink @32% | `--scrollbar-thumb` · `.custom-scrollbar` |
+| Scrollbar thumb | ink @24% · peach hover | cream @30% · peach hover | `--scrollbar-thumb` · 6px pill |
+| Cursor (desktop) | charcoal+peach ember | same assets | `assets/cursors/*.svg` · `@media (pointer: fine)` only |
 | Accent ink | `#9a6420` | `#FEC674` | Links |
 | On accent | `#222222` | `#222222` | Ink on peach |
 | Page | `#FFF3E2` | `#1a1a1a` | Behind chrome |

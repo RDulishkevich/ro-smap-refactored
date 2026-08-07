@@ -67,7 +67,9 @@
 
 **Вложенные «окна»** (анализаторы, waveform в плеере, FileXfer drop): пунктирная обводка `.ds-frame` / `--frame-dashed` — не solid `--control-rim` (rim = действие, dashed = группировка).
 
-**Скролл:** контентные панели — `.custom-scrollbar` (токены `--scrollbar-thumb`). Горизонтальные чип/таб-рейлы могут скрывать полосу (`scrollbar-width: none`).
+**Скролл:** контентные панели — `.custom-scrollbar` (токены `--scrollbar-thumb`, 6px pill, peach на hover). Горизонтальные чип/таб-рейлы могут скрывать полосу (`scrollbar-width: none`).
+
+**Курсор:** только desktop (`pointer: fine` + `hover: hover`) — маленькие SVG в `assets/cursors/` (default / pointer / text). На touch не включается. Карта Яндекса оставляет системный курсор.
 
 ---
 

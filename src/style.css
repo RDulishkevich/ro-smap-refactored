@@ -1765,16 +1765,21 @@ body.dark-mode .modal-input::placeholder,
     opacity: 1;
 }
 
-/* Custom scrollbars — cream/ink DS (not cool slate) */
+/* Custom scrollbars — cream/ink DS, peach hover (not cool slate) */
 :root {
-    --scrollbar-size: 8px;
-    --scrollbar-thumb: color-mix(in srgb, var(--ink, #222) 26%, transparent);
-    --scrollbar-thumb-hover: color-mix(in srgb, var(--ink, #222) 44%, transparent);
+    --scrollbar-size: 6px;
+    --scrollbar-thumb: color-mix(in srgb, var(--ink, #222) 24%, transparent);
+    --scrollbar-thumb-hover: color-mix(in srgb, var(--accent, #FBAB57) 62%, var(--ink, #222));
 }
 html.dark,
 .dark {
-    --scrollbar-thumb: color-mix(in srgb, var(--ink, #FFF3E2) 32%, transparent);
-    --scrollbar-thumb-hover: color-mix(in srgb, var(--ink, #FFF3E2) 52%, transparent);
+    --scrollbar-thumb: color-mix(in srgb, var(--ink, #FFF3E2) 30%, transparent);
+    --scrollbar-thumb-hover: color-mix(in srgb, var(--accent, #FBAB57) 55%, #fff);
+}
+
+html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 .custom-scrollbar,
@@ -1808,7 +1813,7 @@ html.dark,
 .sidebar-panel .overflow-y-auto::-webkit-scrollbar-track,
 .feed-pane::-webkit-scrollbar-track {
     background: transparent;
-    margin: 4px 0;
+    margin: 3px 0;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb,
 #sounds-list::-webkit-scrollbar-thumb,
@@ -1820,7 +1825,7 @@ html.dark,
 .feed-pane::-webkit-scrollbar-thumb {
     background: var(--scrollbar-thumb);
     border-radius: 999px;
-    border: 2px solid transparent;
+    border: 1.5px solid transparent;
     background-clip: padding-box;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover,
@@ -1832,21 +1837,73 @@ html.dark,
 .sidebar-panel .overflow-y-auto::-webkit-scrollbar-thumb:hover,
 .feed-pane::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbar-thumb-hover);
-    border: 2px solid transparent;
+    border: 1.5px solid transparent;
     background-clip: padding-box;
 }
 
 /* Fallback for any other scroll surface in the app shell */
-::-webkit-scrollbar { width: var(--scrollbar-size, 8px); height: var(--scrollbar-size, 8px); }
+::-webkit-scrollbar { width: var(--scrollbar-size, 6px); height: var(--scrollbar-size, 6px); }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
     background: var(--scrollbar-thumb, #c4b5a5);
     border-radius: 999px;
-    border: 2px solid transparent;
+    border: 1.5px solid transparent;
     background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--scrollbar-thumb-hover, #a8907a);
+    background: var(--scrollbar-thumb-hover, #FBAB57);
+}
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* —— Polevka cursor (desktop / fine pointer only; never touch) —— */
+@media (pointer: fine) and (hover: hover) {
+    html {
+        --cursor-default: url("../assets/cursors/default.svg") 6 6, auto;
+        --cursor-pointer: url("../assets/cursors/pointer.svg") 8 8, pointer;
+        --cursor-text: url("../assets/cursors/text.svg") 9 9, text;
+    }
+    html,
+    body {
+        cursor: var(--cursor-default);
+    }
+    a[href],
+    button:not(:disabled),
+    [role="button"]:not([aria-disabled="true"]),
+    [role="tab"],
+    [role="menuitem"],
+    [role="option"],
+    [role="switch"],
+    [role="checkbox"],
+    label[for],
+    summary,
+    .app-rail__btn,
+    .mobile-nav-btn,
+    .mobile-nav-fab,
+    .map-icon-btn,
+    .ds-btn,
+    .glass-switch,
+    .sidebar-sound-row,
+    .feed-card,
+    .custom-marker,
+    .cursor-pointer,
+    select:not(:disabled) {
+        cursor: var(--cursor-pointer);
+    }
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not(:disabled),
+    textarea:not(:disabled),
+    [contenteditable="true"] {
+        cursor: var(--cursor-text);
+    }
+    input[type="range"],
+    .ymaps3x0--map,
+    [class*="ymaps"] {
+        cursor: auto;
+    }
+    :disabled,
+    [aria-disabled="true"],
+    .is-disabled {
+        cursor: not-allowed;
+    }
 }
 
 [class*="gototech"] { display: none !important; }
