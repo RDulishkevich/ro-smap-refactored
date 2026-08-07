@@ -1868,8 +1868,8 @@ html {
 /* —— Polevka cursor (desktop / fine pointer; includes map) —— */
 @media (pointer: fine) and (hover: hover) {
     html {
-        --cursor-default: url("../assets/cursors/default.png") 1 1, url("../assets/cursors/default.svg") 1 1, auto;
-        --cursor-pointer: url("../assets/cursors/pointer.png") 1 1, url("../assets/cursors/pointer.svg") 1 1, pointer;
+        --cursor-default: url("../assets/cursors/default.png") 2 1, url("../assets/cursors/default.svg") 2 1, auto;
+        --cursor-pointer: url("../assets/cursors/pointer.png") 2 1, url("../assets/cursors/pointer.svg") 2 1, pointer;
         --cursor-text: url("../assets/cursors/text.png") 4 8, url("../assets/cursors/text.svg") 4 8, text;
         --cursor-grab: url("../assets/cursors/grab.png") 8 8, url("../assets/cursors/grab.svg") 8 8, grab;
     }
@@ -2054,7 +2054,7 @@ html {
 
 /* ??? Map-first chrome: rail + floating dock + top toolbar ??? */
 :root {
-    --rail-w: 3.75rem;
+    --rail-w: 4.35rem;
     --dock-w-compact: 20rem;
     --dock-w-expanded: 27rem;
     --chrome-gap: 0.75rem;
@@ -2222,9 +2222,9 @@ body.dock-view-analyzers .dock-header {
 }
 
 .app-rail__brand {
-    width: 2.55rem;
-    height: 2.55rem;
-    border-radius: 0.95rem;
+    width: 3.35rem;
+    height: 3.35rem;
+    border-radius: 1.05rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2260,11 +2260,11 @@ body.dock-view-settings .dock-brand-mark-wrap { display: none !important; }
 body.dock-view-settings .dock-view-icon { display: inline-flex !important; }
 
 .dock-brand-mark {
-    width: 2.25rem;
-    height: 2.25rem;
+    width: 3rem;
+    height: 3rem;
     border-radius: 0;
     object-fit: contain;
-    margin-top: 0.2rem;
+    margin-top: 0.1rem;
     background: transparent;
     border: none;
 }
@@ -2282,8 +2282,8 @@ html.dark .dock-brand-mark,
 }
 .app-rail__brand-mark,
 .brand-mark {
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 3.35rem;
+    height: 3.35rem;
     object-fit: contain;
     background: transparent;
     display: block;
@@ -4441,6 +4441,54 @@ textarea.modal-input {
     word-break: normal;
     writing-mode: horizontal-tb;
     text-orientation: mixed;
+}
+.details-header-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    min-width: 0;
+    width: 100%;
+}
+.details-tags {
+    min-width: 0;
+    width: 100%;
+}
+.details-title-row {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.65rem 0.85rem;
+    min-width: 0;
+    width: 100%;
+}
+.details-title-row .details-title,
+.details-title-row #details-title {
+    flex: 1 1 auto;
+    width: auto;
+    max-width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding-top: 0.1rem;
+}
+.details-header-actions {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: 0.45rem;
+    flex: 0 0 auto;
+    align-self: flex-start;
+    margin: 0;
+    padding: 0;
+}
+@media (max-width: 767px) {
+    .details-title-row {
+        flex-wrap: wrap;
+    }
+    .details-header-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
 }
 .details-filename,
 #details-filename {
