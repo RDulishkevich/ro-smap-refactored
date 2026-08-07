@@ -10,6 +10,19 @@
 
 ---
 
+## Brand mark
+
+| Asset | Use |
+|-------|-----|
+| `Logo.svg` / `favicon.svg` / `assets/polevka-mark.svg` | Compact mark (olive plate · cream vole · headphones) — UI / favicon |
+| `Logo.png` · `favicon.png` · `icons/logo-mark.png` | Raster fallbacks of the mark |
+| `assets/polevka-app-icon.svg` · `icons/icon-*.png` · `apple-touch-icon.png` | PWA / home-screen (hills landscape) |
+| `assets/polevka-mark.png` · `assets/polevka-app-icon.png` | Master raster sources |
+
+Olive plate `#6F7E4E` · sky `#9DB172` · cream vole · peach/terracotta headphones. Dark theme: no cream plate overlay — mark is self-contained.
+
+---
+
 ## Mobile Wellness DS (canonical for &lt;768)
 
 Source: mobile peach/cream/charcoal reference (Health & Wellness mock). Implementation: `src/mobile-wellness.css`.

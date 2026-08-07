@@ -5,7 +5,8 @@
   "scripts": {
     "test": "node --test",
     "build:css": "tailwindcss -i ./src/tailwind.input.css -o ./src/tailwind.built.css --minify",
-    "watch:css": "tailwindcss -i ./src/tailwind.input.css -o ./src/tailwind.built.css --watch"
+    "watch:css": "tailwindcss -i ./src/tailwind.input.css -o ./src/tailwind.built.css --watch",
+    "trace:logos": "node scripts/trace-logos.mjs"
   },
   "devDependencies": {
     "tailwindcss": "^3.4.17"
