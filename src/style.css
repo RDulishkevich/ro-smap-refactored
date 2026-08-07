@@ -1150,11 +1150,20 @@ html.dark .glass-seg__btn.is-active,
 .player-fab-notch { display: none; }
 .player-main-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.65rem 0.85rem;
     min-width: 0;
     max-width: 100%;
     overflow: visible;
+}
+.player-discover-chip {
+    position: absolute;
+    top: 0.35rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    display: none;
+    pointer-events: none;
 }
 .player-main-meta {
     min-width: 0;
@@ -1239,7 +1248,7 @@ html.dark .glass-seg__btn.is-active,
     }
     #player-card .player-sheet-handle { order: 0; height: 1.1rem; }
     #player-card .player-wave-block { order: 1; height: 2.75rem !important; }
-    #player-card .player-main-row { order: 2; align-items: center; }
+    #player-card .player-main-row { order: 2; align-items: flex-start; }
     #player-card .player-discover-chip { order: 0; }
     #player-card .player-expand-panel { order: 3; margin-top: 0.15rem; }
     #player-card #ambisonics-control { order: 4; }
@@ -1277,7 +1286,7 @@ html.dark .glass-seg__btn.is-active,
     }
     #player-card .player-main-actions {
         align-items: center;
-        align-self: stretch;
+        align-self: flex-start;
         gap: 0.28rem;
         margin-top: 0.05rem;
     }
@@ -1861,8 +1870,8 @@ html {
     html {
         --cursor-default: url("../assets/cursors/default.png") 1 1, url("../assets/cursors/default.svg") 1 1, auto;
         --cursor-pointer: url("../assets/cursors/pointer.png") 1 1, url("../assets/cursors/pointer.svg") 1 1, pointer;
-        --cursor-text: url("../assets/cursors/text.png") 12 12, url("../assets/cursors/text.svg") 12 12, text;
-        --cursor-grab: url("../assets/cursors/grab.png") 14 14, url("../assets/cursors/grab.svg") 14 14, grab;
+        --cursor-text: url("../assets/cursors/text.png") 4 8, url("../assets/cursors/text.svg") 4 8, text;
+        --cursor-grab: url("../assets/cursors/grab.png") 8 8, url("../assets/cursors/grab.svg") 8 8, grab;
     }
     html,
     body,

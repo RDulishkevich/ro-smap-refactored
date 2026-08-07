@@ -612,7 +612,7 @@
     }
     #player-card .player-main-row {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 0.55rem;
         min-width: 0;
         max-width: 100%;
