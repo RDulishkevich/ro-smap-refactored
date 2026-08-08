@@ -1,5 +1,5 @@
 /* Полёвка — service worker: PWA shell + Web Notifications (Safari / Chrome / installed app). */
-const CACHE = 'polevka-shell-v15';
+const CACHE = 'polevka-shell-v16';
 const PRECACHE = [
   './',
   './index.html',
@@ -19,6 +19,7 @@ const PRECACHE = [
   './assets/polevka-mark-light.png',
   './assets/polevka-mark-dark.png',
   './assets/cursors/cursor.cur',
+  './assets/cursors/cursor.png',
   './assets/cursors/cursor.svg',
   './assets/cursors/text.svg',
   './assets/cursors/grab.svg',
