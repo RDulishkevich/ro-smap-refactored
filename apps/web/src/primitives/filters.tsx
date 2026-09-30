@@ -25,18 +25,18 @@ export function CatalogFilters() {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
+      <div className="flex flex-nowrap gap-1.5 overflow-x-auto scrollbar-none">
         {ECO.map((e) => (
           <Chip key={e.id || 'all'} on={filter.eco === e.id} onClick={() => set({ eco: e.id })} label={e.label} th={th} />
         ))}
       </div>
-      <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
+      <div className="flex flex-nowrap gap-1.5 overflow-x-auto scrollbar-none">
         {cats.slice(0, 16).map((c) => (
           <Chip key={c || 'ucs'} on={filter.ucs === c} onClick={() => set({ ucs: c, ucsSub: '' })} label={c || 'UCS'} th={th} />
         ))}
       </div>
       {filter.ucs && Array.isArray((ucsStructure as Record<string, Array<{ id: string; name: string }>>)[filter.ucs]) && (
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
+        <div className="flex flex-nowrap gap-1.5 overflow-x-auto scrollbar-none">
           <Chip on={!filter.ucsSub} onClick={() => set({ ucsSub: '' })} label="все подкатегории" th={th} />
           {((ucsStructure as Record<string, Array<{ id: string; name: string }>>)[filter.ucs] || []).slice(0, 20).map((s) => (
             <Chip key={s.id} on={filter.ucsSub === s.id} onClick={() => set({ ucsSub: s.id })} label={s.id} th={th} />

@@ -229,11 +229,11 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
   const c = pinColor[String(sound.type)] ?? color.accent;
   const wf = WF[Number(sound.wf || 0) % 4];
   return (
-    <div className={`px-4 pt-4 ${simple ? 'pb-4' : 'pb-10'}`}
+    <div className={`px-4 ${simple ? 'pt-3 pb-3' : 'pt-4 pb-10'}`}
       style={{
         background: th.cardBg,
         borderRadius: simple ? 24 : '24px 24px 0 0',
-        boxShadow: '0 -6px 32px rgba(45,60,57,0.18)',
+        boxShadow: simple ? '0 4px 16px rgba(45,60,57,0.08)' : '0 -6px 32px rgba(45,60,57,0.18)',
         ...(simple ? {} : {
           maskImage: 'radial-gradient(circle 36px at 50% 100%, transparent 34px, black 36px)',
           WebkitMaskImage: 'radial-gradient(circle 36px at 50% 100%, transparent 34px, black 36px)',

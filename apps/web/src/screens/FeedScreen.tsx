@@ -7,7 +7,7 @@ import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import { useAuth } from '../state/AuthContext';
-import { DecorBand, NavBar, PlayPauseIcon, SoundTypeTag, WaveformSVG } from '../primitives/ui';
+import { NavBar, PlayPauseIcon, SoundTypeTag, WaveformSVG } from '../primitives/ui';
 import { CatalogFilters } from '../primitives/filters';
 import BrandMark from '@/brand/BrandMark';
 
@@ -30,7 +30,6 @@ export function FeedScreen({ showNav = true, embed = false, initialTab }: { show
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       {!embed && (
       <div className="relative p-5 pb-0 flex-shrink-0 overflow-hidden">
-        <DecorBand opacity={th.isDark ? 0.12 : 0.15} />
         <div className="relative flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 relative flex-shrink-0"><BrandMark /></div>
@@ -62,21 +61,9 @@ export function FeedScreen({ showNav = true, embed = false, initialTab }: { show
         </button>
       </div>
       )}
-      {embed && (
-        <div className="px-4 pt-4 pb-2 flex-shrink-0">
-          <div className="relative flex gap-1 p-1 rounded-2xl" style={{ background: th.lightBg }}>
-            {subTabs.map(({ id, label }) => (
-              <button key={id} onClick={() => setTab(id)} className="flex-1 py-2 rounded-xl text-[11px] font-semibold relative overflow-hidden" style={{ color: tab === id ? ACCENT : OLIVE }}>
-                {tab === id && <motion.div layoutId="feedPillEmbed" className="absolute inset-0 rounded-xl" style={{ background: th.cardBg, boxShadow: '0 1px 4px rgba(45,60,57,0.12)' }} transition={spring.pill} />}
-                <span className="relative z-10">{label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
       <div className="flex-1 overflow-hidden relative">
         <AnimatePresence mode="wait">
-          <motion.div key={tab} initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }} transition={spring.tab} className="absolute inset-0 overflow-y-auto scrollbar-none px-5 pb-4">
+          <motion.div key={tab} initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }} transition={spring.tab} className="absolute inset-0 overflow-y-auto scrollbar-none px-5 pb-4 pt-3">
             {tab === 'posts' && <PostsList />}
             {tab === 'catalog' && <CatalogSoundList />}
             {tab === 'expeditions' && <ExpeditionsList />}

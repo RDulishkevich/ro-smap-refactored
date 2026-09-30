@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
-  ChevronRight, Flag, Heart, Headphones, Info, LogOut, MapPin, MessageCircle,
+  ChevronLeft, ChevronRight, Flag, Heart, Headphones, Info, LogOut, MapPin, MessageCircle,
   Moon, MoreHorizontal, Send, Share2, Sun, UserPlus, Volume2,
 } from 'lucide-react';
 import { color, pinColor } from '@polevka/design';
@@ -64,6 +64,50 @@ export function ScreenContent({ screen, onBack }: { screen: ScreenConfig; onBack
     case 'reset-password': return <ResetPasswordScreen onBack={onBack} />;
     default: return null;
   }
+}
+
+function PhotoCarousel({ images, title }: { images: string[]; title: string }) {
+  const [i, setI] = useState(0);
+  const th = useTh();
+  if (!images.length) return null;
+  const go = (d: number) => setI((n) => (n + d + images.length) % images.length);
+  return (
+    <div className="relative mx-4 mt-4 rounded-3xl overflow-hidden" style={{ background: th.lightBg, aspectRatio: '16 / 10' }}>
+      <AnimatePresence mode="wait">
+        <motion.img
+          key={images[i]}
+          src={images[i]}
+          alt={title}
+          className="absolute inset-0 w-full h-full object-cover"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.22 }}
+        />
+      </AnimatePresence>
+      {images.length > 1 && (
+        <>
+          <button type="button" aria-label="Предыдущее фото" onClick={() => go(-1)}
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center shadow-md"
+            style={{ background: 'rgba(255,255,255,0.92)' }}>
+            <ChevronLeft size={16} color={OLIVE} />
+          </button>
+          <button type="button" aria-label="Следующее фото" onClick={() => go(1)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center shadow-md"
+            style={{ background: 'rgba(255,255,255,0.92)' }}>
+            <ChevronRight size={16} color={OLIVE} />
+          </button>
+          <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
+            {images.map((_, n) => (
+              <button key={n} type="button" aria-label={`Фото ${n + 1}`} onClick={() => setI(n)}
+                className="h-1.5 rounded-full transition-all"
+                style={{ width: n === i ? 16 : 6, background: n === i ? '#fff' : 'rgba(255,255,255,0.45)' }} />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void }) {
@@ -161,6 +205,7 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
         ], live.title)}><MoreHorizontal size={15} color={OLIVE} /></button>
       } />
       <div className="flex-1 overflow-y-auto scrollbar-none">
+        <PhotoCarousel images={(live.images || []).filter(Boolean)} title={live.title} />
         <div className="mx-4 mt-4 rounded-3xl p-5" style={{ background: th.cream }}>
           <div className="flex items-center justify-between mb-4">
             <SoundTypeTag type={String(live.type)} /><span className="text-[10px]" style={{ color: SAGE }}>{live.duration}</span>
@@ -223,28 +268,28 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
           </div>
         </div>
         <div className="mx-4 mt-3 mb-6 rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <p className="text-xs font-bold mb-3" style={{ color: th.inkText }}>Комментарии</p>
-          {comments.length === 0 && <p className="text-[10px]" style={{ color: SAGE }}>Пока нет комментариев</p>}
+          <p className="text-sm font-bold mb-3" style={{ color: th.inkText }}>Комментарии · {comments.length}</p>
+          {comments.length === 0 && <p className="text-xs py-2" style={{ color: SAGE }}>Пока нет комментариев — напишите первый</p>}
           {comments.map((cm) => (
             <div key={cm.id} className="flex gap-2.5 mb-3 last:mb-0">
-              <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm flex-shrink-0" style={{ background: th.lightBg }}>💬</div>
-              <div className="flex-1 p-2.5 rounded-2xl" style={{ background: th.phoneBg }}>
-                <div className="flex items-center justify-between mb-0.5">
-                  <p className="text-[10px] font-semibold" style={{ color: th.inkText }}>{cm.author}</p>
-                  <p className="text-[9px]" style={{ color: SAGE }}>{cm.date}</p>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0" style={{ background: th.lightBg }}>💬</div>
+              <div className="flex-1 p-3 rounded-2xl" style={{ background: th.phoneBg }}>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-semibold" style={{ color: th.inkText }}>{cm.author}</p>
+                  <p className="text-[10px]" style={{ color: SAGE }}>{cm.date}</p>
                 </div>
-                <p className="text-[10px]" style={{ color: OLIVE }}>{cm.text}</p>
+                <p className="text-xs leading-relaxed" style={{ color: OLIVE }}>{cm.text}</p>
                 {(cm.replies || []).map((r) => (
-                  <p key={r.id} className="text-[10px] mt-1 pl-2" style={{ color: SAGE }}>{r.author}: {r.text}</p>
+                  <p key={r.id} className="text-[11px] mt-1.5 pl-2" style={{ color: SAGE }}>{r.author}: {r.text}</p>
                 ))}
                 {isLoggedIn && (
-                  <div className="flex items-center gap-2 mt-1">
-                    <button className="text-[9px] flex items-center gap-0.5" style={{ color: (cm.reactedBy || []).includes(user?.loginName || '') ? ACCENT : SAGE }}
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <button className="text-[10px] flex items-center gap-0.5" style={{ color: (cm.reactedBy || []).includes(user?.loginName || '') ? ACCENT : SAGE }}
                       onClick={() => void toggleCommentReaction(live, cm)}>
                       <Heart size={10} fill={(cm.reactedBy || []).includes(user?.loginName || '') ? ACCENT : 'none'} />{(cm.reactedBy || []).length || ''}
                     </button>
                     <CommentReply sound={live} commentId={cm.id} onDone={reload} />
-                    <button className="text-[9px] flex items-center gap-0.5" style={{ color: SAGE }}
+                    <button className="text-[10px] flex items-center gap-0.5" style={{ color: SAGE }}
                       onClick={() => void reportComment(live, cm.id)}>
                       <Flag size={9} />пожаловаться
                     </button>
@@ -253,7 +298,10 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
               </div>
             </div>
           ))}
-          {isLoggedIn && <CommentForm sound={live} onDone={reload} />}
+          {isLoggedIn ? <CommentForm sound={live} onDone={reload} /> : (
+            <button className="mt-3 w-full py-2.5 rounded-2xl text-xs font-semibold" style={{ background: th.lightBg, color: OLIVE }}
+              onClick={() => push({ type: 'auth' })}>Войдите, чтобы комментировать</button>
+          )}
         </div>
       </div>
     </div>
@@ -285,7 +333,9 @@ function CommentForm({ sound, onDone }: { sound: Sound; onDone: () => Promise<vo
   };
   return (
     <div className="flex gap-2 mt-3">
-      <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Комментарий" className="flex-1 text-xs rounded-2xl px-3 py-2 outline-none" style={{ background: th.phoneBg, color: th.inkText }} />
+      <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Написать комментарий…"
+        className="flex-1 text-xs rounded-2xl px-3 py-2.5 outline-none" style={{ background: th.phoneBg, color: th.inkText }}
+        onKeyDown={(e) => { if (e.key === 'Enter') void send(); }} />
       <button onClick={() => void send()} className="w-9 h-9 rounded-2xl flex items-center justify-center text-white" style={{ background: ACCENT }}><Send size={13} /></button>
     </div>
   );

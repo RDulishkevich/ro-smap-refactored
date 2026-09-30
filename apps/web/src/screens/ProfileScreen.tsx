@@ -7,7 +7,7 @@ import { useAuth } from '../state/AuthContext';
 import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
-import { DecorBand, NavBar, PlayPauseIcon, SoundTypeTag, WaveformSVG } from '../primitives/ui';
+import { NavBar, PlayPauseIcon, SoundTypeTag, WaveformSVG } from '../primitives/ui';
 import BrandMark from '@/brand/BrandMark';
 import LogoApp from '@/brand/LogoApp';
 
@@ -22,7 +22,6 @@ export function GuestProfileScreen({ showNav = true }: { showNav?: boolean }) {
   const th = useTh();
   return (
     <div className="flex flex-col h-full relative" style={{ background: th.phoneBg }}>
-      <DecorBand opacity={th.isDark ? 0.1 : 0.18} flip />
       <div className="relative flex-1 flex flex-col items-center justify-center px-6 text-center">
         <div className="w-20 h-20 rounded-3xl overflow-hidden shadow-xl mx-auto mb-4"><LogoApp /></div>
         <h1 className="text-xl font-bold mb-2" style={{ color: th.inkText, fontFamily: 'Klukva, Geologica, serif' }}>Полёвка</h1>
@@ -64,7 +63,6 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       <div className="flex-1 overflow-y-auto scrollbar-none">
         <div className="relative p-5 pb-3 overflow-hidden">
-          <DecorBand opacity={th.isDark ? 0.1 : 0.15} />
           <div className="relative flex items-center justify-between mb-5">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 relative flex-shrink-0"><BrandMark /></div>

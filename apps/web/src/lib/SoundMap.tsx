@@ -36,6 +36,7 @@ type YMapsApi = {
 
 export type MapPoint = { lat: number; lng: number };
 export type MapContext = MapPoint & { sound?: Sound; clientX: number; clientY: number };
+export type MapHover = { sound: Sound; clientX: number; clientY: number };
 
 function clientPoint(ev: { get?: (k: string) => unknown; originalEvent?: MouseEvent; clientX?: number; clientY?: number } | undefined): { clientX: number; clientY: number } {
   const dom = (ev?.get?.('domEvent') || ev) as { originalEvent?: MouseEvent; get?: (k: string) => unknown; clientX?: number; clientY?: number } | undefined;
@@ -90,6 +91,7 @@ export function SoundMap({
   onPick,
   onContext,
   onEmpty,
+  onHover,
   pickMode = false,
   route = [],
   pickMarker = null,
@@ -100,6 +102,7 @@ export function SoundMap({
   onPick?: (pt: MapPoint, sound?: Sound) => void;
   onContext?: (info: MapContext) => void;
   onEmpty?: () => void;
+  onHover?: (info: MapHover | null) => void;
   pickMode?: boolean;
   route?: MapPoint[];
   pickMarker?: MapPoint | null;
@@ -113,11 +116,13 @@ export function SoundMap({
   const onPickRef = useRef(onPick);
   const onContextRef = useRef(onContext);
   const onEmptyRef = useRef(onEmpty);
+  const onHoverRef = useRef(onHover);
   const soundsRef = useRef(sounds);
   onSelectRef.current = onSelect;
   onPickRef.current = onPick;
   onContextRef.current = onContext;
   onEmptyRef.current = onEmpty;
+  onHoverRef.current = onHover;
   soundsRef.current = sounds;
   const engine = useRef<'yandex' | 'leaflet' | null>(null);
   const [ready, setReady] = useState(0);
@@ -249,6 +254,22 @@ export function SoundMap({
       }, 0);
     };
     el?.addEventListener('contextmenu', nativeCtx, true);
+    const hoverOk = () => !(window.matchMedia && window.matchMedia('(hover: none)').matches);
+    const nativeOver = (e: MouseEvent) => {
+      if (!hoverOk()) return;
+      const pin = e.target instanceof Element ? e.target.closest('.pv-pin') : null;
+      if (!pin) return;
+      const id = pin.getAttribute('data-id');
+      const sound = soundsRef.current.find((s) => String(s.id) === id);
+      if (sound) onHoverRef.current?.({ sound, clientX: e.clientX, clientY: e.clientY });
+    };
+    const nativeOut = (e: MouseEvent) => {
+      const next = e.relatedTarget instanceof Element ? e.relatedTarget.closest('.pv-pin') : null;
+      if (next) return;
+      onHoverRef.current?.(null);
+    };
+    el?.addEventListener('mouseover', nativeOver);
+    el?.addEventListener('mouseout', nativeOut);
 
     if (engine.current === 'yandex' && ymapRef.current && ymapsRef.current) {
       const map = ymapRef.current;
@@ -293,6 +314,12 @@ export function SoundMap({
           try { e?.stopPropagation?.(); } catch { /* */ }
           onSelectRef.current(s);
         });
+        pm.events.add('mouseenter', (e) => {
+          if (!hoverOk()) return;
+          const pt = clientPoint(e);
+          onHoverRef.current?.({ sound: s, ...pt });
+        });
+        pm.events.add('mouseleave', () => onHoverRef.current?.(null));
         pm.events.add('contextmenu', (e) => {
           try { e?.preventDefault?.(); e?.stopPropagation?.(); } catch { /* */ }
           const dom = e?.get?.('domEvent') as { preventDefault?: () => void } | undefined;
@@ -322,6 +349,9 @@ export function SoundMap({
       map.events.add('contextmenu', onCtx);
       return () => {
         el?.removeEventListener('contextmenu', nativeCtx, true);
+        el?.removeEventListener('mouseover', nativeOver);
+        el?.removeEventListener('mouseout', nativeOut);
+        onHoverRef.current?.(null);
         map.events.remove('click', onClick);
         map.events.remove('contextmenu', onCtx);
       };
@@ -330,7 +360,11 @@ export function SoundMap({
     const map = leafletRef.current;
     const layer = leafletLayer.current;
     if (!map || !layer) {
-      return () => { el?.removeEventListener('contextmenu', nativeCtx, true); };
+      return () => {
+        el?.removeEventListener('contextmenu', nativeCtx, true);
+        el?.removeEventListener('mouseover', nativeOver);
+        el?.removeEventListener('mouseout', nativeOut);
+      };
     }
     layer.clearLayers();
     if (route.length >= 2) {
@@ -343,17 +377,26 @@ export function SoundMap({
       if (s.lat == null || s.lng == null) return;
       const color = pinColor[String(s.type)] || pinColor.urban;
       const on = String(s.id) === String(activeId);
+      const size = on ? 22 : 16;
+      const id = String(s.id).replace(/"/g, '');
       const icon = L.divIcon({
         className: '',
-        html: `<div style="width:${on ? 22 : 16}px;height:${on ? 22 : 16}px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 8px rgba(45,60,57,.35)"></div>`,
-        iconSize: [on ? 22 : 16, on ? 22 : 16],
-        iconAnchor: [on ? 11 : 8, on ? 11 : 8],
+        html: `<div class="pv-pin" data-id="${id}" style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 8px rgba(45,60,57,.35);cursor:pointer"></div>`,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
       });
       const m = L.marker([Number(s.lat), Number(s.lng)], { icon });
       m.on('click', (e) => {
         L.DomEvent.stop(e);
         onSelectRef.current(s);
       });
+      m.on('mouseover', (e) => {
+        if (!(window.matchMedia && window.matchMedia('(hover: none)').matches)) {
+          const oe = (e as L.LeafletMouseEvent).originalEvent;
+          onHoverRef.current?.({ sound: s, clientX: oe.clientX, clientY: oe.clientY });
+        }
+      });
+      m.on('mouseout', () => onHoverRef.current?.(null));
       m.on('contextmenu', (e) => {
         L.DomEvent.stop(e);
         const oe = (e as L.LeafletMouseEvent).originalEvent;
@@ -370,7 +413,7 @@ export function SoundMap({
       onEmptyRef.current?.();
     };
     const onCtx = (e: L.LeafletMouseEvent) => {
-      L.DomEvent.preventDefault(e);
+      L.DomEvent.preventDefault(e.originalEvent);
       fireContext(e.latlng.lat, e.latlng.lng, undefined, e.originalEvent);
     };
     const onDown = (e: L.LeafletMouseEvent) => {
@@ -390,6 +433,9 @@ export function SoundMap({
     map.on('mousemove', clearPress);
     return () => {
       el?.removeEventListener('contextmenu', nativeCtx, true);
+      el?.removeEventListener('mouseover', nativeOver);
+      el?.removeEventListener('mouseout', nativeOut);
+      onHoverRef.current?.(null);
       map.off('click', onMapClick);
       map.off('contextmenu', onCtx);
       map.off('mousedown', onDown);

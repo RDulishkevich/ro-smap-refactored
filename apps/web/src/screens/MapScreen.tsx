@@ -2,15 +2,15 @@ import { useCallback, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Calendar, MoreHorizontal, Search, SlidersHorizontal } from 'lucide-react';
 import { apiPatchSound, apiSyncJson, pendingSounds, type Sound } from '@polevka/core';
-import { color } from '@polevka/design';
+import { color, typeMeta } from '@polevka/design';
 import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import { useUi } from '../state/UiContext';
 import { useAuth } from '../state/AuthContext';
-import { NavBar, PinPlayer } from '../primitives/ui';
+import { NavBar, PinPlayer, SoundTypeTag } from '../primitives/ui';
 import { MapFab } from '../primitives/chrome';
-import { SoundMap, type MapContext, type MapPoint } from '../lib/SoundMap';
+import { SoundMap, type MapContext, type MapHover, type MapPoint } from '../lib/SoundMap';
 import { CatalogFilters } from '../primitives/filters';
 
 export function MapScreen({ showNav = true, desktop = false, hidePlayer = false, active: activeProp, onActive }: {
@@ -33,6 +33,7 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
   const setActive = onActive ?? setInnerActive;
   const [fabOpen, setFabOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [hover, setHover] = useState<MapHover | null>(null);
   const onSelect = useCallback((s: Sound) => {
     setActive(s);
     setFabOpen(false);
@@ -156,7 +157,7 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
     <div className="flex flex-col h-full overflow-hidden" style={{ background: th.phoneBg }}>
       <div className="relative flex-1 min-h-0">
         <SoundMap sounds={uniquePins} activeId={active?.id ?? null} onSelect={onSelect}
-          onPick={onPick} onContext={onContext} onEmpty={onEmpty} pickMode={!!pickMode} route={routes} pickMarker={null} />
+          onPick={onPick} onContext={onContext} onEmpty={onEmpty} onHover={setHover} pickMode={!!pickMode} route={routes} pickMarker={null} />
         {!desktop && (
         <div className="absolute top-4 right-4 flex gap-2 z-[400]">
           <motion.button whileTap={{ scale: 0.88 }} onClick={(e) => { e.stopPropagation(); setShowFilters((v) => !v); }}
@@ -200,6 +201,9 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
             <button className="ml-2 underline" onClick={() => setPickMode(null)}>готово</button>
           </div>
         )}
+        {hover && (
+          <MarkerHover sound={hover.sound} x={hover.clientX} y={hover.clientY} />
+        )}
         <AnimatePresence>
           {active && !hidePlayer && (
             <motion.div className={`absolute z-[400] ${desktop ? 'bottom-4 left-4 right-24 max-w-md' : 'bottom-0 left-3 right-3'}`}
@@ -234,6 +238,47 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+const ECO: Record<string, string> = {
+  geophony: 'Геофония',
+  biophony: 'Биофония',
+  anthrophony: 'Антропофония',
+};
+
+function MarkerHover({ sound, x, y }: { sound: Sound; x: number; y: number }) {
+  const th = useTh();
+  const photo = (sound.images || []).find(Boolean);
+  const desc = (sound.description || '').trim();
+  const short = desc.length > 90 ? `${desc.slice(0, 87)}…` : desc;
+  const type = typeMeta[String(sound.type)];
+  const left = Math.min(x + 14, typeof window !== 'undefined' ? window.innerWidth - 276 : x + 14);
+  const top = Math.max(12, y - 12);
+  return (
+    <div className="fixed z-[450] pointer-events-none w-64 rounded-2xl overflow-hidden shadow-[0_12px_32px_rgba(45,60,57,0.22)]"
+      style={{ left, top, transform: 'translateY(-100%)', background: th.cardBg, border: `1px solid ${th.border}` }}>
+      {photo && (
+        <div className="h-28 overflow-hidden">
+          <img src={photo} alt="" className="w-full h-full object-cover" />
+        </div>
+      )}
+      <div className="p-3">
+        <div className="flex items-center gap-1.5 mb-1">
+          <SoundTypeTag type={String(sound.type)} />
+          {sound.ecoCategory && (
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: th.lightBg, color: color.olive }}>
+              {ECO[sound.ecoCategory] || type?.label || 'Звук'}
+            </span>
+          )}
+        </div>
+        <p className="text-xs font-bold leading-snug" style={{ color: th.inkText }}>{sound.title || 'Без названия'}</p>
+        <p className="text-[10px] mt-0.5 truncate" style={{ color: color.olive }}>
+          {[sound.duration, sound.recordist || sound.user, sound.location].filter(Boolean).join(' · ')}
+        </p>
+        {short && <p className="text-[10px] mt-1.5 leading-snug" style={{ color: color.sage }}>{short}</p>}
+      </div>
     </div>
   );
 }
