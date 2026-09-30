@@ -1,13 +1,13 @@
 # Полёвка
 
 ## Product
-Sound map of Rostov Region (Полёвка): **listen**, **find**, and **add** field recordings on an interactive map. Filters (UCS layers), expeditions, messaging, and cabinet are supporting surfaces — the core loop is map → listen → add.
+Sound map of Rostov Region (Полёвка): **listen**, **find**, and **add** field recordings on an interactive map. Filters, expeditions, messaging, and cabinet are supporting surfaces — the core loop is map → listen → add.
 
 ## Audience
 Field recordists, locals, students, and curious listeners exploring the region through sound.
 
 ## Platform
-web
+web (React/TSX in `apps/web` — production) · vanilla `index.html` frozen archive · future iOS/Android via Expo (`apps/native`) sharing `@polevka/core` and `@polevka/design`
 
 ## Register
 product

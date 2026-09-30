@@ -1,435 +1,58 @@
-# RO.SMap — гайд по UX/UI
+# Полёвка — гайд по UX/UI
 
-Документ описывает **уже выстроенные** правила интерфейса. Новые экраны и виджеты нужно делать **по этим паттернам**, а не изобретать параллельные «окна», «строки» и «комменты».
+Канон для новой работы: **React/TSX** в [`apps/web`](../apps/web). Токены: [`packages/design`](../packages/design). Chrome: [`responsive-chrome.md`](responsive-chrome.md). Для агента: `.cursor/rules/ux-ui.mdc` и `.agents/skills/polevka-design/SKILL.md`.
 
-Для агента Cursor это же правило закреплено в `.cursor/rules/ux-ui.mdc`.  
-Раскладка chrome ПК / мобилка: [`responsive-chrome.md`](responsive-chrome.md).
+Корневой `index.html` (vanilla) — **замороженный архив**. Продакшен — `apps/web`. Не наращивать vanilla.
 
 ---
 
 ## 1. Золотые правила
 
-1. **Не дублировать UI.** Перед новым блоком найди ближайший существующий аналог и скопируй его логику/классы.
+1. **Не дублировать UI.** Сначала `apps/web/src/primitives` и `screens`.
 2. **Один паттерн — одна задача.**
-   - Подтверждение / ввод текста → `CustomUI`
-   - Меню действий (⋯ / ПКМ / long-press) → `openActionsMenu` → **CtxPopup** у курсора/якоря
-   - Короткий фидбек → `showToast`
-   - Полноценная форма → модалка `app-modal-*` или секция dock
-3. **Комментарии везде одной логикой.** Эталон — комментарии к звуку в карточке метки. Лента и другие места — тот же смысл, можно компактнее, но не «другая вселенная».
-4. **Auth сначала.** Любое действие «написать / лайкнуть / RSVP / подписаться» без логина: toast → `openAuthModal` → `return`. Перед входом — согласие на cookies (`#cookie-consent-banner` / `requireCookieConsentForAuth`).
-5. **Antispam на запись.** Любой пользовательский текст/спам-жест через `spamGuardCheck` + `spamGuardToast`.
-6. **Данные через merge + sync.** Не перезаписывать JSON «вслепую»; использовать существующие `sync*` / merge-хелперы.
-7. **Desktop ≥ 768px, mobile &lt; 768.** В JS: `window.innerWidth < 768`. В CSS/Tailwind: `md:`.
-8. **Шрифты и `.hidden` — один контракт** (см. §1.1 ниже). Не чинить иконки точечными `display` override.
-9. **Без glow-подсветки.** Выделение = ink rim / stone fill / scale. Не `ring-amber`, не blue/peach halo, не `0 0 Npx accent glow`.
-10. **Радиусы только из токенов** (`--radius-sm`…`--radius-2xl`, tag, pill). Модалки → `--radius-2xl` на `.app-modal-panel`.
-11. **Копирайт.** Убирать только **внутренний/служебный** текст (не для пользователя). **Подсказки, которые учат действию** (ПКМ на карте, UCS FXName, теги Enter, переключатели gear) — оставлять. Не дублировать label бессмысленным paraphrasing.
-12. **Cookies.** Баннер `#cookie-consent-banner` (не toast, не отдельная модалка). «Принять» = сессия + локальные настройки; «Только необходимые» = без auth-cookies. Повтор — Настройки → «Cookies и согласие».
----
-
-## 1.1 Шрифты и скрытие иконок
-
-**Текстовый стек (канон):**
-| Роль | CSS | Значение |
-|------|-----|----------|
-| UI | `--font-ui` / `font-sans` | по `data-font` (по умолчанию Geologica) |
-| Бренд / заголовки | `--font-brand` / `font-brand` | по `data-font` (по умолчанию Klukva) |
-| Моно | `--font-mono` / `font-mono` | ui-monospace → Menlo / Consolas |
-
-Источники: локальные `assets/fonts/` (Geologica, Klukva, …) + Fontshare (Satoshi/Clash опционально). По умолчанию `data-font="geo-klukva"`. Порядок в `index.html`: **Iconsax → текстовые шрифты → Tailwind → style.css → glass.css → fonts.css → mobile-wellness.css** (mobile DS last). Токены держать синхронно в `style.css`, `glass.css`, `fonts.css`; mobile overrides — только в `mobile-wellness.css`.
-
-**Иконки:** только [Iconsax](https://iconsax.io) (`icon-*` через `iconsax-font-icon`). Скрытие — класс **`hidden`**. В app CSS:
-
-```css
-.hidden { display: none !important; }
-```
-
-Так Iconsax `display:inline-block` и `display:flex` на кнопках не «пробивают» скрытие (play/pause, аватар, бейджи). Не добавлять отдельные правила вида `.icon-play.hidden`. Загрузчик: `icon-refresh-2 icon-spin`.
-
----
-
-## 2. Карта поверхностей (что где живёт)
-
-| Поверхность | Когда | Пример |
-|-------------|--------|--------|
-| Карта + chrome | Всегда фон | `#map`, top toolbar, FAB |
-| Rail (слева) | Только desktop | `#app-rail` — иконки разделов |
-| Dock / sidebar | Каталог, лента, админка, детали | `#sidebar` |
-| Правая панель | Desktop-ивенты | `#events-panel` |
-| Bottom / fullscreen sheet | Mobile-аналог правой панели | `#events-sheet` |
-| Модалка по центру | Редакторы, авторизация, статьи | `#feed-post-modal`, `#auth-modal`… |
-| ActionSheet | Длинный список выбора (подписчики и т.п.) | `#action-sheet-overlay` |
-| CtxPopup | Меню действий у курсора (⋯ / ПКМ) | `#ctx-popup-overlay` |
-| Toast | Короткое сообщение | `#toast-message` |
-| CustomUI | Confirm / prompt | `#ui-modal-overlay` |
-
-**Правило:** длинный скролл-контент (списки, детали) — в **solid panel** (dock/player). Плавающие кнопки карты — **glass**. Не вешать `backdrop-filter` на большие скролл-панели.
-
-**Вложенные «окна»** (анализаторы, waveform в плеере, FileXfer drop): пунктирная обводка `.ds-frame` / `--frame-dashed` — не solid `--control-rim` (rim = действие, dashed = группировка).
-
-**Скролл:** контентные панели — `.custom-scrollbar` (токены `--scrollbar-thumb`, 6px pill, peach на hover). Горизонтальные чип/таб-рейлы могут скрывать полосу (`scrollbar-width: none`).
-
-**Курсор:** desktop (`pointer: fine`) — стрелка charcoal/peach (`assets/cursors/default|pointer|text|grab`). Работает и на карте Яндекса (`#map … !important`). Touch не трогаем.
-
----
-
-## 3. Модалки (окна)
-
-### Разметка
-
-- Overlay: классы `app-modal-overlay` + `fixed inset-0` + `hidden` + `opacity-0` + `pointer-events-none` + `transition-opacity duration-300` + затемнение/blur.
-- Панель: `app-modal-panel` + `scale-95` + `transition: transform, opacity` (не `transition-all`) + скругление `--radius-2xl`.
-- Закрытие по фону: `onmousedown="if(event.target === this) window.close…()"`.
-
-### Анимация open / close (обязательный ритуал)
-
-**Открыть**
-
-1. `remove('hidden')`
-2. `void el.offsetWidth` (reflow)
-3. Снять `opacity-0`, `pointer-events-none`
-4. С панели снять `scale-95`
-5. Опционально `playSfx('open')`
-
-**Закрыть**
-
-1. Добавить `opacity-0`, `pointer-events-none`
-2. На панель — `scale-95`
-3. Через ~280–300 ms, если всё ещё `opacity-0` → `hidden`
-
-Не открывать модалку через один только `hidden`/`display` без этой анимации — интерфейс «прыгает» и расходится с остальным продуктом.
-
-### Z-index (не выдумывать новые слои без нужды)
-
-| Слой | Назначение |
-|------|------------|
-| 50–61 | Карта chrome, sidebar, events panel |
-| 90 | Уведомления |
-| 200–250 | Обычные модалки продукта |
-| 260 | Crop изображения |
-| 300 | Toast |
-| 400 | Онбординг |
-| 9997 | CtxPopup (⋯ / ПКМ) |
-| 9998 | ActionSheet (длинные списки) |
-| 9999 | CustomUI |
-| 99999 | Lightbox |
-
-Новая модалка обычно садится в диапазон **200–250**, рядом с похожим редактором.
-
-### Confirm / prompt
-
-```js
-const ok = await window.CustomUI.open({
-  title: 'Удалить?',
-  message: 'Действие нельзя отменить.',
-  confirmText: 'Удалить',
-  confirmClass: '… bg-red-600 …' // для опасных действий
-});
-// ok === true | false
-// или строка, если showInput: true
-```
-
-Черновик при закрытии: `confirmDiscardDraft(message)` / `requestCloseIfDirty(isDirty, message, closeFn)`.
-
-Модалки с вводом (добавление звука, экспедиция, пост, сообщения, ивент, auth, кабинет-профиль, настройки API-ключей, кадрирование, picker координат, CustomUI с `showInput`) **не закрываются кликом по фону без подтверждения**, если форма грязная. Backdrop у текстовых CustomUI-промптов игнорируется.
-
----
-
-## 4. CtxPopup (меню «⋯» и ПКМ)
-
-**Единый API:** `window.openActionsMenu(items, { title?, subtitle?, clientX?, clientY?, event?, anchor? })`.
-
-Это канон для любого **контекстного** списка действий у курсора/кнопки:
-- кнопка «⋯» (лента, комментарии, админ-строки);
-- ПКМ / long-press по метке на карте;
-- ПКМ / long-press по сообщению;
-- ПКМ по пустой карте («Добавить запись»).
-
-Внутри открывается `#ctx-popup-menu` рядом с курсором или якорем. Не изобретать самодельные dropdown’ы для тех же задач.
-
-```js
-window.openActionsMenu([
-  { icon: 'fa-user', label: 'Профиль', tone: 'primary', onClick: () => { … } },
-  { icon: 'fa-flag', label: 'Пожаловаться', tone: 'warning', onClick: () => { … } },
-  { icon: 'fa-trash', label: 'Удалить', tone: 'danger', onClick: () => { … } },
-], {
-  title: 'Заголовок',
-  subtitle: 'опционально',
-  event,                 // предпочтительно: клик / ПКМ
-  // или clientX / clientY
-  // или anchor: HTMLElement | selector
-});
-```
-
-Низкоуровнево: `CtxPopup.open({ title, subtitle, items, clientX, clientY })`. Предпочитай `openActionsMenu` — он закрывает ActionSheet и нормализует координаты.
-
-**ActionSheet** (`ActionSheet.open`) — для **длинных списков выбора** (подписчики/подписки) и для **коротких picker-действий** у метаданных карточки звука (клик по полю → «Искать по этому фильтру»). Не для «⋯» / ПКМ — там CtxPopup.
-
----
-
-## 5. Dock, вкладки, rail
-
-| API | Назначение |
-|-----|------------|
-| `openDockView(view)` | Показать секцию dock (`library`, `feed`, `details`, `admin`…) |
-| `switchSidebarTab(tab)` | Вкладки каталога: `library` \| `feed` \| `expeditions` \| `help` |
-| `showDockPanel` / `hideDockPanel` | Показать/скрыть `#sidebar` |
-| `setDockHeader(title, subtitle, showBack)` | Заголовок dock: `showBack=true` → стрелка вызывает `closeDockViewer` (возврат на `__dockReturnView` / админку); `false` → скрыть панель |
-| `closeDockViewer` | Выйти из вложенного вида (детали, настройки…) на предыдущую вкладку |
-| `switchAdminSection(section)` | Подвкладки админки; поиск: `#admin-search-*` → `setAdminSearchQuery` |
-
-На desktop детали/настройки/кабинет часто **встраиваются в dock**. На mobile — отдельные полноэкранные/оверлейные режимы. Не ломай это разделение.
-
-Вложенные виды (`details`, `settings`, …) запоминают корень в `__dockReturnView`. Из админки (`openedFromAdmin` / return=`admin`) стрелка «назад» возвращает в ту же подвкладку (`__adminSection`).
-
-Карточка звука: клик по метаданным / описанию / тегам → **ActionSheet** → `applyDetailsMetaFilter` (поиск или фильтр библиотеки).
-
----
-
-## 6. Формы: поля и подписи
-
-| Класс | Роль |
-|-------|------|
-| `.modal-label` | Подпись над полем |
-| `.modal-input` | Текстовое поле / select / textarea (min-height ~44px) |
-
-Дополнительно можно навешивать Tailwind (`text-xs`, `dark:bg-slate-900`), но **базовый класс не заменять** своим `input { … }` в новом CSS.
-
-Кнопки:
-
-| Класс | Где |
-|-------|-----|
-| `.map-icon-btn` | Иконки на карте |
-| `.ui-tab` + `.is-active` | Вкладки |
-| `.admin-subtab-btn` + `.active` | Админ-секции |
-| `.admin-tool-btn` | Быстрые действия в админке |
-| Primary CTA | `rounded-xl` + `font-bold` + `bg-blue-600` / accent |
-
-Опасные действия — красный confirm через CustomUI, не тихий `confirm()`.
-
----
-
-## 7. Списки, карточки, строки
-
-| Паттерн | Классы | Где смотреть |
-|---------|--------|-------------|
-| Админ-строка | `.admin-entity-row`, `__title`, `__meta` | списки в `auth.js` |
-| Карточка ленты | `.feed-card`, `__badge`, `__title`, `__meta`, `__text` | `renderSidebarFeed` |
-| Карточка ивента | `.event-card`, `__meta`, `.event-pill` | `events.js` |
-| Пустой список | `.library-empty`, `.events-empty` или одна строка `text-slate-400 italic` | |
-
-Новый список сущностей в админке → **admin-entity-row**, не новая сетка карточек «с нуля».  
-Контент для пользователя в ленте/ивентах → **card**-паттерн того раздела.
-
----
-
-## 8. Комментарии — единый канон
-
-### Эталон: комментарии к звуку (карточка метки)
-
-Источник правды:
-
-- схема: `normalizeComment` / `normalizeReply` в `src/data/sounds.js`
-- UI: `renderComments`, `addComment`, `toggleCommentReaction`, `openCommentMenu` в `src/ui/ui.js`
-- merge: `__mergeCommentLists` (реакции LWW по `reactedAt` / более новой ревизии)
-
-**Поля комментария**
-
-```js
-{
-  id,            // стабильный id
-  author,        // отображаемое имя
-  authorId,      // login для профиля
-  text,          // текст (экранировать при рендере)
-  date,          // человекочитаемая дата (опционально)
-  createdAt,     // ISO
-  replies: [],   // ответы (у звуков)
-  reactedBy: [], // логины ♥
-  reactedAt?,    // для LWW
-  updatedAt?
-}
-```
-
-**Обязательное поведение**
-
-1. Без логина → toast + `openAuthModal`.
-2. `spamGuardCheck('comment:${login}', { minIntervalMs: 2500, maxPerWindow: 8, … })`.
-3. Автор кликабелен → `openPublicProfile(authorId, author)`.
-4. Меню «⋯» → `openActionsMenu` → CtxPopup: профиль / ответить / реакция / пожаловаться / (админ) удалить.
-5. ♥ — toggle в `reactedBy` + bump `reactedAt`/`updatedAt`, не «навсегда union без снятия».
-6. После успеха — toast (по ситуации) и sync через существующий пайплайн звука.
-7. Empty state: короткая muted-строка («Нет комментариев» / «напишите первым»).
-
-**Разметка (ориентиры классов):** `comment-author-wrap`, `comment-avatar`, `comment-author-link`, `comment-menu-btn`, `comment-reaction-btn`, `comment-replies`, `swipe-reply-row`.
-
-### Компактный вариант: лента
-
-Лента в dock пересобрана под тот же канон:
-
-- аватар + автор → `openPublicProfile`;
-- ♥ на комментарии (`toggleFeedCommentReaction`, LWW);
-- меню «⋯» → `openActionsMenu` → CtxPopup (`openFeedCommentMenu`);
-- compose: `modal-input` + send;
-- auth + antispam как у звука.
-
-Отличия от карточки метки (намеренно): без вложенных replies/swipe — плоский тред под постом. Пост-меню админа тоже через CtxPopup (`openFeedPostMenu`).
-
-| Фича | Делать так |
-|------|------------|
-| ♥ на комменте | `toggleFeedCommentReaction` / как `toggleCommentReaction` |
-| «⋯» | `openActionsMenu` → CtxPopup |
-| Persist | `syncFeedPosts` + `__mergeCommentLists` |
-
-**Запрещено:** свой HTML «чат» с другими отступами, свои confirm’ы вместо CustomUI, запись комментария без antispam, показ сырого `innerHTML` текста пользователя без escape.
-
----
-
-## 9. Реакции, просмотры, RSVP (рядом с комментами)
-
-| Действие | Паттерн |
-|----------|---------|
-| ♥ на посте ленты | `toggleFeedReaction` — auth + antispam + `reactedBy`/`reactedAt` |
-| Просмотр поста | `recordFeedView` — один раз на login за сессию + sync |
-| RSVP ивента | `rsvpEvent` — auth + antispam + participant row + `syncEventsData` |
-| Приз ивента | `prizes[]`: `place`, `title`, `description`, `xp`, `achievementId`; выдача в `setEventWinner` → `grantEventPrizeToUser` |
-
-Всегда: **сначала локальный optimistic/state map → sync → при успехе toast/перерисовка**.
-
----
-
-## 10. Auth-gate (копипаста)
-
-```js
-if (!window.currentUser) {
-  window.showToast('Войдите, чтобы …');
-  if (window.openAuthModal) window.openAuthModal();
-  return;
-}
-```
-
-Админ-only:
-
-```js
-if (!window.isCurrentUserAdmin || !window.isCurrentUserAdmin()) {
-  window.showToast('Только администратор');
-  return;
-}
-```
-
----
-
-## 11. Toast
-
-```js
-window.showToast('Сохранено');
-window.showToast('…', { silent: true }); // без звука
-```
-
-Не использовать `alert()` / `confirm()` браузера в продуктовом UI.
-
----
-
-## 12. Empty states и бейджи
-
-- Пустой список: иконка + 1 заголовок + опционально 1 пояснение / CTA.
-- Счётчики на FAB/rail: маленький pill (`hidden`, пока 0).
-- Статусы: готовые pill-классы (`.event-pill--live`, `.pub-status-*`, `.feed-card__badge--*`), не произвольные цветные `span` без системы.
-
----
-
-## 13. Mobile vs desktop
-
-| Тема | Mobile | Desktop |
-|------|--------|---------|
-| Навигация | `#mobile-bottom-nav`: Lib · Feed · **+** · Exp · Prof; в доке `#dock-mobile-tabs` (Библиотека/Экспедиции). Настройки и Помощь — из Профиля / Settings | `#app-rail` + dock |
-| Ивенты | sheet `#events-sheet` | панель `#events-panel` |
-| CtxPopup / ActionSheet | у курсора / снизу (picker) | у курсора / по центру (picker) |
-| Модалки / dock / sheet | **fullscreen** над bottom rail (`--mobile-fs-bottom`) | по центру / боковые панели |
-| Player padding | запас под bottom nav | справа запас под events panel при `body.events-panel-open` |
-
-### Mobile fullscreen (обязательное правило)
-
-На `&lt;768px` основные поверхности занимают **весь экран кроме нижнего rail**:
-
-- CSS-переменная: `--mobile-fs-bottom: calc(var(--mobile-nav-h) + var(--mobile-nav-wave-h) + var(--sab))`
-- Сетка: 4 колонки, margin/gutter `--mobile-margin` / `--mobile-gutter` (16). Touch: `--mobile-touch` 48 на map chrome, floor 44. Safe areas только через `env()`.
-- Утилиты: `.mobile-grid-4`, `.mobile-pad-x`
-- Поверхности: `#sidebar`, `#events-sheet`, `.app-modal-overlay` (+ их панели/контент)
-- Без внутренних отступов оверлея, без `max-h-[92dvh]` half-sheet, без скруглений у края экрана
-- Исключение: `#ui-modal-overlay` (confirm/prompt) — компактная карточка по центру
-- Уведомления (`#notif-panel`) — под верхним chrome, **не** перекрывают поиск/ивенты/колокольчик
-
-Новый «боковой» контент на desktop → панель как events; на mobile → тот же fullscreen-паттерн с общим `*-body` рендерером.
-
-### Клавиатура → звук (лёгкий путь)
-
-Маркеры карты Yandex **не** получают массовый `tabindex`. Воспроизведение с клавиатуры:
-
-- Поиск карты (`#search-input`): стрелки по подсказкам, **Enter** выбирает/играет (звук через `selectSound`).
-- Библиотека: строки `.sidebar-sound-row` фокусируемы; **Enter/Space** → play. В `#library-search-input` **Enter** играет первый результат.
-- Desktop: skip-link «К библиотеке» в `#app-rail` (виден по Tab).
-
----
-
-## 14. Тема и цвет
-
-Канон симбиоза Полёвка × Wispr Flow: **[`DESIGN.md`](../DESIGN.md)** (таблица Wispr → наши токены). Кратко:
-
-- **Наше:** peach `#FBAB57` / soft `#FEC674` ≤10%, cream windows, charcoal CTA, Geologica + Klukva, Iconsax, map chrome.
-- **От Wispr (грамматика):** 2px ink rim, fill+rim elevation, ember=live only, square tags vs pill badges, Klukva @400, `.ds-scribble`. Waveform — `#waveform-wrapper` в плеере (не `.wave-pill`).
-- **Не берём:** lavender, forest teal, Garamond/Figtree, marketing 120px display в product UI.
-- **Buttons:** `.ds-btn--primary` charcoal; accent/soft peach + 2px `#222` rim; outline cream + ink rim.
-- Шрифт по умолчанию: `geo-klukva`. Палитры/шрифты — Settings → «Эксперимент».
-- **Яндекс API 3:** stock `light`/`dark`, без tint.
-- Не вводить «ещё один purple/lavender» вне канона.
-
----
-
-## 15. Чеклист перед новым UI
-
-- [ ] Есть ли уже модалка / sheet / row / comment для этого?
-- [ ] Open/close через стандартный opacity/scale/hidden?
-- [ ] Поля через `modal-label` + `modal-input`?
-- [ ] Списки — `admin-entity-row` или card раздела?
-- [ ] Меню действий — CtxPopup через `openActionsMenu` (с координатами)?
-- [ ] Confirm — CustomUI?
-- [ ] Фидбек — toast?
-- [ ] Нужен ли login / admin / antispam?
-- [ ] Комменты — по канону §8?
-- [ ] Sync через существующий merge, не raw overwrite?
-- [ ] Mobile (&lt;768) и desktop проверены?
-- [ ] Dark mode не сломан?
-
----
-
-## 16. Шпаргалка API
-
-| Нужно | Вызов |
-|-------|--------|
-| Toast | `showToast(msg)` |
-| Confirm / prompt | `CustomUI.open(opts)` |
-| Меню ⋯ / ПКМ | `openActionsMenu(items, { title, event \| clientX/Y \| anchor })` → CtxPopup |
-| Длинный picker | `ActionSheet.open(items, opts)` |
-| Логин | `openAuthModal()` |
-| Dock | `openDockView(view)` / `switchSidebarTab(tab)` |
-| Коммент к звуку | `addComment` / `renderComments` / `toggleCommentReaction` |
-| Коммент ленты | `addFeedComment` / `toggleFeedComments` |
-| Merge комментов | `__mergeCommentLists` |
-| Antispam | `spamGuardCheck` + `spamGuardToast` |
-| Профиль | `openPublicProfile(login, name)` |
-| Ивенты UI | `openEventsPanel` / `openEventsSheet` / `renderEventsPanel` |
-
-Ключевые файлы: `src/ui/ui.js`, `src/style.css`, `src/glass.css`, `index.html`, `src/data/sounds.js`, `src/core/events.js`, `src/core/antispam.js`, `src/core/auth.js`.
-
----
-
-## 17. Для людей (коротко)
-
-- **Окно по центру** = модалка (редактор, вход, статья).
-- **Меню у курсора (⋯ / ПКМ)** = CtxPopup через `openActionsMenu`.
-- **Шторка снизу / длинный список выбора** = ActionSheet (подписчики и т.п.).
-- **Левая большая панель** = dock (библиотека, лента, админка).
-- **Правая узкая панель** = ивенты (на телефоне — отдельная шторка).
-- **Всплывающая строка сверху** = toast («сохранено», «войдите»).
-- **Красный вопрос «точно удалить?»** = CustomUI, не браузерный confirm.
-- **Комментарии под меткой** = образец для любых других комментариев в продукте.
+   - Confirm → `useUi().confirm`
+   - Меню ⋯ → `useUi().openMenu`
+   - Фидбек → `useUi().toast`
+   - Формы → `ScreenHeader` + поля как на `AuthScreen`
+3. **Комментарии одной моделью** (`normalizeComment` в `@polevka/core`).
+4. **Auth сначала.** Лайк / комментарий / публикация без сессии: toast → экран `auth`. Cookies: согласие `all` до логина (`@polevka/core` consent).
+5. **Antispam.** `spamGuardCheck` + сообщение через toast.
+6. **Данные.** Публичные JSON с бакета + `apiSyncJson` / `apiPatchSound`. Не затирать облако вслепую.
+7. **Desktop ≥ 768 / mobile < 768** (`useIsDesktop`).
+8. **Бренд Полёвка.** Не RO·SMap, не «Карта Звуков».
+9. **Без glow.** Акцент терракота `#B5613F`, не peach Wellness.
+10. **Радиусы** 12 / 16 / 24 / pill из `packages/design`.
+11. **Legal.** Stack `legal` + «Скачать PDF» (печать). Документы в `src/data/legalDocs.js` / `publishRules.js`.
+12. **Поддержка Полёвки.** FAQ-бот, затем «обращение» с номером.
+
+## 1.1 Шрифты и иконки (React)
+
+| Роль | Значение |
+|------|----------|
+| UI | Geologica (`--pv-font-ui`) |
+| Бренд | Klukva |
+| Иконки | Lucide |
+
+Legacy vanilla по-прежнему Iconsax + `src/fonts.css` — не смешивать в `apps/web`.
+
+## 2. Поверхности (React)
+
+| Поверхность | Где |
+|-------------|-----|
+| Карта | Leaflet OSM (`SoundMap`); Yandex key через `publicConfig` когда подключите движок |
+| Рейка | только desktop |
+| Панель 380px | каталог / лента / экспедиции / профиль |
+| Стек экранов | детали звука, auth, запись, сообщения, help, staff, legal |
+| Toast / confirm / меню | `UiContext` |
+
+## 3. Мобилка
+
+Три вкладки: Лента (публикации / каталог / экспедиции), Карта (+ FAB запись/добавить), Профиль. Стек едет справа. Confirm — компактный по центру.
+
+## 4. ПК
+
+Карта на весь холст. Рейка: карта, каталог, лента, экспедиции, помощь, staff, профиль. Не телефон по центру.
+
+## 5. Legacy vanilla (не расширять)
+
+Старые паттерны `app-modal-overlay`, `CustomUI`, `openActionsMenu`, `#mobile-bottom-nav` (5 пунктов) остаются в `index.html` / `src/ui/ui.js` до паритета. Новые экраны — только `apps/web`.

@@ -1,3 +1,4 @@
+/** LEGACY / FROZEN — production client is apps/web. See docs/legacy-vanilla.md */
 import { sourceIdMap, translations } from '../data/dict.js';
 import { ucsStructure, ucsByCatId, ucsCategories } from '../data/ucsCatalog.js';
 import { transliterate, rawSoundsData, formatSoundObject } from '../data/sounds.js';

@@ -1,190 +1,45 @@
 # Архитектура интерфейса: ПК и мобильная версия
 
-Каноническая схема chrome Полёвки. Breakpoint: **desktop ≥ 768px**, **mobile &lt; 768px**  
-(`window.innerWidth < 768` / Tailwind `md:`).
+Канон: **React** в `apps/web`. Breakpoint: **desktop ≥ 768px**, **mobile < 768px** (`useIsDesktop`).
 
-Связано: [`ux-ui-guide.md`](ux-ui-guide.md), [`DESIGN.md`](../DESIGN.md) (симбиоз Полёвка × Wispr + mobile grid), `.cursor/rules/ux-ui.mdc`.
+Связано: [`ux-ui-guide.md`](ux-ui-guide.md), [`DESIGN.md`](../DESIGN.md), `.cursor/rules/ux-ui.mdc`.
 
----
+## Принцип
 
-## 1. Принцип
-
-Один DOM, две раскладки chrome. Контент (карта, dock, модалки) общий; **точки входа** в разделы разные.
+Один код, две раскладки. Экраны стека общие; точки входа разные.
 
 | Слой | Desktop | Mobile |
 |------|---------|--------|
-| Навигация разделов | Левый `#app-rail` | Нижний `#mobile-bottom-nav` |
-| Аккаунт (сообщения, уведомления, профиль, выход) | Низ рейки | Профиль / кабинет + иконки у карты |
-| Ивенты | `#events-fab` → `#events-panel` справа | `#events-fab` → `#events-sheet` снизу |
-| Каталог / лента / помощь | Dock `#sidebar` слева | Тот же dock на весь экран (кроме bottom rail) |
-| Поиск | `#map-top-toolbar` | Тот же |
+| Навигация | Рейка 72px | 3 вкладки: Лента / Карта / Профиль |
+| Аккаунт | Рейка (профиль, выход, настройки) | Вкладка Профиль |
+| События | Иконка рейки → stack `events` | Иконка на карте → stack |
+| Каталог / лента / экспедиции | Панель 380px | Подвкладки ленты |
+| Карта | Весь холст справа от рейки | Вкладка Карта + FAB |
 
-**Не дублировать** одну и ту же кнопку на рейке и в правом верхнем углу на desktop.
+Не показывать телефон 390×844 на проде.
 
----
+## Mobile
 
-## 2. Карта chrome (схема)
-
-```text
-DESKTOP (≥768)
-┌──────────────────────────────────────────────────────────┐
-│  [rail]     [search toolbar]              [events fab]   │
-│   lib                                                    │
-│   feed                                                   │
-│   exp                                                    │
-│   ···                                                    │
-│   admin?                                                 │
-│   msg                                                    │
-│   notif                                                  │
-│   settings                                               │
-│   help                                                   │
-│   profile                                                │
-│   logout?                                                │
-│                                                          │
-│  [dock panel]              MAP                           │
-│                            [FAB +]                       │
-└──────────────────────────────────────────────────────────┘
-
-MOBILE (<768) — Wellness DS
-┌──────────────────────────────────────────────────────────┐
-│  [search pill]                    [events][msg][notif]   │
-│                                                          │
-│                         MAP                              │
-│                                                          │
-│           ╭──────────────────────────────╮               │
-│           │ Lib  Feed  ( + )  Exp  Prof  │  floating     │
-│           ╰──────────────────────────────╯  peach dock   │
-└──────────────────────────────────────────────────────────┘
+```
+[ search / events on map ]
+        MAP
+   (FAB + record / add)
+[  Лента  |  Карта  |  Профиль  ]
 ```
 
-- Bottom nav → `mobileNavGo(...)`. **+** → `toggleMobileAddMenu` (иконки: добавить звук / записать).
-- Nav tabs: white convex chips + `--control-thumb`; active = charcoal chip (`#1A1A1A`) + cream icon — **не** ink-dot.
-- Поверхности (dock / модалки / events sheet) — **на весь экран**, без просвета карты; контент скроллится с `padding-bottom: --mobile-fs-bottom`, чтобы низ не прятался под док. Confirm остаётся компактным.
-- Плеер — компактная кремовая таблетка над доком; **⋯** → описание / анализаторы / амбисоник; свайп вверх раскрывает описание.
-- Повторный тап по разделу закрывает dock. `#fab-add` на mobile скрыт.
+FAB только на карте (вырез 36px). Сообщения и колокол — в шапке ленты и в профиле.
 
-Настройки на mobile — через **Профиль** (кабинет). Аудио-угадайка — в **Помощь → FAQ**.
+## Desktop
 
-### Mobile grid tokens (platform layer — see DESIGN.md)
+```
+[rail] [optional panel] [ MAP ]
+ lib                    [events overlay]
+ feed
+ exp
+ help / staff
+ profile
+```
 
-| Token | Value | Maps to |
-|-------|-------|---------|
-| `--mobile-cols` | 4 | Both platforms |
-| `--mobile-margin` / `--mobile-gutter` | 16px (`1rem`) | Android 16; denser than iOS 20 for map |
-| `--mobile-touch-min` | 44px | iOS HIG floor |
-| `--mobile-touch` | 48px | Android Material floor (map chrome buttons) |
-| `--mobile-top-bar-h` | 44px | iOS nav bar content |
-| `--mobile-nav-h` | 56px | Android bottom nav content |
-| `--sab` / `--sat` | `env(safe-area-*)` | Never hardcoded |
+## Legacy vanilla
 
-Utility: `.mobile-grid-4` + `.mobile-pad-x` for sheet/list content.
-Visual grammar of the peach bar / wave / CTAs → **DESIGN.md symbiosis**, not this table.
-
----
-
-## 3. Канонические ID
-
-### Desktop-only (на mobile скрыты)
-
-| ID | Назначение |
-|----|------------|
-| `#app-rail` | Левая икон-рейка |
-| `#rail-library` / `#rail-feed` / `#rail-expeditions` / `#rail-help` | Разделы dock |
-| `#rail-admin` | Staff (появляется по роли) |
-| `#msg-btn` / `#notif-btn` | Сообщения / уведомления |
-| `#settings-btn` / `#profile-btn` / `#logout-btn` | Аккаунт |
-| `#events-panel` | Правая панель ивентов |
-
-### Mobile-only (на desktop скрыты)
-
-| ID | Назначение |
-|----|------------|
-| `#mobile-bottom-nav` | 5 пунктов: library, feed, fab(+), expeditions, profile |
-| `#msg-wrap-mobile` / `#notif-wrap-mobile` | Конверт и колокол у карты (после логина) |
-| `#events-sheet` | Полноэкранный/sheet ивентов |
-| `#cabinet-mobile-menu` | Строки кабинета (настройки приложения, помощь, сообщения, …) |
-| `#dock-mobile-tabs` | Библиотека / Экспедиции внутри dock (Помощь — из Settings/Профиля) |
-| `#dock-mobile-close` | «На карту» — закрыть dock на mobile (плюс повторный тап по активному пункту nav) |
-
-### Shared
-
-| ID | Desktop | Mobile |
-|----|---------|--------|
-| `#events-fab` | Открывает панель | Открывает sheet |
-| `#map-top-toolbar` | Поиск | Поиск |
-| `#fab-add` | Низ-справа · только «Добавить звук» | **Скрыт** на mobile (add через bottom-nav **+**) |
-| `#sidebar` | Левый dock | Fullscreen минус `--mobile-fs-bottom` |
-| Модалки `app-modal-*` | Центр | Fullscreen минус bottom rail (кроме компактных confirm) |
-
-Legacy / скрыты намеренно: `#burger-btn`, `#settings-btn-mobile`, `#profile-btn-mobile` — не показывать; вход через bottom nav / rail.
-
----
-
-## 4. Правила видимости (обязательно)
-
-1. Класс Tailwind `hidden` = скрыто. Снятие `hidden` в JS (`refreshMessagesUI` / `refreshNotificationsUI`) **включает** кнопку.
-2. **Не полагаться** на `md:hidden` у элементов с `.map-icon-btn` / `.app-rail__btn`: у них `display: inline-flex`, он перебивает Tailwind.
-3. Канон в CSS (`style.css`):
-   - `.map-icon-btn.hidden` / `.app-rail__btn.hidden` → `display: none !important`
-   - `@media (min-width: 768px)` → `#msg-wrap-mobile`, `#notif-wrap-mobile`, `#settings-btn-mobile`, `#profile-btn-mobile`, `#burger-btn`, `#mobile-bottom-nav` → `display: none !important`
-   - `@media (max-width: 767px)` → `#app-rail` → `display: none !important`
-4. Обёртки mobile-кнопок: `class="relative md:hidden"` **и** desktop `!important` hide.
-5. Перед релизом chrome: на ≥768 залогиненным не должно быть колокола/конверта в правом верхнем углу — только `#events-fab`.
-
----
-
-## 5. Потоки навигации
-
-### Desktop
-
-- Раздел → `switchSidebarTab` / `openDockView` → rail `is-active`.
-- Сообщения / уведомления → иконки рейки.
-- Ивенты → FAB → `#events-panel`.
-- Скрыть dock → карта на весь экран, rail остаётся.
-
-### Mobile
-
-- Bottom nav → `mobileNavGo(...)`. **+** → speed-dial (добавить звук / записать).
-- Поверхности на весь экран (без просвета карты); контент скроллится с отступом под док (`--mobile-fs-bottom`). Confirm — компактный.
-- Плеер — компактная таблетка над доком; **⋯** → описание / анализаторы / амбисоник; свайп вверх раскрывает описание.
-- «Карта» / повторный тап по разделу закрывает dock. `#fab-add` на mobile скрыт.
-- Настройки: Профиль → кабинет → «Настройки» (desktop: `#settings-btn` в rail).
-- Помощь / FAQ / аудио-угадайка: Профиль → «Помощь» или Settings → «Открыть раздел Помощь».
-- Аудио-угадайка: Помощь → FAQ → «Играть» (не FAB на карте).
-- Сообщения: конверт у карты **или** Профиль → кабинет → «Сообщения».
-- Уведомления: колокол у карты (после логина).
-- Ивенты: FAB → `#events-sheet`.
-- Возврат на карту: повторный тап по активному пункту nav **или** `#dock-mobile-close` («На карту»).
-
----
-
-## 6. Dock и модалки
-
-| Режим | Desktop | Mobile |
-|-------|---------|--------|
-| Library / feed / expeditions / help | Панель слева | Fullscreen − bottom rail |
-| details / messages / settings / cabinet / admin | Тот же dock, nested view | Fullscreen − bottom rail |
-| Confirm (`#ui-modal-overlay`) | Компактно по центру | Компактно по центру |
-| Auth / legal / feed editors | `app-modal-overlay` | Fullscreen − bottom rail |
-
-Не делать отдельные «полу-листы» для основных поверхностей — см. ux-ui-guide, mobile fullscreen.
-
----
-
-## 7. Чеклист при добавлении кнопки
-
-1. Нужна ли она на **обоих** breakpoint’ах или только на одном?
-2. Desktop → рейка или правая панель; mobile → bottom nav / top-right / кабинет.
-3. Если `map-icon-btn` + показ после логина — добавить ID в desktop `display: none !important` блок.
-4. Не копировать `#xxx-mobile` на desktop «на всякий случай».
-5. Обновить эту таблицу ID при новом chrome-элементе.
-
----
-
-## 8. Антипаттерны
-
-- Колокол/конверт в `map-top-right` на desktop (дубль рейки).
-- Полагаться только на `md:hidden` для `.map-icon-btn`.
-- Показывать `#settings-btn-mobile` / `#profile-btn-mobile` (дубль bottom nav).
-- Прятать ленту с desktop без `#rail-feed`.
-- Изобретать третий bottom bar или второй rail.
+`#app-rail` / `#mobile-bottom-nav` в корневом `index.html` ещё живы. Не развивать; паритет строится в `apps/web`.

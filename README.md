@@ -1,12 +1,13 @@
-# Audio Map App (RO.SMap)
+# Полёвка
 
-Веб-приложение — аудиокарта Ростовской области.
+Публичный сайт: **React-клиент** (`apps/web`). Сборка `npm run build` → `apps/web/dist`. Это единственный фронт polevka.art.
+
+Vanilla (`index.html`, `src/ui`, `src/core`) заморожен: локальный эталон логики, **не публиковать**. Cutover: [`docs/cutover.md`](docs/cutover.md), чеклист: [`docs/parity-checklist.md`](docs/parity-checklist.md).
 
 ## Возможности
-- карта с маркерами звуков
-- поиск и фильтрация
-- плеер, детали, кабинет, сообщения, экспедиции
-- облачная синхронизация через Yandex Object Storage
+- карта с маркерами звуков (Yandex 2.1, OSM fallback)
+- UCS-фильтры, плеер, публикация WAV, профили, экспедиции, модерация
+- облачная синхронизация через Yandex Object Storage + Secure API
 
 ## Безопасность и база данных
 
@@ -32,10 +33,21 @@
 1. Создать статический ключ SA с `storage.editor` на бакет `rosmap2026`
 2. Задать env функции: `JWT_SECRET`, `ADMIN_PASSWORD`, ключи S3, `BUCKET`
 3. Задеплоить `cloud/api` (Node 18+, entrypoint `index.handler`)
-4. Убедиться, что `YANDEX_FUNCTION_URL` в `src/core/state.js` указывает на эту функцию
+4. Собрать фронт `npm run build` и выложить **только** `apps/web/dist` (error document = `index.html` или `404.html`)
 5. Войти как `admin` с паролем из `ADMIN_PASSWORD`
 
 Пока Secure API не задеплоен, вход/сохранение покажут ошибку настройки — это ожидаемо.
 
 ## Запуск фронтенда
-Откройте `index.html` или статический сервер из корня репозитория.
+
+```
+npm install
+npm run dev
+```
+
+http://localhost:5173 — ПК: карта + рейка; мобилка: Лента / Карта / Профиль. Исходники: `apps/web`, ядро `packages/core`, токены `packages/design`. Сборка продакшена: `npm run build` → `apps/web/dist`.
+
+Vanilla в корне репозитория — архив, не деплоится.
+
+Нативный каркас Expo: `apps/native/README.md` (ставится отдельно, не из корня).
+

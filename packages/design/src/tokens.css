@@ -1,0 +1,54 @@
+:root {
+  --pv-accent: #B5613F;
+  --pv-dark: #2D3C39;
+  --pv-olive: #6F7C4E;
+  --pv-sage: #9DB170;
+  --pv-light: #D9E2C3;
+  --pv-cream: #F4E8D8;
+  --pv-ink: #1A1A1A;
+  --pv-phone-bg: #E8EDEA;
+  --pv-card: #ffffff;
+  --pv-header: #ffffff;
+  --pv-nav: #ffffff;
+  --pv-border: rgba(45, 60, 57, 0.07);
+  --pv-font-ui: Geologica, system-ui, sans-serif;
+  --pv-font-brand: Klukva, Geologica, serif;
+  --pv-radius-xl: 12px;
+  --pv-radius-2xl: 16px;
+  --pv-radius-3xl: 24px;
+  --pv-map-notch: 36px;
+  --pv-rail-w: 72px;
+  --pv-panel-w: 380px;
+  --mobile-nav-h: 72px;
+  --sab: env(safe-area-inset-bottom, 0px);
+}
+
+.dark {
+  --pv-phone-bg: #1A2926;
+  --pv-card: #243530;
+  --pv-cream: #243530;
+  --pv-ink: #D9E2C3;
+  --pv-header: #1E2E2A;
+  --pv-nav: #1E2E2A;
+  --pv-light: #2A3D38;
+  --pv-border: rgba(157, 177, 112, 0.1);
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--pv-font-ui);
+  background: var(--pv-phone-bg);
+  color: var(--pv-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

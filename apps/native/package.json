@@ -1,0 +1,13 @@
+{
+  "name": "@polevka/native",
+  "private": true,
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "echo Run: npx expo start — first npm i expo expo-av expo-status-bar react-native in this folder"
+  },
+  "dependencies": {
+    "@polevka/core": "*",
+    "@polevka/design": "*"
+  }
+}

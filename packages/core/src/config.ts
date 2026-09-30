@@ -1,0 +1,9 @@
+export const BUCKET_URL = 'https://storage.yandexcloud.net/rosmap2026';
+export const FUNCTION_URL = 'https://functions.yandexcloud.net/d4ebp9rd7rd53iso4p8u';
+export const SUPPORT_EMAIL = 'support@polevka.art';
+export const BRAND = 'Полёвка';
+export const TOKEN_KEY = 'rosmap_at';
+export const SESSION_FLAG = 'rosmap_session';
+export const USER_KEY = 'rosmap_user';
+export const CONSENT_KEY = 'polevka_cookie_consent';
+export const CONSENT_VERSION = 2;

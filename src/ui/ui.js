@@ -1,3 +1,4 @@
+/** LEGACY / FROZEN UI — do not add product features. Production is apps/web. See docs/legacy-vanilla.md */
 /** Fold nested mail rows into fingerprint (soft-delete / read must change the key). */
 window.__fingerprintMailRows = function(rows, extrasRef, maxTsRef) {
     if (!Array.isArray(rows)) return;

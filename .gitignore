@@ -4,6 +4,11 @@
 # Root frontend deps
 node_modules/
 
+# App workspaces
+apps/*/node_modules/
+apps/web/dist/
+packages/*/node_modules/
+
 # Cloud Function deps / build artifacts
 cloud/api/node_modules/
 cloud/*.zip
