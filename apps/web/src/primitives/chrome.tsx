@@ -72,11 +72,22 @@ export function Overlays() {
       <AnimatePresence>
         {menu && (
           <motion.div className="fixed inset-0 z-[9997]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ background: 'rgba(26,26,26,0.25)' }} onClick={closeMenu}>
-            <motion.div initial={{ y: 40 }} animate={{ y: 0 }} className="absolute bottom-8 left-4 right-4 rounded-3xl p-3" style={{ background: th.cardBg }} onClick={(e) => e.stopPropagation()}>
+            style={{ background: menu.at ? 'transparent' : 'rgba(26,26,26,0.25)' }} onClick={closeMenu} onContextMenu={(e) => { e.preventDefault(); closeMenu(); }}>
+            <motion.div
+              initial={menu.at ? { opacity: 0, scale: 0.96 } : { y: 40 }}
+              animate={menu.at ? { opacity: 1, scale: 1 } : { y: 0 }}
+              className={menu.at ? 'absolute w-[240px] rounded-2xl p-2 shadow-xl' : 'absolute bottom-8 left-4 right-4 rounded-3xl p-3'}
+              style={{
+                background: th.cardBg,
+                ...(menu.at ? {
+                  left: Math.max(12, Math.min(menu.at.x, (typeof window !== 'undefined' ? window.innerWidth : 400) - 252)),
+                  top: Math.max(12, Math.min(menu.at.y, (typeof window !== 'undefined' ? window.innerHeight : 400) - 220)),
+                } : {}),
+              }}
+              onClick={(e) => e.stopPropagation()}>
               {menu.title && <p className="text-[10px] uppercase tracking-wide px-3 py-2" style={{ color: color.sage }}>{menu.title}</p>}
               {menu.items.map((it) => (
-                <button key={it.label} className="w-full text-left px-3 py-3 rounded-2xl text-sm font-semibold"
+                <button key={it.label} className="w-full text-left px-3 py-2.5 rounded-2xl text-sm font-semibold"
                   style={{ color: it.danger ? color.accent : th.inkText }}
                   onClick={() => { closeMenu(); it.onClick(); }}>{it.label}</button>
               ))}

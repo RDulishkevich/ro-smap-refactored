@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  Bell, Calendar, ChevronDown, HelpCircle, LayoutGrid, LogIn, LogOut,
-  Map as MapIcon, MessageCircle, Radio, Search, Settings, Shield, User,
+  Bell, Calendar, ChevronDown, HelpCircle, LayoutGrid, LogIn,
+  MessageCircle, Radio, Search, Settings, Shield, User,
 } from 'lucide-react';
 import { color, spring, tap } from '@polevka/design';
 import type { Sound } from '@polevka/core';
@@ -19,6 +19,10 @@ import LogoApp from '@/brand/LogoApp';
 const ACCENT = color.accent;
 const OLIVE = color.olive;
 const SAGE = color.sage;
+const PANEL_W = 360;
+const PANEL_GAP = 20;
+
+const OVERLAY = new Set(['auth', 'reset-password', 'add-sound', 'record']);
 
 const VIEW_TITLE: Record<DesktopView, string> = {
   map: 'Карта',
@@ -54,35 +58,49 @@ function stackTitle(s: ScreenConfig): string {
 
 export function DesktopShell() {
   const th = useTh();
-  const { isLoggedIn, isStaff, logout, user } = useAuth();
+  const { isLoggedIn, isStaff, user } = useAuth();
   const { desktopView, setDesktopView, push, stack, pop, reset } = useNav();
-  const { filter, setFilter, mail } = useData();
+  const { filter, setFilter, mail, pickMode } = useData();
   const [picked, setPicked] = useState<Sound | null>(null);
   const [q, setQ] = useState(filter.tag);
 
   const chipBg = th.isDark ? th.lightBg : '#F4F5F7';
   const top = stack[stack.length - 1];
-  const isAuthFlow = top?.type === 'auth' || top?.type === 'reset-password';
-  const asideTop = isAuthFlow
-    ? [...stack].reverse().find((s) => s.type !== 'auth' && s.type !== 'reset-password') ?? null
+  const isOverlay = !!top && OVERLAY.has(top.type);
+  const asideTop = isOverlay
+    ? [...stack].reverse().find((s) => !OVERLAY.has(s.type)) ?? null
     : top;
   const showAside = desktopView !== 'map' || !!asideTop;
-  const title = isAuthFlow && top ? stackTitle(top) : asideTop ? stackTitle(asideTop) : VIEW_TITLE[desktopView];
+  const title = isOverlay && top ? stackTitle(top) : asideTop ? stackTitle(asideTop) : VIEW_TITLE[desktopView];
   const unread = (mail.find((b) => b.loginName === user?.loginName)?.notifications || [])
     .filter((n) => !(n as { read?: boolean }).read).length;
 
-  const mainNav: Array<{ id: DesktopView | 'messages'; Icon: typeof MapIcon; label: string; staff?: boolean }> = [
-    { id: 'map', Icon: MapIcon, label: 'Карта' },
+  const mainNav: Array<{ id: DesktopView | 'messages'; Icon: typeof Radio; label: string }> = [
     { id: 'library', Icon: LayoutGrid, label: 'Каталог' },
     { id: 'feed', Icon: Radio, label: 'Лента' },
     { id: 'expeditions', Icon: Calendar, label: 'Экспедиции' },
-    { id: 'messages', Icon: MessageCircle, label: 'Сообщения' },
+    ...(isLoggedIn ? [{ id: 'messages' as const, Icon: MessageCircle, label: 'Сообщения' }] : []),
   ];
 
   const goView = (id: DesktopView | 'messages') => {
-    if (id === 'messages') { push({ type: 'messages' }); return; }
+    if (id === 'messages') {
+      if (asideTop?.type === 'messages') { reset(); return; }
+      reset();
+      push({ type: 'messages' });
+      return;
+    }
+    if (desktopView === id && !asideTop) {
+      setDesktopView('map');
+      return;
+    }
     reset();
     setDesktopView(id);
+  };
+
+  const toggleStack = (type: 'staff' | 'help' | 'settings') => {
+    if (asideTop?.type === type) { reset(); return; }
+    reset();
+    push({ type });
   };
 
   return (
@@ -90,7 +108,7 @@ export function DesktopShell() {
       <div className="flex h-full w-full overflow-hidden rounded-[32px] shadow-[0_24px_64px_rgba(45,60,57,0.14)]"
         style={{ background: th.cardBg }}>
         <nav className="flex flex-col items-center py-5 gap-1.5 flex-shrink-0 w-[72px]" style={{ borderRight: `1px solid ${th.border}` }}>
-          <button title="Полёвка" onClick={() => goView('map')} className="w-11 h-11 rounded-[14px] relative mb-3 overflow-hidden shadow-sm">
+          <button title="Полёвка" onClick={() => { reset(); setDesktopView('map'); }} className="w-11 h-11 rounded-[14px] relative mb-3 overflow-hidden shadow-sm">
             <LogoApp />
           </button>
           {mainNav.map(({ id, Icon, label }) => {
@@ -104,32 +122,23 @@ export function DesktopShell() {
             );
           })}
           {isStaff && (
-            <motion.button title="Staff" whileTap={tap.nav} onClick={() => push({ type: 'staff' })}
+            <motion.button title="Staff" whileTap={tap.nav} onClick={() => toggleStack('staff')}
               className="w-11 h-11 rounded-2xl flex items-center justify-center"
               style={{ background: asideTop?.type === 'staff' ? color.cream : 'transparent' }}>
               <Shield size={18} color={asideTop?.type === 'staff' ? ACCENT : th.isDark ? '#7A9A88' : '#C0C6BA'} />
             </motion.button>
           )}
           <div className="flex-1" />
-          <motion.button title="Помощь" whileTap={tap.nav} onClick={() => push({ type: 'help' })}
-            className="w-11 h-11 rounded-2xl flex items-center justify-center">
-            <HelpCircle size={18} color={OLIVE} />
+          <motion.button title="Помощь" whileTap={tap.nav} onClick={() => toggleStack('help')}
+            className="w-11 h-11 rounded-2xl flex items-center justify-center"
+            style={{ background: asideTop?.type === 'help' ? color.cream : 'transparent' }}>
+            <HelpCircle size={18} color={asideTop?.type === 'help' ? ACCENT : OLIVE} />
           </motion.button>
-          <motion.button title="Настройки" whileTap={tap.nav} onClick={() => push({ type: 'settings' })}
-            className="w-11 h-11 rounded-2xl flex items-center justify-center">
-            <Settings size={18} color={OLIVE} />
+          <motion.button title="Настройки" whileTap={tap.nav} onClick={() => toggleStack('settings')}
+            className="w-11 h-11 rounded-2xl flex items-center justify-center"
+            style={{ background: asideTop?.type === 'settings' ? color.cream : 'transparent' }}>
+            <Settings size={18} color={asideTop?.type === 'settings' ? ACCENT : OLIVE} />
           </motion.button>
-          {isLoggedIn ? (
-            <motion.button title="Выйти" whileTap={tap.nav} onClick={() => { void logout(); reset(); }}
-              className="w-11 h-11 rounded-2xl flex items-center justify-center">
-              <LogOut size={18} color={OLIVE} />
-            </motion.button>
-          ) : (
-            <motion.button title="Войти" whileTap={tap.nav} onClick={() => push({ type: 'auth' })}
-              className="w-11 h-11 rounded-2xl flex items-center justify-center">
-              <LogIn size={18} color={OLIVE} />
-            </motion.button>
-          )}
         </nav>
 
         <div className="flex-1 min-w-0 flex flex-col">
@@ -156,7 +165,11 @@ export function DesktopShell() {
                 <Bell size={16} color={OLIVE} />
                 {unread > 0 && <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ background: ACCENT }} />}
               </motion.button>
-              <button onClick={() => { reset(); setDesktopView('cabinet'); }}
+              <button onClick={() => {
+                if (desktopView === 'cabinet' && !asideTop) { setDesktopView('map'); return; }
+                reset();
+                setDesktopView('cabinet');
+              }}
                 className="flex items-center gap-2.5 pl-1 pr-3 py-1 rounded-full" style={{ background: chipBg }}>
                 <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-sm" style={{ background: th.lightBg }}>
                   {user?.avatar && String(user.avatar).startsWith('http')
@@ -172,14 +185,13 @@ export function DesktopShell() {
             </div>
           </header>
 
-          <motion.div className="flex-1 min-h-0 flex p-4 lg:p-5" initial={false}
-            animate={{ gap: showAside ? 16 : 0 }} transition={spring.sheet}>
+          <motion.div className="flex-1 min-h-0 flex p-4 lg:p-5" style={{ gap: showAside ? PANEL_GAP : 0 }}>
             <motion.aside
               initial={false}
-              animate={{ width: showAside ? 360 : 0, opacity: showAside ? 1 : 0 }}
+              animate={{ width: showAside ? PANEL_W : 0, opacity: showAside ? 1 : 0 }}
               transition={spring.sheet}
               className="flex-shrink-0 min-h-0 overflow-hidden rounded-[24px]"
-              style={{ background: th.phoneBg }}>
+              style={{ background: th.phoneBg, pointerEvents: showAside ? 'auto' : 'none' }}>
               <div className="w-[360px] h-full flex flex-col min-h-0">
                 <AnimatePresence mode="wait">
                   {asideTop ? (
@@ -209,15 +221,19 @@ export function DesktopShell() {
         </div>
       </div>
         <AnimatePresence>
-          {isAuthFlow && top && (
+          {isOverlay && top && (
             <motion.div
               key={top._id}
               className="absolute inset-0 z-[500] overflow-hidden"
               initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              animate={{ opacity: pickMode ? 0 : 1 }}
               exit={{ opacity: 0 }}
               transition={spring.sheet}
-              style={{ background: th.phoneBg }}>
+              style={{
+                background: th.phoneBg,
+                visibility: pickMode ? 'hidden' : 'visible',
+                pointerEvents: pickMode ? 'none' : 'auto',
+              }}>
               <ScreenContent screen={top} onBack={pop} />
             </motion.div>
           )}

@@ -11,7 +11,7 @@ export type ScreenConfig =
   | { type: 'events'; focusId?: string }
   | { type: 'auth' }
   | { type: 'record' }
-  | { type: 'add-sound' }
+  | { type: 'add-sound'; edit?: Sound }
   | { type: 'messages' }
   | { type: 'conversation'; name: string; avatar: string; peer: string }
   | { type: 'notifications' }

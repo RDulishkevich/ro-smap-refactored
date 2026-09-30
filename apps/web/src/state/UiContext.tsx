@@ -1,14 +1,15 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 
 type MenuItem = { label: string; danger?: boolean; onClick: () => void };
+type MenuAt = { x: number; y: number };
 type UiCtx = {
   toast: (msg: string) => void;
   toastMsg: string;
   confirm: (opts: { title: string; body?: string; ok?: string }) => Promise<boolean>;
   confirmState: { title: string; body?: string; ok?: string } | null;
   resolveConfirm: (v: boolean) => void;
-  openMenu: (items: MenuItem[], title?: string) => void;
-  menu: { items: MenuItem[]; title?: string } | null;
+  openMenu: (items: MenuItem[], title?: string, at?: MenuAt) => void;
+  menu: { items: MenuItem[]; title?: string; at?: MenuAt } | null;
   closeMenu: () => void;
 };
 
@@ -41,7 +42,7 @@ export function UiProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={{
       toast, toastMsg, confirm, confirmState, resolveConfirm,
-      openMenu: (items, title) => setMenu({ items, title }),
+      openMenu: (items, title, at) => setMenu({ items, title, at }),
       menu, closeMenu: () => setMenu(null),
     }}>
       {children}

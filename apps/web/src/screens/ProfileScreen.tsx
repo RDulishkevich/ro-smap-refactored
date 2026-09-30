@@ -106,7 +106,10 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
           <p className="text-sm font-semibold mb-3" style={{ color: th.inkText }}>Мои звуки</p>
           <div className="flex flex-col gap-3">
             {drafts.map((item) => (
-              <button key={`d${String(item.id)}`} onClick={() => push({ type: 'sound-detail', sound: item })} className="rounded-2xl p-3 text-left" style={{ background: th.lightBg }}>
+              <button key={`d${String(item.id)}`} onClick={() => {
+                if (item.status === 'draft' || item.status === 'rejected') push({ type: 'add-sound', edit: item });
+                else push({ type: 'sound-detail', sound: item });
+              }} className="rounded-2xl p-3 text-left" style={{ background: th.lightBg }}>
                 <p className="text-[10px] uppercase" style={{ color: SAGE }}>{item.status}</p>
                 <p className="text-xs font-bold" style={{ color: th.inkText }}>{item.title}</p>
                 {item.rejectNote ? <p className="text-[10px]" style={{ color: ACCENT }}>{String(item.rejectNote)}</p> : null}

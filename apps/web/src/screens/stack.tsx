@@ -48,7 +48,7 @@ export function ScreenContent({ screen, onBack }: { screen: ScreenConfig; onBack
     case 'events': return <EventsScreen onBack={onBack} focusId={screen.focusId} />;
     case 'auth': return <AuthScreen onBack={onBack} />;
     case 'record': return <RecordScreen onBack={onBack} />;
-    case 'add-sound': return <AddSoundScreen onBack={onBack} />;
+    case 'add-sound': return <AddSoundScreen onBack={onBack} edit={screen.edit} />;
     case 'messages': return <MessagesScreen onBack={onBack} />;
     case 'conversation': return <ConversationScreen name={screen.name} avatar={screen.avatar} peer={screen.peer} onBack={onBack} />;
     case 'notifications': return <NotificationsScreen onBack={onBack} />;
@@ -610,13 +610,14 @@ function ResetPasswordScreen({ onBack }: { onBack: () => void }) {
 function RecordScreen({ onBack }: { onBack: () => void }) {
   const th = useTh();
   const { toast } = useUi();
-  const { push } = useNav();
+  const { reset } = useNav();
   const [rec, setRec] = useState(false);
   const [sec, setSec] = useState(0);
   const recRef = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const started = useRef(0);
+  const commit = useRef(false);
 
   useEffect(() => {
     if (!rec) return;
@@ -637,6 +638,7 @@ function RecordScreen({ onBack }: { onBack: () => void }) {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       chunks.current = [];
+      commit.current = false;
       const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
       const mr = new MediaRecorder(stream, { mimeType: mime });
       mr.ondataavailable = (e) => { if (e.data.size) chunks.current.push(e.data); };
@@ -653,17 +655,28 @@ function RecordScreen({ onBack }: { onBack: () => void }) {
   const stop = () => {
     const mr = recRef.current;
     if (!mr) { setRec(false); return; }
+    commit.current = true;
     mr.onstop = () => {
       streamRef.current?.getTracks().forEach((tr) => tr.stop());
       const mime = mr.mimeType || 'audio/webm';
       const blob = new Blob(chunks.current, { type: mime });
+      setRec(false);
+      if (!commit.current) return;
+      if (!blob.size) {
+        toast('Пустая запись — попробуйте ещё раз');
+        return;
+      }
       const durationSec = Math.max(1, Math.round((Date.now() - started.current) / 1000));
       setDraftRecording({ blob, durationSec, mime });
-      setRec(false);
       toast('Черновик сохранён — оформите публикацию');
-      push({ type: 'add-sound' });
+      reset({ type: 'add-sound' });
     };
-    if (mr.state !== 'inactive') mr.stop();
+    if (mr.state === 'recording') {
+      try { mr.requestData(); } catch { /* */ }
+      mr.stop();
+    } else if (mr.state !== 'inactive') {
+      mr.stop();
+    }
     recRef.current = null;
   };
 

@@ -5,31 +5,91 @@ import type { Sound } from '@polevka/core';
 import { loadYandexMaps } from './pwa';
 
 const ROSTOV: [number, number] = [47.2313, 39.7233];
+const HIT_PX = 28;
 
 type YMap = {
   destroy: () => void;
   geoObjects: { removeAll: () => void; add: (o: unknown) => void };
   panTo: (c: number[], o?: unknown) => void;
   container: { fitToViewport: () => void };
-  events: { add: (e: string, fn: (ev: { get: (k: string) => unknown }) => void) => { remove: (e: string, fn: unknown) => void } };
+  getZoom: () => number;
+  converter: {
+    pageToGlobal: (p: number[]) => number[];
+    globalToPage: (p: number[]) => number[];
+  };
+  options: { get: (k: string) => { fromGlobalPixels: (p: number[], z: number) => number[]; toGlobalPixels: (c: number[], z: number) => number[] } };
+  events: {
+    add: (e: string, fn: (ev: { get: (k: string) => unknown; preventDefault?: () => void; stopPropagation?: () => void }) => void) => void;
+    remove: (e: string, fn: unknown) => void;
+  };
 };
 
 type YMapsApi = {
   ready: (cb: () => void) => void;
+  templateLayoutFactory: { createClass: (tpl: string) => unknown };
   Map: new (el: HTMLElement, opts: object, extra?: object) => YMap;
   Placemark: new (c: number[], p: object, o: object) => {
-    events: { add: (e: string, fn: () => void) => void };
+    events: { add: (e: string, fn: (ev?: { get: (k: string) => unknown; preventDefault?: () => void; stopPropagation?: () => void }) => void) => void };
   };
   Polyline: new (c: number[][], p: object, o: object) => unknown;
 };
 
 export type MapPoint = { lat: number; lng: number };
+export type MapContext = MapPoint & { sound?: Sound; clientX: number; clientY: number };
+
+function clientPoint(ev: { get?: (k: string) => unknown; originalEvent?: MouseEvent; clientX?: number; clientY?: number } | undefined): { clientX: number; clientY: number } {
+  const dom = (ev?.get?.('domEvent') || ev) as { originalEvent?: MouseEvent; get?: (k: string) => unknown; clientX?: number; clientY?: number } | undefined;
+  const orig = (dom && 'originalEvent' in (dom || {}) ? dom?.originalEvent : null) || (ev as { originalEvent?: MouseEvent })?.originalEvent;
+  const read = (key: 'clientX' | 'clientY') => {
+    if (orig && typeof orig[key] === 'number') return orig[key];
+    if (dom && typeof dom[key] === 'number') return dom[key];
+    if (typeof dom?.get === 'function') {
+      const v = Number(dom.get(key));
+      if (Number.isFinite(v)) return v;
+    }
+    return NaN;
+  };
+  const x = read('clientX');
+  const y = read('clientY');
+  return {
+    clientX: Number.isFinite(x) ? x : 24,
+    clientY: Number.isFinite(y) ? y : 24,
+  };
+}
+
+function yandexPageToCoords(map: YMap, pageX: number, pageY: number): [number, number] | null {
+  try {
+    const zoom = map.getZoom();
+    const proj = map.options.get('projection');
+    const global = map.converter.pageToGlobal([pageX, pageY]);
+    const coords = proj.fromGlobalPixels(global, zoom);
+    if (!coords || coords.length < 2) return null;
+    return [Number(coords[0]), Number(coords[1])];
+  } catch {
+    return null;
+  }
+}
+
+function hitTest(sounds: Sound[], clientX: number, clientY: number, project: (s: Sound) => { x: number; y: number } | null): Sound | undefined {
+  let best: Sound | undefined;
+  let bestD = HIT_PX * HIT_PX;
+  for (const s of sounds) {
+    if (s.lat == null || s.lng == null) continue;
+    const pt = project(s);
+    if (!pt) continue;
+    const d = (pt.x - clientX) ** 2 + (pt.y - clientY) ** 2;
+    if (d < bestD) { bestD = d; best = s; }
+  }
+  return best;
+}
 
 export function SoundMap({
   sounds,
   activeId,
   onSelect,
   onPick,
+  onContext,
+  onEmpty,
   pickMode = false,
   route = [],
   pickMarker = null,
@@ -38,6 +98,8 @@ export function SoundMap({
   activeId: string | number | null;
   onSelect: (s: Sound) => void;
   onPick?: (pt: MapPoint, sound?: Sound) => void;
+  onContext?: (info: MapContext) => void;
+  onEmpty?: () => void;
   pickMode?: boolean;
   route?: MapPoint[];
   pickMarker?: MapPoint | null;
@@ -49,11 +111,20 @@ export function SoundMap({
   const ymapsRef = useRef<YMapsApi | null>(null);
   const onSelectRef = useRef(onSelect);
   const onPickRef = useRef(onPick);
+  const onContextRef = useRef(onContext);
+  const onEmptyRef = useRef(onEmpty);
+  const soundsRef = useRef(sounds);
   onSelectRef.current = onSelect;
   onPickRef.current = onPick;
+  onContextRef.current = onContext;
+  onEmptyRef.current = onEmpty;
+  soundsRef.current = sounds;
   const engine = useRef<'yandex' | 'leaflet' | null>(null);
   const [ready, setReady] = useState(0);
   const pressTimer = useRef<number | null>(null);
+  const lastCtx = useRef(0);
+  const soundsKey = sounds.map((s) => `${s.id}:${s.lat}:${s.lng}:${s.type}`).join('|');
+  const routeKey = route.map((p) => `${p.lat},${p.lng}`).join('|');
 
   useEffect(() => {
     const el = ref.current;
@@ -71,7 +142,7 @@ export function SoundMap({
             center: ROSTOV,
             zoom: 11,
             controls: ['zoomControl'],
-          }, { suppressMapOpenBlock: true });
+          }, { suppressMapOpenBlock: true, yandexMapDisablePoiInteractivity: true });
           ymapRef.current = map;
           ymapsRef.current = ymaps;
           engine.current = 'yandex';
@@ -111,6 +182,73 @@ export function SoundMap({
     const firePick = (lat: number, lng: number, sound?: Sound) => {
       onPickRef.current?.({ lat, lng }, sound);
     };
+    const fireContext = (lat: number, lng: number, sound: Sound | undefined, ev: { get?: (k: string) => unknown; originalEvent?: MouseEvent; clientX?: number; clientY?: number } | undefined) => {
+      const now = Date.now();
+      if (now - lastCtx.current < 80) return;
+      lastCtx.current = now;
+      const pt = ev && 'clientX' in (ev || {}) && typeof (ev as MouseEvent).clientX === 'number'
+        ? { clientX: (ev as MouseEvent).clientX, clientY: (ev as MouseEvent).clientY }
+        : clientPoint(ev);
+      onContextRef.current?.({ lat, lng, sound, ...pt });
+    };
+    const projectYandex = (s: Sound) => {
+      const map = ymapRef.current;
+      if (!map || s.lat == null || s.lng == null) return null;
+      try {
+        const zoom = map.getZoom();
+        const proj = map.options.get('projection');
+        const page = map.converter.globalToPage(proj.toGlobalPixels([Number(s.lat), Number(s.lng)], zoom));
+        return { x: page[0] - window.scrollX, y: page[1] - window.scrollY };
+      } catch {
+        return null;
+      }
+    };
+    const projectLeaflet = (s: Sound) => {
+      const map = leafletRef.current;
+      if (!map || s.lat == null || s.lng == null) return null;
+      const pt = map.latLngToContainerPoint([Number(s.lat), Number(s.lng)]);
+      const rect = map.getContainer().getBoundingClientRect();
+      return { x: rect.left + pt.x, y: rect.top + pt.y };
+    };
+
+    const el = ref.current;
+    const nativeCtx = (e: MouseEvent) => {
+      e.preventDefault();
+      const list = soundsRef.current;
+      const pinEl = document.elementsFromPoint(e.clientX, e.clientY)
+        .map((n) => (n instanceof Element ? n.closest('.pv-pin') : null))
+        .find(Boolean);
+      const pinId = pinEl?.getAttribute('data-id');
+      if (pinId) {
+        const sound = list.find((s) => String(s.id) === pinId);
+        if (sound) {
+          fireContext(Number(sound.lat), Number(sound.lng), sound, e);
+          return;
+        }
+      }
+      let lat = ROSTOV[0];
+      let lng = ROSTOV[1];
+      let sound: Sound | undefined;
+      if (engine.current === 'yandex' && ymapRef.current) {
+        const coords = yandexPageToCoords(ymapRef.current, e.pageX, e.pageY);
+        if (coords) { lat = coords[0]; lng = coords[1]; }
+        sound = hitTest(list, e.clientX, e.clientY, projectYandex);
+      } else if (leafletRef.current) {
+        const ll = leafletRef.current.mouseEventToLatLng(e);
+        lat = ll.lat;
+        lng = ll.lng;
+        sound = hitTest(list, e.clientX, e.clientY, projectLeaflet);
+      }
+      if (sound) {
+        fireContext(Number(sound.lat), Number(sound.lng), sound, e);
+        return;
+      }
+      window.setTimeout(() => {
+        if (Date.now() - lastCtx.current < 120) return;
+        fireContext(lat, lng, undefined, e);
+      }, 0);
+    };
+    el?.addEventListener('contextmenu', nativeCtx, true);
 
     if (engine.current === 'yandex' && ymapRef.current && ymapsRef.current) {
       const map = ymapRef.current;
@@ -135,34 +273,65 @@ export function SoundMap({
         if (s.lat == null || s.lng == null) return;
         const color = pinColor[String(s.type)] || pinColor.urban;
         const on = String(s.id) === String(activeId);
-        const pm = new ymaps.Placemark([Number(s.lat), Number(s.lng)], {}, {
+        const size = on ? 22 : 16;
+        const id = String(s.id).replace(/"/g, '');
+        let layout: unknown;
+        try {
+          layout = ymaps.templateLayoutFactory.createClass(
+            `<div class="pv-pin" data-id="${id}" style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 8px rgba(45,60,57,.35);cursor:pointer"></div>`,
+          );
+        } catch { layout = undefined; }
+        const pm = new ymaps.Placemark([Number(s.lat), Number(s.lng)], {}, layout ? {
+          iconLayout: layout,
+          iconShape: { type: 'Circle', coordinates: [0, 0], radius: size },
+          iconOffset: [-size / 2, -size / 2],
+        } : {
           preset: 'islands#circleDotIcon',
           iconColor: color,
-          iconCaption: on ? s.title : undefined,
         });
-        pm.events.add('click', () => onSelectRef.current(s));
-        pm.events.add('contextmenu', () => firePick(Number(s.lat), Number(s.lng), s));
+        pm.events.add('click', (e) => {
+          try { e?.stopPropagation?.(); } catch { /* */ }
+          onSelectRef.current(s);
+        });
+        pm.events.add('contextmenu', (e) => {
+          try { e?.preventDefault?.(); e?.stopPropagation?.(); } catch { /* */ }
+          const dom = e?.get?.('domEvent') as { preventDefault?: () => void } | undefined;
+          dom?.preventDefault?.();
+          fireContext(Number(s.lat), Number(s.lng), s, e);
+        });
         map.geoObjects.add(pm);
       });
       const onClick = (ev: { get: (k: string) => unknown }) => {
-        if (!pickMode) return;
-        const coords = ev.get('coords') as number[];
-        if (coords) firePick(coords[0], coords[1]);
+        if (ev.get('target') !== map) return;
+        if (pickMode) {
+          const coords = ev.get('coords') as number[];
+          if (coords) firePick(coords[0], coords[1]);
+          return;
+        }
+        onEmptyRef.current?.();
       };
-      const onCtx = (ev: { get: (k: string) => unknown }) => {
+      const onCtx = (ev: { get: (k: string) => unknown; preventDefault?: () => void }) => {
+        if (ev.get('target') !== map) return;
+        try { ev.preventDefault?.(); } catch { /* */ }
+        const dom = ev.get('domEvent') as { preventDefault?: () => void } | undefined;
+        dom?.preventDefault?.();
         const coords = ev.get('coords') as number[];
-        if (coords) firePick(coords[0], coords[1]);
+        if (coords) fireContext(coords[0], coords[1], undefined, ev);
       };
       map.events.add('click', onClick);
       map.events.add('contextmenu', onCtx);
       return () => {
-        map.events.add('click', onClick); /* ymaps has no easy off; redraw owns listeners on next pass */
+        el?.removeEventListener('contextmenu', nativeCtx, true);
+        map.events.remove('click', onClick);
+        map.events.remove('contextmenu', onCtx);
       };
     }
 
     const map = leafletRef.current;
     const layer = leafletLayer.current;
-    if (!map || !layer) return;
+    if (!map || !layer) {
+      return () => { el?.removeEventListener('contextmenu', nativeCtx, true); };
+    }
     layer.clearLayers();
     if (route.length >= 2) {
       L.polyline(route.map((p) => [p.lat, p.lng] as [number, number]), { color: '#B5613F', weight: 4, opacity: 0.85 }).addTo(layer);
@@ -181,24 +350,35 @@ export function SoundMap({
         iconAnchor: [on ? 11 : 8, on ? 11 : 8],
       });
       const m = L.marker([Number(s.lat), Number(s.lng)], { icon });
-      m.on('click', () => onSelectRef.current(s));
+      m.on('click', (e) => {
+        L.DomEvent.stop(e);
+        onSelectRef.current(s);
+      });
       m.on('contextmenu', (e) => {
         L.DomEvent.stop(e);
-        firePick(Number(s.lat), Number(s.lng), s);
+        const oe = (e as L.LeafletMouseEvent).originalEvent;
+        fireContext(Number(s.lat), Number(s.lng), s, oe);
       });
       m.addTo(layer);
     });
 
     const onMapClick = (e: L.LeafletMouseEvent) => {
-      if (!pickMode) return;
-      firePick(e.latlng.lat, e.latlng.lng);
+      if (pickMode) {
+        firePick(e.latlng.lat, e.latlng.lng);
+        return;
+      }
+      onEmptyRef.current?.();
     };
     const onCtx = (e: L.LeafletMouseEvent) => {
-      firePick(e.latlng.lat, e.latlng.lng);
+      L.DomEvent.preventDefault(e);
+      fireContext(e.latlng.lat, e.latlng.lng, undefined, e.originalEvent);
     };
     const onDown = (e: L.LeafletMouseEvent) => {
       if (pressTimer.current) window.clearTimeout(pressTimer.current);
-      pressTimer.current = window.setTimeout(() => firePick(e.latlng.lat, e.latlng.lng), 550);
+      pressTimer.current = window.setTimeout(() => {
+        if (pickMode) firePick(e.latlng.lat, e.latlng.lng);
+        else fireContext(e.latlng.lat, e.latlng.lng, undefined, e.originalEvent);
+      }, 550);
     };
     const clearPress = () => {
       if (pressTimer.current) { window.clearTimeout(pressTimer.current); pressTimer.current = null; }
@@ -209,13 +389,14 @@ export function SoundMap({
     map.on('mouseup', clearPress);
     map.on('mousemove', clearPress);
     return () => {
+      el?.removeEventListener('contextmenu', nativeCtx, true);
       map.off('click', onMapClick);
       map.off('contextmenu', onCtx);
       map.off('mousedown', onDown);
       map.off('mouseup', clearPress);
       map.off('mousemove', clearPress);
     };
-  }, [sounds, activeId, ready, pickMode, route, pickMarker]);
+  }, [soundsKey, activeId, ready, pickMode, routeKey, pickMarker, sounds, route]);
 
   useEffect(() => {
     const s = sounds.find((x) => String(x.id) === String(activeId));
@@ -225,5 +406,5 @@ export function SoundMap({
     else leafletRef.current?.panTo(c);
   }, [activeId, sounds]);
 
-  return <div ref={ref} className="absolute inset-0 z-0 bg-[#E4EDE9]" />;
+  return <div ref={ref} className="absolute inset-0 z-0 bg-[#E4EDE9]" onContextMenu={(e) => e.preventDefault()} />;
 }

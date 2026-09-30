@@ -10,7 +10,7 @@ import { useUi } from '../state/UiContext';
 import { useAuth } from '../state/AuthContext';
 import { NavBar, PinPlayer } from '../primitives/ui';
 import { MapFab } from '../primitives/chrome';
-import { SoundMap, type MapPoint } from '../lib/SoundMap';
+import { SoundMap, type MapContext, type MapPoint } from '../lib/SoundMap';
 import { CatalogFilters } from '../primitives/filters';
 
 export function MapScreen({ showNav = true, desktop = false, active: activeProp, onActive }: {
@@ -32,8 +32,56 @@ export function MapScreen({ showNav = true, desktop = false, active: activeProp,
   const setActive = onActive ?? setInnerActive;
   const [fabOpen, setFabOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const onSelect = useCallback((s: Sound) => { setActive(s); setFabOpen(false); }, []);
-  const closeAll = () => { setActive(null); setFabOpen(false); };
+  const onSelect = useCallback((s: Sound) => {
+    setActive(s);
+    setFabOpen(false);
+  }, [setActive]);
+  const onEmpty = useCallback(() => {
+    setActive(null);
+    setFabOpen(false);
+  }, [setActive]);
+
+  const onContext = useCallback((info: MapContext) => {
+    const at = { x: info.clientX, y: info.clientY };
+    if (info.sound) {
+      const s = info.sound;
+      const items: Array<{ label: string; danger?: boolean; onClick: () => void }> = [
+        { label: 'Слушать', onClick: () => setActive(s) },
+        { label: 'Подробнее', onClick: () => push({ type: 'sound-detail', sound: s }) },
+      ];
+      if (isStaff && s.status === 'pending') {
+        items.push(
+          { label: 'Одобрить', onClick: () => {
+            void (async () => {
+              try { await apiSyncJson('map_data.json', [{ ...s, status: 'published' }]); toast('Опубликовано'); await reload(); }
+              catch (e: unknown) { toast((e as Error).message); }
+            })();
+          } },
+          { label: 'Отклонить', danger: true, onClick: () => {
+            void (async () => {
+              const ok = await confirm({ title: 'Отклонить?', body: s.title, ok: 'Отклонить' });
+              if (!ok) return;
+              try { await apiSyncJson('map_data.json', [{ ...s, status: 'rejected' }]); toast('Отклонено'); await reload(); }
+              catch (e: unknown) { toast((e as Error).message); }
+            })();
+          } },
+        );
+      }
+      openMenu(items, s.title, at);
+      return;
+    }
+    openMenu([
+      { label: 'Добавить запись здесь', onClick: () => {
+        if (!isLoggedIn) {
+          push({ type: 'auth' });
+          toast('Войдите, чтобы поставить точку публикации');
+          return;
+        }
+        setPickedPoint({ lat: info.lat, lng: info.lng });
+        push({ type: 'add-sound' });
+      } },
+    ], 'Карта', at);
+  }, [setActive, push, isStaff, isLoggedIn, setPickedPoint, toast, openMenu, reload, confirm]);
 
   const routes = useMemo(() => {
     if (routePreview.length) return routePreview;
@@ -98,14 +146,16 @@ export function MapScreen({ showNav = true, desktop = false, active: activeProp,
     toast('Точка для публикации');
   }, [pickMode, setPickedPoint, setPickMode, setRouteDraft, isStaff, isLoggedIn, push, toast, openMenu, allSounds, reload, confirm]);
 
-  const pins = pickMode || isStaff ? [...filteredSounds, ...pendingSounds(allSounds).filter((s) => isStaff)] : filteredSounds;
-  const uniquePins = pins.filter((s, i, arr) => arr.findIndex((x) => String(x.id) === String(s.id)) === i);
+  const uniquePins = useMemo(() => {
+    const pins = isStaff ? [...filteredSounds, ...pendingSounds(allSounds)] : filteredSounds;
+    return pins.filter((s, i, arr) => arr.findIndex((x) => String(x.id) === String(s.id)) === i);
+  }, [isStaff, filteredSounds, allSounds]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: th.phoneBg }}>
-      <div className="relative flex-1" onClick={closeAll}>
+      <div className="relative flex-1 min-h-0">
         <SoundMap sounds={uniquePins} activeId={active?.id ?? null} onSelect={onSelect}
-          onPick={onPick} pickMode={!!pickMode} route={routes} pickMarker={null} />
+          onPick={onPick} onContext={onContext} onEmpty={onEmpty} pickMode={!!pickMode} route={routes} pickMarker={null} />
         {!desktop && (
         <div className="absolute top-4 right-4 flex gap-2 z-[400]">
           <motion.button whileTap={{ scale: 0.88 }} onClick={(e) => { e.stopPropagation(); setShowFilters((v) => !v); }}
@@ -154,7 +204,7 @@ export function MapScreen({ showNav = true, desktop = false, active: activeProp,
             <motion.div className={`absolute z-[400] ${desktop ? 'bottom-4 left-4 right-24 max-w-md' : 'bottom-0 left-3 right-3'}`}
               initial={{ y: 180, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 180, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}>
-              <PinPlayer sound={active} onClose={() => setActive(null)} playing={playing && String(playingId) === String(active.id)}
+              <PinPlayer sound={active} simple={desktop} onClose={() => setActive(null)} playing={playing && String(playingId) === String(active.id)}
                 onToggle={() => togglePlay(active)} progress={progress}
                 onOpen={() => push({ type: 'sound-detail', sound: active })}
                 onSeek={seek} volume={volume} muted={muted} onVolume={setVolume} onMute={toggleMute}
