@@ -1,19 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  Bell, Calendar, ChevronDown, HelpCircle, LayoutGrid, LogIn,
+  Bell, Calendar, ChevronDown, Headphones, HelpCircle, LayoutGrid, LogIn,
   MessageCircle, Radio, Search, Settings, Shield, User,
 } from 'lucide-react';
 import { color, spring, tap } from '@polevka/design';
-import type { Sound } from '@polevka/core';
+import { apiPatchSound, type Sound } from '@polevka/core';
 import { useAuth } from '../state/AuthContext';
 import { useNav, type DesktopView, type ScreenConfig } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
+import { useUi } from '../state/UiContext';
 import { MapScreen } from '../screens/MapScreen';
 import { CatalogSoundList, FeedScreen } from '../screens/FeedScreen';
 import { GuestProfileScreen, ProfileScreen } from '../screens/ProfileScreen';
 import { ScreenContent } from '../screens/stack';
+import { PinPlayer } from '../primitives/ui';
 import LogoApp from '@/brand/LogoApp';
 
 const ACCENT = color.accent;
@@ -21,8 +23,14 @@ const OLIVE = color.olive;
 const SAGE = color.sage;
 const PANEL_W = 360;
 const PANEL_GAP = 20;
+const PLAYER_H = 228;
 
-const OVERLAY = new Set(['auth', 'reset-password', 'add-sound', 'record']);
+const OVERLAY = new Set(['auth', 'reset-password']);
+const WORKSPACE = new Set([
+  'add-sound', 'record', 'sound-detail',
+  'expedition-detail', 'expedition-edit',
+  'user-profile', 'cabinet', 'edit-profile',
+]);
 
 const VIEW_TITLE: Record<DesktopView, string> = {
   map: 'Карта',
@@ -34,6 +42,8 @@ const VIEW_TITLE: Record<DesktopView, string> = {
   cabinet: 'Профиль',
 };
 
+type ChromeMode = 'map' | 'list' | 'workspace';
+
 function stackTitle(s: ScreenConfig): string {
   switch (s.type) {
     case 'sound-detail': return s.sound.title;
@@ -44,36 +54,54 @@ function stackTitle(s: ScreenConfig): string {
     case 'auth': return 'Вход';
     case 'messages': return 'Сообщения';
     case 'notifications': return 'Уведомления';
-    case 'add-sound': return 'Добавить звук';
+    case 'add-sound': return s.edit ? 'Черновик' : 'Добавить звук';
     case 'record': return 'Запись';
     case 'staff': return 'Модерация';
     case 'help': return 'Поддержка';
-    case 'cabinet': return 'Кабинет';
-    case 'edit-profile': return 'Профиль';
+    case 'cabinet': return 'Профиль';
+    case 'edit-profile': return 'Редактировать профиль';
     case 'expedition-detail': return s.exp.title;
     case 'expedition-edit': return s.exp ? 'Экспедиция' : 'Новая экспедиция';
+    case 'conversation': return s.name;
+    case 'legal': return 'Документы';
+    case 'guessr': return 'Угадайка';
+    case 'reset-password': return 'Сброс пароля';
+    case 'map-location': return 'Место на карте';
+    case 'pick-location': return s.mode === 'route' ? 'Маршрут' : 'Точка на карте';
     default: return 'Полёвка';
   }
 }
 
 export function DesktopShell() {
   const th = useTh();
+  const { toast } = useUi();
   const { isLoggedIn, isStaff, user } = useAuth();
   const { desktopView, setDesktopView, push, stack, pop, reset } = useNav();
-  const { filter, setFilter, mail, pickMode } = useData();
+  const {
+    filter, setFilter, mail, pickMode,
+    playing, playingId, progress, togglePlay, seek, volume, muted, setVolume, toggleMute, allSounds,
+  } = useData();
   const [picked, setPicked] = useState<Sound | null>(null);
   const [q, setQ] = useState(filter.tag);
 
   const chipBg = th.isDark ? th.lightBg : '#F4F5F7';
   const top = stack[stack.length - 1];
   const isOverlay = !!top && OVERLAY.has(top.type);
-  const asideTop = isOverlay
+  const vis = isOverlay
     ? [...stack].reverse().find((s) => !OVERLAY.has(s.type)) ?? null
     : top;
-  const showAside = desktopView !== 'map' || !!asideTop;
-  const title = isOverlay && top ? stackTitle(top) : asideTop ? stackTitle(asideTop) : VIEW_TITLE[desktopView];
+  const isWorkspace = (!!vis && WORKSPACE.has(vis.type)) || (desktopView === 'cabinet' && !vis);
+  const isList = !isWorkspace && (desktopView !== 'map' || !!vis);
+  const mode: ChromeMode = isWorkspace ? 'workspace' : isList ? 'list' : 'map';
+  const title = isOverlay && top ? stackTitle(top) : vis ? stackTitle(vis) : VIEW_TITLE[desktopView];
   const unread = (mail.find((b) => b.loginName === user?.loginName)?.notifications || [])
     .filter((n) => !(n as { read?: boolean }).read).length;
+
+  const dockSound = picked || allSounds.find((s) => String(s.id) === String(playingId)) || null;
+
+  useEffect(() => {
+    if (vis?.type === 'sound-detail') setPicked(vis.sound);
+  }, [vis]);
 
   const mainNav: Array<{ id: DesktopView | 'messages'; Icon: typeof Radio; label: string }> = [
     { id: 'library', Icon: LayoutGrid, label: 'Каталог' },
@@ -84,12 +112,12 @@ export function DesktopShell() {
 
   const goView = (id: DesktopView | 'messages') => {
     if (id === 'messages') {
-      if (asideTop?.type === 'messages') { reset(); return; }
+      if (vis?.type === 'messages') { reset(); return; }
       reset();
       push({ type: 'messages' });
       return;
     }
-    if (desktopView === id && !asideTop) {
+    if (desktopView === id && !vis) {
       setDesktopView('map');
       return;
     }
@@ -98,9 +126,22 @@ export function DesktopShell() {
   };
 
   const toggleStack = (type: 'staff' | 'help' | 'settings') => {
-    if (asideTop?.type === type) { reset(); return; }
+    if (vis?.type === type) { reset(); return; }
     reset();
     push({ type });
+  };
+
+  const download = (s: Sound) => {
+    if (!s.url) { toast('Нет файла'); return; }
+    const a = document.createElement('a');
+    a.href = String(s.url);
+    a.download = `${s.title || 'sound'}.wav`;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    void apiPatchSound(s.id, { incDownloads: 1 }).catch(() => {});
+    toast('Скачивание WAV');
   };
 
   return (
@@ -112,7 +153,7 @@ export function DesktopShell() {
             <LogoApp />
           </button>
           {mainNav.map(({ id, Icon, label }) => {
-            const on = id === 'messages' ? asideTop?.type === 'messages' : desktopView === id && !asideTop;
+            const on = id === 'messages' ? vis?.type === 'messages' : desktopView === id && !vis;
             return (
               <motion.button key={id} title={label} whileTap={tap.nav} onClick={() => goView(id)}
                 className="w-11 h-11 rounded-2xl flex items-center justify-center"
@@ -124,20 +165,20 @@ export function DesktopShell() {
           {isStaff && (
             <motion.button title="Staff" whileTap={tap.nav} onClick={() => toggleStack('staff')}
               className="w-11 h-11 rounded-2xl flex items-center justify-center"
-              style={{ background: asideTop?.type === 'staff' ? color.cream : 'transparent' }}>
-              <Shield size={18} color={asideTop?.type === 'staff' ? ACCENT : th.isDark ? '#7A9A88' : '#C0C6BA'} />
+              style={{ background: vis?.type === 'staff' ? color.cream : 'transparent' }}>
+              <Shield size={18} color={vis?.type === 'staff' ? ACCENT : th.isDark ? '#7A9A88' : '#C0C6BA'} />
             </motion.button>
           )}
           <div className="flex-1" />
           <motion.button title="Помощь" whileTap={tap.nav} onClick={() => toggleStack('help')}
             className="w-11 h-11 rounded-2xl flex items-center justify-center"
-            style={{ background: asideTop?.type === 'help' ? color.cream : 'transparent' }}>
-            <HelpCircle size={18} color={asideTop?.type === 'help' ? ACCENT : OLIVE} />
+            style={{ background: vis?.type === 'help' ? color.cream : 'transparent' }}>
+            <HelpCircle size={18} color={vis?.type === 'help' ? ACCENT : OLIVE} />
           </motion.button>
           <motion.button title="Настройки" whileTap={tap.nav} onClick={() => toggleStack('settings')}
             className="w-11 h-11 rounded-2xl flex items-center justify-center"
-            style={{ background: asideTop?.type === 'settings' ? color.cream : 'transparent' }}>
-            <Settings size={18} color={asideTop?.type === 'settings' ? ACCENT : OLIVE} />
+            style={{ background: vis?.type === 'settings' ? color.cream : 'transparent' }}>
+            <Settings size={18} color={vis?.type === 'settings' ? ACCENT : OLIVE} />
           </motion.button>
         </nav>
 
@@ -166,7 +207,7 @@ export function DesktopShell() {
                 {unread > 0 && <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ background: ACCENT }} />}
               </motion.button>
               <button onClick={() => {
-                if (desktopView === 'cabinet' && !asideTop) { setDesktopView('map'); return; }
+                if (desktopView === 'cabinet' && !vis) { setDesktopView('map'); return; }
                 reset();
                 setDesktopView('cabinet');
               }}
@@ -185,18 +226,23 @@ export function DesktopShell() {
             </div>
           </header>
 
-          <motion.div className="flex-1 min-h-0 flex p-4 lg:p-5" style={{ gap: showAside ? PANEL_GAP : 0 }}>
+          <div className="flex-1 min-h-0 flex p-4 lg:p-5" style={{ gap: mode === 'map' ? 0 : PANEL_GAP }}>
             <motion.aside
+              layout
               initial={false}
-              animate={{ width: showAside ? PANEL_W : 0, opacity: showAside ? 1 : 0 }}
               transition={spring.sheet}
-              className="flex-shrink-0 min-h-0 overflow-hidden rounded-[24px]"
-              style={{ background: th.phoneBg, pointerEvents: showAside ? 'auto' : 'none' }}>
-              <div className="w-[360px] h-full flex flex-col min-h-0">
+              className="min-h-0 min-w-0 overflow-hidden rounded-[24px]"
+              style={{
+                flex: mode === 'workspace' ? '1 1 0%' : `0 0 ${mode === 'list' ? PANEL_W : 0}px`,
+                opacity: mode === 'map' ? 0 : 1,
+                pointerEvents: mode === 'map' ? 'none' : 'auto',
+                background: th.phoneBg,
+              }}>
+              <div className="h-full w-full flex flex-col min-h-0">
                 <AnimatePresence mode="wait">
-                  {asideTop ? (
-                    <motion.div key={asideTop._id} className="h-full min-h-0" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={spring.stack}>
-                      <ScreenContent screen={asideTop} onBack={pop} />
+                  {vis ? (
+                    <motion.div key={vis._id} className="h-full min-h-0" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={spring.stack}>
+                      <ScreenContent screen={vis} onBack={pop} />
                     </motion.div>
                   ) : (
                     <motion.div key={desktopView} className="h-full min-h-0 overflow-hidden" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={spring.mount}>
@@ -214,30 +260,66 @@ export function DesktopShell() {
                 </AnimatePresence>
               </div>
             </motion.aside>
-            <div className="relative flex-1 min-w-0 rounded-[24px] overflow-hidden" style={{ background: th.phoneBg }}>
-              <MapScreen showNav={false} desktop active={picked} onActive={setPicked} />
-            </div>
-          </motion.div>
+
+            <motion.div
+              layout
+              className="flex flex-col min-h-0 min-w-0"
+              initial={false}
+              transition={spring.sheet}
+              style={{ flex: mode === 'workspace' ? `0 0 ${PANEL_W}px` : '1 1 0%' }}>
+              <div className="relative flex-1 min-h-0 rounded-[24px] overflow-hidden" style={{ background: th.phoneBg }}>
+                <MapScreen showNav={false} desktop hidePlayer={mode === 'workspace'} active={picked} onActive={setPicked} />
+              </div>
+              <motion.div
+                initial={false}
+                animate={{
+                  height: mode === 'workspace' ? PLAYER_H : 0,
+                  opacity: mode === 'workspace' ? 1 : 0,
+                  marginTop: mode === 'workspace' ? PANEL_GAP : 0,
+                }}
+                transition={spring.sheet}
+                className="overflow-hidden rounded-[24px] flex-shrink-0"
+                style={{ background: th.phoneBg }}>
+                <div className="h-[228px] flex flex-col min-h-0">
+                  {dockSound ? (
+                    <PinPlayer sound={dockSound} simple
+                      onClose={() => setPicked(null)}
+                      playing={playing && String(playingId) === String(dockSound.id)}
+                      onToggle={() => togglePlay(dockSound)}
+                      progress={progress}
+                      onOpen={() => { if (vis?.type !== 'sound-detail') push({ type: 'sound-detail', sound: dockSound }); }}
+                      onSeek={seek} volume={volume} muted={muted} onVolume={setVolume} onMute={toggleMute}
+                      onDownload={() => download(dockSound)} />
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center gap-2">
+                      <Headphones size={18} color={SAGE} />
+                      <p className="text-[11px]" style={{ color: SAGE }}>Выберите звук на карте</p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </motion.div>
+          </div>
         </div>
       </div>
-        <AnimatePresence>
-          {isOverlay && top && (
-            <motion.div
-              key={top._id}
-              className="absolute inset-0 z-[500] overflow-hidden"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: pickMode ? 0 : 1 }}
-              exit={{ opacity: 0 }}
-              transition={spring.sheet}
-              style={{
-                background: th.phoneBg,
-                visibility: pickMode ? 'hidden' : 'visible',
-                pointerEvents: pickMode ? 'none' : 'auto',
-              }}>
-              <ScreenContent screen={top} onBack={pop} />
-            </motion.div>
-          )}
-        </AnimatePresence>
+      <AnimatePresence>
+        {isOverlay && top && (
+          <motion.div
+            key={top._id}
+            className="absolute inset-0 z-[500] overflow-hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: pickMode ? 0 : 1 }}
+            exit={{ opacity: 0 }}
+            transition={spring.sheet}
+            style={{
+              background: th.phoneBg,
+              visibility: pickMode ? 'hidden' : 'visible',
+              pointerEvents: pickMode ? 'none' : 'auto',
+            }}>
+            <ScreenContent screen={top} onBack={pop} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

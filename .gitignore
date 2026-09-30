@@ -7,6 +7,7 @@ node_modules/
 # App workspaces
 apps/*/node_modules/
 apps/web/dist/
+apps/web/dist-build/
 packages/*/node_modules/
 
 # Cloud Function deps / build artifacts

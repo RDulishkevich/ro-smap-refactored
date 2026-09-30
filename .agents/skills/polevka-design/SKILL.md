@@ -48,7 +48,7 @@ Motion package `motion/react`. Springs: tabs 380/36, stack 320/32, FAB 420/26, n
 
 **Mobile:** tabs Лента / Карта / Профиль. Stack screens slide from the right (`push`/`pop`). Map center FAB → запись / добавить звук. Feed sub-tabs: Публикации / Каталог / Экспедиции.
 
-**Desktop:** padded gray canvas, 32px rounded app window, 72px rail, top search + profile. Map view is full-width; other views keep a 360px panel on the left. Auth covers the window. Same screens and tokens. Never center a 390px phone mock on production desktop.
+**Desktop:** padded gray canvas, 32px rounded app window, 72px rail, top search + profile. Map view is full-width; lists keep a 360px panel on the left. Sound / expedition / profile / record cards use a wide left pane with map stacked over the player on the right. Auth covers the window. Same screens and tokens. Never center a 390px phone mock on production desktop.
 
 ## Primitives
 

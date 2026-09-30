@@ -13,9 +13,10 @@ import { MapFab } from '../primitives/chrome';
 import { SoundMap, type MapContext, type MapPoint } from '../lib/SoundMap';
 import { CatalogFilters } from '../primitives/filters';
 
-export function MapScreen({ showNav = true, desktop = false, active: activeProp, onActive }: {
+export function MapScreen({ showNav = true, desktop = false, hidePlayer = false, active: activeProp, onActive }: {
   showNav?: boolean;
   desktop?: boolean;
+  hidePlayer?: boolean;
   active?: Sound | null;
   onActive?: (s: Sound | null) => void;
 }) {
@@ -200,7 +201,7 @@ export function MapScreen({ showNav = true, desktop = false, active: activeProp,
           </div>
         )}
         <AnimatePresence>
-          {active && (
+          {active && !hidePlayer && (
             <motion.div className={`absolute z-[400] ${desktop ? 'bottom-4 left-4 right-24 max-w-md' : 'bottom-0 left-3 right-3'}`}
               initial={{ y: 180, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 180, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}>

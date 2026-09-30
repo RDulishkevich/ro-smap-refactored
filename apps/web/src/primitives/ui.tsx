@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { ChevronLeft, Download, Headphones, Map as MapIcon, MapPin, Play, Radio, User, LogIn, Volume2, VolumeX, X } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { color, pinColor, spring, tap, typeMeta } from '@polevka/design';
 import { WF } from '@polevka/core';
 import type { Sound } from '@polevka/core';
@@ -58,6 +58,103 @@ export function ScreenHeader({ title, onBack, right }: { title: string; onBack: 
       </motion.button>
       <p className="flex-1 text-sm font-bold truncate" style={{ color: th.inkText }}>{title}</p>
       {right}
+    </div>
+  );
+}
+
+export function OtpInput({
+  value,
+  onChange,
+  onComplete,
+  length = 6,
+  error = false,
+  autoFocus = false,
+  disabled = false,
+  label = 'Код 2FA',
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onComplete?: (v: string) => void;
+  length?: number;
+  error?: boolean;
+  autoFocus?: boolean;
+  disabled?: boolean;
+  label?: string;
+}) {
+  const th = useTh();
+  const id = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const done = useRef('');
+  const [focused, setFocused] = useState(false);
+  const digits = value.replace(/\D/g, '').slice(0, length);
+  const caret = digits.length < length ? digits.length : length - 1;
+
+  useEffect(() => {
+    if (autoFocus) inputRef.current?.focus();
+  }, [autoFocus]);
+
+  useEffect(() => {
+    if (digits.length === length) {
+      if (done.current !== digits) {
+        done.current = digits;
+        onComplete?.(digits);
+      }
+    } else {
+      done.current = '';
+    }
+  }, [digits, length, onComplete]);
+
+  return (
+    <div>
+      {label && (
+        <label htmlFor={id} className="text-[10px] font-semibold block mb-2" style={{ color: color.sage }}>{label}</label>
+      )}
+      <motion.div
+        animate={error ? { x: [0, -8, 8, -6, 6, -3, 0] } : { x: 0 }}
+        transition={{ duration: 0.42 }}
+        className="relative"
+        onClick={() => inputRef.current?.focus()}>
+        <input
+          id={id}
+          ref={inputRef}
+          value={digits}
+          disabled={disabled}
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          autoCorrect="off"
+          spellCheck={false}
+          name="otp"
+          maxLength={length}
+          aria-label={label}
+          aria-invalid={error}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, length))}
+          className="absolute inset-0 w-full h-full opacity-0 caret-transparent text-base"
+        />
+        <div className="flex gap-1.5 sm:gap-2">
+          {Array.from({ length }, (_, i) => {
+            const on = focused && i === caret;
+            const filled = !!digits[i];
+            return (
+              <div
+                key={i}
+                className="flex-1 min-w-0 h-12 rounded-2xl flex items-center justify-center text-lg font-bold tabular-nums select-none"
+                style={{
+                  background: th.lightBg,
+                  color: th.inkText,
+                  boxShadow: `inset 0 0 0 ${on || error ? 1.5 : 1}px ${error || on ? color.accent : th.border}`,
+                  fontFamily: 'Geologica, sans-serif',
+                }}>
+                {filled ? digits[i] : on ? (
+                  <motion.span className="w-px h-5 rounded-full" style={{ background: color.accent }}
+                    animate={{ opacity: [1, 0.15, 1] }} transition={{ duration: 1.05, repeat: Infinity }} />
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </motion.div>
     </div>
   );
 }

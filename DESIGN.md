@@ -4,7 +4,7 @@
 
 **Implementation:** React/TSX in `apps/web`, tokens in `packages/design`. Vanilla (`index.html`) is a frozen archive and is not deployed.
 
-**Desktop (≥768):** dashboard chrome — padded canvas, rounded 32px window, icon rail (app illustration, not favicon), top search + profile. Map view is full-width; other views keep a 360px panel on the left. Auth is a full-window overlay. Never ship the Figma phone mock as the desktop product.
+**Desktop (≥768):** dashboard chrome — padded canvas, rounded 32px window, icon rail (app illustration, not favicon), top search + profile. Map view is full-width; lists keep a 360px panel on the left. Sound / expedition / profile / record cards use a wide left pane with map stacked over the player on the right. Auth is a full-window overlay. Never ship the Figma phone mock as the desktop product.
 
 ## Brand mark
 

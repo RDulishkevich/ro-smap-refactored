@@ -20,7 +20,7 @@ import { useNav, type ScreenConfig } from '../state/NavContext';
 import { useTh, useToggleTheme, useIsDark } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import { useUi } from '../state/UiContext';
-import { PlayPauseIcon, PinPlayer, ScreenHeader, SeekBar, SoundTypeTag, VolumeRow, WaveformSVG } from '../primitives/ui';
+import { PlayPauseIcon, PinPlayer, ScreenHeader, SeekBar, SoundTypeTag, VolumeRow, WaveformSVG, OtpInput } from '../primitives/ui';
 import { openCookieBanner } from '../primitives/CookieBanner';
 import { SoundMap } from '../lib/SoundMap';
 import { setDraftRecording } from '../lib/record-buffer';
@@ -493,13 +493,16 @@ function AuthScreen({ onBack }: { onBack: () => void }) {
   const [name, setName] = useState('');
   const [totp, setTotp] = useState('');
   const [needTotp, setNeedTotp] = useState(false);
+  const [totpError, setTotpError] = useState(false);
   const [pdConsent, setPdConsent] = useState(false);
   const [busy, setBusy] = useState(false);
-  const submit = async () => {
+  const submit = async (totpCode?: string) => {
     setBusy(true);
+    setTotpError(false);
     try {
+      const code = (totpCode ?? totp).trim();
       if (mode === 'up') await register(loginName.trim(), password, name.trim() || loginName.trim(), pdConsent);
-      else await login(loginName.trim(), password, totp.trim() || undefined);
+      else await login(loginName.trim(), password, code || undefined);
       toast('Добро пожаловать');
       pop();
     } catch (e: unknown) {
@@ -513,6 +516,8 @@ function AuthScreen({ onBack }: { onBack: () => void }) {
       } else if (err.code === 'pd_consent') {
         toast('Нужно согласие на обработку персональных данных');
       } else if (err.code === 'bad_totp') {
+        setTotpError(true);
+        setTotp('');
         toast('Неверный код 2FA');
       } else {
         toast(err.message || 'Ошибка входа');
@@ -523,7 +528,7 @@ function AuthScreen({ onBack }: { onBack: () => void }) {
     <>
       <div className="flex gap-1 p-1 rounded-2xl" style={{ background: th.lightBg }}>
         {(['in', 'up'] as const).map((m) => (
-          <button key={m} onClick={() => { setMode(m); setNeedTotp(false); }} className="flex-1 py-2 rounded-xl text-xs font-semibold" style={{ background: mode === m ? th.cardBg : 'transparent', color: mode === m ? ACCENT : OLIVE }}>
+          <button key={m} onClick={() => { setMode(m); setNeedTotp(false); setTotp(''); setTotpError(false); }} className="flex-1 py-2 rounded-xl text-xs font-semibold" style={{ background: mode === m ? th.cardBg : 'transparent', color: mode === m ? ACCENT : OLIVE }}>
             {m === 'in' ? 'Вход' : 'Регистрация'}
           </button>
         ))}
@@ -532,7 +537,13 @@ function AuthScreen({ onBack }: { onBack: () => void }) {
       <Field label="Логин" value={loginName} onChange={setLogin} th={th} />
       <Field label="Пароль" value={password} onChange={setPassword} th={th} password />
       {mode === 'in' && needTotp && (
-        <Field label="Код 2FA" value={totp} onChange={setTotp} th={th} inputMode="numeric" />
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl p-4" style={{ background: th.cardBg }}>
+          <p className="text-xs font-bold mb-1" style={{ color: th.inkText }}>Код из приложения</p>
+          <p className="text-[10px] mb-3" style={{ color: SAGE }}>Шесть цифр из Google Authenticator, Яндекс Ключ или другого приложения</p>
+          <OtpInput value={totp} error={totpError} autoFocus disabled={busy}
+            onChange={(v) => { setTotp(v); setTotpError(false); }}
+            onComplete={(code) => { if (!busy) void submit(code); }} />
+        </motion.div>
       )}
       {mode === 'up' && (
         <label className="flex items-start gap-2 text-[10px]" style={{ color: OLIVE }}>
@@ -1060,17 +1071,19 @@ function CabinetScreen({ onBack }: { onBack: () => void }) {
     } finally { setBusy(false); }
   };
 
-  const confirmTotp = async () => {
-    if (!/^\d{6}$/.test(totpConfirm.trim())) { toast('Введите 6-значный код'); return; }
+  const confirmTotp = async (code?: string) => {
+    const otp = (code ?? totpConfirm).trim();
+    if (!/^\d{6}$/.test(otp)) { toast('Введите 6-значный код'); return; }
     setBusy(true);
     try {
-      await apiTotpConfirm(totpConfirm.trim());
+      await apiTotpConfirm(otp);
       setTotpConfirm(''); setTotpSecret(''); setOtpauthUrl('');
       await refreshUser();
       toast('Двухфакторная защита включена');
     } catch (e: unknown) {
       const err = e as ApiError;
       toast(err.code === 'bad_totp' ? 'Неверный код' : (err.message || 'Не удалось подтвердить 2FA'));
+      setTotpConfirm('');
     } finally { setBusy(false); }
   };
 
@@ -1143,8 +1156,10 @@ function CabinetScreen({ onBack }: { onBack: () => void }) {
                 <div className="mt-3">
                   <p className="text-[10px] break-all mb-1" style={{ color: OLIVE }}>{totpSecret}</p>
                   {otpauthUrl && <a href={otpauthUrl} className="text-[10px] underline" style={{ color: ACCENT }}>Открыть в приложении-аутентификаторе</a>}
-                  <Field label="Код подтверждения" value={totpConfirm} onChange={setTotpConfirm} th={th} inputMode="numeric" />
-                  <button disabled={busy} onClick={() => void confirmTotp()} className="mt-2 w-full py-2.5 rounded-2xl text-xs font-semibold text-white" style={{ background: ACCENT }}>Включить 2FA</button>
+                  <OtpInput value={totpConfirm} autoFocus
+                    onChange={setTotpConfirm}
+                    onComplete={(code) => { setTotpConfirm(code); if (!busy) void confirmTotp(code); }} />
+                  <button disabled={busy} onClick={() => void confirmTotp()} className="mt-3 w-full py-2.5 rounded-2xl text-xs font-semibold text-white" style={{ background: ACCENT }}>Включить 2FA</button>
                 </div>
               )}
             </>
@@ -1152,8 +1167,10 @@ function CabinetScreen({ onBack }: { onBack: () => void }) {
           {totpOn && !isStaff && (
             <>
               <Field label="Пароль" value={disPw} onChange={setDisPw} th={th} password />
-              <Field label="Код 2FA" value={disCode} onChange={setDisCode} th={th} inputMode="numeric" />
-              <button disabled={busy} onClick={() => void disableTotp()} className="mt-2 w-full py-2.5 rounded-2xl text-xs font-semibold text-white" style={{ background: DARK }}>Отключить 2FA</button>
+              <div className="mt-2">
+                <OtpInput value={disCode} onChange={setDisCode} />
+              </div>
+              <button disabled={busy} onClick={() => void disableTotp()} className="mt-3 w-full py-2.5 rounded-2xl text-xs font-semibold text-white" style={{ background: DARK }}>Отключить 2FA</button>
             </>
           )}
         </div>
