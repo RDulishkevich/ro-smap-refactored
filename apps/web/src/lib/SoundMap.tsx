@@ -90,8 +90,15 @@ export function SoundMap({
       setTimeout(() => map.invalidateSize(), 200);
     })();
 
+    const ro = new ResizeObserver(() => {
+      ymapRef.current?.container.fitToViewport();
+      leafletRef.current?.invalidateSize();
+    });
+    ro.observe(el);
+
     return () => {
       dead = true;
+      ro.disconnect();
       ymapRef.current?.destroy();
       ymapRef.current = null;
       leafletRef.current?.remove();

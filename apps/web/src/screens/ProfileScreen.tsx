@@ -8,7 +8,7 @@ import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import { DecorBand, NavBar, PlayPauseIcon, SoundTypeTag, WaveformSVG } from '../primitives/ui';
-import Favicon from '@/brand/Favicon';
+import BrandMark from '@/brand/BrandMark';
 import LogoApp from '@/brand/LogoApp';
 
 const SAGE = color.sage;
@@ -67,7 +67,7 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
           <DecorBand opacity={th.isDark ? 0.1 : 0.15} />
           <div className="relative flex items-center justify-between mb-5">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 relative flex-shrink-0"><Favicon /></div>
+              <div className="w-8 h-8 relative flex-shrink-0"><BrandMark /></div>
               <p className="text-[10px] font-medium tracking-wide uppercase" style={{ color: SAGE }}>Профиль</p>
             </div>
             <motion.button whileTap={{ scale: 0.88 }} onClick={() => push({ type: 'settings' })}

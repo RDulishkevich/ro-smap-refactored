@@ -29,6 +29,8 @@ import { StaffScreen } from './StaffScreen';
 import { ExpeditionDetailScreen, ExpeditionEditScreen, PickLocationScreen } from './ExpeditionScreens';
 import { downloadLegalPrint } from '../lib/legal-print';
 import { pathForSound, shareUrl } from '../lib/routes';
+import { useIsDesktop } from '../lib/use-media';
+import LogoApp from '@/brand/LogoApp';
 
 const SAGE = color.sage;
 const OLIVE = color.olive;
@@ -481,6 +483,7 @@ function EventsScreen({ onBack, focusId }: { onBack: () => void; focusId?: strin
 
 function AuthScreen({ onBack }: { onBack: () => void }) {
   const th = useTh();
+  const desktop = useIsDesktop();
   const { login, register } = useAuth();
   const { toast } = useUi();
   const { push, pop } = useNav();
@@ -516,33 +519,46 @@ function AuthScreen({ onBack }: { onBack: () => void }) {
       }
     } finally { setBusy(false); }
   };
+  const form = (
+    <>
+      <div className="flex gap-1 p-1 rounded-2xl" style={{ background: th.lightBg }}>
+        {(['in', 'up'] as const).map((m) => (
+          <button key={m} onClick={() => { setMode(m); setNeedTotp(false); }} className="flex-1 py-2 rounded-xl text-xs font-semibold" style={{ background: mode === m ? th.cardBg : 'transparent', color: mode === m ? ACCENT : OLIVE }}>
+            {m === 'in' ? 'Вход' : 'Регистрация'}
+          </button>
+        ))}
+      </div>
+      {mode === 'up' && <Field label="Имя" value={name} onChange={setName} th={th} />}
+      <Field label="Логин" value={loginName} onChange={setLogin} th={th} />
+      <Field label="Пароль" value={password} onChange={setPassword} th={th} password />
+      {mode === 'in' && needTotp && (
+        <Field label="Код 2FA" value={totp} onChange={setTotp} th={th} inputMode="numeric" />
+      )}
+      {mode === 'up' && (
+        <label className="flex items-start gap-2 text-[10px]" style={{ color: OLIVE }}>
+          <input type="checkbox" checked={pdConsent} onChange={(e) => setPdConsent(e.target.checked)} className="mt-0.5" />
+          <span>Соглашаюсь на обработку персональных данных. <button type="button" className="underline" onClick={() => push({ type: 'legal', doc: 'privacy' })}>Политика</button> и <button type="button" className="underline" onClick={() => push({ type: 'legal', doc: 'terms' })}>условия</button>.</span>
+        </label>
+      )}
+      <button disabled={busy} onClick={() => void submit()} className="w-full py-3.5 rounded-2xl text-white text-sm font-bold" style={{ background: ACCENT }}>{busy ? '…' : mode === 'in' ? 'Войти' : 'Создать аккаунт'}</button>
+      {mode === 'in' && <button className="text-xs" style={{ color: SAGE }} onClick={() => push({ type: 'reset-password' })}>Забыли пароль?</button>}
+      <p className="text-[10px]" style={{ color: SAGE }}>Для входа нужно принять cookies сессии.</p>
+    </>
+  );
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       <ScreenHeader title={mode === 'in' ? 'Вход' : 'Регистрация'} onBack={onBack} />
-      <div className="p-5 flex flex-col gap-3">
-        <div className="flex gap-1 p-1 rounded-2xl" style={{ background: th.lightBg }}>
-          {(['in', 'up'] as const).map((m) => (
-            <button key={m} onClick={() => { setMode(m); setNeedTotp(false); }} className="flex-1 py-2 rounded-xl text-xs font-semibold" style={{ background: mode === m ? th.cardBg : 'transparent', color: mode === m ? ACCENT : OLIVE }}>
-              {m === 'in' ? 'Вход' : 'Регистрация'}
-            </button>
-          ))}
+      {desktop ? (
+        <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-8 pb-16">
+          <div className="w-24 h-24 rounded-[28px] overflow-hidden shadow-xl mb-5"><LogoApp /></div>
+          <h2 className="text-2xl font-bold mb-6" style={{ color: th.inkText, fontFamily: 'Klukva, Geologica, serif' }}>
+            {mode === 'in' ? 'С возвращением' : 'Новый исследователь'}
+          </h2>
+          <div className="w-full max-w-[400px] flex flex-col gap-3">{form}</div>
         </div>
-        {mode === 'up' && <Field label="Имя" value={name} onChange={setName} th={th} />}
-        <Field label="Логин" value={loginName} onChange={setLogin} th={th} />
-        <Field label="Пароль" value={password} onChange={setPassword} th={th} password />
-        {mode === 'in' && needTotp && (
-          <Field label="Код 2FA" value={totp} onChange={setTotp} th={th} inputMode="numeric" />
-        )}
-        {mode === 'up' && (
-          <label className="flex items-start gap-2 text-[10px]" style={{ color: OLIVE }}>
-            <input type="checkbox" checked={pdConsent} onChange={(e) => setPdConsent(e.target.checked)} className="mt-0.5" />
-            <span>Соглашаюсь на обработку персональных данных. <button type="button" className="underline" onClick={() => push({ type: 'legal', doc: 'privacy' })}>Политика</button> и <button type="button" className="underline" onClick={() => push({ type: 'legal', doc: 'terms' })}>условия</button>.</span>
-          </label>
-        )}
-        <button disabled={busy} onClick={() => void submit()} className="w-full py-3.5 rounded-2xl text-white text-sm font-bold" style={{ background: ACCENT }}>{busy ? '…' : mode === 'in' ? 'Войти' : 'Создать аккаунт'}</button>
-        {mode === 'in' && <button className="text-xs" style={{ color: SAGE }} onClick={() => push({ type: 'reset-password' })}>Забыли пароль?</button>}
-        <p className="text-[10px]" style={{ color: SAGE }}>Для входа нужно принять cookies сессии.</p>
-      </div>
+      ) : (
+        <div className="p-5 flex flex-col gap-3">{form}</div>
+      )}
     </div>
   );
 }
@@ -559,24 +575,34 @@ function Field({ label, value, onChange, th, password, inputMode, readOnly }: { 
 
 function ResetPasswordScreen({ onBack }: { onBack: () => void }) {
   const th = useTh();
+  const desktop = useIsDesktop();
   const { toast } = useUi();
   const [loginOrEmail, setL] = useState('');
   const [code, setCode] = useState('');
   const [pw, setPw] = useState('');
+  const fields = (
+    <>
+      <Field label="Логин или email" value={loginOrEmail} onChange={setL} th={th} />
+      <button className="py-3 rounded-2xl text-xs font-semibold text-white" style={{ background: DARK }} onClick={async () => {
+        try { await apiRequestPasswordReset(loginOrEmail); toast('Если аккаунт есть, код отправлен'); } catch (e: unknown) { toast((e as Error).message); }
+      }}>Отправить код</button>
+      <Field label="Код" value={code} onChange={setCode} th={th} />
+      <Field label="Новый пароль" value={pw} onChange={setPw} th={th} password />
+      <button className="py-3 rounded-2xl text-xs font-semibold text-white" style={{ background: ACCENT }} onClick={async () => {
+        try { await apiConfirmPasswordReset(loginOrEmail, code, pw); toast('Пароль обновлён'); onBack(); } catch (e: unknown) { toast((e as Error).message); }
+      }}>Сохранить пароль</button>
+    </>
+  );
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       <ScreenHeader title="Сброс пароля" onBack={onBack} />
-      <div className="p-5 flex flex-col gap-3">
-        <Field label="Логин или email" value={loginOrEmail} onChange={setL} th={th} />
-        <button className="py-3 rounded-2xl text-xs font-semibold text-white" style={{ background: DARK }} onClick={async () => {
-          try { await apiRequestPasswordReset(loginOrEmail); toast('Если аккаунт есть, код отправлен'); } catch (e: unknown) { toast((e as Error).message); }
-        }}>Отправить код</button>
-        <Field label="Код" value={code} onChange={setCode} th={th} />
-        <Field label="Новый пароль" value={pw} onChange={setPw} th={th} password />
-        <button className="py-3 rounded-2xl text-xs font-semibold text-white" style={{ background: ACCENT }} onClick={async () => {
-          try { await apiConfirmPasswordReset(loginOrEmail, code, pw); toast('Пароль обновлён'); onBack(); } catch (e: unknown) { toast((e as Error).message); }
-        }}>Сохранить пароль</button>
-      </div>
+      {desktop ? (
+        <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-8 pb-16">
+          <div className="w-full max-w-[400px] flex flex-col gap-3">{fields}</div>
+        </div>
+      ) : (
+        <div className="p-5 flex flex-col gap-3">{fields}</div>
+      )}
     </div>
   );
 }

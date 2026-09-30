@@ -3,7 +3,7 @@ import svgPaths from "./svg-47qc547o0s";
 export default function LogoApp() {
   return (
     <div className="relative size-full" data-name="Logo app">
-      <svg className="absolute block inset-0 size-full" fill="none" height="679" preserveAspectRatio="none" viewBox="0 0 671 679" width="671">
+      <svg className="absolute block inset-0 size-full" fill="none" height="679" preserveAspectRatio="xMidYMid slice" viewBox="0 0 671 679" width="671">
         <g clipPath="url(#clip0_0_4)" id="Logo app">
           <g id="Group 1">
             <path d={svgPaths.p33443f80} fill="#F4E8D8" id="Vector" />

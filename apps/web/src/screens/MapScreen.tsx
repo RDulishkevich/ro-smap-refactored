@@ -149,10 +149,10 @@ export function MapScreen({ showNav = true, desktop = false, active: activeProp,
             <button className="ml-2 underline" onClick={() => setPickMode(null)}>готово</button>
           </div>
         )}
-        {!desktop && (
         <AnimatePresence>
           {active && (
-            <motion.div className="absolute bottom-0 left-3 right-3 z-[400]" initial={{ y: 180, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 180, opacity: 0 }}
+            <motion.div className={`absolute z-[400] ${desktop ? 'bottom-4 left-4 right-24 max-w-md' : 'bottom-0 left-3 right-3'}`}
+              initial={{ y: 180, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 180, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}>
               <PinPlayer sound={active} onClose={() => setActive(null)} playing={playing && String(playingId) === String(active.id)}
                 onToggle={() => togglePlay(active)} progress={progress}
@@ -162,7 +162,6 @@ export function MapScreen({ showNav = true, desktop = false, active: activeProp,
             </motion.div>
           )}
         </AnimatePresence>
-        )}
         {desktop && (
           <div className="absolute bottom-5 right-5 z-[400]" onClick={(e) => e.stopPropagation()}>
             <MapFab open={fabOpen} onToggle={() => { setFabOpen((o) => !o); }} />
@@ -180,7 +179,7 @@ export function MapScreen({ showNav = true, desktop = false, active: activeProp,
             <NavBar hollowCenter />
           </div>
           <div className="absolute left-1/2 z-20" style={{ top: 0, transform: 'translate(-50%, -50%)' }} onClick={(e) => e.stopPropagation()}>
-            <MapFab open={fabOpen} onToggle={() => { setFabOpen((o) => !o); setActive(null); }} />
+            <MapFab open={fabOpen} onToggle={() => { setFabOpen((o) => !o); setActive(null); }} from="center" />
           </div>
         </div>
       )}

@@ -5,30 +5,36 @@ import { useNav } from '../state/NavContext';
 import { useUi } from '../state/UiContext';
 import { useTh } from '../state/ThemeContext';
 
-export function MapFab({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+export function MapFab({ open, onToggle, from = 'corner' }: { open: boolean; onToggle: () => void; from?: 'corner' | 'center' }) {
   const { requireAuth } = useNav();
-  const actions = [
-    { Icon: MapPin, bg: color.dark, screen: { type: 'add-sound' as const } },
-    { Icon: Mic, bg: color.accent, screen: { type: 'record' as const } },
-  ];
+  const actions = from === 'center'
+    ? [
+        { Icon: MapPin, bg: color.dark, screen: { type: 'add-sound' as const }, x: -78, y: -78, label: 'Добавить звук' },
+        { Icon: Mic, bg: color.accent, screen: { type: 'record' as const }, x: 78, y: -78, label: 'Записать' },
+      ]
+    : [
+        { Icon: MapPin, bg: color.dark, screen: { type: 'add-sound' as const }, x: -72, y: -72, label: 'Добавить звук' },
+        { Icon: Mic, bg: color.accent, screen: { type: 'record' as const }, x: -132, y: -132, label: 'Записать' },
+      ];
   return (
-    <div className="relative w-16 h-16">
+    <div className="relative w-16 h-16 pointer-events-none">
       <AnimatePresence>
-        {open && (
-          <div className="absolute left-1/2 flex gap-3" style={{ bottom: 'calc(100% + 14px)', transform: 'translateX(-50%)' }}>
-            {actions.map(({ Icon, bg, screen }, i) => (
-              <motion.button key={i}
-                initial={{ scale: 0, opacity: 0, y: 14 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0, opacity: 0, y: 14 }}
-                transition={{ delay: i * 0.07, type: 'spring', stiffness: 500, damping: 28 }}
-                whileTap={{ scale: 0.85 }} onClick={() => { onToggle(); requireAuth(screen); }}
-                className="w-12 h-12 rounded-full flex items-center justify-center shadow-xl" style={{ background: bg }}>
-                <Icon size={20} color="white" />
-              </motion.button>
-            ))}
-          </div>
-        )}
+        {open && actions.map(({ Icon, bg, screen, x, y, label }, i) => (
+          <motion.button key={label} title={label} aria-label={label}
+            initial={{ scale: 0, opacity: 0, x: 0, y: 0 }}
+            animate={{ scale: 1, opacity: 1, x, y }}
+            exit={{ scale: 0, opacity: 0, x: 0, y: 0 }}
+            transition={{ ...spring.fab, delay: i * 0.07 }}
+            whileTap={{ scale: 0.85 }}
+            onClick={() => { onToggle(); requireAuth(screen); }}
+            className="absolute left-2 top-2 w-12 h-12 rounded-full flex items-center justify-center shadow-xl pointer-events-auto z-[1]"
+            style={{ background: bg }}>
+            <Icon size={20} color="white" />
+          </motion.button>
+        ))}
       </AnimatePresence>
-      <motion.button onClick={onToggle} className="w-16 h-16 rounded-full flex items-center justify-center shadow-xl" style={{ background: color.accent }}
+      <motion.button onClick={onToggle} title="Добавить" aria-label="Добавить"
+        className="relative z-10 w-16 h-16 rounded-full flex items-center justify-center shadow-xl pointer-events-auto" style={{ background: color.accent }}
         whileTap={{ scale: 0.9 }} animate={{ rotate: open ? 45 : 0 }} transition={spring.fab}>
         <Plus size={26} color="white" strokeWidth={2.5} />
       </motion.button>

@@ -9,7 +9,7 @@ import { useData } from '../state/DataContext';
 import { useAuth } from '../state/AuthContext';
 import { DecorBand, NavBar, PlayPauseIcon, SoundTypeTag, WaveformSVG } from '../primitives/ui';
 import { CatalogFilters } from '../primitives/filters';
-import Favicon from '@/brand/Favicon';
+import BrandMark from '@/brand/BrandMark';
 
 const SAGE = color.sage;
 const OLIVE = color.olive;
@@ -33,7 +33,7 @@ export function FeedScreen({ showNav = true, embed = false, initialTab }: { show
         <DecorBand opacity={th.isDark ? 0.12 : 0.15} />
         <div className="relative flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 relative flex-shrink-0"><Favicon /></div>
+            <div className="w-9 h-9 relative flex-shrink-0"><BrandMark /></div>
             <div>
               <p className="text-[10px] font-medium tracking-wide uppercase" style={{ color: SAGE }}>Полёвка</p>
               <h1 className="text-lg font-bold leading-tight" style={{ color: th.inkText, fontFamily: 'Klukva, Geologica, serif' }}>Лента</h1>

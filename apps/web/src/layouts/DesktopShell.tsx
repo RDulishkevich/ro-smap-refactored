@@ -5,19 +5,16 @@ import {
   Map as MapIcon, MessageCircle, Radio, Search, Settings, Shield, User,
 } from 'lucide-react';
 import { color, spring, tap } from '@polevka/design';
-import { apiPatchSound, type Sound } from '@polevka/core';
+import type { Sound } from '@polevka/core';
 import { useAuth } from '../state/AuthContext';
 import { useNav, type DesktopView, type ScreenConfig } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
-import { useUi } from '../state/UiContext';
 import { MapScreen } from '../screens/MapScreen';
 import { CatalogSoundList, FeedScreen } from '../screens/FeedScreen';
 import { GuestProfileScreen, ProfileScreen } from '../screens/ProfileScreen';
 import { ScreenContent } from '../screens/stack';
-import { CatalogFilters } from '../primitives/filters';
-import { PinPlayer } from '../primitives/ui';
-import Favicon from '@/brand/Favicon';
+import LogoApp from '@/brand/LogoApp';
 
 const ACCENT = color.accent;
 const OLIVE = color.olive;
@@ -65,7 +62,12 @@ export function DesktopShell() {
 
   const chipBg = th.isDark ? th.lightBg : '#F4F5F7';
   const top = stack[stack.length - 1];
-  const title = top ? stackTitle(top) : VIEW_TITLE[desktopView];
+  const isAuthFlow = top?.type === 'auth' || top?.type === 'reset-password';
+  const asideTop = isAuthFlow
+    ? [...stack].reverse().find((s) => s.type !== 'auth' && s.type !== 'reset-password') ?? null
+    : top;
+  const showAside = desktopView !== 'map' || !!asideTop;
+  const title = isAuthFlow && top ? stackTitle(top) : asideTop ? stackTitle(asideTop) : VIEW_TITLE[desktopView];
   const unread = (mail.find((b) => b.loginName === user?.loginName)?.notifications || [])
     .filter((n) => !(n as { read?: boolean }).read).length;
 
@@ -84,15 +86,15 @@ export function DesktopShell() {
   };
 
   return (
-    <div className="h-full w-full p-4 lg:p-5">
+    <div className="relative h-full w-full p-4 lg:p-5">
       <div className="flex h-full w-full overflow-hidden rounded-[32px] shadow-[0_24px_64px_rgba(45,60,57,0.14)]"
         style={{ background: th.cardBg }}>
         <nav className="flex flex-col items-center py-5 gap-1.5 flex-shrink-0 w-[72px]" style={{ borderRight: `1px solid ${th.border}` }}>
-          <button title="Полёвка" onClick={() => goView('map')} className="w-10 h-10 rounded-2xl relative mb-3 overflow-hidden">
-            <Favicon />
+          <button title="Полёвка" onClick={() => goView('map')} className="w-11 h-11 rounded-[14px] relative mb-3 overflow-hidden shadow-sm">
+            <LogoApp />
           </button>
           {mainNav.map(({ id, Icon, label }) => {
-            const on = id === 'messages' ? top?.type === 'messages' : desktopView === id && !top;
+            const on = id === 'messages' ? asideTop?.type === 'messages' : desktopView === id && !asideTop;
             return (
               <motion.button key={id} title={label} whileTap={tap.nav} onClick={() => goView(id)}
                 className="w-11 h-11 rounded-2xl flex items-center justify-center"
@@ -104,8 +106,8 @@ export function DesktopShell() {
           {isStaff && (
             <motion.button title="Staff" whileTap={tap.nav} onClick={() => push({ type: 'staff' })}
               className="w-11 h-11 rounded-2xl flex items-center justify-center"
-              style={{ background: top?.type === 'staff' ? color.cream : 'transparent' }}>
-              <Shield size={18} color={top?.type === 'staff' ? ACCENT : th.isDark ? '#7A9A88' : '#C0C6BA'} />
+              style={{ background: asideTop?.type === 'staff' ? color.cream : 'transparent' }}>
+              <Shield size={18} color={asideTop?.type === 'staff' ? ACCENT : th.isDark ? '#7A9A88' : '#C0C6BA'} />
             </motion.button>
           )}
           <div className="flex-1" />
@@ -170,98 +172,56 @@ export function DesktopShell() {
             </div>
           </header>
 
-          <div className="flex-1 min-h-0 flex gap-4 p-4 lg:p-5">
-            <aside className="w-[360px] flex-shrink-0 flex flex-col min-h-0 rounded-[24px] overflow-hidden" style={{ background: th.phoneBg }}>
-              <AnimatePresence mode="wait">
-                {top ? (
-                  <motion.div key={top._id} className="h-full min-h-0" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={spring.stack}>
-                    <ScreenContent screen={top} onBack={pop} />
-                  </motion.div>
-                ) : (
-                  <motion.div key={desktopView} className="h-full min-h-0 overflow-hidden" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={spring.mount}>
-                    {desktopView === 'map' && <MapSidePanel sound={picked} onPick={setPicked} />}
-                    {desktopView === 'library' && (
-                      <div className="h-full overflow-y-auto p-4 scrollbar-none">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide mb-3 text-center" style={{ color: SAGE }}>Каталог</p>
-                        <CatalogSoundList />
-                      </div>
-                    )}
-                    {desktopView === 'feed' && <FeedScreen showNav={false} embed />}
-                    {desktopView === 'expeditions' && <FeedScreen showNav={false} embed initialTab="expeditions" />}
-                    {desktopView === 'cabinet' && (isLoggedIn ? <ProfileScreen showNav={false} /> : <GuestProfileScreen showNav={false} />)}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </aside>
+          <motion.div className="flex-1 min-h-0 flex p-4 lg:p-5" initial={false}
+            animate={{ gap: showAside ? 16 : 0 }} transition={spring.sheet}>
+            <motion.aside
+              initial={false}
+              animate={{ width: showAside ? 360 : 0, opacity: showAside ? 1 : 0 }}
+              transition={spring.sheet}
+              className="flex-shrink-0 min-h-0 overflow-hidden rounded-[24px]"
+              style={{ background: th.phoneBg }}>
+              <div className="w-[360px] h-full flex flex-col min-h-0">
+                <AnimatePresence mode="wait">
+                  {asideTop ? (
+                    <motion.div key={asideTop._id} className="h-full min-h-0" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={spring.stack}>
+                      <ScreenContent screen={asideTop} onBack={pop} />
+                    </motion.div>
+                  ) : (
+                    <motion.div key={desktopView} className="h-full min-h-0 overflow-hidden" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={spring.mount}>
+                      {desktopView === 'library' && (
+                        <div className="h-full overflow-y-auto p-4 scrollbar-none">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide mb-3 text-center" style={{ color: SAGE }}>Каталог</p>
+                          <CatalogSoundList />
+                        </div>
+                      )}
+                      {desktopView === 'feed' && <FeedScreen showNav={false} embed />}
+                      {desktopView === 'expeditions' && <FeedScreen showNav={false} embed initialTab="expeditions" />}
+                      {desktopView === 'cabinet' && (isLoggedIn ? <ProfileScreen showNav={false} /> : <GuestProfileScreen showNav={false} />)}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.aside>
             <div className="relative flex-1 min-w-0 rounded-[24px] overflow-hidden" style={{ background: th.phoneBg }}>
               <MapScreen showNav={false} desktop active={picked} onActive={setPicked} />
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function MapSidePanel({ sound, onPick }: { sound: Sound | null; onPick: (s: Sound | null) => void }) {
-  const th = useTh();
-  const { push } = useNav();
-  const { toast } = useUi();
-  const {
-    filteredSounds, playing, playingId, progress, togglePlay, seek, volume, muted, setVolume, toggleMute,
-  } = useData();
-  const more = filteredSounds.filter((s) => String(s.id) !== String(sound?.id)).slice(0, 3);
-
-  const download = (s: Sound) => {
-    if (!s.url) { toast('Нет файла'); return; }
-    const a = document.createElement('a');
-    a.href = String(s.url);
-    a.download = `${s.title || 'sound'}.wav`;
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    void apiPatchSound(s.id, { incDownloads: 1 }).catch(() => {});
-  };
-
-  return (
-    <div className="h-full overflow-y-auto scrollbar-none p-4 flex flex-col gap-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-center" style={{ color: SAGE }}>Карточка</p>
-      {sound ? (
-        <div className="rounded-3xl overflow-hidden" style={{ background: th.cardBg }}>
-          <PinPlayer sound={sound} simple playing={playing && String(playingId) === String(sound.id)}
-            onToggle={() => togglePlay(sound)} progress={progress}
-            onOpen={() => push({ type: 'sound-detail', sound })}
-            onClose={() => onPick(null)}
-            onSeek={seek} volume={volume} muted={muted} onVolume={setVolume} onMute={toggleMute}
-            onDownload={() => download(sound)} />
-          <div className="px-4 pb-4">
-            <button className="w-full py-3 rounded-full text-sm font-bold text-white" style={{ background: ACCENT }}
-              onClick={() => push({ type: 'sound-detail', sound })}>Открыть запись</button>
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <p className="text-xs font-bold mb-1" style={{ color: th.inkText }}>Выберите метку</p>
-          <p className="text-[10px] mb-3" style={{ color: OLIVE }}>Клик по пину на карте откроет плеер и карточку здесь — как деталь в макете.</p>
-          <CatalogFilters />
-        </div>
-      )}
-      {!!more.length && (
-        <div>
-          <div className="flex items-center justify-between mb-2 px-1">
-            <p className="text-[11px] font-semibold" style={{ color: th.inkText }}>Ещё записи</p>
-            <button className="text-[10px] font-semibold" style={{ color: ACCENT }} onClick={() => push({ type: 'search' })}>все</button>
-          </div>
-          {more.map((s) => (
-            <button key={String(s.id)} onClick={() => onPick(s)}
-              className="w-full text-left rounded-2xl overflow-hidden mb-2" style={{ background: th.cardBg }}>
-              <p className="text-xs font-bold px-3 pt-3 truncate" style={{ color: th.inkText }}>{s.title}</p>
-              <p className="text-[10px] px-3 pb-3" style={{ color: SAGE }}>{s.location}</p>
-            </button>
-          ))}
-        </div>
-      )}
+        <AnimatePresence>
+          {isAuthFlow && top && (
+            <motion.div
+              key={top._id}
+              className="absolute inset-0 z-[500] overflow-hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={spring.sheet}
+              style={{ background: th.phoneBg }}>
+              <ScreenContent screen={top} onBack={pop} />
+            </motion.div>
+          )}
+        </AnimatePresence>
     </div>
   );
 }
