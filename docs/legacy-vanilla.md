@@ -1,8 +1,8 @@
 # Legacy vanilla (frozen)
 
-Корневой `index.html` и `src/ui/`, `src/core/` — архив исходного клиента Полёвки.
+Эталон исходного клиента: `src/ui/`, `src/core/` и снимок `archive/vanilla/index.html`.
 
-**Не деплоить на polevka.art.** Продакшен — только `apps/web/dist`.
+**polevka.art (GitHub Pages)** отдаёт корневой `index.html` из сборки `apps/web`. Vanilla с продакшена снят.
 
 Новые фичи пишутся в `apps/web` и `packages/core`. Vanilla трогать только если нужно снять эталон поведения (поля публикации, merge JSON, права staff).
 

@@ -36,5 +36,5 @@ Staff
 - [x] `apiSyncJson` шлёт только изменённые записи; сервер мержит JSON
 
 Cutover
-- [x] На бакете только `apps/web/dist` (не коммитится; деплой из `npm run build`)
-- [x] Vanilla `index.html` не открывается с продакшена
+- [x] GitHub Pages отдаёт React (`index.html` + `assets/` из `apps/web/dist`)
+- [x] Vanilla homepage не на polevka.art (`archive/vanilla/index.html`)

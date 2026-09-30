@@ -1,8 +1,6 @@
 # Полёвка
 
-Публичный сайт: **React-клиент** (`apps/web`). Сборка `npm run build` → `apps/web/dist`. Это единственный фронт polevka.art.
-
-Vanilla (`index.html`, `src/ui`, `src/core`) заморожен: локальный эталон логики, **не публиковать**. Cutover: [`docs/cutover.md`](docs/cutover.md), чеклист: [`docs/parity-checklist.md`](docs/parity-checklist.md).
+Публичный сайт: **React-клиент** (`apps/web`). Сборка `npm run build` → `apps/web/dist`, на GitHub Pages выкладывается в корень репозитория (`index.html` + `assets/`). Vanilla — архив в `archive/vanilla/` и `src/`.
 
 ## Возможности
 - карта с маркерами звуков (Yandex 2.1, OSM fallback)
@@ -47,7 +45,7 @@ npm run dev
 
 http://localhost:5173 — ПК: карта + рейка; мобилка: Лента / Карта / Профиль. Исходники: `apps/web`, ядро `packages/core`, токены `packages/design`. Сборка продакшена: `npm run build` → `apps/web/dist`.
 
-Vanilla в корне репозитория — архив, не деплоится.
+Vanilla — `archive/vanilla/` и `src/`, на домен не выкладывается.
 
 Нативный каркас Expo: `apps/native/README.md` (ставится отдельно, не из корня).
 
