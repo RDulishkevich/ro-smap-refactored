@@ -4,7 +4,7 @@
 
 **Implementation:** React/TSX in `apps/web`, tokens in `packages/design`. Vanilla (`index.html`) is a frozen archive and is not deployed.
 
-**Desktop (≥768):** dashboard chrome — padded canvas, rounded 32px window, icon rail, top search + profile, map in the main card, 360px detail panel. Never ship the Figma phone mock as the desktop product.
+**Desktop (≥768):** dashboard chrome — padded canvas, rounded 32px window, icon rail, top search + profile, 360px detail panel on the left, map in the main card on the right. Never ship the Figma phone mock as the desktop product.
 
 ## Brand mark
 

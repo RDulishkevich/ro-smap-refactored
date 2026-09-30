@@ -171,13 +171,10 @@ export function DesktopShell() {
           </header>
 
           <div className="flex-1 min-h-0 flex gap-4 p-4 lg:p-5">
-            <div className="relative flex-1 min-w-0 rounded-[24px] overflow-hidden" style={{ background: th.phoneBg }}>
-              <MapScreen showNav={false} desktop active={picked} onActive={setPicked} />
-            </div>
             <aside className="w-[360px] flex-shrink-0 flex flex-col min-h-0 rounded-[24px] overflow-hidden" style={{ background: th.phoneBg }}>
               <AnimatePresence mode="wait">
                 {top ? (
-                  <motion.div key={top._id} className="h-full min-h-0" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} transition={spring.stack}>
+                  <motion.div key={top._id} className="h-full min-h-0" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={spring.stack}>
                     <ScreenContent screen={top} onBack={pop} />
                   </motion.div>
                 ) : (
@@ -196,6 +193,9 @@ export function DesktopShell() {
                 )}
               </AnimatePresence>
             </aside>
+            <div className="relative flex-1 min-w-0 rounded-[24px] overflow-hidden" style={{ background: th.phoneBg }}>
+              <MapScreen showNav={false} desktop active={picked} onActive={setPicked} />
+            </div>
           </div>
         </div>
       </div>
