@@ -13,7 +13,12 @@ import { MapFab } from '../primitives/chrome';
 import { SoundMap, type MapPoint } from '../lib/SoundMap';
 import { CatalogFilters } from '../primitives/filters';
 
-export function MapScreen({ showNav = true }: { showNav?: boolean }) {
+export function MapScreen({ showNav = true, desktop = false, active: activeProp, onActive }: {
+  showNav?: boolean;
+  desktop?: boolean;
+  active?: Sound | null;
+  onActive?: (s: Sound | null) => void;
+}) {
   const { push } = useNav();
   const { openMenu, toast, confirm } = useUi();
   const { isLoggedIn, isStaff } = useAuth();
@@ -22,7 +27,9 @@ export function MapScreen({ showNav = true }: { showNav?: boolean }) {
     filteredSounds, allSounds, playingId, playing, progress, togglePlay, seek, volume, muted, setVolume, toggleMute,
     pickMode, setPickMode, setPickedPoint, routeDraft, setRouteDraft, routePreview, reload,
   } = useData();
-  const [active, setActive] = useState<Sound | null>(null);
+  const [innerActive, setInnerActive] = useState<Sound | null>(null);
+  const active = onActive ? (activeProp ?? null) : innerActive;
+  const setActive = onActive ?? setInnerActive;
   const [fabOpen, setFabOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const onSelect = useCallback((s: Sound) => { setActive(s); setFabOpen(false); }, []);
@@ -99,6 +106,7 @@ export function MapScreen({ showNav = true }: { showNav?: boolean }) {
       <div className="relative flex-1" onClick={closeAll}>
         <SoundMap sounds={uniquePins} activeId={active?.id ?? null} onSelect={onSelect}
           onPick={onPick} pickMode={!!pickMode} route={routes} pickMarker={null} />
+        {!desktop && (
         <div className="absolute top-4 right-4 flex gap-2 z-[400]">
           <motion.button whileTap={{ scale: 0.88 }} onClick={(e) => { e.stopPropagation(); setShowFilters((v) => !v); }}
             className="w-9 h-9 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }}>
@@ -123,6 +131,8 @@ export function MapScreen({ showNav = true }: { showNav?: boolean }) {
             <MoreHorizontal size={15} style={{ color: color.olive }} />
           </motion.button>
         </div>
+        )}
+        {!desktop && (
         <AnimatePresence>
           {showFilters && (
             <motion.div className="absolute top-16 left-3 right-3 z-[400] rounded-2xl p-3 shadow-lg" style={{ background: th.cardBg }}
@@ -132,12 +142,14 @@ export function MapScreen({ showNav = true }: { showNav?: boolean }) {
             </motion.div>
           )}
         </AnimatePresence>
+        )}
         {pickMode && (
           <div className="absolute top-16 left-3 right-3 z-[399] rounded-2xl px-3 py-2 text-[10px] font-semibold text-white" style={{ background: color.accent }}>
             {pickMode === 'route' ? 'Маршрут: нажимайте точки. Долгое нажатие или ПКМ.' : 'Выберите точку на карте (клик или долгое нажатие).'}
             <button className="ml-2 underline" onClick={() => setPickMode(null)}>готово</button>
           </div>
         )}
+        {!desktop && (
         <AnimatePresence>
           {active && (
             <motion.div className="absolute bottom-0 left-3 right-3 z-[400]" initial={{ y: 180, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 180, opacity: 0 }}
@@ -150,6 +162,12 @@ export function MapScreen({ showNav = true }: { showNav?: boolean }) {
             </motion.div>
           )}
         </AnimatePresence>
+        )}
+        {desktop && (
+          <div className="absolute bottom-5 right-5 z-[400]" onClick={(e) => e.stopPropagation()}>
+            <MapFab open={fabOpen} onToggle={() => { setFabOpen((o) => !o); }} />
+          </div>
+        )}
       </div>
       {showNav && (
         <div className="relative flex-shrink-0 z-[401]">

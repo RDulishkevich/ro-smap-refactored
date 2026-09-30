@@ -4,7 +4,7 @@
 
 **Implementation:** React/TSX in `apps/web`, tokens in `packages/design`. Vanilla (`index.html`) is a frozen archive and is not deployed.
 
-**Mobile (<768):** 3 tabs — Лента, Карта, Профиль — plus a right-edge stack. **Desktop (≥768):** full-bleed map + left rail + optional side panel. Never ship the Figma phone mock as the desktop product.
+**Desktop (≥768):** dashboard chrome — padded canvas, rounded 32px window, icon rail, top search + profile, map in the main card, 360px detail panel. Never ship the Figma phone mock as the desktop product.
 
 ## Brand mark
 
