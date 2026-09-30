@@ -35,7 +35,7 @@ export function FeedScreen({ showNav = true, embed = false, initialTab }: { show
             <div className="w-9 h-9 relative flex-shrink-0"><BrandMark /></div>
             <div>
               <p className="text-[10px] font-medium tracking-wide uppercase" style={{ color: SAGE }}>Полёвка</p>
-              <h1 className="text-lg font-bold leading-tight" style={{ color: th.inkText, fontFamily: 'Klukva, Geologica, serif' }}>Лента</h1>
+              <h1 className="text-lg font-bold leading-tight" style={{ color: th.inkText, fontFamily: 'Klukva, "Geist Variable", serif' }}>Лента</h1>
             </div>
           </div>
           <div className="flex gap-1.5">

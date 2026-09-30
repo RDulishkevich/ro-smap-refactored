@@ -26,7 +26,7 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
   const th = useTh();
   const {
     filteredSounds, allSounds, playingId, playing, progress, togglePlay, seek, volume, muted, setVolume, toggleMute,
-    pickMode, setPickMode, setPickedPoint, routeDraft, setRouteDraft, routePreview, reload,
+    pickMode, setPickMode, pickedPoint, setPickedPoint, routeDraft, setRouteDraft, routePreview, reload,
   } = useData();
   const [innerActive, setInnerActive] = useState<Sound | null>(null);
   const active = onActive ? (activeProp ?? null) : innerActive;
@@ -107,7 +107,6 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
   const onPick = useCallback((pt: MapPoint, sound?: Sound) => {
     if (pickMode === 'point') {
       setPickedPoint(pt);
-      setPickMode(null);
       toast('Точка выбрана');
       return;
     }
@@ -157,7 +156,7 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
     <div className="flex flex-col h-full overflow-hidden" style={{ background: th.phoneBg }}>
       <div className="relative flex-1 min-h-0">
         <SoundMap sounds={uniquePins} activeId={active?.id ?? null} onSelect={onSelect}
-          onPick={onPick} onContext={onContext} onEmpty={onEmpty} onHover={setHover} pickMode={!!pickMode} route={routes} pickMarker={null} />
+          onPick={onPick} onContext={onContext} onEmpty={onEmpty} onHover={setHover} pickMode={!!pickMode} route={routes} pickMarker={pickedPoint} />
         {!desktop && (
         <div className="absolute top-4 right-4 flex gap-2 z-[400]">
           <motion.button whileTap={{ scale: 0.88 }} onClick={(e) => { e.stopPropagation(); setShowFilters((v) => !v); }}

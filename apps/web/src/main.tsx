@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client';
+import '@fontsource-variable/geist';
 import App from './App';
 import './styles/index.css';
 import { registerPwa } from './lib/pwa';

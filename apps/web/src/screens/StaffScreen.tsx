@@ -13,6 +13,7 @@ import { useData } from '../state/DataContext';
 import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useUi } from '../state/UiContext';
+import { useIsDesktop } from '../lib/use-media';
 
 const SAGE = color.sage;
 const OLIVE = color.olive;
@@ -23,6 +24,7 @@ type Tab = 'sounds' | 'reports' | 'users' | 'tickets';
 
 export function StaffScreen({ onBack }: { onBack: () => void }) {
   const th = useTh();
+  const desktop = useIsDesktop();
   const { allSounds, reload, profiles, mail } = useData();
   const { user } = useAuth();
   const { toast, confirm } = useUi();
@@ -64,23 +66,28 @@ export function StaffScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <ScreenHeader title="Модерация" onBack={onBack} />
-      <div className="px-4 pt-2 flex gap-1">
+      {!desktop && <ScreenHeader title="Модерация" onBack={onBack} />}
+      <div className={`${desktop ? 'px-6 pt-5' : 'px-4 pt-2'} flex gap-1.5`}>
         {([['sounds', 'Звуки'], ['reports', 'Жалобы'], ['users', 'Люди'], ['tickets', 'Тикеты']] as const).map(([id, lab]) => (
-          <button key={id} onClick={() => setTab(id)} className="flex-1 py-2 rounded-xl text-[10px] font-semibold"
+          <button key={id} onClick={() => setTab(id)} className="flex-1 py-2.5 rounded-2xl text-xs font-semibold"
             style={{ background: tab === id ? ACCENT : th.lightBg, color: tab === id ? '#fff' : OLIVE }}>{lab}</button>
         ))}
       </div>
-      <div className="p-4 overflow-y-auto flex-1">
-        <p className="text-[10px] mb-3" style={{ color: SAGE }}>{user?.role} · очередь {pendingSounds(allSounds).length} · жалоб {reported.length} · тикетов {tickets.length}</p>
+      <div className={`${desktop ? 'p-6' : 'p-4'} overflow-y-auto flex-1`}>
+        <p className="text-xs mb-4" style={{ color: SAGE }}>{user?.role} · очередь {pendingSounds(allSounds).length} · жалоб {reported.length} · тикетов {tickets.length}</p>
 
         {tab === 'sounds' && (
           <>
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск" className="w-full rounded-2xl px-3 py-2 text-xs outline-none mb-2" style={{ background: th.cardBg, color: th.inkText }} />
-            <div className="flex gap-1 mb-3">
-              {(['pending', 'rejected', 'published', 'all'] as const).map((id) => (
-                <button key={id} onClick={() => setStatus(id)} className="px-2 py-1 rounded-full text-[10px]"
-                  style={{ background: status === id ? ACCENT : th.lightBg, color: status === id ? '#fff' : OLIVE }}>{id}</button>
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск" className="w-full rounded-2xl px-3 py-2.5 text-sm outline-none mb-3" style={{ background: th.cardBg, color: th.inkText }} />
+            <div className="flex gap-1.5 mb-4 flex-wrap">
+              {([
+                ['pending', 'На модерации'],
+                ['rejected', 'Отклонено'],
+                ['published', 'Опубликовано'],
+                ['all', 'Все'],
+              ] as const).map(([id, lab]) => (
+                <button key={id} onClick={() => setStatus(id)} className="px-3 py-1.5 rounded-full text-[11px] font-semibold"
+                  style={{ background: status === id ? ACCENT : th.lightBg, color: status === id ? '#fff' : OLIVE }}>{lab}</button>
               ))}
             </div>
             {list.map((s) => (
@@ -162,18 +169,18 @@ function SoundModRow({ s, th, chips, onOpen, onApprove, onReject, onDelete }: {
   onOpen: () => void; onApprove: () => void; onReject: (note: string) => void; onDelete: () => void;
 }) {
   return (
-    <div className="rounded-2xl p-3 mb-2" style={{ background: th.cardBg }}>
+    <div className="rounded-3xl p-4 mb-3 shadow-sm" style={{ background: th.cardBg }}>
       <button className="text-left w-full" onClick={onOpen}>
-        <p className="text-xs font-bold" style={{ color: th.inkText }}>{s.title}</p>
-        <p className="text-[10px] mb-2" style={{ color: OLIVE }}>{s.user} · {s.status} · {s.ucsCatId || s.ucsCat || s.type}</p>
+        <p className="text-sm font-bold" style={{ color: th.inkText }}>{s.title}</p>
+        <p className="text-xs mb-3" style={{ color: OLIVE }}>{s.user} · {s.status} · {s.ucsCatId || s.ucsCat || s.type}</p>
       </button>
       <div className="flex flex-wrap gap-1.5">
-        <button className="text-[10px] font-semibold text-white px-3 py-2 rounded-xl" style={{ background: ACCENT }} onClick={onApprove}>Одобрить</button>
+        <button className="text-xs font-semibold text-white px-3 py-2 rounded-2xl" style={{ background: ACCENT }} onClick={onApprove}>Одобрить</button>
         {chips.slice(0, 4).map((c) => (
-          <button key={c.id} className="text-[10px] font-semibold px-3 py-2 rounded-xl" style={{ background: th.lightBg, color: OLIVE }}
+          <button key={c.id} className="text-xs font-semibold px-3 py-2 rounded-2xl" style={{ background: th.lightBg, color: OLIVE }}
             onClick={() => onReject(c.text)}>{c.id}</button>
         ))}
-        <button className="text-[10px] font-semibold px-3 py-2 rounded-xl" style={{ background: th.lightBg, color: ACCENT }} onClick={onDelete}>Удалить</button>
+        <button className="text-xs font-semibold px-3 py-2 rounded-2xl" style={{ background: th.lightBg, color: ACCENT }} onClick={onDelete}>Удалить</button>
       </div>
     </div>
   );

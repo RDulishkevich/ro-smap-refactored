@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  ChevronLeft, ChevronRight, Flag, Heart, Headphones, Info, LogOut, MapPin, MessageCircle,
+  ChevronLeft, ChevronRight, Flag, Heart, Headphones, Info, LogOut, MapPin, MessageCircle, Mic,
   Moon, MoreHorizontal, Send, Share2, Sun, UserPlus, Volume2,
 } from 'lucide-react';
 import { color, pinColor } from '@polevka/design';
@@ -10,7 +10,7 @@ import {
   apiGetSecurityEvents, apiLogoutAll, apiPatchSound, apiRequestEmailVerification, apiRequestPasswordReset,
   apiSyncJson, apiTotpConfirm, apiTotpDisable, apiTotpSetup, conversationPeers, makeMailMsg,
   matchSupportBotFaq, normalizeComment, spamGuardCheck, spamGuardMessage, SUPPORT_LOGIN,
-  SUPPORT_NAME, threadWith, uploadUserMedia, upsertInboxPatch, formatPlays, WF,
+  SUPPORT_NAME, threadWith, uploadUserMedia, upsertInboxPatch, formatPlays,
   type ApiError, type Comment, type Sound,
 } from '@polevka/core';
 import { LEGAL_DOCS } from '../../../../src/data/legalDocs.js';
@@ -20,10 +20,12 @@ import { useNav, type ScreenConfig } from '../state/NavContext';
 import { useTh, useToggleTheme, useIsDark } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import { useUi } from '../state/UiContext';
-import { PlayPauseIcon, PinPlayer, ScreenHeader, SeekBar, SoundTypeTag, VolumeRow, WaveformSVG, OtpInput } from '../primitives/ui';
+import { PlayPauseIcon, PinPlayer, ScreenHeader, SoundTypeTag, OtpInput } from '../primitives/ui';
+import { AudioEditor, LiveWaveform } from '../primitives/AudioEditor';
 import { openCookieBanner } from '../primitives/CookieBanner';
 import { SoundMap } from '../lib/SoundMap';
 import { setDraftRecording } from '../lib/record-buffer';
+import { formatClock } from '../lib/waveform';
 import { AddSoundScreen } from './AddSoundScreen';
 import { StaffScreen } from './StaffScreen';
 import { ExpeditionDetailScreen, ExpeditionEditScreen, PickLocationScreen } from './ExpeditionScreens';
@@ -113,9 +115,10 @@ function PhotoCarousel({ images, title }: { images: string[]; title: string }) {
 function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void }) {
   const { push } = useNav();
   const { isLoggedIn, user } = useAuth();
-  const { togglePlay, playing, playingId, progress, allSounds, reload, seek, volume, muted, setVolume, toggleMute } = useData();
+  const { togglePlay, playing, playingId, allSounds, reload } = useData();
   const { toast, openMenu, confirm } = useUi();
   const th = useTh();
+  const desktop = useIsDesktop();
   const live = allSounds.find((s) => String(s.id) === String(sound.id)) || sound;
   const c = pinColor[String(live.type)] ?? ACCENT;
   const on = playing && String(playingId) === String(live.id);
@@ -206,29 +209,26 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
       } />
       <div className="flex-1 overflow-y-auto scrollbar-none">
         <PhotoCarousel images={(live.images || []).filter(Boolean)} title={live.title} />
-        <div className="mx-4 mt-4 rounded-3xl p-5" style={{ background: th.cream }}>
-          <div className="flex items-center justify-between mb-4">
-            <SoundTypeTag type={String(live.type)} /><span className="text-[10px]" style={{ color: SAGE }}>{live.duration}</span>
-          </div>
-          <div className="flex justify-center mb-4 overflow-hidden">
-            <WaveformSVG data={WF[Number(live.wf || 0) % 4]} color={c} progress={on ? progress : 0} h={48} />
-          </div>
-          <div className="flex items-center gap-3 mb-3">
-            <motion.button onClick={() => togglePlay(live)} whileTap={{ scale: 0.88 }} className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: c }}>
-              <PlayPauseIcon playing={!!on} size={16} />
-            </motion.button>
-            <div className="flex-1">
-              <p className="text-xs" style={{ color: OLIVE }}>{live.description || live.location}</p>
+        <div className="mx-4 mt-4 rounded-3xl p-4" style={{ background: th.cardBg }}>
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div className="min-w-0">
+              <p className="text-base font-bold" style={{ color: th.inkText }}>{live.title}</p>
+              <div className="flex items-center gap-1.5 mt-1">
+                <MapPin size={11} style={{ color: SAGE }} /><span className="text-xs" style={{ color: OLIVE }}>{live.location}</span>
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+              <SoundTypeTag type={String(live.type)} />
+              <span className="text-[10px]" style={{ color: SAGE }}>{live.duration}</span>
             </div>
           </div>
-          <SeekBar progress={progress} onSeek={seek} color={c} />
-          <VolumeRow volume={volume} muted={muted} onVolume={setVolume} onMute={toggleMute} />
-        </div>
-        <div className="mx-4 mt-3 rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <p className="text-sm font-bold mb-1" style={{ color: th.inkText }}>{live.title}</p>
-          <div className="flex items-center gap-1.5 mb-3">
-            <MapPin size={10} style={{ color: SAGE }} /><span className="text-xs" style={{ color: OLIVE }}>{live.location}</span>
-          </div>
+          {live.description && <p className="text-xs leading-relaxed mb-3" style={{ color: OLIVE }}>{live.description}</p>}
+          {!desktop && (
+            <motion.button onClick={() => togglePlay(live)} whileTap={{ scale: 0.88 }}
+              className="w-full py-2.5 rounded-2xl flex items-center justify-center gap-2 text-xs font-semibold text-white mb-3" style={{ backgroundColor: c }}>
+              <PlayPauseIcon playing={!!on} size={14} />{on ? 'Пауза' : 'Слушать'}
+            </motion.button>
+          )}
           {live.user && (
             <motion.button whileTap={{ scale: 0.97 }} onClick={() => push({ type: 'user-profile', name: String(live.user), avatar: String(live.avatar || '🎙️'), username: `@${String(live.recordistId || live.user).toLowerCase().replace(/\s/g, '_')}` })}
               className="flex items-center gap-2.5 w-full p-2.5 rounded-2xl" style={{ background: th.phoneBg }}>
@@ -268,38 +268,52 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
           </div>
         </div>
         <div className="mx-4 mt-3 mb-6 rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <p className="text-sm font-bold mb-3" style={{ color: th.inkText }}>Комментарии · {comments.length}</p>
-          {comments.length === 0 && <p className="text-xs py-2" style={{ color: SAGE }}>Пока нет комментариев — напишите первый</p>}
-          {comments.map((cm) => (
-            <div key={cm.id} className="flex gap-2.5 mb-3 last:mb-0">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm flex-shrink-0" style={{ background: th.lightBg }}>💬</div>
-              <div className="flex-1 p-3 rounded-2xl" style={{ background: th.phoneBg }}>
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-xs font-semibold" style={{ color: th.inkText }}>{cm.author}</p>
-                  <p className="text-[10px]" style={{ color: SAGE }}>{cm.date}</p>
+          <p className="text-sm font-bold mb-4" style={{ color: th.inkText }}>Комментарии · {comments.length}</p>
+          {comments.length === 0 && <p className="text-xs mb-3" style={{ color: SAGE }}>Пока нет комментариев — напишите первый</p>}
+          <div className="flex flex-col gap-3">
+          {comments.map((cm) => {
+            const likedC = (cm.reactedBy || []).includes(user?.loginName || '');
+            return (
+            <div key={cm.id} className="flex gap-3">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: th.lightBg, color: ACCENT }}>
+                {(cm.author || '?').slice(0, 1).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline justify-between gap-2 mb-0.5">
+                  <p className="text-xs font-semibold truncate" style={{ color: th.inkText }}>{cm.author}</p>
+                  <p className="text-[10px] flex-shrink-0" style={{ color: SAGE }}>{cm.date}</p>
                 </div>
                 <p className="text-xs leading-relaxed" style={{ color: OLIVE }}>{cm.text}</p>
-                {(cm.replies || []).map((r) => (
-                  <p key={r.id} className="text-[11px] mt-1.5 pl-2" style={{ color: SAGE }}>{r.author}: {r.text}</p>
-                ))}
+                {(cm.replies || []).length > 0 && (
+                  <div className="mt-2 pl-3 flex flex-col gap-2" style={{ borderLeft: `2px solid ${th.border}` }}>
+                    {(cm.replies || []).map((r) => (
+                      <div key={r.id}>
+                        <p className="text-[10px] font-semibold" style={{ color: th.inkText }}>{r.author}</p>
+                        <p className="text-[11px] leading-relaxed" style={{ color: OLIVE }}>{r.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {isLoggedIn && (
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <button className="text-[10px] flex items-center gap-0.5" style={{ color: (cm.reactedBy || []).includes(user?.loginName || '') ? ACCENT : SAGE }}
+                  <div className="flex items-center gap-3 mt-1.5">
+                    <button className="text-[10px] flex items-center gap-1" style={{ color: likedC ? ACCENT : SAGE }}
                       onClick={() => void toggleCommentReaction(live, cm)}>
-                      <Heart size={10} fill={(cm.reactedBy || []).includes(user?.loginName || '') ? ACCENT : 'none'} />{(cm.reactedBy || []).length || ''}
+                      <Heart size={11} fill={likedC ? ACCENT : 'none'} />{(cm.reactedBy || []).length || ''}
                     </button>
                     <CommentReply sound={live} commentId={cm.id} onDone={reload} />
-                    <button className="text-[10px] flex items-center gap-0.5" style={{ color: SAGE }}
+                    <button className="text-[10px] flex items-center gap-1" style={{ color: SAGE }}
                       onClick={() => void reportComment(live, cm.id)}>
-                      <Flag size={9} />пожаловаться
+                      <Flag size={10} />пожаловаться
                     </button>
                   </div>
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
+          </div>
           {isLoggedIn ? <CommentForm sound={live} onDone={reload} /> : (
-            <button className="mt-3 w-full py-2.5 rounded-2xl text-xs font-semibold" style={{ background: th.lightBg, color: OLIVE }}
+            <button className="mt-4 w-full py-2.5 rounded-2xl text-xs font-semibold" style={{ background: th.lightBg, color: OLIVE }}
               onClick={() => push({ type: 'auth' })}>Войдите, чтобы комментировать</button>
           )}
         </div>
@@ -332,11 +346,11 @@ function CommentForm({ sound, onDone }: { sound: Sound; onDone: () => Promise<vo
     }
   };
   return (
-    <div className="flex gap-2 mt-3">
+    <div className="flex gap-2 mt-4 pt-3" style={{ borderTop: `1px solid ${th.border}` }}>
       <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Написать комментарий…"
-        className="flex-1 text-xs rounded-2xl px-3 py-2.5 outline-none" style={{ background: th.phoneBg, color: th.inkText }}
+        className="flex-1 text-sm rounded-2xl px-4 py-2.5 outline-none" style={{ background: th.lightBg, color: th.inkText }}
         onKeyDown={(e) => { if (e.key === 'Enter') void send(); }} />
-      <button onClick={() => void send()} className="w-9 h-9 rounded-2xl flex items-center justify-center text-white" style={{ background: ACCENT }}><Send size={13} /></button>
+      <button type="button" onClick={() => void send()} className="w-11 h-11 rounded-2xl flex items-center justify-center text-white flex-shrink-0" style={{ background: ACCENT }}><Send size={15} /></button>
     </div>
   );
 }
@@ -612,7 +626,7 @@ function AuthScreen({ onBack }: { onBack: () => void }) {
       {desktop ? (
         <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-8 pb-16">
           <div className="w-24 h-24 rounded-[28px] overflow-hidden shadow-xl mb-5"><LogoApp /></div>
-          <h2 className="text-2xl font-bold mb-6" style={{ color: th.inkText, fontFamily: 'Klukva, Geologica, serif' }}>
+          <h2 className="text-2xl font-bold mb-6" style={{ color: th.inkText, fontFamily: 'Klukva, "Geist Variable", serif' }}>
             {mode === 'in' ? 'С возвращением' : 'Новый исследователь'}
           </h2>
           <div className="w-full max-w-[400px] flex flex-col gap-3">{form}</div>
@@ -672,42 +686,56 @@ function RecordScreen({ onBack }: { onBack: () => void }) {
   const th = useTh();
   const { toast } = useUi();
   const { reset } = useNav();
-  const [rec, setRec] = useState(false);
+  const [stage, setStage] = useState<'idle' | 'rec' | 'review'>('idle');
   const [sec, setSec] = useState(0);
+  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+  const [draft, setDraft] = useState<{ blob: Blob; durationSec: number; mime: string; trimStart: number; trimEnd: number; gain: number } | null>(null);
   const recRef = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const ctxRef = useRef<AudioContext | null>(null);
   const started = useRef(0);
   const commit = useRef(false);
 
   useEffect(() => {
-    if (!rec) return;
-    const t = setInterval(() => setSec((s) => s + 1), 1000);
+    if (stage !== 'rec') return;
+    const t = setInterval(() => setSec(Math.max(0, Math.round((Date.now() - started.current) / 1000))), 250);
     return () => clearInterval(t);
-  }, [rec]);
+  }, [stage]);
 
   useEffect(() => () => {
     recRef.current?.stop();
     streamRef.current?.getTracks().forEach((tr) => tr.stop());
+    void ctxRef.current?.close();
   }, []);
-
-  const mm = String(Math.floor(sec / 60)).padStart(2, '0');
-  const ss = String(sec % 60).padStart(2, '0');
 
   const start = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      });
       streamRef.current = stream;
       chunks.current = [];
       commit.current = false;
+      const ctx = new AudioContext();
+      if (ctx.state === 'suspended') await ctx.resume();
+      const source = ctx.createMediaStreamSource(stream);
+      const node = ctx.createAnalyser();
+      node.fftSize = 1024;
+      node.smoothingTimeConstant = 0.45;
+      const dest = ctx.createMediaStreamDestination();
+      source.connect(node);
+      source.connect(dest);
+      ctxRef.current = ctx;
+      setAnalyser(node);
       const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
-      const mr = new MediaRecorder(stream, { mimeType: mime });
+      const mr = new MediaRecorder(dest.stream, { mimeType: mime });
       mr.ondataavailable = (e) => { if (e.data.size) chunks.current.push(e.data); };
-      mr.start(250);
+      mr.start(120);
       recRef.current = mr;
       started.current = Date.now();
       setSec(0);
-      setRec(true);
+      setStage('rec');
     } catch {
       toast('Нет доступа к микрофону');
     }
@@ -715,22 +743,24 @@ function RecordScreen({ onBack }: { onBack: () => void }) {
 
   const stop = () => {
     const mr = recRef.current;
-    if (!mr) { setRec(false); return; }
+    if (!mr) { setStage('idle'); return; }
     commit.current = true;
     mr.onstop = () => {
       streamRef.current?.getTracks().forEach((tr) => tr.stop());
+      void ctxRef.current?.close();
+      ctxRef.current = null;
+      setAnalyser(null);
       const mime = mr.mimeType || 'audio/webm';
       const blob = new Blob(chunks.current, { type: mime });
-      setRec(false);
-      if (!commit.current) return;
+      if (!commit.current) { setStage('idle'); return; }
       if (!blob.size) {
         toast('Пустая запись — попробуйте ещё раз');
+        setStage('idle');
         return;
       }
       const durationSec = Math.max(1, Math.round((Date.now() - started.current) / 1000));
-      setDraftRecording({ blob, durationSec, mime });
-      toast('Черновик сохранён — оформите публикацию');
-      reset({ type: 'add-sound' });
+      setDraft({ blob, durationSec, mime, trimStart: 0, trimEnd: 1, gain: 1 });
+      setStage('review');
     };
     if (mr.state === 'recording') {
       try { mr.requestData(); } catch { /* */ }
@@ -741,15 +771,41 @@ function RecordScreen({ onBack }: { onBack: () => void }) {
     recRef.current = null;
   };
 
+  const toPublish = () => {
+    if (!draft) return;
+    setDraftRecording(draft);
+    toast('Черновик сохранён — оформите публикацию');
+    reset({ type: 'add-sound' });
+  };
+
   return (
-    <div className="flex flex-col h-full" style={{ background: DARK }}>
+    <div className="flex flex-col h-full" style={{ background: stage === 'review' ? th.phoneBg : DARK }}>
       <ScreenHeader title="Запись" onBack={onBack} />
-      <div className="flex-1 flex flex-col items-center justify-center gap-6 text-white">
-        <p className="text-3xl font-bold tabular-nums">{mm}:{ss}</p>
-        <motion.button whileTap={{ scale: 0.9 }} onClick={() => { if (rec) stop(); else void start(); }}
-          className="w-20 h-20 rounded-full" style={{ background: rec ? ACCENT : LIGHT }} />
-        <p className="text-xs opacity-70">{rec ? 'Остановить' : 'Начать запись'}</p>
-      </div>
+      {stage !== 'review' && (
+        <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6 text-white">
+          <p className="text-3xl font-bold tabular-nums">{formatClock(sec)}</p>
+          <div className="w-full max-w-md">
+            <LiveWaveform analyser={analyser} color={LIGHT} h={64} />
+          </div>
+          <motion.button whileTap={{ scale: 0.9 }} onClick={() => { if (stage === 'rec') stop(); else void start(); }}
+            className="w-20 h-20 rounded-full flex items-center justify-center"
+            style={{ background: stage === 'rec' ? ACCENT : LIGHT }}>
+            {stage === 'rec' ? <span className="w-6 h-6 rounded-md bg-white" /> : <Mic size={28} color={DARK} />}
+          </motion.button>
+          <p className="text-xs opacity-70">{stage === 'rec' ? 'Остановить' : 'Начать запись'}</p>
+        </div>
+      )}
+      {stage === 'review' && draft && (
+        <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-3">
+          <AudioEditor blob={draft.blob} durationSec={draft.durationSec}
+            trimStart={draft.trimStart} trimEnd={draft.trimEnd} gain={draft.gain}
+            onChange={(next) => setDraft({ ...draft, ...next })} />
+          <button type="button" className="py-3 rounded-2xl text-sm font-semibold" style={{ background: th.lightBg, color: OLIVE }}
+            onClick={() => { setDraft(null); setStage('idle'); setSec(0); }}>Записать снова</button>
+          <button type="button" className="py-3.5 rounded-2xl text-sm font-bold text-white" style={{ background: ACCENT }}
+            onClick={toPublish}>К оформлению</button>
+        </div>
+      )}
     </div>
   );
 }

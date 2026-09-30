@@ -2,7 +2,7 @@
 name: polevka-design
 description: >-
   Полёвка (polevka.art) design system for the React/TSX app: Figma earth-tone
-  tokens, Geologica+Klukva, Lucide, Motion springs, desktop rail+map vs mobile
+  tokens, Geist Variable+Klukva, Lucide, Motion springs, desktop rail+map vs mobile
   tabs+stack. Use when building, restyling, or reviewing UI in apps/web,
   packages/design, DESIGN.md, or native Expo chrome.
 ---
@@ -34,7 +34,7 @@ No peach Wellness (`#FBAB57`), no Wispr lavender, no glow rings.
 
 ## Type and icons
 
-- UI: **Geologica** (`--pv-font-ui`)
+- UI: **Geist Variable** (`--pv-font-ui`)
 - Brand titles: **Klukva** (`--pv-font-brand`)
 - Icons: **Lucide** (shared with future React Native). Do not add Iconsax to the React app.
 

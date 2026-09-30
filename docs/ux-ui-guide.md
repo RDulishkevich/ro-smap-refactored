@@ -29,7 +29,7 @@
 
 | Роль | Значение |
 |------|----------|
-| UI | Geologica (`--pv-font-ui`) |
+| UI | Geist Variable (`--pv-font-ui`) |
 | Бренд | Klukva |
 | Иконки | Lucide |
 

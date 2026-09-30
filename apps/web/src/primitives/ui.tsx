@@ -7,14 +7,28 @@ import type { Sound } from '@polevka/core';
 import { useNav, type TabId } from '../state/NavContext';
 import { useAuth } from '../state/AuthContext';
 import { useTh } from '../state/ThemeContext';
+import { peaksFromUrl } from '../lib/waveform';
 import Image11 from '@/brand/Image11';
 
-export function WaveformSVG({ data, color: c = color.accent, progress = 0, h = 28 }: { data: number[]; color?: string; progress?: number; h?: number }) {
-  const w = 3, gap = 2, n = data.length, idx = Math.floor(progress * n);
+export function WaveformSVG({
+  data, color: c = color.accent, progress = 0, h = 28, onSeek,
+}: {
+  data: number[]; color?: string; progress?: number; h?: number; onSeek?: (r: number) => void;
+}) {
+  const n = Math.max(1, data.length);
+  const idx = Math.floor(progress * n);
   return (
-    <svg viewBox={`0 0 ${n * (w + gap)} ${h}`} width={n * (w + gap)} height={h} className="flex-shrink-0">
+    <svg viewBox={`0 0 ${n * 2} ${h}`} preserveAspectRatio="none" height={h}
+      className="w-full block"
+      style={{ cursor: onSeek ? 'pointer' : undefined }}
+      onClick={(e) => {
+        if (!onSeek) return;
+        const r = e.currentTarget.getBoundingClientRect();
+        onSeek(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)));
+      }}>
       {data.map((v, i) => (
-        <rect key={i} x={i * (w + gap)} y={(1 - v) * h} width={w} height={v * h} rx="1.5" fill={c} opacity={i <= idx ? 0.9 : 0.2} />
+        <rect key={i} x={i * 2} y={(1 - v) * h} width={1.35} height={Math.max(1.2, v * h)} rx="0.65"
+          fill={c} opacity={i <= idx ? 0.95 : 0.22} />
       ))}
     </svg>
   );
@@ -144,7 +158,7 @@ export function OtpInput({
                   background: th.lightBg,
                   color: th.inkText,
                   boxShadow: `inset 0 0 0 ${on || error ? 1.5 : 1}px ${error || on ? color.accent : th.border}`,
-                  fontFamily: 'Geologica, sans-serif',
+                  fontFamily: '"Geist Variable", system-ui, sans-serif',
                 }}>
                 {filled ? digits[i] : on ? (
                   <motion.span className="w-px h-5 rounded-full" style={{ background: color.accent }}
@@ -227,7 +241,14 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
 }) {
   const th = useTh();
   const c = pinColor[String(sound.type)] ?? color.accent;
-  const wf = WF[Number(sound.wf || 0) % 4];
+  const [peaks, setPeaks] = useState<number[]>(() => WF[Number(sound.wf || 0) % 4]);
+  useEffect(() => {
+    const url = String(sound.url || '');
+    if (!url) return;
+    let dead = false;
+    void peaksFromUrl(url, 72).then((p) => { if (!dead && p.length) setPeaks(p); }).catch(() => {});
+    return () => { dead = true; };
+  }, [sound.url, sound.id]);
   return (
     <div className={`px-4 ${simple ? 'pt-3 pb-3' : 'pt-4 pb-10'}`}
       style={{
@@ -261,8 +282,8 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
         <motion.button onClick={onToggle} whileTap={{ scale: 0.88 }} className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c }}>
           <PlayPauseIcon playing={!!playing} size={14} />
         </motion.button>
-        <div className="flex-1 overflow-hidden">
-          <WaveformSVG data={wf} color={c} progress={playing ? progress : 0} h={26} />
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <WaveformSVG data={peaks} color={c} progress={progress} h={36} onSeek={onSeek} />
         </div>
         <div className="flex-shrink-0 text-right">
           <p className="text-[10px] font-semibold" style={{ color: color.ink }}>{sound.duration}</p>
@@ -271,7 +292,6 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
           </div>
         </div>
       </div>
-      <div className="mt-2"><SeekBar progress={progress} onSeek={onSeek} color={c} /></div>
       {onVolume && onMute && <VolumeRow volume={volume} muted={muted} onVolume={onVolume} onMute={onMute} />}
     </div>
   );

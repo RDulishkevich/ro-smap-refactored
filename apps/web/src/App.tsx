@@ -19,7 +19,7 @@ function Shell() {
   return (
     <NavProvider isLoggedIn={isLoggedIn} onNeedAuth={() => toast('Войдите в аккаунт')}>
       <DeepLinks />
-      <div className="w-screen h-dvh" style={{ background: th.isDark ? '#0E1A18' : '#F3F4F6', fontFamily: 'Geologica, sans-serif' }}>
+      <div className="w-screen h-dvh" style={{ background: th.isDark ? '#0E1A18' : '#F3F4F6', fontFamily: '"Geist Variable", system-ui, sans-serif' }}>
         {desktop ? <DesktopShell /> : <MobileShell />}
         <Overlays />
         <CookieBanner />

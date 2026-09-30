@@ -11,8 +11,8 @@
   --pv-header: #ffffff;
   --pv-nav: #ffffff;
   --pv-border: rgba(45, 60, 57, 0.07);
-  --pv-font-ui: Geologica, system-ui, sans-serif;
-  --pv-font-brand: Klukva, Geologica, serif;
+  --pv-font-ui: "Geist Variable", system-ui, sans-serif;
+  --pv-font-brand: Klukva, "Geist Variable", serif;
   --pv-radius-xl: 12px;
   --pv-radius-2xl: 16px;
   --pv-radius-3xl: 24px;

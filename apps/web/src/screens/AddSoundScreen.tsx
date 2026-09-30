@@ -6,6 +6,7 @@ import {
 } from '@polevka/core';
 import { color } from '@polevka/design';
 import { ScreenHeader } from '../primitives/ui';
+import { AudioEditor } from '../primitives/AudioEditor';
 import { useAuth } from '../state/AuthContext';
 import { useData } from '../state/DataContext';
 import { useNav } from '../state/NavContext';
@@ -13,6 +14,7 @@ import { useTh } from '../state/ThemeContext';
 import { useUi } from '../state/UiContext';
 import { useIsDesktop } from '../lib/use-media';
 import { getDraftRecording, setDraftRecording } from '../lib/record-buffer';
+import { applyTrimGain } from '../lib/waveform';
 
 const SAGE = color.sage;
 const OLIVE = color.olive;
@@ -49,7 +51,11 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
   const [busy, setBusy] = useState(false);
   const [fileLabel, setFileLabel] = useState(edit?.url ? 'Текущий файл сохранён' : '');
   const [photos, setPhotos] = useState<File[]>([]);
-  const [draft, setDraft] = useState(() => (edit ? null : getDraftRecording()));
+  const [draft, setDraft] = useState(() => {
+    const rec = edit ? null : getDraftRecording();
+    if (!rec) return null;
+    return { ...rec, trimStart: rec.trimStart ?? 0, trimEnd: rec.trimEnd ?? 1, gain: rec.gain ?? 1 };
+  });
   useEffect(() => {
     if (edit) setDraftRecording(null);
   }, [edit]);
@@ -82,8 +88,8 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
         a.src = URL.createObjectURL(file);
       });
     } catch { durationSec = 1; }
-    setDraftRecording({ blob: file, durationSec, mime: file.type || 'audio/wav' });
-    setDraft({ blob: file, durationSec, mime: file.type || 'audio/wav' });
+    setDraftRecording({ blob: file, durationSec, mime: file.type || 'audio/wav', trimStart: 0, trimEnd: 1, gain: 1 });
+    setDraft({ blob: file, durationSec, mime: file.type || 'audio/wav', trimStart: 0, trimEnd: 1, gain: 1 });
     setFileLabel(file.name);
     if (!title) setTitle(file.name.replace(/\.[^.]+$/, ''));
     toast('Файл выбран');
@@ -114,7 +120,8 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
       let formatLabel = String(edit?.formatLabel || '');
       let dur = String(edit?.duration || '0:01');
       if (rec?.blob) {
-        const prepared = await preparePublishWav(rec.blob, rec.blob instanceof File ? rec.blob.name : 'audio.wav', {
+        const trimmed = await applyTrimGain(rec.blob, rec.trimStart ?? 0, rec.trimEnd ?? 1, rec.gain ?? 1);
+        const prepared = await preparePublishWav(trimmed.blob, rec.blob instanceof File ? rec.blob.name : 'audio.wav', {
           title: title.trim(),
           description: desc.trim(),
           location: location.trim(),
@@ -128,7 +135,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
         });
         url = await uploadUserMedia(prepared.blob, prepared.fileName, 'audio/wav');
         formatLabel = prepared.formatLabel;
-        dur = `${Math.floor(rec.durationSec / 60)}:${String(rec.durationSec % 60).padStart(2, '0')}`;
+        dur = `${Math.floor(trimmed.durationSec / 60)}:${String(trimmed.durationSec % 60).padStart(2, '0')}`;
       }
       const images: string[] = [...(edit?.images || [])];
       for (const photo of photos.slice(0, 3)) {
@@ -191,7 +198,20 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
       <ScreenHeader title={edit ? 'Редактировать звук' : 'Добавить звук'} onBack={onBack} />
       <div className={`flex-1 min-h-0 overflow-y-auto ${desktop ? 'px-8 py-6' : 'p-5'}`}>
         <div className={desktop ? 'max-w-4xl mx-auto grid grid-cols-2 gap-x-8 gap-y-3' : 'flex flex-col gap-3'}>
-        {(draft || fileLabel) && <p className="text-[10px] col-span-2" style={{ color: SAGE }}>{fileLabel || `Черновик записи: ${draft?.durationSec} с`}</p>}
+        {(draft || fileLabel) && (
+          <div className="col-span-2 flex flex-col gap-2">
+            {fileLabel && <p className="text-[10px]" style={{ color: SAGE }}>{fileLabel}</p>}
+            {draft && (
+              <AudioEditor blob={draft.blob} durationSec={draft.durationSec}
+                trimStart={draft.trimStart ?? 0} trimEnd={draft.trimEnd ?? 1} gain={draft.gain ?? 1}
+                onChange={(next) => {
+                  const rec = { ...draft, ...next };
+                  setDraft(rec);
+                  setDraftRecording(rec);
+                }} />
+            )}
+          </div>
+        )}
         <label className="text-[10px] font-semibold col-span-2" style={{ color: SAGE }}>Файл
           <input type="file" accept="audio/*,.webm,.ogg,.mp3,.wav,.m4a" className="mt-1 block w-full text-[11px]"
             onChange={(e) => void onPickFile(e.target.files?.[0] || null)} />

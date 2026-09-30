@@ -446,11 +446,15 @@ export function SoundMap({
 
   useEffect(() => {
     const s = sounds.find((x) => String(x.id) === String(activeId));
-    if (s?.lat == null || s?.lng == null) return;
-    const c = [Number(s.lat), Number(s.lng)] as [number, number];
+    const c = s?.lat != null && s?.lng != null
+      ? [Number(s.lat), Number(s.lng)] as [number, number]
+      : pickMarker
+        ? [pickMarker.lat, pickMarker.lng] as [number, number]
+        : null;
+    if (!c) return;
     if (ymapRef.current) ymapRef.current.panTo(c, { duration: 300 });
     else leafletRef.current?.panTo(c);
-  }, [activeId, sounds]);
+  }, [activeId, sounds, pickMarker]);
 
   return <div ref={ref} className="absolute inset-0 z-0 bg-[#E4EDE9]" onContextMenu={(e) => e.preventDefault()} />;
 }

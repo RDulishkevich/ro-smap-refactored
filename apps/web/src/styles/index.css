@@ -2,3 +2,45 @@
 @import 'tailwindcss';
 @import '../../../../packages/design/src/tokens.css';
 @import 'leaflet/dist/leaflet.css';
+
+@media (pointer: fine) and (hover: hover) {
+  html {
+    --cursor-default: url('../../../../assets/cursors/cursor.svg') 1 1, auto;
+    --cursor-pointer: url('../../../../assets/cursors/pointer.svg') 4 2, pointer;
+    --cursor-text: url('../../../../assets/cursors/text.svg') 4 8, text;
+    --cursor-grab: url('../../../../assets/cursors/grab.svg') 8 8, grab;
+  }
+  html, body, #root {
+    cursor: var(--cursor-default);
+  }
+  a[href],
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"],
+  [role="menuitem"],
+  [role="option"],
+  [role="switch"],
+  [role="checkbox"],
+  label[for],
+  summary,
+  select:not(:disabled),
+  input[type="file"],
+  input[type="range"],
+  .cursor-pointer,
+  .pv-pin {
+    cursor: var(--cursor-pointer) !important;
+  }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not(:disabled),
+  textarea:not(:disabled),
+  [contenteditable="true"] {
+    cursor: var(--cursor-text) !important;
+  }
+  .leaflet-container,
+  .leaflet-grab {
+    cursor: var(--cursor-grab);
+  }
+  :disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed !important;
+  }
+}

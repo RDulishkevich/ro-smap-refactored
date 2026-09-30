@@ -24,7 +24,7 @@ export function GuestProfileScreen({ showNav = true }: { showNav?: boolean }) {
     <div className="flex flex-col h-full relative" style={{ background: th.phoneBg }}>
       <div className="relative flex-1 flex flex-col items-center justify-center px-6 text-center">
         <div className="w-20 h-20 rounded-3xl overflow-hidden shadow-xl mx-auto mb-4"><LogoApp /></div>
-        <h1 className="text-xl font-bold mb-2" style={{ color: th.inkText, fontFamily: 'Klukva, Geologica, serif' }}>Полёвка</h1>
+        <h1 className="text-xl font-bold mb-2" style={{ color: th.inkText, fontFamily: 'Klukva, "Geist Variable", serif' }}>Полёвка</h1>
         <p className="text-xs leading-relaxed mb-6" style={{ color: SAGE }}>
           Войдите, чтобы сохранять звуки, создавать экспедиции и общаться с другими исследователями
         </p>

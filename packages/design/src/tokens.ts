@@ -94,8 +94,8 @@ export const radius = {
 } as const;
 
 export const fonts = {
-  ui: 'Geologica, system-ui, sans-serif',
-  brand: 'Klukva, Geologica, serif',
+  ui: '"Geist Variable", system-ui, sans-serif',
+  brand: 'Klukva, "Geist Variable", serif',
 } as const;
 
 export const breakpoint = 768;

@@ -1,4 +1,11 @@
-export type DraftRecording = { blob: Blob; durationSec: number; mime: string };
+export type DraftRecording = {
+  blob: Blob;
+  durationSec: number;
+  mime: string;
+  trimStart?: number;
+  trimEnd?: number;
+  gain?: number;
+};
 
 let draft: DraftRecording | null = null;
 

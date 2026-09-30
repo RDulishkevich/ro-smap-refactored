@@ -26,7 +26,6 @@ const RAIL_W = 216;
 const LIST_W = 360;
 const SIDE_W = 400;
 const PANEL_GAP = 12;
-const PLAYER_H = 184;
 
 const OVERLAY = new Set(['auth', 'reset-password']);
 const WORKSPACE = new Set([
@@ -168,7 +167,6 @@ export function DesktopShell() {
   const isWorkspace = (!!vis && WORKSPACE.has(vis.type)) || (!vis && VIEW_WORKSPACE.has(desktopView));
   const isList = !isWorkspace && (desktopView !== 'map' || !!vis);
   const mode: ChromeMode = isWorkspace ? 'workspace' : isList ? 'list' : 'map';
-  const title = isOverlay && top ? stackTitle(top) : vis ? stackTitle(vis) : VIEW_TITLE[desktopView];
   const unread = (mail.find((b) => b.loginName === user?.loginName)?.notifications || [])
     .filter((n) => !(n as { read?: boolean }).read).length;
 
@@ -236,7 +234,7 @@ export function DesktopShell() {
             className="flex items-center gap-2.5 px-2 mb-5 text-left w-full">
             <div className="w-10 h-10 flex-shrink-0 relative"><BrandMark /></div>
             <div className="min-w-0">
-              <p className="text-[15px] font-bold tracking-wide leading-tight" style={{ color: th.inkText, fontFamily: 'Klukva, Geologica, serif' }}>ПОЛЁВКА</p>
+              <p className="text-[15px] font-bold tracking-wide leading-tight" style={{ color: th.inkText, fontFamily: 'Klukva, "Geist Variable", serif' }}>ПОЛЁВКА</p>
               <p className="text-[10px] leading-tight mt-0.5" style={{ color: SAGE }}>Карта звуков</p>
             </div>
           </button>
@@ -258,9 +256,6 @@ export function DesktopShell() {
 
         <div className="flex-1 min-w-0 flex flex-col">
           <header className="flex items-center gap-4 px-6 h-[64px] flex-shrink-0" style={{ borderBottom: `1px solid ${th.border}` }}>
-            <h1 className="text-[22px] font-bold tracking-tight flex-shrink-0" style={{ color: th.inkText, fontFamily: 'Klukva, Geologica, serif' }}>
-              {title}
-            </h1>
             <div className="flex-1 flex justify-center min-w-0">
               <label className="flex items-center gap-2 w-full max-w-[420px] h-11 rounded-full px-4" style={{ background: chipBg }}>
                 <Search size={15} color={SAGE} className="flex-shrink-0" />
@@ -348,35 +343,26 @@ export function DesktopShell() {
               style={{ flex: mode === 'workspace' ? `0 0 ${SIDE_W}px` : '1 1 0%' }}>
               <div className="relative flex-1 min-h-0 rounded-[24px] overflow-hidden" style={{ background: th.phoneBg }}>
                 <MapScreen showNav={false} desktop hidePlayer={mode === 'workspace'} active={picked} onActive={setPicked} />
+                {mode === 'workspace' && (
+                  <div className="absolute bottom-3 left-3 right-3 z-[410]">
+                    {dockSound ? (
+                      <PinPlayer sound={dockSound} simple
+                        onClose={() => setPicked(null)}
+                        playing={playing && String(playingId) === String(dockSound.id)}
+                        onToggle={() => togglePlay(dockSound)}
+                        progress={progress}
+                        onOpen={() => { if (vis?.type !== 'sound-detail') push({ type: 'sound-detail', sound: dockSound }); }}
+                        onSeek={seek} volume={volume} muted={muted} onVolume={setVolume} onMute={toggleMute}
+                        onDownload={() => download(dockSound)} />
+                    ) : (
+                      <div className="h-12 rounded-2xl flex items-center justify-center gap-2" style={{ background: th.cardBg }}>
+                        <Headphones size={14} color={SAGE} />
+                        <p className="text-[11px]" style={{ color: SAGE }}>Выберите звук на карте</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              <motion.div
-                initial={false}
-                animate={{
-                  height: mode === 'workspace' ? PLAYER_H : 0,
-                  opacity: mode === 'workspace' ? 1 : 0,
-                  marginTop: mode === 'workspace' ? 8 : 0,
-                }}
-                transition={spring.sheet}
-                className="overflow-hidden rounded-[24px] flex-shrink-0"
-                style={{ background: th.phoneBg }}>
-                <div className="h-[184px] flex flex-col min-h-0">
-                  {dockSound ? (
-                    <PinPlayer sound={dockSound} simple
-                      onClose={() => setPicked(null)}
-                      playing={playing && String(playingId) === String(dockSound.id)}
-                      onToggle={() => togglePlay(dockSound)}
-                      progress={progress}
-                      onOpen={() => { if (vis?.type !== 'sound-detail') push({ type: 'sound-detail', sound: dockSound }); }}
-                      onSeek={seek} volume={volume} muted={muted} onVolume={setVolume} onMute={toggleMute}
-                      onDownload={() => download(dockSound)} />
-                  ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center gap-2">
-                      <Headphones size={18} color={SAGE} />
-                      <p className="text-[11px]" style={{ color: SAGE }}>Выберите звук на карте</p>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
             </motion.div>
           </div>
           <footer className="flex-shrink-0 h-8 px-6 flex items-center gap-x-3 gap-y-0.5 flex-wrap text-[10px]" style={{ borderTop: `1px solid ${th.border}`, color: SAGE }}>
