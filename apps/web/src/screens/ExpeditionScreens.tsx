@@ -3,6 +3,7 @@ import { apiSyncJson, uploadUserMedia, type Expedition } from '@polevka/core';
 import { color } from '@polevka/design';
 import { Clock, MapPin } from 'lucide-react';
 import { ScreenHeader } from '../primitives/ui';
+import { PhotoStrip } from '../primitives/PhotoCarousel';
 import { SoundMap } from '../lib/SoundMap';
 import { useAuth } from '../state/AuthContext';
 import { useData } from '../state/DataContext';
@@ -49,11 +50,7 @@ export function ExpeditionDetailScreen({ exp, onBack }: { exp: Expedition; onBac
           </div>
         )}
         {!!(exp.photos || []).length && (
-          <div className="flex gap-2 overflow-x-auto mb-3">
-            {(exp.photos || []).map((src) => (
-              <img key={src} src={src} alt="" className="w-20 h-20 rounded-2xl object-cover flex-shrink-0" />
-            ))}
-          </div>
+          <PhotoStrip images={(exp.photos || []).filter(Boolean)} title={exp.title} />
         )}
         {linked.map((s) => (
           <button key={String(s.id)} onClick={() => push({ type: 'sound-detail', sound: s })} className="w-full text-left rounded-2xl p-3 mb-2" style={{ background: th.cardBg }}>
@@ -152,11 +149,7 @@ export function ExpeditionEditScreen({ exp, onBack }: { exp?: Expedition; onBack
             onChange={(e) => setPhotoFiles(Array.from(e.target.files || []).slice(0, 4))} />
         </label>
         {!!(exp?.photos || []).length && (
-          <div className="flex gap-2 overflow-x-auto">
-            {(exp?.photos || []).map((src) => (
-              <img key={src} src={src} alt="" className="w-14 h-14 rounded-xl object-cover" />
-            ))}
-          </div>
+          <PhotoStrip images={(exp?.photos || []).filter(Boolean)} title={exp?.title} />
         )}
         <p className="text-[10px]" style={{ color: SAGE }}>Точек маршрута: {route.length}</p>
         <button className="py-2 rounded-2xl text-[11px] font-semibold" style={{ background: th.lightBg, color: OLIVE }}

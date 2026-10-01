@@ -88,7 +88,7 @@ export function Overlays() {
               onClick={(e) => e.stopPropagation()}>
               {menu.title && <p className="text-[10px] uppercase tracking-wide px-2.5 py-1.5" style={{ color: color.sage }}>{menu.title}</p>}
               {menu.items.map((it) => (
-                <button key={it.label} className="w-full text-left px-2.5 py-2 rounded-xl text-[13px] font-semibold"
+                <button key={it.label} className="w-full text-left px-3 py-2.5 rounded-xl text-[13px] font-semibold"
                   style={{ color: it.danger ? color.accent : th.inkText }}
                   onClick={() => { closeMenu(); it.onClick(); }}>{it.label}</button>
               ))}

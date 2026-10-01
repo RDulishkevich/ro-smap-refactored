@@ -11,3 +11,42 @@
   display: none !important;
 }
 
+.pv-mobile {
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  --pv-nav-h: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+}
+.pv-mobile-nav {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  touch-action: manipulation;
+}
+.pv-safe-top {
+  padding-top: max(1rem, env(safe-area-inset-top, 0px));
+}
+
+/* Page pinch/pan lock. Map and fullscreen photos opt back in. */
+html.pv-lock,
+html.pv-lock body,
+html.pv-lock #root {
+  overflow: hidden;
+  height: 100%;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+html.pv-lock .pv-map {
+  touch-action: none;
+}
+.pv-carousel {
+  touch-action: pan-x;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.pv-zoomable {
+  touch-action: pinch-zoom pan-x pan-y;
+}
+.pv-mobile button,
+.pv-mobile a,
+.pv-mobile [role="button"] {
+  touch-action: manipulation;
+}
+

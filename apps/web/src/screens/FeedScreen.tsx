@@ -10,10 +10,20 @@ import { useAuth } from '../state/AuthContext';
 import { NavBar, PlayPauseIcon, SoundTypeTag } from '../primitives/ui';
 import { CatalogFilters } from '../primitives/filters';
 import BrandMark from '@/brand/BrandMark';
+import { parseDurationLabel } from '../lib/waveform';
 
 const SAGE = color.sage;
 const OLIVE = color.olive;
 const ACCENT = color.accent;
+
+function FeedUnreadDot() {
+  const { mail } = useData();
+  const { user } = useAuth();
+  const unread = (mail.find((b) => b.loginName === user?.loginName)?.notifications || [])
+    .filter((n) => !(n as { read?: boolean }).read).length;
+  if (!unread) return null;
+  return <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full" style={{ background: ACCENT }} />;
+}
 
 type FeedTab = 'posts' | 'catalog' | 'expeditions';
 
@@ -29,41 +39,38 @@ export function FeedScreen({ showNav = true, embed = false, initialTab }: { show
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       {!embed && (
-      <div className="relative p-5 pb-0 flex-shrink-0 overflow-hidden">
-        <div className="relative flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2.5">
+      <div className="relative px-4 pb-0 flex-shrink-0 overflow-hidden pv-safe-top">
+        <div className="relative flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-9 h-9 relative flex-shrink-0"><BrandMark /></div>
-            <div>
-              <p className="text-[10px] font-medium tracking-wide uppercase" style={{ color: SAGE }}>Полёвка</p>
-              <h1 className="text-lg font-bold leading-tight" style={{ color: th.inkText, fontFamily: 'Klukva, "Geist Variable", serif' }}>Лента</h1>
-            </div>
+            <h1 className="text-lg font-bold leading-tight truncate" style={{ color: th.inkText, fontFamily: 'Klukva, "Geist Variable", serif' }}>Лента</h1>
           </div>
-          <div className="flex gap-1.5">
-            <motion.button whileTap={tap.cta} onClick={() => push({ type: 'messages' })} className="w-9 h-9 rounded-2xl flex items-center justify-center" style={{ background: th.cardBg }}>
-              <MessageCircle size={14} style={{ color: OLIVE }} />
+          <div className="flex gap-1.5 flex-shrink-0">
+            <motion.button whileTap={tap.cta} onClick={() => push({ type: 'search' })} className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.cardBg }} aria-label="Поиск">
+              <Search size={16} style={{ color: OLIVE }} />
             </motion.button>
-            <motion.button whileTap={tap.cta} onClick={() => push({ type: 'notifications' })} className="w-9 h-9 rounded-2xl flex items-center justify-center" style={{ background: th.cardBg }}>
-              <Bell size={14} style={{ color: OLIVE }} />
+            <motion.button whileTap={tap.cta} onClick={() => push({ type: 'messages' })} className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.cardBg }} aria-label="Сообщения">
+              <MessageCircle size={16} style={{ color: OLIVE }} />
+            </motion.button>
+            <motion.button whileTap={tap.cta} onClick={() => push({ type: 'notifications' })} className="relative w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.cardBg }} aria-label="Уведомления">
+              <Bell size={16} style={{ color: OLIVE }} />
+              <FeedUnreadDot />
             </motion.button>
           </div>
         </div>
-        <div className="relative flex gap-1 p-1 rounded-2xl mb-3" style={{ background: th.lightBg }}>
+        <div className="relative flex gap-1 p-1 rounded-2xl mb-2" style={{ background: th.lightBg }}>
           {subTabs.map(({ id, label }) => (
-            <button key={id} onClick={() => setTab(id)} className="flex-1 py-2 rounded-xl text-[11px] font-semibold" style={{ background: tab === id ? th.cardBg : 'transparent', color: tab === id ? ACCENT : OLIVE, boxShadow: tab === id ? '0 1px 4px rgba(45,60,57,0.08)' : 'none' }}>
+            <button key={id} onClick={() => setTab(id)} className="flex-1 py-2.5 rounded-xl text-[11px] font-semibold" style={{ background: tab === id ? th.cardBg : 'transparent', color: tab === id ? ACCENT : OLIVE, boxShadow: tab === id ? '0 1px 4px rgba(45,60,57,0.08)' : 'none' }}>
               {label}
             </button>
           ))}
         </div>
-        <button onClick={() => push({ type: 'search' })} className="relative flex items-center gap-2 px-3 py-2.5 rounded-2xl mb-3 w-full text-left" style={{ background: th.cardBg }}>
-          <Search size={13} style={{ color: SAGE }} className="flex-shrink-0" />
-          <span className="text-xs" style={{ color: th.isDark ? '#7A9A88' : '#B8C4B0' }}>Поиск звуков...</span>
-        </button>
       </div>
       )}
       <div className="flex-1 overflow-hidden relative">
         <AnimatePresence mode="wait">
-          <motion.div key={tab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={spring.fade} className="absolute inset-0 overflow-y-auto scrollbar-none px-5 pb-4 pt-3">
-            {tab === 'posts' && <PostsList />}
+          <motion.div key={tab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={spring.fade} className="absolute inset-0 overflow-y-auto scrollbar-none px-4 pb-48 pt-2">
+            {tab === 'posts' && <PostsList onCatalog={() => setTab('catalog')} />}
             {tab === 'catalog' && <CatalogSoundList />}
             {tab === 'expeditions' && <ExpeditionsList />}
           </motion.div>
@@ -74,11 +81,20 @@ export function FeedScreen({ showNav = true, embed = false, initialTab }: { show
   );
 }
 
-function PostsList() {
+function PostsList({ onCatalog }: { onCatalog: () => void }) {
   const { feed } = useData();
   const th = useTh();
   const posts = feed.filter((p) => p.title || p.text);
-  if (!posts.length) return <p className="text-xs py-8 text-center" style={{ color: SAGE }}>Пока нет публикаций в ленте</p>;
+  if (!posts.length) {
+    return (
+      <div className="py-10 px-2 text-center">
+        <p className="text-xs mb-4" style={{ color: SAGE }}>Пока нет публикаций — слушайте записи в каталоге</p>
+        <button type="button" onClick={onCatalog} className="h-10 px-4 rounded-full text-[12px] font-semibold" style={{ background: th.cardBg, color: ACCENT }}>
+          Открыть каталог
+        </button>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-3 pt-1">
       {posts.map((p) => (
@@ -109,14 +125,14 @@ function SoundRow({ item, on, onPlay, onOpen, thCard, ink }: { item: Sound; on: 
   const c = pinColor[String(item.type)] ?? ACCENT;
   return (
     <div className="rounded-2xl px-3.5 py-3 flex items-center gap-3" style={{ background: thCard }}>
-      <button type="button" onClick={onPlay} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c }} aria-label={on ? 'Пауза' : 'Слушать'}>
+      <button type="button" onClick={onPlay} className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c }} aria-label={on ? 'Пауза' : 'Слушать'}>
         <PlayPauseIcon playing={on} size={12} />
       </button>
       <button type="button" className="flex-1 min-w-0 text-left" onClick={onOpen}>
         <p className="text-[13px] font-semibold truncate" style={{ color: ink }}>{item.title}</p>
         <p className="text-[11px] truncate mt-0.5" style={{ color: OLIVE }}>
           {item.location}
-          {item.duration ? ` · ${item.duration}` : ''}
+          {parseDurationLabel(item.duration) > 0 ? ` · ${item.duration}` : ''}
         </p>
       </button>
       <div className="flex flex-col items-end gap-1 flex-shrink-0">

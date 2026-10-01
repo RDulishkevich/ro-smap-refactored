@@ -59,7 +59,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [progress, setProgress] = useState(0);
   const [volume, setVolumeState] = useState(1);
   const [muted, setMuted] = useState(false);
-  const [focused, setFocused] = useState<Sound | null>(null);
+  const [focused, setFocusedState] = useState<Sound | null>(null);
   const [filter, setFilter] = useState<CatalogFilter>(EMPTY_FILTER);
   const [pickMode, setPickMode] = useState<PickMode>(null);
   const [pickedPoint, setPickedPoint] = useState<MapPoint | null>(null);
@@ -96,8 +96,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setMuted(audioService.muted);
   }), []);
 
+  const setFocused = useCallback((s: Sound | null) => {
+    setFocusedState(s);
+    if (s && audioService.soundId != null && String(audioService.soundId) !== String(s.id)) {
+      audioService.stop();
+    }
+  }, []);
+
   const togglePlay = useCallback((s: Sound) => {
-    setFocused(s);
+    setFocusedState(s);
     const starting = !(audioService.soundId === s.id && audioService.playing);
     audioService.toggle(s.id, s.url ? String(s.url) : undefined);
     if (starting && s.url) {

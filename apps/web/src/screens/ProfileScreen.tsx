@@ -22,7 +22,7 @@ export function GuestProfileScreen({ showNav = true }: { showNav?: boolean }) {
   const th = useTh();
   return (
     <div className="flex flex-col h-full relative" style={{ background: th.phoneBg }}>
-      <div className="relative flex-1 flex flex-col items-center justify-center px-6 text-center">
+      <div className="relative flex-1 flex flex-col items-center justify-center px-6 text-center pv-safe-top">
         <div className="w-20 h-20 rounded-3xl overflow-hidden shadow-xl mx-auto mb-4"><LogoApp /></div>
         <h1 className="text-xl font-bold mb-2" style={{ color: th.inkText, fontFamily: 'Klukva, "Geist Variable", serif' }}>Полёвка</h1>
         <p className="text-xs leading-relaxed mb-6" style={{ color: SAGE }}>
@@ -62,7 +62,7 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       <div className="flex-1 overflow-y-auto scrollbar-none">
-        <div className="relative p-5 pb-3 overflow-hidden">
+        <div className="relative p-4 pb-3 overflow-hidden pv-safe-top">
           <div className="relative flex items-center justify-between mb-5">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 relative flex-shrink-0"><BrandMark /></div>
@@ -100,7 +100,7 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
               className="flex-1 py-2.5 rounded-2xl text-xs font-semibold shadow-sm" style={{ background: th.cardBg, color: th.isDark ? LIGHT : DARK }}>Кабинет</motion.button>
           </div>
         </div>
-        <div className="px-5 pb-4">
+        <div className="px-4 pb-48">
           <p className="text-sm font-semibold mb-3" style={{ color: th.inkText }}>Мои звуки</p>
           <div className="flex flex-col gap-3">
             {drafts.map((item) => (

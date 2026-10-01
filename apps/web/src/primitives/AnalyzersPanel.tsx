@@ -206,7 +206,7 @@ export function AnalyzersPanel({ playing }: { playing: boolean }) {
   }, [playing, dark]);
 
   return (
-    <div className="mt-2.5 flex flex-col gap-2.5 max-h-[240px] overflow-y-auto pr-0.5">
+    <div className="mt-2.5 flex flex-col gap-2.5 max-h-[min(240px,36vh)] overflow-y-auto pr-0.5">
       <div className="rounded-2xl px-3 py-2.5" style={{ background: th.phoneBg }}>
         <div className="flex justify-between items-center mb-1.5">
           <span className="text-[10px] uppercase font-bold tracking-widest" style={{ color: color.sage }}>Гониометр</span>

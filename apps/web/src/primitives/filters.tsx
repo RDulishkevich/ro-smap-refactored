@@ -1,7 +1,9 @@
 import { EMPTY_FILTER, ucsCategories, ucsStructure, type CatalogFilter } from '@polevka/core';
 import { color } from '@polevka/design';
+import { useState } from 'react';
 import { useData } from '../state/DataContext';
 import { useTh } from '../state/ThemeContext';
+import { useIsDesktop } from '../lib/use-media';
 
 const SAGE = color.sage;
 const OLIVE = color.olive;
@@ -19,9 +21,12 @@ const UCS_TOP = ['', 'AMBIENCE', 'WATER', 'ANIMALS', 'BIRDS', 'WEATHER', 'NATURE
 
 export function CatalogFilters() {
   const th = useTh();
+  const desktop = useIsDesktop();
+  const [more, setMore] = useState(false);
   const { filter, setFilter } = useData();
   const set = (patch: Partial<CatalogFilter>) => setFilter({ ...filter, ...patch });
   const cats = (ucsCategories as string[]).length ? UCS_TOP.concat((ucsCategories as string[]).filter((c) => !UCS_TOP.includes(c)).slice(0, 12)) : UCS_TOP;
+  const extra = desktop || more;
 
   return (
     <div className="flex flex-col gap-2">
@@ -30,6 +35,8 @@ export function CatalogFilters() {
           <Chip key={e.id || 'all'} on={filter.eco === e.id} onClick={() => set({ eco: e.id })} label={e.label} th={th} />
         ))}
       </div>
+      {extra && (
+        <>
       <div className="flex flex-nowrap gap-1.5 overflow-x-auto scrollbar-none">
         {cats.slice(0, 16).map((c) => (
           <Chip key={c || 'ucs'} on={filter.ucs === c} onClick={() => set({ ucs: c, ucsSub: '' })} label={c || 'UCS'} th={th} />
@@ -53,9 +60,18 @@ export function CatalogFilters() {
           {CHANNELS.map((c) => <option key={c || 'ch'} value={c}>{c || 'каналы'}</option>)}
         </select>
       </div>
-      {(filter.eco || filter.ucs || filter.ucsSub || filter.tag || filter.gear || filter.channels) && (
-        <button className="text-[10px] self-start" style={{ color: SAGE }} onClick={() => setFilter(EMPTY_FILTER)}>Сбросить фильтры</button>
+        </>
       )}
+      <div className="flex items-center gap-2">
+        {!desktop && (
+          <button type="button" className="text-[10px] font-semibold" style={{ color: extra ? OLIVE : ACCENT }} onClick={() => setMore((v) => !v)}>
+            {extra ? 'Свернуть фильтры' : 'Ещё фильтры'}
+          </button>
+        )}
+        {(filter.eco || filter.ucs || filter.ucsSub || filter.tag || filter.gear || filter.channels) && (
+          <button className="text-[10px]" style={{ color: SAGE }} onClick={() => setFilter(EMPTY_FILTER)}>Сбросить</button>
+        )}
+      </div>
     </div>
   );
 }

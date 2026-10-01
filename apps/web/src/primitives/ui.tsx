@@ -11,6 +11,7 @@ import { formatClock, parseDurationLabel, peaksFromUrl } from '../lib/waveform';
 import { isAmbisonicSound } from '../lib/sound-media';
 import { audioService } from '../lib/audio-player';
 import { useUi } from '../state/UiContext';
+import { useIsDesktop } from '../lib/use-media';
 import { AnalyzersPanel } from './AnalyzersPanel';
 import { AmbiSphere } from './AmbiSphere';
 import Image11 from '@/brand/Image11';
@@ -63,9 +64,9 @@ export function SoundTypeTag({ type }: { type: string }) {
 export function ScreenHeader({ title, onBack, right }: { title: string; onBack: () => void; right?: ReactNode }) {
   const th = useTh();
   return (
-    <div className="flex items-center gap-3 px-4 pt-4 pb-3 flex-shrink-0" style={{ background: th.headerBg, borderBottom: `1px solid ${th.border}` }}>
-      <motion.button whileTap={tap.nav} onClick={onBack} className="w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: th.lightBg }}>
-        <ChevronLeft size={16} style={{ color: color.dark }} />
+    <div className="flex items-center gap-3 px-4 pv-safe-top pb-3 flex-shrink-0" style={{ background: th.headerBg, borderBottom: `1px solid ${th.border}` }}>
+      <motion.button whileTap={tap.nav} onClick={onBack} className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: th.lightBg }} aria-label="Назад">
+        <ChevronLeft size={18} style={{ color: color.dark }} />
       </motion.button>
       <p className="flex-1 text-sm font-bold truncate" style={{ color: th.inkText }}>{title}</p>
       {right}
@@ -188,7 +189,7 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
     { id: 'profile', Icon: isLoggedIn ? User : LogIn, label: isLoggedIn ? 'Профиль' : 'Вход' },
   ];
   return (
-    <div className="flex justify-around items-center py-3 px-4 flex-shrink-0" style={{ background: th.navBg }}>
+    <div className="flex justify-around items-center py-2 px-4 min-h-[3.75rem] flex-shrink-0" style={{ background: th.navBg }}>
       {tabs.map(({ id, Icon, label }) => {
         const on = activeTab === id;
         if (id === 'map' && hollowCenter) return <div key={id} className="w-10 h-14" />;
@@ -219,21 +220,25 @@ export function SeekBar({ progress, onSeek, color: c = color.accent }: { progres
   );
 }
 
-function VolumeKnob({ volume, muted, onVolume, onMute }: { volume: number; muted: boolean; onVolume: (v: number) => void; onMute: () => void }) {
+function VolumeKnob({ volume, muted, onVolume, onMute, compact = false }: {
+  volume: number; muted: boolean; onVolume: (v: number) => void; onMute: () => void; compact?: boolean;
+}) {
   const shown = muted ? 0 : volume;
   const pct = Math.round(shown * 100);
   const Icon = muted || shown === 0 ? VolumeX : shown < 0.45 ? Volume1 : Volume2;
   return (
     <div className="flex items-center gap-1 flex-shrink-0" title={`Громкость ${pct}%`}>
-      <button type="button" onClick={onMute} className="w-7 h-7 rounded-full flex items-center justify-center" aria-label={muted ? 'Включить звук' : 'Выключить звук'}>
+      <button type="button" onClick={onMute} className="w-9 h-9 rounded-full flex items-center justify-center" aria-label={muted ? 'Включить звук' : 'Выключить звук'}>
         <Icon size={14} color={color.olive} />
       </button>
-      <div className="relative w-14 h-1 rounded-full" style={{ background: 'rgba(45,60,57,0.16)' }}>
-        <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct}%`, background: color.accent }} />
-        <input type="range" min={0} max={1} step={0.01} value={shown} aria-label="Громкость" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          onChange={(e) => onVolume(Number(e.target.value))} />
-      </div>
+      {!compact && (
+        <div className="relative w-14 h-1 rounded-full" style={{ background: 'rgba(45,60,57,0.16)' }}>
+          <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct}%`, background: color.accent }} />
+          <input type="range" min={0} max={1} step={0.01} value={shown} aria-label="Громкость" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            onChange={(e) => onVolume(Number(e.target.value))} />
+        </div>
+      )}
     </div>
   );
 }
@@ -247,6 +252,7 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
   onSeek?: (r: number) => void; volume?: number; muted?: boolean; onVolume?: (v: number) => void; onMute?: () => void; onDownload?: () => void;
 }) {
   const th = useTh();
+  const compact = !useIsDesktop();
   const { toast } = useUi();
   const c = pinColor[String(sound.type)] ?? color.accent;
   const [peaks, setPeaks] = useState<number[]>(() => WF[Number(sound.wf || 0) % 4]);
@@ -314,7 +320,7 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
           </p>
         </div>
         <div className="flex items-center gap-0.5 flex-shrink-0">
-        {onVolume && onMute && <VolumeKnob volume={volume} muted={muted} onVolume={onVolume} onMute={onMute} />}
+        {onVolume && onMute && <VolumeKnob volume={volume} muted={muted} onVolume={onVolume} onMute={onMute} compact={compact} />}
         <motion.button type="button" whileTap={tap.btn} onClick={() => void toggleAnalyzers()} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" title="Анализаторы" aria-label="Анализаторы" aria-pressed={analyzers}>
           <AudioLines size={13} color={analyzers ? color.accent : color.olive} />
         </motion.button>
@@ -323,7 +329,7 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
             <Globe2 size={13} color={ambiUi ? color.accent : color.olive} />
           </motion.button>
         )}
-        {onDownload && (
+        {!compact && onDownload && (
           <motion.button type="button" whileTap={tap.btn} onClick={onDownload} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" title="Скачать WAV">
             <Download size={13} color={color.olive} />
           </motion.button>

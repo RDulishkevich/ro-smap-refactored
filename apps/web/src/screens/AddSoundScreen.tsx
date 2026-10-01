@@ -7,6 +7,7 @@ import {
 import { color } from '@polevka/design';
 import { ImagePlus, Route, X } from 'lucide-react';
 import { ScreenHeader } from '../primitives/ui';
+import { PhotoLightbox } from '../primitives/PhotoCarousel';
 import { AudioEditor } from '../primitives/AudioEditor';
 import { useAuth } from '../state/AuthContext';
 import { useData } from '../state/DataContext';
@@ -54,6 +55,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
   const [fileLabel, setFileLabel] = useState(edit?.url ? 'Текущий файл сохранён' : '');
   const [photos, setPhotos] = useState<File[]>([]);
   const [keptImages, setKeptImages] = useState<string[]>(() => (edit?.images || []).filter(Boolean));
+  const [fullPhoto, setFullPhoto] = useState<number | null>(null);
   const [draft, setDraft] = useState(() => {
     const rec = edit ? null : getDraftRecording();
     if (!rec) return null;
@@ -68,6 +70,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
     if (r.length >= 2) setRouteDraft(r);
   }, [edit, setRouteDraft]);
   const photoUrls = useMemo(() => photos.map((f) => URL.createObjectURL(f)), [photos]);
+  const gallery = useMemo(() => [...keptImages, ...photoUrls], [keptImages, photoUrls]);
   useEffect(() => () => { photoUrls.forEach((u) => URL.revokeObjectURL(u)); }, [photoUrls]);
   const slotsLeft = Math.max(0, 3 - keptImages.length - photos.length);
   const isWalk = isSoundwalkPrinciple(principle);
@@ -410,10 +413,12 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
           <Section title="Фото сцены" th={th}>
             <p className="text-[11px] mb-2" style={{ color: SAGE }}>До трёх кадров места записи — перетащите или выберите файлы.</p>
             <div className="grid grid-cols-3 gap-2 mb-2">
-              {keptImages.map((src) => (
+              {keptImages.map((src, i) => (
                 <div key={src} className="relative aspect-[4/3] rounded-2xl overflow-hidden" style={{ background: th.phoneBg }}>
-                  <img src={src} alt="" className="w-full h-full object-cover" />
-                  <button type="button" className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center" style={{ background: 'rgba(45,60,57,0.72)' }}
+                  <button type="button" className="w-full h-full" onClick={() => setFullPhoto(i)} aria-label="Открыть фото">
+                    <img src={src} alt="" className="w-full h-full object-cover" />
+                  </button>
+                  <button type="button" className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full flex items-center justify-center" style={{ background: 'rgba(45,60,57,0.72)' }}
                     onClick={() => setKeptImages((prev) => prev.filter((u) => u !== src))} aria-label="Убрать фото">
                     <X size={12} color="#fff" />
                   </button>
@@ -421,8 +426,10 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
               ))}
               {photoUrls.map((src, i) => (
                 <div key={src} className="relative aspect-[4/3] rounded-2xl overflow-hidden" style={{ background: th.phoneBg }}>
-                  <img src={src} alt="" className="w-full h-full object-cover" />
-                  <button type="button" className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center" style={{ background: 'rgba(45,60,57,0.72)' }}
+                  <button type="button" className="w-full h-full" onClick={() => setFullPhoto(keptImages.length + i)} aria-label="Открыть фото">
+                    <img src={src} alt="" className="w-full h-full object-cover" />
+                  </button>
+                  <button type="button" className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full flex items-center justify-center" style={{ background: 'rgba(45,60,57,0.72)' }}
                     onClick={() => setPhotos((prev) => prev.filter((_, n) => n !== i))} aria-label="Убрать фото">
                     <X size={12} color="#fff" />
                   </button>
@@ -456,6 +463,14 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
           </div>
         </div>
       </div>
+      {fullPhoto != null && gallery.length > 0 && (
+        <PhotoLightbox
+          images={gallery}
+          index={Math.min(fullPhoto, gallery.length - 1)}
+          title="Фото сцены"
+          onClose={() => setFullPhoto(null)}
+          onIndex={setFullPhoto} />
+      )}
     </div>
   );
 }

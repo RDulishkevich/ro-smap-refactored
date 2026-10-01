@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import {
-  ChevronLeft, ChevronRight, Flag, Heart, Headphones, Info, LogOut, MapPin, MessageCircle, Mic,
+  ChevronRight, Flag, Heart, Headphones, Info, LogOut, MapPin, MessageCircle, Mic,
   Moon, MoreHorizontal, Route, Send, Share2, Sun, UserPlus, Volume2,
 } from 'lucide-react';
 import { color, pinColor } from '@polevka/design';
@@ -21,12 +21,13 @@ import { useTh, useToggleTheme, useIsDark } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import { useUi } from '../state/UiContext';
 import { PlayPauseIcon, PinPlayer, ScreenHeader, SoundTypeTag, OtpInput } from '../primitives/ui';
+import { PhotoCarousel } from '../primitives/PhotoCarousel';
 import { HoverMenu } from '../primitives/HoverMenu';
 import { AudioEditor, LiveWaveform } from '../primitives/AudioEditor';
 import { openCookieBanner } from '../primitives/CookieBanner';
 import { SoundMap } from '../lib/SoundMap';
 import { setDraftRecording } from '../lib/record-buffer';
-import { formatClock } from '../lib/waveform';
+import { formatClock, parseDurationLabel } from '../lib/waveform';
 import { AddSoundScreen } from './AddSoundScreen';
 import { StaffScreen } from './StaffScreen';
 import { ExpeditionDetailScreen, ExpeditionEditScreen, PickLocationScreen } from './ExpeditionScreens';
@@ -70,52 +71,8 @@ export function ScreenContent({ screen, onBack }: { screen: ScreenConfig; onBack
   }
 }
 
-function PhotoCarousel({ images, title }: { images: string[]; title: string }) {
-  const [i, setI] = useState(0);
-  const th = useTh();
-  if (!images.length) return null;
-  const go = (d: number) => setI((n) => (n + d + images.length) % images.length);
-  return (
-    <div className="relative mx-4 mt-4 rounded-3xl overflow-hidden" style={{ background: th.lightBg, aspectRatio: '16 / 10' }}>
-      <AnimatePresence mode="wait">
-        <motion.img
-          key={images[i]}
-          src={images[i]}
-          alt={title}
-          className="absolute inset-0 w-full h-full object-cover"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.22 }}
-        />
-      </AnimatePresence>
-      {images.length > 1 && (
-        <>
-          <button type="button" aria-label="Предыдущее фото" onClick={() => go(-1)}
-            className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center shadow-md"
-            style={{ background: 'rgba(255,255,255,0.92)' }}>
-            <ChevronLeft size={16} color={OLIVE} />
-          </button>
-          <button type="button" aria-label="Следующее фото" onClick={() => go(1)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center shadow-md"
-            style={{ background: 'rgba(255,255,255,0.92)' }}>
-            <ChevronRight size={16} color={OLIVE} />
-          </button>
-          <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
-            {images.map((_, n) => (
-              <button key={n} type="button" aria-label={`Фото ${n + 1}`} onClick={() => setI(n)}
-                className="h-1.5 rounded-full transition-all"
-                style={{ width: n === i ? 16 : 6, background: n === i ? '#fff' : 'rgba(255,255,255,0.45)' }} />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void }) {
-  const { push } = useNav();
+  const { push, reset, setActiveTab } = useNav();
   const { isLoggedIn, user } = useAuth();
   const { togglePlay, playing, playingId, allSounds, reload, setFocused, progress, seek, volume, muted, setVolume, toggleMute } = useData();
   const { toast, confirm } = useUi();
@@ -151,6 +108,16 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
     a.remove();
     void apiPatchSound(live.id, { incDownloads: 1 }).catch(() => {});
     toast('Скачивание WAV');
+  };
+
+  const goToMap = () => {
+    setFocused(live);
+    if (desktop) {
+      toast('Точка на карте справа');
+      return;
+    }
+    reset();
+    setActiveTab('map');
   };
 
   const toggleCommentReaction = async (s: Sound, cm: Comment) => {
@@ -204,11 +171,7 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
             try { await apiSyncJson('map_data.json', [next]); toast('Жалоба отправлена модераторам'); await reload(); }
             catch (e: unknown) { toast((e as Error).message || 'Не удалось'); }
           })(); } },
-          { label: 'На карте', onClick: () => {
-            setFocused(live);
-            if (desktop) toast('Точка на карте справа');
-            else push({ type: 'map-location', sound: live });
-          } },
+          { label: 'На карте', onClick: goToMap },
           { label: 'Скачать WAV', onClick: download },
         ]}>
           <span className="w-9 h-9 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}>
@@ -228,7 +191,9 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
             </div>
             <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
               <SoundTypeTag type={String(live.type)} />
-              <span className="text-[10px]" style={{ color: SAGE }}>{live.duration}</span>
+              {parseDurationLabel(live.duration) > 0 && (
+                <span className="text-[10px]" style={{ color: SAGE }}>{live.duration}</span>
+              )}
             </div>
           </div>
           {live.description && <p className="text-xs leading-relaxed mb-3" style={{ color: OLIVE }}>{live.description}</p>}
@@ -241,11 +206,7 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
           {(isSoundwalkPrinciple(live.principle) || soundRoute(live).length >= 2) && (
             <button type="button" className="mb-3 h-9 px-3 rounded-full text-[12px] font-semibold inline-flex items-center gap-1.5"
               style={{ background: th.phoneBg, color: ACCENT }}
-              onClick={() => {
-                setFocused(live);
-                if (desktop) toast('Маршрут на карте справа');
-                else push({ type: 'map-location', sound: live });
-              }}>
+              onClick={goToMap}>
               <Route size={13} /> Показать прогулку на карте
             </button>
           )}

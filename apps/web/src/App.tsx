@@ -5,6 +5,7 @@ import { DataProvider } from './state/DataContext';
 import { ThemeProvider, useTh } from './state/ThemeContext';
 import { UiProvider } from './state/UiContext';
 import { useIsDesktop } from './lib/use-media';
+import { useLockPageGestures } from './lib/use-lock-page-gestures';
 import { MobileShell } from './layouts/MobileShell';
 import { DesktopShell } from './layouts/DesktopShell';
 import { Overlays } from './primitives/chrome';
@@ -16,6 +17,7 @@ function Shell() {
   const { isLoggedIn } = useAuth();
   const { toast } = useUi();
   const th = useTh();
+  useLockPageGestures(!desktop);
   return (
     <NavProvider isLoggedIn={isLoggedIn} onNeedAuth={() => toast('Войдите в аккаунт')}>
       <DeepLinks />

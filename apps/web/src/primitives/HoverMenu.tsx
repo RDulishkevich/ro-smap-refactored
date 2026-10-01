@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { color, spring } from '@polevka/design';
 import { useTh } from '../state/ThemeContext';
+import { useUi } from '../state/UiContext';
+import { useIsDesktop } from '../lib/use-media';
 
 export type HoverMenuItem = { label: string; danger?: boolean; onClick: () => void };
 
@@ -17,6 +19,8 @@ export function HoverMenu({
   children: ReactNode;
 }) {
   const th = useTh();
+  const desktop = useIsDesktop();
+  const { openMenu } = useUi();
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const timer = useRef(0);
@@ -45,6 +49,31 @@ export function HoverMenu({
       document.removeEventListener('keydown', onKey);
     };
   }, [open]);
+
+  if (!desktop) {
+    return (
+      <span
+        role="button"
+        tabIndex={0}
+        aria-haspopup="menu"
+        aria-label={title ? `Ещё: ${title}` : 'Ещё'}
+        className="inline-flex"
+        onClick={(e) => {
+          e.stopPropagation();
+          const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+          openMenu(items, title, { x: r.right - 220, y: r.bottom + 8 });
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            openMenu(items, title, { x: r.right - 220, y: r.bottom + 8 });
+          }
+        }}>
+        {children}
+      </span>
+    );
+  }
 
   return (
     <div ref={wrap} className="relative" onMouseEnter={show} onMouseLeave={hide}>
