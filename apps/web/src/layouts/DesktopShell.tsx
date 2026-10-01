@@ -198,7 +198,6 @@ export function DesktopShell() {
             <div className="w-14 h-14 flex-shrink-0 relative"><BrandMark /></div>
             <div className="min-w-0">
               <p className="text-[22px] font-extrabold tracking-wide leading-none" style={{ color: th.inkText, fontFamily: 'Klukva, "Geist Variable", serif' }}>ПОЛЁВКА</p>
-              <p className="text-[11px] leading-tight mt-1" style={{ color: SAGE }}>Карта звуков</p>
             </div>
           </button>
           <div className="flex flex-col gap-0.5">
@@ -312,7 +311,7 @@ export function DesktopShell() {
                 <MapScreen showNav={false} desktop hidePlayer={mode !== 'map'} />
               </div>
               {mode !== 'map' && (
-                <div className="flex-shrink-0 mt-3 rounded-2xl overflow-y-auto max-h-[46vh]" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
+                <div className="flex-shrink-0 mt-3 rounded-2xl overflow-y-auto max-h-[56vh]" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
                   {dockSound ? (
                     <PinPlayer sound={dockSound} simple
                       onClose={() => setFocused(null)}
@@ -332,7 +331,7 @@ export function DesktopShell() {
               )}
             </div>
           </div>
-          <footer className="flex-shrink-0 h-8 px-6 flex items-center gap-x-3 gap-y-0.5 flex-wrap text-[10px]" style={{ borderTop: `1px solid ${th.border}`, color: SAGE }}>
+          <footer className="flex-shrink-0 h-8 px-6 flex items-center gap-x-3 text-[10px] whitespace-nowrap overflow-hidden" style={{ borderTop: `1px solid ${th.border}`, color: SAGE }}>
             <span>© {year} Полёвка</span>
             <button className="hover:underline" style={{ color: OLIVE }} onClick={() => openLegal('privacy')}>Политика конфиденциальности</button>
             <button className="hover:underline" style={{ color: OLIVE }} onClick={() => openLegal('terms')}>Условия использования</button>
@@ -345,10 +344,10 @@ export function DesktopShell() {
           <motion.div
             key={top._id}
             className="absolute inset-0 z-[500] overflow-hidden"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: pickMode ? 0 : 1 }}
-            exit={{ opacity: 0 }}
-            transition={spring.fade}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: pickMode ? 0 : 1, y: pickMode ? 8 : 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={spring.sheet}
             style={{
               background: th.phoneBg,
               visibility: pickMode ? 'hidden' : 'visible',

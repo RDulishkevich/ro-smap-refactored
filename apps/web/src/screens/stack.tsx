@@ -117,12 +117,11 @@ function PhotoCarousel({ images, title }: { images: string[]; title: string }) {
 function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void }) {
   const { push } = useNav();
   const { isLoggedIn, user } = useAuth();
-  const { togglePlay, playing, playingId, allSounds, reload, setFocused } = useData();
+  const { togglePlay, playing, playingId, allSounds, reload, setFocused, progress, seek, volume, muted, setVolume, toggleMute } = useData();
   const { toast, confirm } = useUi();
   const th = useTh();
   const desktop = useIsDesktop();
   const live = allSounds.find((s) => String(s.id) === String(sound.id)) || sound;
-  const c = pinColor[String(live.type)] ?? ACCENT;
   const on = playing && String(playingId) === String(live.id);
   const comments = live.comments || [];
   const liked = !!user && (live.likedBy || []).includes(user.loginName);
@@ -205,7 +204,11 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
             try { await apiSyncJson('map_data.json', [next]); toast('Жалоба отправлена модераторам'); await reload(); }
             catch (e: unknown) { toast((e as Error).message || 'Не удалось'); }
           })(); } },
-          { label: 'На карте', onClick: () => push({ type: 'map-location', sound: live }) },
+          { label: 'На карте', onClick: () => {
+            setFocused(live);
+            if (desktop) toast('Точка на карте справа');
+            else push({ type: 'map-location', sound: live });
+          } },
           { label: 'Скачать WAV', onClick: download },
         ]}>
           <span className="w-9 h-9 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}>
@@ -247,10 +250,12 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
             </button>
           )}
           {!desktop && (
-            <motion.button onClick={() => togglePlay(live)} whileTap={{ scale: 0.88 }}
-              className="w-full py-2.5 rounded-2xl flex items-center justify-center gap-2 text-xs font-semibold text-white mb-3" style={{ backgroundColor: c }}>
-              <PlayPauseIcon playing={!!on} size={14} />{on ? 'Пауза' : 'Слушать'}
-            </motion.button>
+            <div className="mb-3 rounded-3xl overflow-hidden" style={{ background: th.cardBg }}>
+              <PinPlayer sound={live} simple
+                playing={on} onToggle={() => togglePlay(live)} progress={progress}
+                onClose={() => { if (on) togglePlay(live); }}
+                onSeek={seek} volume={volume} muted={muted} onVolume={setVolume} onMute={toggleMute} />
+            </div>
           )}
           {live.user && (
             <motion.button whileTap={{ scale: 0.97 }} onClick={() => push({ type: 'user-profile', name: String(live.user), avatar: String(live.avatar || '🎙️'), username: `@${String(live.recordistId || live.user).toLowerCase().replace(/\s/g, '_')}` })}

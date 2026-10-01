@@ -19,12 +19,12 @@ export function MapFab({ open, onToggle, from = 'corner' }: { open: boolean; onT
   return (
     <div className="relative w-16 h-16 pointer-events-none">
       <AnimatePresence>
-        {open && actions.map(({ Icon, bg, screen, x, y, label }) => (
+        {open && actions.map(({ Icon, bg, screen, x, y, label }, i) => (
           <motion.button key={label} title={label} aria-label={label}
-            initial={{ opacity: 0, x, y }}
-            animate={{ opacity: 1, x, y }}
-            exit={{ opacity: 0, x, y }}
-            transition={spring.fade}
+            initial={{ opacity: 0, x: x * 0.4, y: y * 0.4, scale: 0.72 }}
+            animate={{ opacity: 1, x, y, scale: 1 }}
+            exit={{ opacity: 0, x: x * 0.4, y: y * 0.4, scale: 0.72 }}
+            transition={{ ...spring.fab, delay: i * 0.07 }}
             whileTap={{ scale: 0.94 }}
             onClick={() => { onToggle(); requireAuth(screen); }}
             className="absolute left-2 top-2 w-12 h-12 rounded-full flex items-center justify-center shadow-xl pointer-events-auto z-[1]"

@@ -3,3 +3,11 @@
 @import '../../../../packages/design/src/tokens.css';
 @import 'leaflet/dist/leaflet.css';
 
+/* One product copyright lives in the desktop footer. Hide map provider © (Yandex / OSM). */
+.pv-map [class*="copyrights-pane"],
+.pv-map [class*="copyright__"],
+.pv-map [class*="ymaps"][class*="copyright"],
+.leaflet-control-attribution {
+  display: none !important;
+}
+

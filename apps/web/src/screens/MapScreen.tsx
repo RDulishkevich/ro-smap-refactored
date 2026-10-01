@@ -194,8 +194,8 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false 
         <AnimatePresence>
           {active && !hidePlayer && (
             <motion.div className={`absolute z-[400] ${desktop ? 'bottom-4 left-4 right-24 max-w-md' : 'bottom-0 left-3 right-3'}`}
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              transition={spring.fade}
+              initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+              transition={spring.sheet}
               onClick={(e) => e.stopPropagation()}>
               <PinPlayer sound={active} simple={desktop} onClose={() => setActive(null)} playing={playing && String(playingId) === String(active.id)}
                 onToggle={() => togglePlay(active)} progress={progress}

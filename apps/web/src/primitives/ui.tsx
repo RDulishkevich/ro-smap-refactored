@@ -1,7 +1,7 @@
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { AudioLines, ChevronLeft, Download, Globe2, Map as MapIcon, Play, Radio, User, LogIn, Volume1, Volume2, VolumeX, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { color, pinColor, tap, typeMeta } from '@polevka/design';
+import { color, pinColor, spring, tap, typeMeta } from '@polevka/design';
 import { WF } from '@polevka/core';
 import type { Sound } from '@polevka/core';
 import { useNav, type TabId } from '../state/NavContext';
@@ -289,6 +289,7 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
     if (gen !== ambiGen.current) return;
     if (!ok) { toast('Не удалось включить ambisonic — нужен 4-канальный WAV'); return; }
     setAmbiUi(true);
+    setAnalyzers(false);
     toast('Ambisonic вкл.');
   };
   return (
@@ -300,7 +301,7 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
         maskImage: analyzers || ambiUi ? undefined : 'radial-gradient(circle 36px at 50% 100%, transparent 34px, black 36px)',
         WebkitMaskImage: analyzers || ambiUi ? undefined : 'radial-gradient(circle 36px at 50% 100%, transparent 34px, black 36px)',
       }}>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5 min-w-0">
         <button type="button" onClick={onToggle} className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c }} aria-label={playing ? 'Пауза' : 'Слушать'}>
           <PlayPauseIcon playing={!!playing} size={14} />
         </button>
@@ -312,33 +313,43 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
             {sound.location ? <span> · {sound.location}</span> : null}
           </p>
         </div>
+        <div className="flex items-center gap-0.5 flex-shrink-0">
         {onVolume && onMute && <VolumeKnob volume={volume} muted={muted} onVolume={onVolume} onMute={onMute} />}
-        {onDownload && (
-          <button type="button" onClick={onDownload} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" title="Скачать WAV">
-            <Download size={13} color={color.olive} />
-          </button>
+        <motion.button type="button" whileTap={tap.btn} onClick={() => void toggleAnalyzers()} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" title="Анализаторы" aria-label="Анализаторы" aria-pressed={analyzers}>
+          <AudioLines size={13} color={analyzers ? color.accent : color.olive} />
+        </motion.button>
+        {ambiCapable && (
+          <motion.button type="button" whileTap={tap.btn} onClick={() => void toggleAmbi()} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" title="Звуковая сфера" aria-label="Звуковая сфера" aria-pressed={ambiUi}>
+            <Globe2 size={13} color={ambiUi ? color.accent : color.olive} />
+          </motion.button>
         )}
-        <button type="button" onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" aria-label="Закрыть">
+        {onDownload && (
+          <motion.button type="button" whileTap={tap.btn} onClick={onDownload} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" title="Скачать WAV">
+            <Download size={13} color={color.olive} />
+          </motion.button>
+        )}
+        <motion.button type="button" whileTap={tap.btn} onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" aria-label="Закрыть">
           <X size={14} color={color.olive} />
-        </button>
+        </motion.button>
+        </div>
       </div>
       <div className="mt-2.5">
         <WaveformSVG data={peaks} color={c} progress={progress} h={28} onSeek={onSeek} />
       </div>
-      <div className="mt-1.5 flex items-center gap-1">
-        <button type="button" onClick={() => void toggleAnalyzers()} className="h-8 px-2.5 rounded-full flex items-center gap-1.5 flex-shrink-0" title="Анализаторы" aria-pressed={analyzers}>
-          <AudioLines size={13} color={analyzers ? color.accent : color.olive} />
-          <span className="text-[10px] font-semibold" style={{ color: analyzers ? color.accent : color.olive }}>Анализаторы</span>
-        </button>
-        {ambiCapable && (
-          <button type="button" onClick={() => void toggleAmbi()} className="h-8 px-2.5 rounded-full flex items-center gap-1.5 flex-shrink-0" title="Ambisonic" aria-pressed={ambiUi}>
-            <Globe2 size={13} color={ambiUi ? color.accent : color.olive} />
-            <span className="text-[10px] font-semibold" style={{ color: ambiUi ? color.accent : color.olive }}>Сфера</span>
-          </button>
+      <AnimatePresence>
+        {analyzers && (
+          <motion.div key="analyzers" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} transition={spring.sheet}>
+            <AnalyzersPanel playing={!!playing} />
+          </motion.div>
         )}
-      </div>
-      {analyzers && <AnalyzersPanel playing={!!playing} />}
-      {ambiUi && <AmbiSphere />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {ambiUi && !analyzers && (
+          <motion.div key="sphere" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} transition={spring.sheet}>
+            <AmbiSphere />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

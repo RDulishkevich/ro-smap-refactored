@@ -13,12 +13,16 @@ type YMap = {
   panTo: (c: number[], o?: unknown) => void;
   setBounds: (b: number[][], o?: unknown) => void;
   container: { fitToViewport: () => void };
+  controls: { remove: (id: string) => void };
   getZoom: () => number;
   converter: {
     pageToGlobal: (p: number[]) => number[];
     globalToPage: (p: number[]) => number[];
   };
-  options: { get: (k: string) => { fromGlobalPixels: (p: number[], z: number) => number[]; toGlobalPixels: (c: number[], z: number) => number[] } };
+  options: {
+    get: (k: string) => { fromGlobalPixels: (p: number[], z: number) => number[]; toGlobalPixels: (c: number[], z: number) => number[] };
+    set: (k: string, v: unknown) => void;
+  };
   events: {
     add: (e: string, fn: (ev: { get: (k: string) => unknown; preventDefault?: () => void; stopPropagation?: () => void }) => void) => void;
     remove: (e: string, fn: unknown) => void;
@@ -151,7 +155,19 @@ export function SoundMap({
             center: ROSTOV,
             zoom: 11,
             controls: ['zoomControl'],
-          }, { suppressMapOpenBlock: true, yandexMapDisablePoiInteractivity: true });
+          }, {
+            suppressMapOpenBlock: true,
+            yandexMapDisablePoiInteractivity: true,
+            copyrightLogoVisible: false,
+            copyrightProvidersVisible: false,
+            copyrightUaVisible: false,
+          });
+          try {
+            map.controls.remove('copyrightControl');
+            map.options.set('copyrightLogoVisible', false);
+            map.options.set('copyrightProvidersVisible', false);
+            map.options.set('copyrightUaVisible', false);
+          } catch { /* */ }
           ymapRef.current = map;
           ymapsRef.current = ymaps;
           engine.current = 'yandex';
@@ -485,5 +501,5 @@ export function SoundMap({
     else leafletRef.current?.panTo(c);
   }, [activeId, pickMarker, routeKey, ready, route]);
 
-  return <div ref={ref} className="absolute inset-0 z-0 bg-[#E4EDE9]" onContextMenu={(e) => e.preventDefault()} />;
+  return <div ref={ref} className="absolute inset-0 z-0 bg-[#E4EDE9] pv-map" onContextMenu={(e) => e.preventDefault()} />;
 }

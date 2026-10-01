@@ -21,10 +21,10 @@ export function MobileShell() {
     <div className="relative w-full h-full overflow-hidden" style={{ background: th.phoneBg }}>
       <AnimatePresence mode="wait">
         <motion.div key={activeTab}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={spring.fade}
+          initial={{ opacity: 0, x: 16 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -10 }}
+          transition={spring.tab}
           className="absolute inset-0">
           {activeTab === 'feed' && <FeedScreen />}
           {activeTab === 'map' && <MapScreen />}
@@ -42,7 +42,7 @@ export function MobileShell() {
       <AnimatePresence>
         {stack.map((screen, i) => (
           <motion.div key={screen._id} className="absolute inset-0" style={{ zIndex: 100 + i, background: th.phoneBg }}
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={spring.fade}>
+            initial={{ opacity: 0, x: 36 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={spring.stack}>
             <ScreenContent screen={screen} onBack={pop} />
           </motion.div>
         ))}
