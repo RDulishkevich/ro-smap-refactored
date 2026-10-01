@@ -2,23 +2,23 @@ import { useCallback, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Calendar, MoreHorizontal, Search, SlidersHorizontal } from 'lucide-react';
 import { apiPatchSound, apiSyncJson, pendingSounds, type Sound } from '@polevka/core';
-import { color, typeMeta } from '@polevka/design';
+import { color, spring, tap, typeMeta } from '@polevka/design';
 import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import { useUi } from '../state/UiContext';
 import { useAuth } from '../state/AuthContext';
 import { NavBar, PinPlayer, SoundTypeTag } from '../primitives/ui';
+import { HoverMenu } from '../primitives/HoverMenu';
 import { MapFab } from '../primitives/chrome';
 import { SoundMap, type MapContext, type MapHover, type MapPoint } from '../lib/SoundMap';
 import { CatalogFilters } from '../primitives/filters';
+import { normalizeRoute, soundRoute } from '../lib/sound-media';
 
-export function MapScreen({ showNav = true, desktop = false, hidePlayer = false, active: activeProp, onActive }: {
+export function MapScreen({ showNav = true, desktop = false, hidePlayer = false }: {
   showNav?: boolean;
   desktop?: boolean;
   hidePlayer?: boolean;
-  active?: Sound | null;
-  onActive?: (s: Sound | null) => void;
 }) {
   const { push } = useNav();
   const { openMenu, toast, confirm } = useUi();
@@ -27,10 +27,10 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
   const {
     filteredSounds, allSounds, playingId, playing, progress, togglePlay, seek, volume, muted, setVolume, toggleMute,
     pickMode, setPickMode, pickedPoint, setPickedPoint, routeDraft, setRouteDraft, routePreview, reload,
+    focused, setFocused,
   } = useData();
-  const [innerActive, setInnerActive] = useState<Sound | null>(null);
-  const active = onActive ? (activeProp ?? null) : innerActive;
-  const setActive = onActive ?? setInnerActive;
+  const active = focused;
+  const setActive = setFocused;
   const [fabOpen, setFabOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [hover, setHover] = useState<MapHover | null>(null);
@@ -88,8 +88,8 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
   const routes = useMemo(() => {
     if (routePreview.length) return routePreview;
     if (routeDraft.length) return routeDraft;
-    return [];
-  }, [routePreview, routeDraft]);
+    return soundRoute(focused);
+  }, [routePreview, routeDraft, focused]);
 
   const download = async (s: Sound) => {
     if (!s.url) { toast('Нет файла'); return; }
@@ -116,25 +116,7 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
       return;
     }
     if (sound && isStaff) {
-      openMenu([
-        { label: 'Открыть', onClick: () => push({ type: 'sound-detail', sound }) },
-        ...(sound.status === 'pending' ? [
-          { label: 'Одобрить', onClick: () => {
-            void (async () => {
-              try { await apiSyncJson('map_data.json', [{ ...sound, status: 'published' }]); toast('Опубликовано'); await reload(); }
-              catch (e: unknown) { toast((e as Error).message); }
-            })();
-          } },
-          { label: 'Отклонить', danger: true, onClick: () => {
-            void (async () => {
-              const ok = await confirm({ title: 'Отклонить?', body: sound.title, ok: 'Отклонить' });
-              if (!ok) return;
-              try { await apiSyncJson('map_data.json', [{ ...sound, status: 'rejected' }]); toast('Отклонено'); await reload(); }
-              catch (e: unknown) { toast((e as Error).message); }
-            })();
-          } },
-        ] : []),
-      ], sound.title);
+      setActive(sound);
       return;
     }
     if (!isLoggedIn) {
@@ -152,42 +134,48 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
     return pins.filter((s, i, arr) => arr.findIndex((x) => String(x.id) === String(s.id)) === i);
   }, [isStaff, filteredSounds, allSounds]);
 
+  const walks = useMemo(() => {
+    return uniquePins
+      .map((s) => normalizeRoute(s.route))
+      .filter((r) => r.length >= 2);
+  }, [uniquePins]);
+
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: th.phoneBg }}>
       <div className="relative flex-1 min-h-0">
         <SoundMap sounds={uniquePins} activeId={active?.id ?? null} onSelect={onSelect}
-          onPick={onPick} onContext={onContext} onEmpty={onEmpty} onHover={setHover} pickMode={!!pickMode} route={routes} pickMarker={pickedPoint} />
+          onPick={onPick} onContext={onContext} onEmpty={onEmpty} onHover={setHover} pickMode={!!pickMode} route={routes} walks={walks} pickMarker={pickedPoint} />
         {!desktop && (
-        <div className="absolute top-4 right-4 flex gap-2 z-[400]">
-          <motion.button whileTap={{ scale: 0.88 }} onClick={(e) => { e.stopPropagation(); setShowFilters((v) => !v); }}
+        <div className="absolute top-4 right-4 flex gap-2 z-[400]" onClick={(e) => e.stopPropagation()}>
+          <motion.button whileTap={tap.cta} onClick={(e) => { e.stopPropagation(); setShowFilters((v) => !v); }}
             className="w-9 h-9 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }}>
             <SlidersHorizontal size={14} style={{ color: color.olive }} />
           </motion.button>
-          <motion.button whileTap={{ scale: 0.88 }} onClick={(e) => { e.stopPropagation(); push({ type: 'events' }); }}
+          <motion.button whileTap={tap.cta} onClick={(e) => { e.stopPropagation(); push({ type: 'events' }); }}
             className="w-9 h-9 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }}>
             <Calendar size={14} style={{ color: color.olive }} />
           </motion.button>
-          <motion.button whileTap={{ scale: 0.88 }} onClick={(e) => { e.stopPropagation(); push({ type: 'search' }); }}
+          <motion.button whileTap={tap.cta} onClick={(e) => { e.stopPropagation(); push({ type: 'search' }); }}
             className="w-9 h-9 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }}>
             <Search size={14} style={{ color: color.olive }} />
           </motion.button>
-          <motion.button whileTap={{ scale: 0.88 }} onClick={(e) => {
-            e.stopPropagation();
-            openMenu([
-              { label: 'Открыть запись', onClick: () => active && push({ type: 'sound-detail', sound: active }) },
-              { label: 'Указать точку публикации', onClick: () => { setPickMode('point'); toast('Коснитесь карты'); } },
-              { label: 'Угадайка', onClick: () => push({ type: 'guessr' }) },
-            ], 'Карта');
-          }} className="w-9 h-9 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }}>
-            <MoreHorizontal size={15} style={{ color: color.olive }} />
-          </motion.button>
+          <HoverMenu title="Карта" items={[
+            { label: 'Открыть запись', onClick: () => active && push({ type: 'sound-detail', sound: active }) },
+            { label: 'Указать точку публикации', onClick: () => { setPickMode('point'); toast('Коснитесь карты'); } },
+            { label: 'Угадайка', onClick: () => push({ type: 'guessr' }) },
+          ]}>
+            <span className="w-9 h-9 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }}>
+              <MoreHorizontal size={15} style={{ color: color.olive }} />
+            </span>
+          </HoverMenu>
         </div>
         )}
         {!desktop && (
         <AnimatePresence>
           {showFilters && (
             <motion.div className="absolute top-16 left-3 right-3 z-[400] rounded-2xl p-3 shadow-lg" style={{ background: th.cardBg }}
-              initial={{ y: -12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -12, opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={spring.fade}
               onClick={(e) => e.stopPropagation()}>
               <CatalogFilters />
             </motion.div>
@@ -206,7 +194,8 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
         <AnimatePresence>
           {active && !hidePlayer && (
             <motion.div className={`absolute z-[400] ${desktop ? 'bottom-4 left-4 right-24 max-w-md' : 'bottom-0 left-3 right-3'}`}
-              initial={{ y: 180, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 180, opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={spring.fade}
               onClick={(e) => e.stopPropagation()}>
               <PinPlayer sound={active} simple={desktop} onClose={() => setActive(null)} playing={playing && String(playingId) === String(active.id)}
                 onToggle={() => togglePlay(active)} progress={progress}

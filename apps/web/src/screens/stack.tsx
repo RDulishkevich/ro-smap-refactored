@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ChevronLeft, ChevronRight, Flag, Heart, Headphones, Info, LogOut, MapPin, MessageCircle, Mic,
-  Moon, MoreHorizontal, Send, Share2, Sun, UserPlus, Volume2,
+  Moon, MoreHorizontal, Route, Send, Share2, Sun, UserPlus, Volume2,
 } from 'lucide-react';
 import { color, pinColor } from '@polevka/design';
 import {
@@ -21,6 +21,7 @@ import { useTh, useToggleTheme, useIsDark } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import { useUi } from '../state/UiContext';
 import { PlayPauseIcon, PinPlayer, ScreenHeader, SoundTypeTag, OtpInput } from '../primitives/ui';
+import { HoverMenu } from '../primitives/HoverMenu';
 import { AudioEditor, LiveWaveform } from '../primitives/AudioEditor';
 import { openCookieBanner } from '../primitives/CookieBanner';
 import { SoundMap } from '../lib/SoundMap';
@@ -32,6 +33,7 @@ import { ExpeditionDetailScreen, ExpeditionEditScreen, PickLocationScreen } from
 import { downloadLegalPrint } from '../lib/legal-print';
 import { pathForSound, shareUrl } from '../lib/routes';
 import { useIsDesktop } from '../lib/use-media';
+import { isAmbisonicSound, isSoundwalkPrinciple, soundRoute } from '../lib/sound-media';
 import LogoApp from '@/brand/LogoApp';
 
 const SAGE = color.sage;
@@ -115,8 +117,8 @@ function PhotoCarousel({ images, title }: { images: string[]; title: string }) {
 function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void }) {
   const { push } = useNav();
   const { isLoggedIn, user } = useAuth();
-  const { togglePlay, playing, playingId, allSounds, reload } = useData();
-  const { toast, openMenu, confirm } = useUi();
+  const { togglePlay, playing, playingId, allSounds, reload, setFocused } = useData();
+  const { toast, confirm } = useUi();
   const th = useTh();
   const desktop = useIsDesktop();
   const live = allSounds.find((s) => String(s.id) === String(sound.id)) || sound;
@@ -191,7 +193,7 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       <ScreenHeader title={live.title} onBack={onBack} right={
-        <button className="w-9 h-9 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }} onClick={() => openMenu([
+        <HoverMenu title={live.title} items={[
           { label: 'Пожаловаться', danger: true, onClick: () => { void (async () => {
             if (!isLoggedIn) { push({ type: 'auth' }); toast('Войдите, чтобы пожаловаться'); return; }
             const ok = await confirm({ title: 'Пожаловаться на запись?', body: 'Жалоба уйдёт модераторам.', ok: 'Отправить' });
@@ -205,7 +207,11 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
           })(); } },
           { label: 'На карте', onClick: () => push({ type: 'map-location', sound: live }) },
           { label: 'Скачать WAV', onClick: download },
-        ], live.title)}><MoreHorizontal size={15} color={OLIVE} /></button>
+        ]}>
+          <span className="w-9 h-9 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}>
+            <MoreHorizontal size={15} color={OLIVE} />
+          </span>
+        </HoverMenu>
       } />
       <div className="flex-1 overflow-y-auto scrollbar-none">
         <PhotoCarousel images={(live.images || []).filter(Boolean)} title={live.title} />
@@ -223,6 +229,23 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
             </div>
           </div>
           {live.description && <p className="text-xs leading-relaxed mb-3" style={{ color: OLIVE }}>{live.description}</p>}
+          {(live.principle || live.channels) && (
+            <p className="text-[11px] mb-2" style={{ color: SAGE }}>
+              {[live.principle, live.channels].filter(Boolean).join(' · ')}
+              {isAmbisonicSound(live) ? ' · сфера 360° в плеере' : ''}
+            </p>
+          )}
+          {(isSoundwalkPrinciple(live.principle) || soundRoute(live).length >= 2) && (
+            <button type="button" className="mb-3 h-9 px-3 rounded-full text-[12px] font-semibold inline-flex items-center gap-1.5"
+              style={{ background: th.phoneBg, color: ACCENT }}
+              onClick={() => {
+                setFocused(live);
+                if (desktop) toast('Маршрут на карте справа');
+                else push({ type: 'map-location', sound: live });
+              }}>
+              <Route size={13} /> Показать прогулку на карте
+            </button>
+          )}
           {!desktop && (
             <motion.button onClick={() => togglePlay(live)} whileTap={{ scale: 0.88 }}
               className="w-full py-2.5 rounded-2xl flex items-center justify-center gap-2 text-xs font-semibold text-white mb-3" style={{ backgroundColor: c }}>
@@ -460,6 +483,7 @@ function UserProfileScreen({ name, avatar, username, onBack }: { name: string; a
 
 function SettingsScreen({ onBack }: { onBack: () => void }) {
   const th = useTh();
+  const desktop = useIsDesktop();
   const toggle = useToggleTheme();
   const dark = useIsDark();
   const { logout, isStaff } = useAuth();
@@ -467,8 +491,9 @@ function SettingsScreen({ onBack }: { onBack: () => void }) {
   const { toast } = useUi();
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <ScreenHeader title="Настройки" onBack={onBack} />
-      <div className="flex-1 overflow-y-auto scrollbar-none p-4 flex flex-col gap-2">
+      {!desktop && <ScreenHeader title="Настройки" onBack={onBack} />}
+      <div className={`flex-1 overflow-y-auto scrollbar-none flex flex-col gap-2 ${desktop ? 'p-6' : 'p-4'}`}>
+        {desktop && <p className="text-lg font-bold mb-2" style={{ color: th.inkText }}>Настройки</p>}
         <Row label="Тёмная тема" right={<button onClick={toggle}>{dark ? <Moon size={16} /> : <Sun size={16} />}</button>} th={th} />
         <Row label="Уведомления" right={<Volume2 size={16} color={OLIVE} />} th={th} />
         <Row label="Cookies и согласие" right={<Info size={16} color={OLIVE} />} th={th} onClick={() => openCookieBanner()} />
@@ -601,7 +626,7 @@ function AuthScreen({ onBack }: { onBack: () => void }) {
       <Field label="Логин" value={loginName} onChange={setLogin} th={th} />
       <Field label="Пароль" value={password} onChange={setPassword} th={th} password />
       {mode === 'in' && needTotp && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl p-4" style={{ background: th.cardBg }}>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-3xl p-4" style={{ background: th.cardBg }}>
           <p className="text-xs font-bold mb-1" style={{ color: th.inkText }}>Код из приложения</p>
           <p className="text-[10px] mb-3" style={{ color: SAGE }}>Шесть цифр из Google Authenticator, Яндекс Ключ или другого приложения</p>
           <OtpInput value={totp} error={totpError} autoFocus disabled={busy}
@@ -684,6 +709,7 @@ function ResetPasswordScreen({ onBack }: { onBack: () => void }) {
 
 function RecordScreen({ onBack }: { onBack: () => void }) {
   const th = useTh();
+  const desktop = useIsDesktop();
   const { toast } = useUi();
   const { reset } = useNav();
   const [stage, setStage] = useState<'idle' | 'rec' | 'review'>('idle');
@@ -779,31 +805,46 @@ function RecordScreen({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <div className="flex flex-col h-full" style={{ background: stage === 'review' ? th.phoneBg : DARK }}>
-      <ScreenHeader title="Запись" onBack={onBack} />
+    <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
+      {!desktop && <ScreenHeader title="Запись" onBack={onBack} />}
       {stage !== 'review' && (
-        <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6 text-white">
-          <p className="text-3xl font-bold tabular-nums">{formatClock(sec)}</p>
-          <div className="w-full max-w-md">
-            <LiveWaveform analyser={analyser} color={LIGHT} h={64} />
+        <div className="flex-1 flex flex-col px-6 py-6 min-h-0">
+          <div className={desktop ? 'mb-5' : 'mb-4'}>
+            <p className="text-lg font-bold" style={{ color: th.inkText }}>{stage === 'rec' ? 'Идёт запись' : 'Записать звук'}</p>
+            <p className="text-[12px] mt-1 leading-relaxed" style={{ color: OLIVE }}>
+              {stage === 'rec' ? 'Говорите или ловите фон. Остановите, когда хватит материала.' : 'Разрешите микрофон. После остановки можно обрезать и послушать перед оформлением.'}
+            </p>
           </div>
-          <motion.button whileTap={{ scale: 0.9 }} onClick={() => { if (stage === 'rec') stop(); else void start(); }}
-            className="w-20 h-20 rounded-full flex items-center justify-center"
-            style={{ background: stage === 'rec' ? ACCENT : LIGHT }}>
-            {stage === 'rec' ? <span className="w-6 h-6 rounded-md bg-white" /> : <Mic size={28} color={DARK} />}
-          </motion.button>
-          <p className="text-xs opacity-70">{stage === 'rec' ? 'Остановить' : 'Начать запись'}</p>
+          <div className="flex-1 min-h-0 rounded-[24px] p-5 flex flex-col items-center justify-center gap-5" style={{ background: th.cardBg }}>
+            <p className="text-[40px] font-bold tabular-nums leading-none" style={{ color: th.inkText }}>{formatClock(sec)}</p>
+            <div className="w-full max-w-lg rounded-2xl px-3 py-3" style={{ background: th.phoneBg }}>
+              <LiveWaveform analyser={analyser} color={stage === 'rec' ? ACCENT : SAGE} h={72} />
+            </div>
+            <motion.button whileTap={{ scale: 0.96 }} onClick={() => { if (stage === 'rec') stop(); else void start(); }}
+              className="w-[72px] h-[72px] rounded-full flex items-center justify-center shadow-[0_8px_24px_rgba(181,97,63,0.28)]"
+              style={{ background: stage === 'rec' ? ACCENT : DARK }}
+              aria-label={stage === 'rec' ? 'Остановить' : 'Начать запись'}>
+              {stage === 'rec' ? <span className="w-5 h-5 rounded-md bg-white" /> : <Mic size={26} color="white" />}
+            </motion.button>
+            <p className="text-[12px] font-semibold" style={{ color: SAGE }}>{stage === 'rec' ? 'Остановить' : 'Начать запись'}</p>
+          </div>
         </div>
       )}
       {stage === 'review' && draft && (
-        <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-3">
+        <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-4">
+          <div>
+            <p className="text-lg font-bold" style={{ color: th.inkText }}>Прослушайте и обрежьте</p>
+            <p className="text-[12px] mt-1" style={{ color: OLIVE }}>Поставьте границы, проверьте громкость и переходите к оформлению карточки.</p>
+          </div>
           <AudioEditor blob={draft.blob} durationSec={draft.durationSec}
             trimStart={draft.trimStart} trimEnd={draft.trimEnd} gain={draft.gain}
             onChange={(next) => setDraft({ ...draft, ...next })} />
-          <button type="button" className="py-3 rounded-2xl text-sm font-semibold" style={{ background: th.lightBg, color: OLIVE }}
-            onClick={() => { setDraft(null); setStage('idle'); setSec(0); }}>Записать снова</button>
-          <button type="button" className="py-3.5 rounded-2xl text-sm font-bold text-white" style={{ background: ACCENT }}
-            onClick={toPublish}>К оформлению</button>
+          <div className="flex gap-2">
+            <button type="button" className="flex-1 py-3 rounded-2xl text-sm font-semibold" style={{ background: th.lightBg, color: OLIVE }}
+              onClick={() => { setDraft(null); setStage('idle'); setSec(0); }}>Записать снова</button>
+            <button type="button" className="flex-[1.4] py-3.5 rounded-2xl text-sm font-bold text-white" style={{ background: ACCENT }}
+              onClick={toPublish}>К оформлению</button>
+          </div>
         </div>
       )}
     </div>
@@ -813,23 +854,45 @@ function RecordScreen({ onBack }: { onBack: () => void }) {
 
 function MessagesScreen({ onBack }: { onBack: () => void }) {
   const th = useTh();
+  const desktop = useIsDesktop();
   const { push } = useNav();
   const { profiles, mail } = useData();
   const { user, isLoggedIn } = useAuth();
   const peers = isLoggedIn && user ? conversationPeers(mail, user.loginName, profiles) : [];
+  const letter = (name: string) => (name.trim()[0] || '?').toUpperCase();
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <ScreenHeader title="Сообщения" onBack={onBack} />
-      <div className="flex-1 overflow-y-auto p-4">
-        {!isLoggedIn && <p className="text-xs" style={{ color: SAGE }}>Войдите, чтобы писать сообщения</p>}
-        {isLoggedIn && peers.length === 0 && <p className="text-xs" style={{ color: SAGE }}>Нет диалогов</p>}
+      {!desktop && <ScreenHeader title="Сообщения" onBack={onBack} />}
+      <div className={`flex-1 overflow-y-auto ${desktop ? 'px-6 pt-6 pb-4' : 'p-4'}`}>
+        {desktop && (
+          <div className="mb-5">
+            <p className="text-lg font-bold" style={{ color: th.inkText }}>Сообщения</p>
+            <p className="text-[12px] mt-1" style={{ color: OLIVE }}>Переписка с исследователями и поддержкой</p>
+          </div>
+        )}
+        {!isLoggedIn && (
+          <div className="rounded-[24px] p-8 text-center" style={{ background: th.cardBg }}>
+            <MessageCircle size={28} color={SAGE} className="mx-auto mb-3" />
+            <p className="text-sm font-semibold" style={{ color: th.inkText }}>Войдите, чтобы писать</p>
+            <p className="text-[12px] mt-1" style={{ color: SAGE }}>Диалоги появятся здесь после входа</p>
+            <button type="button" className="mt-4 h-10 px-5 rounded-full text-[13px] font-bold text-white" style={{ background: ACCENT }}
+              onClick={() => push({ type: 'auth' })}>Войти</button>
+          </div>
+        )}
+        {isLoggedIn && peers.length === 0 && (
+          <div className="rounded-[24px] p-8 text-center" style={{ background: th.cardBg }}>
+            <MessageCircle size={28} color={SAGE} className="mx-auto mb-3" />
+            <p className="text-sm font-semibold" style={{ color: th.inkText }}>Пока нет диалогов</p>
+            <p className="text-[12px] mt-1" style={{ color: SAGE }}>Напишите человеку из карточки звука или откройте поддержку</p>
+          </div>
+        )}
         {peers.map((p) => (
           <button key={p.login} onClick={() => push({ type: 'conversation', name: p.name, avatar: '👤', peer: p.login })}
-            className="w-full flex items-center gap-3 p-3 rounded-2xl mb-2 text-left" style={{ background: th.cardBg }}>
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}>👤</div>
+            className="w-full flex items-center gap-3 p-3.5 rounded-[20px] mb-2 text-left" style={{ background: th.cardBg }}>
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-sm font-bold" style={{ background: th.lightBg, color: OLIVE }}>{letter(p.name)}</div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold" style={{ color: th.inkText }}>{p.name}</p>
-              <p className="text-[10px] truncate" style={{ color: SAGE }}>{p.lastText || 'Написать'}</p>
+              <p className="text-[13px] font-bold" style={{ color: th.inkText }}>{p.name}</p>
+              <p className="text-[11px] truncate mt-0.5" style={{ color: SAGE }}>{p.lastText || 'Написать'}</p>
             </div>
           </button>
         ))}
@@ -990,11 +1053,12 @@ function EditProfileScreen({ onBack }: { onBack: () => void }) {
 function MapLocationScreen({ sound, onBack }: { sound: Sound; onBack: () => void }) {
   const th = useTh();
   const { togglePlay, playing, playingId, progress, seek, volume, muted, setVolume, toggleMute } = useData();
+  const route = soundRoute(sound);
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       <ScreenHeader title={sound.title} onBack={onBack} />
       <div className="relative flex-1">
-        <SoundMap sounds={[sound]} activeId={sound.id} onSelect={() => {}} />
+        <SoundMap sounds={[sound]} activeId={sound.id} onSelect={() => {}} route={route} />
         <div className="absolute bottom-3 left-3 right-3">
           <PinPlayer sound={sound} onClose={onBack} simple playing={playing && String(playingId) === String(sound.id)} onToggle={() => togglePlay(sound)} progress={progress}
             onSeek={seek} volume={volume} muted={muted} onVolume={setVolume} onMute={toggleMute} />
@@ -1007,14 +1071,15 @@ function MapLocationScreen({ sound, onBack }: { sound: Sound; onBack: () => void
 
 function HelpScreen({ onBack }: { onBack: () => void }) {
   const th = useTh();
+  const desktop = useIsDesktop();
   const { push } = useNav();
   const { user, isLoggedIn } = useAuth();
   const { mail, reloadMail } = useData();
   const { toast } = useUi();
   const [q, setQ] = useState('');
-  const [log, setLog] = useState<{ from: 'me' | 'bot'; text: string }[]>([{ from: 'bot', text: 'Поддержка Полёвки. Опишите вопрос или напишите «обращение».' }]);
-  const send = async () => {
-    const t = q.trim();
+  const [log, setLog] = useState<{ from: 'me' | 'bot'; text: string }[]>([{ from: 'bot', text: 'Поддержка Полёвки. Спросите про публикацию, аккаунт или карту — или напишите «обращение», если нужен человек.' }]);
+  const sendText = async (raw: string) => {
+    const t = raw.trim();
     if (!t) return;
     setQ('');
     const faq = matchSupportBotFaq(t);
@@ -1038,20 +1103,46 @@ function HelpScreen({ onBack }: { onBack: () => void }) {
       push({ type: 'auth' });
     }
   };
+  const send = () => void sendText(q);
+  const faqs = [
+    { label: 'Как добавить звук?', text: 'Как опубликовать запись?' },
+    { label: 'Модерация', text: 'Почему запись на модерации?' },
+    { label: 'Аккаунт', text: 'Как войти и восстановить пароль?' },
+    { label: 'Обращение', text: 'обращение' },
+  ];
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <ScreenHeader title="Поддержка Полёвки" onBack={onBack} />
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
-        {log.map((m, i) => (
-          <div key={i} className={`max-w-[85%] px-3 py-2 rounded-2xl text-xs ${m.from === 'me' ? 'self-end text-white' : 'self-start'}`}
-            style={{ background: m.from === 'me' ? ACCENT : th.cardBg, color: m.from === 'me' ? '#fff' : th.inkText }}>{m.text}</div>
-        ))}
-        <button className="text-[10px] self-start" style={{ color: SAGE }} onClick={() => push({ type: 'guessr' })}>Аудио-угадайка</button>
-        <button className="text-[10px] self-start" style={{ color: SAGE }} onClick={() => push({ type: 'conversation', name: SUPPORT_NAME, avatar: '🛟', peer: SUPPORT_LOGIN })}>Открыть чат поддержки</button>
+      {!desktop && <ScreenHeader title="Поддержка Полёвки" onBack={onBack} />}
+      <div className={`flex-1 overflow-y-auto flex flex-col gap-3 ${desktop ? 'px-6 pt-6' : 'p-4'}`}>
+        {desktop && (
+          <div>
+            <p className="text-lg font-bold" style={{ color: th.inkText }}>Поддержка Полёвки</p>
+            <p className="text-[12px] mt-1 leading-relaxed" style={{ color: OLIVE }}>
+              Карта полевых записей: слушайте точки, добавляйте свои звуки, создавайте экспедиции. Здесь — ответы и чат с поддержкой.
+            </p>
+          </div>
+        )}
+        <div className="flex flex-wrap gap-1.5">
+          {faqs.map((f) => (
+            <button key={f.label} type="button" onClick={() => void sendText(f.text)}
+              className="px-3 py-1.5 rounded-full text-[11px] font-semibold" style={{ background: th.cardBg, color: OLIVE }}>{f.label}</button>
+          ))}
+        </div>
+        <div className="flex-1 min-h-[180px] flex flex-col gap-2">
+          {log.map((m, i) => (
+            <div key={i} className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-[13px] leading-snug ${m.from === 'me' ? 'self-end text-white' : 'self-start'}`}
+              style={{ background: m.from === 'me' ? ACCENT : th.cardBg, color: m.from === 'me' ? '#fff' : th.inkText }}>{m.text}</div>
+          ))}
+        </div>
+        <div className="flex gap-2 pb-1">
+          <button className="text-[11px] font-semibold" style={{ color: SAGE }} onClick={() => push({ type: 'guessr' })}>Аудио-угадайка</button>
+          <button className="text-[11px] font-semibold" style={{ color: SAGE }} onClick={() => push({ type: 'conversation', name: SUPPORT_NAME, avatar: '🛟', peer: SUPPORT_LOGIN })}>Чат с человеком</button>
+        </div>
       </div>
-      <div className="p-3 flex gap-2">
-        <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void send()} className="flex-1 rounded-2xl px-3 py-2 text-xs outline-none" style={{ background: th.cardBg }} />
-        <button onClick={() => void send()} className="w-10 h-10 rounded-2xl text-white flex items-center justify-center" style={{ background: ACCENT }}><Send size={14} /></button>
+      <div className="p-4 flex gap-2" style={{ borderTop: `1px solid ${th.border}` }}>
+        <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()}
+          placeholder="Вопрос или «обращение»" className="flex-1 rounded-2xl px-3.5 py-2.5 text-[13px] outline-none" style={{ background: th.cardBg, color: th.inkText }} />
+        <button onClick={send} className="w-11 h-11 rounded-2xl text-white flex items-center justify-center" style={{ background: ACCENT }} aria-label="Отправить"><Send size={15} /></button>
       </div>
     </div>
   );

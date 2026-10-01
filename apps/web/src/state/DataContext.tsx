@@ -32,6 +32,8 @@ type DataCtx = {
   seek: (ratio: number) => void;
   setVolume: (v: number) => void;
   toggleMute: () => void;
+  focused: Sound | null;
+  setFocused: (s: Sound | null) => void;
   pickMode: PickMode;
   setPickMode: (m: PickMode) => void;
   pickedPoint: MapPoint | null;
@@ -57,6 +59,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [progress, setProgress] = useState(0);
   const [volume, setVolumeState] = useState(1);
   const [muted, setMuted] = useState(false);
+  const [focused, setFocused] = useState<Sound | null>(null);
   const [filter, setFilter] = useState<CatalogFilter>(EMPTY_FILTER);
   const [pickMode, setPickMode] = useState<PickMode>(null);
   const [pickedPoint, setPickedPoint] = useState<MapPoint | null>(null);
@@ -94,6 +97,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }), []);
 
   const togglePlay = useCallback((s: Sound) => {
+    setFocused(s);
     const starting = !(audioService.soundId === s.id && audioService.playing);
     audioService.toggle(s.id, s.url ? String(s.url) : undefined);
     if (starting && s.url) {
@@ -112,10 +116,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     sounds, allSounds, filteredSounds, filter, setFilter,
     feed, events, profiles, mail, loading, reload, reloadMail,
     playingId, playing, progress, volume, muted, togglePlay, seek, setVolume, toggleMute,
+    focused, setFocused,
     pickMode, setPickMode, pickedPoint, setPickedPoint, routeDraft, setRouteDraft, routePreview, setRoutePreview,
   }), [
     sounds, allSounds, filteredSounds, filter, feed, events, profiles, mail, loading, reload, reloadMail,
     playingId, playing, progress, volume, muted, togglePlay, seek, setVolume, toggleMute,
+    focused,
     pickMode, pickedPoint, routeDraft, routePreview,
   ]);
 

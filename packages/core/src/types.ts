@@ -47,6 +47,7 @@ export type Sound = {
   microphone?: string;
   channels?: string;
   license?: string;
+  route?: Array<{ lat: number; lng: number } | [number, number]>;
   ucsCatId?: string;
   ucsCategory?: string;
   fxName?: string;

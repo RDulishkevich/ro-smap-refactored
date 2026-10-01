@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bell, Headphones, MapPin, MessageCircle, Search } from 'lucide-react';
-import { color, pinColor, spring } from '@polevka/design';
-import { formatPlays, WF, type Sound } from '@polevka/core';
+import { Bell, Headphones, MessageCircle, Search } from 'lucide-react';
+import { color, pinColor, spring, tap } from '@polevka/design';
+import { formatPlays, type Sound } from '@polevka/core';
 import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import { useAuth } from '../state/AuthContext';
-import { NavBar, PlayPauseIcon, SoundTypeTag, WaveformSVG } from '../primitives/ui';
+import { NavBar, PlayPauseIcon, SoundTypeTag } from '../primitives/ui';
 import { CatalogFilters } from '../primitives/filters';
 import BrandMark from '@/brand/BrandMark';
 
@@ -39,19 +39,18 @@ export function FeedScreen({ showNav = true, embed = false, initialTab }: { show
             </div>
           </div>
           <div className="flex gap-1.5">
-            <motion.button whileTap={{ scale: 0.88 }} onClick={() => push({ type: 'messages' })} className="w-9 h-9 rounded-2xl flex items-center justify-center" style={{ background: th.cardBg }}>
+            <motion.button whileTap={tap.cta} onClick={() => push({ type: 'messages' })} className="w-9 h-9 rounded-2xl flex items-center justify-center" style={{ background: th.cardBg }}>
               <MessageCircle size={14} style={{ color: OLIVE }} />
             </motion.button>
-            <motion.button whileTap={{ scale: 0.88 }} onClick={() => push({ type: 'notifications' })} className="w-9 h-9 rounded-2xl flex items-center justify-center" style={{ background: th.cardBg }}>
+            <motion.button whileTap={tap.cta} onClick={() => push({ type: 'notifications' })} className="w-9 h-9 rounded-2xl flex items-center justify-center" style={{ background: th.cardBg }}>
               <Bell size={14} style={{ color: OLIVE }} />
             </motion.button>
           </div>
         </div>
         <div className="relative flex gap-1 p-1 rounded-2xl mb-3" style={{ background: th.lightBg }}>
           {subTabs.map(({ id, label }) => (
-            <button key={id} onClick={() => setTab(id)} className="flex-1 py-2 rounded-xl text-[11px] font-semibold relative overflow-hidden" style={{ color: tab === id ? ACCENT : OLIVE }}>
-              {tab === id && <motion.div layoutId="feedPill" className="absolute inset-0 rounded-xl" style={{ background: th.cardBg, boxShadow: '0 1px 4px rgba(45,60,57,0.12)' }} transition={spring.pill} />}
-              <span className="relative z-10">{label}</span>
+            <button key={id} onClick={() => setTab(id)} className="flex-1 py-2 rounded-xl text-[11px] font-semibold" style={{ background: tab === id ? th.cardBg : 'transparent', color: tab === id ? ACCENT : OLIVE, boxShadow: tab === id ? '0 1px 4px rgba(45,60,57,0.08)' : 'none' }}>
+              {label}
             </button>
           ))}
         </div>
@@ -63,7 +62,7 @@ export function FeedScreen({ showNav = true, embed = false, initialTab }: { show
       )}
       <div className="flex-1 overflow-hidden relative">
         <AnimatePresence mode="wait">
-          <motion.div key={tab} initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }} transition={spring.tab} className="absolute inset-0 overflow-y-auto scrollbar-none px-5 pb-4 pt-3">
+          <motion.div key={tab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={spring.fade} className="absolute inset-0 overflow-y-auto scrollbar-none px-5 pb-4 pt-3">
             {tab === 'posts' && <PostsList />}
             {tab === 'catalog' && <CatalogSoundList />}
             {tab === 'expeditions' && <ExpeditionsList />}
@@ -94,38 +93,35 @@ function PostsList() {
 }
 
 export function CatalogSoundList() {
-  const { filteredSounds, playingId, playing, progress, togglePlay } = useData();
+  const { filteredSounds, playingId, playing, togglePlay } = useData();
   const { push } = useNav();
   const th = useTh();
   return (
     <div className="flex flex-col gap-2 pt-1">
       <CatalogFilters />
-      {filteredSounds.map((item) => <SoundRow key={String(item.id)} item={item} on={playing && String(playingId) === String(item.id)} progress={playing && String(playingId) === String(item.id) ? progress : 0} onPlay={() => togglePlay(item)} onOpen={() => push({ type: 'sound-detail', sound: item })} thCard={th.cardBg} ink={th.inkText} />)}
+      {filteredSounds.map((item) => <SoundRow key={String(item.id)} item={item} on={playing && String(playingId) === String(item.id)} onPlay={() => togglePlay(item)} onOpen={() => push({ type: 'sound-detail', sound: item })} thCard={th.cardBg} ink={th.inkText} />)}
       {!filteredSounds.length && <p className="text-xs py-8 text-center" style={{ color: SAGE }}>Нет записей</p>}
     </div>
   );
 }
 
-function SoundRow({ item, on, progress = 0, onPlay, onOpen, thCard, ink }: { item: Sound; on: boolean; progress?: number; onPlay: () => void; onOpen: () => void; thCard: string; ink: string }) {
+function SoundRow({ item, on, onPlay, onOpen, thCard, ink }: { item: Sound; on: boolean; onPlay: () => void; onOpen: () => void; thCard: string; ink: string }) {
   const c = pinColor[String(item.type)] ?? ACCENT;
   return (
-    <div className="rounded-3xl p-4 shadow-sm" style={{ background: thCard }}>
-      <div className="flex justify-between items-start mb-2">
-        <button className="flex-1 min-w-0 text-left" onClick={onOpen}>
-          <p className="text-xs font-bold truncate" style={{ color: ink }}>{item.title}</p>
-          <div className="flex items-center gap-1"><MapPin size={9} style={{ color: SAGE }} /><p className="text-[10px] truncate" style={{ color: OLIVE }}>{item.location}</p></div>
-        </button>
+    <div className="rounded-2xl px-3.5 py-3 flex items-center gap-3" style={{ background: thCard }}>
+      <button type="button" onClick={onPlay} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c }} aria-label={on ? 'Пауза' : 'Слушать'}>
+        <PlayPauseIcon playing={on} size={12} />
+      </button>
+      <button type="button" className="flex-1 min-w-0 text-left" onClick={onOpen}>
+        <p className="text-[13px] font-semibold truncate" style={{ color: ink }}>{item.title}</p>
+        <p className="text-[11px] truncate mt-0.5" style={{ color: OLIVE }}>
+          {item.location}
+          {item.duration ? ` · ${item.duration}` : ''}
+        </p>
+      </button>
+      <div className="flex flex-col items-end gap-1 flex-shrink-0">
         <SoundTypeTag type={String(item.type)} />
-      </div>
-      <div className="flex items-center gap-3">
-        <motion.button onClick={onPlay} whileTap={{ scale: 0.88 }} className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c }}>
-          <PlayPauseIcon playing={on} size={12} />
-        </motion.button>
-        <div className="flex-1 overflow-hidden"><WaveformSVG data={WF[Number(item.wf || 0) % 4]} color={c} progress={on ? progress : 0} /></div>
-        <div className="text-right flex-shrink-0">
-          <p className="text-[10px]" style={{ color: ink }}>{item.duration}</p>
-          <div className="flex items-center gap-1 justify-end mt-0.5" style={{ color: SAGE }}><Headphones size={9} /><span className="text-[9px]">{formatPlays(item.plays)}</span></div>
-        </div>
+        <span className="flex items-center gap-0.5" style={{ color: SAGE }}><Headphones size={9} /><span className="text-[9px]">{formatPlays(item.plays)}</span></span>
       </div>
     </div>
   );

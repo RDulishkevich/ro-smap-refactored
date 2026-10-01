@@ -67,6 +67,8 @@ export function formatSound(s: Sound): Sound {
     status: s.status || 'published',
     likedBy: Array.isArray(s.likedBy) ? s.likedBy : [],
     dislikedBy: Array.isArray(s.dislikedBy) ? s.dislikedBy : [],
+    principle: String(s.principle || (s as Sound & { recPrinciple?: string }).recPrinciple || ''),
+    channels: String(s.channels || ''),
   };
 }
 

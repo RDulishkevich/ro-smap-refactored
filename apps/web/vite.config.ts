@@ -34,6 +34,7 @@ export default defineConfig({
     port: 5173,
     host: true,
     fs: { allow: [root] },
+    watch: { ignored: ['**/dist/**', '**/dist-build/**'] },
   },
   preview: {
     port: 4173,

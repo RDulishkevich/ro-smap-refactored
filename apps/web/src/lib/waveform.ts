@@ -114,3 +114,11 @@ export function formatClock(sec: number) {
   const s = Math.max(0, Math.round(sec));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
+
+export function parseDurationLabel(label: string | number | undefined): number {
+  const raw = String(label ?? '');
+  const m = raw.match(/^(\d+):(\d{1,2})/);
+  if (m) return Number(m[1]) * 60 + Number(m[2]);
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}

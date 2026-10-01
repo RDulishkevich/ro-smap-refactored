@@ -1,13 +1,18 @@
-import { AnimatePresence, motion } from 'motion/react';
-import { ChevronLeft, Download, Headphones, Map as MapIcon, MapPin, Play, Radio, User, LogIn, Volume2, VolumeX, X } from 'lucide-react';
+import { motion } from 'motion/react';
+import { AudioLines, ChevronLeft, Download, Globe2, Map as MapIcon, Play, Radio, User, LogIn, Volume1, Volume2, VolumeX, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { color, pinColor, spring, tap, typeMeta } from '@polevka/design';
+import { color, pinColor, tap, typeMeta } from '@polevka/design';
 import { WF } from '@polevka/core';
 import type { Sound } from '@polevka/core';
 import { useNav, type TabId } from '../state/NavContext';
 import { useAuth } from '../state/AuthContext';
 import { useTh } from '../state/ThemeContext';
-import { peaksFromUrl } from '../lib/waveform';
+import { formatClock, parseDurationLabel, peaksFromUrl } from '../lib/waveform';
+import { isAmbisonicSound } from '../lib/sound-media';
+import { audioService } from '../lib/audio-player';
+import { useUi } from '../state/UiContext';
+import { AnalyzersPanel } from './AnalyzersPanel';
+import { AmbiSphere } from './AmbiSphere';
 import Image11 from '@/brand/Image11';
 
 export function WaveformSVG({
@@ -35,22 +40,14 @@ export function WaveformSVG({
 }
 
 export function PlayPauseIcon({ playing, size = 14 }: { playing: boolean; size?: number }) {
-  return (
-    <AnimatePresence mode="wait">
-      {playing
-        ? (
-          <motion.span key="p" initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="flex gap-0.5 items-center">
-            <span className="w-1 bg-white rounded-full" style={{ height: size * 0.9 }} />
-            <span className="w-1 bg-white rounded-full" style={{ height: size * 0.9 }} />
-          </motion.span>
-        )
-        : (
-          <motion.div key="pl" initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} transition={{ duration: 0.15 }}>
-            <Play size={size} fill="white" color="white" className="ml-0.5" />
-          </motion.div>
-        )}
-    </AnimatePresence>
-  );
+  return playing
+    ? (
+      <span className="flex gap-0.5 items-center">
+        <span className="w-1 bg-white rounded-full" style={{ height: size * 0.9 }} />
+        <span className="w-1 bg-white rounded-full" style={{ height: size * 0.9 }} />
+      </span>
+    )
+    : <Play size={size} fill="white" color="white" className="ml-0.5" />;
 }
 
 export function SoundTypeTag({ type }: { type: string }) {
@@ -197,12 +194,11 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
         if (id === 'map' && hollowCenter) return <div key={id} className="w-10 h-14" />;
         return (
           <motion.button key={id} onClick={() => setActiveTab(id)} className="flex flex-col items-center gap-1" whileTap={tap.nav}>
-            <motion.div className="w-10 h-10 rounded-2xl flex items-center justify-center"
-              animate={on ? { backgroundColor: color.accent, scale: 1.08 } : { backgroundColor: 'rgba(0,0,0,0)', scale: 1 }}
-              transition={spring.nav}>
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center"
+              style={{ background: on ? color.accent : 'transparent' }}>
               <Icon size={18} color={on ? 'white' : th.isDark ? '#7A9A88' : '#B0B8A8'} />
-            </motion.div>
-            <motion.span className="text-[9px] font-semibold" animate={{ color: on ? color.accent : th.isDark ? '#7A9A88' : '#B0B8A8' }}>{label}</motion.span>
+            </div>
+            <span className="text-[9px] font-semibold" style={{ color: on ? color.accent : th.isDark ? '#7A9A88' : '#B0B8A8' }}>{label}</span>
           </motion.button>
         );
       })}
@@ -223,16 +219,27 @@ export function SeekBar({ progress, onSeek, color: c = color.accent }: { progres
   );
 }
 
-export function VolumeRow({ volume, muted, onVolume, onMute }: { volume: number; muted: boolean; onVolume: (v: number) => void; onMute: () => void }) {
+function VolumeKnob({ volume, muted, onVolume, onMute }: { volume: number; muted: boolean; onVolume: (v: number) => void; onMute: () => void }) {
+  const shown = muted ? 0 : volume;
+  const pct = Math.round(shown * 100);
+  const Icon = muted || shown === 0 ? VolumeX : shown < 0.45 ? Volume1 : Volume2;
   return (
-    <div className="flex items-center gap-2 mt-2">
-      <button type="button" onClick={onMute} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'transparent' }}>
-        {muted || volume === 0 ? <VolumeX size={13} color={color.olive} /> : <Volume2 size={13} color={color.olive} />}
+    <div className="flex items-center gap-1 flex-shrink-0" title={`Громкость ${pct}%`}>
+      <button type="button" onClick={onMute} className="w-7 h-7 rounded-full flex items-center justify-center" aria-label={muted ? 'Включить звук' : 'Выключить звук'}>
+        <Icon size={14} color={color.olive} />
       </button>
-      <input type="range" min={0} max={1} step={0.05} value={muted ? 0 : volume} onChange={(e) => onVolume(Number(e.target.value))}
-        className="flex-1 accent-[#B5613F] h-1" />
+      <div className="relative w-14 h-1 rounded-full" style={{ background: 'rgba(45,60,57,0.16)' }}>
+        <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct}%`, background: color.accent }} />
+        <input type="range" min={0} max={1} step={0.01} value={shown} aria-label="Громкость" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          onChange={(e) => onVolume(Number(e.target.value))} />
+      </div>
     </div>
   );
+}
+
+export function VolumeRow({ volume, muted, onVolume, onMute }: { volume: number; muted: boolean; onVolume: (v: number) => void; onMute: () => void }) {
+  return <VolumeKnob volume={volume} muted={muted} onVolume={onVolume} onMute={onMute} />;
 }
 
 export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, progress = 0, onOpen, onSeek, volume = 1, muted = false, onVolume, onMute, onDownload }: {
@@ -240,59 +247,98 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
   onSeek?: (r: number) => void; volume?: number; muted?: boolean; onVolume?: (v: number) => void; onMute?: () => void; onDownload?: () => void;
 }) {
   const th = useTh();
+  const { toast } = useUi();
   const c = pinColor[String(sound.type)] ?? color.accent;
   const [peaks, setPeaks] = useState<number[]>(() => WF[Number(sound.wf || 0) % 4]);
+  const [analyzers, setAnalyzers] = useState(false);
+  const [ambiUi, setAmbiUi] = useState(false);
+  const ambiGen = useRef(0);
+  const ambiCapable = isAmbisonicSound(sound);
+  const totalSec = parseDurationLabel(sound.duration);
+  const nowSec = totalSec ? progress * totalSec : 0;
+  const totalLabel = totalSec ? formatClock(totalSec) : String(sound.duration || '0:00');
   useEffect(() => {
     const url = String(sound.url || '');
     if (!url) return;
     let dead = false;
-    void peaksFromUrl(url, 72).then((p) => { if (!dead && p.length) setPeaks(p); }).catch(() => {});
+    void peaksFromUrl(url, 80).then((p) => { if (!dead && p.length) setPeaks(p); }).catch(() => {});
     return () => { dead = true; };
   }, [sound.url, sound.id]);
+  useEffect(() => {
+    setAnalyzers(false);
+    setAmbiUi(false);
+    ambiGen.current += 1;
+    if (audioService.ambisonic) void audioService.setAmbisonic(false);
+  }, [sound.id]);
+  const toggleAnalyzers = async () => {
+    if (analyzers) { setAnalyzers(false); return; }
+    const ok = await audioService.ensureGraph();
+    if (!ok) { toast('Анализаторы недоступны в этом браузере'); return; }
+    setAnalyzers(true);
+  };
+  const toggleAmbi = async () => {
+    const gen = ++ambiGen.current;
+    if (audioService.ambisonic) {
+      await audioService.setAmbisonic(false);
+      if (gen !== ambiGen.current) return;
+      setAmbiUi(false);
+      toast('Ambisonic выкл.');
+      return;
+    }
+    const ok = await audioService.setAmbisonic(true, sound.url ? String(sound.url) : undefined);
+    if (gen !== ambiGen.current) return;
+    if (!ok) { toast('Не удалось включить ambisonic — нужен 4-канальный WAV'); return; }
+    setAmbiUi(true);
+    toast('Ambisonic вкл.');
+  };
   return (
-    <div className={`px-4 ${simple ? 'pt-3 pb-3' : 'pt-4 pb-10'}`}
-      style={{
+    <div className={`px-3.5 ${simple ? 'py-2.5' : 'pt-3 pb-9'}`}
+      style={simple ? undefined : {
         background: th.cardBg,
-        borderRadius: simple ? 24 : '24px 24px 0 0',
-        boxShadow: simple ? '0 4px 16px rgba(45,60,57,0.08)' : '0 -6px 32px rgba(45,60,57,0.18)',
-        ...(simple ? {} : {
-          maskImage: 'radial-gradient(circle 36px at 50% 100%, transparent 34px, black 36px)',
-          WebkitMaskImage: 'radial-gradient(circle 36px at 50% 100%, transparent 34px, black 36px)',
-        }),
+        borderRadius: '24px 24px 0 0',
+        boxShadow: '0 -6px 32px rgba(45,60,57,0.18)',
+        maskImage: analyzers || ambiUi ? undefined : 'radial-gradient(circle 36px at 50% 100%, transparent 34px, black 36px)',
+        WebkitMaskImage: analyzers || ambiUi ? undefined : 'radial-gradient(circle 36px at 50% 100%, transparent 34px, black 36px)',
       }}>
-      <div className="flex items-start gap-2 mb-2.5">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-0.5"><SoundTypeTag type={String(sound.type)} /></div>
-          <p className="text-xs font-bold truncate leading-snug cursor-pointer" style={{ color: th.inkText }} onClick={onOpen}>{sound.title}</p>
-          <div className="flex items-center gap-1 mt-0.5">
-            <MapPin size={9} style={{ color: color.sage, flexShrink: 0 }} />
-            <p className="text-[10px] truncate" style={{ color: color.olive }}>{sound.location}</p>
-          </div>
-        </div>
-        {onDownload && (
-          <motion.button onClick={onDownload} whileTap={{ scale: 0.82 }} className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: th.lightBg }}>
-            <Download size={11} color={color.olive} />
-          </motion.button>
-        )}
-        <motion.button onClick={onClose} whileTap={{ scale: 0.82 }} className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: th.lightBg }}>
-          <X size={11} color={color.olive} />
-        </motion.button>
-      </div>
-      <div className="flex items-center gap-2.5">
-        <motion.button onClick={onToggle} whileTap={{ scale: 0.88 }} className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c }}>
+      <div className="flex items-center gap-3">
+        <button type="button" onClick={onToggle} className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c }} aria-label={playing ? 'Пауза' : 'Слушать'}>
           <PlayPauseIcon playing={!!playing} size={14} />
-        </motion.button>
-        <div className="flex-1 min-w-0 overflow-hidden">
-          <WaveformSVG data={peaks} color={c} progress={progress} h={36} onSeek={onSeek} />
+        </button>
+        <div className="flex-1 min-w-0">
+          <button type="button" className="block w-full text-left text-[13px] font-semibold truncate leading-tight" style={{ color: th.inkText }} onClick={onOpen}>{sound.title}</button>
+          <p className="text-[11px] tabular-nums mt-0.5 truncate" style={{ color: color.olive }}>
+            <span className="font-medium" style={{ color: color.dark }}>{formatClock(nowSec)}</span>
+            <span> / {totalLabel}</span>
+            {sound.location ? <span> · {sound.location}</span> : null}
+          </p>
         </div>
-        <div className="flex-shrink-0 text-right">
-          <p className="text-[10px] font-semibold" style={{ color: color.ink }}>{sound.duration}</p>
-          <div className="flex items-center gap-1 justify-end mt-0.5" style={{ color: color.sage }}>
-            <Headphones size={9} /><span className="text-[9px]">{String(sound.plays ?? 0)}</span>
-          </div>
-        </div>
+        {onVolume && onMute && <VolumeKnob volume={volume} muted={muted} onVolume={onVolume} onMute={onMute} />}
+        {onDownload && (
+          <button type="button" onClick={onDownload} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" title="Скачать WAV">
+            <Download size={13} color={color.olive} />
+          </button>
+        )}
+        <button type="button" onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" aria-label="Закрыть">
+          <X size={14} color={color.olive} />
+        </button>
       </div>
-      {onVolume && onMute && <VolumeRow volume={volume} muted={muted} onVolume={onVolume} onMute={onMute} />}
+      <div className="mt-2.5">
+        <WaveformSVG data={peaks} color={c} progress={progress} h={28} onSeek={onSeek} />
+      </div>
+      <div className="mt-1.5 flex items-center gap-1">
+        <button type="button" onClick={() => void toggleAnalyzers()} className="h-8 px-2.5 rounded-full flex items-center gap-1.5 flex-shrink-0" title="Анализаторы" aria-pressed={analyzers}>
+          <AudioLines size={13} color={analyzers ? color.accent : color.olive} />
+          <span className="text-[10px] font-semibold" style={{ color: analyzers ? color.accent : color.olive }}>Анализаторы</span>
+        </button>
+        {ambiCapable && (
+          <button type="button" onClick={() => void toggleAmbi()} className="h-8 px-2.5 rounded-full flex items-center gap-1.5 flex-shrink-0" title="Ambisonic" aria-pressed={ambiUi}>
+            <Globe2 size={13} color={ambiUi ? color.accent : color.olive} />
+            <span className="text-[10px] font-semibold" style={{ color: ambiUi ? color.accent : color.olive }}>Сфера</span>
+          </button>
+        )}
+      </div>
+      {analyzers && <AnalyzersPanel playing={!!playing} />}
+      {ambiUi && <AmbiSphere />}
     </div>
   );
 }

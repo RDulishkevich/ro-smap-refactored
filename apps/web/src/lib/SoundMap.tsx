@@ -11,6 +11,7 @@ type YMap = {
   destroy: () => void;
   geoObjects: { removeAll: () => void; add: (o: unknown) => void };
   panTo: (c: number[], o?: unknown) => void;
+  setBounds: (b: number[][], o?: unknown) => void;
   container: { fitToViewport: () => void };
   getZoom: () => number;
   converter: {
@@ -94,6 +95,7 @@ export function SoundMap({
   onHover,
   pickMode = false,
   route = [],
+  walks = [],
   pickMarker = null,
 }: {
   sounds: Sound[];
@@ -105,6 +107,7 @@ export function SoundMap({
   onHover?: (info: MapHover | null) => void;
   pickMode?: boolean;
   route?: MapPoint[];
+  walks?: MapPoint[][];
   pickMarker?: MapPoint | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -130,6 +133,7 @@ export function SoundMap({
   const lastCtx = useRef(0);
   const soundsKey = sounds.map((s) => `${s.id}:${s.lat}:${s.lng}:${s.type}`).join('|');
   const routeKey = route.map((p) => `${p.lat},${p.lng}`).join('|');
+  const walksKey = walks.map((w) => w.map((p) => `${p.lat},${p.lng}`).join(';')).join('|');
 
   useEffect(() => {
     const el = ref.current;
@@ -275,11 +279,20 @@ export function SoundMap({
       const map = ymapRef.current;
       const ymaps = ymapsRef.current;
       map.geoObjects.removeAll();
+      walks.forEach((w) => {
+        if (w.length < 2 || !ymaps.Polyline) return;
+        const line = new ymaps.Polyline(w.map((p) => [p.lat, p.lng]), {}, {
+          strokeColor: '#B5613F',
+          strokeWidth: 3,
+          strokeOpacity: 0.4,
+        });
+        map.geoObjects.add(line);
+      });
       if (route.length >= 2 && ymaps.Polyline) {
         const line = new ymaps.Polyline(route.map((p) => [p.lat, p.lng]), {}, {
           strokeColor: '#B5613F',
           strokeWidth: 4,
-          strokeOpacity: 0.85,
+          strokeOpacity: 0.9,
         });
         map.geoObjects.add(line);
       }
@@ -367,8 +380,12 @@ export function SoundMap({
       };
     }
     layer.clearLayers();
+    walks.forEach((w) => {
+      if (w.length < 2) return;
+      L.polyline(w.map((p) => [p.lat, p.lng] as [number, number]), { color: '#B5613F', weight: 3, opacity: 0.4 }).addTo(layer);
+    });
     if (route.length >= 2) {
-      L.polyline(route.map((p) => [p.lat, p.lng] as [number, number]), { color: '#B5613F', weight: 4, opacity: 0.85 }).addTo(layer);
+      L.polyline(route.map((p) => [p.lat, p.lng] as [number, number]), { color: '#B5613F', weight: 4, opacity: 0.9 }).addTo(layer);
     }
     if (pickMarker) {
       L.circleMarker([pickMarker.lat, pickMarker.lng], { radius: 8, color: '#2D3C39', fillColor: '#2D3C39', fillOpacity: 1 }).addTo(layer);
@@ -442,10 +459,22 @@ export function SoundMap({
       map.off('mouseup', clearPress);
       map.off('mousemove', clearPress);
     };
-  }, [soundsKey, activeId, ready, pickMode, routeKey, pickMarker, sounds, route]);
+  }, [soundsKey, activeId, ready, pickMode, routeKey, walksKey, pickMarker, sounds, route, walks]);
 
   useEffect(() => {
-    const s = sounds.find((x) => String(x.id) === String(activeId));
+    if (route.length >= 2) {
+      const lats = route.map((p) => p.lat);
+      const lngs = route.map((p) => p.lng);
+      const sw: [number, number] = [Math.min(...lats), Math.min(...lngs)];
+      const ne: [number, number] = [Math.max(...lats), Math.max(...lngs)];
+      if (ymapRef.current) {
+        try { ymapRef.current.setBounds([sw, ne], { checkZoomRange: true, zoomMargin: 48 }); } catch { /* */ }
+      } else if (leafletRef.current) {
+        leafletRef.current.fitBounds([sw, ne], { padding: [28, 28], maxZoom: 16 });
+      }
+      return;
+    }
+    const s = soundsRef.current.find((x) => String(x.id) === String(activeId));
     const c = s?.lat != null && s?.lng != null
       ? [Number(s.lat), Number(s.lng)] as [number, number]
       : pickMarker
@@ -454,7 +483,7 @@ export function SoundMap({
     if (!c) return;
     if (ymapRef.current) ymapRef.current.panTo(c, { duration: 300 });
     else leafletRef.current?.panTo(c);
-  }, [activeId, sounds, pickMarker]);
+  }, [activeId, pickMarker, routeKey, ready, route]);
 
   return <div ref={ref} className="absolute inset-0 z-0 bg-[#E4EDE9]" onContextMenu={(e) => e.preventDefault()} />;
 }
