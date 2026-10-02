@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { spring } from '@polevka/design';
 import { useNav, type ScreenConfig } from '../state/NavContext';
@@ -9,7 +9,6 @@ import { MapScreen } from '../screens/MapScreen';
 import { GuestProfileScreen, ProfileScreen } from '../screens/ProfileScreen';
 import { ScreenContent } from '../screens/stack';
 import { NavBar, PinPlayer } from '../primitives/ui';
-import { MapFab } from '../primitives/chrome';
 import { useData } from '../state/DataContext';
 import { audioService } from '../lib/audio-player';
 
@@ -17,7 +16,6 @@ const HIDE_PLAYER: ScreenConfig['type'][] = [
   'auth', 'record', 'add-sound', 'legal', 'reset-password',
   'pick-location', 'guessr', 'map-location',
 ];
-
 export function MobileShell() {
   const { isLoggedIn } = useAuth();
   const th = useTh();
@@ -27,6 +25,8 @@ export function MobileShell() {
     focused, setFocused,
   } = useData();
   const [fabOpen, setFabOpen] = useState(false);
+  const dockRef = useRef<HTMLDivElement | null>(null);
+  const [dockH, setDockH] = useState(0);
   const current = sounds.find((s) => String(s.id) === String(playingId)) || null;
   const dock = focused || current;
   const showChrome = stack.length === 0;
@@ -37,13 +37,35 @@ export function MobileShell() {
 
   useEffect(() => { if (!onMap) setFabOpen(false); }, [onMap]);
 
+  useEffect(() => {
+    const el = dockRef.current;
+    if (!showPlayer || !el) {
+      setDockH(0);
+      return;
+    }
+    const apply = () => setDockH(Math.ceil(el.getBoundingClientRect().height));
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [showPlayer, dock?.id]);
+
+  const contentBottom = showChrome
+    ? (showPlayer
+      ? `calc(var(--pv-nav-h) + ${dockH}px + 0.45rem)`
+      : 'var(--pv-nav-h)')
+    : (showPlayer ? `calc(${Math.max(dockH, 72)}px + 0.75rem)` : '0px');
+  const playerBottom = showChrome ? 'var(--pv-nav-h)' : '0.75rem';
+
   return (
     <div className="relative w-full h-full overflow-hidden pv-mobile" style={{ background: th.phoneBg }}>
-      <div className="absolute inset-0" style={{ bottom: showChrome ? 'var(--pv-nav-h)' : (showPlayer ? '8.25rem' : 0) }}>
+      <div className="absolute inset-0" style={{ bottom: contentBottom }}>
         <div
-          className={`absolute inset-0 ${onMap && showChrome ? 'z-[1]' : 'invisible pointer-events-none z-0'}`}
+          className={`pv-mobile-map ${onMap && showChrome ? 'z-[1]' : 'invisible pointer-events-none z-0'}`}
           aria-hidden={!onMap || !showChrome}>
-          <MapScreen showNav={false} hidePlayer />
+          <div className="pv-mobile-map-card">
+            <MapScreen showNav={false} hidePlayer onFabChange={setFabOpen} />
+          </div>
         </div>
         <div
           className={`absolute inset-0 ${activeTab === 'feed' && showChrome ? 'z-[2]' : 'invisible pointer-events-none z-0'}`}
@@ -59,11 +81,12 @@ export function MobileShell() {
 
       {showPlayer && dock && (
         <div
-          className="absolute left-3 right-3 z-[220] rounded-3xl overflow-hidden shadow-[0_12px_32px_rgba(45,60,57,0.18)] max-h-[min(42vh,360px)] overflow-y-auto"
+          ref={dockRef}
+          className="absolute z-[220] rounded-[24px] overflow-hidden shadow-[0_12px_32px_rgba(45,60,57,0.16)] max-h-[min(42vh,360px)] overflow-y-auto"
           style={{
-            bottom: showChrome
-              ? (onMap ? 'calc(var(--pv-nav-h) + 2.35rem)' : 'calc(var(--pv-nav-h) + 0.5rem)')
-              : '0.75rem',
+            left: 'var(--pv-gutter)',
+            right: 'var(--pv-gutter)',
+            bottom: playerBottom,
             background: th.cardBg,
           }}>
           <PinPlayer
@@ -88,20 +111,15 @@ export function MobileShell() {
       )}
 
       {showChrome && (
-        <div className="absolute left-0 right-0 bottom-0 z-[95] pv-mobile-nav">
-          {onMap && (
-            <div className="absolute left-1/2 z-20" style={{ top: 0, transform: 'translate(-50%, -50%)' }}>
-              <MapFab open={fabOpen} onToggle={() => setFabOpen((o) => !o)} from="center" />
-            </div>
-          )}
-          <div style={{
-            background: th.navBg,
-            borderTop: `1px solid ${th.border}`,
-            maskImage: onMap ? 'radial-gradient(circle 36px at 50% 0%, transparent 34px, black 36px)' : undefined,
-            WebkitMaskImage: onMap ? 'radial-gradient(circle 36px at 50% 0%, transparent 34px, black 36px)' : undefined,
+        <div
+          className="absolute z-[95] pv-mobile-nav rounded-[24px] overflow-hidden shadow-[0_10px_28px_rgba(45,60,57,0.14)]"
+          style={{
+            left: 'var(--pv-gutter)',
+            right: 'var(--pv-gutter)',
+            bottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',
+            background: th.cardBg,
           }}>
-            <NavBar hollowCenter={onMap} />
-          </div>
+          <NavBar />
         </div>
       )}
 
@@ -110,7 +128,7 @@ export function MobileShell() {
           <motion.div key={screen._id} className="absolute inset-0" style={{
             zIndex: 100 + i,
             background: th.phoneBg,
-            bottom: showPlayer ? '8.25rem' : 0,
+            bottom: showPlayer ? `calc(${Math.max(dockH, 72)}px + 0.75rem)` : 0,
           }}
             initial={{ opacity: 0, x: 36 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={spring.stack}>
             <ScreenContent screen={screen} onBack={pop} />

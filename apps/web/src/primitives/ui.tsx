@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { AudioLines, ChevronLeft, Download, Globe2, Map as MapIcon, Play, Radio, User, LogIn, Volume1, Volume2, VolumeX, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { color, pinColor, spring, tap, typeMeta } from '@polevka/design';
-import { WF } from '@polevka/core';
+import { normalizeTimeMarkers, WF } from '@polevka/core';
 import type { Sound } from '@polevka/core';
 import { useNav, type TabId } from '../state/NavContext';
 import { useAuth } from '../state/AuthContext';
@@ -189,7 +189,7 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
     { id: 'profile', Icon: isLoggedIn ? User : LogIn, label: isLoggedIn ? 'Профиль' : 'Вход' },
   ];
   return (
-    <div className="flex justify-around items-center py-2 px-4 min-h-[3.75rem] flex-shrink-0" style={{ background: th.navBg }}>
+    <div className="flex justify-around items-center py-2 px-4 min-h-[3.75rem] flex-shrink-0" style={{ background: hollowCenter ? th.navBg : 'transparent' }}>
       {tabs.map(({ id, Icon, label }) => {
         const on = activeTab === id;
         if (id === 'map' && hollowCenter) return <div key={id} className="w-10 h-14" />;
@@ -308,7 +308,7 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
   };
   return (
     <div className={`px-3.5 ${simple ? 'py-2.5' : 'pt-3 pb-9'}`}
-      style={simple ? undefined : {
+      style={simple ? { background: th.cardBg } : {
         background: th.cardBg,
         borderRadius: '24px 24px 0 0',
         boxShadow: '0 -6px 32px rgba(45,60,57,0.18)',
@@ -347,8 +347,20 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
         </motion.button>
         </div>
       </div>
-      <div className="mt-2.5">
+      <div className="relative mt-2.5">
         <WaveformSVG data={peaks} color={c} progress={progress} h={28} onSeek={onSeek} />
+        {normalizeTimeMarkers(sound.timeMarkers).map((m) => {
+          const pct = totalSec ? Math.max(0, Math.min(100, (m.t / totalSec) * 100)) : 0;
+          return (
+            <button key={`${m.t}-${m.label}`} type="button" title={m.label}
+              className="absolute top-0 z-[2] -translate-x-1/2 w-2.5 h-2.5 rounded-full"
+              style={{ left: `${pct}%`, background: color.dark }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (totalSec && onSeek) onSeek(Math.max(0, Math.min(1, m.t / totalSec)));
+              }} />
+          );
+        })}
       </div>
       <AnimatePresence>
         {analyzers && (

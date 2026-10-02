@@ -308,27 +308,25 @@ export function DesktopShell() {
               className="flex flex-col min-h-0 min-w-0"
               style={{ flex: mode === 'workspace' ? `0 0 ${SIDE_W}px` : '1 1 0%' }}>
               <div className="relative flex-1 min-h-0 rounded-[24px] overflow-hidden" style={{ background: th.phoneBg }}>
-                <MapScreen showNav={false} desktop hidePlayer={mode !== 'map'} />
+                <MapScreen showNav={false} desktop hidePlayer />
               </div>
-              {mode !== 'map' && (
+              {dockSound ? (
                 <div className="flex-shrink-0 mt-3 rounded-2xl overflow-y-auto max-h-[56vh]" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
-                  {dockSound ? (
-                    <PinPlayer sound={dockSound} simple
-                      onClose={() => setFocused(null)}
-                      playing={playing && String(playingId) === String(dockSound.id)}
-                      onToggle={() => togglePlay(dockSound)}
-                      progress={progress}
-                      onOpen={() => { if (vis?.type !== 'sound-detail') push({ type: 'sound-detail', sound: dockSound }); }}
-                      onSeek={seek} volume={volume} muted={muted} onVolume={setVolume} onMute={toggleMute}
-                      onDownload={() => download(dockSound)} />
-                  ) : (
-                    <div className="h-[72px] flex items-center justify-center gap-2">
-                      <Headphones size={14} color={SAGE} />
-                      <p className="text-[12px]" style={{ color: SAGE }}>Выберите звук на карте</p>
-                    </div>
-                  )}
+                  <PinPlayer sound={dockSound} simple
+                    onClose={() => setFocused(null)}
+                    playing={playing && String(playingId) === String(dockSound.id)}
+                    onToggle={() => togglePlay(dockSound)}
+                    progress={progress}
+                    onOpen={() => { if (vis?.type !== 'sound-detail') push({ type: 'sound-detail', sound: dockSound }); }}
+                    onSeek={seek} volume={volume} muted={muted} onVolume={setVolume} onMute={toggleMute}
+                    onDownload={() => download(dockSound)} />
                 </div>
-              )}
+              ) : mode !== 'map' ? (
+                <div className="flex-shrink-0 mt-3 h-[72px] rounded-2xl flex items-center justify-center gap-2" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
+                  <Headphones size={14} color={SAGE} />
+                  <p className="text-[12px]" style={{ color: SAGE }}>Выберите звук на карте</p>
+                </div>
+              ) : null}
             </div>
           </div>
           <footer className="flex-shrink-0 h-8 px-6 flex items-center gap-x-3 text-[10px] whitespace-nowrap overflow-hidden" style={{ borderTop: `1px solid ${th.border}`, color: SAGE }}>

@@ -1,4 +1,26 @@
-import type { Comment, Sound } from './types';
+import type { Comment, Sound, TimeMarker } from './types';
+
+export function normalizeTimeMarkers(raw: unknown): TimeMarker[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((m) => {
+      const row = m as { t?: unknown; label?: unknown };
+      return { t: Number(row.t) || 0, label: String(row.label || '').trim().slice(0, 160) };
+    })
+    .filter((m) => m.label && m.t >= 0)
+    .sort((a, b) => a.t - b.t)
+    .slice(0, 40);
+}
+
+export function remapMarkersAfterTrim(markers: TimeMarker[], trimStart: number, trimEnd: number, durationSec: number): TimeMarker[] {
+  const t0 = Math.max(0, trimStart) * durationSec;
+  const t1 = Math.max(t0 + 0.05, trimEnd) * durationSec;
+  return normalizeTimeMarkers(
+    markers
+      .filter((m) => m.t >= t0 - 0.04 && m.t <= t1 + 0.04)
+      .map((m) => ({ t: Math.max(0, Math.round((m.t - t0) * 100) / 100), label: m.label })),
+  );
+}
 
 function randomId(prefix: string) {
   return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -69,6 +91,7 @@ export function formatSound(s: Sound): Sound {
     dislikedBy: Array.isArray(s.dislikedBy) ? s.dislikedBy : [],
     principle: String(s.principle || (s as Sound & { recPrinciple?: string }).recPrinciple || ''),
     channels: String(s.channels || ''),
+    timeMarkers: normalizeTimeMarkers(s.timeMarkers),
   };
 }
 

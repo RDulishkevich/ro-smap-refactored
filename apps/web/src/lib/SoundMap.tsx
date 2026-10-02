@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import L from 'leaflet';
 import { pinColor } from '@polevka/design';
 import type { Sound } from '@polevka/core';
@@ -15,6 +15,8 @@ type YMap = {
   container: { fitToViewport: () => void };
   controls: { remove: (id: string) => void };
   getZoom: () => number;
+  setZoom: (z: number, o?: unknown) => void;
+  setCenter: (c: number[], o?: unknown) => void;
   converter: {
     pageToGlobal: (p: number[]) => number[];
     globalToPage: (p: number[]) => number[];
@@ -42,6 +44,10 @@ type YMapsApi = {
 export type MapPoint = { lat: number; lng: number };
 export type MapContext = MapPoint & { sound?: Sound; clientX: number; clientY: number };
 export type MapHover = { sound: Sound; clientX: number; clientY: number };
+export type SoundMapHandle = {
+  zoomBy: (delta: number) => void;
+  flyTo: (lat: number, lng: number, zoom?: number) => void;
+};
 
 function clientPoint(ev: { get?: (k: string) => unknown; originalEvent?: MouseEvent; clientX?: number; clientY?: number } | undefined): { clientX: number; clientY: number } {
   const dom = (ev?.get?.('domEvent') || ev) as { originalEvent?: MouseEvent; get?: (k: string) => unknown; clientX?: number; clientY?: number } | undefined;
@@ -89,19 +95,7 @@ function hitTest(sounds: Sound[], clientX: number, clientY: number, project: (s:
   return best;
 }
 
-export function SoundMap({
-  sounds,
-  activeId,
-  onSelect,
-  onPick,
-  onContext,
-  onEmpty,
-  onHover,
-  pickMode = false,
-  route = [],
-  walks = [],
-  pickMarker = null,
-}: {
+export const SoundMap = forwardRef<SoundMapHandle, {
   sounds: Sound[];
   activeId: string | number | null;
   onSelect: (s: Sound) => void;
@@ -113,8 +107,24 @@ export function SoundMap({
   route?: MapPoint[];
   walks?: MapPoint[][];
   pickMarker?: MapPoint | null;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
+  nativeZoom?: boolean;
+}>(function SoundMap({
+  sounds,
+  activeId,
+  onSelect,
+  onPick,
+  onContext,
+  onEmpty,
+  onHover,
+  pickMode = false,
+  route = [],
+  walks = [],
+  pickMarker = null,
+  nativeZoom = true,
+}, ref) {
+  const nodeRef = useRef<HTMLDivElement>(null);
+  const nativeZoomRef = useRef(nativeZoom);
+  nativeZoomRef.current = nativeZoom;
   const leafletRef = useRef<L.Map | null>(null);
   const leafletLayer = useRef<L.LayerGroup | null>(null);
   const ymapRef = useRef<YMap | null>(null);
@@ -140,7 +150,7 @@ export function SoundMap({
   const walksKey = walks.map((w) => w.map((p) => `${p.lat},${p.lng}`).join(';')).join('|');
 
   useEffect(() => {
-    const el = ref.current;
+    const el = nodeRef.current;
     if (!el) return;
     let dead = false;
 
@@ -150,11 +160,11 @@ export function SoundMap({
       const ymaps = (window as Window & { ymaps?: YMapsApi }).ymaps;
       if (ok && ymaps) {
         ymaps.ready(() => {
-          if (dead || !ref.current) return;
-          const map = new ymaps.Map(ref.current, {
+          if (dead || !nodeRef.current) return;
+          const map = new ymaps.Map(nodeRef.current, {
             center: ROSTOV,
             zoom: 11,
-            controls: ['zoomControl'],
+            controls: nativeZoomRef.current ? ['zoomControl'] : [],
           }, {
             suppressMapOpenBlock: true,
             yandexMapDisablePoiInteractivity: true,
@@ -178,7 +188,7 @@ export function SoundMap({
       }
       const map = L.map(el, { zoomControl: false, attributionControl: false }).setView(ROSTOV, 11);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-      L.control.zoom({ position: 'bottomright' }).addTo(map);
+      if (nativeZoomRef.current) L.control.zoom({ position: 'bottomright' }).addTo(map);
       leafletLayer.current = L.layerGroup().addTo(map);
       leafletRef.current = map;
       engine.current = 'leaflet';
@@ -236,7 +246,7 @@ export function SoundMap({
       return { x: rect.left + pt.x, y: rect.top + pt.y };
     };
 
-    const el = ref.current;
+    const el = nodeRef.current;
     const nativeCtx = (e: MouseEvent) => {
       e.preventDefault();
       const list = soundsRef.current;
@@ -501,5 +511,31 @@ export function SoundMap({
     else leafletRef.current?.panTo(c);
   }, [activeId, pickMarker, routeKey, ready, route]);
 
-  return <div ref={ref} className="absolute inset-0 z-0 bg-[#E4EDE9] pv-map" onContextMenu={(e) => e.preventDefault()} />;
-}
+  useImperativeHandle(ref, () => ({
+    zoomBy(delta: number) {
+      const leaf = leafletRef.current;
+      if (leaf) {
+        if (delta > 0) leaf.zoomIn();
+        else leaf.zoomOut();
+        return;
+      }
+      const y = ymapRef.current;
+      if (!y) return;
+      try { y.setZoom(y.getZoom() + delta); } catch { /* */ }
+    },
+    flyTo(lat: number, lng: number, zoom?: number) {
+      const y = ymapRef.current;
+      if (y) {
+        y.panTo([lat, lng], { duration: 400 });
+        if (zoom != null) {
+          try { y.setZoom(zoom); } catch { /* */ }
+        }
+        return;
+      }
+      const leaf = leafletRef.current;
+      if (leaf) leaf.flyTo([lat, lng], zoom ?? leaf.getZoom(), { duration: 0.45 });
+    },
+  }), []);
+
+  return <div ref={nodeRef} className="absolute inset-0 z-0 bg-[#E4EDE9] pv-map" onContextMenu={(e) => e.preventDefault()} />;
+});

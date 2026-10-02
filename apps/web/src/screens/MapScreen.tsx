@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { MoreHorizontal, SlidersHorizontal } from 'lucide-react';
+import { LocateFixed, Minus, MoreHorizontal, Plus, Search, SlidersHorizontal } from 'lucide-react';
 import { apiPatchSound, apiSyncJson, pendingSounds, type Sound } from '@polevka/core';
 import { color, spring, tap, typeMeta } from '@polevka/design';
 import { useNav } from '../state/NavContext';
@@ -11,14 +11,15 @@ import { useAuth } from '../state/AuthContext';
 import { NavBar, PinPlayer, SoundTypeTag } from '../primitives/ui';
 import { HoverMenu } from '../primitives/HoverMenu';
 import { MapFab } from '../primitives/chrome';
-import { SoundMap, type MapContext, type MapHover, type MapPoint } from '../lib/SoundMap';
+import { SoundMap, type MapContext, type MapHover, type MapPoint, type SoundMapHandle } from '../lib/SoundMap';
 import { CatalogFilters } from '../primitives/filters';
 import { normalizeRoute, soundRoute } from '../lib/sound-media';
 
-export function MapScreen({ showNav = true, desktop = false, hidePlayer = false }: {
+export function MapScreen({ showNav = true, desktop = false, hidePlayer = false, onFabChange }: {
   showNav?: boolean;
   desktop?: boolean;
   hidePlayer?: boolean;
+  onFabChange?: (open: boolean) => void;
 }) {
   const { push } = useNav();
   const { openMenu, toast, confirm } = useUi();
@@ -34,6 +35,8 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false 
   const [fabOpen, setFabOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [hover, setHover] = useState<MapHover | null>(null);
+  const mapRef = useRef<SoundMapHandle | null>(null);
+  useEffect(() => { onFabChange?.(fabOpen); }, [fabOpen, onFabChange]);
   const onSelect = useCallback((s: Sound) => {
     setActive(s);
     setFabOpen(false);
@@ -143,16 +146,20 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: th.phoneBg }}>
       <div className="relative flex-1 min-h-0">
-        <SoundMap sounds={uniquePins} activeId={active?.id ?? null} onSelect={onSelect}
-          onPick={onPick} onContext={onContext} onEmpty={onEmpty} onHover={setHover} pickMode={!!pickMode} route={routes} walks={walks} pickMarker={pickedPoint} />
+        <SoundMap ref={mapRef} sounds={uniquePins} activeId={active?.id ?? null} onSelect={onSelect}
+          onPick={onPick} onContext={onContext} onEmpty={onEmpty} onHover={setHover} pickMode={!!pickMode}
+          route={routes} walks={walks} pickMarker={pickedPoint} nativeZoom={desktop} />
         {!desktop && (
-        <div className="absolute pv-safe-top right-3 flex gap-2 z-[400]" onClick={(e) => e.stopPropagation()}>
+        <div className="absolute top-3 right-3 flex gap-2 z-[400]" onClick={(e) => e.stopPropagation()}>
+          <motion.button whileTap={tap.cta} onClick={(e) => { e.stopPropagation(); push({ type: 'search' }); }}
+            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }} aria-label="Поиск">
+            <Search size={16} style={{ color: color.olive }} />
+          </motion.button>
           <motion.button whileTap={tap.cta} onClick={(e) => { e.stopPropagation(); setShowFilters((v) => !v); }}
             className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }} aria-label="Фильтры" aria-pressed={showFilters}>
             <SlidersHorizontal size={16} style={{ color: showFilters ? color.accent : color.olive }} />
           </motion.button>
           <HoverMenu title="Карта" items={[
-            { label: 'Поиск', onClick: () => push({ type: 'search' }) },
             { label: 'События', onClick: () => push({ type: 'events' }) },
             { label: 'Открыть запись', onClick: () => active && push({ type: 'sound-detail', sound: active }) },
             { label: 'Указать точку публикации', onClick: () => { setPickMode('point'); toast('Коснитесь карты'); } },
@@ -165,9 +172,37 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false 
         </div>
         )}
         {!desktop && (
+        <div className="absolute bottom-3 left-3 z-[400] flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <motion.button whileTap={tap.cta} onClick={() => mapRef.current?.zoomBy(1)}
+            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }} aria-label="Приблизить">
+            <Plus size={16} style={{ color: color.olive }} />
+          </motion.button>
+          <motion.button whileTap={tap.cta} onClick={() => mapRef.current?.zoomBy(-1)}
+            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }} aria-label="Отдалить">
+            <Minus size={16} style={{ color: color.olive }} />
+          </motion.button>
+          <motion.button whileTap={tap.cta} onClick={() => {
+            if (!navigator.geolocation) { toast('Геолокация недоступна'); return; }
+            navigator.geolocation.getCurrentPosition(
+              (pos) => mapRef.current?.flyTo(pos.coords.latitude, pos.coords.longitude, 14),
+              () => toast('Не удалось определить место'),
+              { enableHighAccuracy: true, timeout: 7000 },
+            );
+          }}
+            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }} aria-label="Моё место">
+            <LocateFixed size={16} style={{ color: color.olive }} />
+          </motion.button>
+        </div>
+        )}
+        {!desktop && !showNav && (
+          <div className="absolute bottom-3 right-3 z-[400]" onClick={(e) => e.stopPropagation()}>
+            <MapFab open={fabOpen} onToggle={() => setFabOpen((o) => !o)} from="corner" />
+          </div>
+        )}
+        {!desktop && (
         <AnimatePresence>
           {showFilters && (
-            <motion.div className="absolute top-[4.75rem] left-3 right-3 z-[400] rounded-2xl p-3 shadow-lg" style={{ background: th.cardBg }}
+            <motion.div className="absolute top-[4.25rem] left-3 right-3 z-[400] rounded-3xl p-3 shadow-lg" style={{ background: th.cardBg }}
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               transition={spring.fade}
               onClick={(e) => e.stopPropagation()}>
@@ -177,7 +212,7 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false 
         </AnimatePresence>
         )}
         {pickMode && (
-          <div className="absolute top-[4.75rem] left-3 right-3 z-[399] rounded-2xl px-3 py-2.5 text-[11px] font-semibold text-white" style={{ background: color.accent }}>
+          <div className="absolute top-[4.25rem] left-3 right-3 z-[399] rounded-3xl px-3 py-2.5 text-[11px] font-semibold text-white" style={{ background: color.accent }}>
             {pickMode === 'route' ? 'Маршрут: нажимайте точки. Долгое нажатие или ПКМ.' : 'Выберите точку на карте (клик или долгое нажатие).'}
             <button className="ml-2 underline" onClick={() => setPickMode(null)}>готово</button>
           </div>

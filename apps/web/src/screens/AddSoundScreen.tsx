@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   apiSyncJson, apiTranslate, buildUcsFileName, FIELD_MICROPHONES, FIELD_RECORDERS,
-  preparePublishWav, spamGuardCheck, spamGuardMessage, ucsCategories, ucsStructure,
-  uploadUserMedia, type Sound,
+  normalizeTimeMarkers, preparePublishWav, remapMarkersAfterTrim, spamGuardCheck,
+  spamGuardMessage, ucsCategories, ucsStructure, uploadUserMedia, type Sound, type TimeMarker,
 } from '@polevka/core';
 import { color } from '@polevka/design';
 import { ImagePlus, Route, X } from 'lucide-react';
@@ -16,7 +16,7 @@ import { useTh } from '../state/ThemeContext';
 import { useUi } from '../state/UiContext';
 import { useIsDesktop } from '../lib/use-media';
 import { getDraftRecording, setDraftRecording } from '../lib/record-buffer';
-import { applyTrimGain } from '../lib/waveform';
+import { applyTrimGain, parseDurationLabel } from '../lib/waveform';
 import { isAmbisonicChannels, isSoundwalkPrinciple, normalizeRoute } from '../lib/sound-media';
 
 const SAGE = color.sage;
@@ -59,7 +59,17 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
   const [draft, setDraft] = useState(() => {
     const rec = edit ? null : getDraftRecording();
     if (!rec) return null;
-    return { ...rec, trimStart: rec.trimStart ?? 0, trimEnd: rec.trimEnd ?? 1, gain: rec.gain ?? 1 };
+    return {
+      ...rec,
+      trimStart: rec.trimStart ?? 0,
+      trimEnd: rec.trimEnd ?? 1,
+      gain: rec.gain ?? 1,
+      timeMarkers: normalizeTimeMarkers(rec.timeMarkers),
+    };
+  });
+  const [markers, setMarkers] = useState<TimeMarker[]>(() => {
+    if (edit) return normalizeTimeMarkers(edit.timeMarkers);
+    return normalizeTimeMarkers(getDraftRecording()?.timeMarkers);
   });
   useEffect(() => {
     if (edit) setDraftRecording(null);
@@ -105,8 +115,10 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
         a.src = URL.createObjectURL(file);
       });
     } catch { durationSec = 1; }
-    setDraftRecording({ blob: file, durationSec, mime: file.type || 'audio/wav', trimStart: 0, trimEnd: 1, gain: 1 });
-    setDraft({ blob: file, durationSec, mime: file.type || 'audio/wav', trimStart: 0, trimEnd: 1, gain: 1 });
+    const next = { blob: file, durationSec, mime: file.type || 'audio/wav', trimStart: 0, trimEnd: 1, gain: 1, timeMarkers: [] as TimeMarker[] };
+    setDraftRecording(next);
+    setDraft(next);
+    setMarkers([]);
     setFileLabel(file.name);
     if (!title) setTitle(file.name.replace(/\.[^.]+$/, ''));
     toast('Файл выбран');
@@ -175,6 +187,9 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
         formatLabel = prepared.formatLabel;
         dur = `${Math.floor(trimmed.durationSec / 60)}:${String(trimmed.durationSec % 60).padStart(2, '0')}`;
       }
+      const timeMarkers = rec?.blob
+        ? remapMarkersAfterTrim(markers, rec.trimStart ?? 0, rec.trimEnd ?? 1, rec.durationSec)
+        : normalizeTimeMarkers(markers);
       const images: string[] = [...keptImages];
       for (const photo of photos.slice(0, Math.max(0, 3 - keptImages.length))) {
         images.push(await uploadUserMedia(photo, photo.name, photo.type || 'image/jpeg'));
@@ -221,6 +236,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
         recordistId: user?.loginName,
         lat, lng, duration: dur, url, comments: edit?.comments || [],
         route: walkRoute.length >= 2 ? walkRoute : undefined,
+        timeMarkers,
       };
       await apiSyncJson('map_data.json', [record]);
       setDraftRecording(null);
@@ -264,17 +280,31 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
               <input type="file" accept="audio/*,.webm,.ogg,.mp3,.wav,.m4a" className="hidden"
                 onChange={(e) => void onPickFile(e.target.files?.[0] || null)} />
             </label>
-            {draft && (
+            {draft ? (
               <div className="mt-3">
                 <AudioEditor blob={draft.blob} durationSec={draft.durationSec}
                   trimStart={draft.trimStart ?? 0} trimEnd={draft.trimEnd ?? 1} gain={draft.gain ?? 1}
+                  markers={markers}
+                  onMarkers={(next) => {
+                    setMarkers(next);
+                    const rec = { ...draft, timeMarkers: next };
+                    setDraft(rec);
+                    setDraftRecording(rec);
+                  }}
                   onChange={(next) => {
-                    const rec = { ...draft, ...next };
+                    const rec = { ...draft, ...next, timeMarkers: markers };
                     setDraft(rec);
                     setDraftRecording(rec);
                   }} />
               </div>
-            )}
+            ) : edit?.url ? (
+              <div className="mt-3">
+                <AudioEditor url={String(edit.url)} durationSec={parseDurationLabel(edit.duration) || 1}
+                  trimStart={0} trimEnd={1} gain={1} allowTrim={false}
+                  markers={markers} onMarkers={setMarkers}
+                  onChange={() => {}} />
+              </div>
+            ) : null}
           </Section>
 
           <Section title="Карточка" th={th}>

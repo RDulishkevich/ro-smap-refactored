@@ -9,9 +9,9 @@ import {
   apiChangePassword, apiConfirmEmailVerification, apiConfirmPasswordReset,
   apiGetSecurityEvents, apiLogoutAll, apiPatchSound, apiRequestEmailVerification, apiRequestPasswordReset,
   apiSyncJson, apiTotpConfirm, apiTotpDisable, apiTotpSetup, conversationPeers, makeMailMsg,
-  matchSupportBotFaq, normalizeComment, spamGuardCheck, spamGuardMessage, SUPPORT_LOGIN,
+  matchSupportBotFaq,   normalizeComment, normalizeTimeMarkers, spamGuardCheck, spamGuardMessage, SUPPORT_LOGIN,
   SUPPORT_NAME, threadWith, uploadUserMedia, upsertInboxPatch, formatPlays,
-  type ApiError, type Comment, type Sound,
+  type ApiError, type Comment, type Sound, type TimeMarker,
 } from '@polevka/core';
 import { LEGAL_DOCS } from '../../../../src/data/legalDocs.js';
 import { PUBLISH_RULE_SECTIONS } from '../../../../src/data/publishRules.js';
@@ -199,6 +199,23 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
             </div>
           </div>
           {live.description && <p className="text-xs leading-relaxed mb-3" style={{ color: OLIVE }}>{live.description}</p>}
+          {!!normalizeTimeMarkers(live.timeMarkers).length && (
+            <ul className="mb-3 flex flex-col gap-1.5">
+              {normalizeTimeMarkers(live.timeMarkers).map((m, i) => (
+                <li key={`${m.t}-${m.label}-${i}`}>
+                  <button type="button" className="flex items-baseline gap-2 text-left w-full"
+                    onClick={() => {
+                      const total = parseDurationLabel(live.duration);
+                      if (total > 0) seek(Math.max(0, Math.min(1, m.t / total)));
+                      if (!on) togglePlay(live);
+                    }}>
+                    <span className="text-[11px] font-semibold tabular-nums" style={{ color: ACCENT }}>{formatClock(m.t)}</span>
+                    <span className="text-[11px] min-w-0 truncate" style={{ color: th.inkText }}>{m.label}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
           {(live.principle || live.channels) && (
             <p className="text-[11px] mb-2" style={{ color: SAGE }}>
               {[live.principle, live.channels].filter(Boolean).join(' · ')}
@@ -683,7 +700,7 @@ function RecordScreen({ onBack }: { onBack: () => void }) {
   const [stage, setStage] = useState<'idle' | 'rec' | 'review'>('idle');
   const [sec, setSec] = useState(0);
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
-  const [draft, setDraft] = useState<{ blob: Blob; durationSec: number; mime: string; trimStart: number; trimEnd: number; gain: number } | null>(null);
+  const [draft, setDraft] = useState<{ blob: Blob; durationSec: number; mime: string; trimStart: number; trimEnd: number; gain: number; timeMarkers: TimeMarker[] } | null>(null);
   const recRef = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -753,7 +770,7 @@ function RecordScreen({ onBack }: { onBack: () => void }) {
         return;
       }
       const durationSec = Math.max(1, Math.round((Date.now() - started.current) / 1000));
-      setDraft({ blob, durationSec, mime, trimStart: 0, trimEnd: 1, gain: 1 });
+      setDraft({ blob, durationSec, mime, trimStart: 0, trimEnd: 1, gain: 1, timeMarkers: [] });
       setStage('review');
     };
     if (mr.state === 'recording') {
@@ -802,10 +819,12 @@ function RecordScreen({ onBack }: { onBack: () => void }) {
         <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-4">
           <div>
             <p className="text-lg font-bold" style={{ color: th.inkText }}>Прослушайте и обрежьте</p>
-            <p className="text-[12px] mt-1" style={{ color: OLIVE }}>Поставьте границы, проверьте громкость и переходите к оформлению карточки.</p>
+            <p className="text-[12px] mt-1" style={{ color: OLIVE }}>Тяните ручки на волне, поставьте метки и проверьте громкость перед оформлением.</p>
           </div>
           <AudioEditor blob={draft.blob} durationSec={draft.durationSec}
             trimStart={draft.trimStart} trimEnd={draft.trimEnd} gain={draft.gain}
+            markers={draft.timeMarkers}
+            onMarkers={(timeMarkers) => setDraft({ ...draft, timeMarkers })}
             onChange={(next) => setDraft({ ...draft, ...next })} />
           <div className="flex gap-2">
             <button type="button" className="flex-1 py-3 rounded-2xl text-sm font-semibold" style={{ background: th.lightBg, color: OLIVE }}
@@ -1025,12 +1044,14 @@ function MapLocationScreen({ sound, onBack }: { sound: Sound; onBack: () => void
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       <ScreenHeader title={sound.title} onBack={onBack} />
-      <div className="relative flex-1">
-        <SoundMap sounds={[sound]} activeId={sound.id} onSelect={() => {}} route={route} />
-        <div className="absolute bottom-3 left-3 right-3">
-          <PinPlayer sound={sound} onClose={onBack} simple playing={playing && String(playingId) === String(sound.id)} onToggle={() => togglePlay(sound)} progress={progress}
-            onSeek={seek} volume={volume} muted={muted} onVolume={setVolume} onMute={toggleMute} />
+      <div className="flex-1 min-h-0 mx-3 mb-2 rounded-[24px] overflow-hidden">
+        <div className="relative h-full">
+          <SoundMap sounds={[sound]} activeId={sound.id} onSelect={() => {}} route={route} nativeZoom={false} />
         </div>
+      </div>
+      <div className="flex-shrink-0 mx-3 mb-3 rounded-3xl overflow-hidden" style={{ background: th.cardBg }}>
+        <PinPlayer sound={sound} onClose={onBack} simple playing={playing && String(playingId) === String(sound.id)} onToggle={() => togglePlay(sound)} progress={progress}
+          onSeek={seek} volume={volume} muted={muted} onVolume={setVolume} onMute={toggleMute} />
       </div>
     </div>
   );

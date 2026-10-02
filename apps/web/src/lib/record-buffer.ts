@@ -1,3 +1,5 @@
+import type { TimeMarker } from '@polevka/core';
+
 export type DraftRecording = {
   blob: Blob;
   durationSec: number;
@@ -5,6 +7,7 @@ export type DraftRecording = {
   trimStart?: number;
   trimEnd?: number;
   gain?: number;
+  timeMarkers?: TimeMarker[];
 };
 
 let draft: DraftRecording | null = null;

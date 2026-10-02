@@ -11,6 +11,8 @@ export type Comment = {
   reports?: unknown[];
 };
 
+export type TimeMarker = { t: number; label: string };
+
 export type Sound = {
   id: string | number;
   title: string;
@@ -54,6 +56,7 @@ export type Sound = {
   formatLabel?: string;
   rejectNote?: string;
   deleted?: boolean;
+  timeMarkers?: TimeMarker[];
   [key: string]: unknown;
 };
 
