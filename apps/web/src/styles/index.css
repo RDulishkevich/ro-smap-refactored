@@ -27,7 +27,8 @@
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
   --pv-gutter: 0.7rem;
-  --pv-nav-h: calc(5.15rem + env(safe-area-inset-bottom, 0px));
+  --pv-nav-h: calc(4.65rem + env(safe-area-inset-bottom, 0px));
+  --pv-fab-gap: 3.15rem;
 }
 .pv-mobile-nav {
   touch-action: manipulation;

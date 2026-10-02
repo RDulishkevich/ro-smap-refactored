@@ -24,9 +24,12 @@ export type ScreenConfig =
   | { type: 'legal'; doc: 'privacy' | 'terms' | 'publish' }
   | { type: 'cabinet' }
   | { type: 'guessr' }
-  | { type: 'reset-password' };
+  | { type: 'reset-password' }
+  | { type: 'catalog' }
+  | { type: 'feed' }
+  | { type: 'expeditions' };
 
-export type TabId = 'feed' | 'map' | 'profile';
+export type TabId = 'menu' | 'map' | 'messages' | 'profile';
 export type DesktopView = 'map' | 'library' | 'feed' | 'expeditions' | 'help' | 'staff' | 'cabinet';
 
 type NavCtx = {
@@ -98,6 +101,7 @@ export function NavProvider({ children, isLoggedIn, onNeedAuth }: { children: Re
   const setActiveTab = useCallback((t: TabId) => {
     setPrevTab(activeTab);
     setActiveTabState(t);
+    setStack([]);
   }, [activeTab]);
   const requireAuth = useCallback((s: ScreenConfig) => {
     if (!isLoggedIn) {

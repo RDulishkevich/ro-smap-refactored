@@ -194,11 +194,6 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
           </motion.button>
         </div>
         )}
-        {!desktop && !showNav && (
-          <div className="absolute bottom-3 right-3 z-[400]" onClick={(e) => e.stopPropagation()}>
-            <MapFab open={fabOpen} onToggle={() => setFabOpen((o) => !o)} from="corner" />
-          </div>
-        )}
         {!desktop && (
         <AnimatePresence>
           {showFilters && (

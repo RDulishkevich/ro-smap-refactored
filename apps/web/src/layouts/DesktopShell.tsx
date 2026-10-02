@@ -223,7 +223,7 @@ export function DesktopShell() {
                   onChange={(e) => {
                     const v = e.target.value;
                     setQ(v);
-                    setFilter((f) => ({ ...f, tag: v }));
+                    setFilter((f) => ({ ...f, tag: v, q: v }));
                   }}
                   onKeyDown={(e) => { if (e.key === 'Enter') push({ type: 'search' }); }} />
               </label>

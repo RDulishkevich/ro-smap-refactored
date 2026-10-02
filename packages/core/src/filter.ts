@@ -7,6 +7,8 @@ export type CatalogFilter = {
   tag: string;
   gear: string;
   channels: string;
+  q: string;
+  type: string;
 };
 
 export const EMPTY_FILTER: CatalogFilter = {
@@ -16,10 +18,24 @@ export const EMPTY_FILTER: CatalogFilter = {
   tag: '',
   gear: '',
   channels: '',
+  q: '',
+  type: '',
 };
+
+export function soundSearchBlob(s: Sound) {
+  return [
+    s.title, s.location, s.user, s.recordist, s.recordistId, s.description,
+    s.type, s.ecoCategory, s.ucsCat, s.ucsCatId, s.fxName, s.gear, s.recorder,
+    s.microphone, s.channels, s.principle, s.weather,
+    ...(s.tagArray || []),
+  ].map((v) => String(v || '')).join(' ').toLowerCase();
+}
 
 export function soundMatchesFilter(s: Sound, f: CatalogFilter): boolean {
   if (s.deleted) return false;
+  if (f.type && String(s.type || '') !== f.type) return false;
+  const q = (f.q || '').trim().toLowerCase();
+  if (q && !soundSearchBlob(s).includes(q)) return false;
   if (f.eco && String(s.ecoCategory || '') !== f.eco) return false;
   if (f.ucs) {
     const cat = String(s.ucsCat || s.ucsCategory || '').toUpperCase();
@@ -45,6 +61,6 @@ export function soundMatchesFilter(s: Sound, f: CatalogFilter): boolean {
 }
 
 export function filterSounds(list: Sound[], f: CatalogFilter): Sound[] {
-  if (!f.eco && !f.ucs && !f.ucsSub && !f.tag && !f.gear && !f.channels) return list.filter((s) => !s.deleted);
+  if (!f.eco && !f.ucs && !f.ucsSub && !f.tag && !f.gear && !f.channels && !f.q && !f.type) return list.filter((s) => !s.deleted);
   return list.filter((s) => soundMatchesFilter(s, f));
 }

@@ -1,11 +1,12 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { AudioLines, ChevronLeft, Download, Globe2, Map as MapIcon, Play, Radio, User, LogIn, Volume1, Volume2, VolumeX, X } from 'lucide-react';
+import { AudioLines, ChevronLeft, Download, Globe2, LayoutGrid, Map as MapIcon, MessageCircle, Play, User, LogIn, Volume1, Volume2, VolumeX, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { color, pinColor, spring, tap, typeMeta } from '@polevka/design';
 import { normalizeTimeMarkers, WF } from '@polevka/core';
 import type { Sound } from '@polevka/core';
 import { useNav, type TabId } from '../state/NavContext';
 import { useAuth } from '../state/AuthContext';
+import { useData } from '../state/DataContext';
 import { useTh } from '../state/ThemeContext';
 import { formatClock, parseDurationLabel, peaksFromUrl } from '../lib/waveform';
 import { isAmbisonicSound } from '../lib/sound-media';
@@ -181,27 +182,41 @@ export function DecorBand({ opacity = 0.18, flip = false }: { opacity?: number; 
 
 export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
   const { activeTab, setActiveTab } = useNav();
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user } = useAuth();
+  const { mail } = useData();
   const th = useTh();
-  const tabs: Array<{ id: TabId; Icon: typeof Radio; label: string }> = [
-    { id: 'feed', Icon: Radio, label: 'Лента' },
+  const unread = (mail.find((b) => b.loginName === user?.loginName)?.notifications || [])
+    .filter((n) => !(n as { read?: boolean }).read).length;
+  const tabs: Array<{ id: TabId; Icon: typeof MapIcon; label: string }> = [
+    { id: 'menu', Icon: LayoutGrid, label: 'Меню' },
     { id: 'map', Icon: MapIcon, label: 'Карта' },
+    { id: 'messages', Icon: MessageCircle, label: 'Сообщения' },
     { id: 'profile', Icon: isLoggedIn ? User : LogIn, label: isLoggedIn ? 'Профиль' : 'Вход' },
   ];
   return (
-    <div className="flex justify-around items-center py-2 px-4 min-h-[3.75rem] flex-shrink-0" style={{ background: hollowCenter ? th.navBg : 'transparent' }}>
-      {tabs.map(({ id, Icon, label }) => {
+    <div className="flex justify-around items-center py-2 px-3 min-h-[3.5rem] flex-shrink-0" style={{ background: hollowCenter ? th.navBg : 'transparent' }}>
+      {tabs.map(({ id, Icon, label }, i) => {
         const on = activeTab === id;
-        if (id === 'map' && hollowCenter) return <div key={id} className="w-10 h-14" />;
-        return (
-          <motion.button key={id} onClick={() => setActiveTab(id)} className="flex flex-col items-center gap-1" whileTap={tap.nav}>
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center"
+        const btn = (
+          <motion.button key={id} onClick={() => setActiveTab(id)} className="flex items-center justify-center" whileTap={tap.nav} aria-label={label} aria-current={on ? 'page' : undefined}>
+            <div className="relative w-11 h-11 rounded-2xl flex items-center justify-center"
               style={{ background: on ? color.accent : 'transparent' }}>
-              <Icon size={18} color={on ? 'white' : th.isDark ? '#7A9A88' : '#B0B8A8'} />
+              <Icon size={20} color={on ? 'white' : th.isDark ? '#7A9A88' : '#B0B8A8'} />
+              {id === 'messages' && unread > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full" style={{ background: on ? '#fff' : color.accent }} />
+              )}
             </div>
-            <span className="text-[9px] font-semibold" style={{ color: on ? color.accent : th.isDark ? '#7A9A88' : '#B0B8A8' }}>{label}</span>
           </motion.button>
         );
+        if (hollowCenter && i === 1) {
+          return (
+            <span key={`${id}-wrap`} className="contents">
+              {btn}
+              <div className="w-14 h-12 flex-shrink-0" aria-hidden />
+            </span>
+          );
+        }
+        return btn;
       })}
     </div>
   );

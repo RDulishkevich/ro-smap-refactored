@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bell, Headphones, MessageCircle, Search } from 'lucide-react';
-import { color, pinColor, spring, tap } from '@polevka/design';
-import { formatPlays, type Sound } from '@polevka/core';
+import { Bell, Search } from 'lucide-react';
+import { color, spring, tap } from '@polevka/design';
 import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import { useAuth } from '../state/AuthContext';
-import { NavBar, PlayPauseIcon, SoundTypeTag } from '../primitives/ui';
-import { CatalogFilters } from '../primitives/filters';
+import { NavBar, ScreenHeader } from '../primitives/ui';
 import BrandMark from '@/brand/BrandMark';
-import { parseDurationLabel } from '../lib/waveform';
+import { CatalogSoundList } from './CatalogScreen';
+
+export { CatalogSoundList } from './CatalogScreen';
+export { CatalogScreen as CatalogPage } from './CatalogScreen';
 
 const SAGE = color.sage;
 const OLIVE = color.olive;
@@ -49,9 +50,6 @@ export function FeedScreen({ showNav = true, embed = false, initialTab }: { show
             <motion.button whileTap={tap.cta} onClick={() => push({ type: 'search' })} className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.cardBg }} aria-label="Поиск">
               <Search size={16} style={{ color: OLIVE }} />
             </motion.button>
-            <motion.button whileTap={tap.cta} onClick={() => push({ type: 'messages' })} className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.cardBg }} aria-label="Сообщения">
-              <MessageCircle size={16} style={{ color: OLIVE }} />
-            </motion.button>
             <motion.button whileTap={tap.cta} onClick={() => push({ type: 'notifications' })} className="relative w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.cardBg }} aria-label="Уведомления">
               <Bell size={16} style={{ color: OLIVE }} />
               <FeedUnreadDot />
@@ -77,6 +75,37 @@ export function FeedScreen({ showNav = true, embed = false, initialTab }: { show
         </AnimatePresence>
       </div>
       {showNav && <div className="rounded-t-3xl shadow-lg overflow-hidden flex-shrink-0"><NavBar /></div>}
+    </div>
+  );
+}
+
+export function FeedPage({ onBack }: { onBack: () => void }) {
+  const { push } = useNav();
+  const th = useTh();
+  return (
+    <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
+      <ScreenHeader title="Лента" onBack={onBack} right={
+        <button type="button" className="w-11 h-11 rounded-2xl flex items-center justify-center" aria-label="Уведомления"
+          style={{ background: th.lightBg }}
+          onClick={() => push({ type: 'notifications' })}>
+          <Bell size={16} color={OLIVE} />
+        </button>
+      } />
+      <div className="flex-1 overflow-y-auto scrollbar-none px-4 pb-8 pt-2">
+        <PostsList onCatalog={() => push({ type: 'catalog' })} />
+      </div>
+    </div>
+  );
+}
+
+export function ExpeditionsPage({ onBack }: { onBack: () => void }) {
+  const th = useTh();
+  return (
+    <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
+      <ScreenHeader title="Экспедиции" onBack={onBack} />
+      <div className="flex-1 overflow-y-auto scrollbar-none px-4 pb-8 pt-2">
+        <ExpeditionsList />
+      </div>
     </div>
   );
 }
@@ -108,47 +137,12 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
   );
 }
 
-export function CatalogSoundList() {
-  const { filteredSounds, playingId, playing, togglePlay } = useData();
-  const { push } = useNav();
-  const th = useTh();
-  return (
-    <div className="flex flex-col gap-2 pt-1">
-      <CatalogFilters />
-      {filteredSounds.map((item) => <SoundRow key={String(item.id)} item={item} on={playing && String(playingId) === String(item.id)} onPlay={() => togglePlay(item)} onOpen={() => push({ type: 'sound-detail', sound: item })} thCard={th.cardBg} ink={th.inkText} />)}
-      {!filteredSounds.length && <p className="text-xs py-8 text-center" style={{ color: SAGE }}>Нет записей</p>}
-    </div>
-  );
-}
-
-function SoundRow({ item, on, onPlay, onOpen, thCard, ink }: { item: Sound; on: boolean; onPlay: () => void; onOpen: () => void; thCard: string; ink: string }) {
-  const c = pinColor[String(item.type)] ?? ACCENT;
-  return (
-    <div className="rounded-2xl px-3.5 py-3 flex items-center gap-3" style={{ background: thCard }}>
-      <button type="button" onClick={onPlay} className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c }} aria-label={on ? 'Пауза' : 'Слушать'}>
-        <PlayPauseIcon playing={on} size={12} />
-      </button>
-      <button type="button" className="flex-1 min-w-0 text-left" onClick={onOpen}>
-        <p className="text-[13px] font-semibold truncate" style={{ color: ink }}>{item.title}</p>
-        <p className="text-[11px] truncate mt-0.5" style={{ color: OLIVE }}>
-          {item.location}
-          {parseDurationLabel(item.duration) > 0 ? ` · ${item.duration}` : ''}
-        </p>
-      </button>
-      <div className="flex flex-col items-end gap-1 flex-shrink-0">
-        <SoundTypeTag type={String(item.type)} />
-        <span className="flex items-center gap-0.5" style={{ color: SAGE }}><Headphones size={9} /><span className="text-[9px]">{formatPlays(item.plays)}</span></span>
-      </div>
-    </div>
-  );
-}
-
 function ExpeditionsList() {
   const { profiles } = useData();
   const { push } = useNav();
   const { isLoggedIn } = useAuth();
   const th = useTh();
-  const fromProfiles = profiles.flatMap((p) => (p.sessions || []).map((s) => ({
+  const list = profiles.flatMap((p) => (p.sessions || []).map((s) => ({
     ...s,
     title: s.title,
     desc: s.desc || 'Экспедиция',
@@ -158,7 +152,6 @@ function ExpeditionsList() {
     preview: s.preview || s.desc || '',
     ownerLogin: s.ownerLogin || p.loginName,
   })));
-  const list = fromProfiles;
   return (
     <div className="flex flex-col gap-3 pt-1">
       {isLoggedIn && (

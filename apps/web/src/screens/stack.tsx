@@ -29,10 +29,12 @@ import { SoundMap } from '../lib/SoundMap';
 import { setDraftRecording } from '../lib/record-buffer';
 import { formatClock, parseDurationLabel } from '../lib/waveform';
 import { AddSoundScreen } from './AddSoundScreen';
+import { CatalogPage, ExpeditionsPage, FeedPage } from './FeedScreen';
 import { StaffScreen } from './StaffScreen';
 import { ExpeditionDetailScreen, ExpeditionEditScreen, PickLocationScreen } from './ExpeditionScreens';
 import { downloadLegalPrint } from '../lib/legal-print';
 import { pathForSound, shareUrl } from '../lib/routes';
+import { SEARCH_KIND_LABEL, searchAll } from '../lib/search-all';
 import { useIsDesktop } from '../lib/use-media';
 import { isAmbisonicSound, isSoundwalkPrinciple, soundRoute } from '../lib/sound-media';
 import LogoApp from '@/brand/LogoApp';
@@ -67,6 +69,9 @@ export function ScreenContent({ screen, onBack }: { screen: ScreenConfig; onBack
     case 'cabinet': return <CabinetScreen onBack={onBack} />;
     case 'guessr': return <GuessrScreen onBack={onBack} />;
     case 'reset-password': return <ResetPasswordScreen onBack={onBack} />;
+    case 'catalog': return <CatalogPage onBack={onBack} />;
+    case 'feed': return <FeedPage onBack={onBack} />;
+    case 'expeditions': return <ExpeditionsPage onBack={onBack} />;
     default: return null;
   }
 }
@@ -839,7 +844,7 @@ function RecordScreen({ onBack }: { onBack: () => void }) {
 }
 
 
-function MessagesScreen({ onBack }: { onBack: () => void }) {
+export function MessagesScreen({ onBack, embed = false }: { onBack?: () => void; embed?: boolean }) {
   const th = useTh();
   const desktop = useIsDesktop();
   const { push } = useNav();
@@ -849,8 +854,14 @@ function MessagesScreen({ onBack }: { onBack: () => void }) {
   const letter = (name: string) => (name.trim()[0] || '?').toUpperCase();
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      {!desktop && <ScreenHeader title="Сообщения" onBack={onBack} />}
+      {!desktop && !embed && onBack && <ScreenHeader title="Сообщения" onBack={onBack} />}
       <div className={`flex-1 overflow-y-auto ${desktop ? 'px-6 pt-6 pb-4' : 'p-4'}`}>
+        {embed && (
+          <div className="pv-safe-top mb-4">
+            <p className="text-lg font-bold" style={{ color: th.inkText, fontFamily: 'Klukva, "Geist Variable", serif' }}>Сообщения</p>
+            <p className="text-[12px] mt-1" style={{ color: OLIVE }}>Диалоги с исследователями и поддержкой</p>
+          </div>
+        )}
         {desktop && (
           <div className="mb-5">
             <p className="text-lg font-bold" style={{ color: th.inkText }}>Сообщения</p>
@@ -957,19 +968,30 @@ function NotificationsScreen({ onBack }: { onBack: () => void }) {
 
 function SearchScreen({ onBack }: { onBack: () => void }) {
   const th = useTh();
-  const { sounds } = useData();
+  const { sounds, profiles, events, feed } = useData();
   const { push } = useNav();
   const [q, setQ] = useState('');
-  const found = sounds.filter((s) => `${s.title} ${s.location} ${s.user}`.toLowerCase().includes(q.toLowerCase()));
+  const hits = searchAll(q, { sounds, profiles, events, feed });
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       <ScreenHeader title="Поиск" onBack={onBack} />
-      <div className="p-4">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Название, место, автор" className="w-full rounded-2xl px-3 py-3 text-sm outline-none mb-3" style={{ background: th.cardBg, color: th.inkText }} />
-        {found.map((s) => (
-          <button key={String(s.id)} onClick={() => push({ type: 'sound-detail', sound: s })} className="w-full text-left rounded-2xl p-3 mb-2" style={{ background: th.cardBg }}>
-            <p className="text-xs font-bold" style={{ color: th.inkText }}>{s.title}</p>
-            <p className="text-[10px]" style={{ color: SAGE }}>{s.location}</p>
+      <div className="p-4 flex-1 overflow-y-auto">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Звуки, люди, экспедиции, события…" className="w-full rounded-2xl px-3 py-3 text-sm outline-none mb-3" style={{ background: th.cardBg, color: th.inkText }} />
+        {!q.trim() && <p className="text-xs py-6 text-center" style={{ color: SAGE }}>Начните вводить — ищем по всей Полёвке</p>}
+        {q.trim() && !hits.length && <p className="text-xs py-6 text-center" style={{ color: SAGE }}>Ничего не нашлось</p>}
+        {hits.map((hit) => (
+          <button key={hit.id} onClick={() => {
+            if (hit.kind === 'sound') push({ type: 'sound-detail', sound: hit.sound });
+            else if (hit.kind === 'expedition') push({ type: 'expedition-detail', exp: hit.exp });
+            else if (hit.kind === 'event') push({ type: 'events', focusId: String(hit.event.id || '') });
+            else if (hit.kind === 'person') {
+              const login = String(hit.profile.loginName || hit.profile.login || '').replace(/^@/, '');
+              push({ type: 'user-profile', name: hit.title, avatar: String(hit.profile.avatar || '🎙️'), username: `@${login || hit.title}` });
+            } else push({ type: 'feed' });
+          }} className="w-full text-left rounded-2xl p-3 mb-2" style={{ background: th.cardBg }}>
+            <p className="text-[10px] font-semibold uppercase" style={{ color: SAGE }}>{SEARCH_KIND_LABEL[hit.kind]}</p>
+            <p className="text-xs font-bold" style={{ color: th.inkText }}>{hit.title}</p>
+            {hit.hint && <p className="text-[10px]" style={{ color: SAGE }}>{hit.hint}</p>}
           </button>
         ))}
       </div>

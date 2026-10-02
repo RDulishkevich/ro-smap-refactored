@@ -4,11 +4,12 @@ import { spring } from '@polevka/design';
 import { useNav, type ScreenConfig } from '../state/NavContext';
 import { useAuth } from '../state/AuthContext';
 import { useTh } from '../state/ThemeContext';
-import { FeedScreen } from '../screens/FeedScreen';
 import { MapScreen } from '../screens/MapScreen';
 import { GuestProfileScreen, ProfileScreen } from '../screens/ProfileScreen';
-import { ScreenContent } from '../screens/stack';
+import { MenuHub } from '../screens/MenuHub';
+import { ScreenContent, MessagesScreen } from '../screens/stack';
 import { NavBar, PinPlayer } from '../primitives/ui';
+import { MapFab } from '../primitives/chrome';
 import { useData } from '../state/DataContext';
 import { audioService } from '../lib/audio-player';
 
@@ -16,6 +17,7 @@ const HIDE_PLAYER: ScreenConfig['type'][] = [
   'auth', 'record', 'add-sound', 'legal', 'reset-password',
   'pick-location', 'guessr', 'map-location',
 ];
+
 export function MobileShell() {
   const { isLoggedIn } = useAuth();
   const th = useTh();
@@ -35,8 +37,6 @@ export function MobileShell() {
   const hideForScreen = !!top && HIDE_PLAYER.includes(top.type);
   const showPlayer = !!dock && !fabOpen && !hideForScreen;
 
-  useEffect(() => { if (!onMap) setFabOpen(false); }, [onMap]);
-
   useEffect(() => {
     const el = dockRef.current;
     if (!showPlayer || !el) {
@@ -52,10 +52,12 @@ export function MobileShell() {
 
   const contentBottom = showChrome
     ? (showPlayer
-      ? `calc(var(--pv-nav-h) + ${dockH}px + 0.45rem)`
-      : 'var(--pv-nav-h)')
+      ? `calc(var(--pv-nav-h) + var(--pv-fab-gap) + ${dockH}px + 0.7rem)`
+      : 'calc(var(--pv-nav-h) + var(--pv-fab-gap))')
     : (showPlayer ? `calc(${Math.max(dockH, 72)}px + 0.75rem)` : '0px');
-  const playerBottom = showChrome ? 'var(--pv-nav-h)' : '0.75rem';
+  const playerBottom = showChrome
+    ? 'calc(var(--pv-nav-h) + var(--pv-fab-gap))'
+    : '0.75rem';
 
   return (
     <div className="relative w-full h-full overflow-hidden pv-mobile" style={{ background: th.phoneBg }}>
@@ -64,13 +66,18 @@ export function MobileShell() {
           className={`pv-mobile-map ${onMap && showChrome ? 'z-[1]' : 'invisible pointer-events-none z-0'}`}
           aria-hidden={!onMap || !showChrome}>
           <div className="pv-mobile-map-card">
-            <MapScreen showNav={false} hidePlayer onFabChange={setFabOpen} />
+            <MapScreen showNav={false} hidePlayer />
           </div>
         </div>
         <div
-          className={`absolute inset-0 ${activeTab === 'feed' && showChrome ? 'z-[2]' : 'invisible pointer-events-none z-0'}`}
-          aria-hidden={activeTab !== 'feed' || !showChrome}>
-          <FeedScreen showNav={false} initialTab="catalog" />
+          className={`absolute inset-0 ${activeTab === 'menu' && showChrome ? 'z-[2]' : 'invisible pointer-events-none z-0'}`}
+          aria-hidden={activeTab !== 'menu' || !showChrome}>
+          <MenuHub />
+        </div>
+        <div
+          className={`absolute inset-0 ${activeTab === 'messages' && showChrome ? 'z-[2]' : 'invisible pointer-events-none z-0'}`}
+          aria-hidden={activeTab !== 'messages' || !showChrome}>
+          <MessagesScreen embed />
         </div>
         <div
           className={`absolute inset-0 ${activeTab === 'profile' && showChrome ? 'z-[2]' : 'invisible pointer-events-none z-0'}`}
@@ -111,15 +118,19 @@ export function MobileShell() {
       )}
 
       {showChrome && (
-        <div
-          className="absolute z-[95] pv-mobile-nav rounded-[24px] overflow-hidden shadow-[0_10px_28px_rgba(45,60,57,0.14)]"
-          style={{
-            left: 'var(--pv-gutter)',
-            right: 'var(--pv-gutter)',
-            bottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',
-            background: th.cardBg,
-          }}>
-          <NavBar />
+        <div className="absolute left-0 right-0 z-[95] pv-mobile-nav" style={{ bottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))' }}>
+          <div className="absolute left-1/2 z-20" style={{ top: 0, transform: 'translate(-50%, -50%)' }}>
+            <MapFab open={fabOpen} onToggle={() => setFabOpen((o) => !o)} from="center" />
+          </div>
+          <div
+            className="mx-[var(--pv-gutter)] rounded-[24px] overflow-hidden shadow-[0_10px_28px_rgba(45,60,57,0.14)]"
+            style={{
+              background: th.cardBg,
+              maskImage: 'radial-gradient(circle 36px at 50% 0%, transparent 34px, black 36px)',
+              WebkitMaskImage: 'radial-gradient(circle 36px at 50% 0%, transparent 34px, black 36px)',
+            }}>
+            <NavBar hollowCenter />
+          </div>
         </div>
       )}
 

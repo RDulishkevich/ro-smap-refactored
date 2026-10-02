@@ -68,7 +68,7 @@ export function CatalogFilters() {
             {extra ? 'Свернуть фильтры' : 'Ещё фильтры'}
           </button>
         )}
-        {(filter.eco || filter.ucs || filter.ucsSub || filter.tag || filter.gear || filter.channels) && (
+        {(filter.eco || filter.ucs || filter.ucsSub || filter.tag || filter.gear || filter.channels || filter.q || filter.type) && (
           <button className="text-[10px]" style={{ color: SAGE }} onClick={() => setFilter(EMPTY_FILTER)}>Сбросить</button>
         )}
       </div>
