@@ -53,6 +53,8 @@ class AudioService {
       this.emit();
     });
     this.el.addEventListener('timeupdate', () => this.emit());
+    this.el.addEventListener('durationchange', () => this.emit());
+    this.el.addEventListener('loadedmetadata', () => this.emit());
     this.el.addEventListener('volumechange', () => this.emit());
     this.el.addEventListener('seeked', () => { this.syncFoa(); });
     return this.el;
@@ -356,6 +358,11 @@ class AudioService {
     const el = this.el;
     if (!el || !el.duration) return 0;
     return el.currentTime / el.duration;
+  }
+
+  duration() {
+    const d = this.el?.duration ?? 0;
+    return Number.isFinite(d) && d > 0 ? d : 0;
   }
 }
 

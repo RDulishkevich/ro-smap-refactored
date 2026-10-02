@@ -50,7 +50,7 @@ export function Overlays() {
       <AnimatePresence>
         {toastMsg && (
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} transition={spring.fade}
-            className="fixed left-1/2 z-[300] -translate-x-1/2 bottom-24 px-4 py-2 rounded-2xl text-xs font-semibold text-white shadow-lg"
+            className="fixed left-1/2 z-[300] -translate-x-1/2 bottom-28 md:bottom-6 px-4 py-2 rounded-2xl text-xs font-semibold text-white shadow-lg"
             style={{ background: color.dark }}>{toastMsg}</motion.div>
         )}
       </AnimatePresence>

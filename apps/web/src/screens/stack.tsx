@@ -110,6 +110,8 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
     toast('Скачивание WAV');
   };
 
+  useEffect(() => { setFocused(live); }, [live.id, setFocused]);
+
   const goToMap = () => {
     setFocused(live);
     if (desktop) {
@@ -210,7 +212,7 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
               <Route size={13} /> Показать прогулку на карте
             </button>
           )}
-          {!desktop && (
+          {desktop && (
             <div className="mb-3 rounded-3xl overflow-hidden" style={{ background: th.cardBg }}>
               <PinPlayer sound={live} simple
                 playing={on} onToggle={() => togglePlay(live)} progress={progress}

@@ -260,9 +260,17 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
   const [ambiUi, setAmbiUi] = useState(false);
   const ambiGen = useRef(0);
   const ambiCapable = isAmbisonicSound(sound);
-  const totalSec = parseDurationLabel(sound.duration);
+  const [liveDur, setLiveDur] = useState(0);
+  useEffect(() => {
+    const sync = () => {
+      setLiveDur(String(audioService.soundId) === String(sound.id) ? audioService.duration() : 0);
+    };
+    sync();
+    return audioService.subscribe(sync);
+  }, [sound.id]);
+  const totalSec = liveDur || parseDurationLabel(sound.duration);
   const nowSec = totalSec ? progress * totalSec : 0;
-  const totalLabel = totalSec ? formatClock(totalSec) : String(sound.duration || '0:00');
+  const totalLabel = totalSec ? formatClock(totalSec) : '—';
   useEffect(() => {
     const url = String(sound.url || '');
     if (!url) return;

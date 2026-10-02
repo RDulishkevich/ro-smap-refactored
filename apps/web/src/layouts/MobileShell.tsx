@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { spring } from '@polevka/design';
-import { useNav } from '../state/NavContext';
+import { useNav, type ScreenConfig } from '../state/NavContext';
 import { useAuth } from '../state/AuthContext';
 import { useTh } from '../state/ThemeContext';
 import { FeedScreen } from '../screens/FeedScreen';
@@ -12,6 +12,11 @@ import { NavBar, PinPlayer } from '../primitives/ui';
 import { MapFab } from '../primitives/chrome';
 import { useData } from '../state/DataContext';
 import { audioService } from '../lib/audio-player';
+
+const HIDE_PLAYER: ScreenConfig['type'][] = [
+  'auth', 'record', 'add-sound', 'legal', 'reset-password',
+  'pick-location', 'guessr', 'map-location',
+];
 
 export function MobileShell() {
   const { isLoggedIn } = useAuth();
@@ -26,13 +31,15 @@ export function MobileShell() {
   const dock = focused || current;
   const showChrome = stack.length === 0;
   const onMap = activeTab === 'map';
-  const showPlayer = showChrome && !!dock && !fabOpen;
+  const top = stack[stack.length - 1];
+  const hideForScreen = !!top && HIDE_PLAYER.includes(top.type);
+  const showPlayer = !!dock && !fabOpen && !hideForScreen;
 
   useEffect(() => { if (!onMap) setFabOpen(false); }, [onMap]);
 
   return (
     <div className="relative w-full h-full overflow-hidden pv-mobile" style={{ background: th.phoneBg }}>
-      <div className="absolute inset-0" style={{ bottom: showChrome ? 'var(--pv-nav-h)' : 0 }}>
+      <div className="absolute inset-0" style={{ bottom: showChrome ? 'var(--pv-nav-h)' : (showPlayer ? '8.25rem' : 0) }}>
         <div
           className={`absolute inset-0 ${onMap && showChrome ? 'z-[1]' : 'invisible pointer-events-none z-0'}`}
           aria-hidden={!onMap || !showChrome}>
@@ -52,9 +59,11 @@ export function MobileShell() {
 
       {showPlayer && dock && (
         <div
-          className="absolute left-3 right-3 z-[90] rounded-3xl overflow-hidden shadow-[0_12px_32px_rgba(45,60,57,0.18)] max-h-[min(42vh,360px)] overflow-y-auto"
+          className="absolute left-3 right-3 z-[220] rounded-3xl overflow-hidden shadow-[0_12px_32px_rgba(45,60,57,0.18)] max-h-[min(42vh,360px)] overflow-y-auto"
           style={{
-            bottom: onMap ? 'calc(var(--pv-nav-h) + 2.35rem)' : 'calc(var(--pv-nav-h) + 0.5rem)',
+            bottom: showChrome
+              ? (onMap ? 'calc(var(--pv-nav-h) + 2.35rem)' : 'calc(var(--pv-nav-h) + 0.5rem)')
+              : '0.75rem',
             background: th.cardBg,
           }}>
           <PinPlayer
@@ -65,7 +74,11 @@ export function MobileShell() {
             playing={playing && String(playingId) === String(dock.id)}
             onToggle={() => togglePlay(dock)}
             progress={String(playingId) === String(dock.id) ? progress : 0}
-            onOpen={() => push({ type: 'sound-detail', sound: dock })}
+            onOpen={() => {
+              if (top?.type !== 'sound-detail' || String((top as { sound?: { id?: unknown } }).sound?.id) !== String(dock.id)) {
+                push({ type: 'sound-detail', sound: dock });
+              }
+            }}
             onSeek={String(playingId) === String(dock.id) ? seek : undefined}
             volume={volume}
             muted={muted}
@@ -94,7 +107,11 @@ export function MobileShell() {
 
       <AnimatePresence>
         {stack.map((screen, i) => (
-          <motion.div key={screen._id} className="absolute inset-0" style={{ zIndex: 100 + i, background: th.phoneBg }}
+          <motion.div key={screen._id} className="absolute inset-0" style={{
+            zIndex: 100 + i,
+            background: th.phoneBg,
+            bottom: showPlayer ? '8.25rem' : 0,
+          }}
             initial={{ opacity: 0, x: 36 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={spring.stack}>
             <ScreenContent screen={screen} onBack={pop} />
           </motion.div>

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Calendar, MoreHorizontal, Search, SlidersHorizontal } from 'lucide-react';
+import { MoreHorizontal, SlidersHorizontal } from 'lucide-react';
 import { apiPatchSound, apiSyncJson, pendingSounds, type Sound } from '@polevka/core';
 import { color, spring, tap, typeMeta } from '@polevka/design';
 import { useNav } from '../state/NavContext';
@@ -48,7 +48,7 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false 
     if (info.sound) {
       const s = info.sound;
       const items: Array<{ label: string; danger?: boolean; onClick: () => void }> = [
-        { label: 'Слушать', onClick: () => setActive(s) },
+        { label: 'Слушать', onClick: () => togglePlay(s) },
         { label: 'Подробнее', onClick: () => push({ type: 'sound-detail', sound: s }) },
       ];
       if (isStaff && s.status === 'pending') {
@@ -83,7 +83,7 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false 
         push({ type: 'add-sound' });
       } },
     ], 'Карта', at);
-  }, [setActive, push, isStaff, isLoggedIn, setPickedPoint, toast, openMenu, reload, confirm]);
+  }, [setActive, togglePlay, push, isStaff, isLoggedIn, setPickedPoint, toast, openMenu, reload, confirm]);
 
   const routes = useMemo(() => {
     if (routePreview.length) return routePreview;
@@ -148,18 +148,12 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false 
         {!desktop && (
         <div className="absolute pv-safe-top right-3 flex gap-2 z-[400]" onClick={(e) => e.stopPropagation()}>
           <motion.button whileTap={tap.cta} onClick={(e) => { e.stopPropagation(); setShowFilters((v) => !v); }}
-            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }} aria-label="Фильтры">
-            <SlidersHorizontal size={16} style={{ color: color.olive }} />
-          </motion.button>
-          <motion.button whileTap={tap.cta} onClick={(e) => { e.stopPropagation(); push({ type: 'events' }); }}
-            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }} aria-label="События">
-            <Calendar size={16} style={{ color: color.olive }} />
-          </motion.button>
-          <motion.button whileTap={tap.cta} onClick={(e) => { e.stopPropagation(); push({ type: 'search' }); }}
-            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }} aria-label="Поиск">
-            <Search size={16} style={{ color: color.olive }} />
+            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }} aria-label="Фильтры" aria-pressed={showFilters}>
+            <SlidersHorizontal size={16} style={{ color: showFilters ? color.accent : color.olive }} />
           </motion.button>
           <HoverMenu title="Карта" items={[
+            { label: 'Поиск', onClick: () => push({ type: 'search' }) },
+            { label: 'События', onClick: () => push({ type: 'events' }) },
             { label: 'Открыть запись', onClick: () => active && push({ type: 'sound-detail', sound: active }) },
             { label: 'Указать точку публикации', onClick: () => { setPickMode('point'); toast('Коснитесь карты'); } },
             { label: 'Угадайка', onClick: () => push({ type: 'guessr' }) },
