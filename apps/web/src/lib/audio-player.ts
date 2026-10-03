@@ -295,6 +295,17 @@ class AudioService {
     return true;
   }
 
+  preload(id: string | number, url?: string) {
+    if (!url) return;
+    const el = this.ensure();
+    if (this.playing && this.soundId != null && String(this.soundId) !== String(id)) return;
+    if (this.soundId === id && (el.currentSrc || el.src)) return;
+    el.preload = 'metadata';
+    el.src = url;
+    this.soundId = id;
+    this.emit();
+  }
+
   async play(id: string | number, url?: string) {
     const el = this.ensure();
     await this.ensureGraph();

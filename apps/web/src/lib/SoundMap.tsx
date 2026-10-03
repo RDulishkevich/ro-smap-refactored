@@ -5,7 +5,8 @@ import { PIN_SIZE, pinMarkup, pinMarkupYandex } from './map-pin';
 import type { Sound } from '@polevka/core';
 import { loadYandexMaps } from './pwa';
 
-const ROSTOV: [number, number] = [47.2313, 39.7233];
+const RUSSIA: [number, number] = [64.2, 94.2];
+const RUSSIA_ZOOM = 3;
 const HIT_PX = 40;
 
 type YMap = {
@@ -163,8 +164,8 @@ export const SoundMap = forwardRef<SoundMapHandle, {
         ymaps.ready(() => {
           if (dead || !nodeRef.current) return;
           const map = new ymaps.Map(nodeRef.current, {
-            center: ROSTOV,
-            zoom: 11,
+            center: RUSSIA,
+            zoom: RUSSIA_ZOOM,
             controls: nativeZoomRef.current ? ['zoomControl'] : [],
           }, {
             suppressMapOpenBlock: true,
@@ -187,7 +188,7 @@ export const SoundMap = forwardRef<SoundMapHandle, {
         });
         return;
       }
-      const map = L.map(el, { zoomControl: false, attributionControl: false }).setView(ROSTOV, 11);
+      const map = L.map(el, { zoomControl: false, attributionControl: false }).setView(RUSSIA, RUSSIA_ZOOM);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
       if (nativeZoomRef.current) L.control.zoom({ position: 'bottomright' }).addTo(map);
       leafletLayer.current = L.layerGroup().addTo(map);
@@ -262,8 +263,8 @@ export const SoundMap = forwardRef<SoundMapHandle, {
           return;
         }
       }
-      let lat = ROSTOV[0];
-      let lng = ROSTOV[1];
+      let lat = RUSSIA[0];
+      let lng = RUSSIA[1];
       let sound: Sound | undefined;
       if (engine.current === 'yandex' && ymapRef.current) {
         const coords = yandexPageToCoords(ymapRef.current, e.pageX, e.pageY);

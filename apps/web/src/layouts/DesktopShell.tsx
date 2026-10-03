@@ -22,6 +22,7 @@ import { HoverMenu } from '../primitives/HoverMenu';
 import BrandMark from '@/brand/BrandMark';
 import { RailBannerCarousel } from '../primitives/RailBannerCarousel';
 import { downloadSound } from '../lib/download-sound';
+import { LanguageSwitch } from '../primitives/LanguageSwitch';
 
 const ACCENT = color.accent;
 const OLIVE = color.olive;
@@ -222,6 +223,7 @@ export function DesktopShell() {
               </label>
             </div>
             <div className="flex items-center gap-3 flex-shrink-0">
+              <LanguageSwitch compact />
               <div className="relative">
                 <motion.button whileTap={tap.cta} onMouseDown={(e) => e.stopPropagation()} onClick={() => setNotifyOpen((v) => !v)}
                   className="relative w-10 h-10 rounded-full flex items-center justify-center" style={{ background: chipBg }} aria-expanded={notifyOpen} aria-label="Уведомления">

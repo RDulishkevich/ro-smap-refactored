@@ -10,6 +10,8 @@ import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import BrandMark from '@/brand/BrandMark';
 import { SEARCH_KIND_LABEL, searchAll, type SearchHit } from '../lib/search-all';
+import { LanguageSwitch } from '../primitives/LanguageSwitch';
+import { useT } from '../state/PrefsContext';
 
 const SAGE = color.sage;
 const OLIVE = color.olive;
@@ -17,6 +19,7 @@ const ACCENT = color.accent;
 
 export function MenuHub() {
   const th = useTh();
+  const t = useT();
   const { push } = useNav();
   const { isStaff } = useAuth();
   const { sounds, profiles, events, feed } = useData();
@@ -54,7 +57,8 @@ export function MenuHub() {
       <div className="px-4 pv-safe-top pb-2 flex-shrink-0">
         <div className="flex items-center gap-2.5 mb-3">
           <div className="w-9 h-9 relative flex-shrink-0"><BrandMark /></div>
-          <h1 className="text-lg font-bold leading-tight" style={{ color: th.inkText, fontFamily: 'Klukva, "Geist Variable", serif' }}>Меню</h1>
+          <h1 className="flex-1 text-lg font-bold leading-tight" style={{ color: th.inkText, fontFamily: 'Klukva, "Geist Variable", serif' }}>{t('menu')}</h1>
+          <LanguageSwitch compact />
         </div>
         <label className="flex items-center gap-2 h-12 rounded-2xl px-3.5" style={{ background: th.cardBg }}>
           <Search size={16} color={SAGE} className="flex-shrink-0" />

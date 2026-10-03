@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiSyncJson, soundsByAuthor, uploadUserMedia, type Expedition, type ExpeditionInvite, type Sound } from '@polevka/core';
 import { color, pinColor, typeMeta } from '@polevka/design';
-import { ChevronDown, Clock, ImagePlus, MapPin, Search, X } from 'lucide-react';
+import { ChevronDown, Clock, ImagePlus, MapPin, Search, UserPlus, X } from 'lucide-react';
+import { EXPEDITION_KINDS, locLabel } from '../lib/onboarding';
+import { usePrefs } from '../state/PrefsContext';
 import { ScreenHeader } from '../primitives/ui';
 import { PhotoLightbox, PhotoStrip } from '../primitives/PhotoCarousel';
 import { SoundMap } from '../lib/SoundMap';
@@ -34,6 +36,14 @@ export function ExpeditionDetailScreen({ exp, onBack }: { exp: Expedition; onBac
           <div className="text-5xl mb-3">{exp.emoji || '🗺️'}</div>
           <p className="text-sm font-bold mb-1" style={{ color: th.inkText }}>{exp.title}</p>
           <p className="text-xs mb-4" style={{ color: OLIVE }}>{exp.preview || exp.desc}</p>
+          {(exp.place || exp.date || exp.kind) && (
+            <p className="text-[11px] mb-3" style={{ color: SAGE }}>
+              {[exp.kind && (EXPEDITION_KINDS.find((k) => k.id === exp.kind)?.ru || exp.kind), exp.date, exp.place].filter(Boolean).join(' · ')}
+            </p>
+          )}
+          {!!(exp.members || []).length && (
+            <p className="text-[11px] mb-3" style={{ color: OLIVE }}>Участники: {(exp.members || []).join(', ')}</p>
+          )}
           <div className="flex justify-around">
             {[{ icon: <Clock size={13} />, val: exp.dur || '—', label: 'Время' },
               { icon: <MapPin size={13} />, val: String(exp.n || route.length || '—'), label: 'Точек' }].map(({ icon, val, label }) => (
@@ -73,10 +83,17 @@ export function ExpeditionEditScreen({ exp, onBack }: { exp?: Expedition; onBack
   const { profiles, sounds, mail, reload, reloadMail, routeDraft, setRouteDraft, setPickMode } = useData();
   const { toast } = useUi();
   const { push } = useNav();
+  const { prefs } = usePrefs();
+  const loc = prefs.locale === 'en' ? 'en' : 'ru';
   const [title, setTitle] = useState(exp?.title || '');
   const [desc, setDesc] = useState(exp?.desc || '');
   const [dur, setDur] = useState(exp?.dur || '');
+  const [date, setDate] = useState(exp?.date || '');
+  const [place, setPlace] = useState(exp?.place || '');
+  const [kind, setKind] = useState(exp?.kind || '');
   const [emoji, setEmoji] = useState(exp?.emoji || '🗺️');
+  const [memberQ, setMemberQ] = useState('');
+  const [openPeople, setOpenPeople] = useState(false);
   const [keptPhotos, setKeptPhotos] = useState<string[]>(() => (exp?.photos || []).filter(Boolean));
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [soundIds, setSoundIds] = useState<string[]>(() => (exp?.soundIds || []).map(String));
@@ -98,6 +115,16 @@ export function ExpeditionEditScreen({ exp, onBack }: { exp?: Expedition; onBack
     [sounds, user],
   );
   const pool = scope === 'mine' ? mineSounds : sounds;
+  const people = useMemo(() => {
+    const self = (user?.loginName || '').toLowerCase();
+    const needle = memberQ.trim().toLowerCase();
+    return profiles.filter((p) => {
+      const login = String(p.loginName || p.login || '').replace(/^@/, '').toLowerCase();
+      if (!login || login === self || members.includes(login)) return false;
+      if (!needle) return true;
+      return `${p.displayName} ${p.username} ${login}`.toLowerCase().includes(needle);
+    }).slice(0, 20);
+  }, [profiles, memberQ, members, user]);
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const taken = new Set([...soundIds, ...invites.map((i) => i.soundId)]);
@@ -161,6 +188,9 @@ export function ExpeditionEditScreen({ exp, onBack }: { exp?: Expedition; onBack
         photos: photos.slice(0, 8),
         soundIds,
         invites,
+        date: date.trim(),
+        place: place.trim(),
+        kind,
         createdAt: exp?.createdAt || new Date().toISOString(),
       };
       const mine = profiles.find((p) => String(p.loginName).toLowerCase() === user.loginName);
@@ -213,10 +243,35 @@ export function ExpeditionEditScreen({ exp, onBack }: { exp?: Expedition; onBack
             <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Куда идём и что записываем"
               className="mt-1 w-full rounded-2xl px-3 py-2.5 text-sm outline-none min-h-[88px]" style={{ background: th.lightBg, color: th.inkText }} />
           </label>
-          <label className="text-[10px] font-semibold" style={{ color: SAGE }}>Длительность
-            <input value={dur} onChange={(e) => setDur(e.target.value)} placeholder="2–3 часа"
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-[10px] font-semibold" style={{ color: SAGE }}>Дата
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+                className="mt-1 w-full rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
+            </label>
+            <label className="text-[10px] font-semibold" style={{ color: SAGE }}>Длительность
+              <input value={dur} onChange={(e) => setDur(e.target.value)} placeholder="2–3 часа"
+                className="mt-1 w-full rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
+            </label>
+          </div>
+          <label className="text-[10px] font-semibold" style={{ color: SAGE }}>Место сбора
+            <input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="Площадь, станция, ориентир"
               className="mt-1 w-full rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
           </label>
+          <div>
+            <p className="text-[10px] font-semibold mb-1.5" style={{ color: SAGE }}>Тип экспедиции</p>
+            <div className="flex flex-wrap gap-1.5">
+              {EXPEDITION_KINDS.map((k) => {
+                const on = kind === k.id;
+                return (
+                  <button key={k.id} type="button" onClick={() => setKind(on ? '' : k.id)}
+                    className="h-8 px-3 rounded-full text-[11px] font-semibold"
+                    style={{ background: on ? ACCENT : th.lightBg, color: on ? '#fff' : OLIVE }}>
+                    {locLabel(k, loc)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </section>
 
         <section className="rounded-3xl p-4" style={{ background: th.cardBg }}>
@@ -320,9 +375,52 @@ export function ExpeditionEditScreen({ exp, onBack }: { exp?: Expedition; onBack
               );
             })}
           </div>
-          {!!members.length && (
-            <p className="text-[10px] mt-2" style={{ color: SAGE }}>Участники: {members.join(', ')}</p>
+        </section>
+
+        <section className="rounded-3xl p-4" style={{ background: th.cardBg }}>
+          <p className="text-[10px] font-bold uppercase tracking-wide mb-2" style={{ color: SAGE }}>Участники</p>
+          <p className="text-[11px] mb-3" style={{ color: OLIVE }}>Добавьте людей из Полёвки. Владельцы чужих меток получат приглашение отдельно.</p>
+          <button type="button" onClick={() => setOpenPeople((v) => !v)}
+            className="w-full h-11 rounded-2xl px-3 flex items-center gap-2 text-left" style={{ background: th.lightBg }}>
+            <UserPlus size={15} color={SAGE} />
+            <span className="flex-1 text-[13px]" style={{ color: memberQ ? th.inkText : SAGE }}>{memberQ || 'Выбрать пользователя'}</span>
+            <ChevronDown size={14} color={OLIVE} />
+          </button>
+          {openPeople && (
+            <div className="mt-2 rounded-2xl overflow-hidden" style={{ background: th.lightBg }}>
+              <input value={memberQ} onChange={(e) => setMemberQ(e.target.value)} placeholder="Имя или логин"
+                className="w-full px-3 py-2.5 text-[13px] outline-none bg-transparent" style={{ color: th.inkText }}
+                aria-label="Поиск участников" />
+              <div className="max-h-52 overflow-y-auto scrollbar-none">
+                {people.map((p) => {
+                  const login = String(p.loginName || p.login || '').replace(/^@/, '').toLowerCase();
+                  const name = String(p.displayName || p.username || login);
+                  return (
+                    <button key={login} type="button" onClick={() => {
+                      setMembers((prev) => prev.includes(login) ? prev : [...prev, login]);
+                      setOpenPeople(false);
+                      setMemberQ('');
+                    }}
+                      className="w-full text-left px-3 py-2.5" style={{ borderTop: `1px solid ${th.border}` }}>
+                      <span className="block text-[12px] font-semibold truncate" style={{ color: th.inkText }}>{name}</span>
+                      <span className="block text-[10px]" style={{ color: SAGE }}>@{login}</span>
+                    </button>
+                  );
+                })}
+                {!people.length && <p className="px-3 py-4 text-[11px] text-center" style={{ color: SAGE }}>Никого не нашлось</p>}
+              </div>
+            </div>
           )}
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {members.map((login) => (
+              <span key={login} className="h-8 pl-3 pr-1.5 rounded-full inline-flex items-center gap-1 text-[11px] font-semibold" style={{ background: th.lightBg, color: OLIVE }}>
+                @{login}
+                <button type="button" aria-label="Убрать участника" onClick={() => setMembers((prev) => prev.filter((m) => m !== login))}>
+                  <X size={12} />
+                </button>
+              </span>
+            ))}
+          </div>
         </section>
 
         <section className="rounded-3xl p-4" style={{ background: th.cardBg }}>

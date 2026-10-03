@@ -1,15 +1,17 @@
 import { useMemo, useState } from 'react';
-import { Download, Headphones, Search, SlidersHorizontal } from 'lucide-react';
+import { Download, Headphones, MapPin, Search, SlidersHorizontal } from 'lucide-react';
 import { EMPTY_FILTER, formatPlays, type Sound } from '@polevka/core';
 import { color, pinColor, typeMeta } from '@polevka/design';
 import { useData } from '../state/DataContext';
 import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useUi } from '../state/UiContext';
+import { usePrefs, useT } from '../state/PrefsContext';
 import { PlayPauseIcon, ScreenHeader, SoundTypeTag } from '../primitives/ui';
 import { CatalogFilters } from '../primitives/filters';
-import { parseDurationLabel } from '../lib/waveform';
 import { downloadSound } from '../lib/download-sound';
+import { useSoundMeta } from '../lib/audio-meta';
+import { soundAuthor, soundCover, soundDateLabel } from '../lib/sound-media';
 
 const SAGE = color.sage;
 const OLIVE = color.olive;
@@ -31,9 +33,10 @@ function sortSounds(list: Sound[], sort: 'new' | 'plays' | 'az') {
 
 export function CatalogScreen({ onBack }: { onBack: () => void }) {
   const th = useTh();
+  const t = useT();
   return (
     <div className="flex flex-col h-full min-h-0" style={{ background: th.phoneBg }}>
-      <ScreenHeader title="Каталог" onBack={onBack} />
+      <ScreenHeader title={t('catalog')} onBack={onBack} />
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none px-4 pb-8">
         <CatalogBrowse />
       </div>
@@ -46,8 +49,10 @@ export function CatalogBrowse() {
   const { filteredSounds, filter, setFilter, playingId, playing, togglePlay } = useData();
   const { push } = useNav();
   const { toast } = useUi();
+  const t = useT();
   const [sort, setSort] = useState<'new' | 'plays' | 'az'>('new');
   const [more, setMore] = useState(false);
+  const sortLabels = { new: t('new'), plays: t('playing'), az: t('az') };
   const sorted = useMemo(() => sortSounds(filteredSounds, sort), [filteredSounds, sort]);
   const grouped = useMemo(() => {
     if (filter.type) return [{ type: filter.type, items: sorted }];
@@ -75,14 +80,14 @@ export function CatalogBrowse() {
           <button key={s.id} type="button" onClick={() => setSort(s.id)}
             className="h-8 px-3 rounded-full text-[11px] font-semibold flex-shrink-0"
             style={{ background: sort === s.id ? ACCENT : th.cardBg, color: sort === s.id ? '#fff' : OLIVE }}>
-            {s.label}
+            {sortLabels[s.id]}
           </button>
         ))}
       </div>
       <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
         {TYPES.map((id) => {
           const on = filter.type === id;
-          const label = id ? (typeMeta[id]?.label || id) : 'Все';
+          const label = id ? (typeMeta[id]?.label || id) : t('all');
           return (
             <button key={id || 'all'} type="button" onClick={() => setFilter({ ...filter, type: id })}
               className="h-8 px-3 rounded-full text-[11px] font-semibold flex-shrink-0"
@@ -96,7 +101,7 @@ export function CatalogBrowse() {
         <p className="text-[11px] font-semibold" style={{ color: SAGE }}>{sorted.length} {pluralSounds(sorted.length)}</p>
         <button type="button" className="text-[11px] font-semibold inline-flex items-center gap-1"
           style={{ color: more ? OLIVE : ACCENT }} onClick={() => setMore((v) => !v)}>
-          <SlidersHorizontal size={12} /> {more ? 'Скрыть фильтры' : 'Фильтры'}
+          <SlidersHorizontal size={12} /> {more ? t('hideFilters') : t('filters')}
         </button>
       </div>
       {more && (
@@ -106,7 +111,7 @@ export function CatalogBrowse() {
       )}
       {(filter.q || filter.type || filter.eco || filter.ucs || filter.tag) && (
         <button type="button" className="text-[11px] self-start" style={{ color: SAGE }}
-          onClick={() => { setFilter(EMPTY_FILTER); setSort('new'); }}>Сбросить поиск</button>
+          onClick={() => { setFilter(EMPTY_FILTER); setSort('new'); }}>{t('resetSearch')}</button>
       )}
       {grouped.map((g) => (
         <section key={g.type} className="flex flex-col gap-2">
@@ -135,29 +140,51 @@ export function CatalogBrowse() {
 function SoundRow({ item, on, onPlay, onOpen, onDownload, thCard, ink }: {
   item: Sound; on: boolean; onPlay: () => void; onOpen: () => void; onDownload: () => void; thCard: string; ink: string;
 }) {
+  const { prefs } = usePrefs();
+  const t = useT();
+  const meta = useSoundMeta(item);
   const c = pinColor[String(item.type)] ?? ACCENT;
+  const cover = soundCover(item);
+  const author = soundAuthor(item);
+  const when = soundDateLabel(item, prefs.locale === 'en' ? 'en-GB' : 'ru-RU');
+  const gear = String(item.gear || item.recorder || item.microphone || '').trim();
   return (
-    <div className="rounded-2xl px-3.5 py-3 flex items-center gap-3" style={{ background: thCard }}>
-      <button type="button" onClick={onPlay} className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c }} aria-label={on ? 'Пауза' : 'Слушать'}>
-        <PlayPauseIcon playing={on} size={12} />
+    <article className="rounded-3xl overflow-hidden" style={{ background: thCard }}>
+      <button type="button" onClick={onOpen} className="block w-full text-left">
+        <div className="relative aspect-[16/10]" style={{ background: c }}>
+          {cover && <img src={cover} alt="" className="absolute inset-0 w-full h-full object-cover" />}
+          <span className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 40%, rgba(26,26,26,0.55))' }} />
+          <span className="absolute left-3 right-3 bottom-2.5 flex items-end justify-between gap-2">
+            <span className="min-w-0">
+              <span className="block text-[10px] font-semibold text-white/85 truncate">{author}{when ? ` · ${when}` : ''}</span>
+              <span className="block text-[14px] font-bold text-white leading-tight truncate mt-0.5">{item.title}</span>
+            </span>
+            <span className="rounded-full px-2 py-1 flex-shrink-0" style={{ background: 'rgba(255,255,255,0.9)' }}>
+              <SoundTypeTag type={String(item.type || '')} />
+            </span>
+          </span>
+        </div>
       </button>
-      <button type="button" className="flex-1 min-w-0 text-left" onClick={onOpen}>
-        <p className="text-[13px] font-semibold truncate" style={{ color: ink }}>{item.title}</p>
-        <p className="text-[11px] truncate mt-0.5" style={{ color: OLIVE }}>
-          {item.location}
-          {parseDurationLabel(item.duration) > 0 ? ` · ${item.duration}` : ''}
-        </p>
-      </button>
-      <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-        <SoundTypeTag type={String(item.type)} />
-        <div className="flex items-center gap-1.5">
-          <span className="flex items-center gap-0.5" style={{ color: SAGE }}><Headphones size={9} /><span className="text-[9px]">{formatPlays(item.plays)}</span></span>
-          <button type="button" onClick={onDownload} className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(146,179,177,0.22)' }} aria-label="Скачать">
-            <Download size={13} color={color.mist} />
+      <div className="px-3.5 py-3 flex items-center gap-3">
+        <button type="button" onClick={onPlay} className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c }} aria-label={on ? t('pause') : t('listen')}>
+          <PlayPauseIcon playing={on} size={12} />
+        </button>
+        <button type="button" className="flex-1 min-w-0 text-left" onClick={onOpen}>
+          <p className="text-[12px] truncate" style={{ color: OLIVE }}>
+            <MapPin size={10} className="inline -mt-0.5 mr-0.5" />
+            {item.location || '—'}
+            {meta.durationSec > 0 ? ` · ${meta.durationLabel}` : ''}
+          </p>
+          {gear ? <p className="text-[10px] truncate mt-0.5" style={{ color: SAGE }}>{gear}</p> : null}
+        </button>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="flex items-center gap-0.5" style={{ color: SAGE }}><Headphones size={10} /><span className="text-[10px]">{formatPlays(item.plays)}</span></span>
+          <button type="button" onClick={() => void onDownload()} className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(146,179,177,0.22)' }} aria-label={t('download')}>
+            <Download size={14} color={color.mist} />
           </button>
         </div>
       </div>
-    </div>
+    </article>
   );
 }
 

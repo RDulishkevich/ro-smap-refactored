@@ -79,6 +79,8 @@ export type Profile = {
   following?: string[];
   pdConsent?: boolean;
   pdConsentAt?: string;
+  aboutRole?: string;
+  useGoals?: string[];
   [key: string]: unknown;
 };
 
@@ -97,6 +99,9 @@ export type Expedition = {
   route?: Array<{ lat: number; lng: number }>;
   soundIds?: Array<string | number>;
   invites?: ExpeditionInvite[];
+  date?: string;
+  place?: string;
+  kind?: string;
 };
 
 export type ExpeditionInvite = {

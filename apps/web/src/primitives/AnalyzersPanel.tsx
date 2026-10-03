@@ -206,48 +206,28 @@ export function AnalyzersPanel({ playing }: { playing: boolean }) {
   }, [playing, dark]);
 
   return (
-    <div className="mt-2.5 flex flex-col gap-2.5 max-h-[min(240px,36vh)] overflow-y-auto pr-0.5">
-      <div className="rounded-2xl px-3 py-2.5" style={{ background: th.phoneBg }}>
+    <div className="mt-2.5 flex flex-col gap-2">
+    <div className="flex flex-row gap-2 overflow-x-auto scrollbar-none items-stretch">
+      <div className="rounded-2xl px-2.5 py-2 flex-1 min-w-[7.5rem]" style={{ background: th.phoneBg }}>
         <div className="flex justify-between items-center mb-1.5">
           <span className="text-[10px] uppercase font-bold tracking-widest" style={{ color: color.sage }}>Гониометр</span>
           <span className="text-[9px] font-mono font-semibold" style={{ color: color.accent }}>L / R</span>
         </div>
-        <canvas ref={gonioRef} width={260} height={120} className="w-full h-[88px] rounded-xl block" />
-        <div className="flex items-center gap-2 mt-2">
-          <span className="text-[9px] font-bold w-3 text-center" style={{ color: color.sage }}>L</span>
-          <input type="range" min={-1} max={1} step={0.01} value={pan}
-            className="flex-1 h-1.5 accent-[#B5613F]"
-            onChange={(e) => { const v = Number(e.target.value); setPan(v); audioService.setPan(v); }} />
-          <span className="text-[9px] font-bold w-3 text-center" style={{ color: color.sage }}>R</span>
-          <span className="text-[10px] font-mono font-semibold w-12 text-right" style={{ color: color.accent }}>{panLabel(pan)}</span>
-        </div>
-        <div className="flex items-center justify-between gap-2 mt-2 pt-2" style={{ borderTop: `1px solid ${th.border}` }}>
-          <span className="text-[10px] uppercase font-bold tracking-widest" style={{ color: color.sage }}>Питч</span>
-          <span className="text-[10px] font-mono font-semibold" style={{ color: color.accent }}>{pitch} st</span>
-        </div>
-        <div className="flex items-center gap-2 mt-1.5">
-          <span className="text-[9px] font-bold" style={{ color: color.sage }}>−12</span>
-          <input type="range" min={-12} max={12} step={1} value={pitch}
-            className="flex-1 h-1.5 accent-[#B5613F]"
-            onChange={(e) => { const v = Number(e.target.value); setPitch(v); audioService.setPitch(v); }} />
-          <span className="text-[9px] font-bold" style={{ color: color.sage }}>+12</span>
-          <button type="button" className="text-[10px] font-bold px-2 py-1 rounded-lg" style={{ color: color.olive, background: th.cardBg }}
-            onClick={() => { setPan(0); setPitch(0); audioService.setPan(0); audioService.setPitch(0); }}>Сброс</button>
-        </div>
+        <canvas ref={gonioRef} width={260} height={120} className="w-full h-[72px] rounded-xl block" />
       </div>
-      <div className="rounded-2xl px-3 py-2.5" style={{ background: th.phoneBg }}>
+      <div className="rounded-2xl px-2.5 py-2 flex-1 min-w-[9.5rem]" style={{ background: th.phoneBg }}>
         <div className="flex justify-between items-center mb-1.5">
           <span className="text-[10px] uppercase font-bold tracking-widest" style={{ color: color.sage }}>Спектрограмма</span>
           <span className="text-[9px] font-mono" style={{ color: color.sage }}>Hz · dB</span>
         </div>
         <canvas ref={specRef} width={600} height={110} className="w-full h-[72px] rounded-xl block" />
       </div>
-      <div className="rounded-2xl px-3 py-2.5" style={{ background: th.phoneBg }}>
+      <div className="rounded-2xl px-2.5 py-2 w-[5.5rem] flex-shrink-0" style={{ background: th.phoneBg }}>
         <div className="flex justify-between items-center mb-1.5">
-          <span className="text-[10px] uppercase font-bold tracking-widest" style={{ color: color.sage }}>Loudness</span>
-          <span ref={dbRef} className="text-[10px] font-mono font-semibold" style={{ color: color.accent }}>−∞ dB</span>
+          <span className="text-[10px] uppercase font-bold tracking-widest" style={{ color: color.sage }}>LU</span>
+          <span ref={dbRef} className="text-[9px] font-mono font-semibold" style={{ color: color.accent }}>−∞</span>
         </div>
-        <div className="flex gap-6 justify-center h-[88px]">
+        <div className="flex gap-2 justify-center h-[72px]">
           {([['L', lRms, lPeak], ['R', rRms, rPeak]] as const).map(([lab, rms, peak]) => (
             <div key={lab} className="flex flex-col items-center gap-1 h-full">
               <div className="relative w-5 flex-1 rounded-full overflow-hidden" style={{ background: th.cardBg }}>
@@ -257,6 +237,27 @@ export function AnalyzersPanel({ playing }: { playing: boolean }) {
               <span className="text-[9px] font-mono" style={{ color: color.sage }}>{lab}</span>
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+      <div className="rounded-2xl px-2.5 py-2" style={{ background: th.phoneBg }}>
+        <div className="flex items-center gap-2">
+          <span className="text-[9px] font-bold w-3 text-center" style={{ color: color.sage }}>L</span>
+          <input type="range" min={-1} max={1} step={0.01} value={pan}
+            className="flex-1 h-1.5 accent-[#B5613F]"
+            onChange={(e) => { const v = Number(e.target.value); setPan(v); audioService.setPan(v); }} />
+          <span className="text-[9px] font-bold w-3 text-center" style={{ color: color.sage }}>R</span>
+          <span className="text-[10px] font-mono font-semibold w-10 text-right" style={{ color: color.accent }}>{panLabel(pan)}</span>
+        </div>
+        <div className="flex items-center gap-2 mt-1.5">
+          <span className="text-[9px] font-bold" style={{ color: color.sage }}>−12</span>
+          <input type="range" min={-12} max={12} step={1} value={pitch}
+            className="flex-1 h-1.5 accent-[#B5613F]"
+            onChange={(e) => { const v = Number(e.target.value); setPitch(v); audioService.setPitch(v); }} />
+          <span className="text-[9px] font-bold" style={{ color: color.sage }}>+12</span>
+          <span className="text-[10px] font-mono font-semibold w-10 text-right" style={{ color: color.accent }}>{pitch} st</span>
+          <button type="button" className="text-[10px] font-bold px-2 py-1 rounded-lg" style={{ color: color.olive, background: th.cardBg }}
+            onClick={() => { setPan(0); setPitch(0); audioService.setPan(0); audioService.setPitch(0); }}>Сброс</button>
         </div>
       </div>
     </div>

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Headphones, LogIn, MapPin, Mic, Settings } from 'lucide-react';
 import { color, pinColor } from '@polevka/design';
-import { formatPlays, WF } from '@polevka/core';
+import { formatPlays, type Sound } from '@polevka/core';
+import { PLACEHOLDER_PEAKS, useSoundMeta } from '../lib/audio-meta';
 import { useAuth } from '../state/AuthContext';
 import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
@@ -113,36 +114,45 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
                 {item.rejectNote ? <p className="text-[10px]" style={{ color: ACCENT }}>{String(item.rejectNote)}</p> : null}
               </button>
             ))}
-            {shown.map((item) => {
-              const on = playing && String(playingId) === String(item.id);
-              const c = pinColor[String(item.type)] ?? ACCENT;
-              return (
-                <div key={String(item.id)} className="rounded-3xl p-4 shadow-sm" style={{ background: th.cardBg }}>
-                  <div className="flex justify-between items-start mb-2">
-                    <button className="flex-1 min-w-0 text-left" onClick={() => push({ type: 'sound-detail', sound: item })}>
-                      <p className="text-xs font-bold truncate" style={{ color: th.inkText }}>{item.title}</p>
-                      <div className="flex items-center gap-1"><MapPin size={9} style={{ color: SAGE }} /><p className="text-[10px] truncate" style={{ color: OLIVE }}>{item.location}</p></div>
-                    </button>
-                    <SoundTypeTag type={String(item.type)} />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <motion.button onClick={() => togglePlay(item)} whileTap={{ scale: 0.88 }} className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c }}>
-                      <PlayPauseIcon playing={!!on} size={12} />
-                    </motion.button>
-                    <div className="flex-1 overflow-hidden"><WaveformSVG data={WF[Number(item.wf || 0) % 4]} color={c} progress={on ? progress : 0} /></div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-[10px]">{item.duration}</p>
-                      <div className="flex items-center gap-1 justify-end" style={{ color: SAGE }}><Headphones size={9} /><span className="text-[9px]">{formatPlays(item.plays)}</span></div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {shown.map((item) => (
+              <ProfileSoundCard key={String(item.id)} item={item} playing={playing && String(playingId) === String(item.id)}
+                progress={progress} onPlay={() => togglePlay(item)} onOpen={() => push({ type: 'sound-detail', sound: item })} />
+            ))}
             {!shown.length && !drafts.length && <p className="text-xs" style={{ color: SAGE }}>Пока нет своих записей</p>}
           </div>
         </div>
       </div>
       {showNav && <div className="rounded-t-3xl shadow-lg overflow-hidden flex-shrink-0"><NavBar /></div>}
+    </div>
+  );
+}
+
+function ProfileSoundCard({ item, playing, progress, onPlay, onOpen }: {
+  item: Sound; playing: boolean; progress: number; onPlay: () => void; onOpen: () => void;
+}) {
+  const th = useTh();
+  const meta = useSoundMeta(item);
+  const c = pinColor[String(item.type)] ?? ACCENT;
+  const peaks = meta.peaks && meta.peaks.length ? meta.peaks : PLACEHOLDER_PEAKS;
+  return (
+    <div className="rounded-3xl p-4 shadow-sm" style={{ background: th.cardBg }}>
+      <div className="flex justify-between items-start mb-2">
+        <button className="flex-1 min-w-0 text-left" onClick={onOpen}>
+          <p className="text-xs font-bold truncate" style={{ color: th.inkText }}>{item.title}</p>
+          <div className="flex items-center gap-1"><MapPin size={9} style={{ color: SAGE }} /><p className="text-[10px] truncate" style={{ color: OLIVE }}>{item.location}</p></div>
+        </button>
+        <SoundTypeTag type={String(item.type)} />
+      </div>
+      <div className="flex items-center gap-3">
+        <motion.button onClick={onPlay} whileTap={{ scale: 0.88 }} className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c }}>
+          <PlayPauseIcon playing={playing} size={12} />
+        </motion.button>
+        <div className="flex-1 overflow-hidden"><WaveformSVG data={peaks} color={c} progress={playing ? progress : 0} /></div>
+        <div className="text-right flex-shrink-0">
+          <p className="text-[10px]">{meta.durationLabel}</p>
+          <div className="flex items-center gap-1 justify-end" style={{ color: SAGE }}><Headphones size={9} /><span className="text-[9px]">{formatPlays(item.plays)}</span></div>
+        </div>
+      </div>
     </div>
   );
 }

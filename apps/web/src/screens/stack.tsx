@@ -28,6 +28,7 @@ import { openCookieBanner } from '../primitives/CookieBanner';
 import { SoundMap } from '../lib/SoundMap';
 import { setDraftRecording } from '../lib/record-buffer';
 import { formatClock, parseDurationLabel } from '../lib/waveform';
+import { useSoundMeta } from '../lib/audio-meta';
 import { AddSoundScreen } from './AddSoundScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { CatalogPage, ExpeditionsPage, FeedPage } from './FeedScreen';
@@ -38,6 +39,8 @@ import { pathForSound, shareUrl } from '../lib/routes';
 import { SEARCH_KIND_LABEL, searchAll } from '../lib/search-all';
 import { useIsDesktop } from '../lib/use-media';
 import { downloadSound } from '../lib/download-sound';
+import { ABOUT_ROLES, USE_GOALS, locLabel } from '../lib/onboarding';
+import { usePrefs } from '../state/PrefsContext';
 import { resolveExpeditionInvite } from '../lib/expedition-invite';
 import { isAmbisonicSound, isSoundwalkPrinciple, soundRoute } from '../lib/sound-media';
 import LogoApp from '@/brand/LogoApp';
@@ -87,6 +90,7 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
   const th = useTh();
   const desktop = useIsDesktop();
   const live = allSounds.find((s) => String(s.id) === String(sound.id)) || sound;
+  const meta = useSoundMeta(live);
   const on = playing && String(playingId) === String(live.id);
   const comments = live.comments || [];
   const liked = !!user && (live.likedBy || []).includes(user.loginName);
@@ -190,8 +194,8 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
             </div>
             <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
               <SoundTypeTag type={String(live.type)} />
-              {parseDurationLabel(live.duration) > 0 && (
-                <span className="text-[10px]" style={{ color: SAGE }}>{live.duration}</span>
+              {meta.durationSec > 0 && (
+                <span className="text-[10px]" style={{ color: SAGE }}>{meta.durationLabel}</span>
               )}
             </div>
           </div>
@@ -202,7 +206,7 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
                 <li key={`${m.t}-${m.label}-${i}`}>
                   <button type="button" className="flex items-baseline gap-2 text-left w-full"
                     onClick={() => {
-                      const total = parseDurationLabel(live.duration);
+                      const total = meta.durationSec || parseDurationLabel(live.duration);
                       if (total > 0) seek(Math.max(0, Math.min(1, m.t / total)));
                       if (!on) togglePlay(live);
                     }}>
@@ -528,6 +532,9 @@ function AuthScreen({ onBack }: { onBack: () => void }) {
   const { login, register } = useAuth();
   const { toast } = useUi();
   const { push, pop } = useNav();
+  const { reload } = useData();
+  const { prefs } = usePrefs();
+  const loc = prefs.locale === 'en' ? 'en' : 'ru';
   const [mode, setMode] = useState<'in' | 'up'>('in');
   const [loginName, setLogin] = useState('');
   const [password, setPassword] = useState('');
@@ -536,13 +543,29 @@ function AuthScreen({ onBack }: { onBack: () => void }) {
   const [needTotp, setNeedTotp] = useState(false);
   const [totpError, setTotpError] = useState(false);
   const [pdConsent, setPdConsent] = useState(false);
+  const [aboutRole, setAboutRole] = useState('');
+  const [useGoals, setUseGoals] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const submit = async (totpCode?: string) => {
+    if (mode === 'up') {
+      if (!aboutRole) { toast('Выберите, кто вы'); return; }
+      if (!useGoals.length) { toast('Выберите цели использования Полёвки'); return; }
+    }
     setBusy(true);
     setTotpError(false);
     try {
       const code = (totpCode ?? totp).trim();
-      if (mode === 'up') await register(loginName.trim(), password, name.trim() || loginName.trim(), pdConsent);
+      if (mode === 'up') {
+        await register(loginName.trim(), password, name.trim() || loginName.trim(), pdConsent);
+        await apiSyncJson('profiles.json', [{
+          loginName: loginName.trim(),
+          displayName: name.trim() || loginName.trim(),
+          aboutRole,
+          useGoals,
+          profileUpdatedAt: new Date().toISOString(),
+        }]);
+        await reload();
+      }
       else await login(loginName.trim(), password, code || undefined);
       toast('Добро пожаловать');
       pop();
@@ -587,10 +610,44 @@ function AuthScreen({ onBack }: { onBack: () => void }) {
         </motion.div>
       )}
       {mode === 'up' && (
-        <label className="flex items-start gap-2 text-[10px]" style={{ color: OLIVE }}>
-          <input type="checkbox" checked={pdConsent} onChange={(e) => setPdConsent(e.target.checked)} className="mt-0.5" />
-          <span>Соглашаюсь на обработку персональных данных. <button type="button" className="underline" onClick={() => push({ type: 'legal', doc: 'privacy' })}>Политика</button> и <button type="button" className="underline" onClick={() => push({ type: 'legal', doc: 'terms' })}>условия</button>.</span>
-        </label>
+        <>
+          <div className="rounded-3xl p-4 flex flex-col gap-3" style={{ background: th.cardBg }}>
+            <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: SAGE }}>О себе</p>
+            <p className="text-[11px]" style={{ color: OLIVE }}>Кто вы в Полёвке — один вариант</p>
+            <div className="flex flex-wrap gap-1.5">
+              {ABOUT_ROLES.map((role) => {
+                const on = aboutRole === role.id;
+                return (
+                  <button key={role.id} type="button" onClick={() => setAboutRole(role.id)}
+                    className="h-8 px-3 rounded-full text-[11px] font-semibold"
+                    style={{ background: on ? ACCENT : th.lightBg, color: on ? '#fff' : OLIVE }}>
+                    {locLabel(role, loc)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="rounded-3xl p-4 flex flex-col gap-3" style={{ background: th.cardBg }}>
+            <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: SAGE }}>Зачем Полёвка</p>
+            <p className="text-[11px]" style={{ color: OLIVE }}>Можно выбрать несколько целей</p>
+            <div className="flex flex-wrap gap-1.5">
+              {USE_GOALS.map((goal) => {
+                const on = useGoals.includes(goal.id);
+                return (
+                  <button key={goal.id} type="button" onClick={() => setUseGoals((prev) => on ? prev.filter((id) => id !== goal.id) : [...prev, goal.id])}
+                    className="h-8 px-3 rounded-full text-[11px] font-semibold"
+                    style={{ background: on ? ACCENT : th.lightBg, color: on ? '#fff' : OLIVE }}>
+                    {locLabel(goal, loc)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <label className="flex items-start gap-2 text-[10px]" style={{ color: OLIVE }}>
+            <input type="checkbox" checked={pdConsent} onChange={(e) => setPdConsent(e.target.checked)} className="mt-0.5" />
+            <span>Соглашаюсь на обработку персональных данных. <button type="button" className="underline" onClick={() => push({ type: 'legal', doc: 'privacy' })}>Политика</button> и <button type="button" className="underline" onClick={() => push({ type: 'legal', doc: 'terms' })}>условия</button>.</span>
+          </label>
+        </>
       )}
       <button disabled={busy} onClick={() => void submit()} className="w-full py-3.5 rounded-2xl text-white text-sm font-bold" style={{ background: ACCENT }}>{busy ? '…' : mode === 'in' ? 'Войти' : 'Создать аккаунт'}</button>
       {mode === 'in' && <button className="text-xs" style={{ color: SAGE }} onClick={() => push({ type: 'reset-password' })}>Забыли пароль?</button>}
@@ -609,7 +666,7 @@ function AuthScreen({ onBack }: { onBack: () => void }) {
           <div className="w-full max-w-[400px] flex flex-col gap-3">{form}</div>
         </div>
       ) : (
-        <div className="p-5 flex flex-col gap-3">{form}</div>
+        <div className="p-5 flex flex-col gap-3 flex-1 overflow-y-auto scrollbar-none">{form}</div>
       )}
     </div>
   );

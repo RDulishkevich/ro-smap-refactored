@@ -51,6 +51,12 @@ export function soundOwnerLogin(sound?: Sound | null): string {
   return String(sound.user || sound.recordist || '').replace(/^@/, '').toLowerCase();
 }
 
+export function soundDateLabel(sound?: Sound | null, locale = 'ru-RU') {
+  const t = soundTime(sound);
+  if (!t) return '';
+  return new Date(t).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 export function soundAuthor(sound?: Sound | null): string {
   if (!sound) return 'Исследователь';
   return String(sound.recordist || sound.user || sound.author || 'Исследователь');

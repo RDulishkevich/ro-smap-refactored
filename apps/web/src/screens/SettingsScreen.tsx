@@ -7,10 +7,11 @@ import { useAuth } from '../state/AuthContext';
 import { useNav } from '../state/NavContext';
 import { useData } from '../state/DataContext';
 import { useTh, useToggleTheme, useIsDark } from '../state/ThemeContext';
-import { usePrefs } from '../state/PrefsContext';
+import { usePrefs, useT } from '../state/PrefsContext';
 import { useUi } from '../state/UiContext';
 import { useIsDesktop } from '../lib/use-media';
 import { ScreenHeader } from '../primitives/ui';
+import { LanguageSwitch } from '../primitives/LanguageSwitch';
 import { openCookieBanner } from '../primitives/CookieBanner';
 
 const OLIVE = color.olive;
@@ -28,6 +29,7 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
   const { toast, confirm } = useUi();
   const { prefs, setPref } = usePrefs();
   const { volume, setVolume } = useData();
+  const t = useT();
 
   const logoutEverywhere = async () => {
     const ok = await confirm({ title: 'Выйти везде?', body: 'Все сессии на других устройствах будут завершены.', ok: 'Выйти везде' });
@@ -40,11 +42,15 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      {!desktop && <ScreenHeader title="Настройки" onBack={onBack} />}
+      {!desktop && <ScreenHeader title={t('settings')} onBack={onBack} />}
       <div className={`flex-1 overflow-y-auto scrollbar-none flex flex-col gap-4 ${desktop ? 'p-6' : 'p-4'}`}>
-        {desktop && <p className="text-lg font-bold" style={{ color: th.inkText }}>Настройки</p>}
+        {desktop && <p className="text-lg font-bold" style={{ color: th.inkText }}>{t('settings')}</p>}
 
-        <Section title="Оформление" th={th}>
+        <Section title={t('language')} th={th}>
+          <Row label={t('lang')} th={th} right={<LanguageSwitch />} />
+        </Section>
+
+        <Section title={t('appearance')} th={th}>
           <Row label="Тёмная тема" th={th} right={<Switch on={dark} onChange={toggle} />} />
           <Row label="Меньше анимации" th={th} right={<Switch on={prefs.reduceMotion} onChange={() => setPref('reduceMotion', !prefs.reduceMotion)} />} />
         </Section>

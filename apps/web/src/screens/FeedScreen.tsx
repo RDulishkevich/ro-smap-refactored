@@ -13,8 +13,9 @@ import { NavBar, PlayPauseIcon, ScreenHeader, SoundTypeTag } from '../primitives
 import BrandMark from '@/brand/BrandMark';
 import { CatalogSoundList } from './CatalogScreen';
 import { downloadSound } from '../lib/download-sound';
-import { soundAuthor, soundCover, soundTime } from '../lib/sound-media';
-import { parseDurationLabel } from '../lib/waveform';
+import { soundAuthor, soundCover, soundDateLabel, soundTime } from '../lib/sound-media';
+import { useSoundMeta } from '../lib/audio-meta';
+import { useT } from '../state/PrefsContext';
 
 export { CatalogSoundList } from './CatalogScreen';
 export { CatalogScreen as CatalogPage } from './CatalogScreen';
@@ -209,11 +210,7 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
         ))}
       </div>
       {items.map((item) => item.kind === 'post' ? (
-        <article key={item.id} className="rounded-3xl p-4 shadow-sm" style={{ background: th.cardBg }}>
-          <p className="text-[10px] mb-1" style={{ color: SAGE }}>{String(item.post.author || 'Полёвка')}{item.post.createdAt ? ` · ${fmtWhen(String(item.post.createdAt))}` : ''}</p>
-          <p className="text-sm font-bold mb-1" style={{ color: th.inkText }}>{String(item.post.title || 'Запись')}</p>
-          <p className="text-xs leading-relaxed" style={{ color: OLIVE }}>{String(item.post.text || '').slice(0, 220)}</p>
-        </article>
+        <FeedPostCard key={item.id} post={item.post} />
       ) : (
         <MarkerFeedCard key={item.id} sound={item.sound} playing={playing && String(playingId) === String(item.sound.id)}
           onPlay={() => togglePlay(item.sound)}
@@ -225,42 +222,75 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
   );
 }
 
+function FeedPostCard({ post }: { post: FeedPost }) {
+  const th = useTh();
+  const images = (post.images || []).map(String).filter(Boolean);
+  const author = String(post.author || 'Полёвка');
+  const when = post.createdAt ? fmtWhen(String(post.createdAt)) : '';
+  const text = String(post.text || '').trim();
+  return (
+    <article className="rounded-3xl overflow-hidden shadow-sm" style={{ background: th.cardBg }}>
+      <div className="px-4 pt-3.5 pb-2.5 flex items-center gap-2.5">
+        <span className="w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold flex-shrink-0" style={{ background: th.lightBg, color: ACCENT }}>
+          {author.slice(0, 1).toUpperCase()}
+        </span>
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold truncate" style={{ color: th.inkText }}>{author}</p>
+          {when ? <p className="text-[10px]" style={{ color: SAGE }}>{when}</p> : null}
+        </div>
+      </div>
+      {!!images.length && (
+        <div className="relative aspect-[16/10]" style={{ background: th.lightBg }}>
+          <img src={images[0]} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        </div>
+      )}
+      <div className="px-4 py-3.5">
+        <p className="text-[15px] font-bold leading-snug" style={{ color: th.inkText }}>{String(post.title || 'Запись')}</p>
+        {text ? <p className="text-[13px] leading-relaxed mt-1.5" style={{ color: OLIVE }}>{text}</p> : null}
+      </div>
+    </article>
+  );
+}
+
 function MarkerFeedCard({ sound, playing, onPlay, onOpen, onDownload }: {
   sound: Sound; playing: boolean; onPlay: () => void; onOpen: () => void; onDownload: () => void;
 }) {
   const th = useTh();
+  const t = useT();
+  const meta = useSoundMeta(sound);
   const cover = soundCover(sound);
   const author = soundAuthor(sound);
+  const when = soundDateLabel(sound);
   const c = pinColor[String(sound.type)] || ACCENT;
   return (
     <article className="rounded-3xl overflow-hidden shadow-sm" style={{ background: th.cardBg }}>
       <button type="button" onClick={onOpen} className="block w-full text-left">
-        <div className="relative h-28" style={{ background: c }}>
+        <div className="relative aspect-[16/10]" style={{ background: c }}>
           {cover && <img src={cover} alt="" className="absolute inset-0 w-full h-full object-cover" />}
-          <span className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent, rgba(26,26,26,0.45))' }} />
-          <span className="absolute left-3 bottom-2 text-[10px] font-semibold text-white">{author} создал метку</span>
+          <span className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 42%, rgba(26,26,26,0.55))' }} />
+          <span className="absolute left-3.5 right-3.5 bottom-3">
+            <span className="block text-[10px] font-semibold text-white/85">{author}{when ? ` · ${when}` : ''}</span>
+            <span className="block text-[16px] font-bold text-white leading-tight mt-0.5">{sound.title}</span>
+          </span>
         </div>
       </button>
       <div className="p-3.5 flex items-center gap-3">
-        <button type="button" onClick={onPlay} className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: c }} aria-label={playing ? 'Пауза' : 'Слушать'}>
+        <button type="button" onClick={onPlay} className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: c }} aria-label={playing ? t('pause') : t('listen')}>
           <PlayPauseIcon playing={playing} size={12} />
         </button>
         <button type="button" className="flex-1 min-w-0 text-left" onClick={onOpen}>
-          <p className="text-[13px] font-semibold truncate" style={{ color: th.inkText }}>{sound.title}</p>
-          <p className="text-[11px] truncate mt-0.5" style={{ color: OLIVE }}>
+          <p className="text-[12px] truncate" style={{ color: OLIVE }}>
             <MapPin size={10} className="inline -mt-0.5 mr-0.5" />
             {sound.location || 'На карте'}
-            {parseDurationLabel(sound.duration) > 0 ? ` · ${sound.duration}` : ''}
+            {meta.durationSec > 0 ? ` · ${meta.durationLabel}` : ''}
           </p>
-        </button>
-        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
           <SoundTypeTag type={String(sound.type || '')} />
-          <div className="flex items-center gap-1.5">
-            <span className="flex items-center gap-0.5" style={{ color: SAGE }}><Headphones size={9} /><span className="text-[9px]">{formatPlays(sound.plays)}</span></span>
-            <button type="button" onClick={onDownload} className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(146,179,177,0.22)' }} aria-label="Скачать">
-              <Download size={13} color={color.mist} />
-            </button>
-          </div>
+        </button>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="flex items-center gap-0.5" style={{ color: SAGE }}><Headphones size={10} /><span className="text-[10px]">{formatPlays(sound.plays)}</span></span>
+          <button type="button" onClick={() => void onDownload()} className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(146,179,177,0.22)' }} aria-label={t('download')}>
+            <Download size={14} color={color.mist} />
+          </button>
         </div>
       </div>
     </article>
