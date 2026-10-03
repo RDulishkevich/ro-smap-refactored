@@ -1,12 +1,12 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import L from 'leaflet';
 import { pinColor } from '@polevka/design';
-import { PIN_SIZE, pinMarkup } from './map-pin';
+import { PIN_SIZE, pinMarkup, pinMarkupYandex } from './map-pin';
 import type { Sound } from '@polevka/core';
 import { loadYandexMaps } from './pwa';
 
 const ROSTOV: [number, number] = [47.2313, 39.7233];
-const HIT_PX = 28;
+const HIT_PX = 40;
 
 type YMap = {
   destroy: () => void;
@@ -34,7 +34,7 @@ type YMap = {
 
 type YMapsApi = {
   ready: (cb: () => void) => void;
-  templateLayoutFactory: { createClass: (tpl: string) => unknown };
+  templateLayoutFactory: { createClass: (tpl: string, proto?: object) => unknown };
   Map: new (el: HTMLElement, opts: object, extra?: object) => YMap;
   Placemark: new (c: number[], p: object, o: object) => {
     events: { add: (e: string, fn: (ev?: { get: (k: string) => unknown; preventDefault?: () => void; stopPropagation?: () => void }) => void) => void };
@@ -284,6 +284,23 @@ export const SoundMap = forwardRef<SoundMapHandle, {
         fireContext(lat, lng, undefined, e);
       }, 0);
     };
+    const lastPick = { t: 0 };
+    const nativeClick = (e: MouseEvent) => {
+      const pinEl = document.elementsFromPoint(e.clientX, e.clientY)
+        .map((n) => (n instanceof Element ? n.closest('.pv-pin') : null))
+        .find(Boolean);
+      const pinId = pinEl?.getAttribute('data-id');
+      if (!pinId) return;
+      const sound = soundsRef.current.find((s) => String(s.id) === pinId);
+      if (!sound) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const now = Date.now();
+      if (now - lastPick.t < 80) return;
+      lastPick.t = now;
+      onSelectRef.current(sound);
+    };
+    el?.addEventListener('click', nativeClick, true);
     el?.addEventListener('contextmenu', nativeCtx, true);
     const hoverOk = () => !(window.matchMedia && window.matchMedia('(hover: none)').matches);
     const nativeOver = (e: MouseEvent) => {
@@ -336,12 +353,11 @@ export const SoundMap = forwardRef<SoundMapHandle, {
         const on = String(s.id) === String(activeId);
         let layout: unknown;
         try {
-          layout = ymaps.templateLayoutFactory.createClass(pinMarkup(s, on));
+          layout = ymaps.templateLayoutFactory.createClass(pinMarkupYandex(s, on));
         } catch { layout = undefined; }
         const pm = new ymaps.Placemark([Number(s.lat), Number(s.lng)], {}, layout ? {
           iconLayout: layout,
           iconShape: { type: 'Rectangle', coordinates: [[-PIN_SIZE.anchorX, -PIN_SIZE.anchorY], [PIN_SIZE.w - PIN_SIZE.anchorX, PIN_SIZE.h - PIN_SIZE.anchorY]] },
-          iconOffset: [-PIN_SIZE.anchorX, -PIN_SIZE.anchorY],
         } : {
           preset: 'islands#circleDotIcon',
           iconColor: color,
@@ -384,6 +400,7 @@ export const SoundMap = forwardRef<SoundMapHandle, {
       map.events.add('click', onClick);
       map.events.add('contextmenu', onCtx);
       return () => {
+        el?.removeEventListener('click', nativeClick, true);
         el?.removeEventListener('contextmenu', nativeCtx, true);
         el?.removeEventListener('mouseover', nativeOver);
         el?.removeEventListener('mouseout', nativeOut);
@@ -397,6 +414,7 @@ export const SoundMap = forwardRef<SoundMapHandle, {
     const layer = leafletLayer.current;
     if (!map || !layer) {
       return () => {
+        el?.removeEventListener('click', nativeClick, true);
         el?.removeEventListener('contextmenu', nativeCtx, true);
         el?.removeEventListener('mouseover', nativeOver);
         el?.removeEventListener('mouseout', nativeOut);
@@ -417,7 +435,7 @@ export const SoundMap = forwardRef<SoundMapHandle, {
       if (s.lat == null || s.lng == null) return;
       const on = String(s.id) === String(activeId);
       const icon = L.divIcon({
-        className: '',
+        className: 'pv-pin-icon',
         html: pinMarkup(s, on),
         iconSize: [PIN_SIZE.w, PIN_SIZE.h],
         iconAnchor: [PIN_SIZE.anchorX, PIN_SIZE.anchorY],
@@ -469,6 +487,7 @@ export const SoundMap = forwardRef<SoundMapHandle, {
     map.on('mouseup', clearPress);
     map.on('mousemove', clearPress);
     return () => {
+      el?.removeEventListener('click', nativeClick, true);
       el?.removeEventListener('contextmenu', nativeCtx, true);
       el?.removeEventListener('mouseover', nativeOver);
       el?.removeEventListener('mouseout', nativeOut);

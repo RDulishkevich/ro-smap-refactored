@@ -22,3 +22,7 @@ export function pinMarkup(sound: Sound, on: boolean) {
   const face = GLYPH[type] || GLYPH.urban;
   return `<div class="pv-pin${on ? ' pv-pin--on' : ''}" data-id="${id}"><span class="pv-pin-head" style="background:${fill}"></span><span class="pv-pin-face">${face}</span></div>`;
 }
+
+export function pinMarkupYandex(sound: Sound, on: boolean) {
+  return `<div class="pv-pin-anchor">${pinMarkup(sound, on)}</div>`;
+}

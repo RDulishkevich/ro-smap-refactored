@@ -38,6 +38,7 @@ import { pathForSound, shareUrl } from '../lib/routes';
 import { SEARCH_KIND_LABEL, searchAll } from '../lib/search-all';
 import { useIsDesktop } from '../lib/use-media';
 import { downloadSound } from '../lib/download-sound';
+import { resolveExpeditionInvite } from '../lib/expedition-invite';
 import { isAmbisonicSound, isSoundwalkPrinciple, soundRoute } from '../lib/sound-media';
 import LogoApp from '@/brand/LogoApp';
 
@@ -907,19 +908,52 @@ function ConversationScreen({ name, peer, onBack }: { name: string; avatar: stri
 
 function NotificationsScreen({ onBack }: { onBack: () => void }) {
   const th = useTh();
-  const { mail } = useData();
+  const { mail, profiles, reload, reloadMail } = useData();
   const { user } = useAuth();
+  const { toast } = useUi();
+  const [busy, setBusy] = useState<string | null>(null);
   const box = mail.find((b) => b.loginName === user?.loginName);
-  const list = (box?.notifications || []) as Array<{ fromName?: string; fromId?: string; text?: string; date?: string }>;
+  const list = (box?.notifications || []) as Array<{
+    id?: string; type?: string; fromName?: string; fromId?: string; text?: string; date?: string;
+    expeditionId?: string; expeditionOwner?: string; soundId?: string;
+  }>;
+  const decide = async (n: (typeof list)[number], accept: boolean) => {
+    if (!user || !n.expeditionId || !n.expeditionOwner) return;
+    const key = `${n.expeditionId}:${n.soundId}:${accept}`;
+    setBusy(key);
+    try {
+      await resolveExpeditionInvite({
+        profiles,
+        accept,
+        expeditionId: String(n.expeditionId),
+        expeditionOwner: String(n.expeditionOwner),
+        soundId: String(n.soundId || ''),
+        memberLogin: user.loginName,
+      });
+      toast(accept ? 'Вы в экспедиции' : 'Приглашение отклонено');
+      await reload();
+      await reloadMail();
+    } catch (e: unknown) {
+      toast((e as Error).message || 'Не удалось ответить');
+    } finally { setBusy(null); }
+  };
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       <ScreenHeader title="Уведомления" onBack={onBack} />
       <div className="p-4 flex flex-col gap-2">
         {list.length === 0 && <p className="text-xs" style={{ color: SAGE }}>Пока тихо</p>}
         {list.map((n, i) => (
-          <div key={i} className="rounded-2xl p-3" style={{ background: th.cardBg }}>
+          <div key={String(n.id || i)} className="rounded-2xl p-3" style={{ background: th.cardBg }}>
             <p className="text-xs font-semibold" style={{ color: th.inkText }}>{n.fromName || n.fromId}</p>
             <p className="text-[10px]" style={{ color: OLIVE }}>{n.text}</p>
+            {n.type === 'expedition-invite' && n.expeditionId && (
+              <div className="flex gap-2 mt-2">
+                <button type="button" disabled={busy != null} className="flex-1 py-2 rounded-xl text-[11px] font-semibold text-white" style={{ background: ACCENT }}
+                  onClick={() => void decide(n, true)}>{busy ? '…' : 'Принять'}</button>
+                <button type="button" disabled={busy != null} className="flex-1 py-2 rounded-xl text-[11px] font-semibold" style={{ background: th.lightBg, color: OLIVE }}
+                  onClick={() => void decide(n, false)}>Отклонить</button>
+              </div>
+            )}
           </div>
         ))}
       </div>

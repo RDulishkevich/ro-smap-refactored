@@ -83,12 +83,27 @@ html.pv-lock .pv-map {
   touch-action: manipulation;
 }
 
+.pv-pin-icon.leaflet-div-icon,
+.leaflet-div-icon.pv-pin-icon {
+  background: transparent !important;
+  border: none !important;
+}
+.pv-pin-anchor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 28px;
+  height: 36px;
+  transform: translate(-14px, -34px);
+  pointer-events: auto;
+}
 .pv-pin {
   position: relative;
   width: 28px;
   height: 36px;
   cursor: pointer;
   transform-origin: 50% 100%;
+  pointer-events: auto;
 }
 .pv-pin-head {
   position: absolute;

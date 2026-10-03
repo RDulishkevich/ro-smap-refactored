@@ -96,6 +96,13 @@ export type Expedition = {
   photos?: string[];
   route?: Array<{ lat: number; lng: number }>;
   soundIds?: Array<string | number>;
+  invites?: ExpeditionInvite[];
+};
+
+export type ExpeditionInvite = {
+  login: string;
+  soundId: string;
+  status: 'pending' | 'accepted' | 'declined';
 };
 
 export type FeedPost = {

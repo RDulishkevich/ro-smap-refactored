@@ -44,6 +44,13 @@ export function soundCover(sound?: Sound | null): string | undefined {
   return first || undefined;
 }
 
+export function soundOwnerLogin(sound?: Sound | null): string {
+  if (!sound) return '';
+  const id = String(sound.recordistId || '').replace(/^@/, '').toLowerCase();
+  if (id) return id;
+  return String(sound.user || sound.recordist || '').replace(/^@/, '').toLowerCase();
+}
+
 export function soundAuthor(sound?: Sound | null): string {
   if (!sound) return 'Исследователь';
   return String(sound.recordist || sound.user || sound.author || 'Исследователь');

@@ -30,8 +30,8 @@ export function RailBannerCarousel() {
   const showImg = !!banner.image && !broken[banner.id];
 
   return (
-    <div className="flex-1 min-h-[7.5rem] flex flex-col justify-end px-1 pb-3">
-      <div className="relative h-[7.25rem] rounded-2xl overflow-hidden" style={{ background: banner.tint }}>
+    <div className="flex-1 min-h-[10.5rem] flex flex-col justify-end px-1 pb-3">
+      <div className="relative h-[10.25rem] rounded-2xl overflow-hidden" style={{ background: banner.tint }}>
         <AnimatePresence mode="wait">
           <motion.button
             key={banner.id}
