@@ -119,8 +119,8 @@ export const apiGetMail = async () => {
 export const apiPatchSound = (soundId: string | number, ops: Record<string, unknown>) =>
   apiRequest('patchSound', { soundId, ops }, { auth: true });
 export const apiCommit = (fileName: string) => apiRequest('commit', { fileName }, { auth: true });
-export const apiPresignUpload = (fileName: string, contentType: string, contentLength?: number) =>
-  apiRequest('presign', { fileName, contentType, ...(contentLength ? { contentLength } : {}) }, { auth: true });
+export const apiPresignUpload = (fileName: string, contentType: string, contentLength: number) =>
+  apiRequest('presign', { fileName, contentType, contentLength: Number(contentLength) || 0 }, { auth: true });
 
 function actorLogin() {
   try {
@@ -133,13 +133,28 @@ function actorLogin() {
   }
 }
 
+async function withWriteRetry<T>(fn: () => Promise<T>): Promise<T> {
+  let last: unknown;
+  for (let i = 0; i < 4; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      last = err;
+      const e = err as ApiError;
+      if (e.code !== 'write_conflict' && e.status !== 409) throw err;
+      await new Promise((r) => setTimeout(r, 80 * (i + 1)));
+    }
+  }
+  throw last instanceof Error ? last : Object.assign(new Error('write_conflict'), { code: 'write_conflict' });
+}
+
 export async function apiSyncJson(fileName: string, data: unknown) {
   // Server merge (handleSync): send only changed rows. Full-array overwrite races with other writers.
   const payload = Array.isArray(data) ? data : [];
   const raw = JSON.stringify(payload);
   if (raw.length < 2_000_000) {
     try {
-      return await apiRequest('sync', { fileName, data: payload }, { auth: true });
+      return await withWriteRetry(() => apiRequest('sync', { fileName, data: payload }, { auth: true }));
     } catch (err) {
       const e = err as ApiError;
       if (e.code !== 'payload_too_large' && e.status !== 413) throw err;
@@ -156,7 +171,7 @@ export async function apiSyncJson(fileName: string, data: unknown) {
     body: raw,
   });
   if (!putRes.ok) throw new Error('Ошибка staging-загрузки в облако');
-  return apiCommit(fileName);
+  return withWriteRetry(() => apiCommit(fileName));
 }
 export const apiAdminSendEmail = (login: string, message: string, subject?: string) =>
   apiRequest('adminSendEmail', { login, message, subject }, { auth: true });

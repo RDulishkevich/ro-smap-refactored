@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   apiGetMail, apiPatchSound, apiSyncJson, fetchEvents, fetchFeed, fetchMapData, fetchProfiles,
   filterSounds, markBoxNotificationsRead, normalizeMail, publishedSounds, EMPTY_FILTER,
@@ -22,6 +22,7 @@ type DataCtx = {
   profiles: Profile[];
   mail: MailBox[];
   loading: boolean;
+  catalogStatus: 'ok' | 'degraded' | 'down';
   reload: () => Promise<void>;
   reloadMail: () => Promise<void>;
   markNotificationsRead: () => Promise<void>;
@@ -56,6 +57,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [mail, setMail] = useState<MailBox[]>([]);
   const [loading, setLoading] = useState(true);
+  const [catalogStatus, setCatalogStatus] = useState<'ok' | 'degraded' | 'down'>('ok');
   const [playingId, setPlayingId] = useState<string | number | null>(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -73,9 +75,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       const raw = await apiGetMail();
       setMail(normalizeMail(raw as unknown[]));
-    } catch {
-      setMail([]);
-    }
+    } catch { /* keep last mailbox — do not wipe on a blip */ }
   }, [isLoggedIn]);
 
   const markNotificationsRead = useCallback(async () => {
@@ -84,21 +84,36 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const { boxes, patch } = markBoxNotificationsRead(mail, login);
     if (!patch) return;
     setMail(boxes);
-    try { await apiSyncJson('mail.json', [patch]); } catch { /* keep optimistic read */ }
-  }, [mail, user?.loginName]);
+    try { await apiSyncJson('mail.json', [patch]); } catch { await reloadMail(); }
+  }, [mail, reloadMail, user?.loginName]);
 
+  const hadCatalog = useRef(false);
   const reload = useCallback(async () => {
-    const [s, f, e, p] = await Promise.all([fetchMapData(), fetchFeed(), fetchEvents(), fetchProfiles()]);
-    setAll(s);
-    setFeed(f);
-    setEvents(e);
-    setProfiles(p);
-    rememberSessionTitles(p);
+    const results = await Promise.allSettled([fetchMapData(), fetchFeed(), fetchEvents(), fetchProfiles()]);
+    const [s, f, e, p] = results;
+    if (s.status === 'fulfilled') {
+      setAll(s.value);
+      hadCatalog.current = true;
+    }
+    if (f.status === 'fulfilled') setFeed(f.value);
+    if (e.status === 'fulfilled') setEvents(e.value);
+    if (p.status === 'fulfilled') {
+      setProfiles(p.value);
+      rememberSessionTitles(p.value);
+    }
+    const failed = results.some((row) => row.status === 'rejected');
+    if (!failed) setCatalogStatus('ok');
+    else setCatalogStatus(hadCatalog.current ? 'degraded' : 'down');
     setLoading(false);
-    await reloadMail();
-  }, [reloadMail]);
+  }, []);
 
-  useEffect(() => { void reload(); const t = setInterval(() => void reload(), 45000); return () => clearInterval(t); }, [reload]);
+  useEffect(() => { void reload(); const t = setInterval(() => void reload(), 90_000); return () => clearInterval(t); }, [reload]);
+  useEffect(() => {
+    if (!isLoggedIn) { setMail([]); return; }
+    void reloadMail();
+    const t = setInterval(() => void reloadMail(), 20_000);
+    return () => clearInterval(t);
+  }, [isLoggedIn, reloadMail]);
 
   useEffect(() => audioService.subscribe(() => {
     setPlayingId(audioService.soundId);
@@ -133,12 +148,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({
     sounds, allSounds, filteredSounds, filter, setFilter,
-    feed, events, profiles, mail, loading, reload, reloadMail, markNotificationsRead,
+    feed, events, profiles, mail, loading, catalogStatus, reload, reloadMail, markNotificationsRead,
     playingId, playing, progress, volume, muted, togglePlay, seek, setVolume, toggleMute,
     focused, setFocused,
     pickMode, setPickMode, pickedPoint, setPickedPoint, routeDraft, setRouteDraft, routePreview, setRoutePreview,
   }), [
-    sounds, allSounds, filteredSounds, filter, feed, events, profiles, mail, loading, reload, reloadMail, markNotificationsRead,
+    sounds, allSounds, filteredSounds, filter, feed, events, profiles, mail, loading, catalogStatus, reload, reloadMail, markNotificationsRead,
     playingId, playing, progress, volume, muted, togglePlay, seek, setVolume, toggleMute,
     focused,
     pickMode, pickedPoint, routeDraft, routePreview,

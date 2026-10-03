@@ -3,12 +3,26 @@ import type { AppEvent, FeedPost, Profile, Sound } from './types';
 import { formatSound } from './sounds';
 
 async function fetchJson<T>(file: string): Promise<T | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15_000);
   try {
-    const res = await fetch(`${BUCKET_URL}/${file}?nocache=${Date.now()}`);
-    if (!res.ok) return null;
+    const res = await fetch(`${BUCKET_URL}/${file}`, { cache: 'no-cache', signal: ctrl.signal });
+    if (!res.ok) {
+      const err = new Error('cloud_unavailable') as Error & { code: string; status: number };
+      err.code = 'cloud_unavailable';
+      err.status = res.status;
+      throw err;
+    }
     return await res.json() as T;
-  } catch {
-    return null;
+  } catch (e) {
+    const prev = e as { code?: string; status?: number };
+    if (prev?.code === 'cloud_unavailable') throw e;
+    const err = new Error('cloud_unavailable') as Error & { code: string; status: number };
+    err.code = 'cloud_unavailable';
+    err.status = prev?.status || 0;
+    throw err;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

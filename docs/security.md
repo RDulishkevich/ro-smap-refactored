@@ -1,7 +1,7 @@
 # Безопасность Полёвки (RO.SMap)
 
 Документ описывает модель угроз, текущие меры защиты, границы доверия и операционные чеклисты.  
-Актуально для Secure API **v14+** (cookie-сессии, refresh, TOTP, HMAC, cookie consent, обязательная 2FA для staff).
+Актуально для Secure API **v17+** (YDB Document API как SoT, публичный JSON — кэш карты).
 
 Связанные материалы:
 
@@ -19,7 +19,7 @@
 | Браузер (фронт) | **недоверенный** | UI, флаг сессии, access JWT в memory/`sessionStorage` (не `localStorage`) |
 | Secure API (Yandex Cloud Function) | **доверенный** | проверка JWT/cookies, merge/sanitize, presign, Translate, TOTP |
 | `rosmap2026` (public) | публичное чтение | каталог звуков, визитки, лента, медиа |
-| `rosmap2026-private` | только SA / API | `_auth/`, `mail.json`, `staging/`, PII, HMAC-подписи |
+| `rosmap2026-private` | только SA / API | `_auth/`, `_mail/boxes/`, `mail.json` (legacy), `staging/`, PII, HMAC-подписи |
 
 **Правило:** всё, что приходит с клиента, считается поддельным, пока сервер не проверил сессию и не прогнал данные через sanitize.
 
@@ -40,7 +40,7 @@ Cloud Function (Secure API)
   ▼
 Object Storage
   ├── rosmap2026          (public read: map/profiles/feed/events/uploads)
-  └── rosmap2026-private  (_auth, mail.json, staging, private_meta, integrity/*.sig)
+  └── rosmap2026-private  (_auth, _mail/boxes, staging, private_meta, integrity/*.sig)
 ```
 
 Клиент **не** пишет JSON анонимно. Старый `{ fileName, contentType }` без сессии → `401`.
@@ -59,7 +59,10 @@ Object Storage
 - Оба токена в **HttpOnly** cookies (`rosmap_at` / `rosmap_rt`), `Secure; SameSite=None` (SPA на другом origin).
 - Клиент шлёт `credentials: 'include'`; access JWT дублируется в `sessionStorage`/`memory` для заголовка `X-Rosmap-Token` (не в `localStorage`).
 - Подпись JWT проверяется с `timingSafeEqual`.
-- `tokenVersion` (`tv` в JWT): смена пароля / logout everywhere / отключение 2FA инвалидирует все старые токены.
+- `tokenVersion` (`tv` в JWT): смена пароля, **сброс пароля**, logout everywhere и отключение 2FA инвалидируют все старые токены.
+- Логин: нет такого пользователя = тот же `401 bad_credentials`, что и неверный пароль (без enumeration).
+- Регистрация требует `pdConsent`; согласие пишется в `private_meta`.
+- Один **подтверждённый** email — один логин. Сброс пароля ищется только по verified email.
 - Legacy plaintext `rosmap_users_db` и JWT в `localStorage` очищаются.
 
 ### 3.2 Refresh / logout
@@ -105,11 +108,12 @@ Object Storage
 - **Moderator (staff):** модерация звуков / жалоб / поддержки; без ролей, block и purge.
 - Клиентский `role` в DevTools не даёт прав на сервере.
 
-### 3.6 Личные сообщения (`mail.json`)
+### 3.6 Личные сообщения (`_mail/boxes/{login}.json`)
 
-- Файл живёт только в **private** bucket.
+- Ящик одного человека в **private** bucket. Старый монолит `mail.json` читается только для миграции.
 - Публичный объект удалён; bucket policy запрещает анонимный `GetObject` на `mail.json` (SA исключён).
-- Чтение: `action=getMail` (сессия); poll/bootstrap **не** ходят в публичный CDN за mail.
+- Чтение: `action=getMail` (сессия) — свой ящик + `partners`; poll/bootstrap **не** ходят в публичный CDN. Staff — все ящики + TOTP.
+- Клиент: каталог ~90 с (`cache: 'no-cache'`), почта ~20 с если есть сессия.
 - Ответ sync/commit: **проекция** — свой ящик + свои исходящие; полный снимок у staff.
 
 Миграция / проверка:
@@ -146,7 +150,7 @@ node cloud/ops/migrate-mail-private.cjs
 - `_auth/` и корневые JSON через presign недоступны (`use_sync`).
 - Path traversal (`..`) режется.
 - В JSON запрещены `data:` / `blob:` URL медиа — только `https` или относительные пути.
-- Лимиты: изображение ≤ 30 MB, аудио ≤ 1 GB.
+- Лимиты: изображение ≤ 30 MB, аудио ≤ 1 GB. Presign медиа **требует** `contentLength`; без размера — `400`. `application/octet-stream` для медиа не допускается.
 
 ### 3.10 Целостность JSON (HMAC)
 
@@ -155,9 +159,13 @@ node cloud/ops/migrate-mail-private.cjs
 - путь: `_auth/integrity/<key>.sig` (private)
 - алгоритм: HMAC-SHA256 от сырого UTF-8 тела, ключ = `JWT_SECRET`
 
-При чтении: если `.sig` есть и не совпадает → объект считается повреждённым/подменённым, в лог + security event `integrity_mismatch`, клиенту — fallback. Объекты без `.sig` (legacy) читаются как раньше.
+При чтении: если `.sig` есть и не совпадает (или JSON битый) → **fail-closed**: `503 integrity_mismatch`, merge против пустого `[]` запрещён. Отсутствие `.sig` на ключах из `INTEGRITY_KEYS` (каталог, профили, лента, ивенты, users, private_meta) и на `_mail/*` тоже fail-closed (`integrity_missing`), кроме одноразового `INTEGRITY_ALLOW_UNSIGNED=1`. Перед v18: `node cloud/ops/seal-integrity.cjs`.
 
-Покрыто: `mail.json`, `profiles.json`, `map_data.json`, `feed.json`, `events.json`, `_auth/*`.
+Запись публичных JSON: S3 `If-Match` (etag) + до 4 попыток, либо строка в YDB + публикация кэша. Конфликт → `409 write_conflict` (клиент ретраит).
+
+YDB (когда задан `YDB_DOCAPI_ENDPOINT`): таблица `polevka_rows` (kind+id). Лайк/плей патчит одну строку звука и пересобирает `map_data.json` для гостей. Учётки, почта, PII — отдельные строки, не один гигантский файл.
+
+Покрыто: `mail.json`, `_mail/boxes/*`, `profiles.json`, `map_data.json`, `feed.json`, `events.json`, `_auth/*`.
 
 ### 3.11 Security events
 
@@ -183,7 +191,6 @@ URL функции и бакета публичны по природе SPA.
 - Whitelist Origin (не `*`):
   - `https://polevka.art`
   - `https://www.polevka.art`
-  - `https://rdulishkevich.github.io`
   - `http://localhost` / `http://127.0.0.1` (любой порт)
 - `Access-Control-Allow-Credentials: true` для trusted Origin (нужно для cookie-сессий).
 - Чужой Origin получает «чужой» ACAO (`https://polevka.art`) → браузер блокирует.
@@ -201,10 +208,12 @@ Env: `ALLOWED_ORIGIN=comma,separated,list` (см. `cloud/api/.env.example`).
 ### 3.15 Антиспам
 
 - Клиент: `spamGuardCheck` на комментарии, сообщения, реакции, публикацию.
+- Сервер: cooldown на `sync` / `commit` / mail / лайки / play (не полагаемся только на UI).
 
 ### 3.16 Ошибки API
 
 - Ответы 500 без `detail` с внутренним `err.message` (нет утечки стека клиенту).
+- Логи SMTP/API: только `code` / `name`, не полный объект ошибки (PII).
 
 ---
 
@@ -223,16 +232,17 @@ Env: `ALLOWED_ORIGIN=comma,separated,list` (см. `cloud/api/.env.example`).
 
 ## 5. Остаточный риск
 
-Безопасность — процесс. После v13 остаётся:
+Безопасность — процесс. После v16 остаётся:
 
 | Риск | Комментарий |
 |------|-------------|
+| YDB ещё не включён | Без `YDB_DOCAPI_ENDPOINT` остаётся S3+CAS. После create+migrate+env `health.ydb` должен быть `true` |
+| Rate limit в памяти функции | сбрасывается при холодном старте; для DDoS нужен WAF/CDN |
 | XSS + злоупотребление сессией | HttpOnly cookies нельзя украсть в JS, но XSS всё ещё может дергать API с `credentials` в контексте жертвы |
-| Слабый пароль без 2FA | 2FA есть, но не обязательна для всех (рекомендуется staff) |
+| Слабый пароль без 2FA | 2FA обязательна для staff, не для всех |
 | Ключ Maps в Network | HTTP Referer lock |
 | Зависимости npm (API + Tailwind) | Регулярный `npm audit` |
 | Человеческий фактор | Утечка env, слабый admin-пароль, ошибочная bucket policy |
-| WAF / DDoS на уровне CDN | выносится в ops (Yandex / Cloudflare), не в приложение |
 
 Формулировка «нас точно не взломают» некорректна. Корректно: критичные сливы и клиентское повышение привилегий закрыты на production-уровне.
 
@@ -243,7 +253,7 @@ Env: `ALLOWED_ORIGIN=comma,separated,list` (см. `cloud/api/.env.example`).
 ### После каждого деплоя API
 
 ```powershell
-# health — ожидание version >= 13
+# health — ожидание version >= 17
 Invoke-RestMethod -Method POST -Uri $env:YANDEX_FUNCTION_URL `
   -ContentType "application/json" -Body '{"action":"health"}'
 
@@ -291,7 +301,7 @@ Private bucket: без публичного чтения; CORS только дл
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | версия / живость (`version: 14`) |
+| `health` | нет | версия / живость (`version: 18`, поле `ydb`) |
 | `publicConfig` | нет | Maps key + bucket URL (browser-safe) |
 | `register` / `login` | нет | учётка → cookies + access JWT (+ optional TOTP) |
 | `refresh` | refresh cookie | новая пара токенов |
@@ -330,6 +340,7 @@ Private bucket: без публичного чтения; CORS только дл
 | **v13 integrity** | HMAC на критичных JSON |
 | **v13 frontend** | Self-host Tailwind, CSP без `unsafe-eval` |
 | **v14 consent + staff 2FA** | Cookie banner; TOTP обязателен для staff write/admin |
+| **v18 integrity + limits** | HMAC обязателен и на публичный каталог; лимиты/лок переживают cold start; scale-policy |
 
 ---
 

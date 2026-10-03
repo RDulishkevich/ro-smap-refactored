@@ -138,6 +138,15 @@ const ru = {
   eventsEmptyHint: 'Когда появится встреча или воркшоп, записаться можно будет здесь',
   listenRecording: 'Слушать запись',
   noComments: 'Пока нет комментариев',
+  errCrashTitle: 'Что-то сломалось',
+  errCrashBody: 'Страница споткнулась. Данные на карте в порядке — просто обновите Полёвку.',
+  errOfflineTitle: 'Нет сети',
+  errOfflineBody: 'Кажется, пропал интернет. Как только связь вернётся, карта и сообщения снова подтянутся.',
+  errDownTitle: 'Полёвка сейчас недоступна',
+  errDownBody: 'Не удаётся загрузить карту и записи. Это на нашей стороне — попробуйте ещё раз через минуту.',
+  errRetry: 'Попробовать снова',
+  errHome: 'На главную',
+  errDegraded: 'Связь с облаком слабая — показаны последние загруженные данные',
 };
 
 const en: Record<keyof typeof ru, string> = {
@@ -278,6 +287,15 @@ const en: Record<keyof typeof ru, string> = {
   eventsEmptyHint: 'When a meetup or workshop appears, you can sign up here',
   listenRecording: 'Listen to the recording',
   noComments: 'No comments yet',
+  errCrashTitle: 'Something broke',
+  errCrashBody: 'The page tripped. Your map data is safe — just refresh Полёвка.',
+  errOfflineTitle: 'You are offline',
+  errOfflineBody: 'The internet dropped. When you are back, the map and messages will load again.',
+  errDownTitle: 'Полёвка is unavailable',
+  errDownBody: 'We cannot load the map and recordings. That is on us — try again in a minute.',
+  errRetry: 'Try again',
+  errHome: 'Home',
+  errDegraded: 'Cloud link is weak — showing the last loaded data',
 };
 
 export const DICT = { ru, en };

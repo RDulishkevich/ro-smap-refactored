@@ -9,7 +9,7 @@
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | проверка живости (`version: 13`) |
+| `health` | нет | проверка живости (`version: 18`, `ydb: true/false`) |
 | `publicConfig` | нет | публичные ключи (Maps) |
 | `register` | нет | регистрация (пароль → scrypt) |
 | `login` | нет | вход → HttpOnly cookies + access JWT (опц. TOTP) |
@@ -21,11 +21,11 @@
 | `getSecurityEvents` | access admin | журнал security events |
 | `requestPasswordReset` | нет | код сброса на **подтверждённый** email |
 | `confirmPasswordReset` | нет | код + новый пароль |
-| `sync` | access | GET→merge→sanitize→PUT JSON (+ HMAC) |
+| `sync` | access | CAS (If-Match) → merge → sanitize → PUT JSON (+ HMAC); 409 `write_conflict` |
 | `patchSound` | access | лёгкий патч plays/downloads/лайков без полной перезаписи `map_data.json` |
-| `presign` | access | presigned PUT для `uploads/{login}/...` и `staging/{login}/...` |
+| `presign` | access | presigned PUT; медиа требуют `contentLength` (≤ 30 MB / 1 GB) |
 | `commit` | access | взять staging → merge → sanitize → PUT публичный JSON |
-| `getMail` | access | личная почта (проекция); staff — полный `mail.json` |
+| `getMail` | access | свой ящик `_mail/boxes/{login}.json` + партнёры; staff — все ящики + TOTP |
 | `translate` | access | Yandex Translate RU→EN (UCS FXName) |
 | `requestEmailVerification` | access | 6-значный код на email (SMTP); хеш в `_auth/email_codes/{login}.json` |
 | `confirmEmailVerification` | access | проверка кода → `email` + `emailVerified` в private_meta |
@@ -41,7 +41,7 @@
 | `moderator` | модерация map/feed/mail, жалобы, поддержка |
 | `user` | обычный продукт |
 
-Хеши паролей, staging, коды email/сброса и **mail.json** живут в **приватном** бакете `rosmap2026-private`. Публичный бакет `rosmap2026` — каталог и медиа (без личных сообщений).
+Хеши паролей, staging, коды email/сброса и **ящики `_mail/boxes/{login}.json`** живут в **приватном** бакете `rosmap2026-private`. Публичный бакет `rosmap2026` — каталог и медиа (без личных сообщений).
 
 ## JSON-базы
 
@@ -49,14 +49,15 @@
 |------|-------|------------|
 | `map_data.json` | public | звуки (метаданные + **https** URL аудио/фото) |
 | `profiles.json` | public | визитки **без** email/PII |
-| `mail.json` | **private** | inbox / notifications / activityLog |
+| `_mail/boxes/{login}.json` | **private** | inbox / notifications / activityLog одного человека |
+| `mail.json` | **private** (legacy) | читается только для миграции в ящики |
 | `feed.json` | public | лента |
 | `events.json` | public | ивенты |
 | `_auth/private_meta.json` | private | email и survey-поля |
 | `_auth/email_codes/{login}.json` | private | хеш кода подтверждения email |
 | `_auth/password_resets/{login}.json` | private | хеш кода сброса пароля |
 | `_auth/security_events.json` | private | журнал security events |
-| `_auth/integrity/*.sig` | private | HMAC-SHA256 критичных JSON |
+| `_auth/integrity/*.sig` | private | HMAC-SHA256 критичных JSON. Каталог / users / meta / `_mail/` без `.sig` → 503, кроме `INTEGRITY_ALLOW_UNSIGNED=1` |
 
 Медиа только в `uploads/{login}/…`. **data-URL и blob: в базах запрещены.**
 
@@ -71,13 +72,14 @@
 |-----|--------|
 | Картинка (presign) | 30 MB |
 | Аудио (presign) | 1 GB |
-| Тело `sync` | ~2.5 MB (иначе staging+commit) |
+| Тело `sync` | ~2.5 MB; non-staff ≤ 80 строк (`too_many_rows`) |
 | Inbox / notifications | 200 / 100 записей |
 | Текст сообщения | 4000 символов |
 | Пароль | мин. 8 символов |
 | Access JWT / refresh | 30 мин / 14 суток (HttpOnly cookies) |
 | Login lockout | 8 fails → 15 мин (IP+login) |
 | Rate limit | IP 360/мин (без health); login 25; refresh 60; sync/commit 120; patchSound 180; presign 90; translate 40; getMail 120; email/reset request 5/10мин на логин, 20/час на IP; confirm 20/10мин; totp 20/10мин |
+| Cooldown | sync 400 мс; сообщение 1.6 с; лайк 280 мс; play 800 мс |
 
 ## Переменные окружения функции
 
@@ -89,7 +91,7 @@ AWS_ACCESS_KEY_ID=...
 AWS_SECRET_ACCESS_KEY=...
 JWT_SECRET=<длинная случайная строка>
 ADMIN_PASSWORD=<пароль админа, НЕ хранить в клиенте>
-ALLOWED_ORIGIN=https://polevka.art,https://www.polevka.art,https://rdulishkevich.github.io,http://localhost,http://127.0.0.1
+ALLOWED_ORIGIN=https://polevka.art,https://www.polevka.art,http://localhost,http://127.0.0.1
 YC_TRANSLATE_API_KEY=<ключ Translate API>
 YC_FOLDER_ID=<folder id>
 YANDEX_MAPS_API_KEY=<браузерный ключ Maps JS, HTTP Referer>
@@ -103,7 +105,13 @@ ALLOW_DEMO_EMAIL_CODES=0
 
 Без SMTP email/reset отвечают `503 mail_not_configured`. SMTP только у провайдеров в РФ (см. [`docs/email-setup.md`](../../docs/email-setup.md)) — не Brevo/зарубежные ESP из‑за 152‑ФЗ.
 
-После смены кода/SMTP — передеплой (`health.version` ≥ 10).
+После смены кода/SMTP — передеплой (`health.version` ≥ 18).
+
+v18: HMAC обязателен на каталог и учётки (сначала `node cloud/ops/seal-integrity.cjs` или временно `INTEGRITY_ALLOW_UNSIGNED=1`). Лимиты логина/почты и lockout пишутся в `_auth/rate_buckets.json` / `login_locks.json`, чтобы пережить cold start. Масштаб функции: `pwsh cloud/ops/set-scale-policy.ps1`.
+
+v17: YDB Document API — источник правды (строки звуков / профилей / почты / учёток). Публичный JSON в Object Storage — кэш карты для гостей. Без `YDB_DOCAPI_ENDPOINT` API продолжает S3+CAS.
+
+Создать БД: `pwsh cloud/ops/ydb-create.ps1` → миграция `node cloud/ops/migrate-to-ydb.cjs` → env функции + роль `ydb.databaseUser` у SA.
 
 ## Деплой (консоль или CLI)
 
@@ -115,7 +123,7 @@ ALLOW_DEMO_EMAIL_CODES=0
 ```bash
 cd cloud/api
 npm install --omit=dev
-zip -r ../rosmap-api.zip index.js mailTemplates.js package.json node_modules
+zip -r ../rosmap-api.zip index.js sessionSecurity.js mailTemplates.js ydbDoc.js package.json node_modules
 ```
 
 Или PowerShell: `Compress-Archive -Path index.js, mailTemplates.js, package.json, package-lock.json, node_modules ...`  

@@ -218,7 +218,22 @@ function integrityKeyFor(objectKey) {
 }
 
 function needsIntegrity(objectKey) {
-    return INTEGRITY_KEYS.has(objectKey) || objectKey.startsWith('_auth/');
+    return INTEGRITY_KEYS.has(objectKey) || objectKey.startsWith('_auth/') || objectKey.startsWith('_mail/');
+}
+
+/** Missing .sig is fail-closed for these keys (unless INTEGRITY_ALLOW_UNSIGNED=1). */
+function integrityRequired(objectKey) {
+    const key = String(objectKey || '');
+    if (key.startsWith('_auth/integrity/')) return false;
+    return INTEGRITY_KEYS.has(key) || key.startsWith('_mail/');
+}
+
+function importLoginLocks(locks) {
+    const now = Date.now();
+    for (const [key, v] of Object.entries(locks || {})) {
+        const until = Number(v && v.lockedUntil || 0);
+        if (until > now) loginFails.set(key, { n: 0, lockedUntil: until });
+    }
 }
 
 async function appendSecurityEvent(putJson, getJson, evt) {
@@ -260,5 +275,8 @@ module.exports = {
     signIntegrity,
     integrityKeyFor,
     needsIntegrity,
+    integrityRequired,
+    INTEGRITY_KEYS,
+    importLoginLocks,
     appendSecurityEvent
 };

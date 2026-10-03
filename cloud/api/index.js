@@ -9,7 +9,7 @@
  *   JWT_SECRET        — long random string for session tokens
  *   ADMIN_PASSWORD    — bootstrap / admin login password (NOT shipped to client)
  *   ALLOWED_ORIGIN    — CORS whitelist, comma-separated
- *                       (default: polevka.art + www + github pages + localhost)
+ *                       (default: polevka.art + www + localhost; no GitHub Pages)
  *   YC_TRANSLATE_API_KEY — Yandex Cloud Translate API key (Api-Key …)
  *   YC_FOLDER_ID      — folder id (required with some key types)
  *   YANDEX_MAPS_API_KEY — browser Maps JS key (HTTP Referer lock); exposed only via publicConfig
@@ -25,10 +25,11 @@
  */
 
 const crypto = require('crypto');
-const { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const mailTemplates = require('./mailTemplates');
 const sessionSec = require('./sessionSecurity');
+const ydbDoc = require('./ydbDoc');
 
 let nodemailer = null;
 try {
@@ -45,7 +46,6 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const DEFAULT_ALLOWED_ORIGINS = [
     'https://polevka.art',
     'https://www.polevka.art',
-    'https://rdulishkevich.github.io',
     'http://localhost',
     'http://127.0.0.1'
 ].join(',');
@@ -73,13 +73,46 @@ const MIN_PASSWORD_LEN = 8;
 const MAX_IMAGE_BYTES = 30 * 1024 * 1024;      // 30 MB — фото/обложки с телефона
 const MAX_AUDIO_BYTES = 1024 * 1024 * 1024;    // 1 GB — длинные WAV / амбисоник
 const MAX_JSON_SYNC_BYTES = 2_500_000;
+const MAX_SYNC_ROWS = 80;
+const MAIL_BOX_PREFIX = '_mail/boxes/';
+const LOGIN_LOCKS_KEY = '_auth/login_locks.json';
+const RATE_BUCKETS_KEY = '_auth/rate_buckets.json';
+const RATE_PERSIST_RE = /^(reg:|login:|emailreq|emailcfm|pwdreq|pwdcfm|admin|totp:)/;
 const MAX_INBOX = 200;
 const MAX_NOTIFICATIONS = 100;
 const MAX_ACTIVITY = 100;
 const MAX_MSG_TEXT = 4000;
 const MAX_BIO = 2000;
 const PROFILE_PII_KEYS = ['email', 'emailVerified', 'skillLevel', 'platformIntents', 'pdConsent', 'pdConsentAt'];
-const ALLOWED_MEDIA_CT = /^(image\/(jpeg|jpg|png|webp|gif)|audio\/(mpeg|mp3|wav|x-wav|wave|mp4|aac|ogg|flac|webm|x-m4a)|application\/(json|octet-stream))/i;
+const ALLOWED_MEDIA_CT = /^(image\/(jpeg|jpg|png|webp|gif)|audio\/(mpeg|mp3|wav|x-wav|wave|mp4|aac|ogg|flac|webm|x-m4a)|application\/json)/i;
+const WRITE_RETRIES = 4;
+const writeHits = new Map();
+
+class IntegrityError extends Error {
+    constructor(key, code = 'integrity_mismatch') {
+        super(code);
+        this.name = 'IntegrityError';
+        this.code = code;
+        this.key = key;
+    }
+}
+
+class WriteConflictError extends Error {
+    constructor() {
+        super('write_conflict');
+        this.name = 'WriteConflictError';
+        this.code = 'write_conflict';
+    }
+}
+
+class ClientError extends Error {
+    constructor(status, code, message) {
+        super(message || code);
+        this.name = 'ClientError';
+        this.status = status;
+        this.code = code;
+    }
+}
 const DATA_OR_BLOB_RE = /^(data:|blob:)/i;
 const HTTP_URL_RE = /^https?:\/\//i;
 
@@ -146,7 +179,7 @@ function resolveCorsOrigin(requestOrigin) {
 
 function bucketForKey(key) {
     // mail.json — личные сообщения: только private bucket (не публичный CDN)
-    if (key === 'mail.json' || key.startsWith('_auth/') || key.startsWith('staging/')) return PRIVATE_BUCKET;
+    if (key === 'mail.json' || key.startsWith('_auth/') || key.startsWith('_mail/') || key.startsWith('staging/')) return PRIVATE_BUCKET;
     return BUCKET;
 }
 
@@ -161,6 +194,10 @@ const s3 = new S3Client({
 });
 
 const rateBucket = new Map();
+let rateHydrated = false;
+let rateDirty = false;
+let rateFlushAt = 0;
+let locksHydrated = false;
 
 function corsHeaders() {
     const requestOrigin = getHeader(__reqEvent, 'origin');
@@ -276,7 +313,8 @@ function sanitizeMailRecord(row) {
         loginName: login,
         inbox: (Array.isArray(row.inbox) ? row.inbox : []).map(sanitizeMessageMedia).slice(0, MAX_INBOX),
         notifications: (Array.isArray(row.notifications) ? row.notifications : []).slice(0, MAX_NOTIFICATIONS),
-        activityLog: (Array.isArray(row.activityLog) ? row.activityLog : []).slice(0, MAX_ACTIVITY)
+        activityLog: (Array.isArray(row.activityLog) ? row.activityLog : []).slice(0, MAX_ACTIVITY),
+        partners: (Array.isArray(row.partners) ? row.partners : []).map((x) => String(x || '').toLowerCase()).filter(Boolean).slice(0, 200)
     };
 }
 
@@ -340,7 +378,82 @@ function rateLimit(key, limit = 60, windowMs = 60000) {
     }
     row.n += 1;
     rateBucket.set(key, row);
+    if (RATE_PERSIST_RE.test(key)) rateDirty = true;
+    if (rateBucket.size > 2000) {
+        for (const [k, v] of rateBucket) {
+            if (now - Number(v.t || 0) > 3600000) rateBucket.delete(k);
+        }
+    }
     return row.n <= limit;
+}
+
+async function hydrateRateBuckets() {
+    if (rateHydrated) return;
+    rateHydrated = true;
+    try {
+        const snap = await getJson(RATE_BUCKETS_KEY, {});
+        const now = Date.now();
+        for (const [k, v] of Object.entries(snap || {})) {
+            if (!v || now - Number(v.t || 0) > 3600000) continue;
+            const cur = rateBucket.get(k);
+            if (!cur || Number(v.n) > Number(cur.n)) {
+                rateBucket.set(k, { n: Number(v.n) || 0, t: Number(v.t) || now });
+            }
+        }
+    } catch (_) { /* first boot */ }
+}
+
+function mergeRateRow(a, b, now) {
+    if (!a) return b;
+    if (!b) return a;
+    if (Math.abs(Number(a.t) - Number(b.t)) > 120000) return Number(a.t) > Number(b.t) ? a : b;
+    return {
+        n: Math.max(Number(a.n) || 0, Number(b.n) || 0),
+        t: Math.min(Number(a.t) || now, Number(b.t) || now)
+    };
+}
+
+async function flushRateBuckets(force) {
+    if (!rateDirty && !force) return;
+    const now = Date.now();
+    if (!force && now < rateFlushAt) return;
+    rateFlushAt = now + 15000;
+    const snapshot = {};
+    for (const [k, v] of rateBucket.entries()) {
+        if (!RATE_PERSIST_RE.test(k)) continue;
+        if (now - Number(v.t || 0) > 3600000) continue;
+        snapshot[k] = { n: Number(v.n) || 0, t: Number(v.t) || now };
+    }
+    rateDirty = false;
+    try {
+        await mutateJson(RATE_BUCKETS_KEY, {}, (cur) => {
+            const now2 = Date.now();
+            const next = {};
+            const keys = new Set([
+                ...Object.keys(cur && typeof cur === 'object' ? cur : {}),
+                ...Object.keys(snapshot)
+            ]);
+            for (const k of keys) {
+                const pick = mergeRateRow(cur && cur[k], snapshot[k], now2);
+                if (pick && now2 - Number(pick.t || 0) < 3600000) {
+                    next[k] = { n: Number(pick.n) || 0, t: Number(pick.t) || now2 };
+                }
+            }
+            const ordered = Object.keys(next).sort((x, y) => Number(next[y].t) - Number(next[x].t));
+            for (const k of ordered.slice(400)) delete next[k];
+            return next;
+        }, { privateObject: true });
+    } catch (_) {
+        rateDirty = true;
+    }
+}
+
+async function hydrateLoginLocks() {
+    if (locksHydrated) return;
+    locksHydrated = true;
+    try {
+        sessionSec.importLoginLocks(await getJson(LOGIN_LOCKS_KEY, {}));
+    } catch (_) { /* unlocked */ }
 }
 
 function actionRateLimit(action, ip, login = '') {
@@ -437,24 +550,29 @@ async function streamToString(stream) {
     return Buffer.concat(chunks).toString('utf8');
 }
 
-async function getJsonRawText(key, bucketOverride) {
+async function getObject(key, bucketOverride) {
     try {
         const res = await s3.send(new GetObjectCommand({
             Bucket: bucketOverride || bucketForKey(key),
             Key: key
         }));
-        return await streamToString(res.Body);
+        return { text: await streamToString(res.Body), etag: res.ETag || '' };
     } catch (err) {
         if (err && (err.name === 'NoSuchKey' || err.$metadata?.httpStatusCode === 404)) return null;
         throw err;
     }
 }
 
+async function getJsonRawText(key, bucketOverride) {
+    const obj = await getObject(key, bucketOverride);
+    return obj ? obj.text : null;
+}
+
 async function getJsonRaw(key, fallback, bucketOverride) {
     try {
-        const text = await getJsonRawText(key, bucketOverride);
-        if (text == null) return fallback;
-        const data = JSON.parse(text || 'null');
+        const obj = await getObject(key, bucketOverride);
+        if (!obj) return fallback;
+        const data = JSON.parse(obj.text || 'null');
         return data == null ? fallback : data;
     } catch (err) {
         if (err && (err.name === 'NoSuchKey' || err.$metadata?.httpStatusCode === 404)) return fallback;
@@ -462,45 +580,88 @@ async function getJsonRaw(key, fallback, bucketOverride) {
     }
 }
 
-async function getJson(key, fallback) {
-    let text;
-    try {
-        text = await getJsonRawText(key);
-    } catch (err) {
-        if (err && (err.name === 'NoSuchKey' || err.$metadata?.httpStatusCode === 404)) return fallback;
-        throw err;
-    }
-    if (text == null) return fallback;
-    let data;
-    try {
-        data = JSON.parse(text || 'null');
-    } catch (_) {
-        return fallback;
-    }
-    if (data == null) return fallback;
-
-    if (!JWT_SECRET || !sessionSec.needsIntegrity(key) || key.startsWith('_auth/integrity/')) {
-        return data;
-    }
-    try {
-        const sigRow = await getJsonRaw(sessionSec.integrityKeyFor(key), null, PRIVATE_BUCKET);
-        if (!sigRow || !sigRow.sig) return data; // legacy objects without HMAC yet
-        const expect = sessionSec.signIntegrity(text, JWT_SECRET);
-        const a = Buffer.from(String(expect));
-        const b = Buffer.from(String(sigRow.sig));
-        if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-            console.error('integrity_mismatch', key);
-            await sessionSec.appendSecurityEvent(putJson, getJsonRaw, {
-                type: 'integrity_mismatch',
-                key
-            });
-            return fallback;
+async function verifyIntegrity(key, text) {
+    if (!JWT_SECRET || !sessionSec.needsIntegrity(key) || key.startsWith('_auth/integrity/')) return;
+    const sigRow = await getJsonRaw(sessionSec.integrityKeyFor(key), null, PRIVATE_BUCKET);
+    if (!sigRow || !sigRow.sig) {
+        if (sessionSec.integrityRequired(key) && process.env.INTEGRITY_ALLOW_UNSIGNED !== '1') {
+            console.error('integrity_missing', key);
+            throw new IntegrityError(key, 'integrity_missing');
         }
-    } catch (_) { /* soft: do not break reads on integrity infra errors */ }
-    return data;
+        return;
+    }
+    const expect = sessionSec.signIntegrity(text, JWT_SECRET);
+    const a = Buffer.from(String(expect));
+    const b = Buffer.from(String(sigRow.sig));
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+        console.error('integrity_mismatch', key);
+        try {
+            await sessionSec.appendSecurityEvent(putJson, getJsonRaw, { type: 'integrity_mismatch', key });
+        } catch (_) { /* keep fail-closed */ }
+        throw new IntegrityError(key);
+    }
 }
 
-async function putJson(key, data, { privateObject = false } = {}) {
+async function publishPublicJson(key, data) {
+    const bodyUtf8 = JSON.stringify(data);
+    await s3.send(new PutObjectCommand({
+        Bucket: BUCKET,
+        Key: key,
+        Body: Buffer.from(bodyUtf8, 'utf8'),
+        ContentType: 'application/json; charset=utf-8'
+    }));
+    if (JWT_SECRET && sessionSec.needsIntegrity(key)) {
+        const sig = sessionSec.signIntegrity(bodyUtf8, JWT_SECRET);
+        await s3.send(new PutObjectCommand({
+            Bucket: PRIVATE_BUCKET,
+            Key: sessionSec.integrityKeyFor(key),
+            Body: Buffer.from(JSON.stringify({
+                key, alg: 'hmac-sha256', sig, at: new Date().toISOString()
+            }), 'utf8'),
+            ContentType: 'application/json; charset=utf-8',
+            ACL: 'private'
+        }));
+    }
+}
+
+async function getJsonCas(key, fallback) {
+    if (ydbDoc.enabled() && ydbDoc.resolveKey(key)) {
+        return ydbDoc.getJsonCas(key, fallback);
+    }
+    const obj = await getObject(key);
+    if (!obj) return { data: fallback, etag: null, missing: true };
+    let data;
+    try {
+        data = JSON.parse(obj.text || 'null');
+    } catch (_) {
+        throw new IntegrityError(key, 'json_corrupt');
+    }
+    if (data == null) throw new IntegrityError(key, 'json_corrupt');
+    await verifyIntegrity(key, obj.text);
+    return { data, etag: obj.etag || null, missing: false };
+}
+
+async function getJson(key, fallback) {
+    const row = await getJsonCas(key, fallback);
+    return row.data;
+}
+
+function stripEtag(etag) {
+    return String(etag || '').replace(/^W\//, '').replace(/"/g, '');
+}
+
+function isPreconditionFailed(err) {
+    const code = String(err?.name || err?.Code || '');
+    const status = Number(err?.$metadata?.httpStatusCode || 0);
+    return status === 412 || /PreconditionFailed|Precondition/i.test(code);
+}
+
+async function putJson(key, data, { privateObject = false, ifMatch } = {}) {
+    if (ydbDoc.enabled() && ydbDoc.resolveKey(key)) {
+        await ydbDoc.putJson(key, data, { ifMatch });
+        if (ydbDoc.PUBLIC_KEYS.has(key)) await publishPublicJson(key, data);
+        return;
+    }
     const bucket = bucketForKey(key);
     const bodyUtf8 = JSON.stringify(data);
     const params = {
@@ -509,27 +670,131 @@ async function putJson(key, data, { privateObject = false } = {}) {
         Body: Buffer.from(bodyUtf8, 'utf8'),
         ContentType: 'application/json; charset=utf-8'
     };
-    if (privateObject || bucket === PRIVATE_BUCKET || key.startsWith('_auth/') || key.startsWith('staging/')) {
+    if (privateObject || bucket === PRIVATE_BUCKET || key.startsWith('_auth/') || key.startsWith('_mail/') || key.startsWith('staging/')) {
         params.ACL = 'private';
     }
-    await s3.send(new PutObjectCommand(params));
-    if (JWT_SECRET && sessionSec.needsIntegrity(key)) {
-        try {
-            const sig = sessionSec.signIntegrity(bodyUtf8, JWT_SECRET);
-            await s3.send(new PutObjectCommand({
-                Bucket: PRIVATE_BUCKET,
-                Key: sessionSec.integrityKeyFor(key),
-                Body: Buffer.from(JSON.stringify({
-                    key,
-                    alg: 'hmac-sha256',
-                    sig,
-                    at: new Date().toISOString()
-                }), 'utf8'),
-                ContentType: 'application/json; charset=utf-8',
-                ACL: 'private'
-            }));
-        } catch (_) {}
+    if (ifMatch) params.IfMatch = stripEtag(ifMatch);
+    try {
+        await s3.send(new PutObjectCommand(params));
+    } catch (err) {
+        if (ifMatch && isPreconditionFailed(err)) throw new WriteConflictError();
+        throw err;
     }
+    if (JWT_SECRET && sessionSec.needsIntegrity(key)) {
+        const sig = sessionSec.signIntegrity(bodyUtf8, JWT_SECRET);
+        const sigBody = Buffer.from(JSON.stringify({
+            key,
+            alg: 'hmac-sha256',
+            sig,
+            at: new Date().toISOString()
+        }), 'utf8');
+        let signed = false;
+        for (let i = 0; i < 2 && !signed; i++) {
+            try {
+                await s3.send(new PutObjectCommand({
+                    Bucket: PRIVATE_BUCKET,
+                    Key: sessionSec.integrityKeyFor(key),
+                    Body: sigBody,
+                    ContentType: 'application/json; charset=utf-8',
+                    ACL: 'private'
+                }));
+                signed = true;
+            } catch (_) { /* retry once */ }
+        }
+        if (!signed) throw new IntegrityError(key, 'integrity_write_failed');
+    }
+}
+
+async function mutateJson(key, fallback, mutator, { privateObject = false } = {}) {
+    let last = null;
+    for (let attempt = 0; attempt < WRITE_RETRIES; attempt++) {
+        const cas = await getJsonCas(key, fallback);
+        const next = await mutator(cas.data, cas);
+        if (next === undefined) return cas.data;
+        try {
+            await putJson(key, next, { privateObject, ifMatch: cas.missing ? undefined : cas.etag });
+            return next;
+        } catch (err) {
+            last = err;
+            if (err && err.code === 'write_conflict' && attempt < WRITE_RETRIES - 1) continue;
+            throw err;
+        }
+    }
+    throw last || new WriteConflictError();
+}
+
+function withAdmin(users) {
+    const next = users && typeof users === 'object' ? { ...users } : {};
+    if (!ADMIN_PASSWORD) return next;
+    if (next.admin && next.admin.hash) return next;
+    const { salt, hash } = hashPassword(ADMIN_PASSWORD);
+    next.admin = {
+        salt,
+        hash,
+        displayName: 'Admin',
+        role: 'admin',
+        createdAt: new Date().toISOString()
+    };
+    return next;
+}
+
+async function mutateAuth(mutator) {
+    return mutateJson(AUTH_KEY, {}, async (data) => {
+        const users = withAdmin(data);
+        return mutator(users);
+    }, { privateObject: true });
+}
+
+async function mutateMeta(mutator) {
+    return mutateJson(PRIVATE_META_KEY, {}, (data) => {
+        const meta = data && typeof data === 'object' ? { ...data } : {};
+        return mutator(meta);
+    }, { privateObject: true });
+}
+
+function smtpLog(label, err) {
+    console.error(label, err && (err.code || err.name || 'send_failed'));
+}
+
+function assertCooldown(login, kind) {
+    const wait = {
+        message: 1600,
+        comment: 2800,
+        like: 280,
+        play: 800,
+        sync: 400,
+        publish: 8000
+    }[kind] || 500;
+    const key = `${String(login || '')}:${kind}`;
+    const now = Date.now();
+    const prev = writeHits.get(key) || 0;
+    if (now - prev < wait) {
+        return respond(429, {
+            ok: false,
+            error: 'slow_down',
+            message: 'Слишком часто. Подождите секунду.'
+        });
+    }
+    writeHits.set(key, now);
+    if (writeHits.size > 8000) {
+        for (const [k, t] of writeHits) {
+            if (now - t > 60000) writeHits.delete(k);
+        }
+    }
+    return null;
+}
+
+function mergeActorSets(cloud = [], proposed = []) {
+    return Array.from(new Set([...cloud, ...proposed].map(String).filter(Boolean)));
+}
+
+function verifiedEmailOwner(meta, email) {
+    const want = normalizeEmail(email);
+    if (!want) return null;
+    for (const [login, row] of Object.entries(meta || {})) {
+        if (normalizeEmail(row?.email) === want && row?.emailVerified) return normalizeLogin(login);
+    }
+    return null;
 }
 
 async function loadAuthUsers() {
@@ -538,7 +803,7 @@ async function loadAuthUsers() {
 }
 
 async function saveAuthUsers(users) {
-    await putJson(AUTH_KEY, users, { privateObject: true });
+    await mutateAuth(() => (users && typeof users === 'object' ? users : {}));
 }
 
 async function loadPrivateMeta() {
@@ -547,7 +812,7 @@ async function loadPrivateMeta() {
 }
 
 async function savePrivateMeta(meta) {
-    await putJson(PRIVATE_META_KEY, meta, { privateObject: true });
+    await mutateMeta(() => (meta && typeof meta === 'object' ? meta : {}));
 }
 
 /** Стирает утечку: старая публичная копия mail.json → []. */
@@ -583,8 +848,179 @@ async function getMailJson() {
 }
 
 async function putMailJson(data) {
-    await putJson('mail.json', data, { privateObject: true });
+    await mutateJson('mail.json', [], () => (Array.isArray(data) ? data : []), { privateObject: true });
     await scrubPublicMailObject();
+}
+
+function mailBoxKey(login) {
+    return `${MAIL_BOX_PREFIX}${normalizeLogin(login)}.json`;
+}
+
+function emptyMailBox(login) {
+    return {
+        loginName: normalizeLogin(login),
+        inbox: [],
+        notifications: [],
+        activityLog: [],
+        partners: []
+    };
+}
+
+function inferMailPartners(row, all, login) {
+    const me = normalizeLogin(login);
+    const partners = new Set((row.partners || []).map((x) => normalizeLogin(x)).filter(Boolean));
+    for (const m of row.inbox || []) {
+        const from = normalizeLogin(m.fromId);
+        if (from && from !== me) partners.add(from);
+    }
+    for (const other of all || []) {
+        const otherLogin = normalizeLogin(other.loginName);
+        if (!otherLogin || otherLogin === me) continue;
+        if ((other.inbox || []).some((m) => normalizeLogin(m.fromId) === me)) partners.add(otherLogin);
+    }
+    return Array.from(partners).slice(0, 200);
+}
+
+async function loadMailBox(login) {
+    const key = mailBoxKey(login);
+    const cas = await getJsonCas(key, null);
+    if (!cas.missing && cas.data && typeof cas.data === 'object') {
+        return sanitizeMailRecord({ ...emptyMailBox(login), ...cas.data });
+    }
+    const all = await getMailJson();
+    const row = (all || []).find((r) => normalizeLogin(r.loginName) === normalizeLogin(login));
+    const box = sanitizeMailRecord({
+        ...emptyMailBox(login),
+        ...(row || {}),
+        partners: inferMailPartners(row || emptyMailBox(login), all, login)
+    });
+    try {
+        await putJson(key, box, { privateObject: true });
+    } catch (_) { /* next write will persist */ }
+    return box;
+}
+
+async function listMailBoxes() {
+    if (ydbDoc.enabled()) {
+        const rows = await ydbDoc.scanKind('mail');
+        return rows.map(sanitizeMailRecord);
+    }
+    const fromFiles = [];
+    const seen = new Set();
+    try {
+        let token;
+        do {
+            const res = await s3.send(new ListObjectsV2Command({
+                Bucket: PRIVATE_BUCKET,
+                Prefix: MAIL_BOX_PREFIX,
+                ContinuationToken: token
+            }));
+            const keys = (res.Contents || []).map((o) => o.Key).filter((k) => k && k.endsWith('.json'));
+            const batch = [];
+            for (const key of keys) {
+                const login = key.slice(MAIL_BOX_PREFIX.length).replace(/\.json$/i, '');
+                if (!login || seen.has(login)) continue;
+                seen.add(login);
+                batch.push(loadMailBox(login));
+            }
+            const rows = await Promise.all(batch);
+            fromFiles.push(...rows);
+            token = res.IsTruncated ? res.NextContinuationToken : undefined;
+        } while (token);
+    } catch (_) { /* fallback below */ }
+    const legacy = await getMailJson();
+    for (const row of legacy || []) {
+        const login = normalizeLogin(row.loginName);
+        if (!login || seen.has(login)) continue;
+        seen.add(login);
+        fromFiles.push(sanitizeMailRecord({
+            ...emptyMailBox(login),
+            ...row,
+            partners: inferMailPartners(row, legacy, login)
+        }));
+    }
+    return fromFiles;
+}
+
+async function applyMailMerge(proposed, user) {
+    if (!Array.isArray(proposed) || !proposed.length) {
+        if (isStaffUser(user)) return (await listMailBoxes()).map(sanitizeMailRecord);
+        const mine = await loadMailBox(user.login);
+        const boxes = [mine];
+        for (const p of mine.partners || []) boxes.push(await loadMailBox(p));
+        return projectMailForClient(boxes, user);
+    }
+    const actor = user.login;
+    const targets = new Set([actor]);
+    for (const row of proposed || []) {
+        const login = normalizeLogin(row.loginName);
+        if (login) targets.add(login);
+    }
+    const fresh = [];
+    for (const login of targets) fresh.push(await loadMailBox(login));
+    let merged = mergeMailArrays(fresh, proposed);
+    merged = sanitizeMail(fresh, merged, user);
+
+    const actorFresh = fresh.find((r) => normalizeLogin(r.loginName) === actor) || emptyMailBox(actor);
+    const partners = new Set([...(actorFresh.partners || [])]);
+    for (const row of merged) {
+        const login = normalizeLogin(row.loginName);
+        if (login === actor) {
+            for (const p of row.partners || []) partners.add(normalizeLogin(p));
+            continue;
+        }
+        if ((row.inbox || []).some((m) => normalizeLogin(m.fromId) === actor)) partners.add(login);
+    }
+    merged = merged.map((row) => {
+        if (normalizeLogin(row.loginName) !== actor) return row;
+        return sanitizeMailRecord({ ...row, partners: Array.from(partners).filter(Boolean).slice(0, 200) });
+    });
+
+    for (const row of merged) {
+        const login = normalizeLogin(row.loginName);
+        await mutateJson(mailBoxKey(login), emptyMailBox(login), (cur) => {
+            const base = cur && cur.loginName ? sanitizeMailRecord(cur) : emptyMailBox(login);
+            const again = mergeMailArrays([base], [row]);
+            const sanitized = sanitizeMail([base], again, user);
+            const next = sanitized.find((r) => normalizeLogin(r.loginName) === login) || row;
+            if (login === actor) next.partners = Array.from(partners).filter(Boolean).slice(0, 200);
+            return sanitizeMailRecord(next);
+        }, { privateObject: true });
+    }
+
+    const extra = [];
+    if (!isStaffUser(user)) {
+        for (const p of partners) {
+            if (merged.some((r) => normalizeLogin(r.loginName) === p)) continue;
+            extra.push(await loadMailBox(p));
+        }
+    }
+    return projectMailForClient([...merged, ...extra], user);
+}
+
+async function persistLoginLock(ip, login, lockedUntil) {
+    const key = `${String(ip || '')}|${normalizeLogin(login)}`;
+    await mutateJson(LOGIN_LOCKS_KEY, {}, (locks) => {
+        const next = locks && typeof locks === 'object' ? { ...locks } : {};
+        next[key] = { lockedUntil, at: new Date().toISOString() };
+        const now = Date.now();
+        for (const [k, v] of Object.entries(next)) {
+            if (!v || Number(v.lockedUntil || 0) < now) delete next[k];
+        }
+        return next;
+    }, { privateObject: true });
+}
+
+async function readLoginLock(ip, login) {
+    try {
+        const locks = await getJson(LOGIN_LOCKS_KEY, {});
+        const row = locks && locks[`${String(ip || '')}|${normalizeLogin(login)}`];
+        const until = Number(row?.lockedUntil || 0);
+        if (until > Date.now()) {
+            return { ok: false, retryAfterSec: Math.ceil((until - Date.now()) / 1000) };
+        }
+    } catch (_) { /* unlocked */ }
+    return null;
 }
 
 /** Актуальная роль из _auth + profiles (не доверяем JWT.role). */
@@ -640,18 +1076,13 @@ function projectMailForClient(mail, user) {
 }
 
 async function ensureAdminUser(users) {
-    if (!ADMIN_PASSWORD) return users;
-    if (users.admin && users.admin.hash) return users;
-    const { salt, hash } = hashPassword(ADMIN_PASSWORD);
-    users.admin = {
-        salt,
-        hash,
-        displayName: 'Admin',
-        role: 'admin',
-        createdAt: new Date().toISOString()
-    };
-    await saveAuthUsers(users);
-    return users;
+    const next = withAdmin(users);
+    if (ADMIN_PASSWORD && (!users || !users.admin || !users.admin.hash) && next.admin && next.admin.hash) {
+        try {
+            await mutateAuth((u) => withAdmin(u));
+        } catch (_) { /* bootstrap best-effort */ }
+    }
+    return next;
 }
 
 function issueToken(user) {
@@ -782,8 +1213,8 @@ function mergeMapDataArrays(fresh = [], proposed = []) {
             ...s,
             comments: mergeCommentLists(cloud.comments || [], s.comments || []),
             reports: mergeKeyedArrays(cloud.reports || [], s.reports || []),
-            likedBy: Array.isArray(s.likedBy) ? s.likedBy : (cloud.likedBy || []),
-            dislikedBy: Array.isArray(s.dislikedBy) ? s.dislikedBy : (cloud.dislikedBy || []),
+            likedBy: mergeActorSets(cloud.likedBy || [], s.likedBy || []),
+            dislikedBy: mergeActorSets(cloud.dislikedBy || [], s.dislikedBy || []),
             plays: Math.max(cloud.plays || 0, s.plays || 0),
             downloads: Math.max(cloud.downloads || 0, s.downloads || 0),
             route: (s.route && s.route.length > 1) ? s.route : (cloud.route || s.route)
@@ -999,7 +1430,7 @@ function sanitizeInbox(cloudInbox = [], proposedInbox = [], actorLogin) {
     return out;
 }
 
-function sanitizeProfiles(fresh, merged, user) {
+function sanitizeProfiles(fresh, merged, user, knownLogins) {
     if (isAdminUser(user)) {
         return (merged || []).map((p) => {
             const login = String(p.loginName || '').toLowerCase();
@@ -1010,7 +1441,15 @@ function sanitizeProfiles(fresh, merged, user) {
         });
     }
     const freshMap = new Map((fresh || []).map((p) => [String(p.loginName || '').toLowerCase(), p]));
-    return (merged || []).map((p) => {
+    const allowed = knownLogins instanceof Set ? knownLogins : null;
+    return (merged || []).filter((p) => {
+        const login = String(p.loginName || '').toLowerCase();
+        if (!login) return false;
+        if (login === user.login) return true;
+        if (!freshMap.has(login)) return false;
+        if (allowed && !allowed.has(login)) return false;
+        return true;
+    }).map((p) => {
         const login = String(p.loginName || '').toLowerCase();
         const cloud = freshMap.get(login) || {};
         if (login === user.login) {
@@ -1063,7 +1502,8 @@ function sanitizeMail(fresh, merged, user) {
                 loginName: login,
                 inbox: sanitizeInbox(cloud.inbox || [], row.inbox || [], user.login),
                 notifications: mergeKeyedArrays(cloud.notifications || [], row.notifications || []),
-                activityLog: mergeKeyedArrays(cloud.activityLog || [], row.activityLog || [])
+                activityLog: mergeKeyedArrays(cloud.activityLog || [], row.activityLog || []),
+                partners: Array.from(new Set([...(cloud.partners || []), ...(row.partners || [])]))
             });
         }
         // Чужой ящик: можно только дописать свои исходящие в inbox получателя + нотифы от себя
@@ -1073,7 +1513,8 @@ function sanitizeMail(fresh, merged, user) {
             notifications: mergeKeyedArrays(cloud.notifications || [], (row.notifications || []).filter((n) => {
                 return !n?.id || (cloud.notifications || []).some((x) => x.id === n.id) || String(n.fromId || '').toLowerCase() === user.login;
             })),
-            activityLog: cloud.activityLog || []
+            activityLog: cloud.activityLog || [],
+            partners: cloud.partners || []
         });
     });
 }
@@ -1160,10 +1601,18 @@ function sanitizeCommentsForActor(cloudComments = [], proposedComments = [], act
 }
 
 function sanitizeMapData(fresh, merged, user) {
-    if (isStaffUser(user)) {
-        return (merged || []).map(sanitizeSoundRecord);
-    }
     const freshMap = new Map((fresh || []).map((s) => [s.id, s]));
+    if (isStaffUser(user)) {
+        return (merged || []).map((s) => {
+            const cloud = freshMap.get(s.id);
+            if (!cloud) return sanitizeSoundRecord(s);
+            return sanitizeSoundRecord({
+                ...s,
+                likedBy: forceActorInList(cloud.likedBy, s.likedBy, user.login),
+                dislikedBy: forceActorInList(cloud.dislikedBy, s.dislikedBy, user.login)
+            });
+        });
+    }
     const out = [];
     for (const s of merged || []) {
         const cloud = freshMap.get(s.id);
@@ -1274,25 +1723,48 @@ async function handleRegister(body) {
     if (!login || login.length < 2) return respond(400, { ok: false, error: 'bad_login' });
     if (password.length < MIN_PASSWORD_LEN) return respond(400, { ok: false, error: 'weak_password' });
     if (login === 'admin') return respond(403, { ok: false, error: 'reserved_login' });
-
-    let users = await loadAuthUsers();
-    users = await ensureAdminUser(users);
-    if (users[login]) return respond(409, { ok: false, error: 'login_taken' });
+    if (!body.pdConsent) return respond(400, { ok: false, error: 'pd_consent' });
 
     const { salt, hash } = hashPassword(password);
-    users[login] = {
-        salt,
-        hash,
-        displayName,
-        role: 'user',
-        createdAt: new Date().toISOString()
-    };
-    await saveAuthUsers(users);
+    let created = false;
+    for (let attempt = 0; attempt < WRITE_RETRIES; attempt++) {
+        const usersCas = await getJsonCas(AUTH_KEY, {});
+        let users = usersCas.data && typeof usersCas.data === 'object' ? { ...usersCas.data } : {};
+        users = await ensureAdminUser(users);
+        if (users[login]) return respond(409, { ok: false, error: 'login_taken' });
+        users[login] = {
+            salt,
+            hash,
+            displayName,
+            role: 'user',
+            tokenVersion: 0,
+            createdAt: new Date().toISOString()
+        };
+        try {
+            await putJson(AUTH_KEY, users, { privateObject: true, ifMatch: usersCas.missing ? undefined : usersCas.etag });
+            created = true;
+            break;
+        } catch (err) {
+            if (err && err.code === 'write_conflict' && attempt < WRITE_RETRIES - 1) continue;
+            throw err;
+        }
+    }
+    if (!created) return respond(409, { ok: false, error: 'write_conflict' });
 
-    // ensure profile shell exists
-    const profiles = await getJson('profiles.json', []);
-    if (!profiles.some((p) => String(p.loginName || '').toLowerCase() === login)) {
-        profiles.push({
+    await mutateMeta((meta) => {
+        meta[login] = {
+            ...(meta[login] || {}),
+            pdConsent: true,
+            pdConsentAt: String(body.pdConsentAt || new Date().toISOString()),
+            updatedAt: new Date().toISOString()
+        };
+        return meta;
+    });
+
+    await mutateJson('profiles.json', [], (profiles) => {
+        const list = Array.isArray(profiles) ? profiles.slice() : [];
+        if (list.some((p) => String(p.loginName || '').toLowerCase() === login)) return list;
+        list.push({
             loginName: login,
             displayName,
             role: 'user',
@@ -1302,14 +1774,13 @@ async function handleRegister(body) {
             badges: [],
             progress: { xp: 0, achievements: [], completedQuests: [], guessrBestScore: 0 }
         });
-        await putJson('profiles.json', profiles);
-    }
+        return list;
+    });
 
-    const mail = await getMailJson();
-    if (!mail.some((p) => String(p.loginName || '').toLowerCase() === login)) {
-        mail.push({ loginName: login, inbox: [], notifications: [], activityLog: [] });
-        await putMailJson(mail);
-    }
+    await mutateJson(mailBoxKey(login), emptyMailBox(login), (cur) => {
+        if (cur && cur.loginName) return sanitizeMailRecord(cur);
+        return emptyMailBox(login);
+    }, { privateObject: true });
 
     const user = { login, displayName, role: 'user', tokenVersion: 0 };
     return authSuccessResponse(user);
@@ -1325,7 +1796,9 @@ async function handleLogin(event, body) {
     if (!login || !password) return respond(400, { ok: false, error: 'missing_fields' });
 
     const lock = sessionSec.checkLoginAllowed(ipKey, login);
-    if (!lock.ok) {
+    const persistedLock = lock.ok ? await readLoginLock(ipKey, login) : null;
+    if (!lock.ok || persistedLock) {
+        const blocked = lock.ok ? persistedLock : lock;
         await sessionSec.appendSecurityEvent(putJson, getJson, {
             type: 'login_locked',
             login,
@@ -1334,7 +1807,7 @@ async function handleLogin(event, body) {
         return respond(429, {
             ok: false,
             error: 'login_locked',
-            retryAfterSec: lock.retryAfterSec,
+            retryAfterSec: blocked.retryAfterSec,
             message: 'Слишком много неудачных попыток. Попробуйте позже.'
         });
     }
@@ -1348,19 +1821,21 @@ async function handleLogin(event, body) {
 
     const row = users[login];
     if (!row) {
-        sessionSec.recordLoginFailure(ipKey, login);
-        return respond(404, { ok: false, error: 'no_user' });
+        const fail = sessionSec.recordLoginFailure(ipKey, login);
+        if (fail.lockedUntil && fail.lockedUntil > Date.now()) await persistLoginLock(ipKey, login, fail.lockedUntil);
+        return respond(401, { ok: false, error: 'bad_credentials' });
     }
-    if (!verifyPassword(password, row.salt, row.hash)) {
-        if (!(login === 'admin' && ADMIN_PASSWORD && password === ADMIN_PASSWORD)) {
-            sessionSec.recordLoginFailure(ipKey, login);
-            await sessionSec.appendSecurityEvent(putJson, getJson, {
-                type: 'login_fail',
-                login,
-                ip: ipKey
-            });
-            return respond(401, { ok: false, error: 'bad_credentials' });
-        }
+    const passwordOk = verifyPassword(password, row.salt, row.hash)
+        || (login === 'admin' && ADMIN_PASSWORD && password === ADMIN_PASSWORD && !row.hash);
+    if (!passwordOk) {
+        const fail = sessionSec.recordLoginFailure(ipKey, login);
+        if (fail.lockedUntil && fail.lockedUntil > Date.now()) await persistLoginLock(ipKey, login, fail.lockedUntil);
+        await sessionSec.appendSecurityEvent(putJson, getJson, {
+            type: 'login_fail',
+            login,
+            ip: ipKey
+        });
+        return respond(401, { ok: false, error: 'bad_credentials' });
     }
 
     const profiles = await getJson('profiles.json', []);
@@ -1382,7 +1857,8 @@ async function handleLogin(event, body) {
             });
         }
         if (!sessionSec.verifyTotp(row.totpSecret, totpCode)) {
-            sessionSec.recordLoginFailure(ipKey, login);
+            const fail = sessionSec.recordLoginFailure(ipKey, login);
+            if (fail.lockedUntil && fail.lockedUntil > Date.now()) await persistLoginLock(ipKey, login, fail.lockedUntil);
             await sessionSec.appendSecurityEvent(putJson, getJson, {
                 type: 'totp_fail',
                 login,
@@ -1393,6 +1869,11 @@ async function handleLogin(event, body) {
     }
 
     sessionSec.clearLoginFailures(ipKey, login);
+    void mutateJson(LOGIN_LOCKS_KEY, {}, (locks) => {
+        const next = locks && typeof locks === 'object' ? { ...locks } : {};
+        delete next[`${ipKey}|${normalizeLogin(login)}`];
+        return next;
+    }, { privateObject: true }).catch(() => {});
 
     const user = {
         login,
@@ -1405,8 +1886,10 @@ async function handleLogin(event, body) {
     const fromPublic = extractProfilePii(profile || {});
     const mergedPii = { ...fromPublic, ...pii };
     if (PROFILE_PII_KEYS.some((k) => pii[k] === undefined && fromPublic[k] !== undefined)) {
-        privateMeta[login] = { ...mergedPii, updatedAt: new Date().toISOString() };
-        await savePrivateMeta(privateMeta);
+        await mutateMeta((meta) => {
+            meta[login] = { ...(meta[login] || {}), ...mergedPii, updatedAt: new Date().toISOString() };
+            return meta;
+        });
     }
     await sessionSec.appendSecurityEvent(putJson, getJson, {
         type: 'login_ok',
@@ -1448,25 +1931,24 @@ async function handleChangePassword(event, body) {
     const newPassword = String(body.newPassword || '');
     if (newPassword.length < MIN_PASSWORD_LEN) return respond(400, { ok: false, error: 'weak_password' });
 
-    let users = await loadAuthUsers();
-    users = await ensureAdminUser(users);
-    const row = users[authUser.login];
-    if (!row) return respond(404, { ok: false, error: 'no_user' });
-
-    const okCurrent = verifyPassword(currentPassword, row.salt, row.hash)
-        || (authUser.login === 'admin' && ADMIN_PASSWORD && currentPassword === ADMIN_PASSWORD);
-    if (!okCurrent) return respond(401, { ok: false, error: 'bad_credentials' });
-
     const { salt, hash } = hashPassword(newPassword);
-    const nextTv = (Number(row.tokenVersion || 0) || 0) + 1;
-    users[authUser.login] = {
-        ...row,
-        salt,
-        hash,
-        passwordUpdatedAt: new Date().toISOString(),
-        tokenVersion: nextTv
-    };
-    await saveAuthUsers(users);
+    let nextTv = 0;
+    await mutateAuth((users) => {
+        const row = users[authUser.login];
+        if (!row) throw new ClientError(401, 'unauthorized');
+        const okCurrent = verifyPassword(currentPassword, row.salt, row.hash)
+            || (authUser.login === 'admin' && ADMIN_PASSWORD && currentPassword === ADMIN_PASSWORD);
+        if (!okCurrent) throw new ClientError(401, 'bad_credentials');
+        nextTv = (Number(row.tokenVersion || 0) || 0) + 1;
+        users[authUser.login] = {
+            ...row,
+            salt,
+            hash,
+            passwordUpdatedAt: new Date().toISOString(),
+            tokenVersion: nextTv
+        };
+        return users;
+    });
     await sessionSec.appendSecurityEvent(putJson, getJson, {
         type: 'password_changed',
         login: authUser.login
@@ -1533,12 +2015,14 @@ async function handleLogoutAll(event, body) {
     if (!authUser) return respond(401, { ok: false, error: 'unauthorized' });
     if (authUser.blocked) return respond(403, { ok: false, error: 'blocked' });
 
-    const users = await loadAuthUsers();
-    const row = users[authUser.login];
-    if (!row) return respond(404, { ok: false, error: 'no_user' });
-    const nextTv = (Number(row.tokenVersion || 0) || 0) + 1;
-    users[authUser.login] = { ...row, tokenVersion: nextTv };
-    await saveAuthUsers(users);
+    let nextTv = 0;
+    await mutateAuth((users) => {
+        const row = users[authUser.login];
+        if (!row) throw new ClientError(401, 'unauthorized');
+        nextTv = (Number(row.tokenVersion || 0) || 0) + 1;
+        users[authUser.login] = { ...row, tokenVersion: nextTv };
+        return users;
+    });
     await sessionSec.appendSecurityEvent(putJson, getJson, {
         type: 'logout_all',
         login: authUser.login
@@ -1555,20 +2039,18 @@ async function handleTotpSetup(event, body) {
     if (!authUser) return respond(401, { ok: false, error: 'unauthorized' });
     if (authUser.blocked) return respond(403, { ok: false, error: 'blocked' });
 
-    const users = await loadAuthUsers();
-    const row = users[authUser.login];
-    if (!row) return respond(404, { ok: false, error: 'no_user' });
-    if (row.totpEnabled) {
-        return respond(400, { ok: false, error: 'totp_already_enabled' });
-    }
-
     const secret = sessionSec.generateTotpSecret();
-    users[authUser.login] = {
-        ...row,
-        totpPendingSecret: secret,
-        totpPendingAt: new Date().toISOString()
-    };
-    await saveAuthUsers(users);
+    await mutateAuth((users) => {
+        const row = users[authUser.login];
+        if (!row) throw new ClientError(401, 'unauthorized');
+        if (row.totpEnabled) throw new ClientError(400, 'totp_already_enabled');
+        users[authUser.login] = {
+            ...row,
+            totpPendingSecret: secret,
+            totpPendingAt: new Date().toISOString()
+        };
+        return users;
+    });
     return respond(200, {
         ok: true,
         secret,
@@ -1584,24 +2066,22 @@ async function handleTotpConfirm(event, body) {
     if (authUser.blocked) return respond(403, { ok: false, error: 'blocked' });
 
     const code = String(body.totpCode || body.code || '').trim();
-    const users = await loadAuthUsers();
-    const row = users[authUser.login];
-    if (!row) return respond(404, { ok: false, error: 'no_user' });
-    const secret = row.totpPendingSecret || row.totpSecret;
-    if (!secret) return respond(400, { ok: false, error: 'totp_not_started' });
-    if (!sessionSec.verifyTotp(secret, code)) {
-        return respond(401, { ok: false, error: 'bad_totp' });
-    }
-
-    users[authUser.login] = {
-        ...row,
-        totpEnabled: true,
-        totpSecret: secret,
-        totpEnabledAt: new Date().toISOString()
-    };
-    delete users[authUser.login].totpPendingSecret;
-    delete users[authUser.login].totpPendingAt;
-    await saveAuthUsers(users);
+    await mutateAuth((users) => {
+        const row = users[authUser.login];
+        if (!row) throw new ClientError(401, 'unauthorized');
+        const secret = row.totpPendingSecret || row.totpSecret;
+        if (!secret) throw new ClientError(400, 'totp_not_started');
+        if (!sessionSec.verifyTotp(secret, code)) throw new ClientError(401, 'bad_totp');
+        users[authUser.login] = {
+            ...row,
+            totpEnabled: true,
+            totpSecret: secret,
+            totpEnabledAt: new Date().toISOString()
+        };
+        delete users[authUser.login].totpPendingSecret;
+        delete users[authUser.login].totpPendingAt;
+        return users;
+    });
     await sessionSec.appendSecurityEvent(putJson, getJson, {
         type: 'totp_enabled',
         login: authUser.login
@@ -1624,26 +2104,25 @@ async function handleTotpDisable(event, body) {
     }
     const password = String(body.password || '');
     const code = String(body.totpCode || body.code || '').trim();
-    const users = await loadAuthUsers();
-    const row = users[authUser.login];
-    if (!row) return respond(404, { ok: false, error: 'no_user' });
-    if (!row.totpEnabled) return respond(400, { ok: false, error: 'totp_not_enabled' });
-
-    const okPass = verifyPassword(password, row.salt, row.hash)
-        || (authUser.login === 'admin' && ADMIN_PASSWORD && password === ADMIN_PASSWORD);
-    if (!okPass) return respond(401, { ok: false, error: 'bad_credentials' });
-    if (!sessionSec.verifyTotp(row.totpSecret, code)) {
-        return respond(401, { ok: false, error: 'bad_totp' });
-    }
-
-    const next = { ...row, totpEnabled: false };
-    delete next.totpSecret;
-    delete next.totpPendingSecret;
-    delete next.totpPendingAt;
-    delete next.totpEnabledAt;
-    next.tokenVersion = (Number(row.tokenVersion || 0) || 0) + 1;
-    users[authUser.login] = next;
-    await saveAuthUsers(users);
+    let nextTv = 0;
+    await mutateAuth((users) => {
+        const row = users[authUser.login];
+        if (!row) throw new ClientError(401, 'unauthorized');
+        if (!row.totpEnabled) throw new ClientError(400, 'totp_not_enabled');
+        const okPass = verifyPassword(password, row.salt, row.hash)
+            || (authUser.login === 'admin' && ADMIN_PASSWORD && password === ADMIN_PASSWORD);
+        if (!okPass) throw new ClientError(401, 'bad_credentials');
+        if (!sessionSec.verifyTotp(row.totpSecret, code)) throw new ClientError(401, 'bad_totp');
+        const next = { ...row, totpEnabled: false };
+        delete next.totpSecret;
+        delete next.totpPendingSecret;
+        delete next.totpPendingAt;
+        delete next.totpEnabledAt;
+        next.tokenVersion = (Number(row.tokenVersion || 0) || 0) + 1;
+        nextTv = next.tokenVersion;
+        users[authUser.login] = next;
+        return users;
+    });
     await sessionSec.appendSecurityEvent(putJson, getJson, {
         type: 'totp_disabled',
         login: authUser.login
@@ -1652,7 +2131,7 @@ async function handleTotpDisable(event, body) {
         login: authUser.login,
         displayName: authUser.displayName,
         role: authUser.role,
-        tokenVersion: next.tokenVersion
+        tokenVersion: nextTv
     }, { totpEnabled: false });
 }
 
@@ -1781,10 +2260,7 @@ async function findLoginByEmailOrLogin(loginOrEmail) {
         const email = normalizeEmail(raw);
         if (!isValidEmail(email)) return null;
         const meta = await loadPrivateMeta();
-        for (const [login, row] of Object.entries(meta || {})) {
-            if (normalizeEmail(row?.email) === email) return normalizeLogin(login);
-        }
-        return null;
+        return verifiedEmailOwner(meta, email);
     }
     const login = normalizeLogin(raw);
     const users = await loadAuthUsers();
@@ -1821,7 +2297,7 @@ async function handleRequestPasswordReset(body) {
         try {
             await sendPasswordResetMail(email, code);
         } catch (err) {
-            console.error('SMTP password reset failed', err);
+            smtpLog('SMTP password reset failed', err);
             await clearPasswordReset(login);
             return respond(502, { ok: false, error: 'mail_send_failed' });
         }
@@ -1859,13 +2335,36 @@ async function handleConfirmPasswordReset(body) {
         return respond(400, { ok: false, error: 'bad_code' });
     }
 
-    let users = await loadAuthUsers();
-    users = await ensureAdminUser(users);
-    if (!users[login]) return respond(404, { ok: false, error: 'no_user' });
     const { salt, hash } = hashPassword(newPassword);
-    users[login] = { ...users[login], salt, hash, passwordUpdatedAt: new Date().toISOString() };
-    await saveAuthUsers(users);
+    let savedReset = false;
+    for (let attempt = 0; attempt < WRITE_RETRIES; attempt++) {
+        const cas = await getJsonCas(AUTH_KEY, {});
+        let users = cas.data && typeof cas.data === 'object' ? { ...cas.data } : {};
+        users = await ensureAdminUser(users);
+        if (!users[login]) return respond(400, { ok: false, error: 'bad_code' });
+        const nextTv = (Number(users[login].tokenVersion || 0) || 0) + 1;
+        users[login] = {
+            ...users[login],
+            salt,
+            hash,
+            passwordUpdatedAt: new Date().toISOString(),
+            tokenVersion: nextTv
+        };
+        try {
+            await putJson(AUTH_KEY, users, { privateObject: true, ifMatch: cas.missing ? undefined : cas.etag });
+            savedReset = true;
+            break;
+        } catch (err) {
+            if (err && err.code === 'write_conflict' && attempt < WRITE_RETRIES - 1) continue;
+            throw err;
+        }
+    }
+    if (!savedReset) throw new WriteConflictError();
     await clearPasswordReset(login);
+    await sessionSec.appendSecurityEvent(putJson, getJson, {
+        type: 'password_reset',
+        login
+    });
     return respond(200, { ok: true });
 }
 
@@ -1882,21 +2381,20 @@ async function handleAdminDeleteUser(event, body) {
         return respond(400, { ok: false, error: 'bad_login' });
     }
 
-    let users = await loadAuthUsers();
-    if (!users[target]) return respond(404, { ok: false, error: 'no_user' });
-    delete users[target];
-    await saveAuthUsers(users);
+    await mutateAuth((users) => {
+        if (!users[target]) throw new ClientError(404, 'no_user');
+        delete users[target];
+        return users;
+    });
 
-    const meta = await loadPrivateMeta();
-    if (meta[target]) {
+    await mutateMeta((meta) => {
         delete meta[target];
-        await savePrivateMeta(meta);
-    }
+        return meta;
+    });
     await clearEmailCode(target);
     await clearPasswordReset(target);
 
-    const profiles = await getJson('profiles.json', []);
-    const nextProfiles = (profiles || []).map((p) => {
+    await mutateJson('profiles.json', [], (profiles) => (profiles || []).map((p) => {
         if (String(p.loginName || '').toLowerCase() !== target) return p;
         return sanitizeProfileCard({
             ...p,
@@ -1910,13 +2408,13 @@ async function handleAdminDeleteUser(event, body) {
             deletedAt: new Date().toISOString(),
             profileUpdatedAt: new Date().toISOString()
         });
-    });
-    await putJson('profiles.json', nextProfiles);
+    }));
 
     try {
-        const mail = await getMailJson();
-        const nextMail = (mail || []).filter((r) => String(r.loginName || '').toLowerCase() !== target);
-        await putMailJson(nextMail);
+        await s3.send(new DeleteObjectCommand({
+            Bucket: PRIVATE_BUCKET,
+            Key: mailBoxKey(target)
+        }));
     } catch (_) { /* ignore */ }
 
     return respond(200, { ok: true, login: target });
@@ -1933,16 +2431,17 @@ async function handleAdminUnbindEmail(event, body) {
     const target = normalizeLogin(body.login);
     if (!target) return respond(400, { ok: false, error: 'bad_login' });
 
-    const meta = await loadPrivateMeta();
-    const prev = meta[target] && typeof meta[target] === 'object' ? meta[target] : {};
-    meta[target] = {
-        ...prev,
-        email: '',
-        emailVerified: false,
-        emailVerifiedAt: '',
-        updatedAt: new Date().toISOString()
-    };
-    await savePrivateMeta(meta);
+    await mutateMeta((meta) => {
+        const prev = meta[target] && typeof meta[target] === 'object' ? meta[target] : {};
+        meta[target] = {
+            ...prev,
+            email: '',
+            emailVerified: false,
+            emailVerifiedAt: '',
+            updatedAt: new Date().toISOString()
+        };
+        return meta;
+    });
     await clearEmailCode(target);
     return respond(200, { ok: true, login: target });
 }
@@ -1985,7 +2484,7 @@ async function handleAdminSendEmail(event, body) {
             replyTo: 'support@polevka.art'
         });
     } catch (err) {
-        console.error('SMTP staff message failed', err);
+        smtpLog('SMTP staff message failed', err);
         return respond(502, { ok: false, error: 'mail_send_failed' });
     }
 
@@ -2012,6 +2511,10 @@ async function handleRequestEmailVerification(event, body) {
     if (existing.emailVerified && normalizeEmail(existing.email) === email) {
         return respond(200, { ok: true, alreadyVerified: true });
     }
+    const taken = verifiedEmailOwner(privateMeta, email);
+    if (taken && taken !== user.login) {
+        return respond(409, { ok: false, error: 'email_taken', message: 'Этот email уже подтверждён на другом аккаунте' });
+    }
 
     const smtpOk = isSmtpConfigured();
     if (!smtpOk && !ALLOW_DEMO_EMAIL_CODES) {
@@ -2035,7 +2538,7 @@ async function handleRequestEmailVerification(event, body) {
         try {
             await sendVerificationMail(email, code);
         } catch (err) {
-            console.error('SMTP send failed', err);
+            smtpLog('SMTP send failed', err);
             await clearEmailCode(user.login);
             return respond(502, { ok: false, error: 'mail_send_failed' });
         }
@@ -2081,20 +2584,33 @@ async function handleConfirmEmailVerification(event, body) {
         return respond(400, { ok: false, error: 'bad_code' });
     }
 
-    const meta = await loadPrivateMeta();
-    meta[user.login] = {
-        ...(meta[user.login] || {}),
-        email: normalizeEmail(row.email),
-        emailVerified: true,
-        emailVerifiedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-    };
-    await savePrivateMeta(meta);
+    const email = normalizeEmail(row.email);
+    let savedEmail = email;
+    try {
+    await mutateMeta((meta) => {
+        const taken = verifiedEmailOwner(meta, email);
+        if (taken && taken !== user.login) {
+            throw new ClientError(409, 'email_taken', 'Этот email уже подтверждён на другом аккаунте');
+        }
+        meta[user.login] = {
+            ...(meta[user.login] || {}),
+            email,
+            emailVerified: true,
+            emailVerifiedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        savedEmail = meta[user.login].email;
+        return meta;
+    });
+    } catch (err) {
+        if (err && err.code === 'email_taken') await clearEmailCode(user.login);
+        throw err;
+    }
     await clearEmailCode(user.login);
 
     return respond(200, {
         ok: true,
-        email: meta[user.login].email,
+        email: savedEmail,
         emailVerified: true
     });
 }
@@ -2111,7 +2627,6 @@ async function handleMe(event, body) {
         ? { ...privateMeta[user.login] }
         : {};
 
-    // Разовая миграция PII из публичного profiles.json → private_meta
     const profiles = await getJson('profiles.json', []);
     const profile = (profiles || []).find((p) => String(p.loginName || '').toLowerCase() === user.login);
     const fromPublic = extractProfilePii(profile || {});
@@ -2119,13 +2634,16 @@ async function handleMe(event, body) {
         const mergedPii = { ...fromPublic, ...pii };
         const needsSave = PROFILE_PII_KEYS.some((k) => pii[k] === undefined && fromPublic[k] !== undefined);
         if (needsSave) {
-            privateMeta[user.login] = { ...mergedPii, updatedAt: new Date().toISOString() };
-            await savePrivateMeta(privateMeta);
+            await mutateMeta((meta) => {
+                meta[user.login] = { ...(meta[user.login] || {}), ...mergedPii, updatedAt: new Date().toISOString() };
+                return meta;
+            });
         }
         pii = mergedPii;
-        if (PROFILE_PII_KEYS.some((k) => profile[k] !== undefined)) {
-            const scrubbed = (profiles || []).map((p) => sanitizeProfileCard(p));
-            await putJson('profiles.json', scrubbed);
+        if (profile && PROFILE_PII_KEYS.some((k) => profile[k] !== undefined)) {
+            await mutateJson('profiles.json', [], (list) => (list || []).map((p) => (
+                String(p.loginName || '').toLowerCase() === user.login ? sanitizeProfileCard(p) : p
+            )));
         }
     }
 
@@ -2147,8 +2665,16 @@ async function handleGetMail(event, body) {
     const user = await resolveAuthUser(payload);
     if (!user) return respond(401, { ok: false, error: 'unauthorized' });
     if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
-    const mail = await getMailJson();
-    return respond(200, { ok: true, data: projectMailForClient(mail, user) });
+    const totpBlock = await assertStaffTotp(user);
+    if (totpBlock) return totpBlock;
+    if (isStaffUser(user)) {
+        const all = await listMailBoxes();
+        return respond(200, { ok: true, data: all.map(sanitizeMailRecord) });
+    }
+    const mine = await loadMailBox(user.login);
+    const boxes = [mine];
+    for (const p of mine.partners || []) boxes.push(await loadMailBox(p));
+    return respond(200, { ok: true, data: projectMailForClient(boxes, user) });
 }
 
 async function handleSync(event, body) {
@@ -2175,6 +2701,17 @@ async function handleSync(event, body) {
             message: 'Use staging upload + action=commit'
         });
     }
+
+    if (!isStaffUser(user) && proposed.length > MAX_SYNC_ROWS) {
+        return respond(413, {
+            ok: false,
+            error: 'too_many_rows',
+            message: 'Send changed rows only'
+        });
+    }
+
+    const cool = assertCooldown(user.login, fileName === 'mail.json' ? 'message' : 'sync');
+    if (cool) return cool;
 
     return applyMergeAndSave(fileName, proposed, user);
 }
@@ -2205,10 +2742,58 @@ async function handlePatchSound(event, body) {
         return respond(400, { ok: false, error: 'empty_ops' });
     }
 
-    const fresh = await getJson('map_data.json', []);
+    const cool = assertCooldown(user.login, reaction ? 'like' : 'play');
+    if (cool) return cool;
+
+    if (ydbDoc.enabled()) {
+        const patched = await ydbDoc.mutateRow('sound', soundId, (prev) => {
+            if (!prev) return undefined;
+            const sound = { ...prev };
+            const login = user.login;
+            if (incPlays) sound.plays = Math.max(0, (sound.plays || 0) + incPlays);
+            if (incDownloads) sound.downloads = Math.max(0, (sound.downloads || 0) + incDownloads);
+            if (reaction) {
+                const hadLike = (Array.isArray(prev.likedBy) ? prev.likedBy : []).includes(login);
+                const hadDislike = (Array.isArray(prev.dislikedBy) ? prev.dislikedBy : []).includes(login);
+                let likedBy = (Array.isArray(prev.likedBy) ? prev.likedBy : []).map(String).filter(Boolean).filter((x) => x !== login);
+                let dislikedBy = (Array.isArray(prev.dislikedBy) ? prev.dislikedBy : []).map(String).filter(Boolean).filter((x) => x !== login);
+                let addLike = false;
+                let addDislike = false;
+                if (Object.prototype.hasOwnProperty.call(ops, 'reactionSet')) {
+                    if (reaction === 'like' && ops.reactionSet) addLike = true;
+                    if (reaction === 'dislike' && ops.reactionSet) addDislike = true;
+                } else if (reaction === 'like') addLike = !hadLike;
+                else addDislike = !hadDislike;
+                if (addLike) likedBy.push(login);
+                if (addDislike) dislikedBy.push(login);
+                sound.likedBy = likedBy;
+                sound.dislikedBy = dislikedBy;
+            }
+            return sanitizeSoundRecord(sound);
+        });
+        if (!patched) return respond(404, { ok: false, error: 'sound_not_found' });
+        const all = await ydbDoc.scanKind('sound');
+        await publishPublicJson('map_data.json', all);
+        return respond(200, {
+            ok: true,
+            soundId,
+            sound: {
+                id: patched.id,
+                plays: patched.plays || 0,
+                downloads: patched.downloads || 0,
+                likedBy: patched.likedBy || [],
+                dislikedBy: patched.dislikedBy || []
+            }
+        });
+    }
+
+    let next = null;
+    for (let attempt = 0; attempt < WRITE_RETRIES; attempt++) {
+    const cas = await getJsonCas('map_data.json', []);
+    const fresh = cas.data;
     if (!Array.isArray(fresh)) return respond(500, { ok: false, error: 'bad_map_data' });
 
-    const idx = fresh.findIndex((s) => s && s.id === soundId);
+    const idx = fresh.findIndex((s) => s && String(s.id) === soundId);
     if (idx < 0) return respond(404, { ok: false, error: 'sound_not_found' });
 
     const prev = fresh[idx];
@@ -2242,9 +2827,16 @@ async function handlePatchSound(event, body) {
         sound.dislikedBy = dislikedBy;
     }
 
-    const next = sanitizeSoundRecord(sound);
+    next = sanitizeSoundRecord(sound);
     fresh[idx] = next;
-    await putJson('map_data.json', fresh);
+    try {
+        await putJson('map_data.json', fresh, { ifMatch: cas.missing ? undefined : cas.etag });
+        break;
+    } catch (err) {
+        if (err && err.code === 'write_conflict' && attempt < WRITE_RETRIES - 1) continue;
+        throw err;
+    }
+    }
 
     return respond(200, {
         ok: true,
@@ -2270,15 +2862,11 @@ async function migrateMailOutOfProfiles(proposedProfiles, user) {
     );
     if (!hasEmbedded) return;
 
-    const freshMail = await getMailJson();
     const extracted = (proposedProfiles || [])
         .filter((p) => p?.loginName)
         .map(extractMailRecord);
     if (!extracted.length) return;
-
-    let merged = mergeMailArrays(freshMail, extracted);
-    merged = sanitizeMail(freshMail, merged, user);
-    await putMailJson(merged);
+    await applyMailMerge(extracted, user);
 }
 
 async function persistActorPrivateMeta(proposedProfiles, user) {
@@ -2289,19 +2877,36 @@ async function persistActorPrivateMeta(proposedProfiles, user) {
     // emailVerified only via confirmEmailVerification — never trust the client
     delete pii.emailVerified;
     if (!Object.keys(pii).length) return;
-    const meta = await loadPrivateMeta();
-    const prev = meta[user.login] && typeof meta[user.login] === 'object' ? meta[user.login] : {};
-    const next = { ...prev, ...pii, updatedAt: new Date().toISOString() };
-    if (pii.email !== undefined) {
-        const newEmail = String(pii.email || '').trim().toLowerCase();
-        const oldEmail = String(prev.email || '').trim().toLowerCase();
-        if (newEmail !== oldEmail) next.emailVerified = false;
-    }
-    meta[user.login] = next;
-    await savePrivateMeta(meta);
+    await mutateMeta((meta) => {
+        const prev = meta[user.login] && typeof meta[user.login] === 'object' ? meta[user.login] : {};
+        const next = { ...prev, ...pii, updatedAt: new Date().toISOString() };
+        if (pii.email !== undefined) {
+            const newEmail = normalizeEmail(pii.email);
+            const oldEmail = normalizeEmail(prev.email);
+            const owner = verifiedEmailOwner(meta, newEmail);
+            if (owner && owner !== user.login) {
+                next.email = prev.email;
+                next.emailVerified = prev.emailVerified;
+            } else if (newEmail !== oldEmail) {
+                next.emailVerified = false;
+            }
+        }
+        meta[user.login] = next;
+        return meta;
+    });
 }
 
 async function applyMergeAndSave(fileName, proposed, user) {
+    if (fileName === 'mail.json') {
+        const clientData = await applyMailMerge(proposed, user);
+        return respond(200, {
+            ok: true,
+            fileName,
+            count: Array.isArray(clientData) ? clientData.length : 0,
+            data: clientData
+        });
+    }
+
     let nextProposed = proposed;
     if (fileName === 'profiles.json') {
         await migrateMailOutOfProfiles(proposed, user);
@@ -2309,39 +2914,47 @@ async function applyMergeAndSave(fileName, proposed, user) {
         nextProposed = (proposed || []).map(stripMailFields).map(sanitizeProfileCard);
     }
 
-    const fresh = fileName === 'mail.json'
-        ? await getMailJson()
-        : await getJson(fileName, []);
+    const knownLogins = fileName === 'profiles.json'
+        ? new Set(Object.keys(await loadAuthUsers()))
+        : null;
+
+    let saved = null;
+    for (let attempt = 0; attempt < WRITE_RETRIES; attempt++) {
+    const cas = await getJsonCas(fileName, []);
+    const fresh = cas.data;
     if (!nextProposed.length && Array.isArray(fresh) && fresh.length) {
-        const skippedData = fileName === 'mail.json' ? projectMailForClient(fresh, user) : fresh;
-        return respond(200, { ok: true, skipped: true, count: fresh.length, data: skippedData });
+        return respond(200, { ok: true, skipped: true, count: fresh.length, data: fresh });
     }
 
     let merged = nextProposed;
     if (Array.isArray(fresh)) {
         if (fileName === 'profiles.json') merged = mergeProfilesArrays(fresh, nextProposed);
-        else if (fileName === 'mail.json') merged = mergeMailArrays(fresh, nextProposed);
         else if (fileName === 'feed.json') merged = mergeFeedPostsArrays(fresh, nextProposed);
         else if (fileName === 'events.json') merged = mergeEventsArrays(fresh, nextProposed);
         else merged = mergeMapDataArrays(fresh, nextProposed);
     }
 
-    if (fileName === 'profiles.json') merged = sanitizeProfiles(fresh, merged, user).map(stripMailFields).map(sanitizeProfileCard);
-    else if (fileName === 'mail.json') merged = sanitizeMail(fresh, merged, user);
+    if (fileName === 'profiles.json') merged = sanitizeProfiles(fresh, merged, user, knownLogins).map(stripMailFields).map(sanitizeProfileCard);
     else if (fileName === 'feed.json') merged = sanitizeFeed(fresh, merged, user);
     else if (fileName === 'events.json') merged = sanitizeEvents(fresh, merged, user);
     else merged = sanitizeMapData(fresh, merged, user);
 
-    if (fileName === 'mail.json') await putMailJson(merged);
-    else await putJson(fileName, merged);
+    try {
+        await putJson(fileName, merged, { ifMatch: cas.missing ? undefined : cas.etag });
+        saved = merged;
+        break;
+    } catch (err) {
+        if (err && err.code === 'write_conflict' && attempt < WRITE_RETRIES - 1) continue;
+        throw err;
+    }
+    }
+    if (!saved) throw new WriteConflictError();
 
-    const clientData = fileName === 'mail.json' ? projectMailForClient(merged, user) : merged;
     return respond(200, {
         ok: true,
         fileName,
-        count: Array.isArray(merged) ? merged.length : 0,
-        // Клиент использует этот снимок вместо повторного GET (CDN/гонка иначе «теряет» сообщения)
-        data: clientData
+        count: Array.isArray(saved) ? saved.length : 0,
+        data: saved
     });
 }
 
@@ -2354,6 +2967,8 @@ async function handleCommit(event, body) {
     const totpBlock = await assertStaffTotp(user);
     if (totpBlock) return totpBlock;
 
+    const cool = assertCooldown(user.login, 'sync');
+    if (cool) return cool;
 
     const fileName = String(body.fileName || '');
     if (!ALLOWED_JSON.has(fileName)) return respond(400, { ok: false, error: 'bad_file' });
@@ -2400,7 +3015,7 @@ async function handlePresign(event, body) {
     if (stagingMatch) {
         if (stagingMatch[1] !== user.login) return respond(403, { ok: false, error: 'bad_staging_owner' });
         key = fileName;
-    } else if (ALLOWED_JSON.has(fileName) || fileName === AUTH_KEY || fileName.startsWith('_auth/')) {
+    } else if (ALLOWED_JSON.has(fileName) || fileName === AUTH_KEY || fileName.startsWith('_auth/') || fileName.startsWith('_mail/')) {
         return respond(403, { ok: false, error: 'use_sync' });
     } else {
         const allowed = MEDIA_PREFIXES.some((p) => fileName.startsWith(p));
@@ -2411,9 +3026,11 @@ async function handlePresign(event, body) {
             : `uploads/${user.login}/${safe.split('/').pop()}`;
 
         const isImage = /^image\//i.test(contentType);
-        const isAudio = /^audio\//i.test(contentType);
-        const maxBytes = isImage ? MAX_IMAGE_BYTES : (isAudio ? MAX_AUDIO_BYTES : MAX_AUDIO_BYTES);
-        if (contentLength > 0 && contentLength > maxBytes) {
+        const maxBytes = isImage ? MAX_IMAGE_BYTES : MAX_AUDIO_BYTES;
+        if (!(contentLength > 0)) {
+            return respond(400, { ok: false, error: 'content_length_required' });
+        }
+        if (contentLength > maxBytes) {
             return respond(413, {
                 ok: false,
                 error: 'file_too_large',
@@ -2429,7 +3046,8 @@ async function handlePresign(event, body) {
     const command = new PutObjectCommand({
         Bucket: hostBucket,
         Key: key,
-        ContentType: contentType
+        ContentType: contentType,
+        ...(contentLength > 0 ? { ContentLength: Math.floor(contentLength) } : {})
     });
     const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 900 });
     return respond(200, {
@@ -2515,7 +3133,7 @@ exports.handler = async function handler(event = {}) {
 
     // health / publicConfig — без секретов и без тяжёлых лимитов
     if (action === 'health') {
-        return respond(200, { ok: true, version: 14 });
+        return respond(200, { ok: true, version: 18, ydb: ydbDoc.enabled() });
     }
     if (action === 'publicConfig') {
         return respond(200, {
@@ -2529,8 +3147,11 @@ exports.handler = async function handler(event = {}) {
         return respond(500, { ok: false, error: 'server_misconfigured' });
     }
 
+    await Promise.all([hydrateRateBuckets(), hydrateLoginLocks()]);
+
     // everything else shares a generous per-IP ceiling
     if (!rateLimit(`ip:${ipKey}`, 360, 60000)) {
+        void flushRateBuckets(true);
         return respond(429, { ok: false, error: 'rate_limited' });
     }
 
@@ -2544,8 +3165,10 @@ exports.handler = async function handler(event = {}) {
         ? verifyJwt(extractToken(event, body))
         : null;
     if (!actionRateLimit(action, ipKey, tokenPayload?.login || '')) {
+        void flushRateBuckets(true);
         return respond(429, { ok: false, error: 'rate_limited', message: 'Too many requests, retry shortly' });
     }
+    if (rateDirty) void flushRateBuckets(false);
 
     try {
         if (action === 'register') return await handleRegister(body);
@@ -2581,7 +3204,17 @@ exports.handler = async function handler(event = {}) {
         }
         return respond(400, { ok: false, error: 'unknown_action' });
     } catch (err) {
-        console.error('API error', err);
+        if (err instanceof ClientError || err?.name === 'ClientError') {
+            return respond(err.status || 400, { ok: false, error: err.code, message: err.message });
+        }
+        if (err instanceof IntegrityError || err?.name === 'IntegrityError') {
+            console.error('API integrity', err.key || err.code);
+            return respond(503, { ok: false, error: 'integrity_mismatch', message: 'Данные временно недоступны' });
+        }
+        if (err && err.code === 'write_conflict') {
+            return respond(409, { ok: false, error: 'write_conflict', message: 'Конфликт записи, повторите' });
+        }
+        console.error('API error', err && (err.code || err.name || 'internal'));
         return respond(500, { ok: false, error: 'internal' });
     }
 };

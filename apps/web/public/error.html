@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Полёвка</title>
+    <link rel="icon" href="/favicon.svg" />
+    <meta name="theme-color" content="#B5613F" />
+    <style>
+      :root { color-scheme: light; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100%; }
+      body {
+        min-height: 100dvh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: #E8EDEA;
+        font-family: "Geist Variable", "Segoe UI", system-ui, sans-serif;
+        color: #1A1A1A;
+      }
+      .card {
+        width: min(420px, 100%);
+        background: #fff;
+        border-radius: 24px;
+        padding: 32px 28px 28px;
+        text-align: center;
+        box-shadow: 0 18px 48px rgba(45, 60, 57, 0.12);
+      }
+      .mark {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 16px;
+        border-radius: 16px;
+        background: #F4E8D8;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+      }
+      .mark img { width: 40px; height: 40px; }
+      h1 {
+        margin: 0 0 10px;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 28px;
+        line-height: 1.15;
+        font-weight: 500;
+      }
+      p {
+        margin: 0 0 24px;
+        color: #6F7C4E;
+        font-size: 14px;
+        line-height: 1.55;
+      }
+      .btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 48px;
+        border-radius: 16px;
+        background: #B5613F;
+        color: #fff;
+        text-decoration: none;
+        font-size: 15px;
+        font-weight: 500;
+      }
+      .ghost {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 44px;
+        margin-top: 10px;
+        color: #6F7C4E;
+        text-decoration: none;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <div class="mark"><img src="/favicon.svg" alt="" /></div>
+      <h1 id="title">Полёвка сейчас недоступна</h1>
+      <p id="body">Не удаётся загрузить карту и записи. Это на нашей стороне — попробуйте ещё раз через минуту.</p>
+      <a class="btn" id="retry" href="/">Попробовать снова</a>
+      <a class="ghost" href="/">На главную</a>
+    </main>
+    <script>
+      (function () {
+        var q = new URLSearchParams(location.search);
+        var kind = q.get('kind') || 'down';
+        var en = (q.get('lang') || navigator.language || '').toLowerCase().indexOf('en') === 0;
+        var copy = {
+          down: en
+            ? ['Полёвка is unavailable', 'We cannot load the map and recordings. That is on us — try again in a minute.', 'Try again', 'Home']
+            : ['Полёвка сейчас недоступна', 'Не удаётся загрузить карту и записи. Это на нашей стороне — попробуйте ещё раз через минуту.', 'Попробовать снова', 'На главную'],
+          offline: en
+            ? ['You are offline', 'The internet dropped. When you are back, the map and messages will load again.', 'Try again', 'Home']
+            : ['Нет сети', 'Кажется, пропал интернет. Как только связь вернётся, карта и сообщения снова подтянутся.', 'Попробовать снова', 'На главную'],
+          boot: en
+            ? ['Something broke', 'The page tripped. Your map data is safe — just refresh Полёвка.', 'Try again', 'Home']
+            : ['Что-то сломалось', 'Страница споткнулась. Данные на карте в порядке — просто обновите Полёвку.', 'Попробовать снова', 'На главную']
+        };
+        var row = copy[kind] || copy.down;
+        document.getElementById('title').textContent = row[0];
+        document.getElementById('body').textContent = row[1];
+        document.getElementById('retry').textContent = row[2];
+        document.querySelector('.ghost').textContent = row[3];
+        document.getElementById('retry').setAttribute('href', '/');
+        if (!navigator.onLine) {
+          document.getElementById('title').textContent = copy.offline[0];
+          document.getElementById('body').textContent = copy.offline[1];
+        }
+      })();
+    </script>
+  </body>
+</html>

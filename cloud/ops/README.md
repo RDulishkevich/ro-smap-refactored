@@ -31,7 +31,7 @@ Verify:
 ```powershell
 # should return Access-Control-Allow-Origin
 curl.exe -i -X OPTIONS "https://storage.yandexcloud.net/rosmap2026-private/staging/x" `
-  -H "Origin: https://rdulishkevich.github.io" `
+  -H "Origin: https://polevka.art" `
   -H "Access-Control-Request-Method: PUT"
 ```
 
@@ -70,7 +70,7 @@ Do not paste the new password into chat. After you change it in-app, the bootstr
 
 ## Smoke checklist
 
-- [ ] API `health` → ok (`version: 7`)
+- [ ] API `health` → ok (`version: 18`)
 - [ ] `publicConfig` returns Maps key length > 0 (key not in frontend source)
 - [ ] `https://storage.yandexcloud.net/rosmap2026/mail.json` → 403/404
 - [ ] Register new user
@@ -84,6 +84,24 @@ Do not paste the new password into chat. After you change it in-app, the bootstr
 - [ ] Hard refresh — data still there
 - [ ] `https://storage.yandexcloud.net/rosmap2026/_auth/users.json` → 404/403
 - [ ] Private auth not reachable without keys
+
+## YDB (source of truth)
+
+Карта для гостей по-прежнему читает публичный JSON. Записи (лайки, почта, учётки) живут в serverless YDB.
+
+```powershell
+pwsh cloud/ops/ydb-create.ps1
+node cloud/ops/migrate-to-ydb.cjs
+```
+
+На функцию: `YDB_DOCAPI_ENDPOINT`, роль `ydb.databaseUser` у того же SA, что пишет в бакеты. `health` → `{ version: 18, ydb: true }`. Zip: `index.js`, `sessionSecurity.js`, `mailTemplates.js`, `ydbDoc.js`.
+
+Перед v18 (или сразу после, с `INTEGRITY_ALLOW_UNSIGNED=1`):
+
+```powershell
+node cloud/ops/seal-integrity.cjs
+pwsh cloud/ops/set-scale-policy.ps1
+```
 
 ## Stage 2 migration
 
