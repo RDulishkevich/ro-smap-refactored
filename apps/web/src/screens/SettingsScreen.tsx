@@ -1,8 +1,9 @@
-import { type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { motion } from 'motion/react';
 import { Info, LogOut, Volume2 } from 'lucide-react';
 import { color } from '@polevka/design';
-import { apiLogoutAll } from '@polevka/core';
+import { apiExportMyData, apiLogoutAll } from '@polevka/core';
+import { canUseDeviceUnlock } from '../lib/device-unlock';
 import { useAuth } from '../state/AuthContext';
 import { useNav } from '../state/NavContext';
 import { useData } from '../state/DataContext';
@@ -24,7 +25,9 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
   const desktop = useIsDesktop();
   const toggle = useToggleTheme();
   const dark = useIsDark();
-  const { logout, isStaff, isLoggedIn } = useAuth();
+  const { logout, isStaff, isLoggedIn, user, offerDeviceUnlock, disableDeviceUnlock, deviceUnlockReady } = useAuth();
+  const [waOk, setWaOk] = useState(false);
+  useEffect(() => { void canUseDeviceUnlock().then(setWaOk); }, []);
   const { push, reset } = useNav();
   const { toast, confirm } = useUi();
   const { prefs, setPref } = usePrefs();
@@ -38,6 +41,23 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
     await logout();
     reset();
     toast(t('sessionsEnded'));
+  };
+
+  const exportOwnData = async () => {
+    try {
+      const data = await apiExportMyData() as { data?: unknown };
+      const payload = data.data ?? data;
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `polevka-data-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast(t('dataExported'));
+    } catch (e: unknown) {
+      toast((e as Error).message || t('downloadMyData'));
+    }
   };
 
   return (
@@ -86,6 +106,31 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
 
         <Section title={t('account')} th={th}>
           {isLoggedIn && <Row label={t('profileSecurity')} th={th} onClick={() => push({ type: 'cabinet' })} />}
+          {isLoggedIn && waOk && (
+            <Row
+              label={t('enableFaceId')}
+              th={th}
+              right={<Switch on={deviceUnlockReady} onChange={() => {
+                void (async () => {
+                  if (deviceUnlockReady) {
+                    disableDeviceUnlock();
+                    toast(t('deviceUnlockOff'));
+                    return;
+                  }
+                  try {
+                    await offerDeviceUnlock();
+                    toast(t('deviceUnlockOn'));
+                  } catch {
+                    toast(t('unlockFailed'));
+                  }
+                })();
+              }} />}
+            />
+          )}
+          {isLoggedIn && <Row label={t('downloadMyData')} th={th} onClick={() => void exportOwnData()} />}
+          {isLoggedIn && user?.loginName !== 'admin' && user?.loginName !== 'support' && (
+            <Row label={t('deleteAccount')} th={th} onClick={() => push({ type: 'delete-account' })} />
+          )}
           <Row label={t('helpSupport')} th={th} onClick={() => push({ type: 'help' })} />
           {isStaff && <Row label={t('staff')} th={th} onClick={() => push({ type: 'staff' })} />}
         </Section>

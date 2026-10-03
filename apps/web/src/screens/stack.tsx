@@ -7,7 +7,9 @@ import {
 import { color, pinColor } from '@polevka/design';
 import {
   apiChangePassword, apiConfirmEmailVerification, apiConfirmPasswordReset,
+  apiDeleteAccount, apiExportMyData,
   apiGetSecurityEvents, apiLogoutAll, apiPatchSound, apiRequestEmailVerification, apiRequestPasswordReset,
+  readLastLogin,
   apiSyncJson, apiTotpConfirm, apiTotpDisable, apiTotpSetup, conversationPeers, makeMailMsg,
   matchSupportBotFaq,   normalizeComment, normalizeTimeMarkers, spamGuardCheck, spamGuardMessage, SUPPORT_LOGIN,
   SUPPORT_NAME, threadWith, uploadUserMedia, upsertInboxPatch, formatPlays,
@@ -74,6 +76,7 @@ export function ScreenContent({ screen, onBack }: { screen: ScreenConfig; onBack
     case 'help': return <HelpScreen onBack={onBack} />;
     case 'legal': return <LegalScreen doc={screen.doc} onBack={onBack} />;
     case 'cabinet': return <CabinetScreen onBack={onBack} />;
+    case 'delete-account': return <DeleteAccountScreen onBack={onBack} />;
     case 'guessr': return <GuessrScreen onBack={onBack} />;
     case 'reset-password': return <ResetPasswordScreen onBack={onBack} />;
     case 'catalog': return <CatalogPage onBack={onBack} />;
@@ -614,16 +617,17 @@ function FeedPostScreen({ post, onBack }: { post: FeedPost; onBack: () => void }
 function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mode?: 'in' | 'up' }) {
   const th = useTh();
   const desktop = useIsDesktop();
-  const { login, register } = useAuth();
-  const { toast } = useUi();
+  const { login, register, offerDeviceUnlock } = useAuth();
+  const { toast, confirm } = useUi();
   const { push, pop } = useNav();
   const { reload } = useData();
   const { prefs } = usePrefs();
   const t = useT();
   const loc = prefs.locale === 'en' ? 'en' : 'ru';
   const [mode, setMode] = useState<'in' | 'up'>(startMode);
-  const [loginName, setLogin] = useState('');
+  const [loginName, setLogin] = useState(() => readLastLogin());
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [name, setName] = useState('');
   const [totp, setTotp] = useState('');
   const [needTotp, setNeedTotp] = useState(false);
@@ -652,7 +656,18 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
         }]);
         await reload();
       }
-      else await login(loginName.trim(), password, code || undefined);
+      else await login(loginName.trim(), password, code || undefined, rememberMe);
+      if (rememberMe) {
+        const enable = await confirm({
+          title: t('enableFaceId'),
+          body: t('enableFaceIdBody'),
+          ok: t('enableFaceId'),
+        });
+        if (enable) {
+          try { await offerDeviceUnlock(loginName.trim(), name.trim() || loginName.trim()); toast(t('deviceUnlockOn')); }
+          catch { /* user cancelled sensor */ }
+        }
+      }
       toast('Добро пожаловать');
       pop();
     } catch (e: unknown) {
@@ -686,6 +701,12 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
       {mode === 'up' && <Field label={t('name')} value={name} onChange={setName} th={th} />}
       <Field label={t('loginName')} value={loginName} onChange={setLogin} th={th} />
       <Field label={t('password')} value={password} onChange={setPassword} th={th} password />
+      {mode === 'in' && (
+        <label className="flex items-start gap-2 text-[11px]" style={{ color: OLIVE }}>
+          <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="mt-0.5" />
+          <span>{t('rememberMe')}</span>
+        </label>
+      )}
       {mode === 'in' && needTotp && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-3xl p-4" style={{ background: th.cardBg }}>
           <p className="text-xs font-bold mb-1" style={{ color: th.inkText }}>Код из приложения</p>
@@ -1462,6 +1483,17 @@ function CabinetScreen({ onBack }: { onBack: () => void }) {
     toast('Все сессии завершены');
   };
 
+  const exportOwnData = async () => {
+    setBusy(true);
+    try {
+      const data = await apiExportMyData() as { data?: unknown };
+      downloadAccountExport(user?.loginName || 'account', data.data ?? data);
+      toast('Файл с вашими данными скачан');
+    } catch (e: unknown) {
+      toast((e as Error).message || 'Не удалось скачать данные');
+    } finally { setBusy(false); }
+  };
+
   const totpOn = !!user?.totpEnabled;
   const totpStatus = totpOn
     ? (isStaff ? '2FA включена (обязательна для staff)' : '2FA включена')
@@ -1535,7 +1567,89 @@ function CabinetScreen({ onBack }: { onBack: () => void }) {
         <Row label="Настройки приложения" th={th} onClick={() => push({ type: 'settings' })} />
         <Row label="Сообщения" th={th} onClick={() => push({ type: 'messages' })} />
         <Row label="Помощь" th={th} onClick={() => push({ type: 'help' })} />
+        <button disabled={busy} onClick={() => void exportOwnData()} className="w-full py-3 rounded-2xl text-xs font-semibold" style={{ background: th.cardBg, color: th.inkText }}>Скачать мои данные</button>
+        {user?.loginName !== 'admin' && user?.loginName !== 'support' && (
+          <button type="button" onClick={() => push({ type: 'delete-account' })} className="w-full py-3 rounded-2xl text-xs font-semibold" style={{ background: th.cardBg, color: ACCENT }}>Удалить аккаунт</button>
+        )}
         <button disabled={busy} onClick={() => void logoutEverywhere()} className="w-full py-3 rounded-2xl text-xs font-semibold text-white" style={{ background: DARK }}>Выйти на всех устройствах</button>
+      </div>
+    </div>
+  );
+}
+
+function downloadAccountExport(login: string, payload: unknown) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `polevka-${login}-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function DeleteAccountScreen({ onBack }: { onBack: () => void }) {
+  const th = useTh();
+  const t = useT();
+  const { user, logout } = useAuth();
+  const { reset } = useNav();
+  const { toast, confirm } = useUi();
+  const [pw, setPw] = useState('');
+  const [totp, setTotp] = useState('');
+  const [busy, setBusy] = useState(false);
+  const protectedAcc = user?.loginName === 'admin' || user?.loginName === 'support';
+
+  const submit = async () => {
+    if (!pw) { toast(t('deleteAccountPw')); return; }
+    if (user?.totpEnabled && !/^\d{6}$/.test(totp.trim())) {
+      toast(t('deleteAccountTotp'));
+      return;
+    }
+    const ok = await confirm({
+      title: t('deleteAccountTitle'),
+      body: t('deleteAccountBody'),
+      ok: t('deleteAccountConfirm'),
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await apiDeleteAccount(pw, user?.totpEnabled ? totp.trim() : undefined);
+      await logout();
+      reset();
+      toast(t('deleteAccountDone'));
+    } catch (e: unknown) {
+      const err = e as ApiError;
+      if (err.code === 'bad_credentials') toast('Неверный пароль');
+      else if (err.code === 'bad_totp') toast('Неверный код 2FA');
+      else if (err.code === 'protected_account') toast(t('deleteAccountProtected'));
+      else toast(err.message || t('deleteAccount'));
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
+      <ScreenHeader title={t('deleteAccountTitle')} onBack={onBack} />
+      <div className="flex-1 overflow-y-auto scrollbar-none p-4 flex flex-col gap-3">
+        <div className="rounded-3xl p-4" style={{ background: th.cardBg }}>
+          <p className="text-xs leading-relaxed" style={{ color: SAGE }}>{t('deleteAccountBody')}</p>
+        </div>
+        {protectedAcc ? (
+          <p className="text-xs" style={{ color: ACCENT }}>{t('deleteAccountProtected')}</p>
+        ) : (
+          <div className="rounded-3xl p-4 flex flex-col gap-3" style={{ background: th.cardBg }}>
+            <Field label={t('deleteAccountPw')} value={pw} onChange={setPw} th={th} password />
+            {user?.totpEnabled && (
+              <div>
+                <p className="text-[10px] font-semibold mb-1" style={{ color: SAGE }}>{t('deleteAccountTotp')}</p>
+                <OtpInput value={totp} onChange={setTotp} />
+              </div>
+            )}
+            <button type="button" disabled={busy} onClick={() => void submit()}
+              className="w-full py-3 rounded-2xl text-xs font-semibold text-white cursor-pointer"
+              style={{ background: ACCENT }}>
+              {t('deleteAccountConfirm')}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

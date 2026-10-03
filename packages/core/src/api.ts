@@ -94,8 +94,8 @@ export const apiRegister = (login: string, password: string, displayName?: strin
     ...(pdConsent ? { pdConsent: true, pdConsentAt: new Date().toISOString() } : {}),
   });
 
-export const apiLogin = (login: string, password: string, totpCode?: string) =>
-  apiRequest('login', { login, password, ...(totpCode ? { totpCode } : {}) });
+export const apiLogin = (login: string, password: string, totpCode?: string, rememberMe = true) =>
+  apiRequest('login', { login, password, rememberMe, ...(totpCode ? { totpCode } : {}) });
 
 export const apiLogout = () => apiRequest('logout', {}, { auth: false }).catch(() => ({ ok: true }));
 export const apiLogoutAll = () => apiRequest('logoutAll', {}, { auth: true });
@@ -175,6 +175,10 @@ export async function apiSyncJson(fileName: string, data: unknown) {
 }
 export const apiAdminSendEmail = (login: string, message: string, subject?: string) =>
   apiRequest('adminSendEmail', { login, message, subject }, { auth: true });
+export const apiDeleteAccount = (password: string, totpCode?: string) =>
+  apiRequest('deleteAccount', { password, ...(totpCode ? { totpCode } : {}) }, { auth: true });
+export const apiExportMyData = () =>
+  apiRequest('exportMyData', {}, { auth: true });
 export const apiAdminDeleteUser = (login: string) =>
   apiRequest('adminDeleteUser', { login }, { auth: true });
 export const apiAdminUnbindEmail = (login: string) =>

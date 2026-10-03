@@ -55,7 +55,8 @@ Object Storage
 - Пароли: **scrypt** + salt, сравнение через `timingSafeEqual`.
 - Хеши в `_auth/users.json` (private bucket).
 - Минимальная длина пароля: **8**.
-- **Access JWT** TTL **30 минут** (`typ: access`); **refresh JWT** TTL **14 суток** (`typ: refresh`).
+- **Access JWT** TTL **30 минут** (`typ: access`); **refresh JWT** TTL **14 суток** (`typ: refresh`) при «Запомнить меня»; иначе refresh — session cookie (`rm: 0` в JWT).
+- Быстрый вход с домашнего экрана: WebAuthn platform authenticator (Face ID / отпечаток / PIN) на устройстве; биометрия на сервер не уходит.
 - Оба токена в **HttpOnly** cookies (`rosmap_at` / `rosmap_rt`), `Secure; SameSite=None` (SPA на другом origin).
 - Клиент шлёт `credentials: 'include'`; access JWT дублируется в `sessionStorage`/`memory` для заголовка `X-Rosmap-Token` (не в `localStorage`).
 - Подпись JWT проверяется с `timingSafeEqual`.
@@ -86,7 +87,7 @@ Object Storage
 
 - Баннер `#cookie-consent-banner`: «Принять» (сессия + локальные настройки) / «Только необходимые».
 - Флаг в `localStorage` (`polevka_cookie_consent`, versioned). Вход без «Принять» блокируется (`requireCookieConsentForAuth`).
-- Политика: [`docs/privacy-policy.md`](privacy-policy.md) §2.1; UI — `legalDocs.js` v2026.08.
+- Политика: [`docs/privacy-policy.md`](privacy-policy.md) §2.1; UI — `legalDocs.js` v2026.10.
 - Повтор: Настройки → «Cookies и согласие».
 
 ### 3.4 Login lockout и rate limit
@@ -166,6 +167,16 @@ node cloud/ops/migrate-mail-private.cjs
 YDB (когда задан `YDB_DOCAPI_ENDPOINT`): таблица `polevka_rows` (kind+id). Лайк/плей патчит одну строку звука и пересобирает `map_data.json` для гостей. Учётки, почта, PII — отдельные строки, не один гигантский файл.
 
 Покрыто: `mail.json`, `_mail/boxes/*`, `profiles.json`, `map_data.json`, `feed.json`, `events.json`, `_auth/*`.
+
+### 3.10a ПДн
+
+- Email, согласие и анкета — только `_auth/private_meta` (и YDB `meta`). Публичный `profiles.json` чистится от этих полей при первом запросе после деплоя.
+- `refresh` живёт в HttpOnly cookie, в JSON ответа больше не отдаётся.
+- Запрос кода на чужой подтверждённый email отвечает так же, как обычная отправка — без `email_taken`.
+- Удаление аккаунта (`deleteAccount` самим пользователем или `adminDeleteUser`) снимает ящик и коды в S3 **и** YDB, анонимизирует комментарии / авторство, чистит черновики и неиспользуемые загрузки. Опубликованные записи остаются без имени. Самоудаление: пароль + TOTP, если включена; `admin`/`support` нельзя удалить так.
+- Экспорт своих данных: `exportMyData` (профиль, private meta без хешей, ящик, свои звуки и посты).
+- `getMail`: admin видит все ящики; moderator — свой и `support` (тикеты).
+- Согласие `pdConsent` клиент через sync подделать не может.
 
 ### 3.11 Security events
 
@@ -301,7 +312,7 @@ Private bucket: без публичного чтения; CORS только дл
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | версия / живость (`version: 18`, поле `ydb`) |
+| `health` | нет | версия / живость (`version: 19`, поле `ydb`) |
 | `publicConfig` | нет | Maps key + bucket URL (browser-safe) |
 | `register` / `login` | нет | учётка → cookies + access JWT (+ optional TOTP) |
 | `refresh` | refresh cookie | новая пара токенов |

@@ -9,7 +9,7 @@
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | проверка живости (`version: 18`, `ydb: true/false`) |
+| `health` | нет | проверка живости (`version: 20`, `ydb: true/false`) |
 | `publicConfig` | нет | публичные ключи (Maps) |
 | `register` | нет | регистрация (пароль → scrypt) |
 | `login` | нет | вход → HttpOnly cookies + access JWT (опц. TOTP) |
@@ -25,7 +25,9 @@
 | `patchSound` | access | лёгкий патч plays/downloads/лайков без полной перезаписи `map_data.json` |
 | `presign` | access | presigned PUT; медиа требуют `contentLength` (≤ 30 MB / 1 GB) |
 | `commit` | access | взять staging → merge → sanitize → PUT публичный JSON |
-| `getMail` | access | свой ящик `_mail/boxes/{login}.json` + партнёры; staff — все ящики + TOTP |
+| `getMail` | access | свой ящик + партнёры; admin — все; moderator — свой + `support` |
+| `deleteAccount` | access | самоудаление: пароль + TOTP; нельзя `admin`/`support` |
+| `exportMyData` | access | JSON своих данных (без хешей пароля) |
 | `translate` | access | Yandex Translate RU→EN (UCS FXName) |
 | `requestEmailVerification` | access | 6-значный код на email (SMTP); хеш в `_auth/email_codes/{login}.json` |
 | `confirmEmailVerification` | access | проверка кода → `email` + `emailVerified` в private_meta |
@@ -76,7 +78,7 @@
 | Inbox / notifications | 200 / 100 записей |
 | Текст сообщения | 4000 символов |
 | Пароль | мин. 8 символов |
-| Access JWT / refresh | 30 мин / 14 суток (HttpOnly cookies) |
+| Access JWT / refresh | 30 мин / 14 суток при «запомнить меня»; иначе refresh — session cookie |
 | Login lockout | 8 fails → 15 мин (IP+login) |
 | Rate limit | IP 360/мин (без health); login 25; refresh 60; sync/commit 120; patchSound 180; presign 90; translate 40; getMail 120; email/reset request 5/10мин на логин, 20/час на IP; confirm 20/10мин; totp 20/10мин |
 | Cooldown | sync 400 мс; сообщение 1.6 с; лайк 280 мс; play 800 мс |

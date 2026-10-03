@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
-import { Headphones, LogIn, Mic, Settings } from 'lucide-react';
+import { Headphones, LogIn, Mic, Settings, Trash2 } from 'lucide-react';
 import { color, pinColor } from '@polevka/design';
 import { formatPlays, type Sound } from '@polevka/core';
 import { useSoundMeta } from '../lib/audio-meta';
@@ -111,6 +111,13 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
             <motion.button whileTap={{ scale: 0.94 }} onClick={() => push({ type: 'cabinet' })}
               className="flex-1 py-2.5 rounded-2xl text-xs font-semibold shadow-sm cursor-pointer" style={{ background: th.cardBg, color: th.isDark ? LIGHT : DARK }}>{t('cabinet')}</motion.button>
           </div>
+          {user?.loginName !== 'admin' && user?.loginName !== 'support' && (
+            <motion.button type="button" whileTap={{ scale: 0.94 }} onClick={() => push({ type: 'delete-account' })}
+              className="w-full py-2.5 rounded-2xl text-xs font-semibold shadow-sm cursor-pointer flex items-center justify-center gap-1.5 relative mb-1"
+              style={{ background: th.cardBg, color: ACCENT }}>
+              <Trash2 size={12} />{t('deleteAccount')}
+            </motion.button>
+          )}
         </div>
         <div className="px-4 pb-48">
           <p className="text-sm font-semibold mb-3" style={{ color: th.inkText }}>{t('mySounds')}</p>

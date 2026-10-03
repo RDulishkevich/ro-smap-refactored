@@ -66,15 +66,18 @@ function isHttpsRequest(event, getHeader) {
 
 function buildSetCookie(name, value, maxAgeSec, event, getHeader) {
     // Cookie ставится на хост Cloud Function (HTTPS). SPA на другом origin → нужен SameSite=None; Secure.
-    const max = Math.max(0, maxAgeSec | 0);
-    return `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; Max-Age=${max}; Secure; SameSite=None`;
+    // maxAgeSec <= 0 → session cookie (закрыли браузер — вышли, если не «запомнить меня»).
+    let cookie = `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; Secure; SameSite=None`;
+    const max = maxAgeSec | 0;
+    if (max > 0) cookie += `; Max-Age=${max}`;
+    return cookie;
 }
 
 function clearCookie(name, event, getHeader) {
     return buildSetCookie(name, '', 0, event, getHeader);
 }
 
-function issueTokenPair(signJwt, user) {
+function issueTokenPair(signJwt, user, remember = true) {
     const now = Math.floor(Date.now() / 1000);
     const tv = Number(user.tokenVersion || 0) || 0;
     const base = {
@@ -82,6 +85,7 @@ function issueTokenPair(signJwt, user) {
         role: user.role,
         displayName: user.displayName || user.login,
         tv,
+        rm: remember ? 1 : 0,
         iat: now
     };
     const access = signJwt({ ...base, typ: 'access', exp: now + ACCESS_TTL_SEC });
@@ -89,10 +93,17 @@ function issueTokenPair(signJwt, user) {
         login: user.login,
         tv,
         typ: 'refresh',
+        rm: remember ? 1 : 0,
         iat: now,
         exp: now + REFRESH_TTL_SEC
     });
-    return { access, refresh, accessTtl: ACCESS_TTL_SEC, refreshTtl: REFRESH_TTL_SEC };
+    return {
+        access,
+        refresh,
+        accessTtl: ACCESS_TTL_SEC,
+        refreshTtl: remember ? REFRESH_TTL_SEC : 0,
+        remember: !!remember
+    };
 }
 
 function sessionCookiesFor(event, getHeader, access, refresh, accessTtl, refreshTtl) {

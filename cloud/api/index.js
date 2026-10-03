@@ -22,10 +22,12 @@
  *   | requestEmailVerification | confirmEmailVerification
  *   | requestPasswordReset | confirmPasswordReset | adminDeleteUser | adminUnbindEmail | adminSendEmail
  *   | totpSetup | totpConfirm | totpDisable | getSecurityEvents
+ *   | deleteAccount | exportMyData
+ *   login rememberMe → persistent refresh cookie (14d); false → session cookie
  */
 
 const crypto = require('crypto');
-const { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, DeleteObjectsCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const mailTemplates = require('./mailTemplates');
 const sessionSec = require('./sessionSecurity');
@@ -333,8 +335,19 @@ function respond(statusCode, payload, { cookies } = {}) {
     return out;
 }
 
+function rememberFromRequest(event, body) {
+    const access = verifyJwt(extractToken(event, body));
+    if (access && access.rm === 0) return false;
+    const refresh = verifyJwt(sessionSec.extractRefreshToken(event, body, getHeader));
+    if (refresh && refresh.rm === 0) return false;
+    return true;
+}
+
 function authSuccessResponse(user, extra = {}) {
-    const pair = sessionSec.issueTokenPair(signJwt, user);
+    const remember = extra.rememberMe !== undefined
+        ? extra.rememberMe !== false
+        : rememberFromRequest(__reqEvent, {});
+    const pair = sessionSec.issueTokenPair(signJwt, user, remember);
     const cookies = sessionSec.sessionCookiesFor(
         __reqEvent,
         getHeader,
@@ -343,13 +356,14 @@ function authSuccessResponse(user, extra = {}) {
         pair.accessTtl,
         pair.refreshTtl
     );
+    const { rememberMe: _rm, ...rest } = extra;
     return respond(200, {
         ok: true,
         token: pair.access,
-        refreshToken: pair.refresh,
         tokenExpiresIn: pair.accessTtl,
-        user: extra.user || publicUser(user),
-        ...extra
+        rememberMe: remember,
+        user: rest.user || publicUser(user),
+        ...rest
     }, { cookies });
 }
 
@@ -474,6 +488,8 @@ function actionRateLimit(action, ip, login = '') {
     if (action === 'confirmEmailVerification' && !rateLimit(`emailcfm:${who}`, 20, 600000)) return false;
     if (action === 'requestPasswordReset' && !rateLimit(`pwdreq:${base}`, 8, 600000)) return false;
     if (action === 'confirmPasswordReset' && !rateLimit(`pwdcfm:${base}`, 20, 600000)) return false;
+    if (action === 'deleteAccount' && !rateLimit(`delacc:${who}`, 5, 600000)) return false;
+    if (action === 'exportMyData' && !rateLimit(`exportdata:${who}`, 10, 600000)) return false;
     if ((action === 'adminDeleteUser' || action === 'adminUnbindEmail') && !rateLimit(`adminops:${who}`, 20, 600000)) return false;
     if (action === 'adminSendEmail' && !rateLimit(`adminsend:${who}`, 30, 3600000)) return false;
     if (action === 'adminSendEmail' && !rateLimit(`adminsendip:${base}`, 60, 3600000)) return false;
@@ -721,6 +737,64 @@ async function mutateJson(key, fallback, mutator, { privateObject = false } = {}
         }
     }
     throw last || new WriteConflictError();
+}
+
+async function deletePrivateObject(key) {
+    if (ydbDoc.enabled() && ydbDoc.resolveKey(key)) {
+        try { await ydbDoc.deleteJson(key); } catch (_) { /* missing row */ }
+    }
+    try {
+        await s3.send(new DeleteObjectCommand({
+            Bucket: bucketForKey(key),
+            Key: key
+        }));
+    } catch (_) { /* missing object */ }
+}
+
+let publicProfilesScrubbed = false;
+async function scrubPublicProfilePii() {
+    if (publicProfilesScrubbed) return;
+    publicProfilesScrubbed = true;
+    try {
+        await mutateJson('profiles.json', [], (list) => {
+            let dirty = false;
+            const next = (list || []).map((p) => {
+                if (!p || typeof p !== 'object') return p;
+                if (!PROFILE_PII_KEYS.some((k) => p[k] !== undefined)) return p;
+                dirty = true;
+                return sanitizeProfileCard(p);
+            });
+            return dirty ? next : undefined;
+        });
+    } catch (_) {
+        publicProfilesScrubbed = false;
+    }
+}
+
+function anonymizeActorName(login, value) {
+    return String(value || '').toLowerCase() === login ? 'Удалённый аккаунт' : value;
+}
+
+function anonymizeComments(list, login) {
+    return (Array.isArray(list) ? list : []).map((c) => {
+        if (!c || typeof c !== 'object') return c;
+        const mine = String(c.authorId || '').toLowerCase() === login
+            || String(c.author || '').toLowerCase() === login;
+        const replies = anonymizeComments(c.replies, login);
+        const reactedBy = (Array.isArray(c.reactedBy) ? c.reactedBy : []).filter((x) => String(x).toLowerCase() !== login);
+        if (!mine) return { ...c, replies, reactedBy };
+        return {
+            ...c,
+            authorId: 'deleted',
+            author: 'Удалённый аккаунт',
+            replies,
+            reactedBy
+        };
+    });
+}
+
+function stripLoginFromList(list, login) {
+    return (Array.isArray(list) ? list : []).filter((x) => String(x || '').toLowerCase() !== login);
 }
 
 function withAdmin(users) {
@@ -1898,6 +1972,7 @@ async function handleLogin(event, body) {
     });
     const mustEnableTotp = isStaffUser({ login, role }) && !row.totpEnabled;
     return authSuccessResponse(user, {
+        rememberMe: body.rememberMe !== false,
         mustEnableTotp,
         user: {
             ...publicUser(user),
@@ -1995,7 +2070,7 @@ async function handleRefresh(event, body) {
             error: authUser?.blocked ? 'blocked' : 'unauthorized'
         }, { cookies: sessionSec.clearSessionCookies(event, getHeader) });
     }
-    return authSuccessResponse(authUser);
+    return authSuccessResponse(authUser, { rememberMe: payload.rm !== 0 });
 }
 
 async function handleLogout(event, body) {
@@ -2184,12 +2259,7 @@ async function saveEmailCode(login, row) {
 }
 
 async function clearEmailCode(login) {
-    try {
-        await s3.send(new DeleteObjectCommand({
-            Bucket: bucketForKey(emailCodeKey(login)),
-            Key: emailCodeKey(login)
-        }));
-    } catch (_) { /* ignore */ }
+    await deletePrivateObject(emailCodeKey(login));
 }
 
 async function sendTransactionalMail(to, { subject, text, html, replyTo }) {
@@ -2245,12 +2315,7 @@ async function savePasswordReset(login, row) {
 }
 
 async function clearPasswordReset(login) {
-    try {
-        await s3.send(new DeleteObjectCommand({
-            Bucket: bucketForKey(passwordResetKey(login)),
-            Key: passwordResetKey(login)
-        }));
-    } catch (_) { /* ignore */ }
+    await deletePrivateObject(passwordResetKey(login));
 }
 
 async function findLoginByEmailOrLogin(loginOrEmail) {
@@ -2368,34 +2433,77 @@ async function handleConfirmPasswordReset(body) {
     return respond(200, { ok: true });
 }
 
-async function handleAdminDeleteUser(event, body) {
-    const payload = verifyJwt(extractToken(event, body));
-    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
-    const actor = await resolveAuthUser(payload);
-    if (!actor || !isAdminUser(actor)) return respond(403, { ok: false, error: 'forbidden' });
-    const totpBlock = await assertStaffTotp(actor);
-    if (totpBlock) return totpBlock;
-
-    const target = normalizeLogin(body.login);
-    if (!target || target === 'admin' || target === actor.login || target === 'support') {
-        return respond(400, { ok: false, error: 'bad_login' });
+function mediaObjectKey(url) {
+    const s = String(url || '').split('?')[0];
+    const abs = s.match(/storage\.yandexcloud\.net\/rosmap2026\/(.+)$/i);
+    if (abs) {
+        try { return decodeURIComponent(abs[1]); } catch (_) { return abs[1]; }
     }
+    if (s.startsWith('uploads/')) return s.replace(/^\/+/, '');
+    return '';
+}
 
+async function listPrefixKeys(bucket, prefix) {
+    const keys = [];
+    let token;
+    do {
+        const out = await s3.send(new ListObjectsV2Command({
+            Bucket: bucket,
+            Prefix: prefix,
+            ContinuationToken: token
+        }));
+        for (const obj of out.Contents || []) {
+            if (obj.Key) keys.push(obj.Key);
+        }
+        token = out.IsTruncated ? out.NextContinuationToken : undefined;
+    } while (token);
+    return keys;
+}
+
+async function deleteStorageKeys(bucket, keys) {
+    for (let i = 0; i < keys.length; i += 1000) {
+        const chunk = keys.slice(i, i + 1000).filter(Boolean);
+        if (!chunk.length) continue;
+        await s3.send(new DeleteObjectsCommand({
+            Bucket: bucket,
+            Delete: { Objects: chunk.map((Key) => ({ Key })), Quiet: true }
+        }));
+    }
+}
+
+async function purgeAccountUploads(login, keepKeys) {
+    const keep = keepKeys instanceof Set ? keepKeys : new Set();
+    const prefixes = [`uploads/${login}/`, `staging/${login}/`];
+    for (const prefix of prefixes) {
+        const found = await listPrefixKeys(BUCKET, prefix);
+        const drop = found.filter((k) => !keep.has(k));
+        if (drop.length) await deleteStorageKeys(BUCKET, drop);
+    }
+    const priv = await listPrefixKeys(PRIVATE_BUCKET, `staging/${login}/`);
+    if (priv.length) await deleteStorageKeys(PRIVATE_BUCKET, priv);
+}
+
+function isOwnedSound(s, login) {
+    if (!s) return false;
+    return String(s.recordistId || '').toLowerCase() === login
+        || String(s.user || '').toLowerCase() === login;
+}
+
+async function purgeAccountData(target) {
+    const login = normalizeLogin(target);
     await mutateAuth((users) => {
-        if (!users[target]) throw new ClientError(404, 'no_user');
-        delete users[target];
+        if (!users[login]) throw new ClientError(404, 'no_user');
+        delete users[login];
         return users;
     });
-
     await mutateMeta((meta) => {
-        delete meta[target];
+        delete meta[login];
         return meta;
     });
-    await clearEmailCode(target);
-    await clearPasswordReset(target);
-
+    await clearEmailCode(login);
+    await clearPasswordReset(login);
     await mutateJson('profiles.json', [], (profiles) => (profiles || []).map((p) => {
-        if (String(p.loginName || '').toLowerCase() !== target) return p;
+        if (String(p.loginName || '').toLowerCase() !== login) return p;
         return sanitizeProfileCard({
             ...p,
             displayName: 'Удалённый аккаунт',
@@ -2409,15 +2517,144 @@ async function handleAdminDeleteUser(event, body) {
             profileUpdatedAt: new Date().toISOString()
         });
     }));
+    await deletePrivateObject(mailBoxKey(login));
 
+    const keepKeys = new Set();
+    await mutateJson('map_data.json', [], (sounds) => (sounds || []).map((s) => {
+        if (!s || typeof s !== 'object') return s;
+        const mine = isOwnedSound(s, login);
+        const published = mine && (!s.status || s.status === 'published') && !s.deleted;
+        if (published) {
+            const u = mediaObjectKey(s.url);
+            if (u) keepKeys.add(u);
+            for (const img of s.images || []) {
+                const k = mediaObjectKey(img);
+                if (k) keepKeys.add(k);
+            }
+        }
+        if (mine && !published) {
+            return {
+                ...s,
+                deleted: true,
+                status: 'deleted',
+                url: '',
+                images: [],
+                recordistId: 'deleted',
+                recordist: 'Удалённый аккаунт',
+                user: 'Удалённый аккаунт',
+                likedBy: stripLoginFromList(s.likedBy, login),
+                dislikedBy: stripLoginFromList(s.dislikedBy, login),
+                comments: anonymizeComments(s.comments, login)
+            };
+        }
+        return {
+            ...s,
+            recordistId: mine ? 'deleted' : s.recordistId,
+            recordist: anonymizeActorName(login, s.recordist),
+            user: anonymizeActorName(login, s.user),
+            likedBy: stripLoginFromList(s.likedBy, login),
+            dislikedBy: stripLoginFromList(s.dislikedBy, login),
+            comments: anonymizeComments(s.comments, login)
+        };
+    }));
+    await mutateJson('feed.json', [], (posts) => (posts || []).map((p) => {
+        if (!p || typeof p !== 'object') return p;
+        const mine = String(p.authorId || p.loginName || '').toLowerCase() === login;
+        return {
+            ...p,
+            authorId: mine ? 'deleted' : p.authorId,
+            author: anonymizeActorName(login, p.author),
+            loginName: mine ? 'deleted' : p.loginName,
+            likedBy: stripLoginFromList(p.likedBy, login)
+        };
+    }));
     try {
-        await s3.send(new DeleteObjectCommand({
-            Bucket: PRIVATE_BUCKET,
-            Key: mailBoxKey(target)
-        }));
-    } catch (_) { /* ignore */ }
+        await purgeAccountUploads(login, keepKeys);
+    } catch (_) { /* best-effort files */ }
+}
 
+async function handleAdminDeleteUser(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const actor = await resolveAuthUser(payload);
+    if (!actor || !isAdminUser(actor)) return respond(403, { ok: false, error: 'forbidden' });
+    const totpBlock = await assertStaffTotp(actor);
+    if (totpBlock) return totpBlock;
+
+    const target = normalizeLogin(body.login);
+    if (!target || target === 'admin' || target === actor.login || target === 'support') {
+        return respond(400, { ok: false, error: 'bad_login' });
+    }
+    await purgeAccountData(target);
+    await sessionSec.appendSecurityEvent(putJson, getJson, { type: 'account_deleted', login: target, by: actor.login });
     return respond(200, { ok: true, login: target });
+}
+
+async function handleDeleteAccount(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const user = await resolveAuthUser(payload);
+    if (!user) return respond(401, { ok: false, error: 'unauthorized' });
+    if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
+    if (user.login === 'admin' || user.login === 'support') {
+        return respond(400, { ok: false, error: 'protected_account' });
+    }
+
+    const password = String(body.password || '');
+    const totpCode = String(body.totpCode || body.totp || '').trim();
+    const users = await loadAuthUsers();
+    const row = users[user.login];
+    if (!row) return respond(401, { ok: false, error: 'unauthorized' });
+    if (!verifyPassword(password, row.salt, row.hash)) {
+        return respond(401, { ok: false, error: 'bad_credentials' });
+    }
+    if (row.totpEnabled && row.totpSecret) {
+        if (!sessionSec.verifyTotp(row.totpSecret, totpCode)) {
+            return respond(401, { ok: false, error: 'bad_totp' });
+        }
+    }
+
+    await purgeAccountData(user.login);
+    await sessionSec.appendSecurityEvent(putJson, getJson, { type: 'account_deleted', login: user.login, by: user.login });
+    return respond(200, { ok: true }, { cookies: sessionSec.clearSessionCookies(event, getHeader) });
+}
+
+async function handleExportMyData(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const user = await resolveAuthUser(payload);
+    if (!user) return respond(401, { ok: false, error: 'unauthorized' });
+    if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
+
+    const [profiles, sounds, feed, meta] = await Promise.all([
+        getJson('profiles.json', []),
+        getJson('map_data.json', []),
+        getJson('feed.json', []),
+        loadPrivateMeta()
+    ]);
+    const login = user.login;
+    const profile = (profiles || []).find((p) => String(p.loginName || '').toLowerCase() === login) || null;
+    const pii = meta[login] && typeof meta[login] === 'object' ? { ...meta[login] } : {};
+    const mail = await loadMailBox(login);
+    return respond(200, {
+        ok: true,
+        data: {
+            exportedAt: new Date().toISOString(),
+            login,
+            profile: profile ? sanitizeProfileCard(profile) : null,
+            private: {
+                email: pii.email || '',
+                emailVerified: !!pii.emailVerified,
+                pdConsent: !!pii.pdConsent,
+                pdConsentAt: pii.pdConsentAt || '',
+                skillLevel: pii.skillLevel,
+                platformIntents: pii.platformIntents
+            },
+            mail: sanitizeMailRecord(mail),
+            sounds: (sounds || []).filter((s) => isOwnedSound(s, login)),
+            posts: (feed || []).filter((p) => String(p.authorId || p.loginName || '').toLowerCase() === login)
+        }
+    });
 }
 
 async function handleAdminUnbindEmail(event, body) {
@@ -2513,7 +2750,7 @@ async function handleRequestEmailVerification(event, body) {
     }
     const taken = verifiedEmailOwner(privateMeta, email);
     if (taken && taken !== user.login) {
-        return respond(409, { ok: false, error: 'email_taken', message: 'Этот email уже подтверждён на другом аккаунте' });
+        return respond(200, { ok: true, expiresAt: Date.now() + EMAIL_CODE_TTL_MS });
     }
 
     const smtpOk = isSmtpConfigured();
@@ -2667,9 +2904,14 @@ async function handleGetMail(event, body) {
     if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
     const totpBlock = await assertStaffTotp(user);
     if (totpBlock) return totpBlock;
-    if (isStaffUser(user)) {
+    if (isAdminUser(user)) {
         const all = await listMailBoxes();
         return respond(200, { ok: true, data: all.map(sanitizeMailRecord) });
+    }
+    if (isStaffUser(user)) {
+        const mine = await loadMailBox(user.login);
+        const support = await loadMailBox('support');
+        return respond(200, { ok: true, data: [mine, support].map(sanitizeMailRecord) });
     }
     const mine = await loadMailBox(user.login);
     const boxes = [mine];
@@ -2876,6 +3118,8 @@ async function persistActorPrivateMeta(proposedProfiles, user) {
     const pii = extractProfilePii(mine);
     // emailVerified only via confirmEmailVerification — never trust the client
     delete pii.emailVerified;
+    delete pii.pdConsent;
+    delete pii.pdConsentAt;
     if (!Object.keys(pii).length) return;
     await mutateMeta((meta) => {
         const prev = meta[user.login] && typeof meta[user.login] === 'object' ? meta[user.login] : {};
@@ -3133,7 +3377,7 @@ exports.handler = async function handler(event = {}) {
 
     // health / publicConfig — без секретов и без тяжёлых лимитов
     if (action === 'health') {
-        return respond(200, { ok: true, version: 18, ydb: ydbDoc.enabled() });
+        return respond(200, { ok: true, version: 20, ydb: ydbDoc.enabled() });
     }
     if (action === 'publicConfig') {
         return respond(200, {
@@ -3147,7 +3391,7 @@ exports.handler = async function handler(event = {}) {
         return respond(500, { ok: false, error: 'server_misconfigured' });
     }
 
-    await Promise.all([hydrateRateBuckets(), hydrateLoginLocks()]);
+    await Promise.all([hydrateRateBuckets(), hydrateLoginLocks(), scrubPublicProfilePii()]);
 
     // everything else shares a generous per-IP ceiling
     if (!rateLimit(`ip:${ipKey}`, 360, 60000)) {
@@ -3159,7 +3403,8 @@ exports.handler = async function handler(event = {}) {
         'sync', 'commit', 'presign', 'me', 'changePassword', 'patchSound', 'translate',
         'getMail', 'requestEmailVerification', 'confirmEmailVerification',
         'adminDeleteUser', 'adminUnbindEmail', 'adminSendEmail',
-        'logoutAll', 'totpSetup', 'totpConfirm', 'totpDisable', 'getSecurityEvents'
+        'logoutAll', 'totpSetup', 'totpConfirm', 'totpDisable', 'getSecurityEvents',
+        'deleteAccount', 'exportMyData'
     ]);
     const tokenPayload = authActions.has(action)
         ? verifyJwt(extractToken(event, body))
@@ -3188,6 +3433,8 @@ exports.handler = async function handler(event = {}) {
         if (action === 'confirmEmailVerification') return await handleConfirmEmailVerification(event, body);
         if (action === 'requestPasswordReset') return await handleRequestPasswordReset(body);
         if (action === 'confirmPasswordReset') return await handleConfirmPasswordReset(body);
+        if (action === 'deleteAccount') return await handleDeleteAccount(event, body);
+        if (action === 'exportMyData') return await handleExportMyData(event, body);
         if (action === 'adminDeleteUser') return await handleAdminDeleteUser(event, body);
         if (action === 'adminUnbindEmail') return await handleAdminUnbindEmail(event, body);
         if (action === 'adminSendEmail') return await handleAdminSendEmail(event, body);

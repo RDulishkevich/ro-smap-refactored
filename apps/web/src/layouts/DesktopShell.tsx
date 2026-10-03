@@ -36,7 +36,7 @@ const OVERLAY = new Set(['auth', 'reset-password']);
 const WORKSPACE = new Set([
   'add-sound', 'record', 'sound-detail',
   'expedition-detail', 'expedition-edit',
-  'user-profile', 'cabinet', 'edit-profile',
+  'user-profile', 'cabinet', 'edit-profile', 'delete-account',
   'staff', 'legal', 'help', 'messages', 'conversation', 'settings',
   'feed-post', 'notifications', 'events',
 ]);

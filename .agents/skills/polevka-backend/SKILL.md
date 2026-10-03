@@ -24,7 +24,8 @@ Code: `cloud/api/index.js`, `sessionSecurity.js`, `mailTemplates.js`. Client: `p
 6. **Consent.** Register requires `pdConsent`; store `pdConsent` / `pdConsentAt` in `private_meta`.
 7. **Profiles.** Non-admin cannot insert `loginName` that is not already on the card (except self). Drop logins missing from `_auth` when the set is known.
 8. **Uploads.** Presign requires `contentLength` **and binds it in the signed PUT**. Enforce 30 MB image / 1 GB audio. No `octet-stream` for media. No `_auth/` or root JSON keys. Non-staff sync ≤ 80 rows.
-9. **Staff.** `admin` vs `moderator` vs `user`. TOTP before staff reads **or** writes mail/sync. Support bot is not a JWT role.
+9. **Staff.** `admin` vs `moderator` vs `user`. TOTP before staff reads **or** writes mail/sync. Support bot is not a JWT role. `getMail`: admin=all boxes, moderator=own+`support`.
+9a. **Account lifecycle.** `deleteAccount` (password + TOTP) and `adminDeleteUser` share `purgeAccountData`. Keep published media; delete drafts/uploads. `exportMyData` returns own profile/meta/mail/sounds/posts. Never self-delete `admin`/`support`.
 10. **Spam.** Server cooldowns on sync / commit / mail / likes. Login/email/admin buckets persist in `_auth/rate_buckets.json` (hydrate on cold start). UI `spamGuardCheck` is not enough. Scale: `cloud/ops/set-scale-policy.ps1`.
 11. **CORS.** Default origins: `polevka.art`, `www`, localhost. Not a wildcard GitHub Pages host.
 12. **Logs.** No full SMTP/error objects (PII). Log `code` / `name` only.
@@ -34,7 +35,7 @@ Code: `cloud/api/index.js`, `sessionSecurity.js`, `mailTemplates.js`. Client: `p
 
 ## After editing API
 
-- Bump `health.version` if the contract changed (current: **18**).
+- Bump `health.version` if the contract changed (current: **20**).
 - Update `cloud/api/README.md` + `docs/security.md` when behavior changes.
 - Deploy zip must include `index.js`, `sessionSecurity.js`, `mailTemplates.js`, `ydbDoc.js`.
 - If you add a write path, it must go through merge + sanitize + CAS (S3) or YDB row mutate + publish public JSON.

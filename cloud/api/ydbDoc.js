@@ -271,6 +271,13 @@ async function putJson(key, data, opts = {}) {
     return true;
 }
 
+async function deleteJson(key) {
+    const spec = resolveKey(key);
+    if (!spec || spec.mode !== 'item') return false;
+    await deleteRow(spec.kind, spec.id);
+    return true;
+}
+
 async function mutateRow(kind, id, mutator) {
     for (let i = 0; i < 4; i++) {
         const it = await getRow(kind, id);
@@ -301,6 +308,7 @@ module.exports = {
     resolveKey,
     getJsonCas,
     putJson,
+    deleteJson,
     mutateRow,
     scanKind,
     PUBLIC_KEYS

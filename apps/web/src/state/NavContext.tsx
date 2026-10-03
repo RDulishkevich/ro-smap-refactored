@@ -24,6 +24,7 @@ export type ScreenConfig =
   | { type: 'help' }
   | { type: 'legal'; doc: 'privacy' | 'terms' | 'publish' }
   | { type: 'cabinet' }
+  | { type: 'delete-account' }
   | { type: 'guessr' }
   | { type: 'reset-password' }
   | { type: 'catalog' }
