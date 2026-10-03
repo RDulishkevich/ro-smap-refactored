@@ -37,6 +37,27 @@ export function normalizeRoute(raw: unknown): RoutePt[] {
   return out;
 }
 
+export function soundCover(sound?: Sound | null): string | undefined {
+  const imgs = sound?.images;
+  if (!Array.isArray(imgs) || !imgs.length) return undefined;
+  const first = String(imgs[0] || '');
+  return first || undefined;
+}
+
+export function soundAuthor(sound?: Sound | null): string {
+  if (!sound) return 'Исследователь';
+  return String(sound.recordist || sound.user || sound.author || 'Исследователь');
+}
+
+export function soundTime(sound?: Sound | null): number {
+  if (!sound) return 0;
+  const raw = sound.createdAt || sound.date;
+  const t = Date.parse(String(raw || ''));
+  if (!Number.isNaN(t)) return t;
+  const id = Number(sound.id);
+  return Number.isFinite(id) ? id : 0;
+}
+
 export function soundRoute(sound?: Sound | null): RoutePt[] {
   return normalizeRoute(sound?.route);
 }

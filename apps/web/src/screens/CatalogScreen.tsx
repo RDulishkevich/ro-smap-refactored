@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react';
-import { Headphones, Search, SlidersHorizontal } from 'lucide-react';
+import { Download, Headphones, Search, SlidersHorizontal } from 'lucide-react';
 import { EMPTY_FILTER, formatPlays, type Sound } from '@polevka/core';
 import { color, pinColor, typeMeta } from '@polevka/design';
 import { useData } from '../state/DataContext';
 import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
+import { useUi } from '../state/UiContext';
 import { PlayPauseIcon, ScreenHeader, SoundTypeTag } from '../primitives/ui';
 import { CatalogFilters } from '../primitives/filters';
 import { parseDurationLabel } from '../lib/waveform';
+import { downloadSound } from '../lib/download-sound';
 
 const SAGE = color.sage;
 const OLIVE = color.olive;
@@ -43,6 +45,7 @@ export function CatalogBrowse() {
   const th = useTh();
   const { filteredSounds, filter, setFilter, playingId, playing, togglePlay } = useData();
   const { push } = useNav();
+  const { toast } = useUi();
   const [sort, setSort] = useState<'new' | 'plays' | 'az'>('new');
   const [more, setMore] = useState(false);
   const sorted = useMemo(() => sortSounds(filteredSounds, sort), [filteredSounds, sort]);
@@ -117,6 +120,7 @@ export function CatalogBrowse() {
               on={playing && String(playingId) === String(item.id)}
               onPlay={() => togglePlay(item)}
               onOpen={() => push({ type: 'sound-detail', sound: item })}
+              onDownload={() => downloadSound(item, toast)}
               thCard={th.cardBg} ink={th.inkText} />
           ))}
         </section>
@@ -128,7 +132,9 @@ export function CatalogBrowse() {
   );
 }
 
-function SoundRow({ item, on, onPlay, onOpen, thCard, ink }: { item: Sound; on: boolean; onPlay: () => void; onOpen: () => void; thCard: string; ink: string }) {
+function SoundRow({ item, on, onPlay, onOpen, onDownload, thCard, ink }: {
+  item: Sound; on: boolean; onPlay: () => void; onOpen: () => void; onDownload: () => void; thCard: string; ink: string;
+}) {
   const c = pinColor[String(item.type)] ?? ACCENT;
   return (
     <div className="rounded-2xl px-3.5 py-3 flex items-center gap-3" style={{ background: thCard }}>
@@ -142,9 +148,14 @@ function SoundRow({ item, on, onPlay, onOpen, thCard, ink }: { item: Sound; on: 
           {parseDurationLabel(item.duration) > 0 ? ` · ${item.duration}` : ''}
         </p>
       </button>
-      <div className="flex flex-col items-end gap-1 flex-shrink-0">
+      <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
         <SoundTypeTag type={String(item.type)} />
-        <span className="flex items-center gap-0.5" style={{ color: SAGE }}><Headphones size={9} /><span className="text-[9px]">{formatPlays(item.plays)}</span></span>
+        <div className="flex items-center gap-1.5">
+          <span className="flex items-center gap-0.5" style={{ color: SAGE }}><Headphones size={9} /><span className="text-[9px]">{formatPlays(item.plays)}</span></span>
+          <button type="button" onClick={onDownload} className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(146,179,177,0.22)' }} aria-label="Скачать">
+            <Download size={13} color={color.mist} />
+          </button>
+        </div>
       </div>
     </div>
   );

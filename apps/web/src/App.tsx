@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './state/AuthContext';
 import { NavProvider } from './state/NavContext';
 import { DataProvider } from './state/DataContext';
 import { ThemeProvider, useTh } from './state/ThemeContext';
+import { PrefsProvider } from './state/PrefsContext';
 import { UiProvider } from './state/UiContext';
 import { useIsDesktop } from './lib/use-media';
 import { useLockPageGestures } from './lib/use-lock-page-gestures';
@@ -33,13 +34,15 @@ function Shell() {
 export default function App() {
   return (
     <ThemeProvider>
-      <UiProvider>
-        <AuthProvider>
-          <DataProvider>
-            <Shell />
-          </DataProvider>
-        </AuthProvider>
-      </UiProvider>
+      <PrefsProvider>
+        <UiProvider>
+          <AuthProvider>
+            <DataProvider>
+              <Shell />
+            </DataProvider>
+          </AuthProvider>
+        </UiProvider>
+      </PrefsProvider>
     </ThemeProvider>
   );
 }

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { motion } from 'motion/react';
 import {
-  ChevronRight, Flag, Heart, Headphones, Info, LogOut, MapPin, MessageCircle, Mic,
-  Moon, MoreHorizontal, Route, Send, Share2, Sun, UserPlus, Volume2,
+  ChevronRight, Flag, Heart, Headphones, MapPin, MessageCircle, Mic,
+  MoreHorizontal, Route, Send, Share2, UserPlus,
 } from 'lucide-react';
 import { color, pinColor } from '@polevka/design';
 import {
@@ -17,7 +17,7 @@ import { LEGAL_DOCS } from '../../../../src/data/legalDocs.js';
 import { PUBLISH_RULE_SECTIONS } from '../../../../src/data/publishRules.js';
 import { useAuth } from '../state/AuthContext';
 import { useNav, type ScreenConfig } from '../state/NavContext';
-import { useTh, useToggleTheme, useIsDark } from '../state/ThemeContext';
+import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import { useUi } from '../state/UiContext';
 import { PlayPauseIcon, PinPlayer, ScreenHeader, SoundTypeTag, OtpInput } from '../primitives/ui';
@@ -29,6 +29,7 @@ import { SoundMap } from '../lib/SoundMap';
 import { setDraftRecording } from '../lib/record-buffer';
 import { formatClock, parseDurationLabel } from '../lib/waveform';
 import { AddSoundScreen } from './AddSoundScreen';
+import { SettingsScreen } from './SettingsScreen';
 import { CatalogPage, ExpeditionsPage, FeedPage } from './FeedScreen';
 import { StaffScreen } from './StaffScreen';
 import { ExpeditionDetailScreen, ExpeditionEditScreen, PickLocationScreen } from './ExpeditionScreens';
@@ -36,6 +37,7 @@ import { downloadLegalPrint } from '../lib/legal-print';
 import { pathForSound, shareUrl } from '../lib/routes';
 import { SEARCH_KIND_LABEL, searchAll } from '../lib/search-all';
 import { useIsDesktop } from '../lib/use-media';
+import { downloadSound } from '../lib/download-sound';
 import { isAmbisonicSound, isSoundwalkPrinciple, soundRoute } from '../lib/sound-media';
 import LogoApp from '@/brand/LogoApp';
 
@@ -102,18 +104,7 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
     }
   };
 
-  const download = () => {
-    if (!live.url) { toast('Нет файла'); return; }
-    const a = document.createElement('a');
-    a.href = String(live.url);
-    a.download = `${live.title || 'sound'}.wav`;
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    void apiPatchSound(live.id, { incDownloads: 1 }).catch(() => {});
-    toast('Скачивание WAV');
-  };
+  const download = () => downloadSound(live, toast);
 
   useEffect(() => { setFocused(live); }, [live.id, setFocused]);
 
@@ -470,36 +461,6 @@ function UserProfileScreen({ name, avatar, username, onBack }: { name: string; a
   );
 }
 
-
-function SettingsScreen({ onBack }: { onBack: () => void }) {
-  const th = useTh();
-  const desktop = useIsDesktop();
-  const toggle = useToggleTheme();
-  const dark = useIsDark();
-  const { logout, isStaff } = useAuth();
-  const { push, reset } = useNav();
-  const { toast } = useUi();
-  return (
-    <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      {!desktop && <ScreenHeader title="Настройки" onBack={onBack} />}
-      <div className={`flex-1 overflow-y-auto scrollbar-none flex flex-col gap-2 ${desktop ? 'p-6' : 'p-4'}`}>
-        {desktop && <p className="text-lg font-bold mb-2" style={{ color: th.inkText }}>Настройки</p>}
-        <Row label="Тёмная тема" right={<button onClick={toggle}>{dark ? <Moon size={16} /> : <Sun size={16} />}</button>} th={th} />
-        <Row label="Уведомления" right={<Volume2 size={16} color={OLIVE} />} th={th} />
-        <Row label="Cookies и согласие" right={<Info size={16} color={OLIVE} />} th={th} onClick={() => openCookieBanner()} />
-        <Row label="Помощь и поддержка" th={th} onClick={() => push({ type: 'help' })} />
-        <Row label="Политика конфиденциальности" th={th} onClick={() => push({ type: 'legal', doc: 'privacy' })} />
-        <Row label="Условия использования" th={th} onClick={() => push({ type: 'legal', doc: 'terms' })} />
-        <Row label="Правила публикации" th={th} onClick={() => push({ type: 'legal', doc: 'publish' })} />
-        {isStaff && <Row label="Модерация" th={th} onClick={() => push({ type: 'staff' })} />}
-        <motion.button whileTap={{ scale: 0.96 }} className="mt-4 w-full py-3 rounded-2xl text-sm font-semibold flex items-center justify-center gap-2 text-white" style={{ background: DARK }}
-          onClick={async () => { await logout(); reset(); toast('Вы вышли'); }}>
-          <LogOut size={15} />Выйти
-        </motion.button>
-      </div>
-    </div>
-  );
-}
 
 function Row({ label, right, th, onClick }: { label: string; right?: ReactNode; th: { cardBg: string; inkText: string }; onClick?: () => void }) {
   return (

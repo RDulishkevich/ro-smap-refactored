@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import L from 'leaflet';
 import { pinColor } from '@polevka/design';
+import { PIN_SIZE, pinMarkup } from './map-pin';
 import type { Sound } from '@polevka/core';
 import { loadYandexMaps } from './pwa';
 
@@ -333,18 +334,14 @@ export const SoundMap = forwardRef<SoundMapHandle, {
         if (s.lat == null || s.lng == null) return;
         const color = pinColor[String(s.type)] || pinColor.urban;
         const on = String(s.id) === String(activeId);
-        const size = on ? 22 : 16;
-        const id = String(s.id).replace(/"/g, '');
         let layout: unknown;
         try {
-          layout = ymaps.templateLayoutFactory.createClass(
-            `<div class="pv-pin" data-id="${id}" style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 8px rgba(45,60,57,.35);cursor:pointer"></div>`,
-          );
+          layout = ymaps.templateLayoutFactory.createClass(pinMarkup(s, on));
         } catch { layout = undefined; }
         const pm = new ymaps.Placemark([Number(s.lat), Number(s.lng)], {}, layout ? {
           iconLayout: layout,
-          iconShape: { type: 'Circle', coordinates: [0, 0], radius: size },
-          iconOffset: [-size / 2, -size / 2],
+          iconShape: { type: 'Rectangle', coordinates: [[-PIN_SIZE.anchorX, -PIN_SIZE.anchorY], [PIN_SIZE.w - PIN_SIZE.anchorX, PIN_SIZE.h - PIN_SIZE.anchorY]] },
+          iconOffset: [-PIN_SIZE.anchorX, -PIN_SIZE.anchorY],
         } : {
           preset: 'islands#circleDotIcon',
           iconColor: color,
@@ -418,15 +415,12 @@ export const SoundMap = forwardRef<SoundMapHandle, {
     }
     sounds.forEach((s) => {
       if (s.lat == null || s.lng == null) return;
-      const color = pinColor[String(s.type)] || pinColor.urban;
       const on = String(s.id) === String(activeId);
-      const size = on ? 22 : 16;
-      const id = String(s.id).replace(/"/g, '');
       const icon = L.divIcon({
         className: '',
-        html: `<div class="pv-pin" data-id="${id}" style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 8px rgba(45,60,57,.35);cursor:pointer"></div>`,
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
+        html: pinMarkup(s, on),
+        iconSize: [PIN_SIZE.w, PIN_SIZE.h],
+        iconAnchor: [PIN_SIZE.anchorX, PIN_SIZE.anchorY],
       });
       const m = L.marker([Number(s.lat), Number(s.lng)], { icon });
       m.on('click', (e) => {

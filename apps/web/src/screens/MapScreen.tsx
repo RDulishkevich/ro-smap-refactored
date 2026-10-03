@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { LocateFixed, Minus, MoreHorizontal, Plus, Search, SlidersHorizontal } from 'lucide-react';
-import { apiPatchSound, apiSyncJson, pendingSounds, type Sound } from '@polevka/core';
+import { apiSyncJson, pendingSounds, type Sound } from '@polevka/core';
 import { color, spring, tap, typeMeta } from '@polevka/design';
 import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
@@ -14,6 +14,8 @@ import { MapFab } from '../primitives/chrome';
 import { SoundMap, type MapContext, type MapHover, type MapPoint, type SoundMapHandle } from '../lib/SoundMap';
 import { CatalogFilters } from '../primitives/filters';
 import { normalizeRoute, soundRoute } from '../lib/sound-media';
+import { downloadSound } from '../lib/download-sound';
+import { usePrefs } from '../state/PrefsContext';
 
 export function MapScreen({ showNav = true, desktop = false, hidePlayer = false, onFabChange }: {
   showNav?: boolean;
@@ -23,6 +25,7 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
 }) {
   const { push } = useNav();
   const { openMenu, toast, confirm } = useUi();
+  const { prefs } = usePrefs();
   const { isLoggedIn, isStaff } = useAuth();
   const th = useTh();
   const {
@@ -40,7 +43,8 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
   const onSelect = useCallback((s: Sound) => {
     setActive(s);
     setFabOpen(false);
-  }, [setActive]);
+    if (prefs.autoplayPin) togglePlay(s);
+  }, [setActive, prefs.autoplayPin, togglePlay]);
   const onEmpty = useCallback(() => {
     setActive(null);
     setFabOpen(false);
@@ -94,18 +98,7 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
     return soundRoute(focused);
   }, [routePreview, routeDraft, focused]);
 
-  const download = async (s: Sound) => {
-    if (!s.url) { toast('Нет файла'); return; }
-    const a = document.createElement('a');
-    a.href = String(s.url);
-    a.download = `${s.title || 'sound'}.wav`;
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    void apiPatchSound(s.id, { incDownloads: 1 }).catch(() => {});
-    toast('Скачивание WAV');
-  };
+  const download = async (s: Sound) => downloadSound(s, toast);
 
   const onPick = useCallback((pt: MapPoint, sound?: Sound) => {
     if (pickMode === 'point') {

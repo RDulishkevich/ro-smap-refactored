@@ -20,7 +20,7 @@
 6. **Данные.** Публичные JSON с бакета + `apiSyncJson` / `apiPatchSound`. Не затирать облако вслепую.
 7. **Desktop ≥ 768 / mobile < 768** (`useIsDesktop`).
 8. **Бренд Полёвка.** Не RO·SMap, не «Карта Звуков».
-9. **Без glow.** Акцент терракота `#B5613F`, не peach Wellness.
+9. **Без glow.** Акцент терракота `#B5613F`, mist `#92B3B1` для воды и холодных акцентов. Не peach Wellness.
 10. **Радиусы** 12 / 16 / 24 / pill из `packages/design`.
 11. **Legal.** Stack `legal` + «Скачать PDF» (печать). Документы в `src/data/legalDocs.js` / `publishRules.js`.
 12. **Поддержка Полёвки.** FAQ-бот, затем «обращение» с номером.

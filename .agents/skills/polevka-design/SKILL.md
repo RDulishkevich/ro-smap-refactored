@@ -23,6 +23,7 @@ Canonical tokens live in `packages/design` (`tokens.ts`, `tokens.css`, `motion.t
 | dark | `#2D3C39` | Ink accents, forest pins |
 | olive | `#6F7C4E` | Secondary text |
 | sage | `#9DB170` | Muted labels |
+| mist | `#92B3B1` | Water, cool accents, banners |
 | light | `#D9E2C3` | Chip / header fills |
 | cream | `#F4E8D8` | Warm surfaces |
 | ink | `#1A1A1A` | Primary text (light) |

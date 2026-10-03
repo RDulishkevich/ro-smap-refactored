@@ -5,6 +5,7 @@ export const color = {
   dark: '#2D3C39',
   olive: '#6F7C4E',
   sage: '#9DB170',
+  mist: '#92B3B1',
   light: '#D9E2C3',
   cream: '#F4E8D8',
   ink: '#1A1A1A',
@@ -13,7 +14,7 @@ export const color = {
   birdsTag: '#B86A3A',
   mapFill: '#E4EDE9',
   mapPark: '#C8D8C2',
-  mapWater: '#A8C8CC',
+  mapWater: '#92B3B1',
   muted: '#B0B8A8',
 } as const;
 
@@ -70,7 +71,7 @@ export function makeTheme(dark: boolean): ThemeTokens {
 
 export const pinColor: Record<string, string> = {
   nature: color.sage,
-  water: color.olive,
+  water: color.mist,
   urban: color.accent,
   forest: color.dark,
   birds: color.birds,
@@ -78,7 +79,7 @@ export const pinColor: Record<string, string> = {
 
 export const typeMeta: Record<string, { label: string; bg: string; color: string }> = {
   nature: { label: 'Природа', bg: color.light, color: color.olive },
-  water: { label: 'Вода', bg: color.light, color: color.dark },
+  water: { label: 'Вода', bg: 'rgba(146,179,177,0.22)', color: color.mist },
   urban: { label: 'Город', bg: color.cream, color: color.accent },
   forest: { label: 'Лес', bg: 'rgba(45,60,57,0.12)', color: color.dark },
   birds: { label: 'Птицы', bg: color.cream, color: color.birdsTag },

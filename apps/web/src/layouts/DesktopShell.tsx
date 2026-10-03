@@ -5,12 +5,13 @@ import {
   MessageCircle, Radio, Search, Settings, Shield, User,
 } from 'lucide-react';
 import { color, spring, tap } from '@polevka/design';
-import { apiPatchSound, type Sound } from '@polevka/core';
+import type { Sound } from '@polevka/core';
 import { useAuth } from '../state/AuthContext';
 import { useNav, type DesktopView } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import { useUi } from '../state/UiContext';
+import { usePrefs } from '../state/PrefsContext';
 import { MapScreen } from '../screens/MapScreen';
 import { CatalogSoundList, FeedScreen } from '../screens/FeedScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
@@ -19,6 +20,8 @@ import { StaffScreen } from '../screens/StaffScreen';
 import { PinPlayer } from '../primitives/ui';
 import { HoverMenu } from '../primitives/HoverMenu';
 import BrandMark from '@/brand/BrandMark';
+import { RailBannerCarousel } from '../primitives/RailBannerCarousel';
+import { downloadSound } from '../lib/download-sound';
 
 const ACCENT = color.accent;
 const OLIVE = color.olive;
@@ -111,6 +114,7 @@ function NotificationsPopover({ onClose }: { onClose: () => void }) {
 export function DesktopShell() {
   const th = useTh();
   const { toast } = useUi();
+  const { prefs } = usePrefs();
   const { isLoggedIn, isStaff, user, logout } = useAuth();
   const { desktopView, setDesktopView, push, stack, pop, reset } = useNav();
   const {
@@ -175,18 +179,7 @@ export function DesktopShell() {
     push({ type: 'legal', doc });
   };
 
-  const download = (s: Sound) => {
-    if (!s.url) { toast('Нет файла'); return; }
-    const a = document.createElement('a');
-    a.href = String(s.url);
-    a.download = `${s.title || 'sound'}.wav`;
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    void apiPatchSound(s.id, { incDownloads: 1 }).catch(() => {});
-    toast('Скачивание WAV');
-  };
+  const download = (s: Sound) => downloadSound(s, toast);
 
   return (
     <div className="relative h-full w-full p-4 lg:p-5">
@@ -206,7 +199,7 @@ export function DesktopShell() {
               return <RailItem key={id} label={label} Icon={Icon} on={on} onClick={() => goView(id)} ink={th.inkText} mute={mute} />;
             })}
           </div>
-          <div className="flex-1 min-h-3" />
+          <RailBannerCarousel />
           <div className="flex flex-col gap-0.5 mb-3">
             <RailItem label="Помощь" Icon={HelpCircle} on={vis?.type === 'help'} onClick={() => toggleStack('help')} ink={th.inkText} mute={mute} />
             <RailItem label="Настройки" Icon={Settings} on={vis?.type === 'settings'} onClick={() => toggleStack('settings')} ink={th.inkText} mute={mute} />
@@ -233,7 +226,7 @@ export function DesktopShell() {
                 <motion.button whileTap={tap.cta} onMouseDown={(e) => e.stopPropagation()} onClick={() => setNotifyOpen((v) => !v)}
                   className="relative w-10 h-10 rounded-full flex items-center justify-center" style={{ background: chipBg }} aria-expanded={notifyOpen} aria-label="Уведомления">
                   <Bell size={16} color={OLIVE} />
-                  {unread > 0 && <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ background: ACCENT }} />}
+                  {prefs.notifyInApp && unread > 0 && <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ background: ACCENT }} />}
                 </motion.button>
                 <AnimatePresence>
                   {notifyOpen && <NotificationsPopover onClose={() => setNotifyOpen(false)} />}

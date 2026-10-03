@@ -52,8 +52,8 @@ export function MobileShell() {
 
   const contentBottom = showChrome
     ? (showPlayer
-      ? `calc(var(--pv-nav-h) + var(--pv-fab-gap) + ${dockH}px + 0.7rem)`
-      : 'calc(var(--pv-nav-h) + var(--pv-fab-gap))')
+      ? `calc(var(--pv-nav-h) + var(--pv-fab-gap) + ${dockH}px + 0.4rem)`
+      : 'calc(var(--pv-nav-h) + var(--pv-gutter))')
     : (showPlayer ? `calc(${Math.max(dockH, 72)}px + 0.75rem)` : '0px');
   const playerBottom = showChrome
     ? 'calc(var(--pv-nav-h) + var(--pv-fab-gap))'
@@ -89,6 +89,7 @@ export function MobileShell() {
       {showPlayer && dock && (
         <div
           ref={dockRef}
+          data-player-dock
           className="absolute z-[220] rounded-[24px] overflow-hidden shadow-[0_12px_32px_rgba(45,60,57,0.16)] max-h-[min(42vh,360px)] overflow-y-auto"
           style={{
             left: 'var(--pv-gutter)',

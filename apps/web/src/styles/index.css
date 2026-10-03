@@ -27,8 +27,8 @@
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
   --pv-gutter: 0.7rem;
-  --pv-nav-h: calc(4.65rem + env(safe-area-inset-bottom, 0px));
-  --pv-fab-gap: 3.15rem;
+  --pv-nav-h: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  --pv-fab-gap: 2.35rem;
 }
 .pv-mobile-nav {
   touch-action: manipulation;
@@ -38,7 +38,7 @@
   top: max(0.55rem, env(safe-area-inset-top, 0px));
   left: var(--pv-gutter);
   right: var(--pv-gutter);
-  bottom: 0.2rem;
+  bottom: 0;
 }
 .pv-mobile-map-card {
   position: relative;
@@ -81,5 +81,50 @@ html.pv-lock .pv-map {
 .pv-mobile a,
 .pv-mobile [role="button"] {
   touch-action: manipulation;
+}
+
+.pv-pin {
+  position: relative;
+  width: 28px;
+  height: 36px;
+  cursor: pointer;
+  transform-origin: 50% 100%;
+}
+.pv-pin-head {
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50% 50% 50% 3px;
+  transform: rotate(-45deg);
+  border: 2px solid #fff;
+  box-shadow: 0 3px 10px rgba(45, 60, 57, 0.32);
+}
+.pv-pin-face {
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.pv-pin--on {
+  z-index: 6;
+  transform: scale(1.18);
+}
+.pv-pin--on .pv-pin-head {
+  box-shadow: 0 0 0 4px rgba(146, 179, 177, 0.42), 0 4px 12px rgba(45, 60, 57, 0.35);
+}
+
+html.pv-reduce-motion *,
+html.pv-reduce-motion *::before,
+html.pv-reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
 }
 

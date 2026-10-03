@@ -22,6 +22,7 @@
 | dark | `#2D3C39` | Strong fill, forest pins |
 | olive | `#6F7C4E` | Secondary text |
 | sage | `#9DB170` | Muted labels |
+| mist | `#92B3B1` | Water, cool accents, rail banners |
 | light | `#D9E2C3` | Soft fills |
 | cream | `#F4E8D8` | Warm cards |
 | ink | `#1A1A1A` | Text on light |

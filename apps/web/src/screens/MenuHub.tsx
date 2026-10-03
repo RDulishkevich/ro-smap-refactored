@@ -38,15 +38,15 @@ export function MenuHub() {
     } else push({ type: 'feed' });
   };
 
-  const items: Array<{ label: string; Icon: typeof Radio; screen: ScreenConfig; staff?: boolean }> = [
-    { label: 'Лента', Icon: Radio, screen: { type: 'feed' } },
-    { label: 'Каталог', Icon: LayoutGrid, screen: { type: 'catalog' } },
-    { label: 'Экспедиции', Icon: Calendar, screen: { type: 'expeditions' } },
-    { label: 'Ивенты', Icon: Ticket, screen: { type: 'events' } },
-    { label: 'Настройки', Icon: Settings, screen: { type: 'settings' } },
-    { label: 'Админ-панель', Icon: Shield, screen: { type: 'staff' }, staff: true },
-    { label: 'Помощь', Icon: HelpCircle, screen: { type: 'help' } },
-    { label: 'Audio Guesser', Icon: Dices, screen: { type: 'guessr' } },
+  const items: Array<{ label: string; Icon: typeof Radio; screen: ScreenConfig; staff?: boolean; art?: string }> = [
+    { label: 'Лента', Icon: Radio, screen: { type: 'feed' }, art: '/menu/feed.webp' },
+    { label: 'Каталог', Icon: LayoutGrid, screen: { type: 'catalog' }, art: '/menu/catalog.webp' },
+    { label: 'Экспедиции', Icon: Calendar, screen: { type: 'expeditions' }, art: '/menu/expeditions.webp' },
+    { label: 'Ивенты', Icon: Ticket, screen: { type: 'events' }, art: '/menu/events.webp' },
+    { label: 'Настройки', Icon: Settings, screen: { type: 'settings' }, art: '/menu/settings.webp' },
+    { label: 'Админ-панель', Icon: Shield, screen: { type: 'staff' }, staff: true, art: '/menu/staff.webp' },
+    { label: 'Помощь', Icon: HelpCircle, screen: { type: 'help' }, art: '/menu/help.webp' },
+    { label: 'Audio Guesser', Icon: Dices, screen: { type: 'guessr' }, art: '/menu/guessr.webp' },
   ];
 
   return (
@@ -82,19 +82,37 @@ export function MenuHub() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2.5 pt-2">
-            {items.filter((it) => !it.staff || isStaff).map(({ label, Icon, screen }) => (
-              <motion.button key={label} type="button" whileTap={tap.cta} onClick={() => push(screen)}
-                className="rounded-3xl px-4 py-5 text-left min-h-[108px] flex flex-col justify-between"
-                style={{ background: th.cardBg }}>
-                <span className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}>
-                  <Icon size={20} color={ACCENT} />
-                </span>
-                <span className="text-[14px] font-bold leading-tight" style={{ color: th.inkText }}>{label}</span>
-              </motion.button>
+            {items.filter((it) => !it.staff || isStaff).map(({ label, Icon, screen, art }) => (
+              <MenuTile key={label} label={label} Icon={Icon} art={art} onClick={() => push(screen)} th={th} />
             ))}
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+function MenuTile({ label, Icon, art, onClick, th }: {
+  label: string;
+  Icon: typeof Radio;
+  art?: string;
+  onClick: () => void;
+  th: { cardBg: string; lightBg: string; inkText: string };
+}) {
+  const [broken, setBroken] = useState(false);
+  const show = !!art && !broken;
+  return (
+    <motion.button type="button" whileTap={tap.cta} onClick={onClick}
+      className="relative rounded-3xl px-4 py-5 text-left min-h-[108px] flex flex-col justify-between overflow-hidden"
+      style={{ background: th.cardBg }}>
+      {show && (
+        <img src={art} alt="" className="absolute inset-0 w-full h-full object-cover" onError={() => setBroken(true)} />
+      )}
+      {show && <span className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(26,26,26,0.08), rgba(26,26,26,0.45))' }} />}
+      <span className="relative w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: show ? 'rgba(255,255,255,0.88)' : th.lightBg }}>
+        <Icon size={20} color={ACCENT} />
+      </span>
+      <span className="relative text-[14px] font-bold leading-tight" style={{ color: show ? '#fff' : th.inkText }}>{label}</span>
+    </motion.button>
   );
 }
