@@ -25,7 +25,8 @@ async function main() {
         console.error('JWT_SECRET missing in cloud/api/.env (same secret as the Cloud Function)');
         process.exit(1);
     }
-    const { S3Client, GetObjectCommand, PutObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+    const awsSdk = path.join(__dirname, '..', 'api', 'node_modules', '@aws-sdk', 'client-s3');
+    const { S3Client, GetObjectCommand, PutObjectCommand, ListObjectsV2Command } = require(awsSdk);
     const bucket = process.env.BUCKET || 'rosmap2026';
     const priv = process.env.PRIVATE_BUCKET || 'rosmap2026-private';
     const s3 = new S3Client({
