@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Download, Headphones, MapPin, Search, SlidersHorizontal } from 'lucide-react';
-import { EMPTY_FILTER, formatPlays, type Sound } from '@polevka/core';
-import { color, pinColor, typeMeta } from '@polevka/design';
+import { Download, Search, SlidersHorizontal } from 'lucide-react';
+import { EMPTY_FILTER, type Sound } from '@polevka/core';
+import { color, pinColor } from '@polevka/design';
 import { useData } from '../state/DataContext';
 import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
@@ -11,7 +11,7 @@ import { PlayPauseIcon, ScreenHeader, SoundTypeTag } from '../primitives/ui';
 import { CatalogFilters } from '../primitives/filters';
 import { downloadSound } from '../lib/download-sound';
 import { useSoundMeta } from '../lib/audio-meta';
-import { soundAuthor, soundCover, soundDateLabel } from '../lib/sound-media';
+import { recordingsLabel, typeI18nKey } from '../lib/i18n';
 
 const SAGE = color.sage;
 const OLIVE = color.olive;
@@ -50,6 +50,7 @@ export function CatalogBrowse() {
   const { push } = useNav();
   const { toast } = useUi();
   const t = useT();
+  const { prefs } = usePrefs();
   const [sort, setSort] = useState<'new' | 'plays' | 'az'>('new');
   const [more, setMore] = useState(false);
   const sortLabels = { new: t('new'), plays: t('playing'), az: t('az') };
@@ -70,10 +71,10 @@ export function CatalogBrowse() {
         <input
           value={filter.q}
           onChange={(e) => setFilter({ ...filter, q: e.target.value })}
-          placeholder="Название, место, автор, UCS…"
+          placeholder={t('searchCatalog')}
           className="flex-1 min-w-0 bg-transparent text-[13px] outline-none"
           style={{ color: th.inkText }}
-          aria-label="Поиск по каталогу" />
+          aria-label={t('searchCatalogAria')} />
       </label>
       <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
         {SORTS.map((s) => (
@@ -87,7 +88,7 @@ export function CatalogBrowse() {
       <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
         {TYPES.map((id) => {
           const on = filter.type === id;
-          const label = id ? (typeMeta[id]?.label || id) : t('all');
+          const label = id ? t(typeI18nKey(id)) : t('all');
           return (
             <button key={id || 'all'} type="button" onClick={() => setFilter({ ...filter, type: id })}
               className="h-8 px-3 rounded-full text-[11px] font-semibold flex-shrink-0"
@@ -98,7 +99,7 @@ export function CatalogBrowse() {
         })}
       </div>
       <div className="flex items-center justify-between">
-        <p className="text-[11px] font-semibold" style={{ color: SAGE }}>{sorted.length} {pluralSounds(sorted.length)}</p>
+        <p className="text-[11px] font-semibold" style={{ color: SAGE }}>{sorted.length} {pluralSounds(sorted.length, t, prefs.locale === 'en' ? 'en' : 'ru')}</p>
         <button type="button" className="text-[11px] font-semibold inline-flex items-center gap-1"
           style={{ color: more ? OLIVE : ACCENT }} onClick={() => setMore((v) => !v)}>
           <SlidersHorizontal size={12} /> {more ? t('hideFilters') : t('filters')}
@@ -117,7 +118,7 @@ export function CatalogBrowse() {
         <section key={g.type} className="flex flex-col gap-2">
           {!filter.type && (
             <p className="text-[11px] font-bold uppercase tracking-wide px-1" style={{ color: SAGE }}>
-              {typeMeta[g.type]?.label || 'Другое'} · {g.items.length}
+              {g.type === 'other' ? t('other') : t(typeI18nKey(g.type))} · {g.items.length}
             </p>
           )}
           {g.items.map((item) => (
@@ -131,7 +132,7 @@ export function CatalogBrowse() {
         </section>
       ))}
       {!sorted.length && (
-        <p className="text-xs py-10 text-center" style={{ color: SAGE }}>Ничего не нашлось — сбросьте фильтр или измените запрос</p>
+        <p className="text-xs py-10 text-center" style={{ color: SAGE }}>{t('nothingFoundHint')}</p>
       )}
     </div>
   );
@@ -140,61 +141,33 @@ export function CatalogBrowse() {
 function SoundRow({ item, on, onPlay, onOpen, onDownload, thCard, ink }: {
   item: Sound; on: boolean; onPlay: () => void; onOpen: () => void; onDownload: () => void; thCard: string; ink: string;
 }) {
-  const { prefs } = usePrefs();
   const t = useT();
   const meta = useSoundMeta(item);
   const c = pinColor[String(item.type)] ?? ACCENT;
-  const cover = soundCover(item);
-  const author = soundAuthor(item);
-  const when = soundDateLabel(item, prefs.locale === 'en' ? 'en-GB' : 'ru-RU');
-  const gear = String(item.gear || item.recorder || item.microphone || '').trim();
   return (
-    <article className="rounded-3xl overflow-hidden" style={{ background: thCard }}>
-      <button type="button" onClick={onOpen} className="block w-full text-left">
-        <div className="relative aspect-[16/10]" style={{ background: c }}>
-          {cover && <img src={cover} alt="" className="absolute inset-0 w-full h-full object-cover" />}
-          <span className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 40%, rgba(26,26,26,0.55))' }} />
-          <span className="absolute left-3 right-3 bottom-2.5 flex items-end justify-between gap-2">
-            <span className="min-w-0">
-              <span className="block text-[10px] font-semibold text-white/85 truncate">{author}{when ? ` · ${when}` : ''}</span>
-              <span className="block text-[14px] font-bold text-white leading-tight truncate mt-0.5">{item.title}</span>
-            </span>
-            <span className="rounded-full px-2 py-1 flex-shrink-0" style={{ background: 'rgba(255,255,255,0.9)' }}>
-              <SoundTypeTag type={String(item.type || '')} />
-            </span>
-          </span>
-        </div>
+    <div className="rounded-2xl px-3 py-2.5 flex items-center gap-3" style={{ background: thCard }}>
+      <button type="button" onClick={onPlay} className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer" style={{ backgroundColor: c }} aria-label={on ? t('pause') : t('listen')}>
+        <PlayPauseIcon playing={on} size={12} />
       </button>
-      <div className="px-3.5 py-3 flex items-center gap-3">
-        <button type="button" onClick={onPlay} className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c }} aria-label={on ? t('pause') : t('listen')}>
-          <PlayPauseIcon playing={on} size={12} />
-        </button>
-        <button type="button" className="flex-1 min-w-0 text-left" onClick={onOpen}>
-          <p className="text-[12px] truncate" style={{ color: OLIVE }}>
-            <MapPin size={10} className="inline -mt-0.5 mr-0.5" />
-            {item.location || '—'}
-            {meta.durationSec > 0 ? ` · ${meta.durationLabel}` : ''}
-          </p>
-          {gear ? <p className="text-[10px] truncate mt-0.5" style={{ color: SAGE }}>{gear}</p> : null}
-        </button>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span className="flex items-center gap-0.5" style={{ color: SAGE }}><Headphones size={10} /><span className="text-[10px]">{formatPlays(item.plays)}</span></span>
-          <button type="button" onClick={() => void onDownload()} className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(146,179,177,0.22)' }} aria-label={t('download')}>
-            <Download size={14} color={color.mist} />
-          </button>
-        </div>
-      </div>
-    </article>
+      <button type="button" className="flex-1 min-w-0 text-left cursor-pointer" onClick={onOpen}>
+        <p className="text-[13px] font-semibold truncate" style={{ color: ink }}>{item.title}</p>
+        <p className="text-[11px] truncate mt-0.5" style={{ color: OLIVE }}>
+          {item.location || '—'}
+          {meta.durationSec > 0 ? ` · ${meta.durationLabel}` : ''}
+        </p>
+      </button>
+      <SoundTypeTag type={String(item.type || '')} />
+      <button type="button" onClick={() => void onDownload()}
+        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer"
+        style={{ background: 'rgba(146,179,177,0.22)' }} aria-label={t('download')}>
+        <Download size={14} color={color.mist} />
+      </button>
+    </div>
   );
 }
 
-function pluralSounds(n: number) {
-  const m = n % 100;
-  if (m >= 11 && m <= 14) return 'записей';
-  const d = n % 10;
-  if (d === 1) return 'запись';
-  if (d >= 2 && d <= 4) return 'записи';
-  return 'записей';
+function pluralSounds(n: number, t: ReturnType<typeof useT>, locale: 'ru' | 'en') {
+  return recordingsLabel(n, t, locale);
 }
 
 export function CatalogSoundList() {

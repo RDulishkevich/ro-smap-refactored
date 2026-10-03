@@ -1,25 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { color } from '@polevka/design';
 import { useTh } from '../state/ThemeContext';
+import { useT } from '../state/PrefsContext';
 import { audioService } from '../lib/audio-player';
 
 const DARK_STOPS = [
-  { t: 0, c: [10, 10, 30] },
-  { t: 0.14, c: [30, 12, 55] },
-  { t: 0.34, c: [138, 43, 226] },
-  { t: 0.56, c: [255, 69, 0] },
-  { t: 0.74, c: [255, 165, 0] },
-  { t: 0.90, c: [255, 255, 0] },
+  { t: 0, c: [21, 36, 32] },
+  { t: 0.22, c: [45, 60, 57] },
+  { t: 0.45, c: [111, 124, 78] },
+  { t: 0.68, c: [181, 97, 63] },
+  { t: 0.88, c: [244, 232, 216] },
   { t: 1, c: [255, 255, 255] },
 ];
 const LIGHT_STOPS = [
-  { t: 0, c: [248, 250, 252] },
-  { t: 0.14, c: [226, 232, 240] },
-  { t: 0.34, c: [167, 139, 250] },
-  { t: 0.56, c: [249, 115, 22] },
-  { t: 0.74, c: [234, 179, 8] },
-  { t: 0.90, c: [220, 38, 38] },
-  { t: 1, c: [127, 29, 29] },
+  { t: 0, c: [232, 237, 234] },
+  { t: 0.22, c: [217, 226, 195] },
+  { t: 0.48, c: [157, 177, 112] },
+  { t: 0.72, c: [181, 97, 63] },
+  { t: 0.9, c: [45, 60, 57] },
+  { t: 1, c: [26, 26, 26] },
 ];
 
 function lerpRgb(v: number, stops: typeof DARK_STOPS): [number, number, number] {
@@ -63,12 +62,13 @@ function dbToPct(db: number) {
 
 function panLabel(pan: number) {
   if (Math.abs(pan) < 0.02) return 'C';
-  if (pan < 0) return `L ${Math.round(Math.abs(pan) * 100)}%`;
-  return `R ${Math.round(pan * 100)}%`;
+  if (pan < 0) return `L ${Math.round(Math.abs(pan) * 100)}`;
+  return `R ${Math.round(pan * 100)}`;
 }
 
 export function AnalyzersPanel({ playing }: { playing: boolean }) {
   const th = useTh();
+  const t = useT();
   const [pan, setPan] = useState(() => audioService.pan);
   const [pitch, setPitch] = useState(() => audioService.pitch);
   const gonioRef = useRef<HTMLCanvasElement>(null);
@@ -86,9 +86,9 @@ export function AnalyzersPanel({ playing }: { playing: boolean }) {
     const bufA = new Float32Array(new ArrayBuffer(2048 * 4));
     const bufB = new Float32Array(new ArrayBuffer(2048 * 4));
     const spec = new Uint8Array(1024);
-    const gonioFade = dark ? 'rgba(26,41,38,0.22)' : 'rgba(248,250,246,0.28)';
-    const grid = dark ? 'rgba(157,177,112,0.28)' : 'rgba(45,60,57,0.18)';
-    const gridSoft = dark ? 'rgba(157,177,112,0.12)' : 'rgba(45,60,57,0.08)';
+    const gonioFade = dark ? 'rgba(21,36,32,0.35)' : 'rgba(238,243,239,0.42)';
+    const grid = dark ? 'rgba(157,177,112,0.32)' : 'rgba(45,60,57,0.2)';
+    const gridSoft = dark ? 'rgba(157,177,112,0.14)' : 'rgba(45,60,57,0.1)';
     const label = dark ? color.sage : color.olive;
     const stroke = color.accent;
     const stops = dark ? DARK_STOPS : LIGHT_STOPS;
@@ -109,11 +109,11 @@ export function AnalyzersPanel({ playing }: { playing: boolean }) {
         if (g) {
           const w = gonio.width, h = gonio.height;
           const cx = w / 2, cy = h / 2;
-          const scale = Math.min(w, h) / 2 * 0.82;
+          const scale = Math.min(w, h) / 2 * 0.78;
           g.fillStyle = gonioFade;
           g.fillRect(0, 0, w, h);
           g.strokeStyle = grid;
-          g.lineWidth = 1;
+          g.lineWidth = 1.2;
           g.beginPath(); g.arc(cx, cy, scale, 0, Math.PI * 2); g.stroke();
           g.beginPath();
           g.moveTo(cx - scale, cy); g.lineTo(cx + scale, cy);
@@ -125,18 +125,15 @@ export function AnalyzersPanel({ playing }: { playing: boolean }) {
           g.moveTo(cx - scale * 0.7, cy + scale * 0.7); g.lineTo(cx + scale * 0.7, cy - scale * 0.7);
           g.stroke();
           g.fillStyle = label;
-          g.font = '600 10px ui-monospace, SFMono-Regular, Menlo, monospace';
-          g.fillText('M', cx - 4, cy - scale - 4);
-          g.fillText('L', 4, cy + 4);
-          g.fillText('R', w - 12, cy + 4);
+          g.font = '600 11px ui-monospace, SFMono-Regular, Menlo, monospace';
+          g.fillText('M', cx - 4, cy - scale - 3);
+          g.fillText('L', 6, cy + 4);
+          g.fillText('R', w - 14, cy + 4);
           if (playing && anL && anR) {
-            if (bufA.length !== anL.fftSize) {
-              /* analysers are 2048 */
-            }
             anL.getFloatTimeDomainData(bufA);
             anR.getFloatTimeDomainData(bufB);
             g.strokeStyle = stroke;
-            g.lineWidth = 1.5;
+            g.lineWidth = 1.6;
             g.beginPath();
             const n = Math.min(bufA.length, bufB.length);
             const step = Math.max(1, Math.floor(n / 360));
@@ -166,8 +163,8 @@ export function AnalyzersPanel({ playing }: { playing: boolean }) {
           const data = col.data;
           const binCount = mix.frequencyBinCount;
           for (let y = 0; y < h; y++) {
-            const t = 1 - y / h;
-            const freq = Math.pow(10, minLog + t * (maxLog - minLog));
+            const tt = 1 - y / h;
+            const freq = Math.pow(10, minLog + tt * (maxLog - minLog));
             const bin = Math.max(0, Math.min(binCount - 1, Math.round((freq / nyquist) * binCount)));
             const mag = Math.pow((spec[bin] || 0) / 255, 0.85);
             const rgb = lerpRgb(mag, stops);
@@ -193,10 +190,10 @@ export function AnalyzersPanel({ playing }: { playing: boolean }) {
         if (rPk >= peakHoldR) { peakHoldR = rPk; holdR = 42; }
         else if (holdR > 0) holdR -= 1;
         else peakHoldR = Math.max(rPk, peakHoldR - 1.4);
-        if (lRms.current) lRms.current.style.height = `${lPct}%`;
-        if (rRms.current) rRms.current.style.height = `${rPct}%`;
-        if (lPeak.current) lPeak.current.style.bottom = `${peakHoldL}%`;
-        if (rPeak.current) rPeak.current.style.bottom = `${peakHoldR}%`;
+        if (lRms.current) lRms.current.style.width = `${lPct}%`;
+        if (rRms.current) rRms.current.style.width = `${rPct}%`;
+        if (lPeak.current) lPeak.current.style.left = `${peakHoldL}%`;
+        if (rPeak.current) rPeak.current.style.left = `${peakHoldR}%`;
         const dbMax = Math.max(lDb, rDb);
         if (dbRef.current) dbRef.current.textContent = !Number.isFinite(dbMax) || dbMax <= -90 ? '−∞ dB' : `${dbMax.toFixed(1)} dB`;
       }
@@ -205,59 +202,60 @@ export function AnalyzersPanel({ playing }: { playing: boolean }) {
     return () => cancelAnimationFrame(raf);
   }, [playing, dark]);
 
-  return (
-    <div className="mt-2.5 flex flex-col gap-2">
-    <div className="flex flex-row gap-2 overflow-x-auto scrollbar-none items-stretch">
-      <div className="rounded-2xl px-2.5 py-2 flex-1 min-w-[7.5rem]" style={{ background: th.phoneBg }}>
-        <div className="flex justify-between items-center mb-1.5">
-          <span className="text-[10px] uppercase font-bold tracking-widest" style={{ color: color.sage }}>Гониометр</span>
-          <span className="text-[9px] font-mono font-semibold" style={{ color: color.accent }}>L / R</span>
-        </div>
-        <canvas ref={gonioRef} width={260} height={120} className="w-full h-[72px] rounded-xl block" />
-      </div>
-      <div className="rounded-2xl px-2.5 py-2 flex-1 min-w-[9.5rem]" style={{ background: th.phoneBg }}>
-        <div className="flex justify-between items-center mb-1.5">
-          <span className="text-[10px] uppercase font-bold tracking-widest" style={{ color: color.sage }}>Спектрограмма</span>
-          <span className="text-[9px] font-mono" style={{ color: color.sage }}>Hz · dB</span>
-        </div>
-        <canvas ref={specRef} width={600} height={110} className="w-full h-[72px] rounded-xl block" />
-      </div>
-      <div className="rounded-2xl px-2.5 py-2 w-[5.5rem] flex-shrink-0" style={{ background: th.phoneBg }}>
-        <div className="flex justify-between items-center mb-1.5">
-          <span className="text-[10px] uppercase font-bold tracking-widest" style={{ color: color.sage }}>LU</span>
-          <span ref={dbRef} className="text-[9px] font-mono font-semibold" style={{ color: color.accent }}>−∞</span>
-        </div>
-        <div className="flex gap-2 justify-center h-[72px]">
-          {([['L', lRms, lPeak], ['R', rRms, rPeak]] as const).map(([lab, rms, peak]) => (
-            <div key={lab} className="flex flex-col items-center gap-1 h-full">
-              <div className="relative w-5 flex-1 rounded-full overflow-hidden" style={{ background: th.cardBg }}>
-                <div ref={rms} className="absolute bottom-0 left-0 right-0 rounded-full" style={{ height: '0%', background: color.accent }} />
-                <div ref={peak} className="absolute left-0 right-0 h-[2px]" style={{ bottom: '0%', background: color.dark }} />
-              </div>
-              <span className="text-[9px] font-mono" style={{ color: color.sage }}>{lab}</span>
-            </div>
-          ))}
-        </div>
+  const meter = (lab: string, rms: typeof lRms, peak: typeof lPeak) => (
+    <div className="flex items-center gap-2">
+      <span className="w-3 text-[9px] font-bold" style={{ color: color.sage }}>{lab}</span>
+      <div className="relative flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: dark ? 'rgba(26,41,38,0.65)' : 'rgba(255,255,255,0.7)' }}>
+        <div ref={rms} className="absolute inset-y-0 left-0 rounded-full" style={{ width: '0%', background: color.accent }} />
+        <div ref={peak} className="absolute top-0 bottom-0 w-0.5" style={{ left: '0%', background: color.dark }} />
       </div>
     </div>
-      <div className="rounded-2xl px-2.5 py-2" style={{ background: th.phoneBg }}>
+  );
+
+  return (
+    <div className="mt-3 rounded-[22px] overflow-hidden" style={{
+      background: dark ? '#152420' : '#EEF3EF',
+      border: `1px solid ${th.border}`,
+    }}>
+      <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: `1px solid ${th.border}` }}>
+        <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: color.sage }}>{t('analyzers')}</span>
+        <span ref={dbRef} className="text-[11px] font-mono font-bold tabular-nums" style={{ color: color.accent }}>−∞ dB</span>
+      </div>
+      <div className="grid grid-cols-[108px_minmax(0,1fr)] gap-2 p-2.5">
+        <div>
+          <p className="text-[9px] font-bold uppercase tracking-widest mb-1.5" style={{ color: color.sage }}>{t('goniometer')}</p>
+          <canvas ref={gonioRef} width={200} height={200} className="w-full aspect-square rounded-2xl block" style={{ background: dark ? '#1A2926' : '#F8FAF6' }} />
+        </div>
+        <div className="min-w-0 flex flex-col gap-2">
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-widest mb-1.5" style={{ color: color.sage }}>{t('spectrogram')}</p>
+            <canvas ref={specRef} width={720} height={160} className="w-full h-[108px] rounded-2xl block" style={{ background: dark ? '#1A2926' : '#F8FAF6' }} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {meter('L', lRms, lPeak)}
+            {meter('R', rRms, rPeak)}
+          </div>
+        </div>
+      </div>
+      <div className="px-3 py-2.5 flex flex-col gap-2" style={{ borderTop: `1px solid ${th.border}` }}>
         <div className="flex items-center gap-2">
           <span className="text-[9px] font-bold w-3 text-center" style={{ color: color.sage }}>L</span>
-          <input type="range" min={-1} max={1} step={0.01} value={pan}
-            className="flex-1 h-1.5 accent-[#B5613F]"
+          <input type="range" min={-1} max={1} step={0.01} value={pan} aria-label="Pan"
+            className="flex-1 h-1.5 accent-[#B5613F] cursor-pointer"
             onChange={(e) => { const v = Number(e.target.value); setPan(v); audioService.setPan(v); }} />
           <span className="text-[9px] font-bold w-3 text-center" style={{ color: color.sage }}>R</span>
           <span className="text-[10px] font-mono font-semibold w-10 text-right" style={{ color: color.accent }}>{panLabel(pan)}</span>
         </div>
-        <div className="flex items-center gap-2 mt-1.5">
+        <div className="flex items-center gap-2">
           <span className="text-[9px] font-bold" style={{ color: color.sage }}>−12</span>
-          <input type="range" min={-12} max={12} step={1} value={pitch}
-            className="flex-1 h-1.5 accent-[#B5613F]"
+          <input type="range" min={-12} max={12} step={1} value={pitch} aria-label={t('pitch')}
+            className="flex-1 h-1.5 accent-[#B5613F] cursor-pointer"
             onChange={(e) => { const v = Number(e.target.value); setPitch(v); audioService.setPitch(v); }} />
           <span className="text-[9px] font-bold" style={{ color: color.sage }}>+12</span>
           <span className="text-[10px] font-mono font-semibold w-10 text-right" style={{ color: color.accent }}>{pitch} st</span>
-          <button type="button" className="text-[10px] font-bold px-2 py-1 rounded-lg" style={{ color: color.olive, background: th.cardBg }}
-            onClick={() => { setPan(0); setPitch(0); audioService.setPan(0); audioService.setPitch(0); }}>Сброс</button>
+          <button type="button" className="text-[10px] font-bold px-2.5 h-7 rounded-xl cursor-pointer"
+            style={{ color: color.olive, background: th.cardBg }}
+            onClick={() => { setPan(0); setPitch(0); audioService.setPan(0); audioService.setPitch(0); }}>{t('reset')}</button>
         </div>
       </div>
     </div>

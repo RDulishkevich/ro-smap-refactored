@@ -4,6 +4,7 @@ import { Headphones, LogIn, MapPin, Mic, Settings } from 'lucide-react';
 import { color, pinColor } from '@polevka/design';
 import { formatPlays, type Sound } from '@polevka/core';
 import { PLACEHOLDER_PEAKS, useSoundMeta } from '../lib/audio-meta';
+import { useT } from '../state/PrefsContext';
 import { useAuth } from '../state/AuthContext';
 import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
@@ -21,26 +22,29 @@ const LIGHT = color.light;
 export function GuestProfileScreen({ showNav = true }: { showNav?: boolean }) {
   const { push } = useNav();
   const th = useTh();
+  const t = useT();
   return (
     <div className="flex flex-col h-full relative" style={{ background: th.phoneBg }}>
       <div className="relative flex-1 flex flex-col items-center justify-center px-6 text-center pv-safe-top">
         <div className="w-20 h-20 rounded-3xl overflow-hidden shadow-xl mx-auto mb-4"><LogoApp /></div>
         <h1 className="text-xl font-bold mb-2" style={{ color: th.inkText, fontFamily: 'Klukva, "Geist Variable", serif' }}>Полёвка</h1>
         <p className="text-xs leading-relaxed mb-6" style={{ color: SAGE }}>
-          Войдите, чтобы сохранять звуки, создавать экспедиции и общаться с другими исследователями
+          {t('signInToSave')}
         </p>
         <div className="w-full flex flex-col gap-3">
           <motion.button whileTap={{ scale: 0.96 }} onClick={() => push({ type: 'auth' })}
-            className="w-full py-3.5 rounded-2xl text-white text-sm font-bold flex items-center justify-center gap-2" style={{ backgroundColor: ACCENT }}>
-            <LogIn size={15} />Войти в аккаунт
+            className="w-full py-3.5 rounded-2xl text-white text-sm font-bold flex items-center justify-center gap-2 cursor-pointer" style={{ backgroundColor: ACCENT }}>
+            <LogIn size={15} />{t('signInAccount')}
           </motion.button>
           <motion.button whileTap={{ scale: 0.96 }} onClick={() => push({ type: 'auth' })}
-            className="w-full py-3 rounded-2xl text-sm font-semibold" style={{ background: th.lightBg, color: OLIVE }}>
-            Зарегистрироваться
+            className="w-full py-3 rounded-2xl text-sm font-semibold cursor-pointer" style={{ background: th.lightBg, color: OLIVE }}>
+            {t('register')}
           </motion.button>
         </div>
         <p className="text-[10px] mt-6 px-4 leading-relaxed" style={{ color: th.isDark ? '#6A8A78' : '#B0B8A8' }}>
-          Продолжая, вы соглашаетесь с <button className="underline" onClick={() => push({ type: 'legal', doc: 'terms' })}>условиями</button> и <button className="underline" onClick={() => push({ type: 'legal', doc: 'privacy' })}>политикой конфиденциальности</button>
+          <button className="underline" onClick={() => push({ type: 'legal', doc: 'terms' })}>{t('terms')}</button>
+          {' · '}
+          <button className="underline" onClick={() => push({ type: 'legal', doc: 'privacy' })}>{t('privacyPolicy')}</button>
         </p>
       </div>
       {showNav && <div className="rounded-t-3xl shadow-lg overflow-hidden flex-shrink-0"><NavBar /></div>}
@@ -52,6 +56,7 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
   const { user } = useAuth();
   const { push } = useNav();
   const th = useTh();
+  const t = useT();
   const { togglePlay, playing, playingId, progress, allSounds, profiles } = useData();
   const mineAll = allSounds.filter((s) => String(s.recordistId || s.user || '').toLowerCase() === String(user?.loginName || '').toLowerCase()
     || String(s.recordist || '').toLowerCase() === String(user?.username || '').toLowerCase());
@@ -67,7 +72,7 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
           <div className="relative flex items-center justify-between mb-5">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 relative flex-shrink-0"><BrandMark /></div>
-              <p className="text-[10px] font-medium tracking-wide uppercase" style={{ color: SAGE }}>Профиль</p>
+              <p className="text-[10px] font-medium tracking-wide uppercase" style={{ color: SAGE }}>{t('profile')}</p>
             </div>
             <motion.button whileTap={{ scale: 0.88 }} onClick={() => push({ type: 'settings' })}
               className="w-10 h-10 rounded-2xl shadow-sm flex items-center justify-center" style={{ background: th.cardBg }}>
@@ -80,13 +85,13 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
               <p className="text-base font-bold" style={{ color: th.inkText }}>{user?.displayName || user?.username}</p>
               <p className="text-xs mb-2" style={{ color: SAGE }}>@{user?.loginName}</p>
               <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold" style={{ background: th.cream, color: ACCENT }}>
-                <Mic size={9} />Полевой исследователь
+                <Mic size={9} />{t('fieldResearcher')}
               </div>
             </div>
           </div>
           <div className="relative rounded-3xl p-4 shadow-sm mb-4" style={{ background: th.cardBg }}>
             <div className="flex justify-around">
-              {[[String(mine.length), 'Записи'], [String(drafts.length), 'На модерации'], [String(mySessions.length), 'Экспедиций']].map(([v, l]) => (
+              {[[String(mine.length), t('recordings')], [String(drafts.length), t('pending')], [String(mySessions.length), t('expeditions')]].map(([v, l]) => (
                 <div key={l} className="text-center">
                   <p className="text-base font-bold" style={{ color: th.inkText }}>{v}</p>
                   <p className="text-[10px]" style={{ color: SAGE }}>{l}</p>
@@ -96,13 +101,13 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
           </div>
           <div className="flex gap-2 mb-2 relative">
             <motion.button whileTap={{ scale: 0.94 }} onClick={() => push({ type: 'edit-profile' })}
-              className="flex-1 py-2.5 rounded-2xl text-xs font-semibold shadow-sm" style={{ background: th.cardBg, color: th.isDark ? LIGHT : DARK }}>Редактировать</motion.button>
+              className="flex-1 py-2.5 rounded-2xl text-xs font-semibold shadow-sm cursor-pointer" style={{ background: th.cardBg, color: th.isDark ? LIGHT : DARK }}>{t('edit')}</motion.button>
             <motion.button whileTap={{ scale: 0.94 }} onClick={() => push({ type: 'cabinet' })}
-              className="flex-1 py-2.5 rounded-2xl text-xs font-semibold shadow-sm" style={{ background: th.cardBg, color: th.isDark ? LIGHT : DARK }}>Кабинет</motion.button>
+              className="flex-1 py-2.5 rounded-2xl text-xs font-semibold shadow-sm cursor-pointer" style={{ background: th.cardBg, color: th.isDark ? LIGHT : DARK }}>{t('cabinet')}</motion.button>
           </div>
         </div>
         <div className="px-4 pb-48">
-          <p className="text-sm font-semibold mb-3" style={{ color: th.inkText }}>Мои звуки</p>
+          <p className="text-sm font-semibold mb-3" style={{ color: th.inkText }}>{t('mySounds')}</p>
           <div className="flex flex-col gap-3">
             {drafts.map((item) => (
               <button key={`d${String(item.id)}`} onClick={() => {
@@ -118,7 +123,7 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
               <ProfileSoundCard key={String(item.id)} item={item} playing={playing && String(playingId) === String(item.id)}
                 progress={progress} onPlay={() => togglePlay(item)} onOpen={() => push({ type: 'sound-detail', sound: item })} />
             ))}
-            {!shown.length && !drafts.length && <p className="text-xs" style={{ color: SAGE }}>Пока нет своих записей</p>}
+            {!shown.length && !drafts.length && <p className="text-xs" style={{ color: SAGE }}>{t('noOwnSounds')}</p>}
           </div>
         </div>
       </div>

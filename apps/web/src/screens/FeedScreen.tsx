@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bell, Download, Headphones, MapPin, Search } from 'lucide-react';
+import { Bell, Download, Heart, Headphones, MapPin, MessageCircle, Search } from 'lucide-react';
 import { formatPlays, type FeedPost, type Sound } from '@polevka/core';
 import { color, pinColor, spring, tap } from '@polevka/design';
 import { useNav } from '../state/NavContext';
@@ -39,11 +39,12 @@ type FeedTab = 'posts' | 'catalog' | 'expeditions';
 export function FeedScreen({ showNav = true, embed = false, initialTab }: { showNav?: boolean; embed?: boolean; initialTab?: FeedTab }) {
   const { push } = useNav();
   const th = useTh();
+  const t = useT();
   const [tab, setTab] = useState<FeedTab>(initialTab || 'posts');
   const subTabs: { id: FeedTab; label: string }[] = [
-    { id: 'posts', label: 'Публикации' },
-    { id: 'catalog', label: 'Каталог' },
-    { id: 'expeditions', label: 'Экспедиции' },
+    { id: 'posts', label: t('posts') },
+    { id: 'catalog', label: t('catalog') },
+    { id: 'expeditions', label: t('expeditions') },
   ];
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
@@ -52,13 +53,13 @@ export function FeedScreen({ showNav = true, embed = false, initialTab }: { show
         <div className="relative flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-9 h-9 relative flex-shrink-0"><BrandMark /></div>
-            <h1 className="text-lg font-bold leading-tight truncate" style={{ color: th.inkText, fontFamily: 'Klukva, "Geist Variable", serif' }}>Лента</h1>
+            <h1 className="text-lg font-bold leading-tight truncate" style={{ color: th.inkText, fontFamily: 'Klukva, "Geist Variable", serif' }}>{t('feed')}</h1>
           </div>
           <div className="flex gap-1.5 flex-shrink-0">
-            <motion.button whileTap={tap.cta} onClick={() => push({ type: 'search' })} className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.cardBg }} aria-label="Поиск">
+            <motion.button whileTap={tap.cta} onClick={() => push({ type: 'search' })} className="w-11 h-11 rounded-2xl flex items-center justify-center cursor-pointer" style={{ background: th.cardBg }} aria-label={t('search')}>
               <Search size={16} style={{ color: OLIVE }} />
             </motion.button>
-            <motion.button whileTap={tap.cta} onClick={() => push({ type: 'notifications' })} className="relative w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.cardBg }} aria-label="Уведомления">
+            <motion.button whileTap={tap.cta} onClick={() => push({ type: 'notifications' })} className="relative w-11 h-11 rounded-2xl flex items-center justify-center cursor-pointer" style={{ background: th.cardBg }} aria-label={t('notifications')}>
               <Bell size={16} style={{ color: OLIVE }} />
               <FeedUnreadDot />
             </motion.button>
@@ -90,10 +91,11 @@ export function FeedScreen({ showNav = true, embed = false, initialTab }: { show
 export function FeedPage({ onBack }: { onBack: () => void }) {
   const { push } = useNav();
   const th = useTh();
+  const t = useT();
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <ScreenHeader title="Лента" onBack={onBack} right={
-        <button type="button" className="w-11 h-11 rounded-2xl flex items-center justify-center" aria-label="Уведомления"
+      <ScreenHeader title={t('feed')} onBack={onBack} right={
+        <button type="button" className="w-11 h-11 rounded-2xl flex items-center justify-center cursor-pointer" aria-label={t('notifications')}
           style={{ background: th.lightBg }}
           onClick={() => push({ type: 'notifications' })}>
           <Bell size={16} color={OLIVE} />
@@ -108,9 +110,10 @@ export function FeedPage({ onBack }: { onBack: () => void }) {
 
 export function ExpeditionsPage({ onBack }: { onBack: () => void }) {
   const th = useTh();
+  const t = useT();
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <ScreenHeader title="Экспедиции" onBack={onBack} />
+      <ScreenHeader title={t('expeditions')} onBack={onBack} />
       <div className="flex-1 overflow-y-auto scrollbar-none px-4 pb-8 pt-2">
         <ExpeditionsList />
       </div>
@@ -145,8 +148,10 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
   const { push } = useNav();
   const { toast } = useUi();
   const th = useTh();
+  const t = useT();
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<FeedSort>('new');
+  const sortLabel = { new: t('new'), popular: t('popular'), discussed: t('discussed') };
 
   const items = useMemo(() => {
     const posts: FeedEntry[] = feed.filter((p) => p.title || p.text).map((p) => ({
@@ -184,9 +189,9 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
   if (!feed.length && !sounds.length) {
     return (
       <div className="py-10 px-2 text-center">
-        <p className="text-xs mb-4" style={{ color: SAGE }}>Пока нет публикаций — слушайте записи в каталоге</p>
-        <button type="button" onClick={onCatalog} className="h-10 px-4 rounded-full text-[12px] font-semibold" style={{ background: th.cardBg, color: ACCENT }}>
-          Открыть каталог
+        <p className="text-xs mb-4" style={{ color: SAGE }}>{t('noPosts')}</p>
+        <button type="button" onClick={onCatalog} className="h-10 px-4 rounded-full text-[12px] font-semibold cursor-pointer" style={{ background: th.cardBg, color: ACCENT }}>
+          {t('openCatalog')}
         </button>
       </div>
     );
@@ -196,16 +201,16 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
     <div className="flex flex-col gap-3 pt-1">
       <label className="flex items-center gap-2 h-12 rounded-2xl px-3.5" style={{ background: th.cardBg }}>
         <Search size={16} color={SAGE} className="flex-shrink-0" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск по ленте…"
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('searchFeed')}
           className="flex-1 min-w-0 bg-transparent text-[13px] outline-none" style={{ color: th.inkText }}
-          aria-label="Поиск по ленте" />
+          aria-label={t('searchFeedAria')} />
       </label>
       <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
         {FEED_SORTS.map((s) => (
           <button key={s.id} type="button" onClick={() => setSort(s.id)}
             className="h-8 px-3 rounded-full text-[11px] font-semibold flex-shrink-0"
             style={{ background: sort === s.id ? ACCENT : th.cardBg, color: sort === s.id ? '#fff' : OLIVE }}>
-            {s.label}
+            {sortLabel[s.id]}
           </button>
         ))}
       </div>
@@ -217,7 +222,7 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
           onOpen={() => push({ type: 'sound-detail', sound: item.sound })}
           onDownload={() => downloadSound(item.sound, toast)} />
       ))}
-      {!items.length && <p className="text-xs py-8 text-center" style={{ color: SAGE }}>Ничего не нашлось</p>}
+      {!items.length && <p className="text-xs py-8 text-center" style={{ color: SAGE }}>{t('nothingFound')}</p>}
     </div>
   );
 }
@@ -247,6 +252,10 @@ function FeedPostCard({ post }: { post: FeedPost }) {
       <div className="px-4 py-3.5">
         <p className="text-[15px] font-bold leading-snug" style={{ color: th.inkText }}>{String(post.title || 'Запись')}</p>
         {text ? <p className="text-[13px] leading-relaxed mt-1.5" style={{ color: OLIVE }}>{text}</p> : null}
+        <div className="flex items-center gap-3 mt-3" style={{ color: SAGE }}>
+          <span className="inline-flex items-center gap-0.5"><Heart size={11} /><span className="text-[10px] font-semibold">{Number(post.likes || 0)}</span></span>
+          <span className="inline-flex items-center gap-0.5"><MessageCircle size={11} /><span className="text-[10px] font-semibold">{Array.isArray(post.comments) ? post.comments.length : 0}</span></span>
+        </div>
       </div>
     </article>
   );
@@ -262,35 +271,46 @@ function MarkerFeedCard({ sound, playing, onPlay, onOpen, onDownload }: {
   const author = soundAuthor(sound);
   const when = soundDateLabel(sound);
   const c = pinColor[String(sound.type)] || ACCENT;
+  const likes = Number(sound.likes || 0);
+  const comments = Array.isArray(sound.comments) ? sound.comments.length : 0;
   return (
-    <article className="rounded-3xl overflow-hidden shadow-sm" style={{ background: th.cardBg }}>
-      <button type="button" onClick={onOpen} className="block w-full text-left">
-        <div className="relative aspect-[16/10]" style={{ background: c }}>
-          {cover && <img src={cover} alt="" className="absolute inset-0 w-full h-full object-cover" />}
-          <span className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 42%, rgba(26,26,26,0.55))' }} />
-          <span className="absolute left-3.5 right-3.5 bottom-3">
-            <span className="block text-[10px] font-semibold text-white/85">{author}{when ? ` · ${when}` : ''}</span>
-            <span className="block text-[16px] font-bold text-white leading-tight mt-0.5">{sound.title}</span>
-          </span>
+    <article className="rounded-3xl p-3.5 shadow-sm" style={{ background: th.cardBg }}>
+      <div className="flex items-center gap-2.5 mb-3">
+        <span className="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold flex-shrink-0" style={{ background: th.lightBg, color: ACCENT }}>
+          {author.slice(0, 1).toUpperCase()}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[12px] font-semibold truncate" style={{ color: th.inkText }}>{author}</p>
+          {when ? <p className="text-[10px]" style={{ color: SAGE }}>{when}</p> : null}
         </div>
-      </button>
-      <div className="p-3.5 flex items-center gap-3">
-        <button type="button" onClick={onPlay} className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: c }} aria-label={playing ? t('pause') : t('listen')}>
-          <PlayPauseIcon playing={playing} size={12} />
+        <SoundTypeTag type={String(sound.type || '')} />
+      </div>
+      <div className="flex gap-3">
+        <button type="button" onClick={onOpen} className="relative w-[88px] h-[88px] rounded-2xl overflow-hidden flex-shrink-0 cursor-pointer" style={{ background: c }} aria-label={sound.title}>
+          {cover && <img src={cover} alt="" className="absolute inset-0 w-full h-full object-cover" />}
         </button>
-        <button type="button" className="flex-1 min-w-0 text-left" onClick={onOpen}>
-          <p className="text-[12px] truncate" style={{ color: OLIVE }}>
-            <MapPin size={10} className="inline -mt-0.5 mr-0.5" />
-            {sound.location || 'На карте'}
-            {meta.durationSec > 0 ? ` · ${meta.durationLabel}` : ''}
-          </p>
-          <SoundTypeTag type={String(sound.type || '')} />
-        </button>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span className="flex items-center gap-0.5" style={{ color: SAGE }}><Headphones size={10} /><span className="text-[10px]">{formatPlays(sound.plays)}</span></span>
-          <button type="button" onClick={() => void onDownload()} className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(146,179,177,0.22)' }} aria-label={t('download')}>
-            <Download size={14} color={color.mist} />
+        <div className="min-w-0 flex-1 flex flex-col">
+          <button type="button" className="text-left cursor-pointer" onClick={onOpen}>
+            <p className="text-[14px] font-bold leading-snug" style={{ color: th.inkText }}>{sound.title}</p>
+            <p className="text-[11px] truncate mt-1" style={{ color: OLIVE }}>
+              <MapPin size={10} className="inline -mt-0.5 mr-0.5" />
+              {sound.location || t('onMap')}
+              {meta.durationSec > 0 ? ` · ${meta.durationLabel}` : ''}
+            </p>
           </button>
+          <div className="mt-auto pt-2 flex items-center gap-2.5" style={{ color: SAGE }}>
+            <span className="inline-flex items-center gap-0.5" title={t('likes')}><Heart size={11} /><span className="text-[10px] font-semibold">{likes}</span></span>
+            <span className="inline-flex items-center gap-0.5" title={t('comments')}><MessageCircle size={11} /><span className="text-[10px] font-semibold">{comments}</span></span>
+            <span className="inline-flex items-center gap-0.5" title={t('views')}><Headphones size={11} /><span className="text-[10px] font-semibold">{formatPlays(sound.plays)}</span></span>
+            <div className="ml-auto flex items-center gap-1">
+              <button type="button" onClick={onPlay} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer" style={{ background: c }} aria-label={playing ? t('pause') : t('listen')}>
+                <PlayPauseIcon playing={playing} size={11} />
+              </button>
+              <button type="button" onClick={() => void onDownload()} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer" style={{ background: 'rgba(146,179,177,0.22)' }} aria-label={t('download')}>
+                <Download size={13} color={color.mist} />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </article>
@@ -302,6 +322,7 @@ function ExpeditionsList() {
   const { push } = useNav();
   const { isLoggedIn } = useAuth();
   const th = useTh();
+  const t = useT();
   const list = profiles.flatMap((p) => (p.sessions || []).map((s) => ({
     ...s,
     title: s.title,
@@ -317,8 +338,8 @@ function ExpeditionsList() {
   return (
     <div className="flex flex-col gap-3 pt-1">
       {isLoggedIn && (
-        <button onClick={() => push({ type: 'expedition-edit' })} className="rounded-3xl p-4 text-left shadow-sm text-xs font-semibold" style={{ background: th.lightBg, color: ACCENT }}>
-          + Новая экспедиция
+        <button onClick={() => push({ type: 'expedition-edit' })} className="rounded-3xl p-4 text-left shadow-sm text-xs font-semibold cursor-pointer" style={{ background: th.lightBg, color: ACCENT }}>
+          + {t('newExpedition')}
         </button>
       )}
       {list.map((exp, i) => {

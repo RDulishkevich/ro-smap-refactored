@@ -40,7 +40,7 @@ import { SEARCH_KIND_LABEL, searchAll } from '../lib/search-all';
 import { useIsDesktop } from '../lib/use-media';
 import { downloadSound } from '../lib/download-sound';
 import { ABOUT_ROLES, USE_GOALS, locLabel } from '../lib/onboarding';
-import { usePrefs } from '../state/PrefsContext';
+import { usePrefs, useT } from '../state/PrefsContext';
 import { resolveExpeditionInvite } from '../lib/expedition-invite';
 import { isAmbisonicSound, isSoundwalkPrinciple, soundRoute } from '../lib/sound-media';
 import LogoApp from '@/brand/LogoApp';
@@ -534,6 +534,7 @@ function AuthScreen({ onBack }: { onBack: () => void }) {
   const { push, pop } = useNav();
   const { reload } = useData();
   const { prefs } = usePrefs();
+  const t = useT();
   const loc = prefs.locale === 'en' ? 'en' : 'ru';
   const [mode, setMode] = useState<'in' | 'up'>('in');
   const [loginName, setLogin] = useState('');
@@ -548,8 +549,8 @@ function AuthScreen({ onBack }: { onBack: () => void }) {
   const [busy, setBusy] = useState(false);
   const submit = async (totpCode?: string) => {
     if (mode === 'up') {
-      if (!aboutRole) { toast('Выберите, кто вы'); return; }
-      if (!useGoals.length) { toast('Выберите цели использования Полёвки'); return; }
+      if (!aboutRole) { toast(t('pickRole')); return; }
+      if (!useGoals.length) { toast(t('pickGoals')); return; }
     }
     setBusy(true);
     setTotpError(false);
@@ -593,13 +594,13 @@ function AuthScreen({ onBack }: { onBack: () => void }) {
       <div className="flex gap-1 p-1 rounded-2xl" style={{ background: th.lightBg }}>
         {(['in', 'up'] as const).map((m) => (
           <button key={m} onClick={() => { setMode(m); setNeedTotp(false); setTotp(''); setTotpError(false); }} className="flex-1 py-2 rounded-xl text-xs font-semibold" style={{ background: mode === m ? th.cardBg : 'transparent', color: mode === m ? ACCENT : OLIVE }}>
-            {m === 'in' ? 'Вход' : 'Регистрация'}
+            {m === 'in' ? t('login') : t('register')}
           </button>
         ))}
       </div>
-      {mode === 'up' && <Field label="Имя" value={name} onChange={setName} th={th} />}
-      <Field label="Логин" value={loginName} onChange={setLogin} th={th} />
-      <Field label="Пароль" value={password} onChange={setPassword} th={th} password />
+      {mode === 'up' && <Field label={t('name')} value={name} onChange={setName} th={th} />}
+      <Field label={t('loginName')} value={loginName} onChange={setLogin} th={th} />
+      <Field label={t('password')} value={password} onChange={setPassword} th={th} password />
       {mode === 'in' && needTotp && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-3xl p-4" style={{ background: th.cardBg }}>
           <p className="text-xs font-bold mb-1" style={{ color: th.inkText }}>Код из приложения</p>
@@ -612,8 +613,8 @@ function AuthScreen({ onBack }: { onBack: () => void }) {
       {mode === 'up' && (
         <>
           <div className="rounded-3xl p-4 flex flex-col gap-3" style={{ background: th.cardBg }}>
-            <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: SAGE }}>О себе</p>
-            <p className="text-[11px]" style={{ color: OLIVE }}>Кто вы в Полёвке — один вариант</p>
+            <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: SAGE }}>{t('aboutYou')}</p>
+            <p className="text-[11px]" style={{ color: OLIVE }}>{t('aboutYouHint')}</p>
             <div className="flex flex-wrap gap-1.5">
               {ABOUT_ROLES.map((role) => {
                 const on = aboutRole === role.id;
@@ -628,8 +629,8 @@ function AuthScreen({ onBack }: { onBack: () => void }) {
             </div>
           </div>
           <div className="rounded-3xl p-4 flex flex-col gap-3" style={{ background: th.cardBg }}>
-            <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: SAGE }}>Зачем Полёвка</p>
-            <p className="text-[11px]" style={{ color: OLIVE }}>Можно выбрать несколько целей</p>
+            <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: SAGE }}>{t('goals')}</p>
+            <p className="text-[11px]" style={{ color: OLIVE }}>{t('goalsHint')}</p>
             <div className="flex flex-wrap gap-1.5">
               {USE_GOALS.map((goal) => {
                 const on = useGoals.includes(goal.id);
@@ -645,23 +646,23 @@ function AuthScreen({ onBack }: { onBack: () => void }) {
           </div>
           <label className="flex items-start gap-2 text-[10px]" style={{ color: OLIVE }}>
             <input type="checkbox" checked={pdConsent} onChange={(e) => setPdConsent(e.target.checked)} className="mt-0.5" />
-            <span>Соглашаюсь на обработку персональных данных. <button type="button" className="underline" onClick={() => push({ type: 'legal', doc: 'privacy' })}>Политика</button> и <button type="button" className="underline" onClick={() => push({ type: 'legal', doc: 'terms' })}>условия</button>.</span>
+            <span>{t('pdConsent')} <button type="button" className="underline" onClick={() => push({ type: 'legal', doc: 'privacy' })}>{t('privacyPolicy')}</button> · <button type="button" className="underline" onClick={() => push({ type: 'legal', doc: 'terms' })}>{t('terms')}</button>.</span>
           </label>
         </>
       )}
-      <button disabled={busy} onClick={() => void submit()} className="w-full py-3.5 rounded-2xl text-white text-sm font-bold" style={{ background: ACCENT }}>{busy ? '…' : mode === 'in' ? 'Войти' : 'Создать аккаунт'}</button>
-      {mode === 'in' && <button className="text-xs" style={{ color: SAGE }} onClick={() => push({ type: 'reset-password' })}>Забыли пароль?</button>}
-      <p className="text-[10px]" style={{ color: SAGE }}>Для входа нужно принять cookies сессии.</p>
+      <button disabled={busy} onClick={() => void submit()} className="w-full py-3.5 rounded-2xl text-white text-sm font-bold cursor-pointer" style={{ background: ACCENT }}>{busy ? '…' : mode === 'in' ? t('signIn') : t('createAccount')}</button>
+      {mode === 'in' && <button className="text-xs" style={{ color: SAGE }} onClick={() => push({ type: 'reset-password' })}>{t('forgotPassword')}</button>}
+      <p className="text-[10px]" style={{ color: SAGE }}>{t('cookiesNeed')}</p>
     </>
   );
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <ScreenHeader title={mode === 'in' ? 'Вход' : 'Регистрация'} onBack={onBack} />
+      <ScreenHeader title={mode === 'in' ? t('login') : t('register')} onBack={onBack} />
       {desktop ? (
         <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-8 pb-16">
           <div className="w-24 h-24 rounded-[28px] overflow-hidden shadow-xl mb-5"><LogoApp /></div>
           <h2 className="text-2xl font-bold mb-6" style={{ color: th.inkText, fontFamily: 'Klukva, "Geist Variable", serif' }}>
-            {mode === 'in' ? 'С возвращением' : 'Новый исследователь'}
+            {mode === 'in' ? t('welcomeBack') : t('newExplorer')}
           </h2>
           <div className="w-full max-w-[400px] flex flex-col gap-3">{form}</div>
         </div>

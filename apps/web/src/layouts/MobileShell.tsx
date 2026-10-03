@@ -12,6 +12,8 @@ import { NavBar, PinPlayer } from '../primitives/ui';
 import { MapFab } from '../primitives/chrome';
 import { useData } from '../state/DataContext';
 import { audioService } from '../lib/audio-player';
+import { downloadSound } from '../lib/download-sound';
+import { useUi } from '../state/UiContext';
 
 const HIDE_PLAYER: ScreenConfig['type'][] = [
   'auth', 'record', 'add-sound', 'legal', 'reset-password',
@@ -21,6 +23,7 @@ const HIDE_PLAYER: ScreenConfig['type'][] = [
 export function MobileShell() {
   const { isLoggedIn } = useAuth();
   const th = useTh();
+  const { toast } = useUi();
   const { activeTab, stack, pop, push } = useNav();
   const {
     sounds, playingId, playing, progress, togglePlay, seek, volume, muted, setVolume, toggleMute,
@@ -114,7 +117,8 @@ export function MobileShell() {
             volume={volume}
             muted={muted}
             onVolume={setVolume}
-            onMute={toggleMute} />
+            onMute={toggleMute}
+            onDownload={() => downloadSound(dock, toast)} />
         </div>
       )}
 

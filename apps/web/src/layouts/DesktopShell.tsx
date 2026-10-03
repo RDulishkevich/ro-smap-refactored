@@ -11,7 +11,7 @@ import { useNav, type DesktopView } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import { useUi } from '../state/UiContext';
-import { usePrefs } from '../state/PrefsContext';
+import { usePrefs, useT } from '../state/PrefsContext';
 import { MapScreen } from '../screens/MapScreen';
 import { CatalogSoundList, FeedScreen } from '../screens/FeedScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
@@ -65,6 +65,7 @@ function RailItem({
 
 function NotificationsPopover({ onClose }: { onClose: () => void }) {
   const th = useTh();
+  const t = useT();
   const { mail } = useData();
   const { user } = useAuth();
   const box = mail.find((b) => b.loginName === user?.loginName);
@@ -93,7 +94,7 @@ function NotificationsPopover({ onClose }: { onClose: () => void }) {
       className="absolute right-0 top-[calc(100%+10px)] z-[520] w-[320px] rounded-3xl shadow-[0_16px_40px_rgba(45,60,57,0.18)] overflow-hidden"
       style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
       <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${th.border}` }}>
-        <p className="text-sm font-bold" style={{ color: th.inkText }}>Уведомления</p>
+        <p className="text-sm font-bold" style={{ color: th.inkText }}>{t('notifications')}</p>
         <span className="text-[10px]" style={{ color: SAGE }}>{list.length ? `${list.length}` : ''}</span>
       </div>
       <div className="max-h-[360px] overflow-y-auto scrollbar-none p-2.5 flex flex-col gap-1.5">
@@ -123,6 +124,7 @@ export function DesktopShell() {
     playing, playingId, progress, togglePlay, seek, volume, muted, setVolume, toggleMute, allSounds,
     focused, setFocused,
   } = useData();
+  const t = useT();
   const [q, setQ] = useState(filter.tag);
   const [notifyOpen, setNotifyOpen] = useState(false);
 
@@ -147,11 +149,11 @@ export function DesktopShell() {
   }, [vis]);
 
   const mainNav: Array<{ id: DesktopView | 'messages'; Icon: typeof Radio; label: string }> = [
-    { id: 'library', Icon: LayoutGrid, label: 'Каталог' },
-    { id: 'feed', Icon: Radio, label: 'Лента' },
-    { id: 'expeditions', Icon: Calendar, label: 'Экспедиции' },
-    ...(isLoggedIn ? [{ id: 'messages' as const, Icon: MessageCircle, label: 'Сообщения' }] : []),
-    ...(isStaff ? [{ id: 'staff' as const, Icon: Shield, label: 'Модерация' }] : []),
+    { id: 'library', Icon: LayoutGrid, label: t('catalog') },
+    { id: 'feed', Icon: Radio, label: t('feed') },
+    { id: 'expeditions', Icon: Calendar, label: t('expeditions') },
+    ...(isLoggedIn ? [{ id: 'messages' as const, Icon: MessageCircle, label: t('messages') }] : []),
+    ...(isStaff ? [{ id: 'staff' as const, Icon: Shield, label: t('staff') }] : []),
   ];
 
   const goView = (id: DesktopView | 'messages') => {
@@ -202,8 +204,8 @@ export function DesktopShell() {
           </div>
           <RailBannerCarousel />
           <div className="flex flex-col gap-0.5 mb-3">
-            <RailItem label="Помощь" Icon={HelpCircle} on={vis?.type === 'help'} onClick={() => toggleStack('help')} ink={th.inkText} mute={mute} />
-            <RailItem label="Настройки" Icon={Settings} on={vis?.type === 'settings'} onClick={() => toggleStack('settings')} ink={th.inkText} mute={mute} />
+            <RailItem label={t('help')} Icon={HelpCircle} on={vis?.type === 'help'} onClick={() => toggleStack('help')} ink={th.inkText} mute={mute} />
+            <RailItem label={t('settings')} Icon={Settings} on={vis?.type === 'settings'} onClick={() => toggleStack('settings')} ink={th.inkText} mute={mute} />
           </div>
         </nav>
 
@@ -212,7 +214,7 @@ export function DesktopShell() {
             <div className="flex-1 flex justify-center min-w-0">
               <label className="flex items-center gap-2 w-full max-w-[420px] h-11 rounded-full px-4" style={{ background: chipBg }}>
                 <Search size={15} color={SAGE} className="flex-shrink-0" />
-                <input value={q} placeholder="Поиск звуков…"
+                <input value={q} placeholder={t('searchSounds')}
                   className="flex-1 min-w-0 bg-transparent text-sm outline-none" style={{ color: th.inkText }}
                   onChange={(e) => {
                     const v = e.target.value;
@@ -226,7 +228,7 @@ export function DesktopShell() {
               <LanguageSwitch compact />
               <div className="relative">
                 <motion.button whileTap={tap.cta} onMouseDown={(e) => e.stopPropagation()} onClick={() => setNotifyOpen((v) => !v)}
-                  className="relative w-10 h-10 rounded-full flex items-center justify-center" style={{ background: chipBg }} aria-expanded={notifyOpen} aria-label="Уведомления">
+                  className="relative w-10 h-10 rounded-full flex items-center justify-center cursor-pointer" style={{ background: chipBg }} aria-expanded={notifyOpen} aria-label={t('notifications')}>
                   <Bell size={16} color={OLIVE} />
                   {prefs.notifyInApp && unread > 0 && <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ background: ACCENT }} />}
                 </motion.button>
@@ -252,8 +254,8 @@ export function DesktopShell() {
                     </div>
                   </button>
                   <HoverMenu items={[
-                    { label: 'Профиль', onClick: () => { reset(); setDesktopView('cabinet'); } },
-                    { label: 'Выйти из аккаунта', danger: true, onClick: () => { void logout().then(() => { reset(); setDesktopView('map'); toast('Вы вышли'); }); } },
+                    { label: t('profile'), onClick: () => { reset(); setDesktopView('cabinet'); } },
+                    { label: t('logout'), danger: true, onClick: () => { void logout().then(() => { reset(); setDesktopView('map'); toast(t('loggedOut')); }); } },
                   ]}>
                     <span className="w-8 h-8 rounded-full flex items-center justify-center">
                       <ChevronDown size={14} color={SAGE} />
@@ -263,7 +265,7 @@ export function DesktopShell() {
               ) : (
                 <motion.button whileTap={tap.cta} onClick={() => push({ type: 'auth' })}
                   className="h-10 px-4 rounded-full text-[13px] font-bold text-white flex items-center gap-1.5" style={{ background: ACCENT }}>
-                  <LogIn size={14} />Войти
+                  <LogIn size={14} />{t('signIn')}
                 </motion.button>
               )}
             </div>
@@ -319,16 +321,16 @@ export function DesktopShell() {
               ) : mode !== 'map' ? (
                 <div className="flex-shrink-0 mt-3 h-[72px] rounded-2xl flex items-center justify-center gap-2" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
                   <Headphones size={14} color={SAGE} />
-                  <p className="text-[12px]" style={{ color: SAGE }}>Выберите звук на карте</p>
+                  <p className="text-[12px]" style={{ color: SAGE }}>{t('pickSound')}</p>
                 </div>
               ) : null}
             </div>
           </div>
           <footer className="flex-shrink-0 h-8 px-6 flex items-center gap-x-3 text-[10px] whitespace-nowrap overflow-hidden" style={{ borderTop: `1px solid ${th.border}`, color: SAGE }}>
             <span>© {year} Полёвка</span>
-            <button className="hover:underline" style={{ color: OLIVE }} onClick={() => openLegal('privacy')}>Политика конфиденциальности</button>
-            <button className="hover:underline" style={{ color: OLIVE }} onClick={() => openLegal('terms')}>Условия использования</button>
-            <button className="hover:underline" style={{ color: OLIVE }} onClick={() => openLegal('publish')}>Правила публикации</button>
+            <button className="hover:underline cursor-pointer" style={{ color: OLIVE }} onClick={() => openLegal('privacy')}>{t('privacyPolicy')}</button>
+            <button className="hover:underline cursor-pointer" style={{ color: OLIVE }} onClick={() => openLegal('terms')}>{t('terms')}</button>
+            <button className="hover:underline cursor-pointer" style={{ color: OLIVE }} onClick={() => openLegal('publish')}>{t('publishRules')}</button>
           </footer>
         </div>
       </div>

@@ -9,9 +9,10 @@ import { useNav, type ScreenConfig } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import BrandMark from '@/brand/BrandMark';
-import { SEARCH_KIND_LABEL, searchAll, type SearchHit } from '../lib/search-all';
+import { searchAll, type SearchHit } from '../lib/search-all';
 import { LanguageSwitch } from '../primitives/LanguageSwitch';
 import { useT } from '../state/PrefsContext';
+import { kindI18nKey } from '../lib/i18n';
 
 const SAGE = color.sage;
 const OLIVE = color.olive;
@@ -42,14 +43,14 @@ export function MenuHub() {
   };
 
   const items: Array<{ label: string; Icon: typeof Radio; screen: ScreenConfig; staff?: boolean; art?: string }> = [
-    { label: 'Лента', Icon: Radio, screen: { type: 'feed' }, art: '/menu/feed.webp' },
-    { label: 'Каталог', Icon: LayoutGrid, screen: { type: 'catalog' }, art: '/menu/catalog.webp' },
-    { label: 'Экспедиции', Icon: Calendar, screen: { type: 'expeditions' }, art: '/menu/expeditions.webp' },
-    { label: 'Ивенты', Icon: Ticket, screen: { type: 'events' }, art: '/menu/events.webp' },
-    { label: 'Настройки', Icon: Settings, screen: { type: 'settings' }, art: '/menu/settings.webp' },
-    { label: 'Админ-панель', Icon: Shield, screen: { type: 'staff' }, staff: true, art: '/menu/staff.webp' },
-    { label: 'Помощь', Icon: HelpCircle, screen: { type: 'help' }, art: '/menu/help.webp' },
-    { label: 'Audio Guesser', Icon: Dices, screen: { type: 'guessr' }, art: '/menu/guessr.webp' },
+    { label: t('feed'), Icon: Radio, screen: { type: 'feed' }, art: '/menu/feed.webp' },
+    { label: t('catalog'), Icon: LayoutGrid, screen: { type: 'catalog' }, art: '/menu/catalog.webp' },
+    { label: t('expeditions'), Icon: Calendar, screen: { type: 'expeditions' }, art: '/menu/expeditions.webp' },
+    { label: t('events'), Icon: Ticket, screen: { type: 'events' }, art: '/menu/events.webp' },
+    { label: t('settings'), Icon: Settings, screen: { type: 'settings' }, art: '/menu/settings.webp' },
+    { label: t('staffPanel'), Icon: Shield, screen: { type: 'staff' }, staff: true, art: '/menu/staff.webp' },
+    { label: t('help'), Icon: HelpCircle, screen: { type: 'help' }, art: '/menu/help.webp' },
+    { label: t('guessr'), Icon: Dices, screen: { type: 'guessr' }, art: '/menu/guessr.webp' },
   ];
 
   return (
@@ -65,20 +66,20 @@ export function MenuHub() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Поиск по звукам, людям, экспедициям…"
+            placeholder={t('searchGlobal')}
             className="flex-1 min-w-0 bg-transparent text-[13px] outline-none"
             style={{ color: th.inkText }}
-            aria-label="Общий поиск" />
+            aria-label={t('searchGlobalAria')} />
         </label>
       </div>
       <div className="flex-1 overflow-y-auto scrollbar-none px-4 pb-8">
         {q.trim() ? (
           <div className="flex flex-col gap-2 pt-2">
-            {!hits.length && <p className="text-xs py-10 text-center" style={{ color: SAGE }}>Ничего не нашлось</p>}
+            {!hits.length && <p className="text-xs py-10 text-center" style={{ color: SAGE }}>{t('nothingFound')}</p>}
             {hits.map((hit) => (
               <button key={hit.id} type="button" onClick={() => openHit(hit)}
                 className="w-full text-left rounded-3xl px-4 py-3.5" style={{ background: th.cardBg }}>
-                <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: SAGE }}>{SEARCH_KIND_LABEL[hit.kind]}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: SAGE }}>{t(kindI18nKey(hit.kind))}</p>
                 <p className="text-[13px] font-semibold mt-0.5" style={{ color: th.inkText }}>{hit.title}</p>
                 {hit.hint && <p className="text-[11px] mt-0.5 truncate" style={{ color: OLIVE }}>{hit.hint}</p>}
               </button>

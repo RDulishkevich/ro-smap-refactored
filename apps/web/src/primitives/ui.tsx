@@ -10,6 +10,7 @@ import { useData } from '../state/DataContext';
 import { useTh } from '../state/ThemeContext';
 import { formatClock, parseDurationLabel } from '../lib/waveform';
 import { PLACEHOLDER_PEAKS, useSoundMeta } from '../lib/audio-meta';
+import { typeI18nKey } from '../lib/i18n';
 import { useT } from '../state/PrefsContext';
 import { isAmbisonicSound } from '../lib/sound-media';
 import { audioService } from '../lib/audio-player';
@@ -55,11 +56,12 @@ export function PlayPauseIcon({ playing, size = 14 }: { playing: boolean; size?:
 }
 
 export function SoundTypeTag({ type }: { type: string }) {
+  const t = useT();
   const s = typeMeta[type] ?? { label: type, bg: color.cream, color: color.olive };
   return (
     <span className="flex items-center gap-1 flex-shrink-0 whitespace-nowrap">
       <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: s.color }} />
-      <span className="text-[9px] font-medium uppercase tracking-wide" style={{ color: s.color }}>{s.label}</span>
+      <span className="text-[9px] font-medium uppercase tracking-wide" style={{ color: s.color }}>{type ? t(typeI18nKey(type)) : s.label}</span>
     </span>
   );
 }
@@ -68,7 +70,7 @@ export function ScreenHeader({ title, onBack, right }: { title: string; onBack: 
   const th = useTh();
   return (
     <div className="flex items-center gap-3 px-4 pv-safe-top pb-3 flex-shrink-0" style={{ background: th.headerBg, borderBottom: `1px solid ${th.border}` }}>
-      <motion.button whileTap={tap.nav} onClick={onBack} className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: th.lightBg }} aria-label="Назад">
+      <motion.button whileTap={tap.nav} onClick={onBack} className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 cursor-pointer" style={{ background: th.lightBg }} aria-label="Назад">
         <ChevronLeft size={18} style={{ color: color.dark }} />
       </motion.button>
       <p className="flex-1 text-sm font-bold truncate" style={{ color: th.inkText }}>{title}</p>
@@ -243,10 +245,15 @@ function VolumeKnob({ volume, muted, onVolume, onMute, compact = false }: {
 }) {
   const shown = muted ? 0 : volume;
   const pct = Math.round(shown * 100);
+  const t = useT();
+  const th = useTh();
   const Icon = muted || shown === 0 ? VolumeX : shown < 0.45 ? Volume1 : Volume2;
   return (
-    <div className="flex items-center gap-1 flex-shrink-0" title={`Громкость ${pct}%`}>
-      <button type="button" onClick={onMute} className="w-9 h-9 rounded-full flex items-center justify-center" aria-label={muted ? 'Включить звук' : 'Выключить звук'}>
+    <div className="flex items-center gap-1 flex-shrink-0" title={`${t('volume')} ${pct}%`}>
+      <button type="button" onClick={onMute}
+        className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer"
+        style={{ background: th.lightBg }}
+        aria-label={muted ? t('unmute') : t('mute')}>
         <Icon size={14} color={color.olive} />
       </button>
       {!compact && (
@@ -265,6 +272,19 @@ export function VolumeRow({ volume, muted, onVolume, onMute }: { volume: number;
   return <VolumeKnob volume={volume} muted={muted} onVolume={onVolume} onMute={onMute} />;
 }
 
+function PlayerAction({ on, label, onClick, bg, children }: {
+  on: boolean; label: string; onClick: () => void; bg: string; children: ReactNode;
+}) {
+  return (
+    <motion.button type="button" whileTap={tap.btn} onClick={onClick}
+      className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer"
+      style={{ background: on ? 'rgba(181,97,63,0.2)' : bg, boxShadow: on ? `inset 0 0 0 1.5px ${color.accent}` : undefined }}
+      title={label} aria-label={label} aria-pressed={on}>
+      {children}
+    </motion.button>
+  );
+}
+
 export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, progress = 0, onOpen, onSeek, volume = 1, muted = false, onVolume, onMute, onDownload }: {
   sound: Sound; onClose: () => void; simple?: boolean; playing?: boolean; onToggle?: () => void; progress?: number; onOpen?: () => void;
   onSeek?: (r: number) => void; volume?: number; muted?: boolean; onVolume?: (v: number) => void; onMute?: () => void; onDownload?: () => void;
@@ -275,8 +295,10 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
   const c = pinColor[String(sound.type)] ?? color.accent;
   const meta = useSoundMeta(sound);
   const peaks = meta.peaks && meta.peaks.length ? meta.peaks : PLACEHOLDER_PEAKS;
+  const t = useT();
   const [analyzers, setAnalyzers] = useState(false);
   const [ambiUi, setAmbiUi] = useState(false);
+  const [markTip, setMarkTip] = useState<{ label: string; left: number } | null>(null);
   const ambiGen = useRef(0);
   const ambiCapable = isAmbisonicSound(sound);
   const [liveDur, setLiveDur] = useState(0);
@@ -300,7 +322,7 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
   const toggleAnalyzers = async () => {
     if (analyzers) { setAnalyzers(false); return; }
     const ok = await audioService.ensureGraph();
-    if (!ok) { toast('Анализаторы недоступны в этом браузере'); return; }
+    if (!ok) { toast(t('analyzersFail')); return; }
     setAnalyzers(true);
   };
   const toggleAmbi = async () => {
@@ -309,15 +331,15 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
       await audioService.setAmbisonic(false);
       if (gen !== ambiGen.current) return;
       setAmbiUi(false);
-      toast('Ambisonic выкл.');
+      toast(t('ambisonicOff'));
       return;
     }
     const ok = await audioService.setAmbisonic(true, sound.url ? String(sound.url) : undefined);
     if (gen !== ambiGen.current) return;
-    if (!ok) { toast('Не удалось включить ambisonic — нужен 4-канальный WAV'); return; }
+    if (!ok) { toast(t('ambisonicFail')); return; }
     setAmbiUi(true);
     setAnalyzers(false);
-    toast('Ambisonic вкл.');
+    toast(t('ambisonicOn'));
   };
   return (
     <div className={`px-3.5 ${simple ? 'py-2.5' : 'pt-3 pb-9'}`}
@@ -329,7 +351,7 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
         WebkitMaskImage: analyzers || ambiUi ? undefined : 'radial-gradient(circle 36px at 50% 100%, transparent 34px, black 36px)',
       }}>
       <div className="flex items-center gap-2.5 min-w-0">
-        <button type="button" onClick={onToggle} className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c }} aria-label={playing ? 'Пауза' : 'Слушать'}>
+        <button type="button" onClick={onToggle} className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer" style={{ backgroundColor: c }} aria-label={playing ? t('pause') : t('listen')}>
           <PlayPauseIcon playing={!!playing} size={14} />
         </button>
         <div className="flex-1 min-w-0">
@@ -340,24 +362,24 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
             {sound.location ? <span> · {sound.location}</span> : null}
           </p>
         </div>
-        <div className="flex items-center gap-0.5 flex-shrink-0">
+        <div className="relative z-20 flex items-center gap-1 flex-shrink-0 pointer-events-auto">
         {onVolume && onMute && <VolumeKnob volume={volume} muted={muted} onVolume={onVolume} onMute={onMute} compact={compact} />}
-        <motion.button type="button" whileTap={tap.btn} onClick={() => void toggleAnalyzers()} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" title="Анализаторы" aria-label="Анализаторы" aria-pressed={analyzers}>
-          <AudioLines size={13} color={analyzers ? color.accent : color.olive} />
-        </motion.button>
+        <PlayerAction on={analyzers} label={t('analyzers')} onClick={() => void toggleAnalyzers()} bg={th.lightBg}>
+          <AudioLines size={14} color={analyzers ? color.accent : color.olive} />
+        </PlayerAction>
         {ambiCapable && (
-          <motion.button type="button" whileTap={tap.btn} onClick={() => void toggleAmbi()} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" title="Звуковая сфера" aria-label="Звуковая сфера" aria-pressed={ambiUi}>
-            <Globe2 size={13} color={ambiUi ? color.accent : color.olive} />
-          </motion.button>
+          <PlayerAction on={ambiUi} label={t('ambisonic')} onClick={() => void toggleAmbi()} bg={th.lightBg}>
+            <Globe2 size={14} color={ambiUi ? color.accent : color.olive} />
+          </PlayerAction>
         )}
-        {!compact && onDownload && (
-          <motion.button type="button" whileTap={tap.btn} onClick={onDownload} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" title="Скачать WAV">
-            <Download size={13} color={color.olive} />
-          </motion.button>
+        {onDownload && (
+          <PlayerAction on={false} label={t('download')} onClick={onDownload} bg={th.lightBg}>
+            <Download size={14} color={color.olive} />
+          </PlayerAction>
         )}
-        <motion.button type="button" whileTap={tap.btn} onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" aria-label="Закрыть">
-          <X size={14} color={color.olive} />
-        </motion.button>
+        <PlayerAction on={false} label={t('close')} onClick={onClose} bg={th.lightBg}>
+          <X size={15} color={color.olive} />
+        </PlayerAction>
         </div>
       </div>
       <div className="relative mt-2.5">
@@ -365,15 +387,26 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
         {normalizeTimeMarkers(sound.timeMarkers).map((m) => {
           const pct = totalSec ? Math.max(0, Math.min(100, (m.t / totalSec) * 100)) : 0;
           return (
-            <button key={`${m.t}-${m.label}`} type="button" title={m.label}
-              className="absolute top-0 z-[2] -translate-x-1/2 w-2.5 h-2.5 rounded-full"
-              style={{ left: `${pct}%`, background: color.dark }}
+            <button key={`${m.t}-${m.label}`} type="button"
+              className="absolute -top-1 z-[3] -translate-x-1/2 w-4 h-4 rounded-full cursor-pointer"
+              style={{ left: `${pct}%`, background: color.dark, boxShadow: '0 0 0 3px rgba(45,60,57,0.16)' }}
+              onMouseEnter={() => setMarkTip({ label: m.label, left: pct })}
+              onMouseLeave={() => setMarkTip(null)}
+              onFocus={() => setMarkTip({ label: m.label, left: pct })}
+              onBlur={() => setMarkTip(null)}
+              aria-label={m.label}
               onClick={(e) => {
                 e.stopPropagation();
                 if (totalSec && onSeek) onSeek(Math.max(0, Math.min(1, m.t / totalSec)));
               }} />
           );
         })}
+        {markTip && (
+          <div className="absolute z-[4] -top-8 -translate-x-1/2 pointer-events-none px-2 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap"
+            style={{ left: `${markTip.left}%`, background: color.dark, color: '#fff' }}>
+            {markTip.label}
+          </div>
+        )}
       </div>
       <AnimatePresence>
         {analyzers && (
