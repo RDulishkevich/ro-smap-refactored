@@ -9,7 +9,7 @@ import { useData } from '../state/DataContext';
 import { useAuth } from '../state/AuthContext';
 import { useUi } from '../state/UiContext';
 import { usePrefs } from '../state/PrefsContext';
-import { NavBar, PlayPauseIcon, ScreenHeader, SoundTypeTag } from '../primitives/ui';
+import { ListSkeleton, NavBar, PlayPauseIcon, ScreenHeader, SoundTypeTag } from '../primitives/ui';
 import BrandMark from '@/brand/BrandMark';
 import { CatalogSoundList } from './CatalogScreen';
 import { downloadSound } from '../lib/download-sound';
@@ -144,7 +144,7 @@ function postTime(p: FeedPost) {
 }
 
 function PostsList({ onCatalog }: { onCatalog: () => void }) {
-  const { feed, sounds, playingId, playing, togglePlay } = useData();
+  const { feed, sounds, playingId, playing, togglePlay, loading } = useData();
   const { push } = useNav();
   const { toast } = useUi();
   const th = useTh();
@@ -186,6 +186,10 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
     return all;
   }, [feed, sounds, q, sort]);
 
+  if (loading && !feed.length && !sounds.length) {
+    return <ListSkeleton rows={6} />;
+  }
+
   if (!feed.length && !sounds.length) {
     return (
       <div className="py-10 px-2 text-center">
@@ -215,7 +219,7 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
         ))}
       </div>
       {items.map((item) => item.kind === 'post' ? (
-        <FeedPostCard key={item.id} post={item.post} />
+        <FeedPostCard key={item.id} post={item.post} onOpen={() => push({ type: 'feed-post', post: item.post })} />
       ) : (
         <MarkerFeedCard key={item.id} sound={item.sound} playing={playing && String(playingId) === String(item.sound.id)}
           onPlay={() => togglePlay(item.sound)}
@@ -227,14 +231,17 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
   );
 }
 
-function FeedPostCard({ post }: { post: FeedPost }) {
+function FeedPostCard({ post, onOpen }: { post: FeedPost; onOpen: () => void }) {
   const th = useTh();
+  const t = useT();
   const images = (post.images || []).map(String).filter(Boolean);
   const author = String(post.author || 'Полёвка');
   const when = post.createdAt ? fmtWhen(String(post.createdAt)) : '';
   const text = String(post.text || '').trim();
+  const comments = Array.isArray(post.comments) ? post.comments.length : 0;
   return (
-    <article className="rounded-3xl overflow-hidden shadow-sm" style={{ background: th.cardBg }}>
+    <button type="button" onClick={onOpen} className="rounded-3xl overflow-hidden shadow-sm text-left w-full cursor-pointer"
+      style={{ background: th.cardBg }}>
       <div className="px-4 pt-3.5 pb-2.5 flex items-center gap-2.5">
         <span className="w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold flex-shrink-0" style={{ background: th.lightBg, color: ACCENT }}>
           {author.slice(0, 1).toUpperCase()}
@@ -250,14 +257,14 @@ function FeedPostCard({ post }: { post: FeedPost }) {
         </div>
       )}
       <div className="px-4 py-3.5">
-        <p className="text-[15px] font-bold leading-snug" style={{ color: th.inkText }}>{String(post.title || 'Запись')}</p>
+        <p className="text-[15px] font-bold leading-snug" style={{ color: th.inkText }}>{String(post.title || t('kindPost'))}</p>
         {text ? <p className="text-[13px] leading-relaxed mt-1.5" style={{ color: OLIVE }}>{text}</p> : null}
-        <div className="flex items-center gap-3 mt-3" style={{ color: SAGE }}>
-          <span className="inline-flex items-center gap-0.5"><Heart size={11} /><span className="text-[10px] font-semibold">{Number(post.likes || 0)}</span></span>
-          <span className="inline-flex items-center gap-0.5"><MessageCircle size={11} /><span className="text-[10px] font-semibold">{Array.isArray(post.comments) ? post.comments.length : 0}</span></span>
+        <div className="flex items-center gap-1.5 mt-3" style={{ color: SAGE }}>
+          <MessageCircle size={11} />
+          <span className="text-[10px] font-semibold">{comments} {t('comments')}</span>
         </div>
       </div>
-    </article>
+    </button>
   );
 }
 

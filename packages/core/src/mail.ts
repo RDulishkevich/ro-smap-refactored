@@ -80,6 +80,22 @@ export function conversationPeers(boxes: MailBox[], me: string, profiles: Profil
   }).sort((a, b) => new Date(b.lastDate || 0).getTime() - new Date(a.lastDate || 0).getTime());
 }
 
+export function markBoxNotificationsRead(boxes: MailBox[], login: string): { boxes: MailBox[]; patch: MailBox | null } {
+  const key = String(login || '').toLowerCase();
+  const box = boxes.find((b) => b.loginName === key);
+  if (!box) return { boxes, patch: null };
+  const list = box.notifications || [];
+  if (!list.some((n) => !(n as { read?: boolean }).read)) return { boxes, patch: null };
+  const patch: MailBox = {
+    ...box,
+    notifications: list.map((n) => ({ ...n, read: true })),
+  };
+  return {
+    boxes: boxes.map((b) => (b.loginName === key ? patch : b)),
+    patch,
+  };
+}
+
 export function makeMailMsg(fromId: string, fromName: string, text: string, extra: Partial<MailMsg> = {}): MailMsg {
   return {
     id: `m${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,

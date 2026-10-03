@@ -132,6 +132,12 @@ const ru = {
   cabinet: 'Кабинет',
   recordings: 'Записи',
   pending: 'На модерации',
+  loading: 'Загрузка…',
+  quiet: 'Пока тихо',
+  eventsEmpty: 'Пока нет опубликованных событий',
+  eventsEmptyHint: 'Когда появится встреча или воркшоп, записаться можно будет здесь',
+  listenRecording: 'Слушать запись',
+  noComments: 'Пока нет комментариев',
 };
 
 const en: Record<keyof typeof ru, string> = {
@@ -266,6 +272,12 @@ const en: Record<keyof typeof ru, string> = {
   cabinet: 'Cabinet',
   recordings: 'Recordings',
   pending: 'In review',
+  loading: 'Loading…',
+  quiet: 'All quiet',
+  eventsEmpty: 'No published events yet',
+  eventsEmptyHint: 'When a meetup or workshop appears, you can sign up here',
+  listenRecording: 'Listen to the recording',
+  noComments: 'No comments yet',
 };
 
 export const DICT = { ru, en };

@@ -299,8 +299,11 @@ class AudioService {
     if (!url) return;
     const el = this.ensure();
     if (this.playing && this.soundId != null && String(this.soundId) !== String(id)) return;
-    if (this.soundId === id && (el.currentSrc || el.src)) return;
-    el.preload = 'metadata';
+    if (this.soundId === id && (el.currentSrc || el.src)) {
+      el.preload = 'auto';
+      return;
+    }
+    el.preload = 'auto';
     el.src = url;
     this.soundId = id;
     this.emit();
@@ -308,7 +311,7 @@ class AudioService {
 
   async play(id: string | number, url?: string) {
     const el = this.ensure();
-    await this.ensureGraph();
+    el.preload = 'auto';
     this.applyVolume();
     if (!url) {
       this.playing = !this.playing;
@@ -320,6 +323,7 @@ class AudioService {
         this.stopFoaSrc();
       }
       this.emit();
+      void this.ensureGraph();
       return;
     }
     if (this.soundId !== id) {
@@ -336,8 +340,10 @@ class AudioService {
     }
     this.playing = true;
     this.emit();
+    const start = el.play();
+    void this.ensureGraph().then(() => this.applyVolume());
     try {
-      await el.play();
+      await start;
       this.syncFoa();
     } catch {
       this.playing = false;

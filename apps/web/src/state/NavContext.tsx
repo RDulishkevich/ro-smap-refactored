@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { AppEvent, Expedition, Sound } from '@polevka/core';
+import type { AppEvent, Expedition, FeedPost, Sound } from '@polevka/core';
 import { pathForEvent, pathForSound, pathForUser } from '../lib/routes';
 
 export type ScreenConfig =
@@ -9,7 +9,8 @@ export type ScreenConfig =
   | { type: 'expedition-edit'; exp?: Expedition }
   | { type: 'settings' }
   | { type: 'events'; focusId?: string }
-  | { type: 'auth' }
+  | { type: 'auth'; mode?: 'in' | 'up' }
+  | { type: 'feed-post'; post: FeedPost }
   | { type: 'record' }
   | { type: 'add-sound'; edit?: Sound }
   | { type: 'messages' }

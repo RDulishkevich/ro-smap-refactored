@@ -79,6 +79,17 @@ export function ScreenHeader({ title, onBack, right }: { title: string; onBack: 
   );
 }
 
+export function ListSkeleton({ rows = 5 }: { rows?: number }) {
+  const th = useTh();
+  return (
+    <div className="flex flex-col gap-2 pt-2" aria-busy="true">
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="h-14 rounded-2xl animate-pulse" style={{ background: th.cardBg, opacity: Math.max(0.35, 1 - i * 0.12) }} />
+      ))}
+    </div>
+  );
+}
+
 export function OtpInput({
   value,
   onChange,
@@ -293,7 +304,8 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
   const compact = !useIsDesktop();
   const { toast } = useUi();
   const c = pinColor[String(sound.type)] ?? color.accent;
-  const meta = useSoundMeta(sound);
+  const [peaksOn, setPeaksOn] = useState(false);
+  const meta = useSoundMeta(sound, { peaks: peaksOn });
   const peaks = meta.peaks && meta.peaks.length ? meta.peaks : PLACEHOLDER_PEAKS;
   const t = useT();
   const [analyzers, setAnalyzers] = useState(false);
@@ -318,6 +330,9 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
     ambiGen.current += 1;
     if (audioService.ambisonic) void audioService.setAmbisonic(false);
     if (sound.url) audioService.preload(sound.id, String(sound.url));
+    setPeaksOn(false);
+    const later = window.setTimeout(() => setPeaksOn(true), 1400);
+    return () => window.clearTimeout(later);
   }, [sound.id, sound.url]);
   const toggleAnalyzers = async () => {
     if (analyzers) { setAnalyzers(false); return; }

@@ -1,4 +1,21 @@
 const cache = new Map<string, number[]>();
+const blobJobs = new Map<string, Promise<Blob>>();
+
+export function fetchAudioBlob(url: string): Promise<Blob> {
+  const hit = blobJobs.get(url);
+  if (hit) return hit;
+  const job = fetch(url, { mode: 'cors', credentials: 'omit', cache: 'force-cache' })
+    .then((res) => {
+      if (!res.ok) throw new Error('audio');
+      return res.blob();
+    })
+    .catch((err) => {
+      blobJobs.delete(url);
+      throw err;
+    });
+  blobJobs.set(url, job);
+  return job;
+}
 
 function barsFromChannel(data: Float32Array, bars: number): number[] {
   const n = data.length;
@@ -42,9 +59,8 @@ export async function peaksFromUrl(url: string, bars = 80): Promise<number[]> {
   const key = `${url}:${bars}`;
   const hit = cache.get(key);
   if (hit) return hit;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('audio');
-  const buffer = await decode(await res.arrayBuffer());
+  const blob = await fetchAudioBlob(url);
+  const buffer = await decode(await blob.arrayBuffer());
   const peaks = await peaksFromBuffer(buffer, bars);
   cache.set(key, peaks);
   return peaks;

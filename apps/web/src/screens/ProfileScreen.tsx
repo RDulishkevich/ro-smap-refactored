@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
-import { Headphones, LogIn, MapPin, Mic, Settings } from 'lucide-react';
+import { Headphones, LogIn, Mic, Settings } from 'lucide-react';
 import { color, pinColor } from '@polevka/design';
 import { formatPlays, type Sound } from '@polevka/core';
-import { PLACEHOLDER_PEAKS, useSoundMeta } from '../lib/audio-meta';
+import { useSoundMeta } from '../lib/audio-meta';
 import { useT } from '../state/PrefsContext';
 import { useAuth } from '../state/AuthContext';
 import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
-import { NavBar, PlayPauseIcon, SoundTypeTag, WaveformSVG } from '../primitives/ui';
+import { NavBar, PlayPauseIcon, SoundTypeTag } from '../primitives/ui';
 import BrandMark from '@/brand/BrandMark';
 import LogoApp from '@/brand/LogoApp';
 
@@ -36,7 +36,7 @@ export function GuestProfileScreen({ showNav = true }: { showNav?: boolean }) {
             className="w-full py-3.5 rounded-2xl text-white text-sm font-bold flex items-center justify-center gap-2 cursor-pointer" style={{ backgroundColor: ACCENT }}>
             <LogIn size={15} />{t('signInAccount')}
           </motion.button>
-          <motion.button whileTap={{ scale: 0.96 }} onClick={() => push({ type: 'auth' })}
+          <motion.button whileTap={{ scale: 0.96 }} onClick={() => push({ type: 'auth', mode: 'up' })}
             className="w-full py-3 rounded-2xl text-sm font-semibold cursor-pointer" style={{ background: th.lightBg, color: OLIVE }}>
             {t('register')}
           </motion.button>
@@ -57,7 +57,9 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
   const { push } = useNav();
   const th = useTh();
   const t = useT();
-  const { togglePlay, playing, playingId, progress, allSounds, profiles } = useData();
+  const { togglePlay, playing, playingId, allSounds, profiles } = useData();
+  const mineProfile = profiles.find((p) => String(p.loginName).toLowerCase() === String(user?.loginName || '').toLowerCase());
+  const avatarUrl = String(user?.avatar || mineProfile?.avatar || '');
   const mineAll = allSounds.filter((s) => String(s.recordistId || s.user || '').toLowerCase() === String(user?.loginName || '').toLowerCase()
     || String(s.recordist || '').toLowerCase() === String(user?.username || '').toLowerCase());
   const mine = mineAll.filter((s) => !s.status || s.status === 'published');
@@ -80,7 +82,11 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
             </motion.button>
           </div>
           <div className="relative flex items-center gap-4 mb-5">
-            <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-md flex-shrink-0"><LogoApp /></div>
+            <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-md flex-shrink-0">
+              {/^(https?:|data:)/i.test(avatarUrl)
+                ? <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                : <LogoApp />}
+            </div>
             <div>
               <p className="text-base font-bold" style={{ color: th.inkText }}>{user?.displayName || user?.username}</p>
               <p className="text-xs mb-2" style={{ color: SAGE }}>@{user?.loginName}</p>
@@ -121,7 +127,7 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
             ))}
             {shown.map((item) => (
               <ProfileSoundCard key={String(item.id)} item={item} playing={playing && String(playingId) === String(item.id)}
-                progress={progress} onPlay={() => togglePlay(item)} onOpen={() => push({ type: 'sound-detail', sound: item })} />
+                onPlay={() => togglePlay(item)} onOpen={() => push({ type: 'sound-detail', sound: item })} />
             ))}
             {!shown.length && !drafts.length && <p className="text-xs" style={{ color: SAGE }}>{t('noOwnSounds')}</p>}
           </div>
@@ -132,32 +138,29 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
   );
 }
 
-function ProfileSoundCard({ item, playing, progress, onPlay, onOpen }: {
-  item: Sound; playing: boolean; progress: number; onPlay: () => void; onOpen: () => void;
+function ProfileSoundCard({ item, playing, onPlay, onOpen }: {
+  item: Sound; playing: boolean; onPlay: () => void; onOpen: () => void;
 }) {
   const th = useTh();
   const meta = useSoundMeta(item);
   const c = pinColor[String(item.type)] ?? ACCENT;
-  const peaks = meta.peaks && meta.peaks.length ? meta.peaks : PLACEHOLDER_PEAKS;
   return (
-    <div className="rounded-3xl p-4 shadow-sm" style={{ background: th.cardBg }}>
-      <div className="flex justify-between items-start mb-2">
-        <button className="flex-1 min-w-0 text-left" onClick={onOpen}>
-          <p className="text-xs font-bold truncate" style={{ color: th.inkText }}>{item.title}</p>
-          <div className="flex items-center gap-1"><MapPin size={9} style={{ color: SAGE }} /><p className="text-[10px] truncate" style={{ color: OLIVE }}>{item.location}</p></div>
-        </button>
-        <SoundTypeTag type={String(item.type)} />
-      </div>
-      <div className="flex items-center gap-3">
-        <motion.button onClick={onPlay} whileTap={{ scale: 0.88 }} className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c }}>
-          <PlayPauseIcon playing={playing} size={12} />
-        </motion.button>
-        <div className="flex-1 overflow-hidden"><WaveformSVG data={peaks} color={c} progress={playing ? progress : 0} /></div>
-        <div className="text-right flex-shrink-0">
-          <p className="text-[10px]">{meta.durationLabel}</p>
-          <div className="flex items-center gap-1 justify-end" style={{ color: SAGE }}><Headphones size={9} /><span className="text-[9px]">{formatPlays(item.plays)}</span></div>
-        </div>
-      </div>
+    <div className="rounded-2xl px-3 py-2.5 flex items-center gap-3" style={{ background: th.cardBg }}>
+      <motion.button type="button" onClick={onPlay} whileTap={{ scale: 0.88 }}
+        className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c }}>
+        <PlayPauseIcon playing={playing} size={12} />
+      </motion.button>
+      <button type="button" className="flex-1 min-w-0 text-left" onClick={onOpen}>
+        <p className="text-[13px] font-semibold truncate" style={{ color: th.inkText }}>{item.title}</p>
+        <p className="text-[11px] truncate mt-0.5" style={{ color: OLIVE }}>
+          {item.location || '—'}
+          {meta.durationSec > 0 ? ` · ${meta.durationLabel}` : ''}
+        </p>
+      </button>
+      <SoundTypeTag type={String(item.type)} />
+      <span className="inline-flex items-center gap-0.5 flex-shrink-0" style={{ color: SAGE }}>
+        <Headphones size={11} /><span className="text-[10px]">{formatPlays(item.plays)}</span>
+      </span>
     </div>
   );
 }

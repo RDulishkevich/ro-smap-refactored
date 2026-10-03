@@ -22,7 +22,7 @@ export function probeDuration(url: string): Promise<number> {
       if (ok) durCache.set(url, sec);
       resolve(ok ? sec : 0);
     };
-    const timer = window.setTimeout(() => finish(el.duration), 4000);
+    const timer = window.setTimeout(() => finish(el.duration), 2500);
     el.onloadedmetadata = () => finish(el.duration);
     el.ondurationchange = () => {
       if (el.duration > 0 && Number.isFinite(el.duration)) finish(el.duration);
@@ -32,8 +32,13 @@ export function probeDuration(url: string): Promise<number> {
   });
 }
 
-export function useSoundMeta(sound?: { id?: unknown; url?: string; duration?: string } | null) {
+export function useSoundMeta(
+  sound?: { id?: unknown; url?: string; duration?: string } | null,
+  opts?: { peaks?: boolean; probe?: boolean },
+) {
   const stored = parseDurationLabel(sound?.duration);
+  const wantPeaks = !!opts?.peaks;
+  const wantProbe = !!opts?.probe;
   const [durationSec, setDurationSec] = useState(stored);
   const [peaks, setPeaks] = useState<number[] | null>(null);
   useEffect(() => {
@@ -45,14 +50,20 @@ export function useSoundMeta(sound?: { id?: unknown; url?: string; duration?: st
       return;
     }
     let dead = false;
-    void probeDuration(url).then((sec) => {
-      if (!dead && sec > 0) setDurationSec(sec);
-    });
-    void peaksFromUrl(url, 80).then((p) => {
-      if (!dead && p.length) setPeaks(p);
-    }).catch(() => {});
+    if (!next && wantProbe) {
+      void probeDuration(url).then((sec) => {
+        if (!dead && sec > 0) setDurationSec(sec);
+      });
+    }
+    if (wantPeaks) {
+      void peaksFromUrl(url, 80).then((p) => {
+        if (!dead && p.length) setPeaks(p);
+      }).catch(() => {});
+    } else {
+      setPeaks(null);
+    }
     return () => { dead = true; };
-  }, [sound?.url, sound?.id, sound?.duration]);
+  }, [sound?.url, sound?.id, sound?.duration, wantPeaks, wantProbe]);
   return {
     durationSec,
     peaks,

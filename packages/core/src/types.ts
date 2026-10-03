@@ -53,6 +53,7 @@ export type Sound = {
   ucsCatId?: string;
   ucsCategory?: string;
   fxName?: string;
+  fileName?: string;
   formatLabel?: string;
   rejectNote?: string;
   deleted?: boolean;
@@ -118,6 +119,8 @@ export type FeedPost = {
   createdAt?: string;
   images?: string[];
   comments?: Comment[];
+  likes?: number;
+  soundId?: string | number;
   [key: string]: unknown;
 };
 

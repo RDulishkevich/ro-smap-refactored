@@ -7,7 +7,7 @@ import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useUi } from '../state/UiContext';
 import { usePrefs, useT } from '../state/PrefsContext';
-import { PlayPauseIcon, ScreenHeader, SoundTypeTag } from '../primitives/ui';
+import { ListSkeleton, PlayPauseIcon, ScreenHeader, SoundTypeTag } from '../primitives/ui';
 import { CatalogFilters } from '../primitives/filters';
 import { downloadSound } from '../lib/download-sound';
 import { useSoundMeta } from '../lib/audio-meta';
@@ -46,7 +46,7 @@ export function CatalogScreen({ onBack }: { onBack: () => void }) {
 
 export function CatalogBrowse() {
   const th = useTh();
-  const { filteredSounds, filter, setFilter, playingId, playing, togglePlay } = useData();
+  const { filteredSounds, filter, setFilter, playingId, playing, togglePlay, loading } = useData();
   const { push } = useNav();
   const { toast } = useUi();
   const t = useT();
@@ -131,7 +131,8 @@ export function CatalogBrowse() {
           ))}
         </section>
       ))}
-      {!sorted.length && (
+      {loading && !sorted.length && <ListSkeleton rows={7} />}
+      {!loading && !sorted.length && (
         <p className="text-xs py-10 text-center" style={{ color: SAGE }}>{t('nothingFoundHint')}</p>
       )}
     </div>

@@ -1,3 +1,4 @@
+import { buildUcsFileName, resolveProjectSourceId } from './catalogs';
 import type { Comment, Sound, TimeMarker } from './types';
 
 export function normalizeTimeMarkers(raw: unknown): TimeMarker[] {
@@ -92,6 +93,14 @@ export function formatSound(s: Sound): Sound {
     principle: String(s.principle || (s as Sound & { recPrinciple?: string }).recPrinciple || ''),
     channels: String(s.channels || ''),
     timeMarkers: normalizeTimeMarkers(s.timeMarkers),
+    fileName: String(s.fileName || '') || String(buildUcsFileName({
+      catId: s.ucsCatId || s.ucsCat || 'AMBMisc',
+      fxName: s.fxName || s.title || 'Untitled',
+      creatorId: String(s.recordistId || s.recordist || s.user || 'Anon').replace(/^@/, ''),
+      sourceId: resolveProjectSourceId(s.sessionId),
+      channels: s.channels,
+      location: location,
+    }) || ''),
   };
 }
 

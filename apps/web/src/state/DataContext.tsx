@@ -1,10 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
-  apiGetMail, apiPatchSound, fetchEvents, fetchFeed, fetchMapData, fetchProfiles,
-  filterSounds, normalizeMail, publishedSounds, EMPTY_FILTER,
+  apiGetMail, apiPatchSound, apiSyncJson, fetchEvents, fetchFeed, fetchMapData, fetchProfiles,
+  filterSounds, markBoxNotificationsRead, normalizeMail, publishedSounds, EMPTY_FILTER,
   type AppEvent, type CatalogFilter, type FeedPost, type MailBox, type Profile, type Sound,
 } from '@polevka/core';
 import { audioService } from '../lib/audio-player';
+import { rememberSessionTitles } from '../lib/download-sound';
 import { useAuth } from './AuthContext';
 
 export type PickMode = null | 'point' | 'route';
@@ -23,6 +24,7 @@ type DataCtx = {
   loading: boolean;
   reload: () => Promise<void>;
   reloadMail: () => Promise<void>;
+  markNotificationsRead: () => Promise<void>;
   playingId: string | number | null;
   playing: boolean;
   progress: number;
@@ -47,7 +49,7 @@ type DataCtx = {
 const Ctx = createContext<DataCtx | null>(null);
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, user } = useAuth();
   const [allSounds, setAll] = useState<Sound[]>([]);
   const [feed, setFeed] = useState<FeedPost[]>([]);
   const [events, setEvents] = useState<AppEvent[]>([]);
@@ -76,12 +78,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [isLoggedIn]);
 
+  const markNotificationsRead = useCallback(async () => {
+    const login = String(user?.loginName || '').toLowerCase();
+    if (!login) return;
+    const { boxes, patch } = markBoxNotificationsRead(mail, login);
+    if (!patch) return;
+    setMail(boxes);
+    try { await apiSyncJson('mail.json', [patch]); } catch { /* keep optimistic read */ }
+  }, [mail, user?.loginName]);
+
   const reload = useCallback(async () => {
     const [s, f, e, p] = await Promise.all([fetchMapData(), fetchFeed(), fetchEvents(), fetchProfiles()]);
     setAll(s);
     setFeed(f);
     setEvents(e);
     setProfiles(p);
+    rememberSessionTitles(p);
     setLoading(false);
     await reloadMail();
   }, [reloadMail]);
@@ -121,12 +133,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({
     sounds, allSounds, filteredSounds, filter, setFilter,
-    feed, events, profiles, mail, loading, reload, reloadMail,
+    feed, events, profiles, mail, loading, reload, reloadMail, markNotificationsRead,
     playingId, playing, progress, volume, muted, togglePlay, seek, setVolume, toggleMute,
     focused, setFocused,
     pickMode, setPickMode, pickedPoint, setPickedPoint, routeDraft, setRouteDraft, routePreview, setRoutePreview,
   }), [
-    sounds, allSounds, filteredSounds, filter, feed, events, profiles, mail, loading, reload, reloadMail,
+    sounds, allSounds, filteredSounds, filter, feed, events, profiles, mail, loading, reload, reloadMail, markNotificationsRead,
     playingId, playing, progress, volume, muted, togglePlay, seek, setVolume, toggleMute,
     focused,
     pickMode, pickedPoint, routeDraft, routePreview,

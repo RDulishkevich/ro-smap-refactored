@@ -11,7 +11,7 @@ import {
   apiSyncJson, apiTotpConfirm, apiTotpDisable, apiTotpSetup, conversationPeers, makeMailMsg,
   matchSupportBotFaq,   normalizeComment, normalizeTimeMarkers, spamGuardCheck, spamGuardMessage, SUPPORT_LOGIN,
   SUPPORT_NAME, threadWith, uploadUserMedia, upsertInboxPatch, formatPlays,
-  type ApiError, type Comment, type Sound, type TimeMarker,
+  type ApiError, type Comment, type FeedPost, type Sound, type TimeMarker,
 } from '@polevka/core';
 import { LEGAL_DOCS } from '../../../../src/data/legalDocs.js';
 import { PUBLISH_RULE_SECTIONS } from '../../../../src/data/publishRules.js';
@@ -20,7 +20,7 @@ import { useNav, type ScreenConfig } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import { useUi } from '../state/UiContext';
-import { PlayPauseIcon, PinPlayer, ScreenHeader, SoundTypeTag, OtpInput } from '../primitives/ui';
+import { ListSkeleton, PlayPauseIcon, PinPlayer, ScreenHeader, SoundTypeTag, OtpInput } from '../primitives/ui';
 import { PhotoCarousel } from '../primitives/PhotoCarousel';
 import { HoverMenu } from '../primitives/HoverMenu';
 import { AudioEditor, LiveWaveform } from '../primitives/AudioEditor';
@@ -59,7 +59,8 @@ export function ScreenContent({ screen, onBack }: { screen: ScreenConfig; onBack
     case 'expedition-edit': return <ExpeditionEditScreen exp={screen.exp} onBack={onBack} />;
     case 'settings': return <SettingsScreen onBack={onBack} />;
     case 'events': return <EventsScreen onBack={onBack} focusId={screen.focusId} />;
-    case 'auth': return <AuthScreen onBack={onBack} />;
+    case 'auth': return <AuthScreen onBack={onBack} mode={screen.mode} />;
+    case 'feed-post': return <FeedPostScreen post={screen.post} onBack={onBack} />;
     case 'record': return <RecordScreen onBack={onBack} />;
     case 'add-sound': return <AddSoundScreen onBack={onBack} edit={screen.edit} />;
     case 'messages': return <MessagesScreen onBack={onBack} />;
@@ -85,7 +86,7 @@ export function ScreenContent({ screen, onBack }: { screen: ScreenConfig; onBack
 function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void }) {
   const { push, reset, setActiveTab } = useNav();
   const { isLoggedIn, user } = useAuth();
-  const { togglePlay, playing, playingId, allSounds, reload, setFocused, progress, seek, volume, muted, setVolume, toggleMute } = useData();
+  const { togglePlay, playing, playingId, allSounds, reload, setFocused, seek } = useData();
   const { toast, confirm } = useUi();
   const th = useTh();
   const desktop = useIsDesktop();
@@ -229,14 +230,6 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
               onClick={goToMap}>
               <Route size={13} /> Показать прогулку на карте
             </button>
-          )}
-          {desktop && (
-            <div className="mb-3 rounded-3xl overflow-hidden" style={{ background: th.cardBg }}>
-              <PinPlayer sound={live} simple
-                playing={on} onToggle={() => togglePlay(live)} progress={progress}
-                onClose={() => { if (on) togglePlay(live); }}
-                onSeek={seek} volume={volume} muted={muted} onVolume={setVolume} onMute={toggleMute} />
-            </div>
           )}
           {live.user && (
             <motion.button whileTap={{ scale: 0.97 }} onClick={() => push({ type: 'user-profile', name: String(live.user), avatar: String(live.avatar || '🎙️'), username: `@${String(live.recordistId || live.user).toLowerCase().replace(/\s/g, '_')}` })}
@@ -477,22 +470,19 @@ function Row({ label, right, th, onClick }: { label: string; right?: ReactNode; 
 }
 
 function EventsScreen({ onBack, focusId }: { onBack: () => void; focusId?: string }) {
-  const { events, reload } = useData();
+  const { events, reload, loading } = useData();
   const th = useTh();
   const { isLoggedIn, user } = useAuth();
   const { toast } = useUi();
   const { push } = useNav();
-  const list = events.length ? events : [
-    { title: 'Звуковой воркшоп', loc: 'Ростов', date: 'скоро', time: '', n: 0, emoji: '🎙️', tag: 'Воркшоп' },
-  ];
-  const signup = async (ev: typeof list[number], i: number) => {
+  const t = useT();
+  const signup = async (ev: (typeof events)[number], i: number) => {
     if (!isLoggedIn || !user) { push({ type: 'auth' }); return; }
     const guard = spamGuardCheck('comment');
     if (!guard.ok) { toast(spamGuardMessage(guard)); return; }
     const id = String(ev.id || `e${i}`);
     const attendees = Array.isArray(ev.attendees) ? ev.attendees.map(String) : [];
     if (attendees.includes(user.loginName)) { toast('Вы уже записаны'); return; }
-    if (!events.length) { toast('События ещё не опубликованы'); return; }
     const patched = {
       ...ev,
       id: ev.id || id,
@@ -510,11 +500,18 @@ function EventsScreen({ onBack, focusId }: { onBack: () => void; focusId?: strin
   };
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <ScreenHeader title="События" onBack={onBack} />
+      <ScreenHeader title={t('events')} onBack={onBack} />
       <div className="flex-1 overflow-y-auto scrollbar-none p-4 flex flex-col gap-3">
-        {list.map((ev, i) => (
+        {loading && !events.length && <ListSkeleton rows={3} />}
+        {!loading && !events.length && (
+          <div className="rounded-3xl p-6 text-center" style={{ background: th.cardBg }}>
+            <p className="text-sm font-semibold" style={{ color: th.inkText }}>{t('eventsEmpty')}</p>
+            <p className="text-[12px] mt-1.5 leading-relaxed" style={{ color: SAGE }}>{t('eventsEmptyHint')}</p>
+          </div>
+        )}
+        {events.map((ev, i) => (
           <div key={String(ev.id || i)} className="rounded-3xl p-4" style={{ background: th.cardBg, outline: focusId && String(ev.id || `e${i}`) === focusId ? `2px solid ${ACCENT}` : undefined }}>
-            <p className="text-[10px] uppercase" style={{ color: SAGE }}>{String(ev.tag || ev.status || 'Событие')}</p>
+            <p className="text-[10px] uppercase" style={{ color: SAGE }}>{String(ev.tag || ev.status || t('kindEvent'))}</p>
             <p className="text-sm font-bold" style={{ color: th.inkText }}>{ev.title}</p>
             <p className="text-[10px] mb-3" style={{ color: OLIVE }}>{String(ev.loc || ev.location || '')} · {String(ev.date || '')} {String(ev.time || '')}</p>
             <button className="w-full py-2 rounded-2xl text-xs font-semibold text-white" style={{ background: ACCENT }}
@@ -526,7 +523,95 @@ function EventsScreen({ onBack, focusId }: { onBack: () => void; focusId?: strin
   );
 }
 
-function AuthScreen({ onBack }: { onBack: () => void }) {
+function FeedPostScreen({ post, onBack }: { post: FeedPost; onBack: () => void }) {
+  const th = useTh();
+  const t = useT();
+  const { feed, sounds, reload } = useData();
+  const { isLoggedIn, user } = useAuth();
+  const { push } = useNav();
+  const { toast } = useUi();
+  const live = feed.find((p) => String(p.id || p.title) === String(post.id || post.title)) || post;
+  const images = (live.images || []).map(String).filter(Boolean);
+  const comments = Array.isArray(live.comments) ? live.comments : [];
+  const linked = live.soundId ? sounds.find((s) => String(s.id) === String(live.soundId)) : undefined;
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const send = async () => {
+    const body = text.trim();
+    if (!body || !user) return;
+    if (!isLoggedIn) { push({ type: 'auth' }); return; }
+    const guard = spamGuardCheck('comment');
+    if (!guard.ok) { toast(spamGuardMessage(guard)); return; }
+    setBusy(true);
+    try {
+      const next = {
+        ...live,
+        comments: [...comments, normalizeComment({
+          author: user.displayName || user.username,
+          authorId: user.loginName,
+          text: body,
+          date: new Date().toISOString(),
+        })],
+      };
+      await apiSyncJson('feed.json', [next]);
+      setText('');
+      await reload();
+    } catch (e: unknown) {
+      toast((e as Error).message || 'Не удалось');
+    } finally { setBusy(false); }
+  };
+  return (
+    <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
+      <ScreenHeader title={String(live.title || t('kindPost'))} onBack={onBack} />
+      <div className="flex-1 overflow-y-auto scrollbar-none">
+        {!!images.length && <PhotoCarousel images={images} title={String(live.title || '')} />}
+        <div className="mx-4 mt-4 rounded-3xl p-4" style={{ background: th.cardBg }}>
+          <p className="text-[11px] font-semibold" style={{ color: SAGE }}>{String(live.author || 'Полёвка')}</p>
+          {live.createdAt ? <p className="text-[10px] mt-0.5" style={{ color: SAGE }}>{(() => {
+            const ts = Date.parse(String(live.createdAt));
+            return Number.isNaN(ts) ? String(live.createdAt) : new Date(ts).toLocaleString();
+          })()}</p> : null}
+          <p className="text-base font-bold mt-2" style={{ color: th.inkText }}>{String(live.title || t('kindPost'))}</p>
+          {live.text ? <p className="text-[13px] leading-relaxed mt-2" style={{ color: OLIVE }}>{String(live.text)}</p> : null}
+          {linked && (
+            <button type="button" className="mt-3 h-10 px-3 rounded-2xl text-[12px] font-semibold inline-flex items-center gap-1.5"
+              style={{ background: th.phoneBg, color: ACCENT }}
+              onClick={() => push({ type: 'sound-detail', sound: linked })}>
+              {t('listenRecording')}
+            </button>
+          )}
+        </div>
+        <div className="mx-4 mt-3 mb-6 rounded-3xl p-4" style={{ background: th.cardBg }}>
+          <p className="text-sm font-bold mb-3" style={{ color: th.inkText }}>{t('comments')} · {comments.length}</p>
+          {!comments.length && <p className="text-xs mb-3" style={{ color: SAGE }}>{t('noComments')}</p>}
+          <div className="flex flex-col gap-3">
+            {comments.map((cm) => (
+              <div key={cm.id}>
+                <p className="text-xs font-semibold" style={{ color: th.inkText }}>{cm.author}</p>
+                <p className="text-xs leading-relaxed mt-0.5" style={{ color: OLIVE }}>{cm.text}</p>
+              </div>
+            ))}
+          </div>
+          {isLoggedIn ? (
+            <div className="mt-4 flex gap-2">
+              <input value={text} onChange={(e) => setText(e.target.value)}
+                className="flex-1 rounded-2xl px-3 py-2 text-xs outline-none" style={{ background: th.phoneBg, color: th.inkText }} />
+              <button type="button" disabled={busy || !text.trim()} onClick={() => void send()}
+                className="w-10 h-10 rounded-2xl text-white flex items-center justify-center" style={{ background: ACCENT }} aria-label={t('comments')}>
+                <Send size={14} />
+              </button>
+            </div>
+          ) : (
+            <button type="button" className="mt-4 w-full py-2.5 rounded-2xl text-xs font-semibold" style={{ background: th.lightBg, color: OLIVE }}
+              onClick={() => push({ type: 'auth' })}>{t('signIn')}</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mode?: 'in' | 'up' }) {
   const th = useTh();
   const desktop = useIsDesktop();
   const { login, register } = useAuth();
@@ -536,7 +621,7 @@ function AuthScreen({ onBack }: { onBack: () => void }) {
   const { prefs } = usePrefs();
   const t = useT();
   const loc = prefs.locale === 'en' ? 'en' : 'ru';
-  const [mode, setMode] = useState<'in' | 'up'>('in');
+  const [mode, setMode] = useState<'in' | 'up'>(startMode);
   const [loginName, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -966,10 +1051,12 @@ function ConversationScreen({ name, peer, onBack }: { name: string; avatar: stri
 
 function NotificationsScreen({ onBack }: { onBack: () => void }) {
   const th = useTh();
-  const { mail, profiles, reload, reloadMail } = useData();
+  const t = useT();
+  const { mail, profiles, reload, reloadMail, markNotificationsRead } = useData();
   const { user } = useAuth();
   const { toast } = useUi();
   const [busy, setBusy] = useState<string | null>(null);
+  useEffect(() => { void markNotificationsRead(); }, [markNotificationsRead]);
   const box = mail.find((b) => b.loginName === user?.loginName);
   const list = (box?.notifications || []) as Array<{
     id?: string; type?: string; fromName?: string; fromId?: string; text?: string; date?: string;
@@ -997,9 +1084,9 @@ function NotificationsScreen({ onBack }: { onBack: () => void }) {
   };
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <ScreenHeader title="Уведомления" onBack={onBack} />
+      <ScreenHeader title={t('notifications')} onBack={onBack} />
       <div className="p-4 flex flex-col gap-2">
-        {list.length === 0 && <p className="text-xs" style={{ color: SAGE }}>Пока тихо</p>}
+        {list.length === 0 && <p className="text-xs" style={{ color: SAGE }}>{t('quiet')}</p>}
         {list.map((n, i) => (
           <div key={String(n.id || i)} className="rounded-2xl p-3" style={{ background: th.cardBg }}>
             <p className="text-xs font-semibold" style={{ color: th.inkText }}>{n.fromName || n.fromId}</p>

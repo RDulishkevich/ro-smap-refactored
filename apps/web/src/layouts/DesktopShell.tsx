@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  Bell, Calendar, ChevronDown, Headphones, HelpCircle, LayoutGrid, LogIn,
+  Bell, Calendar, ChevronDown, HelpCircle, LayoutGrid, LogIn,
   MessageCircle, Radio, Search, Settings, Shield, User,
 } from 'lucide-react';
 import { color, spring, tap } from '@polevka/design';
@@ -38,6 +38,7 @@ const WORKSPACE = new Set([
   'expedition-detail', 'expedition-edit',
   'user-profile', 'cabinet', 'edit-profile',
   'staff', 'legal', 'help', 'messages', 'conversation', 'settings',
+  'feed-post', 'notifications', 'events',
 ]);
 const VIEW_WORKSPACE = new Set<DesktopView>(['library', 'feed', 'expeditions', 'cabinet', 'staff']);
 
@@ -66,11 +67,13 @@ function RailItem({
 function NotificationsPopover({ onClose }: { onClose: () => void }) {
   const th = useTh();
   const t = useT();
-  const { mail } = useData();
+  const { mail, markNotificationsRead } = useData();
   const { user } = useAuth();
   const box = mail.find((b) => b.loginName === user?.loginName);
   const list = (box?.notifications || []) as Array<{ fromName?: string; fromId?: string; text?: string; date?: string; read?: boolean }>;
   const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { void markNotificationsRead(); }, [markNotificationsRead]);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -99,7 +102,7 @@ function NotificationsPopover({ onClose }: { onClose: () => void }) {
       </div>
       <div className="max-h-[360px] overflow-y-auto scrollbar-none p-2.5 flex flex-col gap-1.5">
         {list.length === 0 && (
-          <p className="text-xs py-8 text-center" style={{ color: SAGE }}>Пока тихо</p>
+          <p className="text-xs py-8 text-center" style={{ color: SAGE }}>{t('quiet')}</p>
         )}
         {list.map((n, i) => (
           <div key={i} className="rounded-2xl px-3 py-2.5" style={{ background: th.phoneBg }}>
@@ -317,11 +320,6 @@ export function DesktopShell() {
                     onOpen={() => { if (vis?.type !== 'sound-detail') push({ type: 'sound-detail', sound: dockSound }); }}
                     onSeek={seek} volume={volume} muted={muted} onVolume={setVolume} onMute={toggleMute}
                     onDownload={() => download(dockSound)} />
-                </div>
-              ) : mode !== 'map' ? (
-                <div className="flex-shrink-0 mt-3 h-[72px] rounded-2xl flex items-center justify-center gap-2" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
-                  <Headphones size={14} color={SAGE} />
-                  <p className="text-[12px]" style={{ color: SAGE }}>{t('pickSound')}</p>
                 </div>
               ) : null}
             </div>
