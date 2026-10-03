@@ -58,7 +58,7 @@ export function MenuHub() {
       <div className="px-4 pv-safe-top pb-2 flex-shrink-0">
         <div className="flex items-center gap-2.5 mb-3">
           <div className="w-9 h-9 relative flex-shrink-0"><BrandMark /></div>
-          <h1 className="flex-1 text-lg font-bold leading-tight" style={{ color: th.inkText, fontFamily: 'Klukva, "Geist Variable", serif' }}>{t('menu')}</h1>
+          <h1 className="pv-heading flex-1 truncate" style={{ color: th.inkText }}>{t('menu')}</h1>
           <LanguageSwitch compact />
         </div>
         <label className="flex items-center gap-2 h-12 rounded-2xl px-3.5" style={{ background: th.cardBg }}>
@@ -67,7 +67,7 @@ export function MenuHub() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder={t('searchGlobal')}
-            className="flex-1 min-w-0 bg-transparent text-[13px] outline-none"
+            className="flex-1 min-w-0 bg-transparent outline-none"
             style={{ color: th.inkText }}
             aria-label={t('searchGlobalAria')} />
         </label>
@@ -75,13 +75,13 @@ export function MenuHub() {
       <div className="flex-1 overflow-y-auto scrollbar-none px-4 pb-8">
         {q.trim() ? (
           <div className="flex flex-col gap-2 pt-2">
-            {!hits.length && <p className="text-xs py-10 text-center" style={{ color: SAGE }}>{t('nothingFound')}</p>}
+            {!hits.length && <p className="pv-caption py-10 text-center" style={{ color: SAGE }}>{t('nothingFound')}</p>}
             {hits.map((hit) => (
               <button key={hit.id} type="button" onClick={() => openHit(hit)}
                 className="w-full text-left rounded-3xl px-4 py-3.5" style={{ background: th.cardBg }}>
-                <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: SAGE }}>{t(kindI18nKey(hit.kind))}</p>
-                <p className="text-[13px] font-semibold mt-0.5" style={{ color: th.inkText }}>{hit.title}</p>
-                {hit.hint && <p className="text-[11px] mt-0.5 truncate" style={{ color: OLIVE }}>{hit.hint}</p>}
+                <p className="pv-micro uppercase" style={{ color: SAGE }}>{t(kindI18nKey(hit.kind))}</p>
+                <p className="pv-subtitle mt-0.5" style={{ color: th.inkText }}>{hit.title}</p>
+                {hit.hint && <p className="pv-caption mt-0.5 truncate" style={{ color: OLIVE }}>{hit.hint}</p>}
               </button>
             ))}
           </div>
@@ -117,7 +117,7 @@ function MenuTile({ label, Icon, art, onClick, th }: {
       <span className="relative w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: show ? 'rgba(255,255,255,0.88)' : th.lightBg }}>
         <Icon size={20} color={ACCENT} />
       </span>
-      <span className="relative text-[14px] font-bold leading-tight" style={{ color: show ? '#fff' : th.inkText }}>{label}</span>
+      <span className="pv-subtitle relative" style={{ color: show ? '#fff' : th.inkText }}>{label}</span>
     </motion.button>
   );
 }

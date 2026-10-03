@@ -48,12 +48,13 @@ export function RailBannerCarousel() {
                 src={banner.image}
                 alt=""
                 className="absolute inset-0 w-full h-full object-cover"
+                style={{ objectPosition: banner.objectPosition || 'center' }}
                 onError={() => setBroken((m) => ({ ...m, [banner.id]: true }))} />
             )}
-            <span className="absolute inset-0" style={{ background: showImg ? 'linear-gradient(180deg, rgba(26,26,26,0.05), rgba(26,26,26,0.55))' : 'transparent' }} />
+            <span className="absolute inset-0" style={{ background: showImg ? 'linear-gradient(180deg, rgba(26,26,26,0) 42%, rgba(26,26,26,0.48) 100%)' : 'transparent' }} />
             <span className="absolute inset-x-2.5 bottom-2.5">
-              <span className="block text-[12px] font-bold leading-tight" style={{ color: '#fff' }}>{banner.title}</span>
-              <span className="block text-[10px] mt-0.5 leading-snug" style={{ color: 'rgba(255,255,255,0.84)' }}>{banner.hint}</span>
+              <span className="pv-caption block font-semibold" style={{ color: '#fff' }}>{banner.title}</span>
+              <span className="pv-micro block mt-0.5" style={{ color: 'rgba(255,255,255,0.84)' }}>{banner.hint}</span>
             </span>
           </motion.button>
         </AnimatePresence>

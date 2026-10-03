@@ -18,7 +18,7 @@ export function ErrorScreen({ kind, onRetry }: { kind: ErrorKind; onRetry: () =>
   return (
     <div
       className="w-screen h-dvh flex items-center justify-center p-5"
-      style={{ background: th.isDark ? '#0E1A18' : '#E8EDEA', fontFamily: '"Geist Variable", system-ui, sans-serif' }}
+      style={{ background: th.isDark ? '#0E1A18' : '#E8EDEA' }}
     >
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -36,20 +36,17 @@ export function ErrorScreen({ kind, onRetry }: { kind: ErrorKind; onRetry: () =>
         <div className="mx-auto mb-4 size-11 rounded-full flex items-center justify-center" style={{ background: `${color.accent}18` }}>
           <Icon size={22} color={color.accent} />
         </div>
-        <h1
-          className="text-[28px] leading-tight mb-2"
-          style={{ fontFamily: 'Klukva, Georgia, serif', color: th.inkText }}
-        >
+        <h1 className="pv-title mb-2" style={{ color: th.inkText }}>
           {title}
         </h1>
-        <p className="text-[14px] leading-relaxed mb-6" style={{ color: color.olive }}>
+        <p className="pv-body mb-6" style={{ color: color.olive }}>
           {body}
         </p>
         <motion.button
           type="button"
           whileTap={tap}
           onClick={onRetry}
-          className="inline-flex items-center justify-center gap-2 h-12 px-5 rounded-2xl text-white text-[15px] font-medium w-full"
+          className="pv-button inline-flex items-center justify-center gap-2 h-12 px-5 rounded-2xl text-white w-full"
           style={{ background: color.accent }}
         >
           <RefreshCw size={16} />
@@ -57,7 +54,7 @@ export function ErrorScreen({ kind, onRetry }: { kind: ErrorKind; onRetry: () =>
         </motion.button>
         <a
           href="/"
-          className="mt-3 inline-flex items-center justify-center h-11 w-full rounded-2xl text-[14px]"
+          className="pv-button mt-3 inline-flex items-center justify-center h-11 w-full rounded-2xl"
           style={{ color: color.olive }}
         >
           {t('errHome')}
@@ -74,7 +71,7 @@ export function DegradedBanner({ onRetry }: { onRetry: () => void }) {
     <button
       type="button"
       onClick={onRetry}
-      className="fixed left-1/2 z-[80] -translate-x-1/2 px-4 py-2 rounded-full text-[12px] max-w-[min(92vw,420px)]"
+      className="pv-caption fixed left-1/2 z-[80] -translate-x-1/2 px-4 py-2 rounded-full max-w-[min(92vw,420px)]"
       style={{
         top: 'max(16px, env(safe-area-inset-top))',
         background: th.isDark ? '#2A3D38' : color.cream,

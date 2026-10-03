@@ -8,6 +8,7 @@ export type RailBanner = {
   hint: string;
   tint: string;
   image?: string;
+  objectPosition?: string;
   action: RailBannerAction;
 };
 
@@ -17,7 +18,8 @@ export const RAIL_BANNERS: RailBanner[] = [
     title: 'Слушайте поле',
     hint: 'Новые метки на карте Ростова',
     tint: color.mist,
-    image: '/banners/listen.webp',
+    image: '/banners/listen.png',
+    objectPosition: 'left 80%',
     action: 'library',
   },
   {
@@ -25,7 +27,8 @@ export const RAIL_BANNERS: RailBanner[] = [
     title: 'Идите в экспедицию',
     hint: 'Маршруты и совместные записи',
     tint: color.olive,
-    image: '/banners/walk.webp',
+    image: '/banners/walk.png',
+    objectPosition: 'center 35%',
     action: 'expeditions',
   },
   {
@@ -33,7 +36,8 @@ export const RAIL_BANNERS: RailBanner[] = [
     title: 'Audio Guesser',
     hint: 'Угадайте место по звуку',
     tint: color.accent,
-    image: '/banners/guess.webp',
+    image: '/banners/guess.png',
+    objectPosition: 'center 48%',
     action: 'guessr',
   },
 ];

@@ -11,7 +11,7 @@ export function LanguageSwitch({ compact = false }: { compact?: boolean }) {
     <button
       type="button"
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); setPref('locale', id); }}
-      className={`${compact ? 'h-7 px-2.5 text-[10px]' : 'h-8 px-3 text-[11px]'} rounded-full font-semibold cursor-pointer`}
+      className={`${compact ? 'pv-micro h-7 px-2.5' : 'pv-label h-8 px-3'} rounded-full cursor-pointer`}
       style={{ background: loc === id ? color.accent : 'transparent', color: loc === id ? '#fff' : color.olive }}
       aria-pressed={loc === id}
       aria-label={id === 'ru' ? 'Русский' : 'English'}>

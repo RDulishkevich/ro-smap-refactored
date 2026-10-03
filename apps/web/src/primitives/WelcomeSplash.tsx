@@ -79,13 +79,10 @@ export function WelcomeSplash() {
           >
             <LogoApp />
           </motion.div>
-          <h1
-            className="text-[34px] leading-none mb-2"
-            style={{ fontFamily: 'Klukva, Georgia, serif', color: th.inkText }}
-          >
+          <h1 className="pv-display mb-2" style={{ color: th.inkText }}>
             Полёвка
           </h1>
-          <p className="text-[13px] text-center max-w-[260px] mb-8" style={{ color: SAGE }}>
+          <p className="pv-caption text-center max-w-[260px] mb-8" style={{ color: SAGE }}>
             {needsUnlock ? t('unlockDeviceHint') : t('welcomeTag')}
           </p>
           {needsUnlock ? (
@@ -95,7 +92,7 @@ export function WelcomeSplash() {
                 whileTap={tap.cta}
                 disabled={busy}
                 onClick={() => void unlock()}
-                className="w-full h-12 rounded-2xl text-white text-sm font-bold flex items-center justify-center gap-2"
+                className="pv-button w-full h-12 rounded-2xl text-white flex items-center justify-center gap-2"
                 style={{ background: ACCENT }}
               >
                 <ScanFace size={18} />
@@ -105,12 +102,12 @@ export function WelcomeSplash() {
                 type="button"
                 disabled={busy}
                 onClick={() => void skipDeviceUnlock()}
-                className="w-full h-11 rounded-2xl text-xs font-semibold"
+                className="pv-button w-full h-11 rounded-2xl"
                 style={{ color: SAGE }}
               >
                 {t('unlockPassword')}
               </button>
-              {err ? <p className="text-[11px] text-center" style={{ color: ACCENT }}>{err}</p> : null}
+              {err ? <p className="pv-caption text-center" style={{ color: ACCENT }}>{err}</p> : null}
             </div>
           ) : (
             <div className="w-8 h-8 rounded-full border-2 border-transparent animate-spin" style={{ borderTopColor: ACCENT }} />

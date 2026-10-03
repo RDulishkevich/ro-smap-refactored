@@ -96,7 +96,23 @@ export const radius = {
 
 export const fonts = {
   ui: '"Geist Variable", system-ui, sans-serif',
-  brand: 'Klukva, "Geist Variable", serif',
+  brand: 'Klukva, Georgia, "Times New Roman", serif',
 } as const;
+
+/** Locked type roles. Klukva is 400-only — never bold it. */
+export const typeRoles = {
+  display: { fontFamily: fonts.brand, fontSize: 34, fontWeight: 400, lineHeight: 1.05, letterSpacing: '0em' },
+  title: { fontFamily: fonts.brand, fontSize: 26, fontWeight: 400, lineHeight: 1.15, letterSpacing: '0em' },
+  wordmark: { fontFamily: fonts.brand, fontSize: 22, fontWeight: 400, lineHeight: 1, letterSpacing: '0.03em' },
+  heading: { fontFamily: fonts.ui, fontSize: 17, fontWeight: 600, lineHeight: 1.25, letterSpacing: '-0.015em' },
+  subtitle: { fontFamily: fonts.ui, fontSize: 14, fontWeight: 600, lineHeight: 1.35, letterSpacing: '-0.01em' },
+  body: { fontFamily: fonts.ui, fontSize: 14, fontWeight: 450, lineHeight: 1.5, letterSpacing: '0em' },
+  button: { fontFamily: fonts.ui, fontSize: 14, fontWeight: 600, lineHeight: 1.2, letterSpacing: '-0.01em' },
+  label: { fontFamily: fonts.ui, fontSize: 11, fontWeight: 600, lineHeight: 1.3, letterSpacing: '0.02em' },
+  caption: { fontFamily: fonts.ui, fontSize: 12, fontWeight: 500, lineHeight: 1.4, letterSpacing: '0em' },
+  micro: { fontFamily: fonts.ui, fontSize: 10, fontWeight: 550, lineHeight: 1.3, letterSpacing: '0.04em' },
+} as const;
+
+export type TypeRole = keyof typeof typeRoles;
 
 export const breakpoint = 768;

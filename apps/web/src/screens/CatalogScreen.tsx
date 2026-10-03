@@ -72,14 +72,14 @@ export function CatalogBrowse() {
           value={filter.q}
           onChange={(e) => setFilter({ ...filter, q: e.target.value })}
           placeholder={t('searchCatalog')}
-          className="flex-1 min-w-0 bg-transparent text-[13px] outline-none"
+          className="flex-1 min-w-0 bg-transparent outline-none"
           style={{ color: th.inkText }}
           aria-label={t('searchCatalogAria')} />
       </label>
       <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
         {SORTS.map((s) => (
           <button key={s.id} type="button" onClick={() => setSort(s.id)}
-            className="h-8 px-3 rounded-full text-[11px] font-semibold flex-shrink-0"
+            className="pv-label h-8 px-3 rounded-full flex-shrink-0"
             style={{ background: sort === s.id ? ACCENT : th.cardBg, color: sort === s.id ? '#fff' : OLIVE }}>
             {sortLabels[s.id]}
           </button>
@@ -91,7 +91,7 @@ export function CatalogBrowse() {
           const label = id ? t(typeI18nKey(id)) : t('all');
           return (
             <button key={id || 'all'} type="button" onClick={() => setFilter({ ...filter, type: id })}
-              className="h-8 px-3 rounded-full text-[11px] font-semibold flex-shrink-0"
+              className="pv-label h-8 px-3 rounded-full flex-shrink-0"
               style={{ background: on ? ACCENT : th.cardBg, color: on ? '#fff' : OLIVE }}>
               {label}
             </button>
@@ -99,8 +99,8 @@ export function CatalogBrowse() {
         })}
       </div>
       <div className="flex items-center justify-between">
-        <p className="text-[11px] font-semibold" style={{ color: SAGE }}>{sorted.length} {pluralSounds(sorted.length, t, prefs.locale === 'en' ? 'en' : 'ru')}</p>
-        <button type="button" className="text-[11px] font-semibold inline-flex items-center gap-1"
+        <p className="pv-label" style={{ color: SAGE }}>{sorted.length} {pluralSounds(sorted.length, t, prefs.locale === 'en' ? 'en' : 'ru')}</p>
+        <button type="button" className="pv-label inline-flex items-center gap-1"
           style={{ color: more ? OLIVE : ACCENT }} onClick={() => setMore((v) => !v)}>
           <SlidersHorizontal size={12} /> {more ? t('hideFilters') : t('filters')}
         </button>
@@ -111,13 +111,13 @@ export function CatalogBrowse() {
         </div>
       )}
       {(filter.q || filter.type || filter.eco || filter.ucs || filter.tag) && (
-        <button type="button" className="text-[11px] self-start" style={{ color: SAGE }}
+        <button type="button" className="pv-label self-start" style={{ color: SAGE }}
           onClick={() => { setFilter(EMPTY_FILTER); setSort('new'); }}>{t('resetSearch')}</button>
       )}
       {grouped.map((g) => (
         <section key={g.type} className="flex flex-col gap-2">
           {!filter.type && (
-            <p className="text-[11px] font-bold uppercase tracking-wide px-1" style={{ color: SAGE }}>
+            <p className="pv-label uppercase px-1" style={{ color: SAGE }}>
               {g.type === 'other' ? t('other') : t(typeI18nKey(g.type))} · {g.items.length}
             </p>
           )}
@@ -133,7 +133,7 @@ export function CatalogBrowse() {
       ))}
       {loading && !sorted.length && <ListSkeleton rows={7} />}
       {!loading && !sorted.length && (
-        <p className="text-xs py-10 text-center" style={{ color: SAGE }}>{t('nothingFoundHint')}</p>
+        <p className="pv-caption py-10 text-center" style={{ color: SAGE }}>{t('nothingFoundHint')}</p>
       )}
     </div>
   );
@@ -151,8 +151,8 @@ function SoundRow({ item, on, onPlay, onOpen, onDownload, thCard, ink }: {
         <PlayPauseIcon playing={on} size={12} />
       </button>
       <button type="button" className="flex-1 min-w-0 text-left cursor-pointer" onClick={onOpen}>
-        <p className="text-[13px] font-semibold truncate" style={{ color: ink }}>{item.title}</p>
-        <p className="text-[11px] truncate mt-0.5" style={{ color: OLIVE }}>
+        <p className="pv-subtitle truncate" style={{ color: ink }}>{item.title}</p>
+        <p className="pv-caption truncate mt-0.5" style={{ color: OLIVE }}>
           {item.location || '—'}
           {meta.durationSec > 0 ? ` · ${meta.durationLabel}` : ''}
         </p>

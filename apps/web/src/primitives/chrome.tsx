@@ -50,7 +50,7 @@ export function Overlays() {
       <AnimatePresence>
         {toastMsg && (
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} transition={spring.fade}
-            className="fixed left-1/2 z-[300] -translate-x-1/2 bottom-28 md:bottom-6 px-4 py-2 rounded-2xl text-xs font-semibold text-white shadow-lg"
+            className="pv-caption fixed left-1/2 z-[300] -translate-x-1/2 bottom-28 md:bottom-6 px-4 py-2 rounded-2xl font-semibold text-white shadow-lg"
             style={{ background: color.dark }}>{toastMsg}</motion.div>
         )}
       </AnimatePresence>
@@ -59,11 +59,11 @@ export function Overlays() {
           <motion.div className="fixed inset-0 z-[9999] flex items-center justify-center p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             style={{ background: 'rgba(26,26,26,0.4)' }} onClick={() => resolveConfirm(false)}>
             <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={spring.fade} className="w-full max-w-sm rounded-3xl p-5" style={{ background: th.cardBg }} onClick={(e) => e.stopPropagation()}>
-              <p className="text-sm font-bold mb-2" style={{ color: th.inkText }}>{confirmState.title}</p>
-              {confirmState.body && <p className="text-xs mb-4" style={{ color: color.olive }}>{confirmState.body}</p>}
+              <p className="pv-heading mb-2" style={{ color: th.inkText }}>{confirmState.title}</p>
+              {confirmState.body && <p className="pv-body mb-4" style={{ color: color.olive }}>{confirmState.body}</p>}
               <div className="flex gap-2">
-                <button className="flex-1 py-2.5 rounded-2xl text-xs font-semibold" style={{ background: th.lightBg, color: color.olive }} onClick={() => resolveConfirm(false)}>Отмена</button>
-                <button className="flex-1 py-2.5 rounded-2xl text-xs font-semibold text-white" style={{ background: color.accent }} onClick={() => resolveConfirm(true)}>{confirmState.ok || 'ОК'}</button>
+                <button className="pv-button flex-1 py-2.5 rounded-2xl" style={{ background: th.lightBg, color: color.olive }} onClick={() => resolveConfirm(false)}>Отмена</button>
+                <button className="pv-button flex-1 py-2.5 rounded-2xl text-white" style={{ background: color.accent }} onClick={() => resolveConfirm(true)}>{confirmState.ok || 'ОК'}</button>
               </div>
             </motion.div>
           </motion.div>
@@ -86,9 +86,9 @@ export function Overlays() {
                 top: Math.max(12, Math.min(menu.at?.y ?? 24, (typeof window !== 'undefined' ? window.innerHeight : 400) - 220)),
               }}
               onClick={(e) => e.stopPropagation()}>
-              {menu.title && <p className="text-[10px] uppercase tracking-wide px-2.5 py-1.5" style={{ color: color.sage }}>{menu.title}</p>}
+              {menu.title && <p className="pv-micro uppercase px-2.5 py-1.5" style={{ color: color.sage }}>{menu.title}</p>}
               {menu.items.map((it) => (
-                <button key={it.label} className="w-full text-left px-3 py-2.5 rounded-xl text-[13px] font-semibold"
+                <button key={it.label} className="pv-subtitle w-full text-left px-3 py-2.5 rounded-xl"
                   style={{ color: it.danger ? color.accent : th.inkText }}
                   onClick={() => { closeMenu(); it.onClick(); }}>{it.label}</button>
               ))}

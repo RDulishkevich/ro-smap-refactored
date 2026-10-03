@@ -97,13 +97,13 @@ export function HoverMenu({
             transition={spring.fade}
             className={`absolute top-[calc(100%+6px)] z-[640] min-w-[188px] rounded-2xl p-1.5 shadow-[0_12px_32px_rgba(45,60,57,0.16)] ${align === 'right' ? 'right-0' : 'left-0'}`}
             style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
-            {title && <p className="text-[10px] uppercase tracking-wide px-2.5 py-1.5" style={{ color: color.sage }}>{title}</p>}
+            {title && <p className="pv-micro uppercase px-2.5 py-1.5" style={{ color: color.sage }}>{title}</p>}
             {items.map((it) => (
               <button
                 key={it.label}
                 type="button"
                 role="menuitem"
-                className="w-full text-left px-2.5 py-2 rounded-xl text-[13px] font-semibold"
+                className="pv-subtitle w-full text-left px-2.5 py-2 rounded-xl"
                 style={{ color: it.danger ? color.accent : th.inkText }}
                 onClick={() => { setOpen(false); it.onClick(); }}>
                 {it.label}

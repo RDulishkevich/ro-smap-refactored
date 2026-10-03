@@ -61,7 +61,7 @@ export function SoundTypeTag({ type }: { type: string }) {
   return (
     <span className="flex items-center gap-1 flex-shrink-0 whitespace-nowrap">
       <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: s.color }} />
-      <span className="text-[9px] font-medium uppercase tracking-wide" style={{ color: s.color }}>{type ? t(typeI18nKey(type)) : s.label}</span>
+      <span className="pv-micro uppercase" style={{ color: s.color }}>{type ? t(typeI18nKey(type)) : s.label}</span>
     </span>
   );
 }
@@ -73,7 +73,7 @@ export function ScreenHeader({ title, onBack, right }: { title: string; onBack: 
       <motion.button whileTap={tap.nav} onClick={onBack} className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 cursor-pointer" style={{ background: th.lightBg }} aria-label="Назад">
         <ChevronLeft size={18} style={{ color: color.dark }} />
       </motion.button>
-      <p className="flex-1 text-sm font-bold truncate" style={{ color: th.inkText }}>{title}</p>
+      <p className="pv-heading flex-1 truncate" style={{ color: th.inkText }}>{title}</p>
       {right}
     </div>
   );
@@ -135,7 +135,7 @@ export function OtpInput({
   return (
     <div>
       {label && (
-        <label htmlFor={id} className="text-[10px] font-semibold block mb-2" style={{ color: color.sage }}>{label}</label>
+        <label htmlFor={id} className="pv-label block mb-2" style={{ color: color.sage }}>{label}</label>
       )}
       <motion.div
         animate={error ? { x: [0, -8, 8, -6, 6, -3, 0] } : { x: 0 }}
@@ -167,12 +167,11 @@ export function OtpInput({
             return (
               <div
                 key={i}
-                className="flex-1 min-w-0 h-12 rounded-2xl flex items-center justify-center text-lg font-bold tabular-nums select-none"
+                className="pv-heading flex-1 min-w-0 h-12 rounded-2xl flex items-center justify-center tabular-nums select-none"
                 style={{
                   background: th.lightBg,
                   color: th.inkText,
                   boxShadow: `inset 0 0 0 ${on || error ? 1.5 : 1}px ${error || on ? color.accent : th.border}`,
-                  fontFamily: '"Geist Variable", system-ui, sans-serif',
                 }}>
                 {filled ? digits[i] : on ? (
                   <motion.span className="w-px h-5 rounded-full" style={{ background: color.accent }}
@@ -370,8 +369,8 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
           <PlayPauseIcon playing={!!playing} size={14} />
         </button>
         <div className="flex-1 min-w-0">
-          <button type="button" className="block w-full text-left text-[13px] font-semibold truncate leading-tight" style={{ color: th.inkText }} onClick={onOpen}>{sound.title}</button>
-          <p className="text-[11px] tabular-nums mt-0.5 truncate" style={{ color: color.olive }}>
+          <button type="button" className="pv-subtitle block w-full text-left truncate" style={{ color: th.inkText }} onClick={onOpen}>{sound.title}</button>
+          <p className="pv-caption tabular-nums mt-0.5 truncate" style={{ color: color.olive }}>
             <span className="font-medium" style={{ color: color.dark }}>{formatClock(nowSec)}</span>
             <span> / {totalLabel}</span>
             {sound.location ? <span> · {sound.location}</span> : null}

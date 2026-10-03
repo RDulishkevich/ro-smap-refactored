@@ -1,6 +1,6 @@
 # Полёвка — Design
 
-**Reading this as:** sound map first — listen, find, and add field recordings. Earth-tone Figma system (terracotta accent, sage/olive, cream). Type pair **Geist Variable (UI) + Klukva (brand)**. Brand: **Полёвка**.
+**Reading this as:** sound map first — listen, find, and add field recordings. Earth-tone Figma system (terracotta accent, sage/olive, cream). Type pair **Geist Variable (UI) + Klukva 400 (wordmark/display)**. Scale: [`docs/typography.md`](docs/typography.md). Brand: **Полёвка**.
 
 **Implementation:** React/TSX in `apps/web`, tokens in `packages/design`. Vanilla (`index.html`) is a frozen archive and is not deployed.
 

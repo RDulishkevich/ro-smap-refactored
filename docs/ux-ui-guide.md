@@ -30,8 +30,11 @@
 | Роль | Значение |
 |------|----------|
 | UI | Geist Variable (`--pv-font-ui`) |
-| Бренд | Klukva |
+| Бренд | Klukva 400 — только «Полёвка» и крупные приветствия |
+| Шкала | `.pv-display` … `.pv-micro` — [`docs/typography.md`](typography.md) |
 | Иконки | Lucide |
+
+Klukva нельзя жирнить. Заголовки экранов («Меню», «Лента») — `.pv-heading`, не Klukva.
 
 Legacy vanilla по-прежнему Iconsax + `src/fonts.css` — не смешивать в `apps/web`.
 

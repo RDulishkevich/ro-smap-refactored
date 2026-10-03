@@ -35,8 +35,8 @@ No peach Wellness (`#FBAB57`), no Wispr lavender, no glow rings.
 
 ## Type and icons
 
-- UI: **Geist Variable** (`--pv-font-ui`)
-- Brand titles: **Klukva** (`--pv-font-brand`)
+- UI: **Geist Variable** (`--pv-font-ui`). Brand: **Klukva** 400 only — wordmark and display, never chrome titles, never `font-bold`.
+- Roles: `.pv-display` … `.pv-micro` — `docs/typography.md` and `typeRoles` in `tokens.ts`.
 - Icons: **Lucide** (shared with future React Native). Do not add Iconsax to the React app.
 
 ## Radii and motion

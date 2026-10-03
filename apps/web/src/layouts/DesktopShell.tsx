@@ -59,7 +59,7 @@ function RailItem({
       className="flex items-center gap-3 w-full h-11 px-3 rounded-2xl text-left"
       style={{ background: on ? color.cream : 'transparent' }}>
       <Icon size={18} color={on ? ACCENT : mute} strokeWidth={on ? 2.25 : 1.75} className="flex-shrink-0" />
-      <span className="text-[13px] font-semibold truncate" style={{ color: on ? ink : mute }}>{label}</span>
+      <span className="pv-subtitle truncate" style={{ color: on ? ink : mute }}>{label}</span>
     </motion.button>
   );
 }
@@ -97,17 +97,17 @@ function NotificationsPopover({ onClose }: { onClose: () => void }) {
       className="absolute right-0 top-[calc(100%+10px)] z-[520] w-[320px] rounded-3xl shadow-[0_16px_40px_rgba(45,60,57,0.18)] overflow-hidden"
       style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
       <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${th.border}` }}>
-        <p className="text-sm font-bold" style={{ color: th.inkText }}>{t('notifications')}</p>
-        <span className="text-[10px]" style={{ color: SAGE }}>{list.length ? `${list.length}` : ''}</span>
+        <p className="pv-subtitle" style={{ color: th.inkText }}>{t('notifications')}</p>
+        <span className="pv-micro" style={{ color: SAGE }}>{list.length ? `${list.length}` : ''}</span>
       </div>
       <div className="max-h-[360px] overflow-y-auto scrollbar-none p-2.5 flex flex-col gap-1.5">
         {list.length === 0 && (
-          <p className="text-xs py-8 text-center" style={{ color: SAGE }}>{t('quiet')}</p>
+          <p className="pv-caption py-8 text-center" style={{ color: SAGE }}>{t('quiet')}</p>
         )}
         {list.map((n, i) => (
           <div key={i} className="rounded-2xl px-3 py-2.5" style={{ background: th.phoneBg }}>
-            <p className="text-xs font-semibold" style={{ color: th.inkText }}>{n.fromName || n.fromId || 'Полёвка'}</p>
-            <p className="text-[11px] leading-snug mt-0.5" style={{ color: OLIVE }}>{n.text}</p>
+            <p className="pv-subtitle" style={{ color: th.inkText }}>{n.fromName || n.fromId || 'Полёвка'}</p>
+            <p className="pv-caption mt-0.5" style={{ color: OLIVE }}>{n.text}</p>
             {n.date && <p className="text-[9px] mt-1" style={{ color: SAGE }}>{n.date}</p>}
           </div>
         ))}
@@ -196,7 +196,7 @@ export function DesktopShell() {
             className="flex items-center gap-3 px-2 mb-5 text-left w-full">
             <div className="w-14 h-14 flex-shrink-0 relative"><BrandMark /></div>
             <div className="min-w-0">
-              <p className="text-[22px] font-extrabold tracking-wide leading-none" style={{ color: th.inkText, fontFamily: 'Klukva, "Geist Variable", serif' }}>ПОЛЁВКА</p>
+              <p className="pv-wordmark" style={{ color: th.inkText }}>Полёвка</p>
             </div>
           </button>
           <div className="flex flex-col gap-0.5">
@@ -218,7 +218,7 @@ export function DesktopShell() {
               <label className="flex items-center gap-2 w-full max-w-[420px] h-11 rounded-full px-4" style={{ background: chipBg }}>
                 <Search size={15} color={SAGE} className="flex-shrink-0" />
                 <input value={q} placeholder={t('searchSounds')}
-                  className="flex-1 min-w-0 bg-transparent text-sm outline-none" style={{ color: th.inkText }}
+                  className="flex-1 min-w-0 bg-transparent outline-none" style={{ color: th.inkText }}
                   onChange={(e) => {
                     const v = e.target.value;
                     setQ(v);
@@ -252,8 +252,8 @@ export function DesktopShell() {
                         : <User size={16} color={OLIVE} />}
                     </div>
                     <div className="text-left hidden lg:block pr-1">
-                      <p className="text-xs font-bold leading-tight" style={{ color: th.inkText }}>{user?.displayName || user?.username}</p>
-                      <p className="text-[10px] leading-tight" style={{ color: SAGE }}>@{user?.loginName}</p>
+                      <p className="pv-subtitle leading-tight" style={{ color: th.inkText }}>{user?.displayName || user?.username}</p>
+                      <p className="pv-micro leading-tight" style={{ color: SAGE }}>@{user?.loginName}</p>
                     </div>
                   </button>
                   <HoverMenu items={[
@@ -267,7 +267,7 @@ export function DesktopShell() {
                 </div>
               ) : (
                 <motion.button whileTap={tap.cta} onClick={() => push({ type: 'auth' })}
-                  className="h-10 px-4 rounded-full text-[13px] font-bold text-white flex items-center gap-1.5" style={{ background: ACCENT }}>
+                  className="pv-button h-10 px-4 rounded-full text-white flex items-center gap-1.5" style={{ background: ACCENT }}>
                   <LogIn size={14} />{t('signIn')}
                 </motion.button>
               )}
@@ -324,7 +324,7 @@ export function DesktopShell() {
               ) : null}
             </div>
           </div>
-          <footer className="flex-shrink-0 h-8 px-6 flex items-center gap-x-3 text-[10px] whitespace-nowrap overflow-hidden" style={{ borderTop: `1px solid ${th.border}`, color: SAGE }}>
+          <footer className="pv-micro flex-shrink-0 h-8 px-6 flex items-center gap-x-3 whitespace-nowrap overflow-hidden" style={{ borderTop: `1px solid ${th.border}`, color: SAGE }}>
             <span>© {year} Полёвка</span>
             <button className="hover:underline cursor-pointer" style={{ color: OLIVE }} onClick={() => openLegal('privacy')}>{t('privacyPolicy')}</button>
             <button className="hover:underline cursor-pointer" style={{ color: OLIVE }} onClick={() => openLegal('terms')}>{t('terms')}</button>

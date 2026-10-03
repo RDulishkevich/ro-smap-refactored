@@ -13,7 +13,17 @@
   --pv-nav: #ffffff;
   --pv-border: rgba(45, 60, 57, 0.07);
   --pv-font-ui: "Geist Variable", system-ui, sans-serif;
-  --pv-font-brand: Klukva, "Geist Variable", serif;
+  --pv-font-brand: Klukva, Georgia, "Times New Roman", serif;
+  --pv-text-display: 2.125rem;
+  --pv-text-title: 1.625rem;
+  --pv-text-wordmark: 1.375rem;
+  --pv-text-heading: 1.0625rem;
+  --pv-text-subtitle: 0.875rem;
+  --pv-text-body: 0.875rem;
+  --pv-text-button: 0.875rem;
+  --pv-text-label: 0.6875rem;
+  --pv-text-caption: 0.75rem;
+  --pv-text-micro: 0.625rem;
   --pv-radius-xl: 12px;
   --pv-radius-2xl: 16px;
   --pv-radius-3xl: 24px;
@@ -42,9 +52,118 @@ html, body, #root {
 
 body {
   font-family: var(--pv-font-ui);
+  font-size: var(--pv-text-body);
+  font-weight: 450;
+  line-height: 1.5;
   background: var(--pv-phone-bg);
   color: var(--pv-ink);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+}
+
+[data-app] {
+  font-family: var(--pv-font-ui);
+  font-size: var(--pv-text-body);
+  line-height: 1.5;
+  font-synthesis: none;
+}
+
+[data-app] button,
+[data-app] [role="button"] {
+  font-family: inherit;
+}
+
+[data-app] input,
+[data-app] textarea,
+[data-app] select {
+  font-family: inherit;
+  font-size: var(--pv-text-body);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.pv-display,
+.pv-title,
+.pv-wordmark {
+  font-family: var(--pv-font-brand);
+  font-weight: 400;
+  font-synthesis: none;
+}
+
+.pv-display {
+  font-size: var(--pv-text-display);
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+
+.pv-title {
+  font-size: var(--pv-text-title);
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.pv-wordmark {
+  font-size: var(--pv-text-wordmark);
+  line-height: 1;
+  letter-spacing: 0.03em;
+}
+
+.pv-heading {
+  font-family: var(--pv-font-ui);
+  font-size: var(--pv-text-heading);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+}
+
+.pv-subtitle {
+  font-family: var(--pv-font-ui);
+  font-size: var(--pv-text-subtitle);
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+.pv-body {
+  font-family: var(--pv-font-ui);
+  font-size: var(--pv-text-body);
+  font-weight: 450;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+
+.pv-button {
+  font-family: var(--pv-font-ui);
+  font-size: var(--pv-text-button);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.pv-label {
+  font-family: var(--pv-font-ui);
+  font-size: var(--pv-text-label);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+}
+
+.pv-caption {
+  font-family: var(--pv-font-ui);
+  font-size: var(--pv-text-caption);
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+
+.pv-micro {
+  font-family: var(--pv-font-ui);
+  font-size: var(--pv-text-micro);
+  font-weight: 550;
+  line-height: 1.3;
+  letter-spacing: 0.04em;
 }
 
 .scrollbar-none {

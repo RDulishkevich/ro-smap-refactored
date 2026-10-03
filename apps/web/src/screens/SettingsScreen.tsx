@@ -64,7 +64,7 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       {!desktop && <ScreenHeader title={t('settings')} onBack={onBack} />}
       <div className={`flex-1 overflow-y-auto scrollbar-none flex flex-col gap-4 ${desktop ? 'p-6' : 'p-4'}`}>
-        {desktop && <p className="text-lg font-bold" style={{ color: th.inkText }}>{t('settings')}</p>}
+        {desktop && <p className="pv-heading" style={{ color: th.inkText }}>{t('settings')}</p>}
 
         <Section title={t('language')} th={th}>
           <Row label={t('lang')} th={th} right={<LanguageSwitch />} />
@@ -80,8 +80,8 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
             right={<Switch on={prefs.autoplayPin} onChange={() => setPref('autoplayPin', !prefs.autoplayPin)} />} />
           <div className="px-4 py-3.5">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold" style={{ color: th.inkText }}>{t('volume')}</span>
-              <span className="text-[10px] font-semibold" style={{ color: SAGE }}>{Math.round(volume * 100)}%</span>
+              <span className="pv-label" style={{ color: th.inkText }}>{t('volume')}</span>
+              <span className="pv-micro" style={{ color: SAGE }}>{Math.round(volume * 100)}%</span>
             </div>
             <div className="flex items-center gap-2">
               <Volume2 size={14} color={OLIVE} />
@@ -137,18 +137,18 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
 
         {isLoggedIn && (
           <>
-            <motion.button whileTap={{ scale: 0.96 }} className="w-full py-3 rounded-2xl text-sm font-semibold flex items-center justify-center gap-2 text-white" style={{ background: DARK }}
+            <motion.button whileTap={{ scale: 0.96 }} className="pv-button w-full py-3 rounded-2xl flex items-center justify-center gap-2 text-white" style={{ background: DARK }}
               onClick={async () => { await logout(); reset(); toast(t('loggedOut')); }}>
               <LogOut size={15} />{t('logout')}
             </motion.button>
-            <button type="button" className="w-full py-3 rounded-2xl text-xs font-semibold cursor-pointer" style={{ background: th.cardBg, color: OLIVE }}
+            <button type="button" className="pv-button w-full py-3 rounded-2xl cursor-pointer" style={{ background: th.cardBg, color: OLIVE }}
               onClick={() => void logoutEverywhere()}>
               {t('logoutAll')}
             </button>
           </>
         )}
 
-        <p className="text-[10px] text-center pb-4" style={{ color: SAGE }}>Полёвка · polevka.art</p>
+        <p className="pv-micro text-center pb-4" style={{ color: SAGE }}>Полёвка · polevka.art</p>
       </div>
     </div>
   );
@@ -157,7 +157,7 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
 function Section({ title, children, th }: { title: string; children: ReactNode; th: { inkText: string; cardBg: string } }) {
   return (
     <section>
-      <p className="text-[10px] font-bold uppercase tracking-wide px-1 mb-1.5" style={{ color: SAGE }}>{title}</p>
+      <p className="pv-label uppercase px-1 mb-1.5" style={{ color: SAGE }}>{title}</p>
       <div className="rounded-3xl overflow-hidden" style={{ background: th.cardBg }}>{children}</div>
     </section>
   );
@@ -168,14 +168,14 @@ function Row({ label, right, th, onClick }: { label: string; right?: ReactNode; 
   if (onClick) {
     return (
       <button type="button" onClick={onClick} className={`${cls} cursor-pointer`} style={{ background: th.cardBg }}>
-        <span className="text-xs font-semibold" style={{ color: th.inkText }}>{label}</span>
+        <span className="pv-subtitle" style={{ color: th.inkText }}>{label}</span>
         {right || <span style={{ color: SAGE }}>›</span>}
       </button>
     );
   }
   return (
     <div className={cls} style={{ background: th.cardBg }}>
-      <span className="text-xs font-semibold" style={{ color: th.inkText }}>{label}</span>
+        <span className="pv-subtitle" style={{ color: th.inkText }}>{label}</span>
       {right}
     </div>
   );

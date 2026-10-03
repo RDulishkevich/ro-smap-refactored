@@ -260,8 +260,8 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
       <div className={`flex-1 min-h-0 overflow-y-auto ${desktop ? 'px-7 py-6' : 'p-5'}`}>
         {desktop && (
           <div className="mb-5">
-            <p className="text-lg font-bold" style={{ color: th.inkText }}>{edit ? 'Черновик' : 'Добавить звук'}</p>
-            <p className="text-[12px] mt-1" style={{ color: OLIVE }}>Файл, место на карте и карточка публикации — по шагам, без спешки.</p>
+            <p className="pv-heading" style={{ color: th.inkText }}>{edit ? 'Черновик' : 'Добавить звук'}</p>
+            <p className="pv-caption mt-1" style={{ color: OLIVE }}>Файл, место на карте и карточка публикации — по шагам, без спешки.</p>
           </div>
         )}
         <div className="flex flex-col gap-4 max-w-3xl">
@@ -484,10 +484,10 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
           </Section>
 
           <div className="flex gap-2 pb-4">
-            <button disabled={busy} onClick={() => void publish('draft')} className="flex-1 py-3 rounded-2xl text-sm font-bold" style={{ background: th.cardBg, color: OLIVE }}>
+            <button disabled={busy} onClick={() => void publish('draft')} className="pv-button flex-1 py-3 rounded-2xl" style={{ background: th.cardBg, color: OLIVE }}>
               {busy ? '…' : 'Черновик'}
             </button>
-            <button disabled={busy} onClick={() => void publish('pending')} className="flex-[1.5] py-3.5 rounded-2xl text-sm font-bold text-white" style={{ background: ACCENT }}>
+            <button disabled={busy} onClick={() => void publish('pending')} className="pv-button flex-[1.5] py-3.5 rounded-2xl text-white" style={{ background: ACCENT }}>
               {busy ? 'Отправка…' : 'На модерацию'}
             </button>
           </div>
@@ -508,7 +508,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
 function Section({ title, th, children }: { title: string; th: { cardBg: string }; children: ReactNode }) {
   return (
     <section className="rounded-[24px] p-4" style={{ background: th.cardBg }}>
-      <p className="text-[11px] font-bold uppercase tracking-wide mb-3" style={{ color: SAGE }}>{title}</p>
+      <p className="pv-label uppercase mb-3" style={{ color: SAGE }}>{title}</p>
       {children}
     </section>
   );
@@ -516,15 +516,15 @@ function Section({ title, th, children }: { title: string; th: { cardBg: string 
 
 function Field({ label, value, onChange, th }: { label: string; value: string; onChange: (v: string) => void; th: { phoneBg: string; cardBg: string; inkText: string } }) {
   return (
-    <label className="text-[10px] font-semibold" style={{ color: SAGE }}>{label}
-      <input value={value} onChange={(e) => onChange(e.target.value)} className="mt-1 w-full rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.phoneBg, color: th.inkText }} />
+    <label className="pv-label" style={{ color: SAGE }}>{label}
+      <input value={value} onChange={(e) => onChange(e.target.value)} className="mt-1 w-full rounded-2xl px-3 py-2.5 outline-none" style={{ background: th.phoneBg, color: th.inkText }} />
     </label>
   );
 }
 
 function Chip({ on, onClick, label, th }: { on: boolean; onClick: () => void; label: string; th: { lightBg: string } }) {
   return (
-    <button type="button" onClick={onClick} className="px-3 py-1.5 rounded-full text-[10px] font-semibold"
+    <button type="button" onClick={onClick} className="pv-label px-3 py-1.5 rounded-full"
       style={{ background: on ? ACCENT : th.lightBg, color: on ? '#fff' : OLIVE }}>{label}</button>
   );
 }

@@ -53,7 +53,7 @@ export function FeedScreen({ showNav = true, embed = false, initialTab }: { show
         <div className="relative flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-9 h-9 relative flex-shrink-0"><BrandMark /></div>
-            <h1 className="text-lg font-bold leading-tight truncate" style={{ color: th.inkText, fontFamily: 'Klukva, "Geist Variable", serif' }}>{t('feed')}</h1>
+            <h1 className="pv-heading truncate" style={{ color: th.inkText }}>{t('feed')}</h1>
           </div>
           <div className="flex gap-1.5 flex-shrink-0">
             <motion.button whileTap={tap.cta} onClick={() => push({ type: 'search' })} className="w-11 h-11 rounded-2xl flex items-center justify-center cursor-pointer" style={{ background: th.cardBg }} aria-label={t('search')}>
@@ -193,8 +193,8 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
   if (!feed.length && !sounds.length) {
     return (
       <div className="py-10 px-2 text-center">
-        <p className="text-xs mb-4" style={{ color: SAGE }}>{t('noPosts')}</p>
-        <button type="button" onClick={onCatalog} className="h-10 px-4 rounded-full text-[12px] font-semibold cursor-pointer" style={{ background: th.cardBg, color: ACCENT }}>
+        <p className="pv-caption mb-4" style={{ color: SAGE }}>{t('noPosts')}</p>
+        <button type="button" onClick={onCatalog} className="pv-label h-10 px-4 rounded-full cursor-pointer" style={{ background: th.cardBg, color: ACCENT }}>
           {t('openCatalog')}
         </button>
       </div>
@@ -206,13 +206,13 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
       <label className="flex items-center gap-2 h-12 rounded-2xl px-3.5" style={{ background: th.cardBg }}>
         <Search size={16} color={SAGE} className="flex-shrink-0" />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('searchFeed')}
-          className="flex-1 min-w-0 bg-transparent text-[13px] outline-none" style={{ color: th.inkText }}
+          className="flex-1 min-w-0 bg-transparent outline-none" style={{ color: th.inkText }}
           aria-label={t('searchFeedAria')} />
       </label>
       <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
         {FEED_SORTS.map((s) => (
           <button key={s.id} type="button" onClick={() => setSort(s.id)}
-            className="h-8 px-3 rounded-full text-[11px] font-semibold flex-shrink-0"
+            className="pv-label h-8 px-3 rounded-full flex-shrink-0"
             style={{ background: sort === s.id ? ACCENT : th.cardBg, color: sort === s.id ? '#fff' : OLIVE }}>
             {sortLabel[s.id]}
           </button>
@@ -226,7 +226,7 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
           onOpen={() => push({ type: 'sound-detail', sound: item.sound })}
           onDownload={() => downloadSound(item.sound, toast)} />
       ))}
-      {!items.length && <p className="text-xs py-8 text-center" style={{ color: SAGE }}>{t('nothingFound')}</p>}
+      {!items.length && <p className="pv-caption py-8 text-center" style={{ color: SAGE }}>{t('nothingFound')}</p>}
     </div>
   );
 }
@@ -247,8 +247,8 @@ function FeedPostCard({ post, onOpen }: { post: FeedPost; onOpen: () => void }) 
           {author.slice(0, 1).toUpperCase()}
         </span>
         <div className="min-w-0">
-          <p className="text-[13px] font-semibold truncate" style={{ color: th.inkText }}>{author}</p>
-          {when ? <p className="text-[10px]" style={{ color: SAGE }}>{when}</p> : null}
+          <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{author}</p>
+          {when ? <p className="pv-micro" style={{ color: SAGE }}>{when}</p> : null}
         </div>
       </div>
       {!!images.length && (
@@ -257,11 +257,11 @@ function FeedPostCard({ post, onOpen }: { post: FeedPost; onOpen: () => void }) 
         </div>
       )}
       <div className="px-4 py-3.5">
-        <p className="text-[15px] font-bold leading-snug" style={{ color: th.inkText }}>{String(post.title || t('kindPost'))}</p>
-        {text ? <p className="text-[13px] leading-relaxed mt-1.5" style={{ color: OLIVE }}>{text}</p> : null}
+        <p className="pv-heading" style={{ color: th.inkText }}>{String(post.title || t('kindPost'))}</p>
+        {text ? <p className="pv-body mt-1.5" style={{ color: OLIVE }}>{text}</p> : null}
         <div className="flex items-center gap-1.5 mt-3" style={{ color: SAGE }}>
           <MessageCircle size={11} />
-          <span className="text-[10px] font-semibold">{comments} {t('comments')}</span>
+          <span className="pv-micro">{comments} {t('comments')}</span>
         </div>
       </div>
     </button>
@@ -287,8 +287,8 @@ function MarkerFeedCard({ sound, playing, onPlay, onOpen, onDownload }: {
           {author.slice(0, 1).toUpperCase()}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[12px] font-semibold truncate" style={{ color: th.inkText }}>{author}</p>
-          {when ? <p className="text-[10px]" style={{ color: SAGE }}>{when}</p> : null}
+          <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{author}</p>
+          {when ? <p className="pv-micro" style={{ color: SAGE }}>{when}</p> : null}
         </div>
         <SoundTypeTag type={String(sound.type || '')} />
       </div>
@@ -298,17 +298,17 @@ function MarkerFeedCard({ sound, playing, onPlay, onOpen, onDownload }: {
         </button>
         <div className="min-w-0 flex-1 flex flex-col">
           <button type="button" className="text-left cursor-pointer" onClick={onOpen}>
-            <p className="text-[14px] font-bold leading-snug" style={{ color: th.inkText }}>{sound.title}</p>
-            <p className="text-[11px] truncate mt-1" style={{ color: OLIVE }}>
+            <p className="pv-subtitle" style={{ color: th.inkText }}>{sound.title}</p>
+            <p className="pv-caption truncate mt-1" style={{ color: OLIVE }}>
               <MapPin size={10} className="inline -mt-0.5 mr-0.5" />
               {sound.location || t('onMap')}
               {meta.durationSec > 0 ? ` · ${meta.durationLabel}` : ''}
             </p>
           </button>
           <div className="mt-auto pt-2 flex items-center gap-2.5" style={{ color: SAGE }}>
-            <span className="inline-flex items-center gap-0.5" title={t('likes')}><Heart size={11} /><span className="text-[10px] font-semibold">{likes}</span></span>
-            <span className="inline-flex items-center gap-0.5" title={t('comments')}><MessageCircle size={11} /><span className="text-[10px] font-semibold">{comments}</span></span>
-            <span className="inline-flex items-center gap-0.5" title={t('views')}><Headphones size={11} /><span className="text-[10px] font-semibold">{formatPlays(sound.plays)}</span></span>
+            <span className="inline-flex items-center gap-0.5" title={t('likes')}><Heart size={11} /><span className="pv-micro">{likes}</span></span>
+            <span className="inline-flex items-center gap-0.5" title={t('comments')}><MessageCircle size={11} /><span className="pv-micro">{comments}</span></span>
+            <span className="inline-flex items-center gap-0.5" title={t('views')}><Headphones size={11} /><span className="pv-micro">{formatPlays(sound.plays)}</span></span>
             <div className="ml-auto flex items-center gap-1">
               <button type="button" onClick={onPlay} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer" style={{ background: c }} aria-label={playing ? t('pause') : t('listen')}>
                 <PlayPauseIcon playing={playing} size={11} />
@@ -345,7 +345,7 @@ function ExpeditionsList() {
   return (
     <div className="flex flex-col gap-3 pt-1">
       {isLoggedIn && (
-        <button onClick={() => push({ type: 'expedition-edit' })} className="rounded-3xl p-4 text-left shadow-sm text-xs font-semibold cursor-pointer" style={{ background: th.lightBg, color: ACCENT }}>
+        <button onClick={() => push({ type: 'expedition-edit' })} className="pv-button rounded-3xl p-4 text-left shadow-sm cursor-pointer" style={{ background: th.lightBg, color: ACCENT }}>
           + {t('newExpedition')}
         </button>
       )}

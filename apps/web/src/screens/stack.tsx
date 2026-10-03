@@ -191,19 +191,19 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
         <div className="mx-4 mt-4 rounded-3xl p-4" style={{ background: th.cardBg }}>
           <div className="flex items-start justify-between gap-3 mb-2">
             <div className="min-w-0">
-              <p className="text-base font-bold" style={{ color: th.inkText }}>{live.title}</p>
+              <p className="pv-heading" style={{ color: th.inkText }}>{live.title}</p>
               <div className="flex items-center gap-1.5 mt-1">
-                <MapPin size={11} style={{ color: SAGE }} /><span className="text-xs" style={{ color: OLIVE }}>{live.location}</span>
+                <MapPin size={11} style={{ color: SAGE }} /><span className="pv-caption" style={{ color: OLIVE }}>{live.location}</span>
               </div>
             </div>
             <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
               <SoundTypeTag type={String(live.type)} />
               {meta.durationSec > 0 && (
-                <span className="text-[10px]" style={{ color: SAGE }}>{meta.durationLabel}</span>
+                <span className="pv-micro" style={{ color: SAGE }}>{meta.durationLabel}</span>
               )}
             </div>
           </div>
-          {live.description && <p className="text-xs leading-relaxed mb-3" style={{ color: OLIVE }}>{live.description}</p>}
+          {live.description && <p className="pv-body mb-3" style={{ color: OLIVE }}>{live.description}</p>}
           {!!normalizeTimeMarkers(live.timeMarkers).length && (
             <ul className="mb-3 flex flex-col gap-1.5">
               {normalizeTimeMarkers(live.timeMarkers).map((m, i) => (
@@ -214,21 +214,21 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
                       if (total > 0) seek(Math.max(0, Math.min(1, m.t / total)));
                       if (!on) togglePlay(live);
                     }}>
-                    <span className="text-[11px] font-semibold tabular-nums" style={{ color: ACCENT }}>{formatClock(m.t)}</span>
-                    <span className="text-[11px] min-w-0 truncate" style={{ color: th.inkText }}>{m.label}</span>
+                    <span className="pv-label tabular-nums" style={{ color: ACCENT }}>{formatClock(m.t)}</span>
+                    <span className="pv-caption min-w-0 truncate" style={{ color: th.inkText }}>{m.label}</span>
                   </button>
                 </li>
               ))}
             </ul>
           )}
           {(live.principle || live.channels) && (
-            <p className="text-[11px] mb-2" style={{ color: SAGE }}>
+            <p className="pv-caption mb-2" style={{ color: SAGE }}>
               {[live.principle, live.channels].filter(Boolean).join(' · ')}
               {isAmbisonicSound(live) ? ' · сфера 360° в плеере' : ''}
             </p>
           )}
           {(isSoundwalkPrinciple(live.principle) || soundRoute(live).length >= 2) && (
-            <button type="button" className="mb-3 h-9 px-3 rounded-full text-[12px] font-semibold inline-flex items-center gap-1.5"
+            <button type="button" className="pv-label mb-3 h-9 px-3 rounded-full inline-flex items-center gap-1.5"
               style={{ background: th.phoneBg, color: ACCENT }}
               onClick={goToMap}>
               <Route size={13} /> Показать прогулку на карте
@@ -239,8 +239,8 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
               className="flex items-center gap-2.5 w-full p-2.5 rounded-2xl" style={{ background: th.phoneBg }}>
               <div className="w-9 h-9 rounded-full flex items-center justify-center text-lg" style={{ background: th.lightBg }}>{live.avatar || '🎙️'}</div>
               <div className="flex-1 text-left">
-                <p className="text-xs font-semibold" style={{ color: th.inkText }}>{live.user}</p>
-                <p className="text-[10px]" style={{ color: SAGE }}>{live.gear || 'полевая запись'}</p>
+                <p className="pv-subtitle" style={{ color: th.inkText }}>{live.user}</p>
+                <p className="pv-micro" style={{ color: SAGE }}>{live.gear || 'полевая запись'}</p>
               </div>
               <ChevronRight size={13} style={{ color: SAGE }} />
             </motion.button>
@@ -252,17 +252,17 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
               { icon: <Heart size={13} />, val: String(live.likes ?? 0), label: 'лайков' },
               { icon: <MessageCircle size={13} />, val: String(comments.length), label: 'комментариев' }].map(({ icon, val, label }) => (
               <div key={label} className="flex-1 text-center">
-                <div className="flex items-center justify-center gap-1 mb-0.5" style={{ color: SAGE }}>{icon}<span className="text-xs font-bold" style={{ color: th.inkText }}>{val}</span></div>
-                <p className="text-[9px]" style={{ color: SAGE }}>{label}</p>
+                <div className="flex items-center justify-center gap-1 mb-0.5" style={{ color: SAGE }}>{icon}<span className="pv-subtitle" style={{ color: th.inkText }}>{val}</span></div>
+                <p className="pv-micro" style={{ color: SAGE }}>{label}</p>
               </div>
             ))}
           </div>
           <div className="flex gap-2">
-            <motion.button whileTap={{ scale: 0.92 }} onClick={() => void toggleReaction('like', liked)} className="flex-1 py-2.5 rounded-2xl flex items-center justify-center gap-1.5 text-xs font-semibold"
+            <motion.button whileTap={{ scale: 0.92 }} onClick={() => void toggleReaction('like', liked)} className="pv-button flex-1 py-2.5 rounded-2xl flex items-center justify-center gap-1.5"
               style={{ background: liked ? ACCENT : th.lightBg, color: liked ? '#fff' : OLIVE }}>
               <Heart size={13} fill={liked ? '#fff' : 'none'} />Нравится
             </motion.button>
-            <motion.button whileTap={{ scale: 0.92 }} onClick={() => void toggleReaction('dislike', disliked)} className="flex-1 py-2.5 rounded-2xl flex items-center justify-center gap-1.5 text-xs font-semibold"
+            <motion.button whileTap={{ scale: 0.92 }} onClick={() => void toggleReaction('dislike', disliked)} className="pv-button flex-1 py-2.5 rounded-2xl flex items-center justify-center gap-1.5"
               style={{ background: disliked ? DARK : th.lightBg, color: disliked ? '#fff' : OLIVE }}>
               Не нравится
             </motion.button>
@@ -273,8 +273,8 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
           </div>
         </div>
         <div className="mx-4 mt-3 mb-6 rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <p className="text-sm font-bold mb-4" style={{ color: th.inkText }}>Комментарии · {comments.length}</p>
-          {comments.length === 0 && <p className="text-xs mb-3" style={{ color: SAGE }}>Пока нет комментариев — напишите первый</p>}
+          <p className="pv-heading mb-4" style={{ color: th.inkText }}>Комментарии · {comments.length}</p>
+          {comments.length === 0 && <p className="pv-caption mb-3" style={{ color: SAGE }}>Пока нет комментариев — напишите первый</p>}
           <div className="flex flex-col gap-3">
           {comments.map((cm) => {
             const likedC = (cm.reactedBy || []).includes(user?.loginName || '');
@@ -432,14 +432,14 @@ function UserProfileScreen({ name, avatar, username, onBack }: { name: string; a
           <div className="w-20 h-20 rounded-3xl mx-auto flex items-center justify-center text-4xl mb-3 overflow-hidden" style={{ background: th.lightBg }}>
             {profile?.avatar && String(profile.avatar).startsWith('http') ? <img src={String(profile.avatar)} alt="" className="w-full h-full object-cover" /> : (avatar)}
           </div>
-          <p className="text-base font-bold" style={{ color: th.inkText }}>{profile?.displayName || name}</p>
-          <p className="text-xs mb-1" style={{ color: SAGE }}>@{peer}</p>
-          {profile?.bio && <p className="text-[10px] mb-2" style={{ color: OLIVE }}>{profile.bio}</p>}
-          {profile?.gear && <p className="text-[10px] mb-2" style={{ color: SAGE }}>{profile.gear}</p>}
-          {profile?.links && <p className="text-[10px] mb-3" style={{ color: ACCENT }}>{profile.links}</p>}
+          <p className="pv-heading" style={{ color: th.inkText }}>{profile?.displayName || name}</p>
+          <p className="pv-caption mb-1" style={{ color: SAGE }}>@{peer}</p>
+          {profile?.bio && <p className="pv-body mb-2" style={{ color: OLIVE }}>{profile.bio}</p>}
+          {profile?.gear && <p className="pv-caption mb-2" style={{ color: SAGE }}>{profile.gear}</p>}
+          {profile?.links && <p className="pv-caption mb-3" style={{ color: ACCENT }}>{profile.links}</p>}
           <div className="flex gap-2">
-            <button onClick={() => void toggleFollow()} className="flex-1 py-2.5 rounded-2xl text-xs font-semibold text-white flex items-center justify-center gap-1.5" style={{ background: ACCENT }}><UserPlus size={13} />{isFollowed ? 'Вы подписаны' : 'Подписаться'}</button>
-            <button className="flex-1 py-2.5 rounded-2xl text-xs font-semibold" style={{ background: th.lightBg, color: OLIVE }} onClick={() => push({ type: 'conversation', name, avatar, peer })}>Написать</button>
+            <button onClick={() => void toggleFollow()} className="pv-button flex-1 py-2.5 rounded-2xl text-white flex items-center justify-center gap-1.5" style={{ background: ACCENT }}><UserPlus size={13} />{isFollowed ? 'Вы подписаны' : 'Подписаться'}</button>
+            <button className="pv-button flex-1 py-2.5 rounded-2xl" style={{ background: th.lightBg, color: OLIVE }} onClick={() => push({ type: 'conversation', name, avatar, peer })}>Написать</button>
           </div>
         </div>
         {shown.length > 0 && (
@@ -508,16 +508,16 @@ function EventsScreen({ onBack, focusId }: { onBack: () => void; focusId?: strin
         {loading && !events.length && <ListSkeleton rows={3} />}
         {!loading && !events.length && (
           <div className="rounded-3xl p-6 text-center" style={{ background: th.cardBg }}>
-            <p className="text-sm font-semibold" style={{ color: th.inkText }}>{t('eventsEmpty')}</p>
-            <p className="text-[12px] mt-1.5 leading-relaxed" style={{ color: SAGE }}>{t('eventsEmptyHint')}</p>
+            <p className="pv-subtitle" style={{ color: th.inkText }}>{t('eventsEmpty')}</p>
+            <p className="pv-caption mt-1.5" style={{ color: SAGE }}>{t('eventsEmptyHint')}</p>
           </div>
         )}
         {events.map((ev, i) => (
           <div key={String(ev.id || i)} className="rounded-3xl p-4" style={{ background: th.cardBg, outline: focusId && String(ev.id || `e${i}`) === focusId ? `2px solid ${ACCENT}` : undefined }}>
-            <p className="text-[10px] uppercase" style={{ color: SAGE }}>{String(ev.tag || ev.status || t('kindEvent'))}</p>
-            <p className="text-sm font-bold" style={{ color: th.inkText }}>{ev.title}</p>
-            <p className="text-[10px] mb-3" style={{ color: OLIVE }}>{String(ev.loc || ev.location || '')} · {String(ev.date || '')} {String(ev.time || '')}</p>
-            <button className="w-full py-2 rounded-2xl text-xs font-semibold text-white" style={{ background: ACCENT }}
+            <p className="pv-micro uppercase" style={{ color: SAGE }}>{String(ev.tag || ev.status || t('kindEvent'))}</p>
+            <p className="pv-subtitle" style={{ color: th.inkText }}>{ev.title}</p>
+            <p className="pv-caption mb-3" style={{ color: OLIVE }}>{String(ev.loc || ev.location || '')} · {String(ev.date || '')} {String(ev.time || '')}</p>
+            <button className="pv-button w-full py-2 rounded-2xl text-white" style={{ background: ACCENT }}
               onClick={() => void signup(ev, i)}>Записаться</button>
           </div>
         ))}
@@ -574,7 +574,7 @@ function FeedPostScreen({ post, onBack }: { post: FeedPost; onBack: () => void }
             const ts = Date.parse(String(live.createdAt));
             return Number.isNaN(ts) ? String(live.createdAt) : new Date(ts).toLocaleString();
           })()}</p> : null}
-          <p className="text-base font-bold mt-2" style={{ color: th.inkText }}>{String(live.title || t('kindPost'))}</p>
+          <p className="pv-heading mt-2" style={{ color: th.inkText }}>{String(live.title || t('kindPost'))}</p>
           {live.text ? <p className="text-[13px] leading-relaxed mt-2" style={{ color: OLIVE }}>{String(live.text)}</p> : null}
           {linked && (
             <button type="button" className="mt-3 h-10 px-3 rounded-2xl text-[12px] font-semibold inline-flex items-center gap-1.5"
@@ -585,8 +585,8 @@ function FeedPostScreen({ post, onBack }: { post: FeedPost; onBack: () => void }
           )}
         </div>
         <div className="mx-4 mt-3 mb-6 rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <p className="text-sm font-bold mb-3" style={{ color: th.inkText }}>{t('comments')} · {comments.length}</p>
-          {!comments.length && <p className="text-xs mb-3" style={{ color: SAGE }}>{t('noComments')}</p>}
+          <p className="pv-heading mb-3" style={{ color: th.inkText }}>{t('comments')} · {comments.length}</p>
+          {!comments.length && <p className="pv-caption mb-3" style={{ color: SAGE }}>{t('noComments')}</p>}
           <div className="flex flex-col gap-3">
             {comments.map((cm) => (
               <div key={cm.id}>
@@ -693,7 +693,7 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
     <>
       <div className="flex gap-1 p-1 rounded-2xl" style={{ background: th.lightBg }}>
         {(['in', 'up'] as const).map((m) => (
-          <button key={m} onClick={() => { setMode(m); setNeedTotp(false); setTotp(''); setTotpError(false); }} className="flex-1 py-2 rounded-xl text-xs font-semibold" style={{ background: mode === m ? th.cardBg : 'transparent', color: mode === m ? ACCENT : OLIVE }}>
+          <button key={m} onClick={() => { setMode(m); setNeedTotp(false); setTotp(''); setTotpError(false); }} className="pv-label flex-1 py-2 rounded-xl" style={{ background: mode === m ? th.cardBg : 'transparent', color: mode === m ? ACCENT : OLIVE }}>
             {m === 'in' ? t('login') : t('register')}
           </button>
         ))}
@@ -702,15 +702,15 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
       <Field label={t('loginName')} value={loginName} onChange={setLogin} th={th} />
       <Field label={t('password')} value={password} onChange={setPassword} th={th} password />
       {mode === 'in' && (
-        <label className="flex items-start gap-2 text-[11px]" style={{ color: OLIVE }}>
+        <label className="pv-caption flex items-start gap-2" style={{ color: OLIVE }}>
           <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="mt-0.5" />
           <span>{t('rememberMe')}</span>
         </label>
       )}
       {mode === 'in' && needTotp && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <p className="text-xs font-bold mb-1" style={{ color: th.inkText }}>Код из приложения</p>
-          <p className="text-[10px] mb-3" style={{ color: SAGE }}>Шесть цифр из Google Authenticator, Яндекс Ключ или другого приложения</p>
+          <p className="pv-subtitle mb-1" style={{ color: th.inkText }}>Код из приложения</p>
+          <p className="pv-caption mb-3" style={{ color: SAGE }}>Шесть цифр из Google Authenticator, Яндекс Ключ или другого приложения</p>
           <OtpInput value={totp} error={totpError} autoFocus disabled={busy}
             onChange={(v) => { setTotp(v); setTotpError(false); }}
             onComplete={(code) => { if (!busy) void submit(code); }} />
@@ -719,14 +719,14 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
       {mode === 'up' && (
         <>
           <div className="rounded-3xl p-4 flex flex-col gap-3" style={{ background: th.cardBg }}>
-            <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: SAGE }}>{t('aboutYou')}</p>
-            <p className="text-[11px]" style={{ color: OLIVE }}>{t('aboutYouHint')}</p>
+            <p className="pv-label uppercase" style={{ color: SAGE }}>{t('aboutYou')}</p>
+            <p className="pv-caption" style={{ color: OLIVE }}>{t('aboutYouHint')}</p>
             <div className="flex flex-wrap gap-1.5">
               {ABOUT_ROLES.map((role) => {
                 const on = aboutRole === role.id;
                 return (
                   <button key={role.id} type="button" onClick={() => setAboutRole(role.id)}
-                    className="h-8 px-3 rounded-full text-[11px] font-semibold"
+                    className="pv-label h-8 px-3 rounded-full"
                     style={{ background: on ? ACCENT : th.lightBg, color: on ? '#fff' : OLIVE }}>
                     {locLabel(role, loc)}
                   </button>
@@ -735,14 +735,14 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
             </div>
           </div>
           <div className="rounded-3xl p-4 flex flex-col gap-3" style={{ background: th.cardBg }}>
-            <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: SAGE }}>{t('goals')}</p>
-            <p className="text-[11px]" style={{ color: OLIVE }}>{t('goalsHint')}</p>
+            <p className="pv-label uppercase" style={{ color: SAGE }}>{t('goals')}</p>
+            <p className="pv-caption" style={{ color: OLIVE }}>{t('goalsHint')}</p>
             <div className="flex flex-wrap gap-1.5">
               {USE_GOALS.map((goal) => {
                 const on = useGoals.includes(goal.id);
                 return (
                   <button key={goal.id} type="button" onClick={() => setUseGoals((prev) => on ? prev.filter((id) => id !== goal.id) : [...prev, goal.id])}
-                    className="h-8 px-3 rounded-full text-[11px] font-semibold"
+                    className="pv-label h-8 px-3 rounded-full"
                     style={{ background: on ? ACCENT : th.lightBg, color: on ? '#fff' : OLIVE }}>
                     {locLabel(goal, loc)}
                   </button>
@@ -750,15 +750,15 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
               })}
             </div>
           </div>
-          <label className="flex items-start gap-2 text-[10px]" style={{ color: OLIVE }}>
+          <label className="pv-micro flex items-start gap-2" style={{ color: OLIVE }}>
             <input type="checkbox" checked={pdConsent} onChange={(e) => setPdConsent(e.target.checked)} className="mt-0.5" />
             <span>{t('pdConsent')} <button type="button" className="underline" onClick={() => push({ type: 'legal', doc: 'privacy' })}>{t('privacyPolicy')}</button> · <button type="button" className="underline" onClick={() => push({ type: 'legal', doc: 'terms' })}>{t('terms')}</button>.</span>
           </label>
         </>
       )}
-      <button disabled={busy} onClick={() => void submit()} className="w-full py-3.5 rounded-2xl text-white text-sm font-bold cursor-pointer" style={{ background: ACCENT }}>{busy ? '…' : mode === 'in' ? t('signIn') : t('createAccount')}</button>
-      {mode === 'in' && <button className="text-xs" style={{ color: SAGE }} onClick={() => push({ type: 'reset-password' })}>{t('forgotPassword')}</button>}
-      <p className="text-[10px]" style={{ color: SAGE }}>{t('cookiesNeed')}</p>
+      <button disabled={busy} onClick={() => void submit()} className="pv-button w-full py-3.5 rounded-2xl text-white cursor-pointer" style={{ background: ACCENT }}>{busy ? '…' : mode === 'in' ? t('signIn') : t('createAccount')}</button>
+      {mode === 'in' && <button className="pv-caption" style={{ color: SAGE }} onClick={() => push({ type: 'reset-password' })}>{t('forgotPassword')}</button>}
+      <p className="pv-micro" style={{ color: SAGE }}>{t('cookiesNeed')}</p>
     </>
   );
   return (
@@ -767,7 +767,7 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
       {desktop ? (
         <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-8 pb-16">
           <div className="w-24 h-24 rounded-[28px] overflow-hidden shadow-xl mb-5"><LogoApp /></div>
-          <h2 className="text-2xl font-bold mb-6" style={{ color: th.inkText, fontFamily: 'Klukva, "Geist Variable", serif' }}>
+          <h2 className="pv-title mb-6" style={{ color: th.inkText }}>
             {mode === 'in' ? t('welcomeBack') : t('newExplorer')}
           </h2>
           <div className="w-full max-w-[400px] flex flex-col gap-3">{form}</div>
@@ -781,10 +781,10 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
 
 function Field({ label, value, onChange, th, password, inputMode, readOnly }: { label: string; value: string; onChange: (v: string) => void; th: { cardBg: string; inkText: string }; password?: boolean; inputMode?: 'numeric' | 'email' | 'text'; readOnly?: boolean }) {
   return (
-    <label className="text-[10px] font-semibold" style={{ color: SAGE }}>
+    <label className="pv-label" style={{ color: SAGE }}>
       {label}
       <input type={password ? 'password' : 'text'} inputMode={inputMode} readOnly={readOnly} value={value} onChange={(e) => onChange(e.target.value)}
-        className={`mt-1 w-full rounded-2xl px-3 py-3 text-sm outline-none ${readOnly ? 'opacity-80' : ''}`} style={{ background: th.cardBg, color: th.inkText }} />
+        className={`mt-1 w-full rounded-2xl px-3 py-3 outline-none ${readOnly ? 'opacity-80' : ''}`} style={{ background: th.cardBg, color: th.inkText }} />
     </label>
   );
 }
@@ -973,6 +973,7 @@ function RecordScreen({ onBack }: { onBack: () => void }) {
 export function MessagesScreen({ onBack, embed = false }: { onBack?: () => void; embed?: boolean }) {
   const th = useTh();
   const desktop = useIsDesktop();
+  const t = useT();
   const { push } = useNav();
   const { profiles, mail } = useData();
   const { user, isLoggedIn } = useAuth();
@@ -980,43 +981,43 @@ export function MessagesScreen({ onBack, embed = false }: { onBack?: () => void;
   const letter = (name: string) => (name.trim()[0] || '?').toUpperCase();
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      {!desktop && !embed && onBack && <ScreenHeader title="Сообщения" onBack={onBack} />}
+      {!desktop && !embed && onBack && <ScreenHeader title={t('messages')} onBack={onBack} />}
       <div className={`flex-1 overflow-y-auto ${desktop ? 'px-6 pt-6 pb-4' : 'p-4'}`}>
         {embed && (
           <div className="pv-safe-top mb-4">
-            <p className="text-lg font-bold" style={{ color: th.inkText, fontFamily: 'Klukva, "Geist Variable", serif' }}>Сообщения</p>
-            <p className="text-[12px] mt-1" style={{ color: OLIVE }}>Диалоги с исследователями и поддержкой</p>
+            <p className="pv-heading" style={{ color: th.inkText }}>{t('messages')}</p>
+            <p className="pv-caption mt-1" style={{ color: OLIVE }}>Диалоги с исследователями и поддержкой</p>
           </div>
         )}
         {desktop && (
           <div className="mb-5">
-            <p className="text-lg font-bold" style={{ color: th.inkText }}>Сообщения</p>
-            <p className="text-[12px] mt-1" style={{ color: OLIVE }}>Переписка с исследователями и поддержкой</p>
+            <p className="pv-heading" style={{ color: th.inkText }}>{t('messages')}</p>
+            <p className="pv-caption mt-1" style={{ color: OLIVE }}>Переписка с исследователями и поддержкой</p>
           </div>
         )}
         {!isLoggedIn && (
           <div className="rounded-[24px] p-8 text-center" style={{ background: th.cardBg }}>
             <MessageCircle size={28} color={SAGE} className="mx-auto mb-3" />
-            <p className="text-sm font-semibold" style={{ color: th.inkText }}>Войдите, чтобы писать</p>
-            <p className="text-[12px] mt-1" style={{ color: SAGE }}>Диалоги появятся здесь после входа</p>
-            <button type="button" className="mt-4 h-10 px-5 rounded-full text-[13px] font-bold text-white" style={{ background: ACCENT }}
-              onClick={() => push({ type: 'auth' })}>Войти</button>
+            <p className="pv-subtitle" style={{ color: th.inkText }}>Войдите, чтобы писать</p>
+            <p className="pv-caption mt-1" style={{ color: SAGE }}>Диалоги появятся здесь после входа</p>
+            <button type="button" className="pv-button mt-4 h-10 px-5 rounded-full text-white" style={{ background: ACCENT }}
+              onClick={() => push({ type: 'auth' })}>{t('signIn')}</button>
           </div>
         )}
         {isLoggedIn && peers.length === 0 && (
           <div className="rounded-[24px] p-8 text-center" style={{ background: th.cardBg }}>
             <MessageCircle size={28} color={SAGE} className="mx-auto mb-3" />
-            <p className="text-sm font-semibold" style={{ color: th.inkText }}>Пока нет диалогов</p>
-            <p className="text-[12px] mt-1" style={{ color: SAGE }}>Напишите человеку из карточки звука или откройте поддержку</p>
+            <p className="pv-subtitle" style={{ color: th.inkText }}>Пока нет диалогов</p>
+            <p className="pv-caption mt-1" style={{ color: SAGE }}>Напишите человеку из карточки звука или откройте поддержку</p>
           </div>
         )}
         {peers.map((p) => (
           <button key={p.login} onClick={() => push({ type: 'conversation', name: p.name, avatar: '👤', peer: p.login })}
             className="w-full flex items-center gap-3 p-3.5 rounded-[20px] mb-2 text-left" style={{ background: th.cardBg }}>
-            <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-sm font-bold" style={{ background: th.lightBg, color: OLIVE }}>{letter(p.name)}</div>
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center pv-subtitle" style={{ background: th.lightBg, color: OLIVE }}>{letter(p.name)}</div>
             <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-bold" style={{ color: th.inkText }}>{p.name}</p>
-              <p className="text-[11px] truncate mt-0.5" style={{ color: SAGE }}>{p.lastText || 'Написать'}</p>
+              <p className="pv-subtitle" style={{ color: th.inkText }}>{p.name}</p>
+              <p className="pv-caption truncate mt-0.5" style={{ color: SAGE }}>{p.lastText || 'Написать'}</p>
             </div>
           </button>
         ))}
@@ -1205,7 +1206,7 @@ function EditProfileScreen({ onBack }: { onBack: () => void }) {
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       <ScreenHeader title="Профиль" onBack={onBack} />
       <div className="p-5 flex flex-col gap-3">
-        <label className="text-[10px] font-semibold" style={{ color: SAGE }}>Аватар
+        <label className="pv-label" style={{ color: SAGE }}>Аватар
           <input type="file" accept="image/*" className="mt-1 block w-full text-[11px]" onChange={(e) => setAvatarFile(e.target.files?.[0] || null)} />
         </label>
         <Field label="Имя" value={name} onChange={setName} th={th} />
@@ -1288,8 +1289,8 @@ function HelpScreen({ onBack }: { onBack: () => void }) {
       <div className={`flex-1 overflow-y-auto flex flex-col gap-3 ${desktop ? 'px-6 pt-6' : 'p-4'}`}>
         {desktop && (
           <div>
-            <p className="text-lg font-bold" style={{ color: th.inkText }}>Поддержка Полёвки</p>
-            <p className="text-[12px] mt-1 leading-relaxed" style={{ color: OLIVE }}>
+            <p className="pv-heading" style={{ color: th.inkText }}>Поддержка Полёвки</p>
+            <p className="pv-caption mt-1" style={{ color: OLIVE }}>
               Карта полевых записей: слушайте точки, добавляйте свои звуки, создавайте экспедиции. Здесь — ответы и чат с поддержкой.
             </p>
           </div>
@@ -1297,7 +1298,7 @@ function HelpScreen({ onBack }: { onBack: () => void }) {
         <div className="flex flex-wrap gap-1.5">
           {faqs.map((f) => (
             <button key={f.label} type="button" onClick={() => void sendText(f.text)}
-              className="px-3 py-1.5 rounded-full text-[11px] font-semibold" style={{ background: th.cardBg, color: OLIVE }}>{f.label}</button>
+              className="pv-label px-3 py-1.5 rounded-full" style={{ background: th.cardBg, color: OLIVE }}>{f.label}</button>
           ))}
         </div>
         <div className="flex-1 min-h-[180px] flex flex-col gap-2">
