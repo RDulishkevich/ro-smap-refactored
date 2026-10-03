@@ -5,7 +5,8 @@
 
 param(
     [string]$FunctionId = "d4ebp9rd7rd53iso4p8u",
-    [int]$Concurrency = 4
+    [int]$Concurrency = 4,
+    [string]$YdbEndpoint = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -44,6 +45,14 @@ $ycArgs = @(
     "--format", "json"
 )
 $envMap["INTEGRITY_ALLOW_UNSIGNED"] = "0"
+if (-not $YdbEndpoint) { $YdbEndpoint = [string]$env:YDB_DOCAPI_ENDPOINT }
+if ($YdbEndpoint) {
+    $envMap["YDB_DOCAPI_ENDPOINT"] = $YdbEndpoint.Trim()
+    if (-not $envMap["YDB_DOCAPI_REGION"]) { $envMap["YDB_DOCAPI_REGION"] = "ru-central1" }
+    Write-Host "ydb_endpoint=set"
+} else {
+    Write-Host "ydb_endpoint=missing"
+}
 foreach ($k in ($envMap.Keys | Sort-Object)) {
     $ycArgs += @("--environment", "$k=$($envMap[$k])")
 }
