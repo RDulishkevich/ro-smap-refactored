@@ -43,15 +43,15 @@ export function MenuHub() {
   };
 
   const items: Array<{ label: string; Icon: typeof Radio; screen: ScreenConfig; staff?: boolean; art?: string }> = [
-    { label: t('feed'), Icon: Radio, screen: { type: 'feed' }, art: '/menu/feed.webp' },
-    { label: t('catalog'), Icon: LayoutGrid, screen: { type: 'catalog' }, art: '/menu/catalog.webp' },
-    { label: t('expeditions'), Icon: Calendar, screen: { type: 'expeditions' }, art: '/menu/expeditions.webp' },
-    { label: t('events'), Icon: Ticket, screen: { type: 'events' }, art: '/menu/events.webp' },
+    { label: t('feed'), Icon: Radio, screen: { type: 'feed' }, art: '/menu/feed.png' },
+    { label: t('catalog'), Icon: LayoutGrid, screen: { type: 'catalog' }, art: '/menu/catalog.png' },
+    { label: t('expeditions'), Icon: Calendar, screen: { type: 'expeditions' }, art: '/menu/expeditions.png' },
+    { label: t('events'), Icon: Ticket, screen: { type: 'events' }, art: '/menu/events.png' },
     { label: t('drafts'), Icon: FilePenLine, screen: { type: 'drafts' } },
-    { label: t('settings'), Icon: Settings, screen: { type: 'settings' }, art: '/menu/settings.webp' },
-    { label: t('staffPanel'), Icon: Shield, screen: { type: 'staff' }, staff: true, art: '/menu/staff.webp' },
-    { label: t('help'), Icon: HelpCircle, screen: { type: 'help' }, art: '/menu/help.webp' },
-    { label: t('guessr'), Icon: Dices, screen: { type: 'guessr' }, art: '/menu/guessr.webp' },
+    { label: t('settings'), Icon: Settings, screen: { type: 'settings' } },
+    { label: t('staffPanel'), Icon: Shield, screen: { type: 'staff' }, staff: true },
+    { label: t('help'), Icon: HelpCircle, screen: { type: 'help' } },
+    { label: t('guessr'), Icon: Dices, screen: { type: 'guessr' } },
   ];
 
   return (
@@ -109,12 +109,12 @@ function MenuTile({ label, Icon, art, onClick, th }: {
   const show = !!art && !broken;
   return (
     <motion.button type="button" whileTap={tap.cta} onClick={onClick}
-      className="relative rounded-3xl px-4 py-5 text-left min-h-[108px] flex flex-col justify-between overflow-hidden"
+      className="relative rounded-3xl px-4 py-5 text-left min-h-[128px] flex flex-col justify-between overflow-hidden"
       style={{ background: th.cardBg }}>
       {show && (
         <img src={art} alt="" className="absolute inset-0 w-full h-full object-cover" onError={() => setBroken(true)} />
       )}
-      {show && <span className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(26,26,26,0.08), rgba(26,26,26,0.45))' }} />}
+      {show && <span className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(26,26,26,0.12), rgba(26,26,26,0.52))' }} />}
       <span className="relative w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: show ? 'rgba(255,255,255,0.88)' : th.lightBg }}>
         <Icon size={20} color={ACCENT} />
       </span>
