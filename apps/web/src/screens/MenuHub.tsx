@@ -109,15 +109,17 @@ function MenuTile({ label, Icon, art, onClick, th }: {
   const show = !!art && !broken;
   return (
     <motion.button type="button" whileTap={tap.cta} onClick={onClick}
-      className="relative rounded-3xl px-4 py-5 text-left min-h-[128px] flex flex-col justify-between overflow-hidden"
+      className={`relative rounded-3xl px-4 py-5 text-left min-h-[128px] flex flex-col overflow-hidden ${show ? 'justify-end' : 'justify-between'}`}
       style={{ background: th.cardBg }}>
       {show && (
         <img src={art} alt="" className="absolute inset-0 w-full h-full object-cover" onError={() => setBroken(true)} />
       )}
-      {show && <span className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(26,26,26,0.12), rgba(26,26,26,0.52))' }} />}
-      <span className="relative w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: show ? 'rgba(255,255,255,0.88)' : th.lightBg }}>
-        <Icon size={20} color={ACCENT} />
-      </span>
+      {show && <span className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(26,26,26,0.08), rgba(26,26,26,0.5))' }} />}
+      {!show && (
+        <span className="relative w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}>
+          <Icon size={20} color={ACCENT} />
+        </span>
+      )}
       <span className="pv-subtitle relative" style={{ color: show ? '#fff' : th.inkText }}>{label}</span>
     </motion.button>
   );
