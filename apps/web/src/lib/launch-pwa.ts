@@ -38,3 +38,17 @@ export async function installedWebAppKnown() {
 export function shouldOfferOpenInApp() {
   return !isStandaloneApp() && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
+
+export function tryOpenInstalledApp() {
+  const path = `${location.pathname}${location.search}${location.hash}`;
+  const host = location.host.replace(/^www\./, '');
+  const https = `${location.protocol}//${location.host}${path}`;
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod/i.test(ua)) {
+    location.href = `webapp://${host}${path}`;
+    return;
+  }
+  if (/Android/i.test(ua)) {
+    location.href = `intent://${host}${path}#Intent;scheme=https;action=android.intent.action.VIEW;S.browser_fallback_url=${encodeURIComponent(https)};end`;
+  }
+}

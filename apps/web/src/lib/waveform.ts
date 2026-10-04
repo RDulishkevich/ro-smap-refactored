@@ -41,6 +41,17 @@ async function decode(buf: ArrayBuffer): Promise<AudioBuffer> {
   }
 }
 
+export function playLength(el: HTMLMediaElement | null, fallback: number) {
+  const d = Number(el?.duration);
+  if (Number.isFinite(d) && d > 0.05) return d;
+  return Math.max(0.2, fallback);
+}
+
+export async function durationFromBlob(blob: Blob): Promise<number> {
+  const buffer = await decode(await blob.arrayBuffer());
+  return buffer.duration;
+}
+
 export async function peaksFromBuffer(buffer: AudioBuffer, bars = 80): Promise<number[]> {
   return barsFromChannel(buffer.getChannelData(0), bars);
 }

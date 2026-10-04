@@ -6,6 +6,7 @@ import { color, spring } from '@polevka/design';
 import { useTh } from '../state/ThemeContext';
 
 const SWIPE = 48;
+const CLOSE = 96;
 
 function wrap(i: number, n: number) {
   if (n <= 0) return 0;
@@ -23,17 +24,30 @@ export function PhotoLightbox({
 }) {
   const n = images.length;
   const go = (d: number) => onIndex(wrap(index + d, n));
-  const startX = useRef<number | null>(null);
-  const startY = useRef<number | null>(null);
-  const moved = useRef(false);
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const dragY = useRef(0);
+  const [y, setY] = useState(0);
+  const [closing, setClosing] = useState(false);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const goRef = useRef(go);
   goRef.current = go;
 
+  const finish = () => {
+    if (closing) return;
+    setClosing(true);
+    setY((cur) => (cur >= 0 ? Math.max(cur, 160) : Math.min(cur, -160)));
+  };
+
+  useEffect(() => {
+    if (!closing) return;
+    const t = window.setTimeout(() => onCloseRef.current(), 280);
+    return () => clearTimeout(t);
+  }, [closing]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCloseRef.current();
+      if (e.key === 'Escape') finish();
       if (e.key === 'ArrowLeft') goRef.current(-1);
       if (e.key === 'ArrowRight') goRef.current(1);
     };
@@ -42,45 +56,69 @@ export function PhotoLightbox({
   }, []);
 
   if (typeof document === 'undefined' || !n) return null;
+  const fade = Math.max(0.28, 1 - Math.abs(y) / 420);
 
   return createPortal(
-    <div
+    <motion.div
       className="pv-zoomable flex flex-col"
       role="dialog"
       aria-modal="true"
       aria-label={title || 'Фото'}
-      style={{ position: 'fixed', inset: 0, zIndex: 800, background: '#000' }}>
+      initial={{ opacity: 0 }}
+      animate={{ opacity: closing ? 0 : fade }}
+      transition={closing ? spring.fade : { type: 'tween', duration: y ? 0 : 0.22, ease: [0.16, 1, 0.3, 1] }}
+      style={{ position: 'fixed', inset: 0, zIndex: 800, background: '#000', touchAction: 'none' }}>
       <div className="flex items-center justify-between px-3 pv-safe-top" style={{ paddingBottom: 8 }}>
         <p className="text-[12px] font-semibold text-white/80 truncate px-2">{title || 'Фото'} · {index + 1}/{n}</p>
-        <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onClose(); }} className="w-11 h-11 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.12)' }} aria-label="Закрыть">
+        <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); finish(); }}
+          className="w-11 h-11 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.12)' }} aria-label="Закрыть">
           <X size={18} color="#fff" />
         </button>
       </div>
       <div
-        className="relative flex-1 min-h-0 overflow-auto flex items-center justify-center"
+        className="relative flex-1 min-h-0 overflow-hidden flex items-center justify-center"
         onPointerDown={(e) => {
           if (e.pointerType === 'mouse' && e.button !== 0) return;
-          startX.current = e.clientX;
-          startY.current = e.clientY;
-          moved.current = false;
+          start.current = { x: e.clientX, y: e.clientY };
+          dragY.current = 0;
+          try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* */ }
         }}
         onPointerMove={(e) => {
-          if (startX.current == null) return;
-          if (Math.abs(e.clientX - startX.current) > 8 || Math.abs(e.clientY - (startY.current ?? e.clientY)) > 8) moved.current = true;
-        }}
-        onPointerUp={(e) => {
-          if (startX.current == null) return;
-          const dx = e.clientX - startX.current;
-          const dy = e.clientY - (startY.current ?? e.clientY);
-          startX.current = null;
-          startY.current = null;
-          if (Math.abs(dx) > SWIPE && Math.abs(dx) > Math.abs(dy)) {
-            if (dx > 0) go(-1);
-            else go(1);
+          if (!start.current) return;
+          const dx = e.clientX - start.current.x;
+          const dy = e.clientY - start.current.y;
+          if (Math.abs(dy) >= Math.abs(dx)) {
+            dragY.current = dy;
+            setY(dy);
           }
         }}
-        onPointerCancel={() => { startX.current = null; startY.current = null; }}>
-        <img src={images[index]} alt={title || ''} className="block mx-auto max-w-full object-contain select-none" draggable={false} style={{ maxHeight: '100%', width: 'auto', height: 'auto' }} />
+        onPointerUp={(e) => {
+          if (!start.current) return;
+          const dx = e.clientX - start.current.x;
+          const dy = e.clientY - start.current.y;
+          start.current = null;
+          if (Math.abs(dy) > CLOSE && Math.abs(dy) >= Math.abs(dx)) {
+            finish();
+            return;
+          }
+          if (n > 1 && Math.abs(dx) > SWIPE && Math.abs(dx) > Math.abs(dy)) {
+            setY(0);
+            if (dx > 0) go(-1);
+            else go(1);
+            return;
+          }
+          setY(0);
+        }}
+        onPointerCancel={() => { start.current = null; setY(0); }}>
+        <motion.img
+          src={images[index]}
+          alt={title || ''}
+          draggable={false}
+          className="block mx-auto max-w-full object-contain select-none"
+          style={{ maxHeight: '100%', width: 'auto', height: 'auto' }}
+          animate={{ y: closing ? (y >= 0 ? y + 80 : y - 80) : y, scale: closing ? 0.92 : 1 - Math.min(0.08, Math.abs(y) / 900) }}
+          transition={start.current ? { type: 'tween', duration: 0 } : spring.sheet}
+        />
         {n > 1 && (
           <>
             <button type="button" aria-label="Предыдущее фото" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); go(-1); }}
@@ -94,7 +132,7 @@ export function PhotoLightbox({
           </>
         )}
       </div>
-    </div>,
+    </motion.div>,
     document.body,
   );
 }

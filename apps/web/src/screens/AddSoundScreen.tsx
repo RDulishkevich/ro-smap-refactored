@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   apiSyncJson, apiTranslate, buildUcsFileName, FIELD_MICROPHONES, FIELD_RECORDERS,
   normalizeTimeMarkers, preparePublishWav, remapMarkersAfterTrim, spamGuardCheck,
@@ -34,8 +34,9 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
   const desktop = useIsDesktop();
   const { toast } = useUi();
   const { reload, profiles, pickedPoint, setPickedPoint, setPickMode, routeDraft, setRouteDraft } = useData();
-  const { user } = useAuth();
-  const { push } = useNav();
+  const { user, isLoggedIn } = useAuth();
+  const { push, reset, requireAuth } = useNav();
+  const askedRef = useRef(false);
   const [title, setTitle] = useState(edit?.title || '');
   const [desc, setDesc] = useState(String(edit?.description || ''));
   const [location, setLocation] = useState(edit?.location || '');
@@ -71,6 +72,13 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
     if (edit) return normalizeTimeMarkers(edit.timeMarkers);
     return normalizeTimeMarkers(getDraftRecording()?.timeMarkers);
   });
+  useEffect(() => {
+    if (isLoggedIn || askedRef.current) return;
+    askedRef.current = true;
+    toast('Войдите, чтобы записывать и публиковать');
+    reset({ type: 'auth' });
+  }, [isLoggedIn, reset, toast]);
+
   useEffect(() => {
     if (edit) setDraftRecording(null);
   }, [edit]);
@@ -155,6 +163,11 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
   };
 
   const publish = async (status: 'draft' | 'pending') => {
+    if (!isLoggedIn || !user) {
+      toast('Войдите, чтобы публиковать');
+      requireAuth({ type: 'add-sound', edit });
+      return;
+    }
     const guard = spamGuardCheck('publish');
     if (!guard.ok) { toast(spamGuardMessage(guard)); return; }
     if (!title.trim()) { toast('Укажите название'); return; }

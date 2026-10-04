@@ -14,6 +14,7 @@ import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useUi } from '../state/UiContext';
 import { ScreenHeader } from '../primitives/ui';
+import { PhotoLightbox } from '../primitives/PhotoCarousel';
 import { useKeyboardInset } from '../lib/keyboard-inset';
 
 const SAGE = color.sage;
@@ -358,10 +359,7 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
         </motion.button>
       </div>
       {lightbox && (
-        <button type="button" className="fixed inset-0 z-[400] bg-black/80 flex items-center justify-center p-4"
-          onClick={() => setLightbox('')}>
-          <img src={lightbox} alt="" className="max-w-full max-h-full rounded-2xl" />
-        </button>
+        <PhotoLightbox images={[lightbox]} index={0} title="Фото" onClose={() => setLightbox('')} onIndex={() => {}} />
       )}
     </div>
   );

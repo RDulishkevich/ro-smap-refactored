@@ -4,12 +4,13 @@
   "description": "Карта звуков: слушать, находить и добавлять полевые записи.",
   "lang": "ru",
   "id": "/",
-  "start_url": "./",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#E8EDEA",
   "theme_color": "#B5613F",
   "handle_links": "preferred",
+  "prefer_related_applications": false,
   "launch_handler": {
     "client_mode": ["navigate-existing", "auto"]
   },

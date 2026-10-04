@@ -15,6 +15,7 @@ import { CookieBanner } from './primitives/CookieBanner';
 import { DeepLinks } from './lib/DeepLinks';
 import { DegradedBanner, ErrorBoundary, ErrorScreen } from './primitives/ErrorScreen';
 import { WelcomeSplash } from './primitives/WelcomeSplash';
+import { OpenInAppBanner } from './primitives/OpenInAppBanner';
 
 function ServiceGate({ children }: { children: ReactNode }) {
   const { loading, catalogStatus, reload } = useData();
@@ -53,6 +54,7 @@ function Shell() {
         {desktop ? <DesktopShell /> : <MobileShell />}
         <Overlays />
         <CookieBanner />
+        <OpenInAppBanner />
         <WelcomeSplash />
       </div>
     </NavProvider>

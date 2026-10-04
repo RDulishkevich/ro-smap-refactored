@@ -6,7 +6,7 @@ import { useUi } from '../state/UiContext';
 import { useTh } from '../state/ThemeContext';
 
 export function MapFab({ open, onToggle, from = 'corner' }: { open: boolean; onToggle: () => void; from?: 'corner' | 'center' }) {
-  const { push, requireAuth } = useNav();
+  const { requireAuth } = useNav();
   const actions = from === 'center'
     ? [
         { Icon: MapPin, bg: color.dark, screen: { type: 'add-sound' as const }, x: -78, y: -78, label: 'Добавить звук' },
@@ -26,7 +26,7 @@ export function MapFab({ open, onToggle, from = 'corner' }: { open: boolean; onT
             exit={{ opacity: 0, x: x * 0.4, y: y * 0.4, scale: 0.72 }}
             transition={{ ...spring.fab, delay: i * 0.07 }}
             whileTap={{ scale: 0.94 }}
-            onClick={() => { onToggle(); screen.type === 'record' ? push(screen) : requireAuth(screen); }}
+            onClick={() => { onToggle(); requireAuth(screen); }}
             className="absolute left-2 top-2 w-12 h-12 rounded-full flex items-center justify-center shadow-xl pointer-events-auto z-[1]"
             style={{ background: bg }}>
             <Icon size={20} color="white" />

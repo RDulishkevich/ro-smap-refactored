@@ -191,6 +191,8 @@ const ru = {
   toPublish: 'К оформлению',
   on: 'вкл',
   off: 'выкл',
+  openInApp: 'Открыть в приложении',
+  openInAppHint: 'Если Полёвка на экране Домой — откроется приложение. Иначе останетесь в браузере.',
 };
 
 const en: Record<keyof typeof ru, string> = {
@@ -384,6 +386,8 @@ const en: Record<keyof typeof ru, string> = {
   toPublish: 'Continue',
   on: 'on',
   off: 'off',
+  openInApp: 'Open in app',
+  openInAppHint: 'If Полёвка is on your Home Screen, this opens the app. Otherwise you stay in the browser.',
 };
 
 export const DICT = { ru, en };

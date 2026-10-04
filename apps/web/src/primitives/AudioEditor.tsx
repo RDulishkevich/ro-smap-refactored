@@ -5,7 +5,7 @@ import { color } from '@polevka/design';
 import { normalizeTimeMarkers, spamGuardCheck, spamGuardMessage, type TimeMarker } from '@polevka/core';
 import { useTh } from '../state/ThemeContext';
 import { useUi } from '../state/UiContext';
-import { formatClock, peaksFromBlob, peaksFromUrl } from '../lib/waveform';
+import { durationFromBlob, formatClock, peaksFromBlob, peaksFromUrl, playLength } from '../lib/waveform';
 import { applyCtxSink, applySinkId } from '../lib/record-devices';
 import { WaveformSVG } from './ui';
 
@@ -135,6 +135,7 @@ export function AudioEditor({
   const th = useTh();
   const { toast } = useUi();
   const [peaks, setPeaks] = useState<number[]>(() => Array.from({ length: 96 }, () => 0.2));
+  const [decodedDur, setDecodedDur] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(trimStart);
   const [label, setLabel] = useState('');
@@ -151,15 +152,17 @@ export function AudioEditor({
   onChangeRef.current = onChange;
   gainValueRef.current = gain;
 
-  const dur = Math.max(0.2, durationSec);
+  const dur = Math.max(0.2, decodedDur || durationSec);
   const a = Math.max(0, Math.min(trimEnd - MIN, trimStart));
   const b = Math.max(a + MIN, Math.min(1, trimEnd));
   endsRef.current = { a, b };
 
   useEffect(() => {
     let dead = false;
+    setDecodedDur(0);
     if (blob) {
       void peaksFromBlob(blob, 96).then((p) => { if (!dead && p.length) setPeaks(p); }).catch(() => {});
+      void durationFromBlob(blob).then((d) => { if (!dead && Number.isFinite(d) && d > 0.05) setDecodedDur(d); }).catch(() => {});
     } else if (url) {
       void peaksFromUrl(url, 96).then((p) => { if (!dead && p.length) setPeaks(p); }).catch(() => {});
     }
@@ -181,7 +184,7 @@ export function AudioEditor({
     void applySinkId(el, sinkId);
     const onTime = () => {
       const { trimStart: s, trimEnd: e } = trimRef.current;
-      const length = el.duration || dur;
+      const length = playLength(el, dur);
       const t0 = s * length;
       const t1 = e * length;
       if (el.currentTime >= t1 - 0.03) {
@@ -191,7 +194,7 @@ export function AudioEditor({
         setProgress(s);
         return;
       }
-      setProgress(length ? el.currentTime / length : 0);
+      setProgress(el.currentTime / length);
     };
     const onEnd = () => { setPlaying(false); setProgress(trimRef.current.trimStart); };
     el.addEventListener('timeupdate', onTime);
@@ -218,6 +221,29 @@ export function AudioEditor({
     void applySinkId(audioRef.current, sinkId);
     void applyCtxSink(ctxRef.current, sinkId);
   }, [sinkId]);
+
+  useEffect(() => {
+    if (!playing) return;
+    let raf = 0;
+    const tick = () => {
+      const el = audioRef.current;
+      if (el && !el.paused) {
+        const length = playLength(el, dur);
+        const { trimStart: s, trimEnd: e } = trimRef.current;
+        if (el.currentTime >= e * length - 0.03) {
+          el.pause();
+          el.currentTime = s * length;
+          setPlaying(false);
+          setProgress(s);
+          return;
+        }
+        setProgress(el.currentTime / length);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [playing, dur]);
 
   const ensureGain = async () => {
     const el = audioRef.current;
@@ -268,7 +294,7 @@ export function AudioEditor({
 
   const seekTo = (r: number) => {
     const el = audioRef.current;
-    const length = el?.duration || dur;
+    const length = playLength(el, dur);
     const clamped = Math.max(a, Math.min(b, r));
     if (el) el.currentTime = clamped * length;
     setProgress(clamped);
@@ -278,7 +304,7 @@ export function AudioEditor({
     const el = audioRef.current;
     if (!el) return;
     await ensureGain();
-    const length = el.duration || dur;
+    const length = playLength(el, dur);
     if (playing) { el.pause(); setPlaying(false); return; }
     if (el.currentTime < a * length || el.currentTime >= b * length) el.currentTime = a * length;
     try { await el.play(); setPlaying(true); } catch { setPlaying(false); }
@@ -290,7 +316,7 @@ export function AudioEditor({
     if (!guard.ok) { toast(spamGuardMessage(guard)); return; }
     const text = label.trim();
     if (!text) { toast('Подпишите метку — что слышно в этой точке'); return; }
-    const length = audioRef.current?.duration || dur;
+    const length = playLength(audioRef.current, dur);
     const t = Math.round((progress * length) * 100) / 100;
     const next = normalizeTimeMarkers([...markers, { t, label: text }]);
     if (next.length > 40) { toast('Слишком много меток (макс. 40)'); return; }
@@ -322,7 +348,10 @@ export function AudioEditor({
           </>
         )}
         <WaveformSVG data={peaks} color={ACCENT} progress={progress} h={64} onSeek={seekTo} />
-        <div className="absolute inset-y-1 z-[2] w-0.5 rounded-full pointer-events-none" style={{ left: `${progress * 100}%`, background: color.dark }} />
+        <div className="absolute top-1 bottom-1 z-[3] pointer-events-none" style={{ left: `${Math.max(0, Math.min(100, progress * 100))}%`, transform: 'translateX(-50%)' }}>
+          <span className="block w-2.5 h-2.5 rounded-full mx-auto" style={{ background: ACCENT, boxShadow: '0 0 0 2px rgba(255,255,255,0.85)' }} />
+          <span className="block w-0.5 h-[calc(100%-10px)] mx-auto" style={{ background: ACCENT }} />
+        </div>
         {allowTrim && (
           <>
             <button type="button" aria-label="Начало фрагмента"

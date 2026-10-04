@@ -3,6 +3,7 @@ import { Mic } from 'lucide-react';
 import { motion } from 'motion/react';
 import { color, tap } from '@polevka/design';
 import { type TimeMarker } from '@polevka/core';
+import { useAuth } from '../state/AuthContext';
 import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useUi } from '../state/UiContext';
@@ -28,7 +29,16 @@ export function RecordScreen({ onBack }: { onBack: () => void }) {
   const t = useT();
   const desktop = useIsDesktop();
   const { toast } = useUi();
-  const { reset } = useNav();
+  const { isLoggedIn } = useAuth();
+  const { reset, requireAuth } = useNav();
+  const askedAuth = useRef(false);
+
+  useEffect(() => {
+    if (isLoggedIn || askedAuth.current) return;
+    askedAuth.current = true;
+    toast('Войдите, чтобы записывать и публиковать');
+    reset({ type: 'auth' });
+  }, [isLoggedIn, reset, toast]);
   const [stage, setStage] = useState<'idle' | 'rec' | 'review'>('idle');
   const [sec, setSec] = useState(0);
   const [mix, setMix] = useState<AnalyserNode | null>(null);
@@ -84,6 +94,11 @@ export function RecordScreen({ onBack }: { onBack: () => void }) {
   };
 
   const start = async (deviceId = inputId) => {
+    if (!isLoggedIn) {
+      toast('Войдите, чтобы записывать и публиковать');
+      requireAuth({ type: 'record' });
+      return;
+    }
     try {
       const audio: MediaTrackConstraints = {
         echoCancellation: false,
@@ -200,6 +215,11 @@ export function RecordScreen({ onBack }: { onBack: () => void }) {
 
   const toPublish = () => {
     if (!draft) return;
+    if (!isLoggedIn) {
+      toast('Войдите, чтобы публиковать');
+      requireAuth({ type: 'add-sound' });
+      return;
+    }
     setDraftRecording(draft);
     toast('Черновик сохранён — оформите публикацию');
     reset({ type: 'add-sound' });
