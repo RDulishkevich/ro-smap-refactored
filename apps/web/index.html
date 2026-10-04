@@ -20,7 +20,7 @@
       src: url('/fonts/klukva.otf') format('opentype');
       font-weight: 400;
       font-style: normal;
-      font-display: swap;
+      font-display: block;
     }
     #boot-fail { display: none; }
     #boot-fail.is-on {
@@ -142,13 +142,11 @@
             window.matchMedia('(display-mode: standalone)').matches
             || window.matchMedia('(display-mode: fullscreen)').matches
           )) || window.navigator.standalone === true;
-          if (standalone) {
-            document.documentElement.classList.add('is-standalone');
-            var splash = document.getElementById('welcome-splash');
-            if (splash) {
-              splash.classList.add('is-on');
-              splash.setAttribute('aria-hidden', 'false');
-            }
+          if (standalone) document.documentElement.classList.add('is-standalone');
+          var splash = document.getElementById('welcome-splash');
+          if (splash) {
+            splash.classList.add('is-on');
+            splash.setAttribute('aria-hidden', 'false');
           }
         })();
         window.addEventListener('error', function (ev) {

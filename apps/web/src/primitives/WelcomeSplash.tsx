@@ -18,6 +18,7 @@ function hideHtmlSplash() {
 }
 
 export function WelcomeSplash() {
+  hideHtmlSplash();
   const th = useTh();
   const t = useT();
   const { needsUnlock, unlockWithDevice, skipDeviceUnlock } = useAuth();
