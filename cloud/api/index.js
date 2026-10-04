@@ -272,6 +272,51 @@ function extractMailRecord(profile = {}) {
     };
 }
 
+const ALLOWED_REACTIONS = new Set(['❤️', '👍', '😂', '🔥', '😮', '😢']);
+
+function sanitizeReactions(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+    const out = {};
+    for (const [emoji, users] of Object.entries(raw)) {
+        if (!ALLOWED_REACTIONS.has(emoji)) continue;
+        const list = [...new Set((Array.isArray(users) ? users : [])
+            .map((u) => normalizeLogin(u))
+            .filter(Boolean))].slice(0, 40);
+        if (list.length) out[emoji] = list;
+    }
+    return out;
+}
+
+function sanitizeReplyTo(raw) {
+    if (!raw || typeof raw !== 'object') return undefined;
+    const id = String(raw.id || '').slice(0, 80);
+    if (!id) return undefined;
+    return {
+        id,
+        fromId: normalizeLogin(raw.fromId),
+        fromName: String(raw.fromName || '').slice(0, 80),
+        text: String(raw.text || '').slice(0, 200),
+        image: !!raw.image,
+        video: !!raw.video
+    };
+}
+
+function applyActorReactions(prev, proposed, actor) {
+    const next = sanitizeReactions(prev);
+    if (!proposed || typeof proposed !== 'object') return next;
+    for (const emoji of Object.keys(next)) {
+        next[emoji] = (next[emoji] || []).filter((u) => u !== actor);
+        if (!next[emoji].length) delete next[emoji];
+    }
+    for (const [emoji, users] of Object.entries(proposed)) {
+        if (!ALLOWED_REACTIONS.has(emoji)) continue;
+        const wants = (Array.isArray(users) ? users : []).map((u) => normalizeLogin(u)).includes(actor);
+        if (!wants) continue;
+        next[emoji] = [...new Set([...(next[emoji] || []), actor])].slice(0, 40);
+    }
+    return next;
+}
+
 function sanitizeMessageMedia(msg) {
     if (!msg || typeof msg !== 'object') return msg;
     const out = { ...msg };
@@ -288,6 +333,12 @@ function sanitizeMessageMedia(msg) {
     if (out.read) out.read = true;
     if (out.readAt) out.readAt = String(out.readAt);
     if (typeof out.text === 'string') out.text = out.text.slice(0, MAX_MSG_TEXT);
+    if (out.replyTo) {
+        const reply = sanitizeReplyTo(out.replyTo);
+        if (reply) out.replyTo = reply;
+        else delete out.replyTo;
+    }
+    if (out.reactions) out.reactions = sanitizeReactions(out.reactions);
     return out;
 }
 
@@ -1627,14 +1678,30 @@ function sanitizeInbox(cloudInbox = [], proposedInbox = [], actorLogin) {
         if (!msg?.id) continue;
         const prev = cloudMap.get(msg.id);
         if (prev) {
+            const reactions = applyActorReactions(prev.reactions, msg.reactions, actorLogin);
             if (String(prev.fromId || '').toLowerCase() === actorLogin) {
-                out.push({ ...msg, fromId: prev.fromId, id: prev.id });
+                const deleted = !!(prev.deleted || msg.deleted);
+                out.push({
+                    ...prev,
+                    ...msg,
+                    fromId: prev.fromId,
+                    id: prev.id,
+                    reactions,
+                    replyTo: sanitizeReplyTo(msg.replyTo || prev.replyTo),
+                    deleted: deleted || undefined,
+                    text: deleted ? '' : String(msg.text != null ? msg.text : prev.text || '').slice(0, MAX_MSG_TEXT)
+                });
             } else {
                 const read = !!(prev.read || msg.read);
                 const readAt = read
                     ? String(prev.readAt || msg.readAt || new Date().toISOString())
                     : undefined;
-                out.push({ ...prev, read, ...(readAt ? { readAt } : {}) });
+                out.push({
+                    ...prev,
+                    read,
+                    ...(readAt ? { readAt } : {}),
+                    reactions
+                });
             }
             cloudMap.delete(msg.id);
             continue;
@@ -3558,7 +3625,7 @@ exports.handler = async function handler(event = {}) {
 
     // health / publicConfig — без секретов и без тяжёлых лимитов
     if (action === 'health') {
-        return respond(200, { ok: true, version: 23, ydb: ydbDoc.enabled(), vapid: webPush.configured() });
+        return respond(200, { ok: true, version: 24, ydb: ydbDoc.enabled(), vapid: webPush.configured() });
     }
     if (action === 'publicConfig') {
         return respond(200, {

@@ -139,6 +139,15 @@ export type AppEvent = {
   [key: string]: unknown;
 };
 
+export type MailReplyTo = {
+  id: string;
+  fromId?: string;
+  fromName?: string;
+  text?: string;
+  image?: boolean;
+  video?: boolean;
+};
+
 export type MailMsg = {
   id: string;
   fromId: string;
@@ -148,8 +157,11 @@ export type MailMsg = {
   read?: boolean;
   readAt?: string;
   deleted?: boolean;
+  editedAt?: string;
   image?: string;
   video?: string;
+  replyTo?: MailReplyTo;
+  reactions?: Record<string, string[]>;
   ticketNumber?: number;
   _ticket?: boolean;
   _supportThread?: boolean;

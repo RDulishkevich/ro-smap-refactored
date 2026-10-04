@@ -27,6 +27,7 @@ type DataCtx = {
   catalogStatus: 'ok' | 'degraded' | 'down';
   reload: () => Promise<void>;
   reloadMail: () => Promise<void>;
+  applyMail: (updater: (prev: MailBox[]) => MailBox[]) => void;
   markNotificationsRead: () => Promise<void>;
   playingId: string | number | null;
   playing: boolean;
@@ -86,6 +87,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setMail(next);
     } catch { /* keep last mailbox — do not wipe on a blip */ }
   }, [isLoggedIn, prefs.notifyDevice, user?.loginName]);
+
+  const applyMail = useCallback((updater: (prev: MailBox[]) => MailBox[]) => {
+    setMail((prev) => updater(prev));
+  }, []);
 
   const markNotificationsRead = useCallback(async () => {
     const login = String(user?.loginName || '').toLowerCase();
@@ -170,12 +175,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({
     sounds, allSounds, filteredSounds, filter, setFilter,
-    feed, events, profiles, mail, loading, catalogStatus, reload, reloadMail, markNotificationsRead,
+    feed, events, profiles, mail, loading, catalogStatus, reload, reloadMail, applyMail, markNotificationsRead,
     playingId, playing, progress, volume, muted, togglePlay, seek, setVolume, toggleMute,
     focused, setFocused,
     pickMode, setPickMode, pickedPoint, setPickedPoint, routeDraft, setRouteDraft, routePreview, setRoutePreview,
   }), [
-    sounds, allSounds, filteredSounds, filter, feed, events, profiles, mail, loading, catalogStatus, reload, reloadMail, markNotificationsRead,
+    sounds, allSounds, filteredSounds, filter, feed, events, profiles, mail, loading, catalogStatus, reload, reloadMail, applyMail, markNotificationsRead,
     playingId, playing, progress, volume, muted, togglePlay, seek, setVolume, toggleMute,
     focused,
     pickMode, pickedPoint, routeDraft, routePreview,

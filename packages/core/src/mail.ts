@@ -1,4 +1,49 @@
-import type { MailBox, MailMsg, Profile } from './types';
+import type { MailBox, MailMsg, MailReplyTo, Profile } from './types';
+
+export const REACTION_EMOJIS = ['❤️', '👍', '😂', '🔥', '😮', '😢'] as const;
+
+export function previewReply(reply?: MailReplyTo | null) {
+  if (!reply) return '';
+  if (reply.video) return 'Видео';
+  if (reply.image) return reply.text || 'Фото';
+  return String(reply.text || '');
+}
+
+export function toggleMailReaction(
+  reactions: Record<string, string[]> | undefined,
+  emoji: string,
+  login: string,
+): Record<string, string[]> {
+  const self = String(login || '').toLowerCase();
+  const next: Record<string, string[]> = {};
+  for (const [key, users] of Object.entries(reactions || {})) {
+    const list = (users || []).map((u) => String(u || '').toLowerCase()).filter((u) => u && u !== self);
+    if (list.length) next[key] = list;
+  }
+  const had = (reactions?.[emoji] || []).some((u) => String(u || '').toLowerCase() === self);
+  if (!had) next[emoji] = [...(next[emoji] || []), self];
+  return next;
+}
+
+export function patchInboxMessage(
+  boxes: MailBox[],
+  boxLogin: string,
+  msgId: string,
+  patch: Partial<MailMsg>,
+): MailBox[] {
+  const key = String(boxLogin || '').toLowerCase();
+  return boxes.map((b) => {
+    if (b.loginName !== key) return b;
+    return {
+      ...b,
+      inbox: (b.inbox || []).map((m) => (m.id === msgId ? { ...m, ...patch } : m)),
+    };
+  });
+}
+
+export function messageHomeBox(me: string, peer: string, mine: boolean) {
+  return mine ? String(peer || '').toLowerCase() : String(me || '').toLowerCase();
+}
 
 export const SUPPORT_LOGIN = 'support';
 export const SUPPORT_NAME = 'Поддержка Полёвки';

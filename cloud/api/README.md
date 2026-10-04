@@ -9,7 +9,7 @@
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | проверка живости (`version: 23`, `ydb`, `vapid`) |
+| `health` | нет | проверка живости (`version: 24`, `ydb`, `vapid`) |
 | `publicConfig` | нет | публичные ключи (Maps + VAPID public) |
 | `savePushSubscription` | access | сохранить Web Push подписку устройства |
 | `deletePushSubscription` | access | снять подписку (выход / выкл. уведомлений) |
