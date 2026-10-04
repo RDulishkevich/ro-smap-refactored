@@ -250,25 +250,24 @@ export function SeekBar({ progress, onSeek, color: c = color.accent }: { progres
   );
 }
 
-function VolumeKnob({ volume, muted, onVolume, onMute, compact = false }: {
-  volume: number; muted: boolean; onVolume: (v: number) => void; onMute: () => void; compact?: boolean;
+function VolumeKnob({ volume, muted, onVolume, onMute, compact = false, tone = color.accent }: {
+  volume: number; muted: boolean; onVolume: (v: number) => void; onMute: () => void; compact?: boolean; tone?: string;
 }) {
   const shown = muted ? 0 : volume;
   const pct = Math.round(shown * 100);
   const t = useT();
-  const th = useTh();
   const Icon = muted || shown === 0 ? VolumeX : shown < 0.45 ? Volume1 : Volume2;
   return (
     <div className="flex items-center gap-1 flex-shrink-0" title={`${t('volume')} ${pct}%`}>
       <button type="button" onClick={onMute}
         className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer"
-        style={{ background: th.lightBg }}
+        style={{ background: `${tone}2E` }}
         aria-label={muted ? t('unmute') : t('mute')}>
-        <Icon size={14} color={color.olive} />
+        <Icon size={14} color={tone} />
       </button>
       {!compact && (
-        <div className="relative w-14 h-1 rounded-full" style={{ background: 'rgba(45,60,57,0.16)' }}>
-          <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct}%`, background: color.accent }} />
+        <div className="relative w-14 h-1 rounded-full" style={{ background: `${tone}40` }}>
+          <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct}%`, background: tone }} />
           <input type="range" min={0} max={1} step={0.01} value={shown} aria-label="Громкость" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             onChange={(e) => onVolume(Number(e.target.value))} />
@@ -282,13 +281,13 @@ export function VolumeRow({ volume, muted, onVolume, onMute }: { volume: number;
   return <VolumeKnob volume={volume} muted={muted} onVolume={onVolume} onMute={onMute} />;
 }
 
-function PlayerAction({ on, label, onClick, bg, children }: {
-  on: boolean; label: string; onClick: () => void; bg: string; children: ReactNode;
+function PlayerAction({ on, label, onClick, tone, children }: {
+  on: boolean; label: string; onClick: () => void; tone: string; children: ReactNode;
 }) {
   return (
     <motion.button type="button" whileTap={tap.btn} onClick={onClick}
       className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer"
-      style={{ background: on ? 'rgba(181,97,63,0.2)' : bg, boxShadow: on ? `inset 0 0 0 1.5px ${color.accent}` : undefined }}
+      style={{ background: on ? `${tone}40` : `${tone}2E`, boxShadow: on ? `inset 0 0 0 1.5px ${tone}` : undefined }}
       title={label} aria-label={label} aria-pressed={on}>
       {children}
     </motion.button>
@@ -377,22 +376,22 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
           </p>
         </div>
         <div className="relative z-20 flex items-center gap-1 flex-shrink-0 pointer-events-auto">
-        {onVolume && onMute && <VolumeKnob volume={volume} muted={muted} onVolume={onVolume} onMute={onMute} compact={compact} />}
-        <PlayerAction on={analyzers} label={t('analyzers')} onClick={() => void toggleAnalyzers()} bg={th.lightBg}>
-          <AudioLines size={14} color={analyzers ? color.accent : color.olive} />
+        {onVolume && onMute && <VolumeKnob volume={volume} muted={muted} onVolume={onVolume} onMute={onMute} compact={compact} tone={c} />}
+        <PlayerAction on={analyzers} label={t('analyzers')} onClick={() => void toggleAnalyzers()} tone={c}>
+          <AudioLines size={14} color={c} />
         </PlayerAction>
         {ambiCapable && (
-          <PlayerAction on={ambiUi} label={t('ambisonic')} onClick={() => void toggleAmbi()} bg={th.lightBg}>
-            <Globe2 size={14} color={ambiUi ? color.accent : color.olive} />
+          <PlayerAction on={ambiUi} label={t('ambisonic')} onClick={() => void toggleAmbi()} tone={c}>
+            <Globe2 size={14} color={c} />
           </PlayerAction>
         )}
         {onDownload && (
-          <PlayerAction on={false} label={t('download')} onClick={onDownload} bg={th.lightBg}>
-            <Download size={14} color={color.olive} />
+          <PlayerAction on={false} label={t('download')} onClick={onDownload} tone={c}>
+            <Download size={14} color={c} />
           </PlayerAction>
         )}
-        <PlayerAction on={false} label={t('close')} onClick={onClose} bg={th.lightBg}>
-          <X size={15} color={color.olive} />
+        <PlayerAction on={false} label={t('close')} onClick={onClose} tone={c}>
+          <X size={15} color={c} />
         </PlayerAction>
         </div>
       </div>

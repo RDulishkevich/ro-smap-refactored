@@ -177,8 +177,6 @@ export const apiAdminSendEmail = (login: string, message: string, subject?: stri
   apiRequest('adminSendEmail', { login, message, subject }, { auth: true });
 export const apiDeleteAccount = (password: string, totpCode?: string) =>
   apiRequest('deleteAccount', { password, ...(totpCode ? { totpCode } : {}) }, { auth: true });
-export const apiExportMyData = () =>
-  apiRequest('exportMyData', {}, { auth: true });
 export const apiAdminDeleteUser = (login: string) =>
   apiRequest('adminDeleteUser', { login }, { auth: true });
 export const apiAdminUnbindEmail = (login: string) =>

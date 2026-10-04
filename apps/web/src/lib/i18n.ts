@@ -4,6 +4,7 @@ const ru = {
   lang: 'Русский',
   language: 'Язык',
   menu: 'Меню',
+  soundMap: 'Карта звуков',
   map: 'Карта',
   messages: 'Сообщения',
   profile: 'Профиль',
@@ -158,7 +159,6 @@ const ru = {
   errRetry: 'Попробовать снова',
   errHome: 'На главную',
   errDegraded: 'Связь с облаком слабая — показаны последние загруженные данные',
-  downloadMyData: 'Скачать мои данные',
   deleteAccount: 'Удалить аккаунт',
   deleteAccountTitle: 'Удалить аккаунт',
   deleteAccountBody: 'Профиль, почта и черновики будут удалены. Опубликованные записи останутся на карте без вашего имени. Это нельзя отменить.',
@@ -167,13 +167,13 @@ const ru = {
   deleteAccountConfirm: 'Удалить навсегда',
   deleteAccountDone: 'Аккаунт удалён',
   deleteAccountProtected: 'Этот служебный аккаунт нельзя удалить так',
-  dataExported: 'Файл с вашими данными скачан',
 };
 
 const en: Record<keyof typeof ru, string> = {
   lang: 'English',
   language: 'Language',
   menu: 'Menu',
+  soundMap: 'Sound map',
   map: 'Map',
   messages: 'Messages',
   profile: 'Profile',
@@ -328,7 +328,6 @@ const en: Record<keyof typeof ru, string> = {
   errRetry: 'Try again',
   errHome: 'Home',
   errDegraded: 'Cloud link is weak — showing the last loaded data',
-  downloadMyData: 'Download my data',
   deleteAccount: 'Delete account',
   deleteAccountTitle: 'Delete account',
   deleteAccountBody: 'Your profile, mail and drafts will be removed. Published recordings stay on the map without your name. This cannot be undone.',
@@ -337,7 +336,6 @@ const en: Record<keyof typeof ru, string> = {
   deleteAccountConfirm: 'Delete forever',
   deleteAccountDone: 'Account deleted',
   deleteAccountProtected: 'This staff account cannot be deleted this way',
-  dataExported: 'Your data file was downloaded',
 };
 
 export const DICT = { ru, en };

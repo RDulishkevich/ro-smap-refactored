@@ -207,14 +207,14 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
           });
           lat = pos.coords.latitude;
           lng = pos.coords.longitude;
-        } catch { /* Rostov */ }
+        } catch { /* keep form coords */ }
       }
       const gear = [recorder, microphone].filter(Boolean).join(' · ');
       const record = {
         id: edit?.id ?? `p${Date.now()}`,
         title: title.trim(),
         description: desc.trim(),
-        location: location.trim() || (walkRoute.length ? 'Маршрут звуковой прогулки' : 'Ростовская область'),
+        location: location.trim() || (walkRoute.length ? 'Маршрут звуковой прогулки' : ''),
         type: kind,
         ecoCategory: eco,
         ucsCat,
@@ -323,7 +323,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
           <Section title="Место" th={th}>
             <Field label="Где записано" value={location} onChange={setLocation} th={th} />
             <p className="text-[11px] mt-2" style={{ color: SAGE }}>
-              Координаты: {pickedPoint ? `${pickedPoint.lat.toFixed(5)}, ${pickedPoint.lng.toFixed(5)}` : (edit?.lat != null ? `${Number(edit.lat).toFixed(5)}, ${Number(edit.lng).toFixed(5)}` : 'пока Ростов или геолокация')}
+              Координаты: {pickedPoint ? `${pickedPoint.lat.toFixed(5)}, ${pickedPoint.lng.toFixed(5)}` : (edit?.lat != null ? `${Number(edit.lat).toFixed(5)}, ${Number(edit.lng).toFixed(5)}` : 'точка на карте или геолокация')}
             </p>
             <div className="flex flex-wrap gap-2 mt-2">
               <button type="button" className="h-10 px-4 rounded-full text-[12px] font-semibold" style={{ background: th.phoneBg, color: OLIVE }}

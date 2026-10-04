@@ -15,11 +15,11 @@ export type RailBanner = {
 export const RAIL_BANNERS: RailBanner[] = [
   {
     id: 'listen',
-    title: 'Слушайте поле',
-    hint: 'Новые метки на карте Ростова',
+    title: 'Слушайте мир вокруг',
+    hint: 'Новые метки на карте',
     tint: color.mist,
-    image: '/banners/listen.png',
-    objectPosition: 'left 80%',
+    image: '/banners/walk.png',
+    objectPosition: 'center 35%',
     action: 'library',
   },
   {
@@ -27,8 +27,8 @@ export const RAIL_BANNERS: RailBanner[] = [
     title: 'Идите в экспедицию',
     hint: 'Маршруты и совместные записи',
     tint: color.olive,
-    image: '/banners/walk.png',
-    objectPosition: 'center 35%',
+    image: '/banners/listen.png',
+    objectPosition: 'left 80%',
     action: 'expeditions',
   },
   {

@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { Headphones, LogIn, Mic, Settings, Trash2 } from 'lucide-react';
+import { Headphones, LogIn, Mic } from 'lucide-react';
 import { color, pinColor } from '@polevka/design';
 import { formatPlays, type Sound } from '@polevka/core';
 import { useSoundMeta } from '../lib/audio-meta';
@@ -70,15 +70,11 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       <div className="flex-1 overflow-y-auto scrollbar-none">
         <div className="relative p-4 pb-3 overflow-hidden pv-safe-top">
-          <div className="relative flex items-center justify-between mb-5">
+          <div className="relative flex items-center mb-5">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 relative flex-shrink-0"><BrandMark /></div>
               <p className="pv-label uppercase" style={{ color: SAGE }}>{t('profile')}</p>
             </div>
-            <motion.button whileTap={{ scale: 0.88 }} onClick={() => push({ type: 'settings' })}
-              className="w-10 h-10 rounded-2xl shadow-sm flex items-center justify-center" style={{ background: th.cardBg }}>
-              <Settings size={15} style={{ color: OLIVE }} />
-            </motion.button>
           </div>
           <div className="relative flex items-center gap-4 mb-5">
             <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-md flex-shrink-0">
@@ -110,13 +106,6 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
             <motion.button whileTap={{ scale: 0.94 }} onClick={() => push({ type: 'cabinet' })}
               className="pv-button flex-1 py-2.5 rounded-2xl shadow-sm cursor-pointer" style={{ background: th.cardBg, color: th.isDark ? LIGHT : DARK }}>{t('cabinet')}</motion.button>
           </div>
-          {user?.loginName !== 'admin' && user?.loginName !== 'support' && (
-            <motion.button type="button" whileTap={{ scale: 0.94 }} onClick={() => push({ type: 'delete-account' })}
-              className="pv-button w-full py-2.5 rounded-2xl shadow-sm cursor-pointer flex items-center justify-center gap-1.5 relative mb-1"
-              style={{ background: th.cardBg, color: ACCENT }}>
-              <Trash2 size={12} />{t('deleteAccount')}
-            </motion.button>
-          )}
         </div>
         <div className="px-4 pb-48">
           <p className="pv-heading mb-3" style={{ color: th.inkText }}>{t('mySounds')}</p>

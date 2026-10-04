@@ -153,10 +153,8 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
             <SlidersHorizontal size={16} style={{ color: showFilters ? color.accent : color.olive }} />
           </motion.button>
           <HoverMenu title="Карта" items={[
-            { label: 'События', onClick: () => push({ type: 'events' }) },
             { label: 'Открыть запись', onClick: () => active && push({ type: 'sound-detail', sound: active }) },
             { label: 'Указать точку публикации', onClick: () => { setPickMode('point'); toast('Коснитесь карты'); } },
-            { label: 'Угадайка', onClick: () => push({ type: 'guessr' }) },
           ]}>
             <span className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }}>
               <MoreHorizontal size={16} style={{ color: color.olive }} />

@@ -7,8 +7,8 @@ import {
 import { color, pinColor } from '@polevka/design';
 import {
   apiChangePassword, apiConfirmEmailVerification, apiConfirmPasswordReset,
-  apiDeleteAccount, apiExportMyData,
-  apiGetSecurityEvents, apiLogoutAll, apiPatchSound, apiRequestEmailVerification, apiRequestPasswordReset,
+  apiDeleteAccount,
+  apiGetSecurityEvents, apiPatchSound, apiRequestEmailVerification, apiRequestPasswordReset,
   readLastLogin,
   apiSyncJson, apiTotpConfirm, apiTotpDisable, apiTotpSetup, conversationPeers, makeMailMsg,
   matchSupportBotFaq,   normalizeComment, normalizeTimeMarkers, spamGuardCheck, spamGuardMessage, SUPPORT_LOGIN,
@@ -1308,7 +1308,6 @@ function HelpScreen({ onBack }: { onBack: () => void }) {
           ))}
         </div>
         <div className="flex gap-2 pb-1">
-          <button className="text-[11px] font-semibold" style={{ color: SAGE }} onClick={() => push({ type: 'guessr' })}>Аудио-угадайка</button>
           <button className="text-[11px] font-semibold" style={{ color: SAGE }} onClick={() => push({ type: 'conversation', name: SUPPORT_NAME, avatar: '🛟', peer: SUPPORT_LOGIN })}>Чат с человеком</button>
         </div>
       </div>
@@ -1351,9 +1350,8 @@ function LegalScreen({ doc, onBack }: { doc: 'privacy' | 'terms' | 'publish'; on
 
 function CabinetScreen({ onBack }: { onBack: () => void }) {
   const th = useTh();
-  const { user, refreshUser, logout, isStaff } = useAuth();
-  const { push, reset } = useNav();
-  const { toast, confirm } = useUi();
+  const { user, refreshUser, isStaff } = useAuth();
+  const { toast } = useUi();
   const verified = !!(user?.email && user.emailVerified);
   const [email, setEmail] = useState(user?.email || '');
   const [code, setCode] = useState('');
@@ -1475,26 +1473,6 @@ function CabinetScreen({ onBack }: { onBack: () => void }) {
     } finally { setBusy(false); }
   };
 
-  const logoutEverywhere = async () => {
-    const ok = await confirm({ title: 'Выйти везде?', body: 'Все сессии на других устройствах будут завершены.', ok: 'Выйти везде' });
-    if (!ok) return;
-    try { await apiLogoutAll(); } catch { /* still clear local */ }
-    await logout();
-    reset();
-    toast('Все сессии завершены');
-  };
-
-  const exportOwnData = async () => {
-    setBusy(true);
-    try {
-      const data = await apiExportMyData() as { data?: unknown };
-      downloadAccountExport(user?.loginName || 'account', data.data ?? data);
-      toast('Файл с вашими данными скачан');
-    } catch (e: unknown) {
-      toast((e as Error).message || 'Не удалось скачать данные');
-    } finally { setBusy(false); }
-  };
-
   const totpOn = !!user?.totpEnabled;
   const totpStatus = totpOn
     ? (isStaff ? '2FA включена (обязательна для staff)' : '2FA включена')
@@ -1565,27 +1543,9 @@ function CabinetScreen({ onBack }: { onBack: () => void }) {
           </div>
         )}
 
-        <Row label="Настройки приложения" th={th} onClick={() => push({ type: 'settings' })} />
-        <Row label="Сообщения" th={th} onClick={() => push({ type: 'messages' })} />
-        <Row label="Помощь" th={th} onClick={() => push({ type: 'help' })} />
-        <button disabled={busy} onClick={() => void exportOwnData()} className="w-full py-3 rounded-2xl text-xs font-semibold" style={{ background: th.cardBg, color: th.inkText }}>Скачать мои данные</button>
-        {user?.loginName !== 'admin' && user?.loginName !== 'support' && (
-          <button type="button" onClick={() => push({ type: 'delete-account' })} className="w-full py-3 rounded-2xl text-xs font-semibold" style={{ background: th.cardBg, color: ACCENT }}>Удалить аккаунт</button>
-        )}
-        <button disabled={busy} onClick={() => void logoutEverywhere()} className="w-full py-3 rounded-2xl text-xs font-semibold text-white" style={{ background: DARK }}>Выйти на всех устройствах</button>
       </div>
     </div>
   );
-}
-
-function downloadAccountExport(login: string, payload: unknown) {
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `polevka-${login}-${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 function DeleteAccountScreen({ onBack }: { onBack: () => void }) {

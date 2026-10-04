@@ -74,7 +74,7 @@ export function inferSoundType(s: Sound): string {
 export function formatSound(s: Sound): Sound {
   const comments = Array.isArray(s.comments) ? s.comments.map((c) => normalizeComment(c)) : [];
   const type = inferSoundType(s);
-  const location = String(s.location || [s.lat, s.lng].filter(Boolean).join(', ') || 'Ростовская область');
+  const location = String(s.location || [s.lat, s.lng].filter(Boolean).join(', ') || '');
   const plays = s.plays ?? 0;
   const likes = Array.isArray(s.likedBy) ? s.likedBy.length : Number(s.likes || 0);
   return {
