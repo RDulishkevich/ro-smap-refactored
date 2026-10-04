@@ -14,6 +14,7 @@ import { useData } from '../state/DataContext';
 import { audioService } from '../lib/audio-player';
 import { downloadSound } from '../lib/download-sound';
 import { useUi } from '../state/UiContext';
+import { SwipeBack } from '../lib/swipe-back';
 
 const HIDE_PLAYER: ScreenConfig['type'][] = [
   'auth', 'record', 'add-sound', 'legal', 'reset-password',
@@ -24,7 +25,7 @@ export function MobileShell() {
   const { isLoggedIn } = useAuth();
   const th = useTh();
   const { toast } = useUi();
-  const { activeTab, stack, pop, push } = useNav();
+  const { activeTab, setActiveTab, stack, pop, push } = useNav();
   const {
     sounds, playingId, playing, progress, togglePlay, seek, volume, muted, setVolume, toggleMute,
     focused, setFocused,
@@ -75,17 +76,23 @@ export function MobileShell() {
         <div
           className={`absolute inset-0 ${activeTab === 'menu' && showChrome ? 'z-[2]' : 'invisible pointer-events-none z-0'}`}
           aria-hidden={activeTab !== 'menu' || !showChrome}>
-          <MenuHub />
+          <SwipeBack enabled={activeTab === 'menu' && showChrome} className="h-full" onBack={() => setActiveTab('map')}>
+            <MenuHub />
+          </SwipeBack>
         </div>
         <div
           className={`absolute inset-0 ${activeTab === 'messages' && showChrome ? 'z-[2]' : 'invisible pointer-events-none z-0'}`}
           aria-hidden={activeTab !== 'messages' || !showChrome}>
-          <MessagesScreen embed />
+          <SwipeBack enabled={activeTab === 'messages' && showChrome} className="h-full" onBack={() => setActiveTab('map')}>
+            <MessagesScreen embed />
+          </SwipeBack>
         </div>
         <div
           className={`absolute inset-0 ${activeTab === 'profile' && showChrome ? 'z-[2]' : 'invisible pointer-events-none z-0'}`}
           aria-hidden={activeTab !== 'profile' || !showChrome}>
-          {isLoggedIn ? <ProfileScreen showNav={false} /> : <GuestProfileScreen showNav={false} />}
+          <SwipeBack enabled={activeTab === 'profile' && showChrome} className="h-full" onBack={() => setActiveTab('map')}>
+            {isLoggedIn ? <ProfileScreen showNav={false} /> : <GuestProfileScreen showNav={false} />}
+          </SwipeBack>
         </div>
       </div>
 
@@ -147,7 +154,9 @@ export function MobileShell() {
             bottom: showPlayer ? `calc(${Math.max(dockH, 72)}px + 0.75rem)` : 0,
           }}
             initial={{ opacity: 0, x: 36 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={spring.stack}>
-            <ScreenContent screen={screen} onBack={pop} />
+            <SwipeBack className="h-full" onBack={pop}>
+              <ScreenContent screen={screen} onBack={pop} />
+            </SwipeBack>
           </motion.div>
         ))}
       </AnimatePresence>

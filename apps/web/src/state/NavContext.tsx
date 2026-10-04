@@ -29,7 +29,8 @@ export type ScreenConfig =
   | { type: 'reset-password' }
   | { type: 'catalog' }
   | { type: 'feed' }
-  | { type: 'expeditions' };
+  | { type: 'expeditions' }
+  | { type: 'drafts' };
 
 export type TabId = 'menu' | 'map' | 'messages' | 'profile';
 export type DesktopView = 'map' | 'library' | 'feed' | 'expeditions' | 'help' | 'staff' | 'cabinet';
@@ -68,6 +69,7 @@ function urlForScreen(s?: ScreenConfig | null): string | null {
   if (s.type === 'staff') return '/staff';
   if (s.type === 'guessr') return '/guessr';
   if (s.type === 'cabinet') return '/profile';
+  if (s.type === 'drafts') return '/drafts';
   return null;
 }
 
@@ -238,6 +240,12 @@ export function NavProvider({ children, isLoggedIn, onNeedAuth }: { children: Re
       setView('cabinet');
       setStack([]);
       writeUrl('/profile', 'replace');
+      return;
+    }
+    if (route.kind === 'drafts') {
+      setTab(desk ? 'map' : 'menu');
+      setStack(screen({ type: 'drafts' }));
+      writeUrl('/drafts', 'replace');
       return;
     }
     if (route.kind === 'menu') {

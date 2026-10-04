@@ -436,6 +436,7 @@ function MessageBubble({ msg, fresh, th, me, onLightbox, onReply, onReact, onMen
         <CornerUpLeft size={16} color={SAGE} />
       </motion.div>
       <motion.div
+        data-no-swipe
         initial={fresh ? { opacity: 0, y: 12, scale: 0.96 } : false}
         animate={{ opacity: 1, y: 0, scale: 1, x: dx }}
         transition={fresh ? spring.list : { type: 'tween', duration: 0.08, ease: 'linear' }}

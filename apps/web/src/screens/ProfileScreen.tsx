@@ -93,10 +93,13 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
           <div className="relative rounded-3xl p-4 shadow-sm mb-4" style={{ background: th.cardBg }}>
             <div className="flex justify-around">
               {[[String(mine.length), t('recordings')], [String(drafts.length), t('pending')], [String(mySessions.length), t('expeditions')]].map(([v, l]) => (
-                <div key={l} className="text-center">
+                <button key={l} type="button" className="text-center" onClick={() => {
+                  if (l === t('pending')) push({ type: 'drafts' });
+                  else if (l === t('expeditions')) push({ type: 'expeditions' });
+                }}>
                   <p className="pv-heading tabular-nums" style={{ color: th.inkText }}>{v}</p>
                   <p className="pv-micro" style={{ color: SAGE }}>{l}</p>
-                </div>
+                </button>
               ))}
             </div>
           </div>

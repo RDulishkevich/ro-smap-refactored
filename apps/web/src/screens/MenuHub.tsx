@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import {
-  Calendar, Dices, HelpCircle, LayoutGrid, Radio, Search, Settings, Shield, Ticket,
+  Calendar, Dices, FilePenLine, HelpCircle, LayoutGrid, Radio, Search, Settings, Shield, Ticket,
 } from 'lucide-react';
 import { color, tap } from '@polevka/design';
 import { useAuth } from '../state/AuthContext';
@@ -47,6 +47,7 @@ export function MenuHub() {
     { label: t('catalog'), Icon: LayoutGrid, screen: { type: 'catalog' }, art: '/menu/catalog.webp' },
     { label: t('expeditions'), Icon: Calendar, screen: { type: 'expeditions' }, art: '/menu/expeditions.webp' },
     { label: t('events'), Icon: Ticket, screen: { type: 'events' }, art: '/menu/events.webp' },
+    { label: t('drafts'), Icon: FilePenLine, screen: { type: 'drafts' } },
     { label: t('settings'), Icon: Settings, screen: { type: 'settings' }, art: '/menu/settings.webp' },
     { label: t('staffPanel'), Icon: Shield, screen: { type: 'staff' }, staff: true, art: '/menu/staff.webp' },
     { label: t('help'), Icon: HelpCircle, screen: { type: 'help' }, art: '/menu/help.webp' },

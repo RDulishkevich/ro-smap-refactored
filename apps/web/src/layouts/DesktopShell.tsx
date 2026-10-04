@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  Bell, Calendar, ChevronDown, HelpCircle, LayoutGrid, LogIn,
+  Bell, Calendar, ChevronDown, FilePenLine, HelpCircle, LayoutGrid, LogIn,
   MessageCircle, Radio, Search, Settings, Shield, User,
 } from 'lucide-react';
 import { color, spring, tap } from '@polevka/design';
@@ -23,6 +23,7 @@ import BrandMark from '@/brand/BrandMark';
 import { RailBannerCarousel } from '../primitives/RailBannerCarousel';
 import { downloadSound } from '../lib/download-sound';
 import { LanguageSwitch } from '../primitives/LanguageSwitch';
+import { SwipeBack } from '../lib/swipe-back';
 
 const ACCENT = color.accent;
 const OLIVE = color.olive;
@@ -38,7 +39,7 @@ const WORKSPACE = new Set([
   'expedition-detail', 'expedition-edit',
   'user-profile', 'cabinet', 'edit-profile', 'delete-account',
   'staff', 'legal', 'help', 'messages', 'conversation', 'settings',
-  'feed-post', 'notifications', 'events',
+  'feed-post', 'notifications', 'events', 'drafts',
 ]);
 const VIEW_WORKSPACE = new Set<DesktopView>(['library', 'feed', 'expeditions', 'cabinet', 'staff']);
 
@@ -174,7 +175,7 @@ export function DesktopShell() {
     setDesktopView(id);
   };
 
-  const toggleStack = (type: 'help' | 'settings') => {
+  const toggleStack = (type: 'help' | 'settings' | 'drafts') => {
     if (vis?.type === type) { reset(); return; }
     reset();
     push({ type });
@@ -210,6 +211,7 @@ export function DesktopShell() {
           </div>
           <RailBannerCarousel />
           <div className="flex flex-col gap-0.5 mb-3">
+            <RailItem label={t('drafts')} Icon={FilePenLine} on={vis?.type === 'drafts'} onClick={() => toggleStack('drafts')} ink={th.inkText} mute={mute} />
             <RailItem label={t('help')} Icon={HelpCircle} on={vis?.type === 'help'} onClick={() => toggleStack('help')} ink={th.inkText} mute={mute} />
             <RailItem label={t('settings')} Icon={Settings} on={vis?.type === 'settings'} onClick={() => toggleStack('settings')} ink={th.inkText} mute={mute} />
           </div>
@@ -286,7 +288,10 @@ export function DesktopShell() {
                 pointerEvents: mode === 'map' ? 'none' : 'auto',
                 background: th.phoneBg,
               }}>
-              <div className="h-full w-full flex flex-col min-h-0">
+              <SwipeBack
+                className="h-full w-full flex flex-col min-h-0"
+                enabled={mode !== 'map'}
+                onBack={() => { if (vis) pop(); else setDesktopView('map'); }}>
                 {vis ? (
                   <div key={vis._id} className="h-full min-h-0">
                     <ScreenContent screen={vis} onBack={pop} />
@@ -304,7 +309,7 @@ export function DesktopShell() {
                     {desktopView === 'cabinet' && isLoggedIn && <ProfileScreen showNav={false} />}
                   </div>
                 )}
-              </div>
+              </SwipeBack>
             </aside>
 
             <div
@@ -349,7 +354,9 @@ export function DesktopShell() {
               visibility: pickMode ? 'hidden' : 'visible',
               pointerEvents: pickMode ? 'none' : 'auto',
             }}>
-            <ScreenContent screen={top} onBack={pop} />
+            <SwipeBack className="h-full" onBack={pop}>
+              <ScreenContent screen={top} onBack={pop} />
+            </SwipeBack>
           </motion.div>
         )}
       </AnimatePresence>

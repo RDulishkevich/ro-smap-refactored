@@ -6,12 +6,81 @@ import { normalizeTimeMarkers, spamGuardCheck, spamGuardMessage, type TimeMarker
 import { useTh } from '../state/ThemeContext';
 import { useUi } from '../state/UiContext';
 import { formatClock, peaksFromBlob, peaksFromUrl } from '../lib/waveform';
+import { applyCtxSink, applySinkId } from '../lib/record-devices';
 import { WaveformSVG } from './ui';
 
 const SAGE = color.sage;
 const OLIVE = color.olive;
 const ACCENT = color.accent;
 const MIN = 0.02;
+
+export function LiveTape({ analyser, color: c = ACCENT, h = 96 }: { analyser: AnalyserNode | null; color?: string; h?: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const hist = new Float32Array(280);
+    let hi = 0;
+    let raf = 0;
+    const drawIdle = () => {
+      const w = canvas.width, hh = canvas.height;
+      ctx.clearRect(0, 0, w, hh);
+      ctx.strokeStyle = c;
+      ctx.globalAlpha = 0.25;
+      ctx.beginPath();
+      ctx.moveTo(0, hh / 2);
+      ctx.lineTo(w, hh / 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    };
+    if (!analyser) {
+      drawIdle();
+      return;
+    }
+    const td = new Float32Array(analyser.fftSize);
+    const tick = () => {
+      analyser.getFloatTimeDomainData(td);
+      let peak = 0;
+      for (let i = 0; i < td.length; i++) peak = Math.max(peak, Math.abs(td[i]));
+      hist[hi % hist.length] = peak;
+      hi += 1;
+      const w = canvas.width, hh = canvas.height;
+      ctx.clearRect(0, 0, w, hh);
+      const mid = hh / 2;
+      ctx.strokeStyle = c;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      const n = td.length;
+      for (let i = 0; i < n; i += 2) {
+        const x = (i / n) * w;
+        const y = mid - td[i] * mid * 0.92;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 0.35;
+      ctx.beginPath();
+      for (let i = 0; i < hist.length; i++) {
+        const v = hist[(hi + i) % hist.length];
+        const x = (i / hist.length) * w;
+        const y = hh - 6 - v * 18;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [analyser, c]);
+  return (
+    <canvas ref={canvasRef} width={720} height={h * 2} className="w-full rounded-2xl block"
+      style={{ height: h, background: 'rgba(45,60,57,0.06)' }} />
+  );
+}
 
 export function LiveWaveform({ analyser, color: c = ACCENT, h = 56 }: { analyser: AnalyserNode | null; color?: string; h?: number }) {
   const [bars, setBars] = useState<number[]>(() => Array.from({ length: 48 }, () => 0.12));
@@ -49,6 +118,7 @@ export function AudioEditor({
   markers = [],
   onMarkers,
   allowTrim = true,
+  sinkId = '',
 }: {
   blob?: Blob | null;
   url?: string;
@@ -60,6 +130,7 @@ export function AudioEditor({
   markers?: TimeMarker[];
   onMarkers?: (next: TimeMarker[]) => void;
   allowTrim?: boolean;
+  sinkId?: string;
 }) {
   const th = useTh();
   const { toast } = useUi();
@@ -107,6 +178,7 @@ export function AudioEditor({
       el.src = url;
     }
     audioRef.current = el;
+    void applySinkId(el, sinkId);
     const onTime = () => {
       const { trimStart: s, trimEnd: e } = trimRef.current;
       const length = el.duration || dur;
@@ -142,6 +214,11 @@ export function AudioEditor({
     if (audioRef.current && !gainRef.current) audioRef.current.volume = Math.min(1, gain);
   }, [gain]);
 
+  useEffect(() => {
+    void applySinkId(audioRef.current, sinkId);
+    void applyCtxSink(ctxRef.current, sinkId);
+  }, [sinkId]);
+
   const ensureGain = async () => {
     const el = audioRef.current;
     if (!el) return;
@@ -156,6 +233,7 @@ export function AudioEditor({
       g.connect(ctx.destination);
       gainRef.current = g;
       ctxRef.current = ctx;
+      void applyCtxSink(ctx, sinkId);
     } catch {
       el.volume = Math.min(1, gain);
     }

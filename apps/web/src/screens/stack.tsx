@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { motion } from 'motion/react';
 import {
-  ChevronRight, Flag, Heart, Headphones, MapPin, MessageCircle, Mic,
+  ChevronRight, Flag, Heart, Headphones, MapPin, MessageCircle,
   MoreHorizontal, Route, Send, Share2, UserPlus,
 } from 'lucide-react';
 import { color, pinColor } from '@polevka/design';
@@ -13,7 +13,7 @@ import {
   apiSyncJson, apiTotpConfirm, apiTotpDisable, apiTotpSetup, conversationPeers, makeMailMsg,
   matchSupportBotFaq,   normalizeComment, normalizeTimeMarkers, spamGuardCheck, spamGuardMessage, SUPPORT_LOGIN,
   SUPPORT_NAME, uploadUserMedia, upsertInboxPatch, formatPlays,
-  type ApiError, type Comment, type FeedPost, type Sound, type TimeMarker,
+  type ApiError, type Comment, type FeedPost, type Sound,
 } from '@polevka/core';
 import { LEGAL_DOCS } from '../../../../src/data/legalDocs.js';
 import { PUBLISH_RULE_SECTIONS } from '../../../../src/data/publishRules.js';
@@ -25,13 +25,13 @@ import { useUi } from '../state/UiContext';
 import { ListSkeleton, PlayPauseIcon, PinPlayer, ScreenHeader, SoundTypeTag, OtpInput } from '../primitives/ui';
 import { PhotoCarousel } from '../primitives/PhotoCarousel';
 import { HoverMenu } from '../primitives/HoverMenu';
-import { AudioEditor, LiveWaveform } from '../primitives/AudioEditor';
 import { openCookieBanner } from '../primitives/CookieBanner';
 import { SoundMap } from '../lib/SoundMap';
-import { setDraftRecording } from '../lib/record-buffer';
 import { formatClock, parseDurationLabel } from '../lib/waveform';
 import { useSoundMeta } from '../lib/audio-meta';
 import { ConversationScreen } from './ConversationScreen';
+import { DraftsScreen } from './DraftsScreen';
+import { RecordScreen } from './RecordScreen';
 import { syncDevicePush } from '../lib/notify';
 import { AddSoundScreen } from './AddSoundScreen';
 import { SettingsScreen } from './SettingsScreen';
@@ -86,6 +86,7 @@ export function ScreenContent({ screen, onBack }: { screen: ScreenConfig; onBack
     case 'catalog': return <CatalogPage onBack={onBack} />;
     case 'feed': return <FeedPage onBack={onBack} />;
     case 'expeditions': return <ExpeditionsPage onBack={onBack} />;
+    case 'drafts': return <DraftsScreen onBack={onBack} />;
     default: return null;
   }
 }
@@ -873,153 +874,6 @@ function ResetPasswordScreen({ onBack }: { onBack: () => void }) {
     </div>
   );
 }
-
-function RecordScreen({ onBack }: { onBack: () => void }) {
-  const th = useTh();
-  const desktop = useIsDesktop();
-  const { toast } = useUi();
-  const { reset } = useNav();
-  const [stage, setStage] = useState<'idle' | 'rec' | 'review'>('idle');
-  const [sec, setSec] = useState(0);
-  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
-  const [draft, setDraft] = useState<{ blob: Blob; durationSec: number; mime: string; trimStart: number; trimEnd: number; gain: number; timeMarkers: TimeMarker[] } | null>(null);
-  const recRef = useRef<MediaRecorder | null>(null);
-  const chunks = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
-  const ctxRef = useRef<AudioContext | null>(null);
-  const started = useRef(0);
-  const commit = useRef(false);
-
-  useEffect(() => {
-    if (stage !== 'rec') return;
-    const t = setInterval(() => setSec(Math.max(0, Math.round((Date.now() - started.current) / 1000))), 250);
-    return () => clearInterval(t);
-  }, [stage]);
-
-  useEffect(() => () => {
-    recRef.current?.stop();
-    streamRef.current?.getTracks().forEach((tr) => tr.stop());
-    void ctxRef.current?.close();
-  }, []);
-
-  const start = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-      });
-      streamRef.current = stream;
-      chunks.current = [];
-      commit.current = false;
-      const ctx = new AudioContext();
-      if (ctx.state === 'suspended') await ctx.resume();
-      const source = ctx.createMediaStreamSource(stream);
-      const node = ctx.createAnalyser();
-      node.fftSize = 1024;
-      node.smoothingTimeConstant = 0.45;
-      const dest = ctx.createMediaStreamDestination();
-      source.connect(node);
-      source.connect(dest);
-      ctxRef.current = ctx;
-      setAnalyser(node);
-      const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
-      const mr = new MediaRecorder(dest.stream, { mimeType: mime });
-      mr.ondataavailable = (e) => { if (e.data.size) chunks.current.push(e.data); };
-      mr.start(120);
-      recRef.current = mr;
-      started.current = Date.now();
-      setSec(0);
-      setStage('rec');
-    } catch {
-      toast('Нет доступа к микрофону');
-    }
-  };
-
-  const stop = () => {
-    const mr = recRef.current;
-    if (!mr) { setStage('idle'); return; }
-    commit.current = true;
-    mr.onstop = () => {
-      streamRef.current?.getTracks().forEach((tr) => tr.stop());
-      void ctxRef.current?.close();
-      ctxRef.current = null;
-      setAnalyser(null);
-      const mime = mr.mimeType || 'audio/webm';
-      const blob = new Blob(chunks.current, { type: mime });
-      if (!commit.current) { setStage('idle'); return; }
-      if (!blob.size) {
-        toast('Пустая запись — попробуйте ещё раз');
-        setStage('idle');
-        return;
-      }
-      const durationSec = Math.max(1, Math.round((Date.now() - started.current) / 1000));
-      setDraft({ blob, durationSec, mime, trimStart: 0, trimEnd: 1, gain: 1, timeMarkers: [] });
-      setStage('review');
-    };
-    if (mr.state === 'recording') {
-      try { mr.requestData(); } catch { /* */ }
-      mr.stop();
-    } else if (mr.state !== 'inactive') {
-      mr.stop();
-    }
-    recRef.current = null;
-  };
-
-  const toPublish = () => {
-    if (!draft) return;
-    setDraftRecording(draft);
-    toast('Черновик сохранён — оформите публикацию');
-    reset({ type: 'add-sound' });
-  };
-
-  return (
-    <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      {!desktop && <ScreenHeader title="Запись" onBack={onBack} />}
-      {stage !== 'review' && (
-        <div className="flex-1 flex flex-col px-6 py-6 min-h-0">
-          <div className={desktop ? 'mb-5' : 'mb-4'}>
-            <p className="text-lg font-bold" style={{ color: th.inkText }}>{stage === 'rec' ? 'Идёт запись' : 'Записать звук'}</p>
-            <p className="text-[12px] mt-1 leading-relaxed" style={{ color: OLIVE }}>
-              {stage === 'rec' ? 'Говорите или ловите фон. Остановите, когда хватит материала.' : 'Разрешите микрофон. После остановки можно обрезать и послушать перед оформлением.'}
-            </p>
-          </div>
-          <div className="flex-1 min-h-0 rounded-[24px] p-5 flex flex-col items-center justify-center gap-5" style={{ background: th.cardBg }}>
-            <p className="text-[40px] font-bold tabular-nums leading-none" style={{ color: th.inkText }}>{formatClock(sec)}</p>
-            <div className="w-full max-w-lg rounded-2xl px-3 py-3" style={{ background: th.phoneBg }}>
-              <LiveWaveform analyser={analyser} color={stage === 'rec' ? ACCENT : SAGE} h={72} />
-            </div>
-            <motion.button whileTap={{ scale: 0.96 }} onClick={() => { if (stage === 'rec') stop(); else void start(); }}
-              className="w-[72px] h-[72px] rounded-full flex items-center justify-center shadow-[0_8px_24px_rgba(181,97,63,0.28)]"
-              style={{ background: stage === 'rec' ? ACCENT : DARK }}
-              aria-label={stage === 'rec' ? 'Остановить' : 'Начать запись'}>
-              {stage === 'rec' ? <span className="w-5 h-5 rounded-md bg-white" /> : <Mic size={26} color="white" />}
-            </motion.button>
-            <p className="text-[12px] font-semibold" style={{ color: SAGE }}>{stage === 'rec' ? 'Остановить' : 'Начать запись'}</p>
-          </div>
-        </div>
-      )}
-      {stage === 'review' && draft && (
-        <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-4">
-          <div>
-            <p className="text-lg font-bold" style={{ color: th.inkText }}>Прослушайте и обрежьте</p>
-            <p className="text-[12px] mt-1" style={{ color: OLIVE }}>Тяните ручки на волне, поставьте метки и проверьте громкость перед оформлением.</p>
-          </div>
-          <AudioEditor blob={draft.blob} durationSec={draft.durationSec}
-            trimStart={draft.trimStart} trimEnd={draft.trimEnd} gain={draft.gain}
-            markers={draft.timeMarkers}
-            onMarkers={(timeMarkers) => setDraft({ ...draft, timeMarkers })}
-            onChange={(next) => setDraft({ ...draft, ...next })} />
-          <div className="flex gap-2">
-            <button type="button" className="flex-1 py-3 rounded-2xl text-sm font-semibold" style={{ background: th.lightBg, color: OLIVE }}
-              onClick={() => { setDraft(null); setStage('idle'); setSec(0); }}>Записать снова</button>
-            <button type="button" className="flex-[1.4] py-3.5 rounded-2xl text-sm font-bold text-white" style={{ background: ACCENT }}
-              onClick={toPublish}>К оформлению</button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 
 export function MessagesScreen({ onBack, embed = false }: { onBack?: () => void; embed?: boolean }) {
   const th = useTh();

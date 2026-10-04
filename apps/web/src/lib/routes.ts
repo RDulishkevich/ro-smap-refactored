@@ -12,6 +12,7 @@ export type DeepRoute =
   | { kind: 'staff' }
   | { kind: 'guessr' }
   | { kind: 'profile' }
+  | { kind: 'drafts' }
   | { kind: 'sound'; id: string }
   | { kind: 'user'; login: string };
 
@@ -31,6 +32,7 @@ export function parsePath(pathname: string): DeepRoute {
   if (head === 'staff' || head === 'admin') return { kind: 'staff' };
   if (head === 'guessr' || head === 'guesser') return { kind: 'guessr' };
   if (head === 'profile' || head === 'cabinet') return { kind: 'profile' };
+  if (head === 'drafts' || head === 'draft') return { kind: 'drafts' };
   if (head === 'menu') return { kind: 'menu' };
   if (head === 'map') return { kind: 'map' };
   return { kind: 'home' };
