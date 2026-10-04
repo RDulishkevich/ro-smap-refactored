@@ -30,7 +30,19 @@ npm install --omit=dev
 if ($LASTEXITCODE -ne 0) { Pop-Location; throw "npm install failed" }
 $zip = Join-Path $root "cloud\rosmap-api-deploy.zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }
-Compress-Archive -Path index.js, sessionSecurity.js, mailTemplates.js, ydbDoc.js, package.json, package-lock.json, node_modules -DestinationPath $zip -Force
+if (-not $envMap.ContainsKey("VAPID_PUBLIC_KEY") -or -not $envMap["VAPID_PUBLIC_KEY"]) {
+    $vapidJson = node -e "const w=require('web-push'); process.stdout.write(JSON.stringify(w.generateVAPIDKeys()));"
+    if ($LASTEXITCODE -ne 0 -or -not $vapidJson) { Pop-Location; throw "VAPID generate failed" }
+    $vapid = $vapidJson | ConvertFrom-Json
+    $envMap["VAPID_PUBLIC_KEY"] = [string]$vapid.publicKey
+    $envMap["VAPID_PRIVATE_KEY"] = [string]$vapid.privateKey
+    if (-not $envMap["VAPID_SUBJECT"]) { $envMap["VAPID_SUBJECT"] = "mailto:support@polevka.art" }
+    Write-Host "vapid=generated"
+} else {
+    if (-not $envMap["VAPID_SUBJECT"]) { $envMap["VAPID_SUBJECT"] = "mailto:support@polevka.art" }
+    Write-Host "vapid=existing"
+}
+Compress-Archive -Path index.js, sessionSecurity.js, mailTemplates.js, ydbDoc.js, mailCrypto.js, webPush.js, package.json, package-lock.json, node_modules -DestinationPath $zip -Force
 Pop-Location
 
 $ycArgs = @(

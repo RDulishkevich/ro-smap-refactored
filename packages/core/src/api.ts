@@ -236,6 +236,10 @@ export const apiTotpConfirm = (totpCode: string) => apiRequest('totpConfirm', { 
 export const apiTotpDisable = (password: string, totpCode: string) =>
   apiRequest('totpDisable', { password, totpCode }, { auth: true });
 export const apiGetSecurityEvents = () => apiRequest('getSecurityEvents', {}, { auth: true });
+export const apiSavePushSubscription = (subscription: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+  apiRequest('savePushSubscription', { subscription }, { auth: true });
+export const apiDeletePushSubscription = (endpoint?: string) =>
+  apiRequest('deletePushSubscription', endpoint ? { endpoint } : {}, { auth: true });
 
 export function normalizeRole(role: unknown): SessionUser['role'] {
   const r = String(role || '').toLowerCase();

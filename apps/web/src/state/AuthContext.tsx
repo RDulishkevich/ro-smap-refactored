@@ -7,6 +7,7 @@ import {
 import {
   assertDeviceUnlock, canUseDeviceUnlock, clearDeviceUnlock, enrollDeviceUnlock, hasDeviceUnlock,
 } from '../lib/device-unlock';
+import { unsubscribeDevicePush } from '../lib/notify';
 type AuthCtx = {
   user: SessionUser | null;
   isLoggedIn: boolean;
@@ -80,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [login]);
 
   const logout = useCallback(async () => {
+    try { await unsubscribeDevicePush(); } catch { /* still sign out */ }
     await apiLogout();
     clearAuthSession();
     setRememberMe(false);
@@ -127,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const skipDeviceUnlock = useCallback(async () => {
+    try { await unsubscribeDevicePush(); } catch { /* still clear */ }
     try { await apiLogout(); } catch { /* still clear local */ }
     clearAuthSession();
     setNeedsUnlock(false);

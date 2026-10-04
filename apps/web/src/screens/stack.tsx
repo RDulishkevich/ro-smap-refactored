@@ -12,7 +12,7 @@ import {
   readLastLogin,
   apiSyncJson, apiTotpConfirm, apiTotpDisable, apiTotpSetup, conversationPeers, makeMailMsg,
   matchSupportBotFaq,   normalizeComment, normalizeTimeMarkers, spamGuardCheck, spamGuardMessage, SUPPORT_LOGIN,
-  SUPPORT_NAME, threadWith, uploadUserMedia, upsertInboxPatch, formatPlays,
+  SUPPORT_NAME, uploadUserMedia, upsertInboxPatch, formatPlays,
   type ApiError, type Comment, type FeedPost, type Sound, type TimeMarker,
 } from '@polevka/core';
 import { LEGAL_DOCS } from '../../../../src/data/legalDocs.js';
@@ -31,13 +31,16 @@ import { SoundMap } from '../lib/SoundMap';
 import { setDraftRecording } from '../lib/record-buffer';
 import { formatClock, parseDurationLabel } from '../lib/waveform';
 import { useSoundMeta } from '../lib/audio-meta';
+import { ConversationScreen } from './ConversationScreen';
+import { syncDevicePush } from '../lib/notify';
 import { AddSoundScreen } from './AddSoundScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { CatalogPage, ExpeditionsPage, FeedPage } from './FeedScreen';
 import { StaffScreen } from './StaffScreen';
 import { ExpeditionDetailScreen, ExpeditionEditScreen, PickLocationScreen } from './ExpeditionScreens';
 import { downloadLegalPrint } from '../lib/legal-print';
-import { pathForSound, shareUrl } from '../lib/routes';
+import { pathForSound } from '../lib/routes';
+import { shareLink } from '../lib/share';
 import { SEARCH_KIND_LABEL, searchAll } from '../lib/search-all';
 import { useIsDesktop } from '../lib/use-media';
 import { downloadSound } from '../lib/download-sound';
@@ -267,9 +270,15 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
               style={{ background: disliked ? DARK : th.lightBg, color: disliked ? '#fff' : OLIVE }}>
               Не нравится
             </motion.button>
-            <motion.button whileTap={{ scale: 0.92 }} className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}
-              onClick={() => { void navigator.clipboard?.writeText(shareUrl(pathForSound(live.id))); toast('Ссылка скопирована'); }}>
-              <Share2 size={14} style={{ color: OLIVE }} />
+            <motion.button whileTap={{ scale: 0.92 }} className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}
+              aria-label="Поделиться"
+              onClick={() => {
+                void shareLink(pathForSound(live.id), String(live.title || 'Полёвка')).then((how) => {
+                  if (how === 'copied') toast('Ссылка скопирована');
+                  if (how === 'fail') toast('Не удалось поделиться');
+                });
+              }}>
+              <Share2 size={16} style={{ color: OLIVE }} />
             </motion.button>
           </div>
         </div>
@@ -1019,8 +1028,12 @@ export function MessagesScreen({ onBack, embed = false }: { onBack?: () => void;
   const { push } = useNav();
   const { profiles, mail } = useData();
   const { user, isLoggedIn } = useAuth();
+  const { prefs } = usePrefs();
   const peers = isLoggedIn && user ? conversationPeers(mail, user.loginName, profiles) : [];
   const letter = (name: string) => (name.trim()[0] || '?').toUpperCase();
+  useEffect(() => {
+    if (isLoggedIn && prefs.notifyDevice) void syncDevicePush(true);
+  }, [isLoggedIn, prefs.notifyDevice]);
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       {!desktop && !embed && onBack && <ScreenHeader title={t('messages')} onBack={onBack} />}
@@ -1054,60 +1067,24 @@ export function MessagesScreen({ onBack, embed = false }: { onBack?: () => void;
           </div>
         )}
         {peers.map((p) => (
-          <button key={p.login} onClick={() => push({ type: 'conversation', name: p.name, avatar: '👤', peer: p.login })}
-            className="w-full flex items-center gap-3 p-3.5 rounded-[20px] mb-2 text-left" style={{ background: th.cardBg }}>
-            <div className="w-11 h-11 rounded-2xl flex items-center justify-center pv-subtitle" style={{ background: th.lightBg, color: OLIVE }}>{letter(p.name)}</div>
+          <button key={p.login} type="button" onClick={() => push({ type: 'conversation', name: p.name, avatar: p.avatar || '👤', peer: p.login })}
+            className="w-full flex items-center gap-3 p-3.5 rounded-[20px] mb-2 text-left min-h-[68px]" style={{ background: th.cardBg }}>
+            <div className="w-12 h-12 rounded-2xl overflow-hidden flex items-center justify-center pv-subtitle flex-shrink-0" style={{ background: th.lightBg, color: OLIVE }}>
+              {p.avatar && p.avatar.startsWith('http')
+                ? <img src={p.avatar} alt="" className="w-full h-full object-cover" />
+                : letter(p.name)}
+            </div>
             <div className="flex-1 min-w-0">
-              <p className="pv-subtitle" style={{ color: th.inkText }}>{p.name}</p>
+              <div className="flex items-center gap-2">
+                <p className="pv-subtitle truncate flex-1" style={{ color: th.inkText }}>{p.name}</p>
+                {p.unread > 0 && (
+                  <span className="min-w-5 h-5 px-1.5 rounded-full text-white pv-micro flex items-center justify-center" style={{ background: ACCENT }}>{p.unread > 9 ? '9+' : p.unread}</span>
+                )}
+              </div>
               <p className="pv-caption truncate mt-0.5" style={{ color: SAGE }}>{p.lastText || 'Написать'}</p>
             </div>
           </button>
         ))}
-      </div>
-    </div>
-  );
-}
-
-function ConversationScreen({ name, peer, onBack }: { name: string; avatar: string; peer: string; onBack: () => void }) {
-  const th = useTh();
-  const { user, isLoggedIn } = useAuth();
-  const { mail, reloadMail } = useData();
-  const { toast } = useUi();
-  const { push } = useNav();
-  const [text, setText] = useState('');
-  const [busy, setBusy] = useState(false);
-  const msgs = user ? threadWith(mail, user.loginName, peer) : [];
-  const send = async () => {
-    const t = text.trim();
-    if (!t || !user) return;
-    if (!isLoggedIn) { push({ type: 'auth' }); return; }
-    const guard = spamGuardCheck('comment');
-    if (!guard.ok) { toast(spamGuardMessage(guard)); return; }
-    setBusy(true);
-    try {
-      const msg = makeMailMsg(user.loginName, user.displayName || user.username, t);
-      const notif = { id: `n${Date.now()}`, type: 'message', text: `${user.username} написал(а) вам`, fromId: user.loginName, fromName: user.username, date: msg.date, read: false };
-      const next = upsertInboxPatch(mail, peer, msg, peer === SUPPORT_LOGIN ? undefined : notif);
-      await apiSyncJson('mail.json', next);
-      setText('');
-      await reloadMail();
-    } catch (e: unknown) {
-      toast((e as Error).message || 'Не удалось отправить');
-    } finally { setBusy(false); }
-  };
-  return (
-    <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <ScreenHeader title={name} onBack={onBack} />
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
-        {msgs.length === 0 && <p className="text-[10px]" style={{ color: SAGE }}>Начните переписку</p>}
-        {msgs.map((m) => (
-          <div key={m.id} className={`max-w-[80%] px-3 py-2 rounded-2xl text-xs ${m.mine ? 'self-end text-white' : 'self-start'}`}
-            style={{ background: m.mine ? ACCENT : th.cardBg, color: m.mine ? '#fff' : th.inkText }}>{m.text}</div>
-        ))}
-      </div>
-      <div className="p-3 flex gap-2">
-        <input value={text} onChange={(e) => setText(e.target.value)} className="flex-1 rounded-2xl px-3 py-2 text-xs outline-none" style={{ background: th.cardBg, color: th.inkText }} />
-        <button disabled={busy} onClick={() => void send()} className="w-10 h-10 rounded-2xl text-white flex items-center justify-center" style={{ background: ACCENT }}><Send size={14} /></button>
       </div>
     </div>
   );

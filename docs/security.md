@@ -116,6 +116,15 @@ Object Storage
 - Чтение: `action=getMail` (сессия) — свой ящик + `partners`; poll/bootstrap **не** ходят в публичный CDN. Staff — все ящики + TOTP.
 - Клиент: каталог ~90 с (`cache: 'no-cache'`), почта ~20 с если есть сессия.
 - Ответ sync/commit: **проекция** — свой ящик + свои исходящие; полный снимок у staff.
+- Текст, фото/видео URL и тексты уведомлений шифруются **at rest** AES-256-GCM (`enc:v1:`, ключ из `MAIL_ENC_KEY` или `JWT_SECRET`). Это не E2E: API расшифровывает для владельца и staff.
+- Получатель может выставить `read` / `readAt` на входящих; отправитель видит галочки по своей копии в ящике собеседника.
+
+### 3.6.1 Web Push
+
+- Подписка устройства: `savePushSubscription` → `_auth/push/{login}.json` (до 5 endpoint). Снимается при выходе и `deletePushSubscription`.
+- При новом входящем API шлёт VAPID-push: имя отправителя + «Новое сообщение» / «Фото» / «Видео», без полного текста.
+- `VAPID_PRIVATE_KEY` только в env функции. `publicConfig.vapidPublicKey` — публичный ключ для `PushManager.subscribe`.
+- Это не E2E: браузерный push-сервис (Google / Apple / Mozilla) доставляет зашифрованный по протоколу Web Push пакет. iOS — только у PWA на экране Домой.
 
 Миграция / проверка:
 

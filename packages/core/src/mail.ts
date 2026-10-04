@@ -71,11 +71,14 @@ export function conversationPeers(boxes: MailBox[], me: string, profiles: Profil
     const lastOut = (boxes.find((b) => b.loginName === login)?.inbox || [])
       .filter((m) => String(m.fromId || '').toLowerCase() === self && !m.deleted)[0];
     const last = [lastIn, lastOut].filter(Boolean).sort((a, b) => new Date(String(b?.date)).getTime() - new Date(String(a?.date)).getTime())[0];
+    const unread = (mine?.inbox || []).filter((m) => String(m.fromId || '').toLowerCase() === login && !m.deleted && !m.read).length;
     return {
       login,
       name: login === SUPPORT_LOGIN ? SUPPORT_NAME : String(p?.displayName || p?.username || login),
-      lastText: last?.deleted ? '' : (last?.text || ''),
+      avatar: String(p?.avatar || ''),
+      lastText: last?.deleted ? '' : previewMailText(last),
       lastDate: last?.date || '',
+      unread,
     };
   }).sort((a, b) => new Date(b.lastDate || 0).getTime() - new Date(a.lastDate || 0).getTime());
 }
@@ -94,6 +97,35 @@ export function markBoxNotificationsRead(boxes: MailBox[], login: string): { box
     boxes: boxes.map((b) => (b.loginName === key ? patch : b)),
     patch,
   };
+}
+
+export function previewMailText(msg?: Partial<MailMsg> | null) {
+  if (!msg) return '';
+  if (msg.deleted) return '';
+  if (msg.video) return 'Видео';
+  if (msg.image) return msg.text ? String(msg.text) : 'Фото';
+  return String(msg.text || '');
+}
+
+export function markThreadReadPatch(boxes: MailBox[], me: string, peer: string): MailBox | null {
+  const self = String(me || '').toLowerCase();
+  const other = String(peer || '').toLowerCase();
+  const box = boxes.find((b) => b.loginName === self);
+  if (!box) return null;
+  let changed = false;
+  const inbox = (box.inbox || []).map((m) => {
+    if (String(m.fromId || '').toLowerCase() !== other || m.deleted || m.read) return m;
+    changed = true;
+    return { ...m, read: true, readAt: new Date().toISOString() };
+  });
+  const notifications = (box.notifications || []).map((n) => {
+    const row = n as { fromId?: string; type?: string; read?: boolean };
+    if (String(row.fromId || '').toLowerCase() !== other || row.type !== 'message' || row.read) return n;
+    changed = true;
+    return { ...n, read: true };
+  });
+  if (!changed) return null;
+  return { ...box, inbox, notifications };
 }
 
 export function makeMailMsg(fromId: string, fromName: string, text: string, extra: Partial<MailMsg> = {}): MailMsg {

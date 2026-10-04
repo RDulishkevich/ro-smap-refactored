@@ -5,18 +5,18 @@ import { useNav } from '../state/NavContext';
 
 export function DeepLinks() {
   const { loading, allSounds, sounds, profiles, events } = useData();
-  const { reset } = useNav();
-  const dataRef = useRef({ allSounds, sounds, profiles, events, reset });
-  dataRef.current = { allSounds, sounds, profiles, events, reset };
+  const { reset, applyRoute } = useNav();
+  const dataRef = useRef({ allSounds, sounds, profiles, events, reset, applyRoute });
+  dataRef.current = { allSounds, sounds, profiles, events, reset, applyRoute };
   const booted = useRef(false);
 
   useEffect(() => {
     if (loading) return;
 
     const apply = () => {
-      const { allSounds: all, sounds: pub, profiles: profs, events: evs, reset: rst } = dataRef.current;
+      const { allSounds: all, sounds: pub, profiles: profs, events: evs, reset: rst, applyRoute: go } = dataRef.current;
       const route = parsePath(location.pathname);
-      if (route.kind === 'home') return;
+
       if (route.kind === 'sound') {
         const s = all.find((x) => String(x.id) === route.id) || pub.find((x) => String(x.id) === route.id);
         if (s) rst({ type: 'sound-detail', sound: s });
@@ -34,14 +34,14 @@ export function DeepLinks() {
         });
         return;
       }
-      if (route.kind === 'event') {
-        void evs;
-        rst({ type: 'events', focusId: route.id });
-      }
+      void evs;
+      go(route);
     };
 
     if (!booted.current) {
       booted.current = true;
+      apply();
+    } else if (parsePath(location.pathname).kind === 'sound') {
       apply();
     }
     window.addEventListener('popstate', apply);

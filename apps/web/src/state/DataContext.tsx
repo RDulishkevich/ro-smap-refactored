@@ -6,7 +6,9 @@ import {
 } from '@polevka/core';
 import { audioService } from '../lib/audio-player';
 import { rememberSessionTitles } from '../lib/download-sound';
+import { notifyNewMail, seedSeenMail, syncDevicePush } from '../lib/notify';
 import { useAuth } from './AuthContext';
+import { usePrefs } from './PrefsContext';
 
 export type PickMode = null | 'point' | 'route';
 export type MapPoint = { lat: number; lng: number };
@@ -51,6 +53,7 @@ const Ctx = createContext<DataCtx | null>(null);
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const { isLoggedIn, user } = useAuth();
+  const { prefs } = usePrefs();
   const [allSounds, setAll] = useState<Sound[]>([]);
   const [feed, setFeed] = useState<FeedPost[]>([]);
   const [events, setEvents] = useState<AppEvent[]>([]);
@@ -74,9 +77,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!isLoggedIn) { setMail([]); return; }
     try {
       const raw = await apiGetMail();
-      setMail(normalizeMail(raw as unknown[]));
+      const next = normalizeMail(raw as unknown[]);
+      const login = String(user?.loginName || '');
+      if (login) {
+        seedSeenMail(next, login);
+        if (prefs.notifyDevice) void notifyNewMail(next, login);
+      }
+      setMail(next);
     } catch { /* keep last mailbox — do not wipe on a blip */ }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, prefs.notifyDevice, user?.loginName]);
 
   const markNotificationsRead = useCallback(async () => {
     const login = String(user?.loginName || '').toLowerCase();
@@ -117,13 +126,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [reload]);
   useEffect(() => {
     if (!isLoggedIn) { setMail([]); return; }
+    if (prefs.notifyDevice) void syncDevicePush(true);
     void reloadMail();
-    const t = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return;
-      void reloadMail();
-    }, 20_000);
-    return () => clearInterval(t);
-  }, [isLoggedIn, reloadMail]);
+    const t = setInterval(() => { void reloadMail(); }, 20_000);
+    const onVis = () => { if (!document.hidden) void reloadMail(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [isLoggedIn, prefs.notifyDevice, reloadMail]);
 
   useEffect(() => audioService.subscribe(() => {
     setPlayingId(audioService.soundId);

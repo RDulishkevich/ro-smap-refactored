@@ -14,6 +14,7 @@ import { useIsDesktop } from '../lib/use-media';
 import { ScreenHeader } from '../primitives/ui';
 import { LanguageSwitch } from '../primitives/LanguageSwitch';
 import { openCookieBanner } from '../primitives/CookieBanner';
+import { syncDevicePush } from '../lib/notify';
 
 const OLIVE = color.olive;
 const SAGE = color.sage;
@@ -78,6 +79,20 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
         <Section title={t('notifications')} th={th}>
           <Row label={t('notifyInApp')} th={th}
             right={<Switch on={prefs.notifyInApp} onChange={() => setPref('notifyInApp', !prefs.notifyInApp)} />} />
+          <Row label={t('notifyDevice')} th={th}
+            right={<Switch on={prefs.notifyDevice} onChange={() => {
+              void (async () => {
+                if (prefs.notifyDevice) {
+                  await syncDevicePush(false);
+                  setPref('notifyDevice', false);
+                  return;
+                }
+                const ok = await syncDevicePush(true);
+                if (!ok && typeof Notification !== 'undefined' && Notification.permission === 'denied') return;
+                setPref('notifyDevice', true);
+              })();
+            }} />} />
+          <p className="pv-micro px-4 pb-3 -mt-1" style={{ color: SAGE }}>{t('notifyDeviceHint')}</p>
         </Section>
 
         <Section title={t('privacy')} th={th}>

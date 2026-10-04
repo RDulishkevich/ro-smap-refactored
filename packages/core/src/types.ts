@@ -146,7 +146,10 @@ export type MailMsg = {
   text: string;
   date: string;
   read?: boolean;
+  readAt?: string;
   deleted?: boolean;
+  image?: string;
+  video?: string;
   ticketNumber?: number;
   _ticket?: boolean;
   _supportThread?: boolean;

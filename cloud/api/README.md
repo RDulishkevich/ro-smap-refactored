@@ -9,8 +9,10 @@
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | проверка живости (`version: 21`, `ydb: true/false`) |
-| `publicConfig` | нет | публичные ключи (Maps) |
+| `health` | нет | проверка живости (`version: 23`, `ydb`, `vapid`) |
+| `publicConfig` | нет | публичные ключи (Maps + VAPID public) |
+| `savePushSubscription` | access | сохранить Web Push подписку устройства |
+| `deletePushSubscription` | access | снять подписку (выход / выкл. уведомлений) |
 | `register` | нет | регистрация (пароль → scrypt) |
 | `login` | нет | вход → HttpOnly cookies + access JWT; при remember — `refreshToken` в JSON (опц. TOTP) |
 | `refresh` | `body.refreshToken` или cookie | новая пара токенов |
@@ -59,6 +61,7 @@
 | `_auth/email_codes/{login}.json` | private | хеш кода подтверждения email |
 | `_auth/password_resets/{login}.json` | private | хеш кода сброса пароля |
 | `_auth/security_events.json` | private | журнал security events |
+| `_auth/push/{login}.json` | private | Web Push-подписки устройства (endpoint + ключи) |
 | `_auth/integrity/*.sig` | private | HMAC-SHA256 критичных JSON. Каталог / users / meta / `_mail/` без `.sig` → 503, кроме `INTEGRITY_ALLOW_UNSIGNED=1` |
 
 Медиа только в `uploads/{login}/…`. **data-URL и blob: в базах запрещены.**
@@ -103,6 +106,9 @@ SMTP_USER=noreply@polevka.art
 SMTP_PASS=...
 MAIL_FROM=Полёвка <noreply@polevka.art>
 ALLOW_DEMO_EMAIL_CODES=0
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VAPID_SUBJECT=mailto:support@polevka.art
 ```
 
 Без SMTP email/reset отвечают `503 mail_not_configured`. SMTP только у провайдеров в РФ (см. [`docs/email-setup.md`](../../docs/email-setup.md)) — не Brevo/зарубежные ESP из‑за 152‑ФЗ.
@@ -125,7 +131,7 @@ v17: YDB Document API — источник правды (строки звуко
 ```bash
 cd cloud/api
 npm install --omit=dev
-zip -r ../rosmap-api.zip index.js sessionSecurity.js mailTemplates.js ydbDoc.js package.json node_modules
+zip -r ../rosmap-api.zip index.js sessionSecurity.js mailTemplates.js ydbDoc.js mailCrypto.js webPush.js package.json node_modules
 ```
 
 Или PowerShell: `Compress-Archive -Path index.js, mailTemplates.js, package.json, package-lock.json, node_modules ...`  

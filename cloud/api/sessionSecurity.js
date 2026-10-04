@@ -236,7 +236,7 @@ function needsIntegrity(objectKey) {
 function integrityRequired(objectKey) {
     const key = String(objectKey || '');
     if (key.startsWith('_auth/integrity/')) return false;
-    return INTEGRITY_KEYS.has(key) || key.startsWith('_mail/');
+    return INTEGRITY_KEYS.has(key) || key.startsWith('_mail/') || key.startsWith('_auth/push/');
 }
 
 function importLoginLocks(locks) {

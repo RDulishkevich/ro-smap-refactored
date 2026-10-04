@@ -35,9 +35,9 @@ Code: `cloud/api/index.js`, `sessionSecurity.js`, `mailTemplates.js`. Client: `p
 
 ## After editing API
 
-- Bump `health.version` if the contract changed (current: **21**).
+- Bump `health.version` if the contract changed (current: **23**).
 - Update `cloud/api/README.md` + `docs/security.md` when behavior changes.
-- Deploy zip must include `index.js`, `sessionSecurity.js`, `mailTemplates.js`, `ydbDoc.js`.
+- Deploy zip must include `index.js`, `sessionSecurity.js`, `mailTemplates.js`, `ydbDoc.js`, `mailCrypto.js`, `webPush.js`.
 - If you add a write path, it must go through merge + sanitize + CAS (S3) or YDB row mutate + publish public JSON.
 - When `YDB_DOCAPI_ENDPOINT` is set, YDB is source of truth; Object Storage public JSON is a cache. Do not invent a second write path.
 

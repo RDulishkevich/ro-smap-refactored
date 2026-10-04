@@ -3,13 +3,14 @@ import { DICT, type I18nKey, type Locale } from '../lib/i18n';
 
 export type AppPrefs = {
   notifyInApp: boolean;
+  notifyDevice: boolean;
   autoplayPin: boolean;
   reduceMotion: boolean;
   locale: Locale;
 };
 
 const KEY = 'polevka_prefs';
-const DEFAULTS: AppPrefs = { notifyInApp: true, autoplayPin: false, reduceMotion: false, locale: 'ru' };
+const DEFAULTS: AppPrefs = { notifyInApp: true, notifyDevice: true, autoplayPin: false, reduceMotion: false, locale: 'ru' };
 
 function readPrefs(): AppPrefs {
   try {

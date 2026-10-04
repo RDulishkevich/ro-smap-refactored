@@ -14,6 +14,7 @@
  *   YC_FOLDER_ID      — folder id (required with some key types)
  *   YANDEX_MAPS_API_KEY — browser Maps JS key (HTTP Referer lock); exposed only via publicConfig
  *   SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / MAIL_FROM — transactional email
+ *   VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT — Web Push (device notifications)
  *   ALLOW_DEMO_EMAIL_CODES — set to 1 on staging only: return demoCode when SMTP missing
  *
  * Actions (POST JSON { action, ... }):
@@ -23,6 +24,7 @@
  *   | requestPasswordReset | confirmPasswordReset | adminDeleteUser | adminUnbindEmail | adminSendEmail
  *   | totpSetup | totpConfirm | totpDisable | getSecurityEvents
  *   | deleteAccount | exportMyData
+ *   | savePushSubscription | deletePushSubscription
  *   login rememberMe → persistent refresh cookie (14d); false → session cookie
  */
 
@@ -32,6 +34,8 @@ const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const mailTemplates = require('./mailTemplates');
 const sessionSec = require('./sessionSecurity');
 const ydbDoc = require('./ydbDoc');
+const mailCrypto = require('./mailCrypto');
+const webPush = require('./webPush');
 
 let nodemailer = null;
 try {
@@ -82,6 +86,7 @@ const MEDIA_PREFIXES = ['uploads/', 'audio/', 'images/'];
 const TOKEN_TTL_SEC = sessionSec.ACCESS_TTL_SEC; // access JWT (short); refresh via cookie
 const MIN_PASSWORD_LEN = 8;
 const MAX_IMAGE_BYTES = 30 * 1024 * 1024;      // 30 MB — фото/обложки с телефона
+const MAX_VIDEO_BYTES = 80 * 1024 * 1024;      // 80 MB — короткое видео в чате
 const MAX_AUDIO_BYTES = 1024 * 1024 * 1024;    // 1 GB — длинные WAV / амбисоник
 const MAX_JSON_SYNC_BYTES = 2_500_000;
 const MAX_SYNC_ROWS = 80;
@@ -97,7 +102,7 @@ const MAX_ACTIVITY = 100;
 const MAX_MSG_TEXT = 4000;
 const MAX_BIO = 2000;
 const PROFILE_PII_KEYS = ['email', 'emailVerified', 'skillLevel', 'platformIntents', 'pdConsent', 'pdConsentAt'];
-const ALLOWED_MEDIA_CT = /^(image\/(jpeg|jpg|png|webp|gif)|audio\/(mpeg|mp3|wav|x-wav|wave|mp4|aac|ogg|flac|webm|x-m4a)|application\/json)/i;
+const ALLOWED_MEDIA_CT = /^(image\/(jpeg|jpg|png|webp|gif)|video\/(mp4|quicktime|webm|3gpp)|audio\/(mpeg|mp3|wav|x-wav|wave|mp4|aac|ogg|flac|webm|x-m4a)|application\/json)/i;
 const WRITE_RETRIES = 4;
 const writeHits = new Map();
 
@@ -275,6 +280,13 @@ function sanitizeMessageMedia(msg) {
         if (url) out.image = url;
         else delete out.image;
     }
+    if (out.video !== undefined) {
+        const url = sanitizeMediaUrl(out.video, { allowEmpty: true });
+        if (url) out.video = url;
+        else delete out.video;
+    }
+    if (out.read) out.read = true;
+    if (out.readAt) out.readAt = String(out.readAt);
     if (typeof out.text === 'string') out.text = out.text.slice(0, MAX_MSG_TEXT);
     return out;
 }
@@ -508,6 +520,8 @@ function actionRateLimit(action, ip, login = '') {
     if ((action === 'totpSetup' || action === 'totpConfirm' || action === 'totpDisable')
         && !rateLimit(`totp:${who}`, 20, 600000)) return false;
     if (action === 'getSecurityEvents' && !rateLimit(`secevt:${who}`, 30, 60000)) return false;
+    if ((action === 'savePushSubscription' || action === 'deletePushSubscription')
+        && !rateLimit(`pushsub:${who}`, 30, 600000)) return false;
     return true;
 }
 
@@ -967,6 +981,67 @@ function emptyMailBox(login) {
     };
 }
 
+function pushSubsKey(login) {
+    return `_auth/push/${normalizeLogin(login)}.json`;
+}
+
+function sanitizePushSub(raw) {
+    const endpoint = String(raw && raw.endpoint ? raw.endpoint : '').trim();
+    if (!/^https:\/\/\S{8,2048}$/i.test(endpoint)) return null;
+    const keys = raw && raw.keys && typeof raw.keys === 'object' ? raw.keys : {};
+    const p256dh = String(keys.p256dh || '').trim();
+    const auth = String(keys.auth || '').trim();
+    if (p256dh.length < 20 || p256dh.length > 200) return null;
+    if (auth.length < 8 || auth.length > 80) return null;
+    if (!/^[A-Za-z0-9_-]+$/.test(p256dh) || !/^[A-Za-z0-9_-]+$/.test(auth)) return null;
+    return {
+        endpoint,
+        keys: { p256dh, auth },
+        at: new Date().toISOString()
+    };
+}
+
+async function upsertPushSub(login, sub) {
+    await mutateJson(pushSubsKey(login), { loginName: login, subs: [] }, (cur) => {
+        const prev = Array.isArray(cur && cur.subs) ? cur.subs : [];
+        const next = prev.filter((row) => row && row.endpoint !== sub.endpoint);
+        next.unshift(sub);
+        return {
+            loginName: normalizeLogin(login),
+            subs: next.slice(0, 5),
+            updatedAt: new Date().toISOString()
+        };
+    }, { privateObject: true });
+}
+
+async function dropPushSub(login, endpoint) {
+    const ep = String(endpoint || '').trim();
+    if (!ep) {
+        await deletePrivateObject(pushSubsKey(login));
+        return;
+    }
+    await mutateJson(pushSubsKey(login), { loginName: login, subs: [] }, (cur) => ({
+        loginName: normalizeLogin(login),
+        subs: (Array.isArray(cur && cur.subs) ? cur.subs : []).filter((row) => row && row.endpoint !== ep),
+        updatedAt: new Date().toISOString()
+    }), { privateObject: true });
+}
+
+async function notifyUserPush(login, payload) {
+    if (!webPush.configured()) return;
+    const row = await getJson(pushSubsKey(login), { loginName: login, subs: [] });
+    const subs = Array.isArray(row && row.subs) ? row.subs : [];
+    if (!subs.length) return;
+    const results = await Promise.all(subs.map((sub) => webPush.send(sub, payload)));
+    const gone = subs.filter((_, i) => results[i] && results[i].gone).map((sub) => sub.endpoint);
+    if (!gone.length) return;
+    await mutateJson(pushSubsKey(login), { loginName: login, subs: [] }, (cur) => ({
+        loginName: normalizeLogin(login),
+        subs: (Array.isArray(cur && cur.subs) ? cur.subs : []).filter((sub) => sub && !gone.includes(sub.endpoint)),
+        updatedAt: new Date().toISOString()
+    }), { privateObject: true });
+}
+
 function inferMailPartners(row, all, login) {
     const me = normalizeLogin(login);
     const partners = new Set((row.partners || []).map((x) => normalizeLogin(x)).filter(Boolean));
@@ -986,7 +1061,7 @@ async function loadMailBox(login) {
     const key = mailBoxKey(login);
     const cas = await getJsonCas(key, null);
     if (!cas.missing && cas.data && typeof cas.data === 'object') {
-        return sanitizeMailRecord({ ...emptyMailBox(login), ...cas.data });
+        return sanitizeMailRecord(mailCrypto.decryptMailBox({ ...emptyMailBox(login), ...cas.data }));
     }
     const all = await getMailJson();
     const row = (all || []).find((r) => normalizeLogin(r.loginName) === normalizeLogin(login));
@@ -996,7 +1071,7 @@ async function loadMailBox(login) {
         partners: inferMailPartners(row || emptyMailBox(login), all, login)
     });
     try {
-        await putJson(key, box, { privateObject: true });
+        await putJson(key, mailCrypto.encryptMailBox(box), { privateObject: true });
     } catch (_) { /* next write will persist */ }
     return box;
 }
@@ -1004,7 +1079,7 @@ async function loadMailBox(login) {
 async function listMailBoxes() {
     if (ydbDoc.enabled()) {
         const rows = await ydbDoc.scanKind('mail');
-        return rows.map(sanitizeMailRecord);
+        return rows.map((row) => sanitizeMailRecord(mailCrypto.decryptMailBox(row)));
     }
     const fromFiles = [];
     const seen = new Set();
@@ -1076,16 +1151,44 @@ async function applyMailMerge(proposed, user) {
         return sanitizeMailRecord({ ...row, partners: Array.from(partners).filter(Boolean).slice(0, 200) });
     });
 
+    const pushJobs = [];
+    for (const row of merged) {
+        const login = normalizeLogin(row.loginName);
+        if (!login || login === actor) continue;
+        const before = fresh.find((r) => normalizeLogin(r.loginName) === login);
+        const oldIds = new Set((before && before.inbox ? before.inbox : []).map((m) => m && m.id).filter(Boolean));
+        const added = (row.inbox || []).filter((m) => m && m.id && !oldIds.has(m.id)
+            && normalizeLogin(m.fromId) === actor && !m.deleted);
+        if (!added.length) continue;
+        const last = added[added.length - 1];
+        pushJobs.push({
+            to: login,
+            title: String(last.fromName || user.displayName || actor).slice(0, 80) || 'Полёвка',
+            body: last.video ? 'Видео' : (last.image ? 'Фото' : 'Новое сообщение'),
+            tag: `dm-${actor}`
+        });
+    }
+
     for (const row of merged) {
         const login = normalizeLogin(row.loginName);
         await mutateJson(mailBoxKey(login), emptyMailBox(login), (cur) => {
-            const base = cur && cur.loginName ? sanitizeMailRecord(cur) : emptyMailBox(login);
+            const plain = mailCrypto.decryptMailBox(cur && cur.loginName ? cur : emptyMailBox(login));
+            const base = sanitizeMailRecord(plain);
             const again = mergeMailArrays([base], [row]);
             const sanitized = sanitizeMail([base], again, user);
             const next = sanitized.find((r) => normalizeLogin(r.loginName) === login) || row;
             if (login === actor) next.partners = Array.from(partners).filter(Boolean).slice(0, 200);
-            return sanitizeMailRecord(next);
+            return mailCrypto.encryptMailBox(sanitizeMailRecord(next));
         }, { privateObject: true });
+    }
+
+    if (pushJobs.length) {
+        await Promise.all(pushJobs.map((job) => notifyUserPush(job.to, {
+            title: job.title,
+            body: job.body,
+            tag: job.tag,
+            url: '/messages'
+        }).catch(() => {})));
     }
 
     const extra = [];
@@ -1527,7 +1630,11 @@ function sanitizeInbox(cloudInbox = [], proposedInbox = [], actorLogin) {
             if (String(prev.fromId || '').toLowerCase() === actorLogin) {
                 out.push({ ...msg, fromId: prev.fromId, id: prev.id });
             } else {
-                out.push(prev);
+                const read = !!(prev.read || msg.read);
+                const readAt = read
+                    ? String(prev.readAt || msg.readAt || new Date().toISOString())
+                    : undefined;
+                out.push({ ...prev, read, ...(readAt ? { readAt } : {}) });
             }
             cloudMap.delete(msg.id);
             continue;
@@ -2552,6 +2659,7 @@ async function purgeAccountData(target) {
         });
     }));
     await deletePrivateObject(mailBoxKey(login));
+    await deletePrivateObject(pushSubsKey(login));
 
     const keepKeys = new Set();
     await mutateJson('map_data.json', [], (sounds) => (sounds || []).map((s) => {
@@ -2653,6 +2761,27 @@ async function handleDeleteAccount(event, body) {
     return respond(200, { ok: true }, { cookies: sessionSec.clearSessionCookies(event, getHeader) });
 }
 
+async function handleSavePushSubscription(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const user = await resolveAuthUser(payload);
+    if (!user) return respond(401, { ok: false, error: 'unauthorized' });
+    if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
+    const sub = sanitizePushSub(body.subscription || body);
+    if (!sub) return respond(400, { ok: false, error: 'bad_subscription' });
+    await upsertPushSub(user.login, sub);
+    return respond(200, { ok: true });
+}
+
+async function handleDeletePushSubscription(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const user = await resolveAuthUser(payload);
+    if (!user) return respond(401, { ok: false, error: 'unauthorized' });
+    await dropPushSub(user.login, body.endpoint);
+    return respond(200, { ok: true });
+}
+
 async function handleExportMyData(event, body) {
     const payload = verifyJwt(extractToken(event, body));
     if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
@@ -2672,6 +2801,7 @@ async function handleExportMyData(event, body) {
     const profile = (profiles || []).find((p) => String(p.loginName || '').toLowerCase() === login) || null;
     const pii = meta[login] && typeof meta[login] === 'object' ? { ...meta[login] } : {};
     const mail = await loadMailBox(login);
+    const pushRow = await getJson(pushSubsKey(login), { subs: [] });
     return respond(200, {
         ok: true,
         data: {
@@ -2687,6 +2817,8 @@ async function handleExportMyData(event, body) {
                 platformIntents: pii.platformIntents
             },
             mail: sanitizeMailRecord(mail),
+            pushEndpoints: (Array.isArray(pushRow && pushRow.subs) ? pushRow.subs : [])
+                .map((row) => row && row.endpoint).filter(Boolean),
             sounds: (sounds || []).filter((s) => isOwnedSound(s, login)),
             posts: (feed || []).filter((p) => String(p.authorId || p.loginName || '').toLowerCase() === login)
         }
@@ -3318,7 +3450,8 @@ async function handlePresign(event, body) {
             : `uploads/${user.login}/${safe.split('/').pop()}`;
 
         const isImage = /^image\//i.test(contentType);
-        const maxBytes = isImage ? MAX_IMAGE_BYTES : MAX_AUDIO_BYTES;
+        const isVideo = /^video\//i.test(contentType);
+        const maxBytes = isImage ? MAX_IMAGE_BYTES : (isVideo ? MAX_VIDEO_BYTES : MAX_AUDIO_BYTES);
         if (!(contentLength > 0)) {
             return respond(400, { ok: false, error: 'content_length_required' });
         }
@@ -3327,7 +3460,7 @@ async function handlePresign(event, body) {
                 ok: false,
                 error: 'file_too_large',
                 maxBytes,
-                message: isImage ? 'Image must be ≤ 30 MB' : 'Audio must be ≤ 1 GB'
+                message: isImage ? 'Image must be ≤ 30 MB' : (isVideo ? 'Video must be ≤ 80 MB' : 'Audio must be ≤ 1 GB')
             });
         }
     }
@@ -3425,13 +3558,14 @@ exports.handler = async function handler(event = {}) {
 
     // health / publicConfig — без секретов и без тяжёлых лимитов
     if (action === 'health') {
-        return respond(200, { ok: true, version: 21, ydb: ydbDoc.enabled() });
+        return respond(200, { ok: true, version: 23, ydb: ydbDoc.enabled(), vapid: webPush.configured() });
     }
     if (action === 'publicConfig') {
         return respond(200, {
             ok: true,
             yandexMapsApiKey: YANDEX_MAPS_API_KEY || '',
-            bucketUrl: `https://storage.yandexcloud.net/${BUCKET}`
+            bucketUrl: `https://storage.yandexcloud.net/${BUCKET}`,
+            vapidPublicKey: webPush.vapidPublic()
         });
     }
 
@@ -3452,7 +3586,7 @@ exports.handler = async function handler(event = {}) {
         'getMail', 'requestEmailVerification', 'confirmEmailVerification',
         'adminDeleteUser', 'adminUnbindEmail', 'adminSendEmail',
         'logoutAll', 'totpSetup', 'totpConfirm', 'totpDisable', 'getSecurityEvents',
-        'deleteAccount', 'exportMyData'
+        'deleteAccount', 'exportMyData', 'savePushSubscription', 'deletePushSubscription'
     ]);
     const tokenPayload = authActions.has(action)
         ? verifyJwt(extractToken(event, body))
@@ -3490,6 +3624,8 @@ exports.handler = async function handler(event = {}) {
         if (action === 'totpConfirm') return await handleTotpConfirm(event, body);
         if (action === 'totpDisable') return await handleTotpDisable(event, body);
         if (action === 'getSecurityEvents') return await handleGetSecurityEvents(event, body);
+        if (action === 'savePushSubscription') return await handleSavePushSubscription(event, body);
+        if (action === 'deletePushSubscription') return await handleDeletePushSubscription(event, body);
         if (action === 'legacy_presign') {
             return respond(401, {
                 ok: false,

@@ -1,4 +1,5 @@
 import { apiPublicConfig } from '@polevka/core';
+import { bootLinkCapture } from './launch-pwa';
 
 export async function loadYandexMaps(): Promise<boolean> {
   const w = window as Window & { ymaps?: unknown; YANDEX_MAPS_API_KEY?: string };
@@ -23,6 +24,7 @@ export async function loadYandexMaps(): Promise<boolean> {
 }
 
 export function registerPwa() {
+  bootLinkCapture();
   if (!('serviceWorker' in navigator)) return;
   if (!window.isSecureContext && location.hostname !== 'localhost') return;
   navigator.serviceWorker.register('/sw.js').catch(() => {});
