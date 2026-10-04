@@ -9,11 +9,11 @@
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | проверка живости (`version: 20`, `ydb: true/false`) |
+| `health` | нет | проверка живости (`version: 21`, `ydb: true/false`) |
 | `publicConfig` | нет | публичные ключи (Maps) |
 | `register` | нет | регистрация (пароль → scrypt) |
-| `login` | нет | вход → HttpOnly cookies + access JWT (опц. TOTP) |
-| `refresh` | refresh cookie | новая пара токенов |
+| `login` | нет | вход → HttpOnly cookies + access JWT; при remember — `refreshToken` в JSON (опц. TOTP) |
+| `refresh` | `body.refreshToken` или cookie | новая пара токенов |
 | `logout` / `logoutAll` | cookie / JWT | выход с устройства / везде (`tokenVersion++`) |
 | `me` | access | проверка сессии / PII + ротация cookies |
 | `changePassword` | access | смена пароля + инвалидация других сессий |
@@ -23,7 +23,7 @@
 | `confirmPasswordReset` | нет | код + новый пароль |
 | `sync` | access | CAS (If-Match) → merge → sanitize → PUT JSON (+ HMAC); 409 `write_conflict` |
 | `patchSound` | access | лёгкий патч plays/downloads/лайков без полной перезаписи `map_data.json` |
-| `presign` | access | presigned PUT; медиа требуют `contentLength` (≤ 30 MB / 1 GB) |
+| `presign` | access | presigned PUT; медиа и staging JSON требуют `contentLength` (≤ 30 MB / 1 GB / 2.5 MB) |
 | `commit` | access | взять staging → merge → sanitize → PUT публичный JSON |
 | `getMail` | access | свой ящик + партнёры; admin — все; moderator — свой + `support` |
 | `deleteAccount` | access | самоудаление: пароль + TOTP; нельзя `admin`/`support` |
@@ -74,7 +74,7 @@
 |-----|--------|
 | Картинка (presign) | 30 MB |
 | Аудио (presign) | 1 GB |
-| Тело `sync` | ~2.5 MB; non-staff ≤ 80 строк (`too_many_rows`) |
+| Тело `sync` / staging JSON | ~2.5 MB; non-staff ≤ 80 строк (`too_many_rows`); staging PUT требует `contentLength` |
 | Inbox / notifications | 200 / 100 записей |
 | Текст сообщения | 4000 символов |
 | Пароль | мин. 8 символов |

@@ -72,7 +72,8 @@ export async function enrollDeviceUnlock(login: string, displayName?: string) {
       authenticatorSelection: {
         authenticatorAttachment: 'platform',
         userVerification: 'required',
-        residentKey: 'preferred',
+        residentKey: 'required',
+        requireResidentKey: true,
       },
       timeout: 60_000,
       attestation: 'none',
@@ -81,6 +82,28 @@ export async function enrollDeviceUnlock(login: string, displayName?: string) {
   if (!cred || cred.type !== 'public-key') throw Object.assign(new Error('webauthn'), { code: 'webauthn_failed' });
   const id = bufToB64url((cred as PublicKeyCredential).rawId);
   localStorage.setItem(DEVICE_UNLOCK_KEY, JSON.stringify({ login: login.toLowerCase(), id }));
+}
+
+export async function watchConditionalUnlock(signal?: AbortSignal) {
+  const PK = window.PublicKeyCredential;
+  if (!PK || typeof PK.isConditionalMediationAvailable !== 'function') return null;
+  try {
+    if (!(await PK.isConditionalMediationAvailable())) return null;
+  } catch {
+    return null;
+  }
+  const stored = readDeviceUnlock();
+  const cred = await navigator.credentials.get({
+    mediation: 'conditional',
+    signal,
+    publicKey: {
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      rpId: rpId(),
+      userVerification: 'preferred',
+    },
+  });
+  if (!cred || cred.type !== 'public-key') return null;
+  return stored || readDeviceUnlock();
 }
 
 export async function assertDeviceUnlock() {

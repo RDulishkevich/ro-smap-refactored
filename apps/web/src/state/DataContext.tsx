@@ -107,11 +107,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
-  useEffect(() => { void reload(); const t = setInterval(() => void reload(), 90_000); return () => clearInterval(t); }, [reload]);
+  useEffect(() => {
+    void reload();
+    const t = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      void reload();
+    }, 90_000);
+    return () => clearInterval(t);
+  }, [reload]);
   useEffect(() => {
     if (!isLoggedIn) { setMail([]); return; }
     void reloadMail();
-    const t = setInterval(() => void reloadMail(), 20_000);
+    const t = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      void reloadMail();
+    }, 20_000);
     return () => clearInterval(t);
   }, [isLoggedIn, reloadMail]);
 

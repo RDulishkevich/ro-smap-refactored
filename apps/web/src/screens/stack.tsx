@@ -45,6 +45,7 @@ import { ABOUT_ROLES, USE_GOALS, locLabel } from '../lib/onboarding';
 import { usePrefs, useT } from '../state/PrefsContext';
 import { resolveExpeditionInvite } from '../lib/expedition-invite';
 import { isAmbisonicSound, isSoundwalkPrinciple, soundRoute } from '../lib/sound-media';
+import { watchConditionalUnlock } from '../lib/device-unlock';
 import LogoApp from '@/brand/LogoApp';
 
 const SAGE = color.sage;
@@ -617,7 +618,7 @@ function FeedPostScreen({ post, onBack }: { post: FeedPost; onBack: () => void }
 function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mode?: 'in' | 'up' }) {
   const th = useTh();
   const desktop = useIsDesktop();
-  const { login, register, offerDeviceUnlock } = useAuth();
+  const { login, register, offerDeviceUnlock, resumeStoredSession } = useAuth();
   const { toast, confirm } = useUi();
   const { push, pop } = useNav();
   const { reload } = useData();
@@ -636,7 +637,32 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
   const [aboutRole, setAboutRole] = useState('');
   const [useGoals, setUseGoals] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
-  const submit = async (totpCode?: string) => {
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (mode !== 'in') return;
+    const ac = new AbortController();
+    void watchConditionalUnlock(ac.signal).then(async (stored) => {
+      if (ac.signal.aborted) return;
+      const ok = await resumeStoredSession();
+      if (ok) {
+        toast('Добро пожаловать');
+        pop();
+        return;
+      }
+      if (stored?.login) setLogin(stored.login);
+    }).catch(() => { /* cancelled or no passkey */ });
+    return () => ac.abort();
+  }, [mode, pop, resumeStoredSession, toast]);
+
+  const submit = async (totpCode?: string, formEl?: HTMLFormElement | null) => {
+    const fd = formEl ? new FormData(formEl) : null;
+    const nextLogin = String(fd?.get('username') || loginName).trim();
+    const nextPassword = String(fd?.get('password') || password);
+    const nextName = String(fd?.get('name') || name).trim();
+    if (nextLogin !== loginName) setLogin(nextLogin);
+    if (nextPassword !== password) setPassword(nextPassword);
+    if (nextName !== name) setName(nextName);
     if (mode === 'up') {
       if (!aboutRole) { toast(t('pickRole')); return; }
       if (!useGoals.length) { toast(t('pickGoals')); return; }
@@ -646,17 +672,17 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
     try {
       const code = (totpCode ?? totp).trim();
       if (mode === 'up') {
-        await register(loginName.trim(), password, name.trim() || loginName.trim(), pdConsent);
+        await register(nextLogin, nextPassword, nextName || nextLogin, pdConsent);
         await apiSyncJson('profiles.json', [{
-          loginName: loginName.trim(),
-          displayName: name.trim() || loginName.trim(),
+          loginName: nextLogin,
+          displayName: nextName || nextLogin,
           aboutRole,
           useGoals,
           profileUpdatedAt: new Date().toISOString(),
         }]);
         await reload();
       }
-      else await login(loginName.trim(), password, code || undefined, rememberMe);
+      else await login(nextLogin, nextPassword, code || undefined, rememberMe);
       if (rememberMe) {
         const enable = await confirm({
           title: t('enableFaceId'),
@@ -664,7 +690,7 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
           ok: t('enableFaceId'),
         });
         if (enable) {
-          try { await offerDeviceUnlock(loginName.trim(), name.trim() || loginName.trim()); toast(t('deviceUnlockOn')); }
+          try { await offerDeviceUnlock(nextLogin, nextName || nextLogin); toast(t('deviceUnlockOn')); }
           catch { /* user cancelled sensor */ }
         }
       }
@@ -690,17 +716,17 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
     } finally { setBusy(false); }
   };
   const form = (
-    <>
+    <form ref={formRef} autoComplete="on" method="post" action="." onSubmit={(e) => { e.preventDefault(); void submit(undefined, e.currentTarget); }} className="flex flex-col gap-3">
       <div className="flex gap-1 p-1 rounded-2xl" style={{ background: th.lightBg }}>
         {(['in', 'up'] as const).map((m) => (
-          <button key={m} onClick={() => { setMode(m); setNeedTotp(false); setTotp(''); setTotpError(false); }} className="pv-label flex-1 py-2 rounded-xl" style={{ background: mode === m ? th.cardBg : 'transparent', color: mode === m ? ACCENT : OLIVE }}>
+          <button key={m} type="button" onClick={() => { setMode(m); setNeedTotp(false); setTotp(''); setTotpError(false); }} className="pv-label flex-1 py-2 rounded-xl" style={{ background: mode === m ? th.cardBg : 'transparent', color: mode === m ? ACCENT : OLIVE }}>
             {m === 'in' ? t('login') : t('register')}
           </button>
         ))}
       </div>
-      {mode === 'up' && <Field label={t('name')} value={name} onChange={setName} th={th} />}
-      <Field label={t('loginName')} value={loginName} onChange={setLogin} th={th} />
-      <Field label={t('password')} value={password} onChange={setPassword} th={th} password />
+      {mode === 'up' && <Field label={t('name')} value={name} onChange={setName} th={th} name="name" autoComplete="name" />}
+      <Field label={t('loginName')} value={loginName} onChange={setLogin} th={th} name="username" autoComplete={mode === 'in' ? 'username webauthn' : 'username'} />
+      <Field label={t('password')} value={password} onChange={setPassword} th={th} password name="password" autoComplete={mode === 'in' ? 'current-password' : 'new-password'} />
       {mode === 'in' && (
         <label className="pv-caption flex items-start gap-2" style={{ color: OLIVE }}>
           <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="mt-0.5" />
@@ -713,7 +739,7 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
           <p className="pv-caption mb-3" style={{ color: SAGE }}>Шесть цифр из Google Authenticator, Яндекс Ключ или другого приложения</p>
           <OtpInput value={totp} error={totpError} autoFocus disabled={busy}
             onChange={(v) => { setTotp(v); setTotpError(false); }}
-            onComplete={(code) => { if (!busy) void submit(code); }} />
+            onComplete={(code) => { if (!busy) void submit(code, formRef.current); }} />
         </motion.div>
       )}
       {mode === 'up' && (
@@ -756,10 +782,10 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
           </label>
         </>
       )}
-      <button disabled={busy} onClick={() => void submit()} className="pv-button w-full py-3.5 rounded-2xl text-white cursor-pointer" style={{ background: ACCENT }}>{busy ? '…' : mode === 'in' ? t('signIn') : t('createAccount')}</button>
-      {mode === 'in' && <button className="pv-caption" style={{ color: SAGE }} onClick={() => push({ type: 'reset-password' })}>{t('forgotPassword')}</button>}
+      <button type="submit" disabled={busy} className="pv-button w-full py-3.5 rounded-2xl text-white cursor-pointer" style={{ background: ACCENT }}>{busy ? '…' : mode === 'in' ? t('signIn') : t('createAccount')}</button>
+      {mode === 'in' && <button type="button" className="pv-caption" style={{ color: SAGE }} onClick={() => push({ type: 'reset-password' })}>{t('forgotPassword')}</button>}
       <p className="pv-micro" style={{ color: SAGE }}>{t('cookiesNeed')}</p>
-    </>
+    </form>
   );
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
@@ -779,12 +805,28 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
   );
 }
 
-function Field({ label, value, onChange, th, password, inputMode, readOnly }: { label: string; value: string; onChange: (v: string) => void; th: { cardBg: string; inkText: string }; password?: boolean; inputMode?: 'numeric' | 'email' | 'text'; readOnly?: boolean }) {
+function Field({ label, value, onChange, th, password, inputMode, readOnly, autoComplete, name }: {
+  label: string; value: string; onChange: (v: string) => void; th: { cardBg: string; inkText: string };
+  password?: boolean; inputMode?: 'numeric' | 'email' | 'text'; readOnly?: boolean;
+  autoComplete?: string; name?: string;
+}) {
   return (
     <label className="pv-label" style={{ color: SAGE }}>
       {label}
-      <input type={password ? 'password' : 'text'} inputMode={inputMode} readOnly={readOnly} value={value} onChange={(e) => onChange(e.target.value)}
-        className={`mt-1 w-full rounded-2xl px-3 py-3 outline-none ${readOnly ? 'opacity-80' : ''}`} style={{ background: th.cardBg, color: th.inkText }} />
+      <input
+        type={password ? 'password' : 'text'}
+        id={name}
+        name={name}
+        autoComplete={autoComplete}
+        autoCapitalize={password ? 'off' : 'none'}
+        autoCorrect="off"
+        spellCheck={false}
+        inputMode={inputMode}
+        readOnly={readOnly}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`mt-1 w-full rounded-2xl px-3 py-3 outline-none ${readOnly ? 'opacity-80' : ''}`}
+        style={{ background: th.cardBg, color: th.inkText }} />
     </label>
   );
 }
@@ -798,12 +840,12 @@ function ResetPasswordScreen({ onBack }: { onBack: () => void }) {
   const [pw, setPw] = useState('');
   const fields = (
     <>
-      <Field label="Логин или email" value={loginOrEmail} onChange={setL} th={th} />
-      <button className="py-3 rounded-2xl text-xs font-semibold text-white" style={{ background: DARK }} onClick={async () => {
+      <Field label="Логин или email" value={loginOrEmail} onChange={setL} th={th} name="username" autoComplete="username" />
+      <button type="button" className="py-3 rounded-2xl text-xs font-semibold text-white" style={{ background: DARK }} onClick={async () => {
         try { await apiRequestPasswordReset(loginOrEmail); toast('Если аккаунт есть, код отправлен'); } catch (e: unknown) { toast((e as Error).message); }
       }}>Отправить код</button>
-      <Field label="Код" value={code} onChange={setCode} th={th} />
-      <Field label="Новый пароль" value={pw} onChange={setPw} th={th} password />
+      <Field label="Код" value={code} onChange={setCode} th={th} name="one-time-code" autoComplete="one-time-code" inputMode="numeric" />
+      <Field label="Новый пароль" value={pw} onChange={setPw} th={th} password name="new-password" autoComplete="new-password" />
       <button className="py-3 rounded-2xl text-xs font-semibold text-white" style={{ background: ACCENT }} onClick={async () => {
         try { await apiConfirmPasswordReset(loginOrEmail, code, pw); toast('Пароль обновлён'); onBack(); } catch (e: unknown) { toast((e as Error).message); }
       }}>Сохранить пароль</button>
@@ -1487,7 +1529,7 @@ function CabinetScreen({ onBack }: { onBack: () => void }) {
           <p className="text-[10px] mb-2 font-semibold" style={{ color: verified ? ACCENT : SAGE }}>
             {verified ? 'Подтверждена' : 'Не подтверждена'}
           </p>
-          <Field label="Адрес" value={email} onChange={setEmail} th={th} inputMode="email" readOnly={verified} />
+          <Field label="Адрес" value={email} onChange={setEmail} th={th} inputMode="email" readOnly={verified} name="email" autoComplete="email" />
           {!verified && (
             <>
               <button disabled={busy} onClick={() => void sendEmailCode()} className="mt-2 w-full py-2.5 rounded-2xl text-xs font-semibold text-white" style={{ background: DARK }}>Отправить код</button>
@@ -1499,9 +1541,9 @@ function CabinetScreen({ onBack }: { onBack: () => void }) {
 
         <div className="rounded-3xl p-4" style={{ background: th.cardBg }}>
           <p className="text-xs font-bold mb-2" style={{ color: th.inkText }}>Пароль</p>
-          <Field label="Текущий" value={curPw} onChange={setCurPw} th={th} password />
-          <Field label="Новый" value={newPw} onChange={setNewPw} th={th} password />
-          <Field label="Повтор" value={newPw2} onChange={setNewPw2} th={th} password />
+          <Field label="Текущий" value={curPw} onChange={setCurPw} th={th} password name="current-password" autoComplete="current-password" />
+          <Field label="Новый" value={newPw} onChange={setNewPw} th={th} password name="new-password" autoComplete="new-password" />
+          <Field label="Повтор" value={newPw2} onChange={setNewPw2} th={th} password name="new-password-confirm" autoComplete="new-password" />
           <button disabled={busy} onClick={() => void changePw()} className="mt-2 w-full py-2.5 rounded-2xl text-xs font-semibold text-white" style={{ background: ACCENT }}>Сменить пароль</button>
         </div>
 

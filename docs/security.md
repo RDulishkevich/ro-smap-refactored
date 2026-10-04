@@ -16,7 +16,7 @@
 
 | Зона | Доверие | Что хранит |
 |------|---------|------------|
-| Браузер (фронт) | **недоверенный** | UI, флаг сессии, access JWT в memory/`sessionStorage` (не `localStorage`) |
+| Браузер (фронт) | **недоверенный** | UI, флаг сессии; access/refresh JWT в `localStorage` при «Запомнить меня», иначе `sessionStorage` |
 | Secure API (Yandex Cloud Function) | **доверенный** | проверка JWT/cookies, merge/sanitize, presign, Translate, TOTP |
 | `rosmap2026` (public) | публичное чтение | каталог звуков, визитки, лента, медиа |
 | `rosmap2026-private` | только SA / API | `_auth/`, `_mail/boxes/`, `mail.json` (legacy), `staging/`, PII, HMAC-подписи |
@@ -58,7 +58,7 @@ Object Storage
 - **Access JWT** TTL **30 минут** (`typ: access`); **refresh JWT** TTL **14 суток** (`typ: refresh`) при «Запомнить меня»; иначе refresh — session cookie (`rm: 0` в JWT).
 - Быстрый вход с домашнего экрана: WebAuthn platform authenticator (Face ID / отпечаток / PIN) на устройстве; биометрия на сервер не уходит.
 - Оба токена в **HttpOnly** cookies (`rosmap_at` / `rosmap_rt`), `Secure; SameSite=None` (SPA на другом origin).
-- Клиент шлёт `credentials: 'include'`; access JWT дублируется в `sessionStorage`/`memory` для заголовка `X-Rosmap-Token` (не в `localStorage`).
+- Клиент шлёт `credentials: 'include'`. Access JWT дублируется в storage/`memory` для `X-Rosmap-Token`. При «Запомнить меня» access и refresh лежат в `localStorage` (iOS ITP часто режет сторонние cookies Function-хоста). Без галочки — только `sessionStorage`.
 - Подпись JWT проверяется с `timingSafeEqual`.
 - `tokenVersion` (`tv` в JWT): смена пароля, **сброс пароля**, logout everywhere и отключение 2FA инвалидируют все старые токены.
 - Логин: нет такого пользователя = тот же `401 bad_credentials`, что и неверный пароль (без enumeration).
@@ -70,7 +70,7 @@ Object Storage
 
 | action | Назначение |
 |--------|------------|
-| `refresh` | новый access+refresh по cookie `rosmap_rt` |
+| `refresh` | новый access+refresh по `body.refreshToken` или cookie `rosmap_rt` |
 | `logout` | сброс cookies на этом устройстве |
 | `logoutAll` | `tokenVersion++` + сброс cookies (выход везде) |
 
@@ -164,7 +164,7 @@ node cloud/ops/migrate-mail-private.cjs
 
 Запись публичных JSON: S3 `If-Match` (etag) + до 4 попыток, либо строка в YDB + публикация кэша. Конфликт → `409 write_conflict` (клиент ретраит).
 
-YDB (когда задан `YDB_DOCAPI_ENDPOINT`): таблица `polevka_rows` (kind+id). Лайк/плей патчит одну строку звука и пересобирает `map_data.json` для гостей. Учётки, почта, PII — отдельные строки, не один гигантский файл.
+YDB (когда задан `YDB_DOCAPI_ENDPOINT`): таблица `polevka_rows` (kind+id). Лайк/плей патчит одну строку звука и точечно обновляет кэш `map_data.json` в публичном бакете. Полная пересборка коллекции — только при sync/commit. Коллекционные записи в YDB сверяют `If-Match` (конфликт → 409). Учётки, почта, PII — отдельные строки.
 
 Покрыто: `mail.json`, `_mail/boxes/*`, `profiles.json`, `map_data.json`, `feed.json`, `events.json`, `_auth/*`.
 
@@ -174,7 +174,7 @@ YDB (когда задан `YDB_DOCAPI_ENDPOINT`): таблица `polevka_rows`
 - `refresh` живёт в HttpOnly cookie, в JSON ответа больше не отдаётся.
 - Запрос кода на чужой подтверждённый email отвечает так же, как обычная отправка — без `email_taken`.
 - Удаление аккаунта (`deleteAccount` самим пользователем или `adminDeleteUser`) снимает ящик и коды в S3 **и** YDB, анонимизирует комментарии / авторство, чистит черновики и неиспользуемые загрузки. Опубликованные записи остаются без имени. Самоудаление: пароль + TOTP, если включена; `admin`/`support` нельзя удалить так.
-- Экспорт своих данных: `exportMyData` (профиль, private meta без хешей, ящик, свои звуки и посты).
+- Экспорт своих данных: `exportMyData` (профиль, private meta без хешей, ящик, свои звуки и посты). Staff — только после TOTP. В UI кнопки нет: копию данных пользователь запрашивает через поддержку.
 - `getMail`: admin видит все ящики; moderator — свой и `support` (тикеты).
 - Согласие `pdConsent` клиент через sync подделать не может.
 

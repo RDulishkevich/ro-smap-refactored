@@ -1,4 +1,4 @@
-import { FUNCTION_URL, TOKEN_KEY, USER_KEY } from './config';
+import { FUNCTION_URL, REFRESH_KEY, REMEMBER_KEY, TOKEN_KEY, USER_KEY } from './config';
 import type { SessionUser } from './types';
 
 export type ApiError = Error & { code?: string; status?: number; data?: unknown };
@@ -6,9 +6,17 @@ export type ApiError = Error & { code?: string; status?: number; data?: unknown 
 let accessToken = '';
 let refreshInFlight: Promise<unknown> | null = null;
 
+function rememberTokens() {
+  try {
+    return localStorage.getItem(REMEMBER_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 function readStoredToken() {
   try {
-    return sessionStorage.getItem(TOKEN_KEY) || '';
+    return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || '';
   } catch {
     return '';
   }
@@ -18,14 +26,50 @@ export function getAuthToken() {
   return accessToken || readStoredToken();
 }
 
-export function setAccessToken(token: string) {
+export function setAccessToken(token: string, remember = rememberTokens()) {
   accessToken = token;
   try {
-    if (token) sessionStorage.setItem(TOKEN_KEY, token);
-    else sessionStorage.removeItem(TOKEN_KEY);
+    const store = remember ? localStorage : sessionStorage;
+    const other = remember ? sessionStorage : localStorage;
+    if (token) {
+      store.setItem(TOKEN_KEY, token);
+      other.removeItem(TOKEN_KEY);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(TOKEN_KEY);
+    }
   } catch {
     /* ignore */
   }
+}
+
+export function readRefreshToken() {
+  try {
+    return localStorage.getItem(REFRESH_KEY) || sessionStorage.getItem(REFRESH_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+export function persistRefreshToken(token: string, remember = rememberTokens()) {
+  try {
+    if (!token) {
+      localStorage.removeItem(REFRESH_KEY);
+      sessionStorage.removeItem(REFRESH_KEY);
+      return;
+    }
+    const store = remember ? localStorage : sessionStorage;
+    const other = remember ? sessionStorage : localStorage;
+    store.setItem(REFRESH_KEY, token);
+    other.removeItem(REFRESH_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearSessionTokens() {
+  setAccessToken('');
+  persistRefreshToken('');
 }
 
 export async function apiRequest(action: string, payload: Record<string, unknown> = {}, { auth = false, _retried = false } = {}) {
@@ -68,7 +112,10 @@ export async function apiRequest(action: string, payload: Record<string, unknown
     err.data = data;
     throw err;
   }
-  if (data?.token) setAccessToken(String(data.token));
+  if (data?.token) setAccessToken(String(data.token), data.rememberMe !== false);
+  if (typeof data?.refreshToken === 'string' && data.refreshToken) {
+    persistRefreshToken(data.refreshToken, data.rememberMe !== false);
+  }
   return data || { ok: true };
 }
 
@@ -76,8 +123,9 @@ export function apiRefreshSession() {
   if (refreshInFlight) return refreshInFlight;
   refreshInFlight = (async () => {
     try {
-      const data = await apiRequest('refresh', {}, { auth: false });
-      if (data?.token) setAccessToken(String(data.token));
+      const rt = readRefreshToken();
+      const data = await apiRequest('refresh', rt ? { refreshToken: rt } : {}, { auth: false });
+      if (data?.token) setAccessToken(String(data.token), data.rememberMe !== false);
       return data;
     } finally {
       refreshInFlight = null;

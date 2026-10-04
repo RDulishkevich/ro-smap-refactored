@@ -1,14 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   apiLogin, apiLogout, apiMe, apiRegister, clearAuthSession, hasCookieConsentForAuth,
-  persistUser, readRememberMe, restoreAuthSession, setAuthSession, setRememberMe,
+  persistRefreshToken, persistUser, readRememberMe, restoreAuthSession, setAuthSession, setRememberMe,
   userFromApi, type SessionUser,
 } from '@polevka/core';
 import {
   assertDeviceUnlock, canUseDeviceUnlock, clearDeviceUnlock, enrollDeviceUnlock, hasDeviceUnlock,
 } from '../lib/device-unlock';
-import { isStandaloneApp } from '../lib/standalone';
-
 type AuthCtx = {
   user: SessionUser | null;
   isLoggedIn: boolean;
@@ -21,6 +19,7 @@ type AuthCtx = {
   restoring: boolean;
   needsUnlock: boolean;
   unlockWithDevice: () => Promise<boolean>;
+  resumeStoredSession: () => Promise<boolean>;
   skipDeviceUnlock: () => Promise<void>;
   offerDeviceUnlock: (login?: string, displayName?: string) => Promise<boolean>;
   disableDeviceUnlock: () => void;
@@ -37,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    const gate = isStandaloneApp() && readRememberMe() && hasDeviceUnlock();
+    const gate = readRememberMe() && hasDeviceUnlock();
     if (gate) {
       setNeedsUnlock(true);
       setRestoring(false);
@@ -55,14 +54,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (loginName: string, password: string, totp?: string, rememberMe = true) => {
     if (!hasCookieConsentForAuth()) throw Object.assign(new Error('Нужно принять cookies сессии'), { code: 'consent' });
+    setRememberMe(rememberMe);
     const data = await apiLogin(loginName, password, totp, rememberMe) as {
-      token?: string; user?: Record<string, unknown>; needsTotp?: boolean;
+      token?: string; refreshToken?: string; user?: Record<string, unknown>; needsTotp?: boolean;
     };
     if (data.needsTotp) {
       throw Object.assign(new Error('Введите код 2FA'), { code: 'totp_required' });
     }
     const next = userFromApi(data.user);
-    setRememberMe(rememberMe);
+    if (data.refreshToken) persistRefreshToken(data.refreshToken, rememberMe);
     setAuthSession(String(data.token || ''), next, rememberMe);
     setUser(next);
     setNeedsUnlock(false);
@@ -112,9 +112,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const unlockWithDevice = useCallback(async () => {
     await assertDeviceUnlock();
     const next = await restoreAuthSession();
-    setUser(next);
+    if (!next) return false;
     setNeedsUnlock(false);
-    return !!next;
+    setUser(next);
+    return true;
+  }, []);
+
+  const resumeStoredSession = useCallback(async () => {
+    const next = await restoreAuthSession();
+    setNeedsUnlock(false);
+    if (!next) return false;
+    setUser(next);
+    return true;
   }, []);
 
   const skipDeviceUnlock = useCallback(async () => {
@@ -143,8 +152,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoggedIn: !!user,
     isStaff: user?.role === 'admin' || user?.role === 'moderator',
     login, register, logout, refreshUser, patchUser, restoring,
-    needsUnlock, unlockWithDevice, skipDeviceUnlock, offerDeviceUnlock, disableDeviceUnlock, deviceUnlockReady,
-  }), [user, login, register, logout, refreshUser, patchUser, restoring, needsUnlock, unlockWithDevice, skipDeviceUnlock, offerDeviceUnlock, disableDeviceUnlock, deviceUnlockReady]);
+    needsUnlock, unlockWithDevice, resumeStoredSession, skipDeviceUnlock, offerDeviceUnlock, disableDeviceUnlock, deviceUnlockReady,
+  }), [user, login, register, logout, refreshUser, patchUser, restoring, needsUnlock, unlockWithDevice, resumeStoredSession, skipDeviceUnlock, offerDeviceUnlock, disableDeviceUnlock, deviceUnlockReady]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -231,6 +231,14 @@ async function saveSpec(key, spec, data, { ifMatch, publish } = {}) {
         return;
     }
     const prev = await queryKind(spec.kind);
+    if (ifMatch) {
+        const etag = prev.map(revOf).sort().join(',') || '0';
+        if (etag !== String(ifMatch)) {
+            const err = new Error('write_conflict');
+            err.code = 'write_conflict';
+            throw err;
+        }
+    }
     const prevIds = new Set(prev.map((it) => it.id.S));
     const nextEntries = spec.mode === 'map'
         ? Object.entries(data || {})

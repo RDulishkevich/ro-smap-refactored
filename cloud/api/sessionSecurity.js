@@ -50,9 +50,9 @@ function extractTokenFromRequest(event, body, getHeader) {
 }
 
 function extractRefreshToken(event, body, getHeader) {
+    if (body && body.refreshToken) return String(body.refreshToken);
     const cookies = parseCookies(event, getHeader);
     if (cookies[REFRESH_COOKIE]) return String(cookies[REFRESH_COOKIE]).trim();
-    if (body && body.refreshToken) return String(body.refreshToken);
     return '';
 }
 

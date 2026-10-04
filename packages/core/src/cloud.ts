@@ -2,18 +2,33 @@ import { BUCKET_URL } from './config';
 import type { AppEvent, FeedPost, Profile, Sound } from './types';
 import { formatSound } from './sounds';
 
-async function fetchJson<T>(file: string): Promise<T | null> {
+const etags = new Map<string, string>();
+const lastRaw = new Map<string, unknown>();
+const lastFormatted = new Map<string, unknown>();
+
+async function fetchJson<T>(file: string): Promise<{ data: T; unchanged: boolean }> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 15_000);
   try {
-    const res = await fetch(`${BUCKET_URL}/${file}`, { cache: 'no-cache', signal: ctrl.signal });
+    const headers: Record<string, string> = {};
+    const prev = etags.get(file);
+    if (prev) headers['If-None-Match'] = prev;
+    const res = await fetch(`${BUCKET_URL}/${file}`, { cache: 'no-cache', headers, signal: ctrl.signal });
+    if (res.status === 304) {
+      const cached = lastRaw.get(file);
+      if (cached !== undefined) return { data: cached as T, unchanged: true };
+    }
     if (!res.ok) {
       const err = new Error('cloud_unavailable') as Error & { code: string; status: number };
       err.code = 'cloud_unavailable';
       err.status = res.status;
       throw err;
     }
-    return await res.json() as T;
+    const etag = res.headers.get('etag');
+    if (etag) etags.set(file, etag);
+    const data = await res.json() as T;
+    lastRaw.set(file, data);
+    return { data, unchanged: false };
   } catch (e) {
     const prev = e as { code?: string; status?: number };
     if (prev?.code === 'cloud_unavailable') throw e;
@@ -27,22 +42,34 @@ async function fetchJson<T>(file: string): Promise<T | null> {
 }
 
 export async function fetchMapData(): Promise<Sound[]> {
-  const raw = await fetchJson<unknown[]>('map_data.json');
-  if (!Array.isArray(raw)) return [];
-  return raw.map((s) => formatSound(s as Sound));
+  const { data, unchanged } = await fetchJson<unknown[]>('map_data.json');
+  if (unchanged && lastFormatted.has('map_data.json')) return lastFormatted.get('map_data.json') as Sound[];
+  if (!Array.isArray(data)) return [];
+  const sounds = data.map((s) => formatSound(s as Sound));
+  lastFormatted.set('map_data.json', sounds);
+  return sounds;
 }
 
 export async function fetchProfiles(): Promise<Profile[]> {
-  const raw = await fetchJson<unknown[]>('profiles.json');
-  return Array.isArray(raw) ? raw as Profile[] : [];
+  const { data, unchanged } = await fetchJson<unknown[]>('profiles.json');
+  if (unchanged && lastFormatted.has('profiles.json')) return lastFormatted.get('profiles.json') as Profile[];
+  const list = Array.isArray(data) ? data as Profile[] : [];
+  lastFormatted.set('profiles.json', list);
+  return list;
 }
 
 export async function fetchFeed(): Promise<FeedPost[]> {
-  const raw = await fetchJson<unknown[]>('feed.json');
-  return Array.isArray(raw) ? raw as FeedPost[] : [];
+  const { data, unchanged } = await fetchJson<unknown[]>('feed.json');
+  if (unchanged && lastFormatted.has('feed.json')) return lastFormatted.get('feed.json') as FeedPost[];
+  const list = Array.isArray(data) ? data as FeedPost[] : [];
+  lastFormatted.set('feed.json', list);
+  return list;
 }
 
 export async function fetchEvents(): Promise<AppEvent[]> {
-  const raw = await fetchJson<unknown[]>('events.json');
-  return Array.isArray(raw) ? raw as AppEvent[] : [];
+  const { data, unchanged } = await fetchJson<unknown[]>('events.json');
+  if (unchanged && lastFormatted.has('events.json')) return lastFormatted.get('events.json') as AppEvent[];
+  const list = Array.isArray(data) ? data as AppEvent[] : [];
+  lastFormatted.set('events.json', list);
+  return list;
 }

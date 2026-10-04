@@ -62,6 +62,15 @@ const SMTP_USER = process.env.SMTP_USER || '';
 const SMTP_PASS = process.env.SMTP_PASS || '';
 const MAIL_FROM = process.env.MAIL_FROM || '';
 const ALLOW_DEMO_EMAIL_CODES = String(process.env.ALLOW_DEMO_EMAIL_CODES || '') === '1';
+
+function isLocalDevOrigin(event) {
+    const origin = String(getHeader(event, 'origin') || '').toLowerCase();
+    return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+}
+
+function canReturnDemoCode(event) {
+    return ALLOW_DEMO_EMAIL_CODES && isLocalDevOrigin(event);
+}
 const EMAIL_CODE_TTL_MS = 10 * 60 * 1000;
 const PASSWORD_RESET_TTL_MS = 15 * 60 * 1000;
 const AUTH_KEY = '_auth/users.json';
@@ -79,7 +88,9 @@ const MAX_SYNC_ROWS = 80;
 const MAIL_BOX_PREFIX = '_mail/boxes/';
 const LOGIN_LOCKS_KEY = '_auth/login_locks.json';
 const RATE_BUCKETS_KEY = '_auth/rate_buckets.json';
-const RATE_PERSIST_RE = /^(reg:|login:|emailreq|emailcfm|pwdreq|pwdcfm|admin|totp:)/;
+const RATE_PERSIST_RE = /^(reg:|login:|emailreq|emailcfm|pwdreq|pwdcfm|admin|totp:|sync:|presign:|patch:|exportdata:)/;
+const AUTH_USER_TTL_MS = 8000;
+const authUserCache = new Map();
 const MAX_INBOX = 200;
 const MAX_NOTIFICATIONS = 100;
 const MAX_ACTIVITY = 100;
@@ -360,6 +371,7 @@ function authSuccessResponse(user, extra = {}) {
     return respond(200, {
         ok: true,
         token: pair.access,
+        refreshToken: remember ? pair.refresh : undefined,
         tokenExpiresIn: pair.accessTtl,
         rememberMe: remember,
         user: rest.user || publicUser(user),
@@ -638,6 +650,21 @@ async function publishPublicJson(key, data) {
             ACL: 'private'
         }));
     }
+}
+
+async function publishPatchedSoundCache(sound) {
+    if (!sound || sound.id == null) return;
+    try {
+        const obj = await getObject('map_data.json', BUCKET);
+        if (!obj?.text) return;
+        const list = JSON.parse(obj.text || 'null');
+        if (!Array.isArray(list)) return;
+        const sid = String(sound.id);
+        const idx = list.findIndex((s) => s && String(s.id) === sid);
+        if (idx < 0) list.push(sound);
+        else list[idx] = { ...list[idx], ...sound };
+        await publishPublicJson('map_data.json', list);
+    } catch (_) { /* next play republishes */ }
 }
 
 async function getJsonCas(key, fallback) {
@@ -1030,8 +1057,7 @@ async function applyMailMerge(proposed, user) {
         const login = normalizeLogin(row.loginName);
         if (login) targets.add(login);
     }
-    const fresh = [];
-    for (const login of targets) fresh.push(await loadMailBox(login));
+    const fresh = await Promise.all([...targets].map((login) => loadMailBox(login)));
     let merged = mergeMailArrays(fresh, proposed);
     merged = sanitizeMail(fresh, merged, user);
 
@@ -1102,6 +1128,11 @@ async function resolveAuthUser(payload) {
     if (!payload?.login) return null;
     if (payload.typ && payload.typ !== 'access') return null;
     const login = String(payload.login).toLowerCase();
+    const tvHint = payload.tv != null ? Number(payload.tv) : null;
+    const cached = authUserCache.get(login);
+    if (cached && Date.now() - cached.at < AUTH_USER_TTL_MS && (tvHint == null || cached.tv === tvHint)) {
+        return cached.user;
+    }
     const users = await loadAuthUsers();
     const row = users[login];
     if (!row) return null;
@@ -1110,12 +1141,14 @@ async function resolveAuthUser(payload) {
     const profiles = await getJson('profiles.json', []);
     const profile = (profiles || []).find((p) => String(p.loginName || '').toLowerCase() === login);
     if (profile?.blocked && login !== 'admin') {
-        return { login, blocked: true, role: 'user', displayName: login, tokenVersion: tv };
+        const blocked = { login, blocked: true, role: 'user', displayName: login, tokenVersion: tv };
+        authUserCache.set(login, { at: Date.now(), tv, user: blocked });
+        return blocked;
     }
     let role = normalizeStaffRole(row.role, login);
     if (profile?.role) role = normalizeStaffRole(profile.role, login);
     if (profile?.role === 'user' && login !== 'admin') role = 'user';
-    return {
+    const resolved = {
         login,
         role,
         displayName: profile?.displayName || row.displayName || payload.displayName || login,
@@ -1123,6 +1156,8 @@ async function resolveAuthUser(payload) {
         tokenVersion: tv,
         totpEnabled: !!row.totpEnabled
     };
+    authUserCache.set(login, { at: Date.now(), tv, user: resolved });
+    return resolved;
 }
 
 /** Клиенту не отдаём чужие ящики целиком — только свои + исходящие (для UI чатов). */
@@ -1489,9 +1524,8 @@ function sanitizeInbox(cloudInbox = [], proposedInbox = [], actorLogin) {
         if (!msg?.id) continue;
         const prev = cloudMap.get(msg.id);
         if (prev) {
-            // allow edits/deletes only for own messages
-            if (String(prev.fromId || '').toLowerCase() === actorLogin || String(msg.fromId || '').toLowerCase() === actorLogin) {
-                out.push(msg);
+            if (String(prev.fromId || '').toLowerCase() === actorLogin) {
+                out.push({ ...msg, fromId: prev.fromId, id: prev.id });
             } else {
                 out.push(prev);
             }
@@ -2332,7 +2366,7 @@ async function findLoginByEmailOrLogin(loginOrEmail) {
     return users[login] ? login : null;
 }
 
-async function handleRequestPasswordReset(body) {
+async function handleRequestPasswordReset(event, body) {
     const loginOrEmail = String(body.loginOrEmail || '').trim();
     const generic = respond(200, { ok: true, message: 'if_account_exists_email_sent' });
 
@@ -2348,7 +2382,7 @@ async function handleRequestPasswordReset(body) {
     if (!isValidEmail(email) || !meta[login]?.emailVerified) return generic;
 
     const smtpOk = isSmtpConfigured();
-    if (!smtpOk && !ALLOW_DEMO_EMAIL_CODES) return generic;
+    if (!smtpOk && !canReturnDemoCode(event)) return generic;
 
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiresAt = Date.now() + PASSWORD_RESET_TTL_MS;
@@ -2364,12 +2398,12 @@ async function handleRequestPasswordReset(body) {
         } catch (err) {
             smtpLog('SMTP password reset failed', err);
             await clearPasswordReset(login);
-            return respond(502, { ok: false, error: 'mail_send_failed' });
+            return generic;
         }
-        return respond(200, { ok: true });
+        return generic;
     }
 
-    return respond(200, { ok: true, demoCode: code, demo: true });
+    return respond(200, { ok: true, message: 'if_account_exists_email_sent', demoCode: code, demo: true });
 }
 
 async function handleConfirmPasswordReset(body) {
@@ -2383,10 +2417,10 @@ async function handleConfirmPasswordReset(body) {
     if (!login || login === 'admin') return respond(400, { ok: false, error: 'bad_code' });
 
     const row = await loadPasswordReset(login);
-    if (!row?.codeHash) return respond(400, { ok: false, error: 'no_pending_code' });
+    if (!row?.codeHash) return respond(400, { ok: false, error: 'bad_code' });
     if (Date.now() > Number(row.expiresAt || 0)) {
         await clearPasswordReset(login);
-        return respond(400, { ok: false, error: 'code_expired' });
+        return respond(400, { ok: false, error: 'bad_code' });
     }
 
     const expect = hashEmailCode(login, code);
@@ -2625,6 +2659,8 @@ async function handleExportMyData(event, body) {
     const user = await resolveAuthUser(payload);
     if (!user) return respond(401, { ok: false, error: 'unauthorized' });
     if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
+    const totpBlock = await assertStaffTotp(user);
+    if (totpBlock) return totpBlock;
 
     const [profiles, sounds, feed, meta] = await Promise.all([
         getJson('profiles.json', []),
@@ -2754,7 +2790,7 @@ async function handleRequestEmailVerification(event, body) {
     }
 
     const smtpOk = isSmtpConfigured();
-    if (!smtpOk && !ALLOW_DEMO_EMAIL_CODES) {
+    if (!smtpOk && !canReturnDemoCode(event)) {
         return respond(503, {
             ok: false,
             error: 'mail_not_configured',
@@ -2782,7 +2818,6 @@ async function handleRequestEmailVerification(event, body) {
         return respond(200, { ok: true, expiresAt });
     }
 
-    // Staging only: SMTP missing + ALLOW_DEMO_EMAIL_CODES=1
     return respond(200, {
         ok: true,
         expiresAt,
@@ -2909,14 +2944,13 @@ async function handleGetMail(event, body) {
         return respond(200, { ok: true, data: all.map(sanitizeMailRecord) });
     }
     if (isStaffUser(user)) {
-        const mine = await loadMailBox(user.login);
-        const support = await loadMailBox('support');
+        const [mine, support] = await Promise.all([loadMailBox(user.login), loadMailBox('support')]);
         return respond(200, { ok: true, data: [mine, support].map(sanitizeMailRecord) });
     }
     const mine = await loadMailBox(user.login);
-    const boxes = [mine];
-    for (const p of mine.partners || []) boxes.push(await loadMailBox(p));
-    return respond(200, { ok: true, data: projectMailForClient(boxes, user) });
+    const partners = (mine.partners || []).map((p) => normalizeLogin(p)).filter(Boolean);
+    const extra = await Promise.all(partners.map((p) => loadMailBox(p)));
+    return respond(200, { ok: true, data: projectMailForClient([mine, ...extra], user) });
 }
 
 async function handleSync(event, body) {
@@ -2976,8 +3010,8 @@ async function handlePatchSound(event, body) {
     if (!soundId) return respond(400, { ok: false, error: 'bad_sound_id' });
 
     const ops = body.ops && typeof body.ops === 'object' ? body.ops : {};
-    const incPlays = Math.min(20, Math.max(0, Math.floor(Number(ops.incPlays) || 0)));
-    const incDownloads = Math.min(20, Math.max(0, Math.floor(Number(ops.incDownloads) || 0)));
+    const incPlays = Math.min(1, Math.max(0, Math.floor(Number(ops.incPlays) || 0)));
+    const incDownloads = Math.min(1, Math.max(0, Math.floor(Number(ops.incDownloads) || 0)));
     const reaction = ops.reaction === 'like' || ops.reaction === 'dislike' ? ops.reaction : null;
 
     if (!incPlays && !incDownloads && !reaction) {
@@ -3014,8 +3048,7 @@ async function handlePatchSound(event, body) {
             return sanitizeSoundRecord(sound);
         });
         if (!patched) return respond(404, { ok: false, error: 'sound_not_found' });
-        const all = await ydbDoc.scanKind('sound');
-        await publishPublicJson('map_data.json', all);
+        await publishPatchedSoundCache(patched);
         return respond(200, {
             ok: true,
             soundId,
@@ -3222,6 +3255,10 @@ async function handleCommit(event, body) {
     if (!Array.isArray(proposed)) {
         return respond(400, { ok: false, error: 'no_staging', message: `Missing ${stagingKey}` });
     }
+    const stagingBytes = Buffer.byteLength(JSON.stringify(proposed), 'utf8');
+    if (stagingBytes > MAX_JSON_SYNC_BYTES) {
+        return respond(413, { ok: false, error: 'file_too_large', maxBytes: MAX_JSON_SYNC_BYTES });
+    }
 
     const result = await applyMergeAndSave(fileName, proposed, user);
 
@@ -3258,6 +3295,17 @@ async function handlePresign(event, body) {
     const stagingMatch = fileName.match(/^staging\/([^/]+)\/(map_data\.json|profiles\.json|feed\.json|mail\.json|events\.json)$/);
     if (stagingMatch) {
         if (stagingMatch[1] !== user.login) return respond(403, { ok: false, error: 'bad_staging_owner' });
+        if (!(contentLength > 0)) {
+            return respond(400, { ok: false, error: 'content_length_required' });
+        }
+        if (contentLength > MAX_JSON_SYNC_BYTES) {
+            return respond(413, {
+                ok: false,
+                error: 'file_too_large',
+                maxBytes: MAX_JSON_SYNC_BYTES,
+                message: 'Staging JSON must be ≤ 2.5 MB'
+            });
+        }
         key = fileName;
     } else if (ALLOWED_JSON.has(fileName) || fileName === AUTH_KEY || fileName.startsWith('_auth/') || fileName.startsWith('_mail/')) {
         return respond(403, { ok: false, error: 'use_sync' });
@@ -3377,7 +3425,7 @@ exports.handler = async function handler(event = {}) {
 
     // health / publicConfig — без секретов и без тяжёлых лимитов
     if (action === 'health') {
-        return respond(200, { ok: true, version: 20, ydb: ydbDoc.enabled() });
+        return respond(200, { ok: true, version: 21, ydb: ydbDoc.enabled() });
     }
     if (action === 'publicConfig') {
         return respond(200, {
@@ -3431,7 +3479,7 @@ exports.handler = async function handler(event = {}) {
         if (action === 'translate') return await handleTranslate(event, body);
         if (action === 'requestEmailVerification') return await handleRequestEmailVerification(event, body);
         if (action === 'confirmEmailVerification') return await handleConfirmEmailVerification(event, body);
-        if (action === 'requestPasswordReset') return await handleRequestPasswordReset(body);
+        if (action === 'requestPasswordReset') return await handleRequestPasswordReset(event, body);
         if (action === 'confirmPasswordReset') return await handleConfirmPasswordReset(body);
         if (action === 'deleteAccount') return await handleDeleteAccount(event, body);
         if (action === 'exportMyData') return await handleExportMyData(event, body);

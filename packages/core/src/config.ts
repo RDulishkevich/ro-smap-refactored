@@ -3,6 +3,7 @@ export const FUNCTION_URL = 'https://functions.yandexcloud.net/d4ebp9rd7rd53iso4
 export const SUPPORT_EMAIL = 'support@polevka.art';
 export const BRAND = 'Полёвка';
 export const TOKEN_KEY = 'rosmap_at';
+export const REFRESH_KEY = 'polevka_rt';
 export const SESSION_FLAG = 'rosmap_session';
 export const USER_KEY = 'rosmap_user';
 export const REMEMBER_KEY = 'polevka_remember';

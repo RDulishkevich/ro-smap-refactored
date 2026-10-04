@@ -1,5 +1,5 @@
 import { LAST_LOGIN_KEY, REMEMBER_KEY, SESSION_FLAG, USER_KEY } from './config';
-import { apiMe, apiRefreshSession, getAuthToken, setAccessToken, userFromApi } from './api';
+import { apiMe, apiRefreshSession, clearSessionTokens, getAuthToken, persistRefreshToken, readRefreshToken, setAccessToken, userFromApi } from './api';
 import type { SessionUser } from './types';
 
 function storageOf(remember: boolean) {
@@ -74,12 +74,15 @@ export function hasAuthSession() {
 }
 
 export function setAuthSession(token: string, user: SessionUser | null, remember = readRememberMe()) {
-  if (token) setAccessToken(token);
+  setRememberMe(remember);
+  if (token) setAccessToken(token, remember);
+  const refresh = readRefreshToken();
+  if (refresh) persistRefreshToken(refresh, remember);
   persistUser(user, remember);
 }
 
 export function clearAuthSession() {
-  setAccessToken('');
+  clearSessionTokens();
   persistUser(null);
 }
 
@@ -90,14 +93,24 @@ export async function restoreAuthSession(): Promise<SessionUser | null> {
     setAuthSession(data.token ? String(data.token) : getAuthToken(), user, readRememberMe());
     return user;
   };
+  const tryRefresh = async () => {
+    if (!readRefreshToken()) return null;
+    const refreshed = await apiRefreshSession() as { ok?: boolean };
+    if (refreshed?.ok) return tryMe();
+    return null;
+  };
   try {
+    if (!getAuthToken()) {
+      const viaRefresh = await tryRefresh();
+      if (viaRefresh) return viaRefresh;
+    }
     return await tryMe();
   } catch (err: unknown) {
     const e = err as { code?: string; status?: number };
     if (e.code === 'unauthorized' || e.status === 401) {
       try {
-        const refreshed = await apiRefreshSession() as { ok?: boolean };
-        if (refreshed?.ok) return await tryMe();
+        const viaRefresh = await tryRefresh();
+        if (viaRefresh) return viaRefresh;
       } catch {
         /* ignore */
       }
