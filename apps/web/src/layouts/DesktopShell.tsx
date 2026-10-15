@@ -207,7 +207,7 @@ export function DesktopShell() {
     <div className="pv-desktop relative h-full w-full p-4 lg:p-5">
       <div className="flex h-full w-full overflow-hidden rounded-[32px] shadow-[0_24px_64px_rgba(45,60,57,0.14)]"
         style={{ background: th.cardBg }}>
-        <nav className="flex flex-col pt-5 px-2.5 flex-shrink-0" style={{ width: RAIL_W, borderRight: `1px solid ${th.border}` }}>
+        <nav className="flex flex-col py-5 px-2.5 flex-shrink-0" style={{ width: RAIL_W, borderRight: `1px solid ${th.border}` }}>
           <button onClick={() => { void reset().then((ok) => { if (ok) setDesktopView('map'); }); }}
             className="flex items-center gap-2.5 px-2 mb-5 text-left w-full min-w-0">
             <div className="w-10 h-10 flex-shrink-0 relative">
@@ -225,26 +225,10 @@ export function DesktopShell() {
             <RailItem label={t('events')} Icon={Ticket} on={vis?.type === 'events'} onClick={() => toggleStack('events')} ink={th.inkText} mute={mute} dark={th.isDark} />
           </div>
           <RailBannerCarousel />
-          <div className="flex flex-col gap-0.5 mb-2">
+          <div className="flex flex-col gap-0.5 mb-3 mt-auto">
             <RailItem label={t('drafts')} Icon={FilePenLine} on={vis?.type === 'drafts'} onClick={() => toggleStack('drafts')} ink={th.inkText} mute={mute} dark={th.isDark} />
             <RailItem label={t('help')} Icon={HelpCircle} on={vis?.type === 'help'} onClick={() => toggleStack('help')} ink={th.inkText} mute={mute} dark={th.isDark} />
             <RailItem label={t('settings')} Icon={Settings} on={vis?.type === 'settings'} onClick={() => toggleStack('settings')} ink={th.inkText} mute={mute} dark={th.isDark} />
-          </div>
-          <div
-            className="mt-auto h-8 px-2 flex items-center flex-shrink-0"
-            style={{ borderTop: `1px solid ${th.border}` }}>
-            <motion.button
-              type="button"
-              whileTap={tap.cta}
-              onClick={toggleTheme}
-              className="pv-desk-hit h-7 px-2.5 rounded-full inline-flex items-center gap-1.5 cursor-pointer"
-              style={{ background: chipBg, color: th.muted }}
-              aria-label={t('darkTheme')}
-              aria-pressed={dark}
-              title={t('darkTheme')}>
-              {dark ? <Sun size={14} /> : <Moon size={14} />}
-              <span className="pv-micro">{t('darkTheme')}</span>
-            </motion.button>
           </div>
         </nav>
 
@@ -265,6 +249,17 @@ export function DesktopShell() {
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <LanguageSwitch compact />
+              <motion.button
+                type="button"
+                whileTap={tap.cta}
+                onClick={toggleTheme}
+                className="pv-desk-hit w-10 h-10 rounded-full flex items-center justify-center cursor-pointer"
+                style={{ background: chipBg }}
+                aria-label={t('darkTheme')}
+                aria-pressed={dark}
+                title={t('darkTheme')}>
+                {dark ? <Sun size={16} color={th.muted} /> : <Moon size={16} color={th.muted} />}
+              </motion.button>
               {isLoggedIn && (
                 <motion.button whileTap={tap.cta} onClick={openMessages}
                   className="pv-desk-hit relative w-10 h-10 rounded-full flex items-center justify-center cursor-pointer" style={{ background: chipBg }}

@@ -50,9 +50,7 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
         </Section>
 
         <Section title={t('appearance')} th={th}>
-          {!desktop && (
-            <Row label={t('darkTheme')} th={th} right={<Switch on={dark} onChange={toggle} />} />
-          )}
+          <Row label={t('darkTheme')} th={th} right={<Switch on={dark} onChange={toggle} />} />
           <Row label={t('lessMotion')} th={th} right={<Switch on={prefs.reduceMotion} onChange={() => setPref('reduceMotion', !prefs.reduceMotion)} />} />
         </Section>
 

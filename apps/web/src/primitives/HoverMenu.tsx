@@ -243,7 +243,7 @@ export function HoverMenu({
                 className="pv-subtitle w-full text-left min-h-11 px-2.5 py-2 rounded-xl cursor-pointer"
                 style={{
                   color: it.danger ? color.accent : th.inkText,
-                  background: hot === i ? th.lightBg : 'transparent',
+                  background: hot === i ? (th.isDark ? '#2E2E2E' : '#F0F1F3') : 'transparent',
                 }}
                 onMouseEnter={() => setHot(i)}
                 onPointerEnter={() => setHot(i)}

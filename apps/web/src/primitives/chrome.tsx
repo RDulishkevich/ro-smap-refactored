@@ -142,7 +142,7 @@ function MenuPanel({
           className="pv-subtitle w-full text-left min-h-11 px-3 py-2.5 rounded-xl cursor-pointer"
           style={{
             color: it.danger ? color.accent : th.inkText,
-            background: hot === it.label ? th.lightBg : 'transparent',
+            background: hot === it.label ? (th.isDark ? '#2E2E2E' : '#F0F1F3') : 'transparent',
           }}
           onMouseEnter={() => setHot(it.label)}
           onMouseLeave={() => setHot((h) => (h === it.label ? null : h))}
@@ -191,7 +191,7 @@ function MenuSheet({
           className="pv-subtitle w-full text-left min-h-12 px-3 py-3 rounded-2xl cursor-pointer"
           style={{
             color: it.danger ? color.accent : th.inkText,
-            background: hot === it.label ? th.lightBg : 'transparent',
+            background: hot === it.label ? (th.isDark ? '#2E2E2E' : '#F0F1F3') : 'transparent',
           }}
           onPointerEnter={() => setHot(it.label)}
           onClick={() => { closeMenu(); it.onClick(); }}>
