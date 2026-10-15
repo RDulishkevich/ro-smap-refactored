@@ -231,31 +231,74 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
     { id: 'messages', Icon: MessageCircle, label: t('messages') },
     { id: 'profile', Icon: isLoggedIn ? User : LogIn, label: isLoggedIn ? t('profile') : t('login') },
   ];
+  const pillBg = th.isDark ? '#2E2E2E' : '#FFFFFF';
+  const left = tabs.slice(0, 2);
+  const right = tabs.slice(2);
+
+  const renderTab = ({ id, Icon, label }: (typeof tabs)[number]) => {
+    const on = activeTab === id;
+    return (
+      <motion.button
+        key={id}
+        type="button"
+        layout
+        transition={spring.tab}
+        onClick={() => setActiveTab(id)}
+        whileTap={tap.nav}
+        aria-label={label}
+        aria-current={on ? 'page' : undefined}
+        className={`relative z-0 flex items-center justify-center h-11 flex-shrink-0 overflow-hidden cursor-pointer ${on ? 'px-3.5 gap-1.5' : 'w-11'}`}
+      >
+        {on && (
+          <motion.span
+            layoutId="pv-nav-pill"
+            className="absolute inset-0 rounded-full shadow-[0_2px_10px_rgba(45,60,57,0.10)]"
+            style={{ background: pillBg }}
+            transition={spring.tab}
+          />
+        )}
+        <span className="relative z-[1] flex items-center justify-center">
+          <Icon size={20} strokeWidth={on ? 2.25 : 1.75} color={on ? th.inkText : th.muted} />
+          {id === 'messages' && unread > 0 && (
+            <span
+              className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
+              style={{ background: color.accent }}
+            />
+          )}
+        </span>
+        <AnimatePresence initial={false} mode="popLayout">
+          {on && (
+            <motion.span
+              key={`${id}-label`}
+              initial={{ opacity: 0, x: -8, width: 0 }}
+              animate={{ opacity: 1, x: 0, width: 'auto' }}
+              exit={{ opacity: 0, x: -6, width: 0 }}
+              transition={spring.tab}
+              className="relative z-[1] pv-subtitle whitespace-nowrap overflow-hidden"
+              style={{ color: th.inkText }}
+            >
+              {label}
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </motion.button>
+    );
+  };
+
   return (
-    <div className="flex justify-around items-center py-2 px-3 min-h-[3.5rem] flex-shrink-0" style={{ background: hollowCenter ? th.navBg : 'transparent' }}>
-      {tabs.map(({ id, Icon, label }, i) => {
-        const on = activeTab === id;
-        const btn = (
-          <motion.button key={id} onClick={() => setActiveTab(id)} className="flex items-center justify-center" whileTap={tap.nav} aria-label={label} aria-current={on ? 'page' : undefined}>
-            <div className="relative w-11 h-11 rounded-2xl flex items-center justify-center"
-              style={{ background: on ? color.accent : 'transparent' }}>
-              <Icon size={20} color={on ? 'white' : th.muted} />
-              {id === 'messages' && unread > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full" style={{ background: on ? '#fff' : color.accent }} />
-              )}
-            </div>
-          </motion.button>
-        );
-        if (hollowCenter && i === 1) {
-          return (
-            <span key={`${id}-wrap`} className="contents">
-              {btn}
-              <div className="w-14 h-12 flex-shrink-0" aria-hidden />
-            </span>
-          );
-        }
-        return btn;
-      })}
+    <div
+      className={`flex items-center min-h-[3.5rem] flex-shrink-0 py-1.5 ${hollowCenter ? 'px-2 justify-between' : 'px-3 justify-around'}`}
+      style={{ background: hollowCenter ? 'transparent' : 'transparent' }}
+    >
+      {hollowCenter ? (
+        <>
+          <div className="flex items-center gap-0.5 min-w-0">{left.map(renderTab)}</div>
+          <div className="w-14 h-12 flex-shrink-0" aria-hidden />
+          <div className="flex items-center gap-0.5 min-w-0 justify-end">{right.map(renderTab)}</div>
+        </>
+      ) : (
+        tabs.map(renderTab)
+      )}
     </div>
   );
 }

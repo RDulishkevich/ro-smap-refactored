@@ -33,11 +33,28 @@ describe('HoverMenu desktop', () => {
     await user.hover(screen.getByRole('button', { name: 'Ещё: Карта' }));
     expect(await screen.findByRole('menu')).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Слушать' })).toBeInTheDocument();
-    expect(document.querySelector('svg.fixed')).toBeTruthy();
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => {
       expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     });
+  });
+
+  it('closes after the pointer leaves the menu', async () => {
+    const user = userEvent.setup();
+    renderUi(
+      <div>
+        <HoverMenu items={[{ label: 'Слушать', onClick: () => {} }]}>
+          <span>ещё</span>
+        </HoverMenu>
+        <button type="button">вне</button>
+      </div>,
+    );
+    await user.hover(screen.getByRole('button', { name: 'Ещё' }));
+    expect(await screen.findByRole('menu')).toBeInTheDocument();
+    await user.hover(screen.getByRole('button', { name: 'вне' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    }, { timeout: 1500 });
   });
 
   it('opens immediately on click as a hover fallback', async () => {

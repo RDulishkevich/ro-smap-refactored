@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKey, type ReactNode, type RefObject } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKey, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { color, spring, tap } from '@polevka/design';
 import { useTh } from '../state/ThemeContext';
@@ -7,8 +7,8 @@ import { useIsDesktop } from '../lib/use-media';
 
 export type HoverMenuItem = { label: string; danger?: boolean; onClick: () => void };
 
-const OPEN_MS = 150;
-const CLOSE_MS = 400;
+const OPEN_MS = 120;
+const CLOSE_MS = 180;
 
 export function PopoverCaret({
   align = 'right',
@@ -38,36 +38,6 @@ export function PopoverCaret({
         ...side,
       }}
     />
-  );
-}
-
-function SafeTriangle({ menuRef }: { menuRef: RefObject<HTMLElement | null> }) {
-  const pathRef = useRef<SVGPathElement>(null);
-
-  useEffect(() => {
-    const path = pathRef.current;
-    if (!path) return;
-    let raf = 0;
-    const onMove = (e: PointerEvent) => {
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        raf = 0;
-        const menu = menuRef.current?.getBoundingClientRect();
-        if (!menu) return;
-        path.setAttribute('d', `M ${e.clientX} ${e.clientY} L ${menu.left} ${menu.top} L ${menu.right} ${menu.top} Z`);
-      });
-    };
-    window.addEventListener('pointermove', onMove);
-    return () => {
-      window.removeEventListener('pointermove', onMove);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, [menuRef]);
-
-  return (
-    <svg aria-hidden className="fixed inset-0 w-full h-full z-[639]" style={{ pointerEvents: 'none' }}>
-      <path ref={pathRef} fill="rgba(0,0,0,0.001)" style={{ pointerEvents: 'auto' }} />
-    </svg>
   );
 }
 
@@ -202,7 +172,12 @@ export function HoverMenu({
   }
 
   return (
-    <div ref={wrap} className="relative" onMouseEnter={showSoon} onMouseLeave={hideSoon}>
+    <div
+      ref={wrap}
+      className="relative"
+      onMouseEnter={showSoon}
+      onMouseLeave={hideSoon}
+    >
       <motion.span
         ref={triggerRef}
         role="button"
@@ -215,10 +190,9 @@ export function HoverMenu({
         whileTap={tap.btn}
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
         onKeyDown={onTriggerKey}
-        className="inline-flex min-h-11 min-w-11 items-center justify-center cursor-pointer [&_svg]:origin-center [&_svg]:transition-transform [&_svg]:duration-200 [&[data-open=true]_svg]:rotate-180">
+        className="inline-flex min-h-11 min-w-11 items-center justify-center cursor-pointer">
         {children}
       </motion.span>
-      {open && <SafeTriangle menuRef={menuRef} />}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -230,27 +204,34 @@ export function HoverMenu({
             exit={{ opacity: 0, y: 4 }}
             transition={spring.fade}
             onKeyDown={onMenuKey}
-            className={`absolute top-[calc(100%+8px)] z-[640] min-w-[188px] rounded-2xl p-1.5 shadow-[0_12px_32px_rgba(45,60,57,0.16)] ${align === 'right' ? 'right-0' : 'left-0'}`}
-            style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
-            <PopoverCaret align={align} fill={th.cardBg} border={th.border} />
-            {title && <p className="pv-micro uppercase px-2.5 py-1.5" style={{ color: th.soft }}>{title}</p>}
-            {items.map((it, i) => (
-              <motion.button
-                key={it.label}
-                type="button"
-                role="menuitem"
-                whileTap={tap.btn}
-                className="pv-subtitle w-full text-left min-h-11 px-2.5 py-2 rounded-xl cursor-pointer"
-                style={{
-                  color: it.danger ? color.accent : th.inkText,
-                  background: hot === i ? (th.isDark ? '#2E2E2E' : '#F0F1F3') : 'transparent',
-                }}
-                onMouseEnter={() => setHot(i)}
-                onPointerEnter={() => setHot(i)}
-                onClick={() => { hideNow(); it.onClick(); }}>
-                {it.label}
-              </motion.button>
-            ))}
+            onMouseEnter={showNow}
+            onMouseLeave={hideSoon}
+            className={`absolute top-full z-[640] min-w-[188px] pt-2 ${align === 'right' ? 'right-0' : 'left-0'}`}
+          >
+            <div
+              className="rounded-2xl p-1.5 shadow-[0_12px_32px_rgba(45,60,57,0.16)]"
+              style={{ background: th.cardBg, border: `1px solid ${th.border}` }}
+            >
+              <PopoverCaret align={align} fill={th.cardBg} border={th.border} />
+              {title && <p className="pv-micro uppercase px-2.5 py-1.5" style={{ color: th.soft }}>{title}</p>}
+              {items.map((it, i) => (
+                <motion.button
+                  key={it.label}
+                  type="button"
+                  role="menuitem"
+                  whileTap={tap.btn}
+                  className="pv-subtitle w-full text-left min-h-11 px-2.5 py-2 rounded-xl cursor-pointer"
+                  style={{
+                    color: it.danger ? color.accent : th.inkText,
+                    background: hot === i ? (th.isDark ? '#2E2E2E' : '#F0F1F3') : 'transparent',
+                  }}
+                  onMouseEnter={() => setHot(i)}
+                  onPointerEnter={() => setHot(i)}
+                  onClick={() => { hideNow(); it.onClick(); }}>
+                  {it.label}
+                </motion.button>
+              ))}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
