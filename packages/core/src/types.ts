@@ -195,6 +195,12 @@ export type AppNotification = {
   icon?: string;
 };
 
+export type OauthBindings = {
+  yandex?: boolean;
+  vk?: boolean;
+  oauthOnly?: boolean;
+};
+
 export type SessionUser = {
   username: string;
   loginName: string;
@@ -205,4 +211,5 @@ export type SessionUser = {
   displayName?: string;
   avatar?: string;
   bio?: string;
+  oauth?: OauthBindings;
 };

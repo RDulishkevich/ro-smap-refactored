@@ -9,9 +9,11 @@
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | проверка живости (`version: 26`, `ydb`, `vapid`) |
+| `health` | нет | проверка живости (`version: 27`, `ydb`, `vapid`) |
 | `publicConfig` | нет | публичные ключи (Maps + VAPID + OAuth client ids / flags) |
 | `oauthFinish` | нет | обмен code VK/Яндекс → сессия (нужен `pdConsent` для нового аккаунта) |
+| `oauthLink` | access | привязать VK/Яндекс к текущему аккаунту |
+| `oauthUnlink` | access | отвязать провайдера (нельзя снять единственный способ входа у `oauthOnly`) |
 | `savePushSubscription` | access | сохранить Web Push подписку устройства |
 | `deletePushSubscription` | access | снять подписку (выход / выкл. уведомлений) |
 | `register` | нет | регистрация (пароль → scrypt) |

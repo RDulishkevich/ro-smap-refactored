@@ -7,7 +7,7 @@ import {
 import { color, pinColor, type ThemeTokens } from '@polevka/design';
 import {
   apiChangePassword, apiConfirmEmailVerification, apiConfirmPasswordReset,
-  apiDeleteAccount,
+  apiDeleteAccount, apiOauthUnlink,
   apiGetSecurityEvents, apiPatchSound, apiRequestEmailVerification, apiRequestPasswordReset,
   readLastLogin, hasCookieConsentForAuth,
   apiSyncJson, apiTotpConfirm, apiTotpDisable, apiTotpSetup, conversationPeers, makeMailMsg,
@@ -51,7 +51,7 @@ import { usePrefs, useT } from '../state/PrefsContext';
 import { resolveExpeditionInvite } from '../lib/expedition-invite';
 import { isAmbisonicSound, isSoundwalkPrinciple, soundRoute } from '../lib/sound-media';
 import { watchConditionalUnlock } from '../lib/device-unlock';
-import { beginOAuth } from '../lib/oauth';
+import { beginOAuth, loadOauthConfig } from '../lib/oauth';
 import { pathForAuth } from '../lib/routes';
 import { Avatar } from '../primitives/Avatar';
 import { NotificationRow } from '../primitives/NotificationRow';
@@ -1355,8 +1355,9 @@ function LegalScreen({ doc, onBack }: { doc: 'privacy' | 'terms' | 'publish'; on
 
 function CabinetScreen({ onBack }: { onBack: () => void }) {
   const th = useTh();
+  const t = useT();
   const { user, refreshUser, isStaff } = useAuth();
-  const { toast } = useUi();
+  const { toast, confirm } = useUi();
   const verified = !!(user?.email && user.emailVerified);
   const [email, setEmail] = useState(user?.email || '');
   const [code, setCode] = useState('');
@@ -1370,10 +1371,15 @@ function CabinetScreen({ onBack }: { onBack: () => void }) {
   const [disCode, setDisCode] = useState('');
   const [events, setEvents] = useState<Array<{ type?: string; login?: string; at?: string }>>([]);
   const [busy, setBusy] = useState(false);
+  const [oauthCfg, setOauthCfg] = useState<{ yandex?: boolean; vk?: boolean }>({});
 
   useEffect(() => {
     setEmail(user?.email || '');
   }, [user?.email]);
+
+  useEffect(() => {
+    void loadOauthConfig().then((cfg) => setOauthCfg({ yandex: !!cfg.yandex, vk: !!cfg.vk })).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (user?.role !== 'admin') return;
@@ -1382,6 +1388,34 @@ function CabinetScreen({ onBack }: { onBack: () => void }) {
       setEvents(list);
     }).catch(() => {});
   }, [user?.role]);
+
+  const linkOauth = async (provider: 'yandex' | 'vk') => {
+    setBusy(true);
+    try {
+      await beginOAuth(provider, { intent: 'link' });
+    } catch (e: unknown) {
+      toast((e as Error).message || t('oauthFailed'));
+      setBusy(false);
+    }
+  };
+
+  const unlinkOauth = async (provider: 'yandex' | 'vk') => {
+    const label = provider === 'yandex' ? 'Яндекс' : 'VK';
+    const ok = await confirm({
+      title: t('oauthLinkedAccounts'),
+      body: `Отвязать ${label} от аккаунта?`,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await apiOauthUnlink(provider);
+      await refreshUser();
+      toast(t('oauthUnlinked'));
+    } catch (e: unknown) {
+      const err = e as ApiError;
+      toast(err.message || t('oauthFailed'));
+    } finally { setBusy(false); }
+  };
 
   const sendEmailCode = async () => {
     const next = email.trim();
@@ -1504,11 +1538,64 @@ function CabinetScreen({ onBack }: { onBack: () => void }) {
 
         <div className="rounded-3xl p-4" style={{ background: th.cardBg }}>
           <p className="text-xs font-bold mb-2" style={{ color: th.inkText }}>Пароль</p>
+          {user?.oauth?.oauthOnly && (
+            <p className="text-[10px] mb-2" style={{ color: th.soft }}>
+              Аккаунт создан через соцсеть. Пароль можно задать через «Забыли пароль» на подтверждённый email.
+            </p>
+          )}
           <Field label="Текущий" value={curPw} onChange={setCurPw} th={th} password name="current-password" autoComplete="current-password" />
           <Field label="Новый" value={newPw} onChange={setNewPw} th={th} password name="new-password" autoComplete="new-password" />
           <Field label="Повтор" value={newPw2} onChange={setNewPw2} th={th} password name="new-password-confirm" autoComplete="new-password" />
           <button disabled={busy} onClick={() => void changePw()} className="mt-2 w-full py-2.5 rounded-2xl text-xs font-semibold text-white" style={{ background: ACCENT }}>Сменить пароль</button>
         </div>
+
+        {(oauthCfg.yandex || oauthCfg.vk) && (
+          <div className="rounded-3xl p-4" style={{ background: th.cardBg }}>
+            <p className="text-xs font-bold mb-1" style={{ color: th.inkText }}>{t('oauthLinkedAccounts')}</p>
+            <p className="text-[10px] mb-3" style={{ color: th.soft }}>{t('oauthLinkedHint')}</p>
+            {oauthCfg.yandex && (
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: th.inkText }}>Яндекс</p>
+                  <p className="text-[10px]" style={{ color: user?.oauth?.yandex ? ACCENT : th.soft }}>
+                    {user?.oauth?.yandex ? t('oauthLinkedYes') : t('oauthLinkedNo')}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void (user?.oauth?.yandex ? unlinkOauth('yandex') : linkOauth('yandex'))}
+                  className="shrink-0 px-3 py-2 rounded-2xl text-[11px] font-semibold"
+                  style={{
+                    background: user?.oauth?.yandex ? th.solid : (th.isDark ? '#2E2E2E' : '#F0F1F3'),
+                    color: user?.oauth?.yandex ? '#fff' : th.inkText,
+                  }}
+                >
+                  {user?.oauth?.yandex ? t('oauthUnlinkYandex') : t('oauthLinkYandex')}
+                </button>
+              </div>
+            )}
+            {oauthCfg.vk && (
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: th.inkText }}>VK</p>
+                  <p className="text-[10px]" style={{ color: user?.oauth?.vk ? ACCENT : th.soft }}>
+                    {user?.oauth?.vk ? t('oauthLinkedYes') : t('oauthLinkedNo')}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void (user?.oauth?.vk ? unlinkOauth('vk') : linkOauth('vk'))}
+                  className="shrink-0 px-3 py-2 rounded-2xl text-[11px] font-semibold text-white"
+                  style={{ background: user?.oauth?.vk ? th.solid : '#0077FF' }}
+                >
+                  {user?.oauth?.vk ? t('oauthUnlinkVk') : t('oauthLinkVk')}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="rounded-3xl p-4" style={{ background: th.cardBg }}>
           <p className="text-xs font-bold mb-1" style={{ color: th.inkText }}>Двухфакторная защита</p>

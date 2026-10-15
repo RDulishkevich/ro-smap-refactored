@@ -183,6 +183,15 @@ export const apiOauthFinish = (payload: {
   pdConsent?: boolean;
   rememberMe?: boolean;
 }) => apiRequest('oauthFinish', payload as unknown as Record<string, unknown>);
+export const apiOauthLink = (payload: {
+  provider: 'yandex' | 'vk';
+  code: string;
+  codeVerifier?: string;
+  redirectUri?: string;
+  deviceId?: string;
+}) => apiRequest('oauthLink', payload as unknown as Record<string, unknown>, { auth: true });
+export const apiOauthUnlink = (provider: 'yandex' | 'vk') =>
+  apiRequest('oauthUnlink', { provider }, { auth: true });
 export const apiHealth = () => apiRequest('health');
 export const apiGetMail = async () => {
   const data = await apiRequest('getMail', {}, { auth: true });
@@ -274,6 +283,7 @@ export function userFromApi(user: Record<string, unknown> | undefined | null): S
   if (!user) return null;
   const login = String(user.loginName || user.login || user.username || '');
   if (!login) return null;
+  const oauthRaw = user.oauth && typeof user.oauth === 'object' ? user.oauth as Record<string, unknown> : null;
   return {
     username: String(user.username || user.displayName || login),
     loginName: login,
@@ -284,5 +294,10 @@ export function userFromApi(user: Record<string, unknown> | undefined | null): S
     displayName: user.displayName != null ? String(user.displayName) : undefined,
     avatar: user.avatar != null ? String(user.avatar) : undefined,
     bio: user.bio != null ? String(user.bio) : undefined,
+    oauth: oauthRaw ? {
+      yandex: !!oauthRaw.yandex,
+      vk: !!oauthRaw.vk,
+      oauthOnly: !!oauthRaw.oauthOnly,
+    } : undefined,
   };
 }

@@ -7,11 +7,11 @@ import { useUi } from '../state/UiContext';
 import { useT } from '../state/PrefsContext';
 import { finishOAuthFromUrl } from '../lib/oauth';
 
-/** Handles `/oauth/callback` after VK / Yandex redirect. */
+/** Handles `/oauth/callback` after VK / Yandex redirect (login or link). */
 export function OAuthReturn() {
   const th = useTh();
   const t = useT();
-  const { applySession } = useAuth();
+  const { applySession, refreshUser, restoring } = useAuth();
   const { reload } = useData();
   const { reset } = useNav();
   const { toast } = useUi();
@@ -19,14 +19,23 @@ export function OAuthReturn() {
   const active = typeof location !== 'undefined' && location.pathname.startsWith('/oauth/callback');
 
   useEffect(() => {
-    if (!active) return;
+    if (!active || restoring) return;
     let cancelled = false;
     void (async () => {
       try {
         const data = await finishOAuthFromUrl(location.search) as {
+          intent?: 'login' | 'link';
           token?: string; refreshToken?: string; user?: Record<string, unknown>; rememberMe?: boolean;
+          provider?: string;
         };
         if (cancelled) return;
+        if (data.intent === 'link') {
+          await refreshUser();
+          toast(t('oauthLinked'));
+          history.replaceState({}, '', '/profile');
+          await reset({ type: 'cabinet' });
+          return;
+        }
         applySession(data);
         await reload();
         toast('Добро пожаловать');
@@ -35,18 +44,19 @@ export function OAuthReturn() {
       } catch (e: unknown) {
         if (cancelled) return;
         const err = e as { message?: string; code?: string };
-        setMsg(err.message || t('oauthFailed'));
-        toast(err.message || t('oauthFailed'));
+        const text = err.code === 'provider_taken'
+          ? t('oauthProviderTaken')
+          : (err.message || t('oauthFailed'));
+        setMsg(text);
+        toast(text);
         window.setTimeout(() => {
           history.replaceState({}, '', '/');
-          void reset().then(() => {
-            /* open auth via hash-less navigation — stack from profile/menu */
-          });
+          void reset();
         }, 1600);
       }
     })();
     return () => { cancelled = true; };
-  }, [active, applySession, reload, reset, t, toast]);
+  }, [active, applySession, refreshUser, reload, reset, restoring, t, toast]);
 
   if (!active) return null;
 

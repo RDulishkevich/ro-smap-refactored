@@ -1,6 +1,7 @@
-import { apiOauthFinish, apiPublicConfig } from '@polevka/core';
+import { apiOauthFinish, apiOauthLink, apiPublicConfig, restoreAuthSession } from '@polevka/core';
 
 export type OAuthProvider = 'yandex' | 'vk';
+export type OAuthIntent = 'login' | 'link';
 
 type OAuthPublic = {
   yandex?: boolean;
@@ -40,7 +41,10 @@ export async function loadOauthConfig(): Promise<OAuthPublic> {
   }
 }
 
-export async function beginOAuth(provider: OAuthProvider, opts?: { pdConsent?: boolean }) {
+export async function beginOAuth(
+  provider: OAuthProvider,
+  opts?: { pdConsent?: boolean; intent?: OAuthIntent },
+) {
   const cfg = await loadOauthConfig();
   const redirectUri = cfg.redirectUri || `${location.origin}/oauth/callback`;
   const clientId = provider === 'yandex' ? cfg.yandexClientId : cfg.vkClientId;
@@ -53,12 +57,14 @@ export async function beginOAuth(provider: OAuthProvider, opts?: { pdConsent?: b
       { code: 'oauth_disabled' },
     );
   }
+  const intent: OAuthIntent = opts?.intent === 'link' ? 'link' : 'login';
   // VK ID: state ≥ 32; code_verifier 43–128
   const state = randomString(40);
   const verifier = randomString(64);
   const challenge = await sha256(verifier);
   sessionStorage.setItem(PKCE_KEY, JSON.stringify({
-    provider, state, verifier, redirectUri, pdConsent: !!opts?.pdConsent, at: Date.now(),
+    provider, state, verifier, redirectUri, intent,
+    pdConsent: !!opts?.pdConsent, at: Date.now(),
   }));
 
   if (provider === 'yandex') {
@@ -125,7 +131,7 @@ export async function finishOAuthFromUrl(search: string) {
   if (!raw) throw Object.assign(new Error('Сессия OAuth истекла — попробуйте снова'), { code: 'oauth_state' });
   const saved = JSON.parse(raw) as {
     provider: OAuthProvider; state: string; verifier: string; redirectUri: string;
-    pdConsent?: boolean;
+    pdConsent?: boolean; intent?: OAuthIntent;
   };
   if (saved.state !== state) {
     throw Object.assign(new Error('Неверный state OAuth'), { code: 'oauth_state' });
@@ -134,13 +140,25 @@ export async function finishOAuthFromUrl(search: string) {
     throw Object.assign(new Error('VK не вернул device_id'), { code: 'oauth_missing_device' });
   }
 
-  return apiOauthFinish({
+  const intent: OAuthIntent = saved.intent === 'link' ? 'link' : 'login';
+  const base = {
     provider: saved.provider,
     code,
     codeVerifier: saved.verifier,
     redirectUri: saved.redirectUri,
     deviceId: deviceId || undefined,
+  };
+
+  if (intent === 'link') {
+    await restoreAuthSession().catch(() => null);
+    const data = await apiOauthLink(base);
+    return { intent, ...data };
+  }
+
+  const data = await apiOauthFinish({
+    ...base,
     pdConsent: !!saved.pdConsent,
     rememberMe: true,
   });
+  return { intent, ...data };
 }

@@ -9,7 +9,7 @@
 | `VK_OAUTH_CLIENT_SECRET` | защищённый ключ (опционально для web+PKCE) |
 | `OAUTH_REDIRECT_URI` | по умолчанию `https://polevka.art/oauth/callback` |
 
-Redirect URI в кабинете VK ID: `https://polevka.art/oauth/callback` (как в коде виджета). OneTap SDK не нужен — вход идёт через redirect + PKCE и `oauthFinish` на Secure API. После деплоя смотрите `publicConfig.oauth`.
+Redirect URI в кабинете VK ID: `https://polevka.art/oauth/callback` (как в коде виджета). OneTap SDK не нужен — вход идёт через redirect + PKCE и `oauthFinish` на Secure API. Привязка к уже существующему аккаунту: `oauthLink` / `oauthUnlink` (JWT), UI в кабинете. После деплоя смотрите `publicConfig.oauth` и `me.user.oauth`.
 
 # Настройка почты Полёвки (`@polevka.art`)
 

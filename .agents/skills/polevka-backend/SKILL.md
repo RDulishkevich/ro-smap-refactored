@@ -12,7 +12,7 @@ description: >-
 
 Public product. Users are real people. Prefer fail-closed, lost-update resistance, and cheap reads over new features.
 
-Code: `cloud/api/index.js`, `sessionSecurity.js`, `mailTemplates.js`. Client: `packages/core/src/api.ts`, `cloud.ts`, `apps/web/src/state/DataContext.tsx`. Rules: `.cursor/rules/email-roles-legal.mdc`, `docs/security.md`.
+Code: `cloud/api/index.js`, `sessionSecurity.js`, `mailTemplates.js`. Client: `packages/core/src/api.ts`, `cloud.ts`, `apps/web/src/state/DataContext.tsx`. Rules: `.cursor/rules/email-roles-legal.mdc`, `docs/security.md`. Canonical copy also lives in `.agents/skills/polevka-backend/SKILL.md`.
 
 ## Every change — run this list
 
@@ -35,12 +35,11 @@ Code: `cloud/api/index.js`, `sessionSecurity.js`, `mailTemplates.js`. Client: `p
 
 ## After editing API
 
-- Bump `health.version` if the contract changed (current: **24**).
+- Bump `health.version` if the contract changed (current: **27**).
 - Update `cloud/api/README.md` + `docs/security.md` when behavior changes.
 - Deploy zip must include `index.js`, `sessionSecurity.js`, `mailTemplates.js`, `ydbDoc.js`, `mailCrypto.js`, `webPush.js`, `oauthProviders.js`.
 - If you add a write path, it must go through merge + sanitize + CAS (S3) or YDB row mutate + publish public JSON.
 - When `YDB_DOCAPI_ENDPOINT` is set, YDB is source of truth; Object Storage public JSON is a cache. Do not invent a second write path.
-- OAuth: `oauthFinish` exchanges VK/Yandex code server-side; secrets never in the client. Bump `health.version` when adding.
 
 ## Do not
 

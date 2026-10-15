@@ -21,7 +21,8 @@
  *   OAUTH_REDIRECT_URI — default https://polevka.art/oauth/callback
  *
  * Actions (POST JSON { action, ... }):
- *   health | publicConfig | register | login | oauthFinish | refresh | logout | logoutAll | changePassword | me | getMail
+ *   health | publicConfig | register | login | oauthFinish | oauthLink | oauthUnlink
+ *   | refresh | logout | logoutAll | changePassword | me | getMail
  *   | sync | commit | presign | patchSound | translate
  *   | requestEmailVerification | confirmEmailVerification
  *   | requestPasswordReset | confirmPasswordReset | adminDeleteUser | adminUnbindEmail | adminSendEmail
@@ -554,7 +555,8 @@ function actionRateLimit(action, ip, login = '') {
     const who = login || base;
     if (action === 'register' && !rateLimit(`reg:${base}`, 8, 60000)) return false;
     if (action === 'login' && !rateLimit(`login:${base}`, 25, 60000)) return false;
-    if (action === 'oauthFinish' && !rateLimit(`oauth:${base}`, 20, 60000)) return false;
+    if ((action === 'oauthFinish' || action === 'oauthLink' || action === 'oauthUnlink')
+        && !rateLimit(`oauth:${base}`, 20, 60000)) return false;
     if (action === 'refresh' && !rateLimit(`refresh:${base}`, 60, 60000)) return false;
     if ((action === 'logout' || action === 'logoutAll') && !rateLimit(`logout:${who}`, 30, 60000)) return false;
     // Authenticated write budget — keyed by login so shared NAT doesn't starve one user.
@@ -1361,6 +1363,15 @@ function issueToken(user) {
         tokenVersion: user.tokenVersion || 0
     });
     return pair.access;
+}
+
+function oauthBindingsPublic(row) {
+    const o = row && typeof row.oauth === 'object' && row.oauth ? row.oauth : {};
+    return {
+        yandex: !!o.yandex,
+        vk: !!o.vk,
+        oauthOnly: !!row?.oauthOnly,
+    };
 }
 
 function publicUser(user, extras = {}) {
@@ -2230,8 +2241,149 @@ async function handleOauthFinish(event, body) {
             ...publicUser(user, { avatar: profile.avatar, bio: undefined }),
             ...extractProfilePii(pii),
             totpEnabled: !!row.totpEnabled,
+            oauth: oauthBindingsPublic(row),
         },
     });
+}
+
+async function handleOauthLink(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const authUser = await resolveAuthUser(payload);
+    if (!authUser) return respond(401, { ok: false, error: 'unauthorized' });
+    if (authUser.blocked) return respond(403, { ok: false, error: 'blocked' });
+
+    const provider = String(body.provider || '').toLowerCase();
+    const code = String(body.code || '').trim();
+    const codeVerifier = String(body.codeVerifier || '').trim();
+    const redirectUri = String(body.redirectUri || oauthProviders.OAUTH_REDIRECT_URI).trim();
+    const deviceId = String(body.deviceId || '').slice(0, 128);
+    if (!code || (provider !== 'yandex' && provider !== 'vk')) {
+        return respond(400, { ok: false, error: 'missing_fields' });
+    }
+    if (provider === 'vk' && codeVerifier.length < 43) {
+        return respond(400, { ok: false, error: 'pkce_required' });
+    }
+
+    let profile;
+    try {
+        profile = await oauthProviders.exchangeOAuthCode(provider, {
+            code, redirectUri, codeVerifier, deviceId,
+        });
+    } catch (err) {
+        const codeName = err?.code || 'oauth_failed';
+        const status = codeName === 'oauth_disabled' ? 503 : 401;
+        return respond(status, { ok: false, error: codeName, message: err?.message || 'OAuth failed' });
+    }
+
+    let bindings = { yandex: false, vk: false, oauthOnly: false };
+    try {
+        await mutateAuth((users) => {
+            const login = authUser.login;
+            const row = users[login];
+            if (!row) throw new ClientError(401, 'unauthorized');
+            for (const [key, other] of Object.entries(users)) {
+                if (key === login || !other || typeof other !== 'object') continue;
+                if (other.oauth && String(other.oauth[provider] || '') === profile.subject) {
+                    throw new ClientError(409, 'provider_taken', 'Этот аккаунт уже привязан к другому пользователю');
+                }
+            }
+            const oauth = { ...(row.oauth || {}), [provider]: profile.subject };
+            users[login] = { ...row, oauth };
+            bindings = oauthBindingsPublic(users[login]);
+            return users;
+        });
+    } catch (err) {
+        if (err instanceof ClientError) {
+            return respond(err.status || 400, { ok: false, error: err.code, message: err.message });
+        }
+        if (err && err.code === 'write_conflict') return respond(409, { ok: false, error: 'write_conflict' });
+        throw err;
+    }
+    authUserCache.delete(authUser.login);
+
+    if (profile.email) {
+        await mutateMeta((meta) => {
+            const cur = meta[authUser.login] && typeof meta[authUser.login] === 'object' ? meta[authUser.login] : {};
+            if (cur.email) return meta;
+            const owner = verifiedEmailOwner(meta, profile.email);
+            if (owner && owner !== authUser.login) return meta;
+            meta[authUser.login] = {
+                ...cur,
+                email: profile.email,
+                emailVerified: true,
+                updatedAt: new Date().toISOString(),
+            };
+            return meta;
+        });
+    }
+    if (profile.avatar) {
+        await mutateJson('profiles.json', [], (profiles) => (profiles || []).map((p) => {
+            if (String(p.loginName || '').toLowerCase() !== authUser.login) return p;
+            if (p.avatar) return p;
+            return sanitizeProfileCard({ ...p, avatar: profile.avatar, profileUpdatedAt: new Date().toISOString() });
+        }));
+    }
+
+    await sessionSec.appendSecurityEvent(putJson, getJson, {
+        type: 'oauth_link',
+        login: authUser.login,
+        provider,
+    });
+    return respond(200, { ok: true, oauth: bindings, provider });
+}
+
+async function handleOauthUnlink(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const authUser = await resolveAuthUser(payload);
+    if (!authUser) return respond(401, { ok: false, error: 'unauthorized' });
+    if (authUser.blocked) return respond(403, { ok: false, error: 'blocked' });
+
+    const provider = String(body.provider || '').toLowerCase();
+    if (provider !== 'yandex' && provider !== 'vk') {
+        return respond(400, { ok: false, error: 'missing_fields' });
+    }
+
+    let bindings = { yandex: false, vk: false, oauthOnly: false };
+    try {
+        await mutateAuth((users) => {
+            const row = users[authUser.login];
+            if (!row) throw new ClientError(401, 'unauthorized');
+            const oauth = { ...(row.oauth || {}) };
+            if (!oauth[provider]) {
+                bindings = oauthBindingsPublic(row);
+                return users;
+            }
+            delete oauth[provider];
+            const remaining = Object.keys(oauth).filter((k) => oauth[k]);
+            if (row.oauthOnly && remaining.length === 0) {
+                throw new ClientError(
+                    400,
+                    'last_login_method',
+                    'Сначала задайте пароль в кабинете — иначе нельзя отвязать единственный способ входа',
+                );
+            }
+            const next = { ...row, oauth };
+            if (remaining.length === 0) delete next.oauth;
+            users[authUser.login] = next;
+            bindings = oauthBindingsPublic(next);
+            return users;
+        });
+    } catch (err) {
+        if (err instanceof ClientError) {
+            return respond(err.status || 400, { ok: false, error: err.code, message: err.message });
+        }
+        if (err && err.code === 'write_conflict') return respond(409, { ok: false, error: 'write_conflict' });
+        throw err;
+    }
+    authUserCache.delete(authUser.login);
+    await sessionSec.appendSecurityEvent(putJson, getJson, {
+        type: 'oauth_unlink',
+        login: authUser.login,
+        provider,
+    });
+    return respond(200, { ok: true, oauth: bindings, provider });
 }
 
 async function handleLogin(event, body) {
@@ -2352,7 +2504,8 @@ async function handleLogin(event, body) {
             ...publicUser(user, { avatar: profile?.avatar, bio: profile?.bio }),
             ...extractProfilePii(mergedPii),
             totpEnabled: !!row.totpEnabled,
-            mustEnableTotp
+            mustEnableTotp,
+            oauth: oauthBindingsPublic(row),
         }
     });
 }
@@ -2389,13 +2542,15 @@ async function handleChangePassword(event, body) {
             || (authUser.login === 'admin' && ADMIN_PASSWORD && currentPassword === ADMIN_PASSWORD);
         if (!okCurrent) throw new ClientError(401, 'bad_credentials');
         nextTv = (Number(row.tokenVersion || 0) || 0) + 1;
-        users[authUser.login] = {
+        const next = {
             ...row,
             salt,
             hash,
             passwordUpdatedAt: new Date().toISOString(),
             tokenVersion: nextTv
         };
+        if (next.oauthOnly) delete next.oauthOnly;
+        users[authUser.login] = next;
         return users;
     });
     await sessionSec.appendSecurityEvent(putJson, getJson, {
@@ -3285,13 +3440,16 @@ async function handleMe(event, body) {
     }
 
     const mustEnableTotp = isStaffUser(user) && !user.totpEnabled;
+    const users = await loadAuthUsers();
+    const authRow = users[user.login] || {};
     return authSuccessResponse(user, {
         mustEnableTotp,
         user: {
             ...publicUser(user, { avatar: profile?.avatar, bio: profile?.bio }),
             ...extractProfilePii(pii),
             totpEnabled: !!user.totpEnabled,
-            mustEnableTotp
+            mustEnableTotp,
+            oauth: oauthBindingsPublic(authRow),
         }
     });
 }
@@ -3791,7 +3949,7 @@ exports.handler = async function handler(event = {}) {
 
     // health / publicConfig — без секретов и без тяжёлых лимитов
     if (action === 'health') {
-        return respond(200, { ok: true, version: 26, ydb: ydbDoc.enabled(), vapid: webPush.configured() });
+        return respond(200, { ok: true, version: 27, ydb: ydbDoc.enabled(), vapid: webPush.configured() });
     }
     if (action === 'publicConfig') {
         const oauth = oauthProviders.oauthPublicConfig();
@@ -3821,7 +3979,8 @@ exports.handler = async function handler(event = {}) {
         'getMail', 'requestEmailVerification', 'confirmEmailVerification',
         'adminDeleteUser', 'adminUnbindEmail', 'adminSendEmail',
         'logoutAll', 'totpSetup', 'totpConfirm', 'totpDisable', 'getSecurityEvents',
-        'deleteAccount', 'exportMyData', 'savePushSubscription', 'deletePushSubscription'
+        'deleteAccount', 'exportMyData', 'savePushSubscription', 'deletePushSubscription',
+        'oauthLink', 'oauthUnlink',
     ]);
     const tokenPayload = authActions.has(action)
         ? verifyJwt(extractToken(event, body))
@@ -3836,6 +3995,8 @@ exports.handler = async function handler(event = {}) {
         if (action === 'register') return await handleRegister(body);
         if (action === 'login') return await handleLogin(event, body);
         if (action === 'oauthFinish') return await handleOauthFinish(event, body);
+        if (action === 'oauthLink') return await handleOauthLink(event, body);
+        if (action === 'oauthUnlink') return await handleOauthUnlink(event, body);
         if (action === 'refresh') return await handleRefresh(event, body);
         if (action === 'logout') return await handleLogout(event, body);
         if (action === 'logoutAll') return await handleLogoutAll(event, body);
