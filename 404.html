@@ -104,7 +104,7 @@
       font-family: system-ui, sans-serif;
     }
     </style>
-    <script type="module" crossorigin src="/assets/index-CheE1a3-.js"></script>
+    <script type="module" crossorigin src="/assets/index-D4D_eK4q.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-Dcuu6vgS.css">
   </head>
   <body>
@@ -122,7 +122,7 @@
         </div>
       </div>
     </noscript>
-    <div id="boot-fail">
+    <div id="boot-fail" hidden aria-hidden="true">
       <div class="card">
         <h1>Что-то сломалось</h1>
         <p>Страница споткнулась. Данные на карте в порядке — просто обновите Полёвку.</p>
@@ -133,12 +133,18 @@
       (function () {
         function show() {
           var el = document.getElementById('boot-fail');
-          if (el) el.classList.add('is-on');
+          if (!el) return;
+          el.classList.add('is-on');
+          el.removeAttribute('hidden');
+          el.setAttribute('aria-hidden', 'false');
         }
         window.__polevkaReady = function () {
           clearTimeout(window.__polevkaBoot);
           var el = document.getElementById('boot-fail');
-          if (el) el.classList.remove('is-on');
+          if (!el) return;
+          el.classList.remove('is-on');
+          el.setAttribute('hidden', '');
+          el.setAttribute('aria-hidden', 'true');
         };
         (function showWelcome() {
           var standalone = (window.matchMedia && (
