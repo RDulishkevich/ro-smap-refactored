@@ -31,20 +31,21 @@ export function MapFab({ open, onToggle, from = 'corner' }: { open: boolean; onT
           {open && (
             <motion.div
               key="fab-sheet"
-              initial={{ opacity: 0, y: 12, scale: 0.92 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.94 }}
-              transition={spring.fab}
-              className="absolute left-1/2 bottom-[4.75rem] -translate-x-1/2 flex flex-col gap-2 pointer-events-auto z-[2] w-[min(16.5rem,calc(100vw-2.5rem))]"
+              // Keep x:'-50%' in every keyframe — CSS -translate-x-1/2 is wiped by motion transforms.
+              initial={{ opacity: 0, y: 10, x: '-50%' }}
+              animate={{ opacity: 1, y: 0, x: '-50%' }}
+              exit={{ opacity: 0, y: 8, x: '-50%' }}
+              transition={spring.sheet}
+              className="absolute left-1/2 bottom-[5.5rem] z-30 flex flex-col gap-2 pointer-events-auto w-[min(15.5rem,calc(100vw-2.5rem))]"
             >
               {actions.map(({ Icon, bg, screen, label }, i) => (
                 <motion.button
                   key={label}
                   type="button"
-                  initial={{ opacity: 0, y: 14, scale: 0.9 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.92 }}
-                  transition={{ ...spring.chip, delay: i * 0.05 }}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 6 }}
+                  transition={{ ...spring.chip, delay: 0.04 + i * 0.05 }}
                   whileTap={tap.cta}
                   onClick={() => { onToggle(); requireAuth(screen); }}
                   className="w-full min-h-12 rounded-2xl px-3.5 flex items-center gap-3 text-left shadow-[0_10px_28px_rgba(45,60,57,0.18)]"

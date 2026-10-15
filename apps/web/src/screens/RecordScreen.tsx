@@ -17,7 +17,7 @@ import { useIsDesktop } from '../lib/use-media';
 import { useLeaveGuard } from '../lib/use-leave-guard';
 import {
   applyCtxSink, listAudioDevices, readRecInput, readRecOutput, writeRecInput, writeRecOutput,
-  type AudioPick,
+  wireRecCapture, type AudioPick,
 } from '../lib/record-devices';
 
 const SAGE = color.sage;
@@ -106,6 +106,8 @@ export function RecordScreen({ onBack }: { onBack: () => void }) {
         echoCancellation: false,
         noiseSuppression: false,
         autoGainControl: false,
+        // Built-in phone mics are mono; asking for stereo often yields L-only files.
+        channelCount: desktop ? { ideal: 2 } : { ideal: 1 },
         ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
       };
       const stream = await navigator.mediaDevices.getUserMedia({ audio });
@@ -116,29 +118,10 @@ export function RecordScreen({ onBack }: { onBack: () => void }) {
       if (ctx.state === 'suspended') await ctx.resume();
       await applyCtxSink(ctx, outputId);
       const source = ctx.createMediaStreamSource(stream);
-      const node = ctx.createAnalyser();
-      node.fftSize = 2048;
-      node.smoothingTimeConstant = 0.2;
-      const left = ctx.createAnalyser();
-      const right = ctx.createAnalyser();
-      left.fftSize = 2048;
-      right.fftSize = 2048;
-      if (source.channelCount > 1) {
-        const split = ctx.createChannelSplitter(2);
-        source.connect(split);
-        split.connect(left, 0);
-        split.connect(right, 1);
-      } else {
-        source.connect(left);
-        source.connect(right);
-      }
-      const dest = ctx.createMediaStreamDestination();
-      source.connect(node);
-      source.connect(dest);
-      const tapGain = ctx.createGain();
+      const { mix: node, left, right, dest, monitor: tapGain } = wireRecCapture(ctx, source, stream, {
+        keepStereo: desktop,
+      });
       tapGain.gain.value = monitor ? 0.7 : 0;
-      source.connect(tapGain);
-      tapGain.connect(ctx.destination);
       monitorRef.current = tapGain;
       ctxRef.current = ctx;
       setMix(node);
