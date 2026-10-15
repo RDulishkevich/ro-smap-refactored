@@ -4,21 +4,22 @@ import { useTh } from '../state/ThemeContext';
 import { useT } from '../state/PrefsContext';
 import { audioService } from '../lib/audio-player';
 
+/** Spectrogram ramp from design tokens (dark / olive / sage / accent / cream). */
 const DARK_STOPS = [
-  { t: 0, c: [21, 36, 32] },
-  { t: 0.22, c: [45, 60, 57] },
-  { t: 0.45, c: [111, 124, 78] },
-  { t: 0.68, c: [181, 97, 63] },
-  { t: 0.88, c: [244, 232, 216] },
-  { t: 1, c: [255, 255, 255] },
+  { t: 0, c: [11, 11, 11] },
+  { t: 0.2, c: [45, 60, 57] },
+  { t: 0.42, c: [111, 124, 78] },
+  { t: 0.62, c: [157, 177, 112] },
+  { t: 0.82, c: [181, 97, 63] },
+  { t: 1, c: [244, 232, 216] },
 ];
 const LIGHT_STOPS = [
-  { t: 0, c: [232, 237, 234] },
+  { t: 0, c: [244, 232, 216] },
   { t: 0.22, c: [217, 226, 195] },
-  { t: 0.48, c: [157, 177, 112] },
-  { t: 0.72, c: [181, 97, 63] },
-  { t: 0.9, c: [45, 60, 57] },
-  { t: 1, c: [26, 26, 26] },
+  { t: 0.45, c: [157, 177, 112] },
+  { t: 0.68, c: [111, 124, 78] },
+  { t: 0.86, c: [181, 97, 63] },
+  { t: 1, c: [45, 60, 57] },
 ];
 
 function lerpRgb(v: number, stops: typeof DARK_STOPS): [number, number, number] {
@@ -86,9 +87,9 @@ export function AnalyzersPanel({ playing }: { playing: boolean }) {
     const bufA = new Float32Array(new ArrayBuffer(2048 * 4));
     const bufB = new Float32Array(new ArrayBuffer(2048 * 4));
     const spec = new Uint8Array(1024);
-    const gonioFade = dark ? 'rgba(21,36,32,0.35)' : 'rgba(238,243,239,0.42)';
-    const grid = dark ? 'rgba(157,177,112,0.32)' : 'rgba(45,60,57,0.2)';
-    const gridSoft = dark ? 'rgba(157,177,112,0.14)' : 'rgba(45,60,57,0.1)';
+    const gonioFade = dark ? 'rgba(23,23,23,0.42)' : 'rgba(244,232,216,0.55)';
+    const grid = dark ? 'rgba(157,177,112,0.28)' : 'rgba(45,60,57,0.18)';
+    const gridSoft = dark ? 'rgba(146,179,177,0.16)' : 'rgba(111,124,78,0.14)';
     const label = dark ? color.sage : color.olive;
     const stroke = color.accent;
     const stops = dark ? DARK_STOPS : LIGHT_STOPS;
@@ -125,7 +126,7 @@ export function AnalyzersPanel({ playing }: { playing: boolean }) {
           g.moveTo(cx - scale * 0.7, cy + scale * 0.7); g.lineTo(cx + scale * 0.7, cy - scale * 0.7);
           g.stroke();
           g.fillStyle = label;
-          g.font = '600 11px ui-monospace, SFMono-Regular, Menlo, monospace';
+          g.font = '500 11px Geist, ui-sans-serif, system-ui, sans-serif';
           g.fillText('M', cx - 4, cy - scale - 3);
           g.fillText('L', 6, cy + 4);
           g.fillText('R', w - 14, cy + 4);
@@ -202,34 +203,33 @@ export function AnalyzersPanel({ playing }: { playing: boolean }) {
     return () => cancelAnimationFrame(raf);
   }, [playing, dark]);
 
+  const padBg = dark ? '#171717' : color.cream;
+  const canvasBg = dark ? '#0B0B0B' : th.phoneBg;
   const meter = (lab: string, rms: typeof lRms, peak: typeof lPeak) => (
     <div className="flex items-center gap-2">
-      <span className="w-3 text-[9px] font-bold" style={{ color: th.soft }}>{lab}</span>
-      <div className="relative flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: dark ? 'rgba(26,41,38,0.65)' : 'rgba(255,255,255,0.7)' }}>
+      <span className="pv-micro w-3" style={{ color: th.soft }}>{lab}</span>
+      <div className="relative flex-1 h-2 rounded-full overflow-hidden" style={{ background: th.lightBg }}>
         <div ref={rms} className="absolute inset-y-0 left-0 rounded-full" style={{ width: '0%', background: color.accent }} />
-        <div ref={peak} className="absolute top-0 bottom-0 w-0.5" style={{ left: '0%', background: color.dark }} />
+        <div ref={peak} className="absolute top-0 bottom-0 w-0.5 rounded-full" style={{ left: '0%', background: dark ? color.mist : color.dark }} />
       </div>
     </div>
   );
 
   return (
-    <div className="mt-3 rounded-[22px] overflow-hidden" style={{
-      background: dark ? '#152420' : '#EEF3EF',
-      border: `1px solid ${th.border}`,
-    }}>
-      <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: `1px solid ${th.border}` }}>
-        <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: th.soft }}>{t('analyzers')}</span>
-        <span ref={dbRef} className="text-[11px] font-mono font-bold tabular-nums" style={{ color: color.accent }}>−∞ dB</span>
+    <div className="mt-3 rounded-3xl overflow-hidden" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
+      <div className="flex items-center justify-between px-3.5 py-2.5" style={{ background: padBg, borderBottom: `1px solid ${th.border}` }}>
+        <span className="pv-label uppercase" style={{ color: th.soft }}>{t('analyzers')}</span>
+        <span ref={dbRef} className="pv-caption tabular-nums" style={{ color: color.accent }}>−∞ dB</span>
       </div>
-      <div className="grid grid-cols-[108px_minmax(0,1fr)] gap-2 p-2.5">
+      <div className="grid grid-cols-[108px_minmax(0,1fr)] gap-2.5 p-3">
         <div>
-          <p className="text-[9px] font-bold uppercase tracking-widest mb-1.5" style={{ color: th.soft }}>{t('goniometer')}</p>
-          <canvas ref={gonioRef} width={200} height={200} className="w-full aspect-square rounded-2xl block" style={{ background: dark ? '#0B0B0B' : '#F8FAF6' }} />
+          <p className="pv-label uppercase mb-1.5" style={{ color: th.soft }}>{t('goniometer')}</p>
+          <canvas ref={gonioRef} width={200} height={200} className="w-full aspect-square rounded-2xl block" style={{ background: canvasBg }} />
         </div>
         <div className="min-w-0 flex flex-col gap-2">
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-widest mb-1.5" style={{ color: th.soft }}>{t('spectrogram')}</p>
-            <canvas ref={specRef} width={720} height={160} className="w-full h-[108px] rounded-2xl block" style={{ background: dark ? '#0B0B0B' : '#F8FAF6' }} />
+            <p className="pv-label uppercase mb-1.5" style={{ color: th.soft }}>{t('spectrogram')}</p>
+            <canvas ref={specRef} width={720} height={160} className="w-full h-[108px] rounded-2xl block" style={{ background: canvasBg }} />
           </div>
           <div className="flex flex-col gap-1.5">
             {meter('L', lRms, lPeak)}
@@ -237,23 +237,23 @@ export function AnalyzersPanel({ playing }: { playing: boolean }) {
           </div>
         </div>
       </div>
-      <div className="px-3 py-2.5 flex flex-col gap-2" style={{ borderTop: `1px solid ${th.border}` }}>
+      <div className="px-3.5 py-3 flex flex-col gap-2.5" style={{ borderTop: `1px solid ${th.border}`, background: padBg }}>
         <div className="flex items-center gap-2">
-          <span className="text-[9px] font-bold w-3 text-center" style={{ color: th.soft }}>L</span>
+          <span className="pv-micro w-3 text-center" style={{ color: th.soft }}>L</span>
           <input type="range" min={-1} max={1} step={0.01} value={pan} aria-label="Pan"
-            className="flex-1 h-1.5 accent-[#B5613F] cursor-pointer"
+            className="flex-1 h-1.5 cursor-pointer accent-[var(--pv-accent,#B5613F)]"
             onChange={(e) => { const v = Number(e.target.value); setPan(v); audioService.setPan(v); }} />
-          <span className="text-[9px] font-bold w-3 text-center" style={{ color: th.soft }}>R</span>
-          <span className="text-[10px] font-mono font-semibold w-10 text-right" style={{ color: color.accent }}>{panLabel(pan)}</span>
+          <span className="pv-micro w-3 text-center" style={{ color: th.soft }}>R</span>
+          <span className="pv-caption tabular-nums w-10 text-right" style={{ color: color.accent }}>{panLabel(pan)}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[9px] font-bold" style={{ color: th.soft }}>−12</span>
+          <span className="pv-micro" style={{ color: th.soft }}>−12</span>
           <input type="range" min={-12} max={12} step={1} value={pitch} aria-label={t('pitch')}
-            className="flex-1 h-1.5 accent-[#B5613F] cursor-pointer"
+            className="flex-1 h-1.5 cursor-pointer accent-[var(--pv-accent,#B5613F)]"
             onChange={(e) => { const v = Number(e.target.value); setPitch(v); audioService.setPitch(v); }} />
-          <span className="text-[9px] font-bold" style={{ color: th.soft }}>+12</span>
-          <span className="text-[10px] font-mono font-semibold w-10 text-right" style={{ color: color.accent }}>{pitch} st</span>
-          <button type="button" className="text-[10px] font-bold px-2.5 h-7 rounded-xl cursor-pointer"
+          <span className="pv-micro" style={{ color: th.soft }}>+12</span>
+          <span className="pv-caption tabular-nums w-10 text-right" style={{ color: color.accent }}>{pitch} st</span>
+          <button type="button" className="pv-label px-2.5 h-8 rounded-xl cursor-pointer"
             style={{ color: th.muted, background: th.cardBg }}
             onClick={() => { setPan(0); setPitch(0); audioService.setPan(0); audioService.setPitch(0); }}>{t('reset')}</button>
         </div>
@@ -287,9 +287,9 @@ export function LiveAnalyzers({
     const bufA = new Float32Array(new ArrayBuffer(2048 * 4));
     const bufB = new Float32Array(new ArrayBuffer(2048 * 4));
     const spec = new Uint8Array(1024);
-    const gonioFade = dark ? 'rgba(21,36,32,0.35)' : 'rgba(238,243,239,0.42)';
-    const grid = dark ? 'rgba(157,177,112,0.32)' : 'rgba(45,60,57,0.2)';
-    const gridSoft = dark ? 'rgba(157,177,112,0.14)' : 'rgba(45,60,57,0.1)';
+    const gonioFade = dark ? 'rgba(23,23,23,0.42)' : 'rgba(244,232,216,0.55)';
+    const grid = dark ? 'rgba(157,177,112,0.28)' : 'rgba(45,60,57,0.18)';
+    const gridSoft = dark ? 'rgba(146,179,177,0.16)' : 'rgba(111,124,78,0.14)';
     const label = dark ? color.sage : color.olive;
     const stroke = color.accent;
     const stops = dark ? DARK_STOPS : LIGHT_STOPS;
@@ -321,7 +321,7 @@ export function LiveAnalyzers({
           g.moveTo(cx - scale * 0.7, cy + scale * 0.7); g.lineTo(cx + scale * 0.7, cy - scale * 0.7);
           g.stroke();
           g.fillStyle = label;
-          g.font = '600 11px ui-monospace, SFMono-Regular, Menlo, monospace';
+          g.font = '500 11px Geist, ui-sans-serif, system-ui, sans-serif';
           g.fillText('M', cx - 4, cy - scale - 3);
           g.fillText('L', 6, cy + 4);
           g.fillText('R', w - 14, cy + 4);
@@ -399,34 +399,33 @@ export function LiveAnalyzers({
     return () => cancelAnimationFrame(raf);
   }, [active, dark, mix, left, right]);
 
+  const padBg = dark ? '#171717' : color.cream;
+  const canvasBg = dark ? '#0B0B0B' : th.phoneBg;
   const meter = (lab: string, rms: typeof lRms, peak: typeof lPeak) => (
     <div className="flex items-center gap-2">
-      <span className="w-3 text-[9px] font-bold" style={{ color: th.soft }}>{lab}</span>
-      <div className="relative flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: dark ? 'rgba(26,41,38,0.65)' : 'rgba(255,255,255,0.7)' }}>
+      <span className="pv-micro w-3" style={{ color: th.soft }}>{lab}</span>
+      <div className="relative flex-1 h-2 rounded-full overflow-hidden" style={{ background: th.lightBg }}>
         <div ref={rms} className="absolute inset-y-0 left-0 rounded-full" style={{ width: '0%', background: color.accent }} />
-        <div ref={peak} className="absolute top-0 bottom-0 w-0.5" style={{ left: '0%', background: color.dark }} />
+        <div ref={peak} className="absolute top-0 bottom-0 w-0.5 rounded-full" style={{ left: '0%', background: dark ? color.mist : color.dark }} />
       </div>
     </div>
   );
 
   return (
-    <div className="rounded-[22px] overflow-hidden" style={{
-      background: dark ? '#152420' : '#EEF3EF',
-      border: `1px solid ${th.border}`,
-    }}>
-      <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: `1px solid ${th.border}` }}>
-        <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: th.soft }}>{t('analyzers')}</span>
-        <span ref={dbRef} className="text-[11px] font-mono font-bold tabular-nums" style={{ color: color.accent }}>−∞ dB</span>
+    <div className="rounded-3xl overflow-hidden" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
+      <div className="flex items-center justify-between px-3.5 py-2.5" style={{ background: padBg, borderBottom: `1px solid ${th.border}` }}>
+        <span className="pv-label uppercase" style={{ color: th.soft }}>{t('analyzers')}</span>
+        <span ref={dbRef} className="pv-caption tabular-nums" style={{ color: color.accent }}>−∞ dB</span>
       </div>
-      <div className="grid grid-cols-[108px_minmax(0,1fr)] gap-2 p-2.5">
+      <div className="grid grid-cols-[108px_minmax(0,1fr)] gap-2.5 p-3">
         <div>
-          <p className="text-[9px] font-bold uppercase tracking-widest mb-1.5" style={{ color: th.soft }}>{t('goniometer')}</p>
-          <canvas ref={gonioRef} width={200} height={200} className="w-full aspect-square rounded-2xl block" style={{ background: dark ? '#0B0B0B' : '#F8FAF6' }} />
+          <p className="pv-label uppercase mb-1.5" style={{ color: th.soft }}>{t('goniometer')}</p>
+          <canvas ref={gonioRef} width={200} height={200} className="w-full aspect-square rounded-2xl block" style={{ background: canvasBg }} />
         </div>
         <div className="min-w-0 flex flex-col gap-2">
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-widest mb-1.5" style={{ color: th.soft }}>{t('spectrogram')}</p>
-            <canvas ref={specRef} width={720} height={160} className="w-full h-[108px] rounded-2xl block" style={{ background: dark ? '#0B0B0B' : '#F8FAF6' }} />
+            <p className="pv-label uppercase mb-1.5" style={{ color: th.soft }}>{t('spectrogram')}</p>
+            <canvas ref={specRef} width={720} height={160} className="w-full h-[108px] rounded-2xl block" style={{ background: canvasBg }} />
           </div>
           <div className="flex flex-col gap-1.5">
             {meter('L', lRms, lPeak)}

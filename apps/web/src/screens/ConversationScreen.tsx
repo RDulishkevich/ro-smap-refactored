@@ -13,10 +13,12 @@ import { useData } from '../state/DataContext';
 import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useUi } from '../state/UiContext';
+import { usePrefs, useT } from '../state/PrefsContext';
 import { ScreenHeader } from '../primitives/ui';
 import { PhotoLightbox } from '../primitives/PhotoCarousel';
 import { Avatar } from '../primitives/Avatar';
 import { useKeyboardInset } from '../lib/keyboard-inset';
+import { formatPresenceLabel, isUserOnline } from '../lib/presence';
 
 const ACCENT = color.accent;
 const MAX_IMAGE = 12 * 1024 * 1024;
@@ -46,10 +48,13 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
   name: string; avatar: string; peer: string; onBack: () => void;
 }) {
   const th = useTh();
+  const t = useT();
+  const { prefs } = usePrefs();
   const { user, isLoggedIn } = useAuth();
   const { mail, profiles, reloadMail, applyMail } = useData();
   const { toast, confirm } = useUi();
   const { push } = useNav();
+  const locale = prefs.locale === 'en' ? 'en' : 'ru';
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -79,6 +84,10 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
   const support = peer === SUPPORT_LOGIN;
   const profile = profiles.find((p) => String(p.loginName || '').toLowerCase() === peer);
   const letter = (name.trim()[0] || '?').toUpperCase();
+  const presence = support
+    ? t('online')
+    : formatPresenceLabel(profile, locale);
+  const online = support || isUserOnline(profile);
 
   useEffect(() => {
     setPending((cur) => {
@@ -265,12 +274,17 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
     <div className="flex flex-col h-full" style={{ background: th.phoneBg, paddingBottom: kb }}>
       <ScreenHeader
         title={name}
+        subtitle={presence}
         onBack={onBack}
         onTitleClick={support ? undefined : openProfile}
         right={support ? undefined : (
           <button type="button" onClick={openProfile}
-            className="flex-shrink-0" aria-label="Открыть профиль">
+            className="relative flex-shrink-0" aria-label="Открыть профиль">
             <Avatar src={profile?.avatar || avatar} name={name || letter} size={44} rounded="rounded-full" fallback="icon" />
+            {online && (
+              <span className="absolute bottom-0.5 right-0.5 w-3 h-3 rounded-full border-2"
+                style={{ background: color.olive, borderColor: th.headerBg }} aria-hidden />
+            )}
           </button>
         )}
       />

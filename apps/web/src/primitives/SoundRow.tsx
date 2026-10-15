@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bookmark, Download, MoreHorizontal } from 'lucide-react';
+import { Bookmark, ChevronRight, Download, MoreHorizontal } from 'lucide-react';
 import type { Sound } from '@polevka/core';
 import { color, pinColor } from '@polevka/design';
 import { useData } from '../state/DataContext';
@@ -53,10 +53,13 @@ export function SoundRow({
   item,
   badge,
   onOpen,
+  trailing = 'more',
 }: {
   item: Sound;
   badge?: string;
   onOpen?: () => void;
+  /** Drafts use an edit chevron instead of ⋯. */
+  trailing?: 'more' | 'edit';
 }) {
   const th = useTh();
   const t = useT();
@@ -164,8 +167,10 @@ export function SoundRow({
         </button>
         <button type="button" onClick={open}
           className="w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer"
-          aria-label={t('openSound')}>
-          <MoreHorizontal size={16} color={th.soft} />
+          aria-label={trailing === 'edit' ? t('editSound') : t('openSound')}>
+          {trailing === 'edit'
+            ? <ChevronRight size={18} color={th.soft} strokeWidth={1.75} />
+            : <MoreHorizontal size={16} color={th.soft} />}
         </button>
       </div>
     </div>

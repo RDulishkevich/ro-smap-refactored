@@ -82,6 +82,7 @@ export type Profile = {
   pdConsentAt?: string;
   aboutRole?: string;
   useGoals?: string[];
+  lastSeen?: string;
   [key: string]: unknown;
 };
 

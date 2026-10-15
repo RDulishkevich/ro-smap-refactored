@@ -64,14 +64,12 @@ export function DraftsScreen({ onBack }: { onBack: () => void }) {
               <SoundRow
                 item={item}
                 badge={statusLabel(item.status)}
+                trailing="edit"
                 onOpen={() => {
                   if (item.status === 'draft' || item.status === 'rejected') push({ type: 'add-sound', edit: item });
                   else push({ type: 'sound-detail', sound: item });
                 }}
               />
-              {item.rejectNote ? (
-                <p className="pv-caption mt-1 px-1" style={{ color: ACCENT }}>{String(item.rejectNote)}</p>
-              ) : null}
             </div>
           ))}
           {!local && !drafts.length && (

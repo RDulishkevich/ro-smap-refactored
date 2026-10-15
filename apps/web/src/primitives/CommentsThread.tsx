@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Flag, Heart, Send } from 'lucide-react';
 import { color } from '@polevka/design';
 import {
@@ -22,6 +22,7 @@ export function CommentsThread({
   onSave,
 }: {
   comments: Comment[];
+  /** Persist to server; UI already shows `next` optimistically. */
   onSave: (next: Comment[]) => Promise<void>;
 }) {
   const th = useTh();
@@ -30,10 +31,13 @@ export function CommentsThread({
   const { profiles } = useData();
   const { push } = useNav();
   const { toast } = useUi();
+  const [local, setLocal] = useState(comments);
   const [draft, setDraft] = useState('');
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => { setLocal(comments); }, [comments]);
 
   const avatarFor = (authorId?: string | null, author?: string) => {
     const login = String(authorId || '').toLowerCase();
@@ -41,81 +45,92 @@ export function CommentsThread({
     return { src: p?.avatar, name: String(p?.displayName || p?.username || author || '?') };
   };
 
+  const commit = async (next: Comment[], rollback: Comment[]) => {
+    setLocal(next);
+    try {
+      await onSave(next);
+    } catch (e: unknown) {
+      setLocal(rollback);
+      toast((e as Error).message || 'Не удалось сохранить');
+      throw e;
+    }
+  };
+
   const postRoot = async () => {
     const text = draft.trim();
-    if (!text || !user) return;
+    if (!text || !user || busy) return;
     const guard = spamGuardCheck('comment');
     if (!guard.ok) { toast(spamGuardMessage(guard)); return; }
+    const prev = local;
+    const next = [
+      ...local,
+      normalizeComment({
+        author: user.username || user.loginName,
+        authorId: user.loginName,
+        text,
+        date: new Date().toLocaleDateString('ru'),
+      }),
+    ];
+    setDraft('');
     setBusy(true);
     try {
-      const next = [
-        ...comments,
-        normalizeComment({
-          author: user.username || user.loginName,
-          authorId: user.loginName,
-          text,
-          date: new Date().toLocaleDateString('ru'),
-        }),
-      ];
-      await onSave(next);
-      setDraft('');
+      await commit(next, prev);
       toast('Комментарий отправлен');
-    } catch (e: unknown) {
-      toast((e as Error).message || 'Не удалось отправить');
-    } finally { setBusy(false); }
+    } catch { /* rolled back */ }
+    finally { setBusy(false); }
   };
 
   const postReply = async (rootId: string) => {
     const text = replyText.trim();
-    if (!text || !user) return;
+    if (!text || !user || busy) return;
     const guard = spamGuardCheck('comment');
     if (!guard.ok) { toast(spamGuardMessage(guard)); return; }
+    const prev = local;
+    const next = local.map((c) => {
+      if (c.id !== rootId) return c;
+      return {
+        ...c,
+        replies: [
+          ...(c.replies || []),
+          {
+            id: `cr${Date.now()}`,
+            author: user.username || user.loginName,
+            authorId: user.loginName,
+            text,
+            date: new Date().toLocaleDateString('ru'),
+          },
+        ],
+      };
+    });
+    setReplyText('');
+    setReplyTo(null);
     setBusy(true);
     try {
-      const next = comments.map((c) => {
-        if (c.id !== rootId) return c;
-        return {
-          ...c,
-          replies: [
-            ...(c.replies || []),
-            {
-              id: `cr${Date.now()}`,
-              author: user.username || user.loginName,
-              authorId: user.loginName,
-              text,
-              date: new Date().toLocaleDateString('ru'),
-            },
-          ],
-        };
-      });
-      await onSave(next);
-      setReplyText('');
-      setReplyTo(null);
+      await commit(next, prev);
       toast('Ответ отправлен');
-    } catch (e: unknown) {
-      toast((e as Error).message || 'Не удалось');
-    } finally { setBusy(false); }
+    } catch { /* rolled back */ }
+    finally { setBusy(false); }
   };
 
   const toggleHeart = async (cm: Comment) => {
     if (!user) { push({ type: 'auth' }); return; }
     const login = user.loginName;
     const has = (cm.reactedBy || []).includes(login);
-    const next = comments.map((c) => {
+    const prev = local;
+    const next = local.map((c) => {
       if (c.id !== cm.id) return c;
       const reactedBy = has
         ? (c.reactedBy || []).filter((x) => x !== login)
         : [...(c.reactedBy || []), login];
       return { ...c, reactedBy };
     });
-    try { await onSave(next); } catch (e: unknown) {
-      toast((e as Error).message || 'Не удалось');
-    }
+    try { await commit(next, prev); } catch { /* rolled back */ }
   };
 
   const report = async (cm: Comment) => {
     if (!user) { push({ type: 'auth' }); return; }
-    const next = comments.map((c) => {
+    const prev = local;
+    const next = local.map((c) => {
       if (c.id !== cm.id) return c;
       return {
         ...c,
@@ -123,21 +138,19 @@ export function CommentsThread({
       };
     });
     try {
-      await onSave(next);
+      await commit(next, prev);
       toast('Жалоба отправлена');
-    } catch (e: unknown) {
-      toast((e as Error).message || 'Не удалось');
-    }
+    } catch { /* rolled back */ }
   };
 
   return (
     <div>
       <p className="pv-label uppercase mb-3" style={{ color: th.soft }}>
-        {t('comments')} · {comments.length}
+        {t('comments')} · {local.length}
       </p>
-      {!comments.length && <EmptyNote title={t('noComments')} hint={t('noCommentsHint')} />}
+      {!local.length && <EmptyNote title={t('noComments')} hint={t('noCommentsHint')} />}
       <div className="flex flex-col gap-4">
-        {comments.map((cm) => {
+        {local.map((cm) => {
           const av = avatarFor(cm.authorId, cm.author);
           const liked = (cm.reactedBy || []).includes(user?.loginName || '');
           const replies = cm.replies || [];

@@ -59,6 +59,7 @@ import { SoundTagLines } from '../primitives/SoundTagLines';
 import { CommentsThread } from '../primitives/CommentsThread';
 import { SoundRow } from '../primitives/SoundRow';
 import { useLeaveGuard } from '../lib/use-leave-guard';
+import { formatPresenceLabel, isUserOnline } from '../lib/presence';
 import BrandMark from '@/brand/BrandMark';
 
 const ACCENT = color.accent;
@@ -276,8 +277,13 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
           <CommentsThread
             comments={comments}
             onSave={async (next) => {
-              await apiSyncJson('map_data.json', [{ ...live, comments: next }]);
-              await reload();
+              patchSoundLocal(live.id, { comments: next });
+              try {
+                await apiSyncJson('map_data.json', [{ ...live, comments: next }]);
+              } catch (e) {
+                await reload();
+                throw e;
+              }
             }}
           />
         </div>
@@ -500,7 +506,7 @@ function EventsScreen({ onBack, focusId }: { onBack: () => void; focusId?: strin
 function FeedPostScreen({ post, onBack }: { post: FeedPost; onBack: () => void }) {
   const th = useTh();
   const t = useT();
-  const { feed, sounds, reload } = useData();
+  const { feed, sounds, reload, patchFeedLocal } = useData();
   const { push } = useNav();
   const live = feed.find((p) => String(p.id || p.title) === String(post.id || post.title)) || post;
   const images = (live.images || []).map(String).filter(Boolean);
@@ -529,8 +535,13 @@ function FeedPostScreen({ post, onBack }: { post: FeedPost; onBack: () => void }
           <CommentsThread
             comments={comments}
             onSave={async (next) => {
-              await apiSyncJson('feed.json', [{ ...live, comments: next }]);
-              await reload();
+              patchFeedLocal(live.id || live.title, { comments: next });
+              try {
+                await apiSyncJson('feed.json', [{ ...live, comments: next }]);
+              } catch (e) {
+                await reload();
+                throw e;
+              }
             }}
           />
         </div>
@@ -893,15 +904,29 @@ export function MessagesScreen({ onBack, embed = false }: { onBack?: () => void;
         {isLoggedIn && peers.length > 0 && filtered.length === 0 && (
           <EmptyNote title={t('nothingFound')} hint={t('nothingFoundHint')} />
         )}
-        {filtered.map((p) => (
+        {filtered.map((p) => {
+          const peerProfile = profiles.find((row) => String(row.loginName || '').toLowerCase() === p.login);
+          const isSupport = p.login === SUPPORT_LOGIN;
+          const online = isSupport || isUserOnline(peerProfile);
+          const presence = isSupport
+            ? t('online')
+            : formatPresenceLabel(peerProfile, prefs.locale === 'en' ? 'en' : 'ru');
+          return (
           <button key={p.login} type="button" onClick={() => push({ type: 'conversation', name: p.name, avatar: p.avatar || '', peer: p.login })}
             className="w-full flex items-center gap-3 py-3 px-1 mb-0.5 text-left min-h-[68px]">
-            <Avatar src={p.avatar} name={p.name} size={52} rounded="rounded-full" fallback="icon" />
+            <span className="relative flex-shrink-0">
+              <Avatar src={p.avatar} name={p.name} size={52} rounded="rounded-full" fallback="icon" />
+              {online && (
+                <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full border-2"
+                  style={{ background: color.olive, borderColor: th.phoneBg }} aria-hidden />
+              )}
+            </span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <p className="pv-subtitle truncate flex-1" style={{ color: th.inkText }}>{p.name}</p>
                 <span className="pv-micro flex-shrink-0" style={{ color: th.soft }}>{fmtTime(p.lastDate)}</span>
               </div>
+              <p className="pv-micro truncate mt-0.5" style={{ color: online ? color.olive : th.soft }}>{presence}</p>
               <div className="flex items-center gap-2 mt-0.5">
                 <p className="pv-caption truncate flex-1" style={{ color: th.soft }}>{p.lastText || 'Написать'}</p>
                 {p.unread > 0 && (
@@ -912,7 +937,8 @@ export function MessagesScreen({ onBack, embed = false }: { onBack?: () => void;
               </div>
             </div>
           </button>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

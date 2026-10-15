@@ -50,6 +50,8 @@ type DataCtx = {
   setRoutePreview: (p: MapPoint[]) => void;
   clearMapPick: () => void;
   patchSoundLocal: (id: string | number, patch: Partial<Sound> | ((s: Sound) => Sound)) => void;
+  patchFeedLocal: (id: string | number | undefined, patch: Partial<FeedPost> | ((p: FeedPost) => FeedPost)) => void;
+  patchProfilesLocal: (updater: (prev: Profile[]) => Profile[]) => void;
   patchEventsLocal: (updater: (prev: AppEvent[]) => AppEvent[]) => void;
 };
 
@@ -206,9 +208,56 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const patchFeedLocal = useCallback((id: string | number | undefined, patch: Partial<FeedPost> | ((p: FeedPost) => FeedPost)) => {
+    const key = String(id ?? '');
+    setFeed((prev) => prev.map((p) => {
+      if (String(p.id || p.title) !== key) return p;
+      return typeof patch === 'function' ? patch(p) : { ...p, ...patch };
+    }));
+  }, []);
+
+  const patchProfilesLocal = useCallback((updater: (prev: Profile[]) => Profile[]) => {
+    setProfiles(updater);
+  }, []);
+
   const patchEventsLocal = useCallback((updater: (prev: AppEvent[]) => AppEvent[]) => {
     setEvents(updater);
   }, []);
+
+  // Keep own lastSeen fresh so peers see «в сети».
+  useEffect(() => {
+    if (!isLoggedIn || !user?.loginName) return;
+    let lastTouch = 0;
+    const touch = (force = false) => {
+      const now = Date.now();
+      if (!force && now - lastTouch < 120_000) return;
+      lastTouch = now;
+      const login = String(user.loginName).toLowerCase();
+      const iso = new Date().toISOString();
+      setProfiles((prev) => {
+        const idx = prev.findIndex((p) => String(p.loginName || '').toLowerCase() === login);
+        const next = idx >= 0
+          ? prev.map((p, i) => (i === idx ? { ...p, lastSeen: iso } : p))
+          : [...prev, { loginName: login, displayName: user.username || login, lastSeen: iso }];
+        return next;
+      });
+      void apiSyncJson('profiles.json', [{
+        loginName: login,
+        displayName: user.username || login,
+        lastSeen: iso,
+      }]).catch(() => {});
+    };
+    touch(true);
+    const t = window.setInterval(() => {
+      if (!document.hidden) touch(false);
+    }, 90_000);
+    const onVis = () => { if (!document.hidden) touch(false); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      window.clearInterval(t);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [isLoggedIn, user?.loginName, user?.username]);
 
   const clearMapPick = useCallback(() => {
     setPickMode(null);
@@ -226,11 +275,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     playingId, playing, progress, volume, muted, togglePlay, seek, setVolume, toggleMute,
     focused, setFocused,
     pickMode, setPickMode, pickedPoint, setPickedPoint, routeDraft, setRouteDraft, routePreview, setRoutePreview,
-    clearMapPick, patchSoundLocal, patchEventsLocal,
+    clearMapPick, patchSoundLocal, patchFeedLocal, patchProfilesLocal, patchEventsLocal,
   }), [
     sounds, allSounds, filteredSounds, filter, feed, events, profiles, mail, loading, catalogStatus, reload, reloadMail, applyMail, markNotificationsRead,
     playingId, playing, progress, volume, muted, togglePlay, seek, setVolume, toggleMute,
-    focused, patchSoundLocal, patchEventsLocal, clearMapPick,
+    focused, patchSoundLocal, patchFeedLocal, patchProfilesLocal, patchEventsLocal, clearMapPick,
     pickMode, pickedPoint, routeDraft, routePreview,
   ]);
 

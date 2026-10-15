@@ -286,6 +286,17 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
           </div>
         )}
         <div className="flex flex-col gap-4 max-w-3xl">
+          {edit?.status === 'rejected' && (
+            <div className="rounded-3xl px-4 py-3.5" style={{ background: th.cardBg, border: `1px solid ${ACCENT}55` }}>
+              <p className="pv-label uppercase" style={{ color: ACCENT }}>Причина отклонения</p>
+              <p className="pv-body mt-1.5" style={{ color: th.inkText }}>
+                {String(edit.rejectNote || '').trim() || 'Модератор отклонил запись без подробного комментария.'}
+              </p>
+              <p className="pv-caption mt-2" style={{ color: th.soft }}>
+                Исправьте замечания и снова отправьте на модерацию.
+              </p>
+            </div>
+          )}
           <Section title="Аудио" th={th}>
             <label
               className="block rounded-2xl px-4 py-5 text-center cursor-pointer"

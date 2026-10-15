@@ -24,7 +24,7 @@ const ACCENT = color.accent;
 
 export function ExpeditionDetailScreen({ exp, onBack }: { exp: Expedition; onBack: () => void }) {
   const th = useTh();
-  const { sounds, setRoutePreview, profiles, reload } = useData();
+  const { sounds, setRoutePreview, profiles, reload, patchProfilesLocal } = useData();
   const { user } = useAuth();
   const { push } = useNav();
   const { toast } = useUi();
@@ -49,8 +49,17 @@ export function ExpeditionDetailScreen({ exp, onBack }: { exp: Expedition; onBac
       sessions,
       profileUpdatedAt: new Date().toISOString(),
     };
-    await apiSyncJson('profiles.json', [record]);
-    await reload();
+    patchProfilesLocal((prev) => {
+      const i = prev.findIndex((p) => String(p.loginName || '').toLowerCase() === ownerLogin);
+      if (i < 0) return [...prev, record];
+      return prev.map((p, j) => (j === i ? { ...p, ...record } : p));
+    });
+    try {
+      await apiSyncJson('profiles.json', [record]);
+    } catch (e) {
+      await reload();
+      throw e;
+    }
   };
 
   return (

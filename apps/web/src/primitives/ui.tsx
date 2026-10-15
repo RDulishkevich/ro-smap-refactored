@@ -69,7 +69,9 @@ export function SoundTypeTag({ type }: { type: string }) {
   );
 }
 
-export function ScreenHeader({ title, onBack, right, onTitleClick }: { title: string; onBack: () => void; right?: ReactNode; onTitleClick?: () => void }) {
+export function ScreenHeader({ title, subtitle, onBack, right, onTitleClick }: {
+  title: string; subtitle?: string; onBack: () => void; right?: ReactNode; onTitleClick?: () => void;
+}) {
   const th = useTh();
   const t = useT();
   return (
@@ -77,11 +79,16 @@ export function ScreenHeader({ title, onBack, right, onTitleClick }: { title: st
       <motion.button whileTap={tap.nav} onClick={onBack} className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 cursor-pointer" style={{ background: th.lightBg }} aria-label={t('back')}>
         <ChevronLeft size={18} style={{ color: th.inkText }} />
       </motion.button>
-      {onTitleClick ? (
-        <button type="button" onClick={onTitleClick} className="pv-page flex-1 truncate text-left" style={{ color: th.inkText }}>{title}</button>
-      ) : (
-        <p className="pv-page flex-1 truncate" style={{ color: th.inkText }}>{title}</p>
-      )}
+      <div className="flex-1 min-w-0">
+        {onTitleClick ? (
+          <button type="button" onClick={onTitleClick} className="pv-page block w-full truncate text-left" style={{ color: th.inkText }}>{title}</button>
+        ) : (
+          <p className="pv-page truncate" style={{ color: th.inkText }}>{title}</p>
+        )}
+        {subtitle ? (
+          <p className="pv-micro truncate mt-0.5" style={{ color: subtitle === t('online') ? color.olive : th.soft }}>{subtitle}</p>
+        ) : null}
+      </div>
       {right}
     </header>
   );
