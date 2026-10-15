@@ -9,7 +9,7 @@ import { GuestProfileScreen, ProfileScreen } from '../screens/ProfileScreen';
 import { MenuHub } from '../screens/MenuHub';
 import { ScreenContent, MessagesScreen } from '../screens/stack';
 import { NavBar, PinPlayer } from '../primitives/ui';
-import { MapFab } from '../primitives/chrome';
+import { MapFab, MapFabMenu } from '../primitives/chrome';
 import { useData } from '../state/DataContext';
 import { SwipeBack } from '../lib/swipe-back';
 
@@ -145,8 +145,12 @@ export function MobileShell() {
       </AnimatePresence>
 
       {showChrome && (
+        <MapFabMenu open={fabOpen} onClose={() => setFabOpen(false)} />
+      )}
+
+      {showChrome && (
         <div className="absolute left-0 right-0 z-[95] pv-mobile-nav" style={{ bottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))' }}>
-          <div className="absolute left-1/2 z-20" style={{ top: 0, transform: 'translate(-50%, -50%)' }}>
+          <div className="absolute left-1/2 z-[97]" style={{ top: 0, transform: 'translate(-50%, -50%)' }}>
             <MapFab open={fabOpen} onToggle={() => setFabOpen((o) => !o)} from="center" />
           </div>
           <div

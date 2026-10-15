@@ -16,54 +16,64 @@ type FabAction = {
   label: string;
 };
 
-export function MapFab({ open, onToggle, from = 'corner' }: { open: boolean; onToggle: () => void; from?: 'corner' | 'center' }) {
-  const { requireAuth } = useNav();
+function useFabActions(): FabAction[] {
   const th = useTh();
-  const actions: FabAction[] = [
+  return [
     { Icon: MapPin, bg: th.isDark ? '#2E2E2E' : '#3A3A3A', screen: { type: 'add-sound' }, label: 'Добавить звук' },
     { Icon: Mic, bg: color.accent, screen: { type: 'record' }, label: 'Записать' },
   ];
+}
+
+/** Labeled speed-dial sheet — mount outside the 64px plus box (MobileShell layer). */
+export function MapFabMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { requireAuth } = useNav();
+  const th = useTh();
+  const actions = useFabActions();
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          key="fab-menu"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 10 }}
+          transition={spring.sheet}
+          className="absolute left-0 right-0 z-[96] flex justify-center pointer-events-none"
+          style={{ bottom: 'calc(var(--pv-nav-h) + 0.85rem)' }}
+        >
+          <div className="w-[min(15.5rem,calc(100vw-2.5rem))] flex flex-col gap-2 pointer-events-auto">
+            {actions.map(({ Icon, bg, screen, label }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => { onClose(); requireAuth(screen); }}
+                className="w-full min-h-12 rounded-2xl px-3.5 flex items-center gap-3 text-left shadow-[0_10px_28px_rgba(45,60,57,0.18)] active:scale-[0.97] transition-transform"
+                style={{ background: th.cardBg, border: `1px solid ${th.border}` }}
+                aria-label={label}
+              >
+                <span
+                  className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ background: bg }}
+                >
+                  <Icon size={18} color="white" />
+                </span>
+                <span className="pv-subtitle" style={{ color: th.inkText }}>{label}</span>
+              </button>
+            ))}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+export function MapFab({ open, onToggle, from = 'corner' }: { open: boolean; onToggle: () => void; from?: 'corner' | 'center' }) {
+  const { requireAuth } = useNav();
 
   if (from === 'center') {
     return (
       <div className="relative w-16 h-16 pointer-events-none">
-        <AnimatePresence>
-          {open && (
-            <motion.div
-              key="fab-sheet"
-              // Keep x:'-50%' in every keyframe — CSS -translate-x-1/2 is wiped by motion transforms.
-              initial={{ opacity: 0, y: 10, x: '-50%' }}
-              animate={{ opacity: 1, y: 0, x: '-50%' }}
-              exit={{ opacity: 0, y: 8, x: '-50%' }}
-              transition={spring.sheet}
-              className="absolute left-1/2 bottom-[5.5rem] z-30 flex flex-col gap-2 pointer-events-auto w-[min(15.5rem,calc(100vw-2.5rem))]"
-            >
-              {actions.map(({ Icon, bg, screen, label }, i) => (
-                <motion.button
-                  key={label}
-                  type="button"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 6 }}
-                  transition={{ ...spring.chip, delay: 0.04 + i * 0.05 }}
-                  whileTap={tap.cta}
-                  onClick={() => { onToggle(); requireAuth(screen); }}
-                  className="w-full min-h-12 rounded-2xl px-3.5 flex items-center gap-3 text-left shadow-[0_10px_28px_rgba(45,60,57,0.18)]"
-                  style={{ background: th.cardBg, border: `1px solid ${th.border}` }}
-                  aria-label={label}
-                >
-                  <span
-                    className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{ background: bg }}
-                  >
-                    <Icon size={18} color="white" />
-                  </span>
-                  <span className="pv-subtitle" style={{ color: th.inkText }}>{label}</span>
-                </motion.button>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
         <motion.button
           type="button"
           onClick={onToggle}
