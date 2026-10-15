@@ -1,19 +1,23 @@
+import { useRef, type ReactNode } from 'react';
 import { motion } from 'motion/react';
-import { Headphones, LogIn, Mic } from 'lucide-react';
-import { color, pinColor } from '@polevka/design';
+import {
+  Bell, Calendar, ChevronRight, FilePenLine, Globe, Headphones, HelpCircle,
+  Lock, LogIn, LogOut, Moon, Settings, Sun, UserRound,
+} from 'lucide-react';
+import { color, pinColor, tap, type ThemeTokens } from '@polevka/design';
 import { formatPlays, type Sound } from '@polevka/core';
 import { useSoundMeta } from '../lib/audio-meta';
-import { useT } from '../state/PrefsContext';
+import { usePrefs, useT } from '../state/PrefsContext';
 import { useAuth } from '../state/AuthContext';
 import { useNav } from '../state/NavContext';
-import { useTh } from '../state/ThemeContext';
+import { useIsDark, useTh, useToggleTheme } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
+import { useUi } from '../state/UiContext';
+import { useIsDesktop } from '../lib/use-media';
 import { NavBar, PlayPauseIcon } from '../primitives/ui';
 import { EmptyNote } from '../primitives/EmptyNote';
 import { SoundTagLines } from '../primitives/SoundTagLines';
 import { Avatar } from '../primitives/Avatar';
-import BrandMark from '@/brand/BrandMark';
-import LogoApp from '@/brand/LogoApp';
 
 const ACCENT = color.accent;
 
@@ -21,29 +25,83 @@ export function GuestProfileScreen({ showNav = true }: { showNav?: boolean }) {
   const { push } = useNav();
   const th = useTh();
   const t = useT();
+  const dark = useIsDark();
+  const toggleTheme = useToggleTheme();
+  const { prefs, setPref } = usePrefs();
+  const loc = prefs.locale === 'en' ? 'en' : 'ru';
+
   return (
-    <div className="flex flex-col h-full relative" style={{ background: th.phoneBg }}>
-      <div className="relative flex-1 flex flex-col items-center justify-center px-6 text-center pv-safe-top">
-        <div className="w-20 h-20 rounded-3xl overflow-hidden shadow-xl mx-auto mb-4"><LogoApp /></div>
-        <h1 className="pv-title mb-2" style={{ color: th.inkText }}>Полёвка</h1>
-        <p className="pv-body mb-6 max-w-[20rem]" style={{ color: th.soft }}>
-          {t('signInToSave')}
-        </p>
-        <div className="w-full flex flex-col gap-3">
-          <motion.button whileTap={{ scale: 0.96 }} onClick={() => push({ type: 'auth' })}
-            className="pv-button w-full py-3.5 rounded-2xl text-white flex items-center justify-center gap-2 cursor-pointer" style={{ backgroundColor: ACCENT }}>
-            <LogIn size={15} />{t('signInAccount')}
-          </motion.button>
-          <motion.button whileTap={{ scale: 0.96 }} onClick={() => push({ type: 'auth', mode: 'up' })}
-            className="pv-button w-full py-3 rounded-2xl cursor-pointer" style={{ background: th.lightBg, color: th.inkText }}>
-            {t('register')}
-          </motion.button>
+    <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
+      <div className={`flex-1 overflow-y-auto scrollbar-none ${showNav ? 'pb-4' : ''}`}>
+        <header className="pv-safe-top px-5 pt-4 pb-2 text-center">
+          <h1 className="pv-page" style={{ color: th.inkText }}>{t('profile')}</h1>
+        </header>
+
+        <div className="px-4 flex flex-col gap-5">
+          <div className="rounded-3xl px-4 py-4 flex items-center gap-3.5" style={{ background: th.cardBg }}>
+            <Avatar name="П" size={56} rounded="rounded-full" fallback="icon" className="shadow-sm" />
+            <div className="min-w-0 flex-1">
+              <p className="pv-heading truncate" style={{ color: th.inkText }}>Полёвка</p>
+              <p className="pv-caption truncate mt-0.5" style={{ color: th.soft }}>{t('signInToSave')}</p>
+            </div>
+          </div>
+
+          <MenuSection title={t('account')} th={th}>
+            <MenuRow
+              th={th}
+              icon={<LogIn size={18} strokeWidth={1.75} />}
+              label={t('signInAccount')}
+              onClick={() => push({ type: 'auth' })}
+            />
+            <MenuRow
+              th={th}
+              icon={<UserRound size={18} strokeWidth={1.75} />}
+              label={t('register')}
+              onClick={() => push({ type: 'auth', mode: 'up' })}
+              last
+            />
+          </MenuSection>
+
+          <MenuSection title={t('preferences')} th={th}>
+            <MenuRow
+              th={th}
+              icon={<Globe size={18} strokeWidth={1.75} />}
+              label={t('language')}
+              value={loc === 'en' ? 'EN' : 'RU'}
+              onClick={() => setPref('locale', loc === 'en' ? 'ru' : 'en')}
+            />
+            <MenuRow
+              th={th}
+              icon={dark ? <Sun size={18} strokeWidth={1.75} /> : <Moon size={18} strokeWidth={1.75} />}
+              label={t('theme')}
+              value={dark ? t('themeDark') : t('themeLight')}
+              onClick={toggleTheme}
+              last
+            />
+          </MenuSection>
+
+          <MenuSection title={t('supportSection')} th={th}>
+            <MenuRow
+              th={th}
+              icon={<HelpCircle size={18} strokeWidth={1.75} />}
+              label={t('helpSupport')}
+              onClick={() => push({ type: 'help' })}
+            />
+            <MenuRow
+              th={th}
+              icon={<Settings size={18} strokeWidth={1.75} />}
+              label={t('settings')}
+              onClick={() => push({ type: 'settings' })}
+              last
+            />
+          </MenuSection>
+
+          <p className="pv-micro text-center pb-2 px-2" style={{ color: th.soft }}>
+            <button type="button" className="underline" style={{ color: th.muted }} onClick={() => push({ type: 'legal', doc: 'terms' })}>{t('terms')}</button>
+            {' · '}
+            <button type="button" className="underline" style={{ color: th.muted }} onClick={() => push({ type: 'legal', doc: 'privacy' })}>{t('privacyPolicy')}</button>
+          </p>
         </div>
-        <p className="pv-micro mt-6 px-4" style={{ color: th.muted }}>
-          <button className="underline" onClick={() => push({ type: 'legal', doc: 'terms' })}>{t('terms')}</button>
-          {' · '}
-          <button className="underline" onClick={() => push({ type: 'legal', doc: 'privacy' })}>{t('privacyPolicy')}</button>
-        </p>
       </div>
       {showNav && <div className="rounded-t-3xl shadow-lg overflow-hidden flex-shrink-0"><NavBar /></div>}
     </div>
@@ -51,83 +109,249 @@ export function GuestProfileScreen({ showNav = true }: { showNav?: boolean }) {
 }
 
 export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
-  const { user } = useAuth();
-  const { push } = useNav();
+  const { user, logout } = useAuth();
+  const { push, reset } = useNav();
   const th = useTh();
   const t = useT();
+  const { toast } = useUi();
+  const desktop = useIsDesktop();
+  const dark = useIsDark();
+  const toggleTheme = useToggleTheme();
+  const { prefs, setPref } = usePrefs();
   const { togglePlay, playing, playingId, allSounds, profiles } = useData();
+  const loc = prefs.locale === 'en' ? 'en' : 'ru';
   const mineProfile = profiles.find((p) => String(p.loginName).toLowerCase() === String(user?.loginName || '').toLowerCase());
   const avatarUrl = String(user?.avatar || mineProfile?.avatar || '');
+  const displayName = user?.displayName || user?.username || user?.loginName || '';
+  const subtitle = user?.email || (user?.loginName ? `@${user.loginName}` : '');
   const mineAll = allSounds.filter((s) => String(s.recordistId || s.user || '').toLowerCase() === String(user?.loginName || '').toLowerCase()
     || String(s.recordist || '').toLowerCase() === String(user?.username || '').toLowerCase());
   const mine = mineAll.filter((s) => !s.status || s.status === 'published');
   const drafts = mineAll.filter((s) => s.status === 'draft' || s.status === 'pending' || s.status === 'rejected');
   const shown = mine.length ? mine : [];
-  const mySessions = profiles.find((p) => String(p.loginName).toLowerCase() === user?.loginName)?.sessions || [];
+  const mySessions = mineProfile?.sessions || [];
+  const soundsRef = useRef<HTMLElement>(null);
+
+  const doLogout = async () => {
+    await logout();
+    reset();
+    toast(t('loggedOut'));
+  };
 
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <div className="flex-1 overflow-y-auto scrollbar-none">
-        <div className="relative p-4 pb-3 overflow-hidden pv-safe-top">
-          <div className="relative flex items-center mb-5">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 relative flex-shrink-0"><BrandMark /></div>
-              <p className="pv-label uppercase" style={{ color: th.soft }}>{t('profile')}</p>
+      <div className={`flex-1 overflow-y-auto scrollbar-none ${showNav ? 'pb-4' : ''}`}>
+        <header className={`px-5 pb-2 ${desktop ? 'pt-6' : 'pv-safe-top pt-4'} ${desktop ? 'text-left' : 'text-center'}`}>
+          <h1 className="pv-page" style={{ color: th.inkText }}>{t('profile')}</h1>
+        </header>
+
+        <div className={`px-4 flex flex-col gap-5 ${showNav ? 'pb-40' : 'pb-8'}`}>
+          <motion.button
+            type="button"
+            whileTap={tap.cta}
+            onClick={() => push({ type: 'edit-profile' })}
+            className="rounded-3xl px-4 py-4 flex items-center gap-3.5 text-left w-full cursor-pointer"
+            style={{ background: th.cardBg }}
+          >
+            <Avatar
+              src={avatarUrl}
+              name={displayName}
+              size={56}
+              rounded="rounded-full"
+              fallback="icon"
+              className="shadow-sm"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="pv-heading truncate" style={{ color: th.inkText }}>{displayName}</p>
+              <p className="pv-caption truncate mt-0.5" style={{ color: th.soft }}>{subtitle}</p>
             </div>
-          </div>
-          <div className="relative flex items-center gap-4 mb-5">
-            <Avatar src={avatarUrl} name={user?.displayName || user?.username} size={64} className="shadow-md" />
-            <div>
-              <p className="pv-page" style={{ color: th.inkText }}>{user?.displayName || user?.username}</p>
-              <p className="pv-caption mb-2" style={{ color: th.soft }}>@{user?.loginName}</p>
-              <div className="pv-micro inline-flex items-center gap-1 px-2.5 py-1 rounded-full" style={{ background: th.cream, color: ACCENT }}>
-                <Mic size={9} />{t('fieldResearcher')}
-              </div>
-            </div>
-          </div>
-          <div className="relative rounded-3xl p-4 shadow-sm mb-4" style={{ background: th.cardBg }}>
-            <div className="flex justify-around">
-              {[[String(mine.length), t('recordings')], [String(drafts.length), t('pending')], [String(mySessions.length), t('expeditions')]].map(([v, l]) => (
-                <button key={l} type="button" className="text-center" onClick={() => {
-                  if (l === t('pending')) push({ type: 'drafts' });
-                  else if (l === t('expeditions')) push({ type: 'expeditions' });
-                }}>
-                  <p className="pv-heading tabular-nums" style={{ color: th.inkText }}>{v}</p>
-                  <p className="pv-micro" style={{ color: th.soft }}>{l}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex gap-2 mb-2 relative">
-            <motion.button whileTap={{ scale: 0.94 }} onClick={() => push({ type: 'edit-profile' })}
-              className="pv-button flex-1 py-2.5 rounded-2xl shadow-sm cursor-pointer" style={{ background: th.lightBg, color: th.inkText }}>{t('edit')}</motion.button>
-            <motion.button whileTap={{ scale: 0.94 }} onClick={() => push({ type: 'cabinet' })}
-              className="pv-button flex-1 py-2.5 rounded-2xl shadow-sm cursor-pointer" style={{ background: th.lightBg, color: th.inkText }}>{t('cabinet')}</motion.button>
-          </div>
-        </div>
-        <div className={`px-4 ${showNav ? 'pb-48' : 'pb-6'}`}>
-          <p className="pv-label uppercase mb-3" style={{ color: th.soft }}>{t('mySounds')}</p>
-          <div className="flex flex-col gap-3">
-            {drafts.map((item) => (
-              <button key={`d${String(item.id)}`} onClick={() => {
-                if (item.status === 'draft' || item.status === 'rejected') push({ type: 'add-sound', edit: item });
-                else push({ type: 'sound-detail', sound: item });
-              }} className="rounded-2xl p-3 text-left" style={{ background: th.lightBg }}>
-                <p className="pv-micro uppercase" style={{ color: th.soft }}>{item.status}</p>
-                <p className="pv-subtitle" style={{ color: th.inkText }}>{item.title}</p>
-                {item.rejectNote ? <p className="pv-caption" style={{ color: ACCENT }}>{String(item.rejectNote)}</p> : null}
+            <ChevronRight size={18} strokeWidth={1.75} style={{ color: th.soft }} className="flex-shrink-0" />
+          </motion.button>
+
+          <div className="rounded-3xl px-2 py-3 flex justify-around" style={{ background: th.cardBg }}>
+            {[
+              { v: String(mine.length), l: t('recordings'), go: () => soundsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
+              { v: String(drafts.length), l: t('pending'), go: () => push({ type: 'drafts' }) },
+              { v: String(mySessions.length), l: t('expeditions'), go: () => push({ type: 'expeditions' }) },
+            ].map((row) => (
+              <button key={row.l} type="button" className="flex-1 text-center min-h-11 px-1 cursor-pointer" onClick={row.go}>
+                <p className="pv-heading tabular-nums" style={{ color: th.inkText }}>{row.v}</p>
+                <p className="pv-micro mt-0.5" style={{ color: th.soft }}>{row.l}</p>
               </button>
             ))}
-            {shown.map((item) => (
-              <ProfileSoundCard key={String(item.id)} item={item} playing={playing && String(playingId) === String(item.id)}
-                onPlay={() => togglePlay(item)} onOpen={() => push({ type: 'sound-detail', sound: item })} />
-            ))}
-            {!shown.length && !drafts.length && <EmptyNote title={t('noOwnSounds')} actionLabel={t('openCatalog')} onAction={() => push({ type: 'catalog' })} />}
           </div>
+
+          <MenuSection title={t('account')} th={th}>
+            <MenuRow
+              th={th}
+              icon={<UserRound size={18} strokeWidth={1.75} />}
+              label={t('manageProfile')}
+              onClick={() => push({ type: 'edit-profile' })}
+            />
+            <MenuRow
+              th={th}
+              icon={<Lock size={18} strokeWidth={1.75} />}
+              label={t('profileSecurity')}
+              onClick={() => push({ type: 'cabinet' })}
+            />
+            <MenuRow
+              th={th}
+              icon={<Bell size={18} strokeWidth={1.75} />}
+              label={t('notifications')}
+              onClick={() => push({ type: 'notifications' })}
+            />
+            <MenuRow
+              th={th}
+              icon={<Globe size={18} strokeWidth={1.75} />}
+              label={t('language')}
+              value={loc === 'en' ? 'English' : 'Русский'}
+              onClick={() => setPref('locale', loc === 'en' ? 'ru' : 'en')}
+              last
+            />
+          </MenuSection>
+
+          <MenuSection title={t('preferences')} th={th}>
+            <MenuRow
+              th={th}
+              icon={dark ? <Sun size={18} strokeWidth={1.75} /> : <Moon size={18} strokeWidth={1.75} />}
+              label={t('theme')}
+              value={dark ? t('themeDark') : t('themeLight')}
+              onClick={toggleTheme}
+            />
+            <MenuRow
+              th={th}
+              icon={<FilePenLine size={18} strokeWidth={1.75} />}
+              label={t('drafts')}
+              value={drafts.length ? String(drafts.length) : undefined}
+              onClick={() => push({ type: 'drafts' })}
+            />
+            <MenuRow
+              th={th}
+              icon={<Calendar size={18} strokeWidth={1.75} />}
+              label={t('expeditions')}
+              value={mySessions.length ? String(mySessions.length) : undefined}
+              onClick={() => push({ type: 'expeditions' })}
+            />
+            <MenuRow
+              th={th}
+              icon={<Settings size={18} strokeWidth={1.75} />}
+              label={t('settings')}
+              onClick={() => push({ type: 'settings' })}
+              last
+            />
+          </MenuSection>
+
+          <MenuSection title={t('supportSection')} th={th}>
+            <MenuRow
+              th={th}
+              icon={<HelpCircle size={18} strokeWidth={1.75} />}
+              label={t('helpSupport')}
+              onClick={() => push({ type: 'help' })}
+            />
+            <MenuRow
+              th={th}
+              icon={<LogOut size={18} strokeWidth={1.75} />}
+              label={t('logout')}
+              danger
+              onClick={() => { void doLogout(); }}
+              last
+            />
+          </MenuSection>
+
+          <section ref={soundsRef}>
+            <p className="pv-label uppercase px-1 mb-1.5" style={{ color: th.soft }}>{t('mySounds')}</p>
+            <div className="flex flex-col gap-2">
+              {drafts.map((item) => (
+                <button
+                  key={`d${String(item.id)}`}
+                  type="button"
+                  onClick={() => {
+                    if (item.status === 'draft' || item.status === 'rejected') push({ type: 'add-sound', edit: item });
+                    else push({ type: 'sound-detail', sound: item });
+                  }}
+                  className="rounded-2xl p-3 text-left cursor-pointer"
+                  style={{ background: th.cardBg }}
+                >
+                  <p className="pv-micro uppercase" style={{ color: th.soft }}>{item.status}</p>
+                  <p className="pv-subtitle" style={{ color: th.inkText }}>{item.title}</p>
+                  {item.rejectNote ? <p className="pv-caption" style={{ color: ACCENT }}>{String(item.rejectNote)}</p> : null}
+                </button>
+              ))}
+              {shown.map((item) => (
+                <ProfileSoundCard
+                  key={String(item.id)}
+                  item={item}
+                  playing={playing && String(playingId) === String(item.id)}
+                  onPlay={() => togglePlay(item)}
+                  onOpen={() => push({ type: 'sound-detail', sound: item })}
+                />
+              ))}
+              {!shown.length && !drafts.length && (
+                <EmptyNote title={t('noOwnSounds')} actionLabel={t('openCatalog')} onAction={() => push({ type: 'catalog' })} />
+              )}
+            </div>
+          </section>
         </div>
       </div>
       {showNav && <div className="rounded-t-3xl shadow-lg overflow-hidden flex-shrink-0"><NavBar /></div>}
     </div>
+  );
+}
+
+function MenuSection({ title, children, th }: { title: string; children: ReactNode; th: ThemeTokens }) {
+  return (
+    <section>
+      <p className="pv-label uppercase px-1 mb-1.5" style={{ color: th.soft }}>{title}</p>
+      <div className="rounded-3xl overflow-hidden" style={{ background: th.cardBg }}>
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function MenuRow({
+  th,
+  icon,
+  label,
+  value,
+  onClick,
+  last = false,
+  danger = false,
+}: {
+  th: ThemeTokens;
+  icon: ReactNode;
+  label: string;
+  value?: string;
+  onClick: () => void;
+  last?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <motion.button
+      type="button"
+      whileTap={tap.btn}
+      onClick={onClick}
+      className="w-full flex items-center gap-3 min-h-12 px-4 py-3 text-left cursor-pointer"
+      style={{
+        background: th.cardBg,
+        borderBottom: last ? undefined : `1px solid ${th.border}`,
+      }}
+    >
+      <span
+        className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+        style={{ background: th.isDark ? '#2E2E2E' : '#F0F1F3', color: danger ? ACCENT : th.inkText }}
+        aria-hidden
+      >
+        {icon}
+      </span>
+      <span className="pv-subtitle flex-1 min-w-0 truncate" style={{ color: danger ? ACCENT : th.inkText }}>
+        {label}
+      </span>
+      {value ? (
+        <span className="pv-caption flex-shrink-0 max-w-[40%] truncate" style={{ color: th.soft }}>{value}</span>
+      ) : null}
+      <ChevronRight size={18} strokeWidth={1.75} className="flex-shrink-0" style={{ color: th.soft }} aria-hidden />
+    </motion.button>
   );
 }
 
