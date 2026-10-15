@@ -11,9 +11,6 @@ import { ScreenContent, MessagesScreen } from '../screens/stack';
 import { NavBar, PinPlayer } from '../primitives/ui';
 import { MapFab } from '../primitives/chrome';
 import { useData } from '../state/DataContext';
-import { audioService } from '../lib/audio-player';
-import { downloadSound } from '../lib/download-sound';
-import { useUi } from '../state/UiContext';
 import { SwipeBack } from '../lib/swipe-back';
 
 const HIDE_PLAYER: ScreenConfig['type'][] = [
@@ -24,7 +21,6 @@ const HIDE_PLAYER: ScreenConfig['type'][] = [
 export function MobileShell() {
   const { isLoggedIn } = useAuth();
   const th = useTh();
-  const { toast } = useUi();
   const { activeTab, setActiveTab, stack, pop, push } = useNav();
   const {
     sounds, playingId, playing, progress, togglePlay, seek, volume, muted, setVolume, toggleMute,
@@ -111,7 +107,7 @@ export function MobileShell() {
             key={String(dock.id)}
             sound={dock}
             simple
-            onClose={() => { setFocused(null); audioService.stop(); }}
+            onClose={() => setFocused(null)}
             playing={playing && String(playingId) === String(dock.id)}
             onToggle={() => togglePlay(dock)}
             progress={String(playingId) === String(dock.id) ? progress : 0}
@@ -124,8 +120,7 @@ export function MobileShell() {
             volume={volume}
             muted={muted}
             onVolume={setVolume}
-            onMute={toggleMute}
-            onDownload={() => downloadSound(dock, toast)} />
+            onMute={toggleMute} />
         </div>
       )}
 

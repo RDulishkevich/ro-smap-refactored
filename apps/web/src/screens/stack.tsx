@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { motion } from 'motion/react';
 import {
-  ChevronRight, Heart, Headphones, MapPin, MessageCircle,
+  Camera, ChevronRight, Download, Heart, Headphones, MapPin, MessageCircle,
   MoreHorizontal, Route, Search, Send, Share2, UserPlus,
 } from 'lucide-react';
 import { color, type ThemeTokens } from '@polevka/design';
@@ -93,6 +93,7 @@ export function ScreenContent({ screen, onBack }: { screen: ScreenConfig; onBack
     case 'feed': return <FeedPage onBack={onBack} />;
     case 'expeditions': return <ExpeditionsPage onBack={onBack} />;
     case 'drafts': return <DraftsScreen onBack={onBack} />;
+    case 'my-sounds': return <MySoundsScreen onBack={onBack} />;
     default: return null;
   }
 }
@@ -139,8 +140,6 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
   };
 
   const download = () => downloadSound(live, toast);
-
-  useEffect(() => { setFocused(live); }, [live.id, setFocused]);
 
   const goToMap = () => {
     setFocused(live);
@@ -255,6 +254,12 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
               style={{ background: disliked ? th.solid : th.lightBg, color: disliked ? '#fff' : th.muted }}>
               Не нравится
             </motion.button>
+            {!desktop && (
+              <motion.button whileTap={{ scale: 0.92 }} className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}
+                aria-label="Скачать" onClick={download}>
+                <Download size={16} style={{ color: th.muted }} />
+              </motion.button>
+            )}
             <motion.button whileTap={{ scale: 0.92 }} className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}
               aria-label="Поделиться"
               onClick={() => {
@@ -291,6 +296,7 @@ function UserProfileScreen({ name, avatar, username, onBack }: { name: string; a
   const profile = profiles.find((p) => String(p.loginName || '').toLowerCase() === login
     || String(p.displayName || p.username) === name);
   const peer = String(profile?.loginName || login).toLowerCase();
+  const isOwn = !!user && peer === String(user.loginName || '').toLowerCase();
   const shown = sounds.filter((s) => String(s.recordistId || '').toLowerCase() === peer || s.user === name);
   const myProf = profiles.find((p) => String(p.loginName).toLowerCase() === user?.loginName);
   const following = (myProf?.following || []).map(String);
@@ -317,7 +323,7 @@ function UserProfileScreen({ name, avatar, username, onBack }: { name: string; a
       <div className="flex-1 overflow-y-auto scrollbar-none p-4">
         <div className="rounded-3xl p-5 mb-3 text-center" style={{ background: th.cardBg }}>
           <div className="mx-auto mb-3 flex justify-center">
-            <Avatar src={profile?.avatar || avatar} name={profile?.displayName || name} size={80} className="shadow-md" />
+            <Avatar src={profile?.avatar || avatar} name={profile?.displayName || name} size={80} rounded="rounded-full" fallback="icon" className="shadow-md" />
           </div>
           <p className="pv-page" style={{ color: th.inkText }}>{profile?.displayName || name}</p>
           <p className="pv-caption mb-1" style={{ color: th.soft }}>@{peer}</p>
@@ -325,8 +331,17 @@ function UserProfileScreen({ name, avatar, username, onBack }: { name: string; a
           {profile?.gear && <p className="pv-caption mb-2" style={{ color: th.soft }}>{profile.gear}</p>}
           {profile?.links && <p className="pv-caption mb-3" style={{ color: ACCENT }}>{profile.links}</p>}
           <div className="flex gap-2">
-            <button onClick={() => void toggleFollow()} className="pv-button flex-1 py-2.5 rounded-2xl text-white flex items-center justify-center gap-1.5" style={{ background: ACCENT }}><UserPlus size={13} />{isFollowed ? 'Вы подписаны' : 'Подписаться'}</button>
-            <button className="pv-button flex-1 py-2.5 rounded-2xl" style={{ background: th.lightBg, color: th.muted }} onClick={() => push({ type: 'conversation', name, avatar, peer })}>Написать</button>
+            {isOwn ? (
+              <button type="button" onClick={() => push({ type: 'edit-profile' })}
+                className="pv-button flex-1 py-2.5 rounded-2xl text-white" style={{ background: ACCENT }}>
+                Редактировать
+              </button>
+            ) : (
+              <>
+                <button type="button" onClick={() => void toggleFollow()} className="pv-button flex-1 py-2.5 rounded-2xl text-white flex items-center justify-center gap-1.5" style={{ background: ACCENT }}><UserPlus size={13} />{isFollowed ? 'Вы подписаны' : 'Подписаться'}</button>
+                <button type="button" className="pv-button flex-1 py-2.5 rounded-2xl" style={{ background: th.lightBg, color: th.muted }} onClick={() => push({ type: 'conversation', name, avatar, peer })}>Написать</button>
+              </>
+            )}
           </div>
         </div>
         {shown.length > 0 && (
@@ -1003,35 +1018,79 @@ function SearchScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
+function MySoundsScreen({ onBack }: { onBack: () => void }) {
+  const th = useTh();
+  const t = useT();
+  const { push } = useNav();
+  const { user } = useAuth();
+  const { allSounds } = useData();
+  const desktop = useIsDesktop();
+  const login = String(user?.loginName || '').toLowerCase();
+  const name = String(user?.username || '').toLowerCase();
+  const mine = allSounds.filter((s) => {
+    const rid = String(s.recordistId || s.user || '').toLowerCase();
+    return (rid === login || String(s.recordist || '').toLowerCase() === name)
+      && (!s.status || s.status === 'published');
+  });
+  return (
+    <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
+      {!desktop && <ScreenHeader title={t('mySounds')} onBack={onBack} />}
+      <div className={`flex-1 overflow-y-auto scrollbar-none ${desktop ? 'px-6 pt-6 pb-4' : 'p-4'}`}>
+        {desktop && (
+          <div className="mb-4">
+            <p className="pv-page" style={{ color: th.inkText }}>{t('mySounds')}</p>
+            <p className="pv-caption mt-1" style={{ color: th.soft }}>{t('mySoundsHint')}</p>
+          </div>
+        )}
+        <div className="flex flex-col gap-2">
+          {mine.map((item) => (
+            <SoundRow key={String(item.id)} item={item} onOpen={() => push({ type: 'sound-detail', sound: item })} />
+          ))}
+          {!mine.length && (
+            <EmptyNote title={t('noOwnSounds')} actionLabel={t('openCatalog')} onAction={() => push({ type: 'catalog' })} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EditProfileScreen({ onBack }: { onBack: () => void }) {
   const th = useTh();
+  const t = useT();
   const { user, patchUser } = useAuth();
   const { profiles, reload } = useData();
   const { toast } = useUi();
+  const mine = profiles.find((p) => String(p.loginName).toLowerCase() === user?.loginName);
   const [name, setName] = useState(user?.displayName || user?.username || '');
-  const [bio, setBio] = useState(user?.bio || '');
-  const [gear, setGear] = useState('');
-  const [links, setLinks] = useState('');
+  const [bio, setBio] = useState(user?.bio || mine?.bio || '');
+  const [gear, setGear] = useState(String(mine?.gear || ''));
+  const [links, setLinks] = useState(String(mine?.links || ''));
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!avatarFile) { setAvatarPreview(null); return; }
     const url = URL.createObjectURL(avatarFile);
     setAvatarPreview(url);
     return () => URL.revokeObjectURL(url);
   }, [avatarFile]);
-  const mineAvatar = profiles.find((p) => String(p.loginName).toLowerCase() === user?.loginName)?.avatar;
+  const dirty = name !== (user?.displayName || user?.username || '')
+    || bio !== (user?.bio || mine?.bio || '')
+    || gear !== String(mine?.gear || '')
+    || links !== String(mine?.links || '')
+    || !!avatarFile;
+  useLeaveGuard(dirty && !busy);
   const save = async () => {
     if (!user) return;
     setBusy(true);
     try {
       const login = user.loginName;
-      let avatarUrl = user.avatar;
+      let avatarUrl = user.avatar || mine?.avatar;
       if (avatarFile) avatarUrl = await uploadUserMedia(avatarFile, avatarFile.name, avatarFile.type || 'image/jpeg');
-      const next = [...profiles];
-      const idx = next.findIndex((p) => String(p.loginName || '').toLowerCase() === login);
-      const prev = idx >= 0 ? next[idx] : {};
+      const idx = profiles.findIndex((p) => String(p.loginName || '').toLowerCase() === login);
+      const prev = idx >= 0 ? profiles[idx] : {};
       const record = {
         ...prev,
         loginName: login,
@@ -1042,7 +1101,6 @@ function EditProfileScreen({ onBack }: { onBack: () => void }) {
         avatar: avatarUrl,
         profileUpdatedAt: new Date().toISOString(),
       };
-      if (idx >= 0) next[idx] = record; else next.push(record);
       await apiSyncJson('profiles.json', [record]);
       patchUser({ displayName: record.displayName, username: record.displayName, bio: record.bio, avatar: avatarUrl });
       toast('Профиль сохранён');
@@ -1052,23 +1110,55 @@ function EditProfileScreen({ onBack }: { onBack: () => void }) {
       toast((e as Error).message || 'Не удалось сохранить');
     } finally { setBusy(false); }
   };
+  const previewSrc = avatarPreview || user?.avatar || mine?.avatar;
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <ScreenHeader title="Профиль" onBack={onBack} />
-      <div className="p-5 flex flex-col gap-3">
-        <div className="flex items-center gap-3">
-          <Avatar src={avatarPreview || user?.avatar || mineAvatar} name={name || user?.username} size={64} className="shadow-md" />
-          <label className="pv-label flex-1" style={{ color: th.soft }}>Аватар
-            <input type="file" accept="image/*" className="mt-1 block w-full text-[11px]" onChange={(e) => setAvatarFile(e.target.files?.[0] || null)} />
-          </label>
+      <ScreenHeader title={t('manageProfile')} onBack={onBack} />
+      <div className="flex-1 overflow-y-auto scrollbar-none px-4 pb-8">
+        <div className="rounded-3xl overflow-hidden mb-4" style={{ background: th.cardBg }}>
+          <div className="h-24" style={{
+            background: th.isDark
+              ? 'linear-gradient(135deg, #2E2E2E 0%, #1A1A1A 100%)'
+              : `linear-gradient(135deg, ${color.light} 0%, ${color.cream} 55%, ${color.mist}55 100%)`,
+          }} />
+          <div className="px-5 pb-5 -mt-12 flex flex-col items-center">
+            <div className="relative mb-3">
+              <Avatar src={previewSrc} name={name || user?.username} size={96} rounded="rounded-full" fallback="icon" className="shadow-md" />
+              <input ref={fileRef} type="file" accept="image/*" className="hidden"
+                onChange={(e) => setAvatarFile(e.target.files?.[0] || null)} />
+              <button type="button" onClick={() => fileRef.current?.click()}
+                className="absolute bottom-0 right-0 w-9 h-9 rounded-full flex items-center justify-center text-white shadow-md"
+                style={{ background: ACCENT }} aria-label="Сменить фото">
+                <Camera size={16} />
+              </button>
+            </div>
+            <p className="pv-heading text-center" style={{ color: th.inkText }}>{name.trim() || user?.username}</p>
+            <p className="pv-caption" style={{ color: th.soft }}>@{user?.loginName}</p>
+          </div>
         </div>
-        <Field label="Имя" value={name} onChange={setName} th={th} />
-        <Field label="О себе" value={bio} onChange={setBio} th={th} />
-        <Field label="Техника" value={gear} onChange={setGear} th={th} />
-        <Field label="Ссылки" value={links} onChange={setLinks} th={th} />
-        <button disabled={busy} className="py-3 rounded-2xl text-sm font-bold text-white" style={{ background: ACCENT }} onClick={() => void save()}>
+        <div className="rounded-3xl p-4 flex flex-col gap-3.5 mb-4" style={{ background: th.cardBg }}>
+          <FormField label="Имя" value={name} onChange={setName} maxLength={48} autoComplete="nickname" />
+          <label className="pv-label block" style={{ color: th.soft }}>
+            О себе
+            <textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              rows={3}
+              maxLength={280}
+              placeholder="Коротко о себе и полевых записях"
+              className="mt-1 w-full rounded-2xl px-4 py-3 outline-none resize-none min-h-[88px] pv-body"
+              style={{ background: th.phoneBg, color: th.inkText }}
+            />
+          </label>
+          <FormField label="Техника" value={gear} onChange={setGear} placeholder="Zoom H5, binaural…" maxLength={80} />
+          <FormField label="Ссылки" value={links} onChange={setLinks} placeholder="сайт или соцсеть" maxLength={120} inputMode="url" />
+        </div>
+        <motion.button type="button" whileTap={{ scale: 0.97 }} disabled={busy || !dirty}
+          className="w-full min-h-12 py-3 rounded-2xl text-white pv-button"
+          style={{ background: ACCENT, opacity: busy || !dirty ? 0.45 : 1 }}
+          onClick={() => void save()}>
           {busy ? 'Сохранение…' : 'Сохранить'}
-        </button>
+        </motion.button>
       </div>
     </div>
   );

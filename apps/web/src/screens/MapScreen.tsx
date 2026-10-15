@@ -194,7 +194,7 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
                 onToggle={() => togglePlay(active)} progress={progress}
                 onOpen={() => push({ type: 'sound-detail', sound: active })}
                 onSeek={seek} volume={volume} muted={muted} onVolume={setVolume} onMute={toggleMute}
-                onDownload={() => void download(active)} />
+                onDownload={desktop ? () => void download(active) : undefined} />
             </motion.div>
           )}
         </AnimatePresence>

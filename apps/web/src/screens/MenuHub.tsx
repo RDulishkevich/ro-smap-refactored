@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import {
-  Calendar, Dices, FilePenLine, HelpCircle, LayoutGrid, Radio, Search, Settings, Shield, Ticket,
+  Calendar, Dices, FilePenLine, HelpCircle, LayoutGrid, Radio, Search, Settings, Ticket,
 } from 'lucide-react';
 import { color, tap } from '@polevka/design';
-import { useAuth } from '../state/AuthContext';
 import { useNav, type ScreenConfig } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
@@ -23,7 +22,6 @@ export function MenuHub() {
   const th = useTh();
   const t = useT();
   const { push } = useNav();
-  const { isStaff } = useAuth();
   const { sounds, profiles, events, feed } = useData();
   const [q, setQ] = useState('');
   const scroll = useScrollMemory('menu');
@@ -44,14 +42,13 @@ export function MenuHub() {
     } else push({ type: 'feed' });
   };
 
-  const items: Array<{ label: string; Icon: typeof Radio; screen: ScreenConfig; staff?: boolean; art?: string }> = [
+  const items: Array<{ label: string; Icon: typeof Radio; screen: ScreenConfig; art?: string }> = [
     { label: t('feed'), Icon: Radio, screen: { type: 'feed' }, art: '/menu/feed.png' },
     { label: t('catalog'), Icon: LayoutGrid, screen: { type: 'catalog' }, art: '/menu/catalog.png' },
     { label: t('expeditions'), Icon: Calendar, screen: { type: 'expeditions' }, art: '/menu/expeditions.png' },
     { label: t('events'), Icon: Ticket, screen: { type: 'events' }, art: '/menu/events.png' },
     { label: t('drafts'), Icon: FilePenLine, screen: { type: 'drafts' } },
     { label: t('settings'), Icon: Settings, screen: { type: 'settings' } },
-    { label: t('staffPanel'), Icon: Shield, screen: { type: 'staff' }, staff: true },
     { label: t('help'), Icon: HelpCircle, screen: { type: 'help' } },
     { label: t('guessr'), Icon: Dices, screen: { type: 'guessr' } },
   ];
@@ -90,7 +87,7 @@ export function MenuHub() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2.5 pt-2">
-            {items.filter((it) => !it.staff || isStaff).map(({ label, Icon, screen, art }) => (
+            {items.map(({ label, Icon, screen, art }) => (
               <MenuTile key={label} label={label} Icon={Icon} art={art} onClick={() => push(screen)} th={th} />
             ))}
           </div>

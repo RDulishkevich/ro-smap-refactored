@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   Bell, Calendar, ChevronDown, FilePenLine, HelpCircle, LayoutGrid, LogIn,
-  MessageCircle, Moon, Radio, Search, Settings, Shield, Sun, Ticket, User,
+  MessageCircle, Moon, Radio, Search, Settings, Sun, Ticket,
 } from 'lucide-react';
 import { color, spring, tap } from '@polevka/design';
 import type { Sound } from '@polevka/core';
@@ -40,9 +40,9 @@ const WORKSPACE = new Set([
   'expedition-detail', 'expedition-edit',
   'user-profile', 'cabinet', 'edit-profile', 'delete-account',
   'staff', 'legal', 'help', 'messages', 'conversation', 'settings',
-  'feed-post', 'notifications', 'events', 'drafts',
+  'feed-post', 'notifications', 'events', 'drafts', 'my-sounds',
 ]);
-const VIEW_WORKSPACE = new Set<DesktopView>(['library', 'feed', 'expeditions', 'cabinet', 'staff']);
+const VIEW_WORKSPACE = new Set<DesktopView>(['library', 'feed', 'expeditions', 'cabinet']);
 
 type ChromeMode = 'map' | 'list' | 'workspace';
 
@@ -133,7 +133,7 @@ export function DesktopShell() {
   const toggleTheme = useToggleTheme();
   const { toast } = useUi();
   const { prefs } = usePrefs();
-  const { isLoggedIn, isStaff, user, logout } = useAuth();
+  const { isLoggedIn, user, logout } = useAuth();
   const { desktopView, setDesktopView, push, stack, pop, reset } = useNav();
   const {
     filter, setFilter, mail, pickMode, clearMapPick, pickedPoint, routeDraft,
@@ -167,15 +167,10 @@ export function DesktopShell() {
   const mute = th.isDark ? th.muted : '#B8BFC0';
   const year = new Date().getFullYear();
 
-  useEffect(() => {
-    if (vis?.type === 'sound-detail') setFocused(vis.sound);
-  }, [vis]);
-
   const mainNav: Array<{ id: DesktopView; Icon: typeof Radio; label: string }> = [
     { id: 'library', Icon: LayoutGrid, label: t('catalog') },
     { id: 'feed', Icon: Radio, label: t('feed') },
     { id: 'expeditions', Icon: Calendar, label: t('expeditions') },
-    ...(isStaff ? [{ id: 'staff' as const, Icon: Shield, label: t('staff') }] : []),
   ];
 
   const goView = (id: DesktopView) => {
@@ -356,7 +351,7 @@ export function DesktopShell() {
                     progress={progress}
                     onOpen={() => { if (vis?.type !== 'sound-detail') push({ type: 'sound-detail', sound: dockSound }); }}
                     onSeek={seek} volume={volume} muted={muted} onVolume={setVolume} onMute={toggleMute}
-                    onDownload={() => download(dockSound)} />
+                    onDownload={() => void download(dockSound)} />
                 </div>
               ) : null}
             </div>

@@ -11,14 +11,15 @@ import { PopoverCaret } from './HoverMenu';
 
 export function MapFab({ open, onToggle, from = 'corner' }: { open: boolean; onToggle: () => void; from?: 'corner' | 'center' }) {
   const { requireAuth } = useNav();
+  // Desktop corner: add above, record to the left. Mobile center: same axes from the FAB.
   const actions = from === 'center'
     ? [
-        { Icon: MapPin, bg: '#3A3A3A', screen: { type: 'add-sound' as const }, x: -78, y: -78, label: 'Добавить звук' },
-        { Icon: Mic, bg: color.accent, screen: { type: 'record' as const }, x: 78, y: -78, label: 'Записать' },
+        { Icon: MapPin, bg: '#3A3A3A', screen: { type: 'add-sound' as const }, x: 0, y: -96, label: 'Добавить звук' },
+        { Icon: Mic, bg: color.accent, screen: { type: 'record' as const }, x: -96, y: 0, label: 'Записать' },
       ]
     : [
-        { Icon: MapPin, bg: '#3A3A3A', screen: { type: 'add-sound' as const }, x: -72, y: -72, label: 'Добавить звук' },
-        { Icon: Mic, bg: color.accent, screen: { type: 'record' as const }, x: -132, y: -132, label: 'Записать' },
+        { Icon: MapPin, bg: '#3A3A3A', screen: { type: 'add-sound' as const }, x: 0, y: -88, label: 'Добавить звук' },
+        { Icon: Mic, bg: color.accent, screen: { type: 'record' as const }, x: -88, y: 0, label: 'Записать' },
       ];
   return (
     <div className="relative w-16 h-16 pointer-events-none">

@@ -177,7 +177,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const setFocused = useCallback((s: Sound | null) => {
     setFocusedState(s);
-    if (s && audioService.soundId != null && String(audioService.soundId) !== String(s.id)) {
+    if (!s) {
+      audioService.stop();
+      return;
+    }
+    if (audioService.soundId != null && String(audioService.soundId) !== String(s.id)) {
       audioService.stop();
     }
   }, []);

@@ -30,7 +30,8 @@ export type ScreenConfig =
   | { type: 'catalog' }
   | { type: 'feed' }
   | { type: 'expeditions' }
-  | { type: 'drafts' };
+  | { type: 'drafts' }
+  | { type: 'my-sounds' };
 
 export type TabId = 'menu' | 'map' | 'messages' | 'profile';
 export type DesktopView = 'map' | 'library' | 'feed' | 'expeditions' | 'help' | 'staff' | 'cabinet';
