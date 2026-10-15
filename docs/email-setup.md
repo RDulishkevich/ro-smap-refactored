@@ -5,10 +5,11 @@
 | Переменная | Назначение |
 |---|---|
 | `YANDEX_OAUTH_CLIENT_ID` / `YANDEX_OAUTH_CLIENT_SECRET` | приложение на [oauth.yandex.ru](https://oauth.yandex.ru/) |
-| `VK_OAUTH_CLIENT_ID` / `VK_OAUTH_CLIENT_SECRET` | приложение VK ID |
+| `VK_OAUTH_CLIENT_ID` | ID приложения VK ID (обязательно) |
+| `VK_OAUTH_CLIENT_SECRET` | защищённый ключ (опционально для web+PKCE) |
 | `OAUTH_REDIRECT_URI` | по умолчанию `https://polevka.art/oauth/callback` |
 
-Redirect URI должен совпадать в кабинете провайдера и в env. После деплоя API кнопки появятся в форме входа (`publicConfig.oauth`).
+Redirect URI в кабинете VK ID: `https://polevka.art/oauth/callback` (как в коде виджета). OneTap SDK не нужен — вход идёт через redirect + PKCE и `oauthFinish` на Secure API. После деплоя смотрите `publicConfig.oauth`.
 
 # Настройка почты Полёвки (`@polevka.art`)
 

@@ -22,6 +22,17 @@ $envMap = @{}
 if ($full.environment) {
     $full.environment.PSObject.Properties | ForEach-Object { $envMap[$_.Name] = [string]$_.Value }
 }
+# Optional one-shot OAuth inject from process env (values never printed).
+foreach ($oauthKey in @(
+    "YANDEX_OAUTH_CLIENT_ID",
+    "YANDEX_OAUTH_CLIENT_SECRET",
+    "VK_OAUTH_CLIENT_ID",
+    "VK_OAUTH_CLIENT_SECRET",
+    "OAUTH_REDIRECT_URI"
+)) {
+    $fromProc = [string][Environment]::GetEnvironmentVariable($oauthKey)
+    if ($fromProc) { $envMap[$oauthKey] = $fromProc }
+}
 Write-Host ("Env keys: " + (($envMap.Keys | Sort-Object) -join ", "))
 
 Write-Host "Building zip..."

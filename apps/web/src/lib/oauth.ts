@@ -53,12 +53,12 @@ export async function beginOAuth(provider: OAuthProvider, opts?: { pdConsent?: b
       { code: 'oauth_disabled' },
     );
   }
-  const state = randomString(24);
+  // VK ID: state ≥ 32; code_verifier 43–128
+  const state = randomString(40);
   const verifier = randomString(64);
   const challenge = await sha256(verifier);
-  const deviceId = randomString(16);
   sessionStorage.setItem(PKCE_KEY, JSON.stringify({
-    provider, state, verifier, redirectUri, deviceId, pdConsent: !!opts?.pdConsent, at: Date.now(),
+    provider, state, verifier, redirectUri, pdConsent: !!opts?.pdConsent, at: Date.now(),
   }));
 
   if (provider === 'yandex') {
@@ -74,7 +74,7 @@ export async function beginOAuth(provider: OAuthProvider, opts?: { pdConsent?: b
     return;
   }
 
-  const url = new URL('https://id.vk.com/authorize');
+  const url = new URL('https://id.vk.ru/authorize');
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('client_id', clientId);
   url.searchParams.set('redirect_uri', redirectUri);
@@ -85,13 +85,38 @@ export async function beginOAuth(provider: OAuthProvider, opts?: { pdConsent?: b
   location.assign(url.toString());
 }
 
-export async function finishOAuthFromUrl(search: string) {
+function parseCallbackParams(search: string) {
   const params = new URLSearchParams(search.startsWith('?') ? search : `?${search}`);
-  const code = params.get('code') || '';
-  const state = params.get('state') || '';
-  const err = params.get('error');
-  if (err) {
-    throw Object.assign(new Error(params.get('error_description') || err), { code: 'oauth_denied' });
+  const payloadRaw = params.get('payload');
+  if (payloadRaw) {
+    try {
+      const payload = JSON.parse(payloadRaw) as {
+        code?: string; state?: string; device_id?: string; error?: string; error_description?: string;
+      };
+      return {
+        code: String(payload.code || ''),
+        state: String(payload.state || ''),
+        deviceId: String(payload.device_id || ''),
+        error: payload.error || params.get('error'),
+        errorDescription: payload.error_description || params.get('error_description'),
+      };
+    } catch {
+      /* fall through to flat query */
+    }
+  }
+  return {
+    code: params.get('code') || '',
+    state: params.get('state') || '',
+    deviceId: params.get('device_id') || '',
+    error: params.get('error'),
+    errorDescription: params.get('error_description'),
+  };
+}
+
+export async function finishOAuthFromUrl(search: string) {
+  const { code, state, deviceId, error, errorDescription } = parseCallbackParams(search);
+  if (error) {
+    throw Object.assign(new Error(errorDescription || error), { code: 'oauth_denied' });
   }
   if (!code) throw Object.assign(new Error('Нет кода авторизации'), { code: 'oauth_missing_code' });
 
@@ -100,10 +125,13 @@ export async function finishOAuthFromUrl(search: string) {
   if (!raw) throw Object.assign(new Error('Сессия OAuth истекла — попробуйте снова'), { code: 'oauth_state' });
   const saved = JSON.parse(raw) as {
     provider: OAuthProvider; state: string; verifier: string; redirectUri: string;
-    deviceId?: string; pdConsent?: boolean;
+    pdConsent?: boolean;
   };
   if (saved.state !== state) {
     throw Object.assign(new Error('Неверный state OAuth'), { code: 'oauth_state' });
+  }
+  if (saved.provider === 'vk' && !deviceId) {
+    throw Object.assign(new Error('VK не вернул device_id'), { code: 'oauth_missing_device' });
   }
 
   return apiOauthFinish({
@@ -111,7 +139,7 @@ export async function finishOAuthFromUrl(search: string) {
     code,
     codeVerifier: saved.verifier,
     redirectUri: saved.redirectUri,
-    deviceId: saved.deviceId,
+    deviceId: deviceId || undefined,
     pdConsent: !!saved.pdConsent,
     rememberMe: true,
   });

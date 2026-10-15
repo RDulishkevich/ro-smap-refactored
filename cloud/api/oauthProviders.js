@@ -12,7 +12,8 @@ const OAUTH_REDIRECT_URI = process.env.OAUTH_REDIRECT_URI || 'https://polevka.ar
 function oauthPublicConfig() {
   return {
     yandex: !!(YANDEX_OAUTH_CLIENT_ID && YANDEX_OAUTH_CLIENT_SECRET),
-    vk: !!(VK_OAUTH_CLIENT_ID && VK_OAUTH_CLIENT_SECRET),
+    // VK ID web + PKCE: client_id достаточно; secret/service_token — опционально
+    vk: !!VK_OAUTH_CLIENT_ID,
     yandexClientId: YANDEX_OAUTH_CLIENT_ID || '',
     vkClientId: VK_OAUTH_CLIENT_ID || '',
     redirectUri: OAUTH_REDIRECT_URI,
@@ -72,7 +73,12 @@ async function exchangeYandex(code, redirectUri, codeVerifier) {
 }
 
 async function exchangeVk(code, redirectUri, codeVerifier, deviceId) {
-  const res = await fetch('https://id.vk.com/oauth2/auth', {
+  if (!deviceId) {
+    const err = new Error('vk_device_id_required');
+    err.code = 'oauth_exchange';
+    throw err;
+  }
+  const res = await fetch('https://id.vk.ru/oauth2/auth', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: formBody({
@@ -82,7 +88,7 @@ async function exchangeVk(code, redirectUri, codeVerifier, deviceId) {
       ...(VK_OAUTH_CLIENT_SECRET ? { client_secret: VK_OAUTH_CLIENT_SECRET } : {}),
       redirect_uri: redirectUri || OAUTH_REDIRECT_URI,
       code_verifier: codeVerifier,
-      device_id: deviceId || 'polevka-web',
+      device_id: deviceId,
     }),
   });
   const data = await res.json().catch(() => ({}));
@@ -91,7 +97,7 @@ async function exchangeVk(code, redirectUri, codeVerifier, deviceId) {
     err.code = 'oauth_exchange';
     throw err;
   }
-  const infoRes = await fetch('https://id.vk.com/oauth2/user_info', {
+  const infoRes = await fetch('https://id.vk.ru/oauth2/user_info', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: formBody({
@@ -130,7 +136,7 @@ async function exchangeOAuthCode(provider, { code, redirectUri, codeVerifier, de
     return exchangeYandex(code, redirectUri, codeVerifier);
   }
   if (provider === 'vk') {
-    if (!VK_OAUTH_CLIENT_ID || !VK_OAUTH_CLIENT_SECRET) {
+    if (!VK_OAUTH_CLIENT_ID) {
       const err = new Error('vk_oauth_not_configured');
       err.code = 'oauth_disabled';
       throw err;

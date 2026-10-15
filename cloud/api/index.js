@@ -2086,7 +2086,7 @@ async function handleOauthFinish(event, body) {
     const code = String(body.code || '').trim();
     const codeVerifier = String(body.codeVerifier || '').trim();
     const redirectUri = String(body.redirectUri || oauthProviders.OAUTH_REDIRECT_URI).trim();
-    const deviceId = String(body.deviceId || 'polevka-web').slice(0, 64);
+    const deviceId = String(body.deviceId || '').slice(0, 128);
     const rememberMe = body.rememberMe !== false;
     if (!code || (provider !== 'yandex' && provider !== 'vk')) {
         return respond(400, { ok: false, error: 'missing_fields' });
