@@ -15,6 +15,7 @@ type AuthCtx = {
   isStaff: boolean;
   login: (login: string, password: string, totp?: string, rememberMe?: boolean) => Promise<void>;
   register: (login: string, password: string, displayName?: string, pdConsent?: boolean) => Promise<void>;
+  applySession: (data: { token?: string; refreshToken?: string; user?: Record<string, unknown>; rememberMe?: boolean }) => void;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   patchUser: (partial: Partial<SessionUser>) => void;
@@ -85,6 +86,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await apiRegister(loginName, password, displayName, true);
     await login(loginName, password, undefined, true);
   }, [login]);
+
+  const applySession = useCallback((data: {
+    token?: string; refreshToken?: string; user?: Record<string, unknown>; rememberMe?: boolean;
+  }) => {
+    if (!hasCookieConsentForAuth()) throw Object.assign(new Error('Нужно принять cookies сессии'), { code: 'consent' });
+    const remember = data.rememberMe !== false;
+    setRememberMe(remember);
+    const next = userFromApi(data.user);
+    if (!next || !data.token) throw Object.assign(new Error('Ошибка сессии'), { code: 'oauth_failed' });
+    if (data.refreshToken) persistRefreshToken(data.refreshToken, remember);
+    setAuthSession(String(data.token), next, remember);
+    setUser(next);
+    setNeedsUnlock(false);
+    if (!remember) {
+      clearDeviceUnlock();
+      setDeviceUnlockReady(false);
+    }
+  }, []);
 
   const logout = useCallback(async () => {
     try { await unsubscribeDevicePush(); } catch { /* still sign out */ }
@@ -166,9 +185,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     isLoggedIn: !!user,
     isStaff: user?.role === 'admin' || user?.role === 'moderator',
-    login, register, logout, refreshUser, patchUser, restoring,
+    login, register, applySession, logout, refreshUser, patchUser, restoring,
     needsUnlock, unlockWithDevice, resumeStoredSession, skipDeviceUnlock, offerDeviceUnlock, disableDeviceUnlock, deviceUnlockReady,
-  }), [user, login, register, logout, refreshUser, patchUser, restoring, needsUnlock, unlockWithDevice, resumeStoredSession, skipDeviceUnlock, offerDeviceUnlock, disableDeviceUnlock, deviceUnlockReady]);
+  }), [user, login, register, applySession, logout, refreshUser, patchUser, restoring, needsUnlock, unlockWithDevice, resumeStoredSession, skipDeviceUnlock, offerDeviceUnlock, disableDeviceUnlock, deviceUnlockReady]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

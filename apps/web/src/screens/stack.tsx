@@ -51,6 +51,7 @@ import { usePrefs, useT } from '../state/PrefsContext';
 import { resolveExpeditionInvite } from '../lib/expedition-invite';
 import { isAmbisonicSound, isSoundwalkPrinciple, soundRoute } from '../lib/sound-media';
 import { watchConditionalUnlock } from '../lib/device-unlock';
+import { beginOAuth } from '../lib/oauth';
 import { Avatar } from '../primitives/Avatar';
 import { NotificationRow } from '../primitives/NotificationRow';
 import { SoundTagLines } from '../primitives/SoundTagLines';
@@ -735,8 +736,28 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
   const [totpError, setTotpError] = useState(false);
   const [pdConsent, setPdConsent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [oauthBusy, setOauthBusy] = useState<'yandex' | 'vk' | null>(null);
   const [seen, setSeen] = useState({ login: false, password: false, name: false });
   const formRef = useRef<HTMLFormElement>(null);
+
+  const startOauth = async (provider: 'yandex' | 'vk') => {
+    if (!hasCookieConsentForAuth()) {
+      openCookieBanner();
+      toast(t('cookiesNeed'));
+      return;
+    }
+    if (!pdConsent) {
+      toast(t('oauthNeedConsent'));
+      return;
+    }
+    setOauthBusy(provider);
+    try {
+      await beginOAuth(provider, { pdConsent });
+    } catch (e: unknown) {
+      toast((e as Error).message || t('oauthFailed'));
+      setOauthBusy(null);
+    }
+  };
   const loginErr = seen.login && !loginName.trim() ? t('loginNeed') : '';
   const passwordErr = seen.password && password.length < 8 ? t('passwordNeed') : '';
   const nameErr = mode === 'up' && seen.name && !name.trim() ? t('nameNeed') : '';
@@ -830,6 +851,37 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
           </button>
         ))}
       </div>
+      <div className="flex flex-col gap-2 mb-1">
+        <button
+          type="button"
+          disabled={!!oauthBusy}
+          onClick={() => void startOauth('yandex')}
+          className="pv-button w-full min-h-12 rounded-2xl flex items-center justify-center gap-2 cursor-pointer"
+          style={{ background: th.isDark ? '#2E2E2E' : '#F0F1F3', color: th.inkText, opacity: oauthBusy && oauthBusy !== 'yandex' ? 0.6 : 1 }}
+        >
+          <span className="w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-semibold text-white" style={{ background: '#FC3F1D' }}>Я</span>
+          {oauthBusy === 'yandex' ? '…' : t('continueWithYandex')}
+        </button>
+        <button
+          type="button"
+          disabled={!!oauthBusy}
+          onClick={() => void startOauth('vk')}
+          className="pv-button w-full min-h-12 rounded-2xl flex items-center justify-center gap-2 cursor-pointer"
+          style={{ background: '#0077FF', color: '#fff', opacity: oauthBusy && oauthBusy !== 'vk' ? 0.6 : 1 }}
+        >
+          <span className="pv-subtitle text-white">VK</span>
+          {oauthBusy === 'vk' ? '…' : t('continueWithVk')}
+        </button>
+        <label className="pv-caption flex items-start gap-2" style={{ color: th.muted }}>
+          <input type="checkbox" checked={pdConsent} onChange={(e) => setPdConsent(e.target.checked)} className="mt-0.5" />
+          <span>{t('pdConsent')} <button type="button" className="underline" onClick={() => push({ type: 'legal', doc: 'privacy' })}>{t('privacyPolicy')}</button>.</span>
+        </label>
+        <div className="flex items-center gap-3 my-1">
+          <span className="flex-1 h-px" style={{ background: th.border }} />
+          <span className="pv-micro" style={{ color: th.soft }}>{t('orEmailLogin')}</span>
+          <span className="flex-1 h-px" style={{ background: th.border }} />
+        </div>
+      </div>
       {mode === 'up' && (
         <FormField label={t('name')} value={name} onChange={setName} name="name" autoComplete="name"
           error={nameErr} onBlurValidate={() => setSeen((s) => ({ ...s, name: true }))} />
@@ -854,12 +906,6 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
             onChange={(v) => { setTotp(v); setTotpError(false); }}
             onComplete={(code) => { if (!busy) void submit(code, formRef.current); }} />
         </motion.div>
-      )}
-      {mode === 'up' && (
-        <label className="pv-caption flex items-start gap-2" style={{ color: th.muted }}>
-          <input type="checkbox" checked={pdConsent} onChange={(e) => setPdConsent(e.target.checked)} className="mt-0.5" />
-          <span>{t('pdConsent')} <button type="button" className="underline" onClick={() => push({ type: 'legal', doc: 'privacy' })}>{t('privacyPolicy')}</button> · <button type="button" className="underline" onClick={() => push({ type: 'legal', doc: 'terms' })}>{t('terms')}</button>.</span>
-        </label>
       )}
       <button type="submit" disabled={busy} className="pv-button w-full min-h-12 py-3.5 rounded-2xl text-white cursor-pointer" style={{ background: ACCENT, opacity: busy ? 0.7 : 1 }}
         onClick={() => setSeen({ login: true, password: true, name: true })}>

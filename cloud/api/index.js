@@ -16,9 +16,12 @@
  *   SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / MAIL_FROM — transactional email
  *   VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT — Web Push (device notifications)
  *   ALLOW_DEMO_EMAIL_CODES — set to 1 on staging only: return demoCode when SMTP missing
+ *   YANDEX_OAUTH_CLIENT_ID / YANDEX_OAUTH_CLIENT_SECRET — Яндекс ID OAuth
+ *   VK_OAUTH_CLIENT_ID / VK_OAUTH_CLIENT_SECRET — VK ID OAuth
+ *   OAUTH_REDIRECT_URI — default https://polevka.art/oauth/callback
  *
  * Actions (POST JSON { action, ... }):
- *   health | publicConfig | register | login | refresh | logout | logoutAll | changePassword | me | getMail
+ *   health | publicConfig | register | login | oauthFinish | refresh | logout | logoutAll | changePassword | me | getMail
  *   | sync | commit | presign | patchSound | translate
  *   | requestEmailVerification | confirmEmailVerification
  *   | requestPasswordReset | confirmPasswordReset | adminDeleteUser | adminUnbindEmail | adminSendEmail
@@ -36,6 +39,7 @@ const sessionSec = require('./sessionSecurity');
 const ydbDoc = require('./ydbDoc');
 const mailCrypto = require('./mailCrypto');
 const webPush = require('./webPush');
+const oauthProviders = require('./oauthProviders');
 
 let nodemailer = null;
 try {
@@ -550,6 +554,7 @@ function actionRateLimit(action, ip, login = '') {
     const who = login || base;
     if (action === 'register' && !rateLimit(`reg:${base}`, 8, 60000)) return false;
     if (action === 'login' && !rateLimit(`login:${base}`, 25, 60000)) return false;
+    if (action === 'oauthFinish' && !rateLimit(`oauth:${base}`, 20, 60000)) return false;
     if (action === 'refresh' && !rateLimit(`refresh:${base}`, 60, 60000)) return false;
     if ((action === 'logout' || action === 'logoutAll') && !rateLimit(`logout:${who}`, 30, 60000)) return false;
     // Authenticated write budget — keyed by login so shared NAT doesn't starve one user.
@@ -2069,6 +2074,164 @@ async function handleRegister(body) {
 
     const user = { login, displayName, role: 'user', tokenVersion: 0 };
     return authSuccessResponse(user);
+}
+
+function oauthLoginCandidate(provider, subject) {
+    const prefix = provider === 'yandex' ? 'ya' : 'vk';
+    return normalizeLogin(`${prefix}_${subject}`).slice(0, 32);
+}
+
+async function handleOauthFinish(event, body) {
+    const provider = String(body.provider || '').toLowerCase();
+    const code = String(body.code || '').trim();
+    const codeVerifier = String(body.codeVerifier || '').trim();
+    const redirectUri = String(body.redirectUri || oauthProviders.OAUTH_REDIRECT_URI).trim();
+    const deviceId = String(body.deviceId || 'polevka-web').slice(0, 64);
+    const rememberMe = body.rememberMe !== false;
+    if (!code || (provider !== 'yandex' && provider !== 'vk')) {
+        return respond(400, { ok: false, error: 'missing_fields' });
+    }
+    if (provider === 'vk' && codeVerifier.length < 43) {
+        return respond(400, { ok: false, error: 'pkce_required' });
+    }
+
+    let profile;
+    try {
+        profile = await oauthProviders.exchangeOAuthCode(provider, {
+            code, redirectUri, codeVerifier, deviceId,
+        });
+    } catch (err) {
+        const codeName = err?.code || 'oauth_failed';
+        const status = codeName === 'oauth_disabled' ? 503 : 401;
+        return respond(status, { ok: false, error: codeName, message: err?.message || 'OAuth failed' });
+    }
+
+    const usersCas = await getJsonCas(AUTH_KEY, {});
+    let users = usersCas.data && typeof usersCas.data === 'object' ? { ...usersCas.data } : {};
+    users = await ensureAdminUser(users);
+
+    let login = '';
+    for (const [key, row] of Object.entries(users)) {
+        if (!row || typeof row !== 'object') continue;
+        const bound = row.oauth && row.oauth[provider];
+        if (bound && String(bound) === profile.subject) {
+            login = key;
+            break;
+        }
+    }
+
+    let created = false;
+    if (!login) {
+        if (!body.pdConsent) {
+            return respond(400, { ok: false, error: 'pd_consent' });
+        }
+        let candidate = oauthLoginCandidate(provider, profile.subject);
+        if (!candidate || users[candidate]) {
+            candidate = normalizeLogin(`${candidate || 'oauth'}${crypto.randomBytes(2).toString('hex')}`).slice(0, 32);
+        }
+        login = candidate;
+        const { salt, hash } = hashPassword(crypto.randomBytes(32).toString('hex'));
+        users[login] = {
+            salt,
+            hash,
+            displayName: profile.displayName || login,
+            role: 'user',
+            tokenVersion: 0,
+            oauth: { [provider]: profile.subject },
+            oauthOnly: true,
+            createdAt: new Date().toISOString(),
+        };
+        created = true;
+        try {
+            await putJson(AUTH_KEY, users, { privateObject: true, ifMatch: usersCas.missing ? undefined : usersCas.etag });
+        } catch (err) {
+            if (err && err.code === 'write_conflict') return respond(409, { ok: false, error: 'write_conflict' });
+            throw err;
+        }
+        await mutateMeta((meta) => {
+            meta[login] = {
+                ...(meta[login] || {}),
+                pdConsent: true,
+                pdConsentAt: new Date().toISOString(),
+                ...(profile.email ? { email: profile.email, emailVerified: true } : {}),
+                updatedAt: new Date().toISOString(),
+            };
+            return meta;
+        });
+        await mutateJson('profiles.json', [], (profiles) => {
+            const list = Array.isArray(profiles) ? profiles.slice() : [];
+            if (list.some((p) => String(p.loginName || '').toLowerCase() === login)) return list;
+            list.push({
+                loginName: login,
+                displayName: profile.displayName || login,
+                avatar: profile.avatar || '',
+                role: 'user',
+                joinedAt: new Date().toISOString(),
+                profileUpdatedAt: new Date().toISOString(),
+                sessions: [],
+                badges: [],
+                progress: { xp: 0, achievements: [], completedQuests: [], guessrBestScore: 0 },
+            });
+            return list;
+        });
+        await mutateJson(mailBoxKey(login), emptyMailBox(login), (cur) => {
+            if (cur && cur.loginName) return sanitizeMailRecord(cur);
+            return emptyMailBox(login);
+        }, { privateObject: true });
+    } else {
+        const row = users[login];
+        if (row?.blocked) return respond(403, { ok: false, error: 'blocked' });
+        const oauth = { ...(row.oauth || {}), [provider]: profile.subject };
+        let dirty = false;
+        if (JSON.stringify(row.oauth || {}) !== JSON.stringify(oauth)) {
+            users[login] = { ...row, oauth };
+            dirty = true;
+        }
+        if (profile.displayName && profile.displayName !== row.displayName) {
+            users[login] = { ...users[login], displayName: profile.displayName };
+            dirty = true;
+        }
+        if (dirty) {
+            try {
+                await putJson(AUTH_KEY, users, { privateObject: true, ifMatch: usersCas.missing ? undefined : usersCas.etag });
+            } catch (err) {
+                if (err && err.code === 'write_conflict') { /* non-fatal for login */ }
+                else throw err;
+            }
+        }
+        if (profile.avatar) {
+            await mutateJson('profiles.json', [], (profiles) => (profiles || []).map((p) => {
+                if (String(p.loginName || '').toLowerCase() !== login) return p;
+                if (p.avatar) return p;
+                return sanitizeProfileCard({ ...p, avatar: profile.avatar, profileUpdatedAt: new Date().toISOString() });
+            }));
+        }
+    }
+
+    const row = users[login] || {};
+    const role = normalizeStaffRole(row.role, login);
+    const user = {
+        login,
+        displayName: row.displayName || profile.displayName || login,
+        role,
+        tokenVersion: Number(row.tokenVersion || 0) || 0,
+    };
+    await sessionSec.appendSecurityEvent(putJson, getJson, {
+        type: created ? 'oauth_register' : 'oauth_login',
+        login,
+        provider,
+    });
+    const privateMeta = await loadPrivateMeta();
+    const pii = privateMeta[login] && typeof privateMeta[login] === 'object' ? privateMeta[login] : {};
+    return authSuccessResponse(user, {
+        rememberMe,
+        created,
+        user: {
+            ...publicUser(user, { avatar: profile.avatar, bio: undefined }),
+            ...extractProfilePii(pii),
+            totpEnabled: !!row.totpEnabled,
+        },
+    });
 }
 
 async function handleLogin(event, body) {
@@ -3628,14 +3791,16 @@ exports.handler = async function handler(event = {}) {
 
     // health / publicConfig — без секретов и без тяжёлых лимитов
     if (action === 'health') {
-        return respond(200, { ok: true, version: 25, ydb: ydbDoc.enabled(), vapid: webPush.configured() });
+        return respond(200, { ok: true, version: 26, ydb: ydbDoc.enabled(), vapid: webPush.configured() });
     }
     if (action === 'publicConfig') {
+        const oauth = oauthProviders.oauthPublicConfig();
         return respond(200, {
             ok: true,
             yandexMapsApiKey: YANDEX_MAPS_API_KEY || '',
             bucketUrl: `https://storage.yandexcloud.net/${BUCKET}`,
-            vapidPublicKey: webPush.vapidPublic()
+            vapidPublicKey: webPush.vapidPublic(),
+            oauth,
         });
     }
 
@@ -3670,6 +3835,7 @@ exports.handler = async function handler(event = {}) {
     try {
         if (action === 'register') return await handleRegister(body);
         if (action === 'login') return await handleLogin(event, body);
+        if (action === 'oauthFinish') return await handleOauthFinish(event, body);
         if (action === 'refresh') return await handleRefresh(event, body);
         if (action === 'logout') return await handleLogout(event, body);
         if (action === 'logoutAll') return await handleLogoutAll(event, body);

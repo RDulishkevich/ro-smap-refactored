@@ -32,6 +32,7 @@ export function parsePath(pathname: string): DeepRoute {
   if (head === 'staff' || head === 'admin') return { kind: 'staff' };
   if (head === 'guessr' || head === 'guesser') return { kind: 'guessr' };
   if (head === 'profile' || head === 'cabinet') return { kind: 'profile' };
+  if (head === 'oauth') return { kind: 'home' }; // callback handled by OAuthReturn
   if (head === 'drafts' || head === 'draft') return { kind: 'drafts' };
   if (head === 'menu') return { kind: 'menu' };
   if (head === 'map') return { kind: 'map' };

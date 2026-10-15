@@ -9,8 +9,9 @@
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | проверка живости (`version: 25`, `ydb`, `vapid`) |
-| `publicConfig` | нет | публичные ключи (Maps + VAPID public) |
+| `health` | нет | проверка живости (`version: 26`, `ydb`, `vapid`) |
+| `publicConfig` | нет | публичные ключи (Maps + VAPID + OAuth client ids / flags) |
+| `oauthFinish` | нет | обмен code VK/Яндекс → сессия (нужен `pdConsent` для нового аккаунта) |
 | `savePushSubscription` | access | сохранить Web Push подписку устройства |
 | `deletePushSubscription` | access | снять подписку (выход / выкл. уведомлений) |
 | `register` | нет | регистрация (пароль → scrypt) |

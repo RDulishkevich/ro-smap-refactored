@@ -1,3 +1,15 @@
+# OAuth (VK / Яндекс ID)
+
+В Cloud Function env:
+
+| Переменная | Назначение |
+|---|---|
+| `YANDEX_OAUTH_CLIENT_ID` / `YANDEX_OAUTH_CLIENT_SECRET` | приложение на [oauth.yandex.ru](https://oauth.yandex.ru/) |
+| `VK_OAUTH_CLIENT_ID` / `VK_OAUTH_CLIENT_SECRET` | приложение VK ID |
+| `OAUTH_REDIRECT_URI` | по умолчанию `https://polevka.art/oauth/callback` |
+
+Redirect URI должен совпадать в кабинете провайдера и в env. После деплоя API кнопки появятся в форме входа (`publicConfig.oauth`).
+
 # Настройка почты Полёвки (`@polevka.art`)
 
 Цель: адреса вида `noreply@polevka.art` / `support@polevka.art`, коды на **любые** ящики пользователей (Gmail и т.д.), серверы в РФ (152‑ФЗ).

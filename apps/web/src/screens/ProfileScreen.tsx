@@ -52,12 +52,6 @@ export function GuestProfileScreen({ showNav = true }: { showNav?: boolean }) {
               icon={<LogIn size={18} strokeWidth={1.75} />}
               label={t('signInAccount')}
               onClick={() => push({ type: 'auth' })}
-            />
-            <MenuRow
-              th={th}
-              icon={<UserRound size={18} strokeWidth={1.75} />}
-              label={t('register')}
-              onClick={() => push({ type: 'auth', mode: 'up' })}
               last
             />
           </MenuSection>

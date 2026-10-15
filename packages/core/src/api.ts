@@ -174,6 +174,15 @@ export const apiConfirmPasswordReset = (loginOrEmail: string, code: string, newP
 export const apiChangePassword = (currentPassword: string, newPassword: string) =>
   apiRequest('changePassword', { currentPassword, newPassword }, { auth: true });
 export const apiPublicConfig = () => apiRequest('publicConfig');
+export const apiOauthFinish = (payload: {
+  provider: 'yandex' | 'vk';
+  code: string;
+  codeVerifier?: string;
+  redirectUri?: string;
+  deviceId?: string;
+  pdConsent?: boolean;
+  rememberMe?: boolean;
+}) => apiRequest('oauthFinish', payload as unknown as Record<string, unknown>);
 export const apiHealth = () => apiRequest('health');
 export const apiGetMail = async () => {
   const data = await apiRequest('getMail', {}, { auth: true });
