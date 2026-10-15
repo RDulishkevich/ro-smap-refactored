@@ -17,6 +17,7 @@ import { DeepLinks } from './lib/DeepLinks';
 import { DegradedBanner, ErrorBoundary, ErrorScreen } from './primitives/ErrorScreen';
 import { WelcomeSplash } from './primitives/WelcomeSplash';
 import { OpenInAppBanner } from './primitives/OpenInAppBanner';
+import { OAuthBridge } from './primitives/OAuthBridge';
 import { OAuthReturn } from './primitives/OAuthReturn';
 
 function ServiceGate({ children }: { children: ReactNode }) {
@@ -70,6 +71,7 @@ function Shell() {
         <Overlays />
         <CookieBanner />
         <OpenInAppBanner />
+        <OAuthBridge />
         <OAuthReturn />
         <WelcomeSplash />
       </div>

@@ -1,4 +1,8 @@
-import { apiOauthFinish, apiOauthLink, apiPublicConfig, restoreAuthSession } from '@polevka/core';
+import {
+  REFRESH_KEY, REMEMBER_KEY, TOKEN_KEY, USER_KEY,
+  apiOauthFinish, apiOauthLink, apiPublicConfig, restoreAuthSession,
+  setAccessToken, persistRefreshToken, setRememberMe, persistUser, userFromApi,
+} from '@polevka/core';
 
 export type OAuthProvider = 'yandex' | 'vk';
 export type OAuthIntent = 'login' | 'link';
@@ -21,7 +25,18 @@ type PkceSaved = {
   at: number;
 };
 
+type BridgePayload = {
+  provider: OAuthProvider;
+  intent: OAuthIntent;
+  pdConsent: boolean;
+  remember: boolean;
+  at?: string;
+  rt?: string;
+  user?: string;
+};
+
 const PKCE_KEY = 'polevka_oauth_pkce';
+const BRIDGE_KEY = 'polevka_oauth_bridge';
 
 function b64url(buf: ArrayBuffer | Uint8Array) {
   const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
@@ -42,21 +57,37 @@ async function sha256(text: string) {
   return b64url(dig);
 }
 
-/** www ↔ apex share cookies; sessionStorage does not. */
-function pkceCookieAttrs() {
+function sharedCookieAttrs(maxAge = 600) {
   const host = location.hostname;
   const domain = (host === 'polevka.art' || host.endsWith('.polevka.art'))
     ? '; Domain=.polevka.art'
     : '';
-  return `Path=/; Max-Age=600; SameSite=Lax; Secure${domain}`;
+  return `Path=/; Max-Age=${maxAge}; SameSite=Lax; Secure${domain}`;
+}
+
+function writeCookie(name: string, value: string, maxAge = 600) {
+  try {
+    document.cookie = `${name}=${encodeURIComponent(value)}; ${sharedCookieAttrs(maxAge)}`;
+  } catch { /* */ }
+}
+
+function readCookie(name: string): string | null {
+  try {
+    const m = document.cookie.match(new RegExp(`(?:^|; )${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}=([^;]*)`));
+    return m?.[1] ? decodeURIComponent(m[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearCookie(name: string) {
+  writeCookie(name, '', 0);
 }
 
 function writePkce(saved: PkceSaved) {
   const raw = JSON.stringify(saved);
   try { sessionStorage.setItem(PKCE_KEY, raw); } catch { /* */ }
-  try {
-    document.cookie = `${PKCE_KEY}=${encodeURIComponent(raw)}; ${pkceCookieAttrs()}`;
-  } catch { /* */ }
+  writeCookie(PKCE_KEY, raw);
 }
 
 function readPkce(): string | null {
@@ -64,22 +95,12 @@ function readPkce(): string | null {
     const fromSession = sessionStorage.getItem(PKCE_KEY);
     if (fromSession) return fromSession;
   } catch { /* */ }
-  try {
-    const m = document.cookie.match(/(?:^|; )polevka_oauth_pkce=([^;]*)/);
-    if (m?.[1]) return decodeURIComponent(m[1]);
-  } catch { /* */ }
-  return null;
+  return readCookie(PKCE_KEY);
 }
 
 function clearPkce() {
   try { sessionStorage.removeItem(PKCE_KEY); } catch { /* */ }
-  try {
-    const host = location.hostname;
-    const domain = (host === 'polevka.art' || host.endsWith('.polevka.art'))
-      ? '; Domain=.polevka.art'
-      : '';
-    document.cookie = `${PKCE_KEY}=; Path=/; Max-Age=0; SameSite=Lax; Secure${domain}`;
-  } catch { /* */ }
+  clearCookie(PKCE_KEY);
 }
 
 export async function loadOauthConfig(): Promise<OAuthPublic> {
@@ -91,21 +112,94 @@ export async function loadOauthConfig(): Promise<OAuthPublic> {
   }
 }
 
-/**
- * Callback must stay on the same origin as the tab that started OAuth,
- * otherwise PKCE (sessionStorage) and the JWT (localStorage) are lost
- * when www ↔ apex differ from OAUTH_REDIRECT_URI.
- */
-function resolveRedirectUri(_cfg: OAuthPublic) {
-  return `${location.origin}/oauth/callback`;
+function redirectOrigin(cfg: OAuthPublic) {
+  const raw = String(cfg.redirectUri || 'https://polevka.art/oauth/callback').trim();
+  try { return new URL(raw).origin; } catch { return 'https://polevka.art'; }
+}
+
+function redirectUriFor(cfg: OAuthPublic) {
+  return String(cfg.redirectUri || `${redirectOrigin(cfg)}/oauth/callback`).trim();
+}
+
+function readLocalToken() {
+  try {
+    return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || '';
+  } catch { return ''; }
+}
+
+function readLocalRefresh() {
+  try {
+    return localStorage.getItem(REFRESH_KEY) || sessionStorage.getItem(REFRESH_KEY) || '';
+  } catch { return ''; }
+}
+
+function readLocalUserRaw() {
+  try {
+    return localStorage.getItem(USER_KEY) || sessionStorage.getItem(USER_KEY) || '';
+  } catch { return ''; }
+}
+
+function readLocalRemember() {
+  try { return localStorage.getItem(REMEMBER_KEY) === '1'; } catch { return true; }
+}
+
+/** www → apex handoff so JWT + PKCE land on the OAuth redirect host. */
+function stashBridgeAndGo(cfg: OAuthPublic, provider: OAuthProvider, intent: OAuthIntent, pdConsent: boolean) {
+  const targetOrigin = redirectOrigin(cfg);
+  const payload: BridgePayload = {
+    provider,
+    intent,
+    pdConsent,
+    remember: readLocalRemember(),
+    at: readLocalToken() || undefined,
+    rt: readLocalRefresh() || undefined,
+    user: readLocalUserRaw() || undefined,
+  };
+  writeCookie(BRIDGE_KEY, JSON.stringify(payload), 300);
+  location.assign(`${targetOrigin}/oauth/bridge`);
+}
+
+export async function consumeOauthBridge(): Promise<boolean> {
+  if (!location.pathname.startsWith('/oauth/bridge')) return false;
+  const raw = readCookie(BRIDGE_KEY);
+  clearCookie(BRIDGE_KEY);
+  if (!raw) {
+    throw Object.assign(new Error('Сессия для привязки истекла — откройте кабинет и повторите'), { code: 'oauth_bridge' });
+  }
+  const bridge = JSON.parse(raw) as BridgePayload;
+  const remember = bridge.remember !== false;
+  setRememberMe(remember);
+  if (bridge.at) setAccessToken(bridge.at, remember);
+  if (bridge.rt) persistRefreshToken(bridge.rt, remember);
+  if (bridge.user) {
+    try {
+      const u = userFromApi(JSON.parse(bridge.user) as Record<string, unknown>);
+      if (u) persistUser(u, remember);
+    } catch { /* */ }
+  }
+  // Ensure session is valid on this origin before leaving for the IdP.
+  if (bridge.intent === 'link') {
+    const session = await restoreAuthSession().catch(() => null);
+    if (!session) {
+      throw Object.assign(
+        new Error('Войдите снова на этом адресе (polevka.art), затем привяжите соцсеть'),
+        { code: 'unauthorized' },
+      );
+    }
+  }
+  await beginOAuth(bridge.provider, {
+    intent: bridge.intent,
+    pdConsent: bridge.pdConsent,
+    _bridged: true,
+  });
+  return true;
 }
 
 export async function beginOAuth(
   provider: OAuthProvider,
-  opts?: { pdConsent?: boolean; intent?: OAuthIntent },
+  opts?: { pdConsent?: boolean; intent?: OAuthIntent; _bridged?: boolean },
 ) {
   const cfg = await loadOauthConfig();
-  const redirectUri = resolveRedirectUri(cfg);
   const clientId = provider === 'yandex' ? cfg.yandexClientId : cfg.vkClientId;
   const enabled = provider === 'yandex' ? cfg.yandex : cfg.vk;
   if (!enabled || !clientId) {
@@ -116,8 +210,17 @@ export async function beginOAuth(
       { code: 'oauth_disabled' },
     );
   }
+
   const intent: OAuthIntent = opts?.intent === 'link' ? 'link' : 'login';
-  // VK ID: state ≥ 32; code_verifier 43–128
+  const redirectUri = redirectUriFor(cfg);
+  const confOrigin = redirectOrigin(cfg);
+
+  // Must authorize+callback on the registered host (usually apex), not www.
+  if (!opts?._bridged && location.origin !== confOrigin && /\.polevka\.art$/i.test(location.hostname)) {
+    stashBridgeAndGo(cfg, provider, intent, !!opts?.pdConsent);
+    return;
+  }
+
   const state = randomString(40);
   const verifier = randomString(64);
   const challenge = await sha256(verifier);
@@ -166,7 +269,7 @@ function parseCallbackParams(search: string) {
         errorDescription: payload.error_description || params.get('error_description'),
       };
     } catch {
-      /* fall through to flat query */
+      /* fall through */
     }
   }
   return {
@@ -228,7 +331,6 @@ export async function finishOAuthFromUrl(search: string) {
   return { intent, ...data };
 }
 
-/** One exchange per callback URL — survives React Strict Mode double-mount. */
 let finishOnce: Promise<Record<string, unknown>> | null = null;
 let finishOnceKey = '';
 
