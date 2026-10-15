@@ -11,6 +11,16 @@ type OAuthPublic = {
   redirectUri?: string;
 };
 
+type PkceSaved = {
+  provider: OAuthProvider;
+  state: string;
+  verifier: string;
+  redirectUri: string;
+  pdConsent?: boolean;
+  intent?: OAuthIntent;
+  at: number;
+};
+
 const PKCE_KEY = 'polevka_oauth_pkce';
 
 function b64url(buf: ArrayBuffer | Uint8Array) {
@@ -32,6 +42,46 @@ async function sha256(text: string) {
   return b64url(dig);
 }
 
+/** www ↔ apex share cookies; sessionStorage does not. */
+function pkceCookieAttrs() {
+  const host = location.hostname;
+  const domain = (host === 'polevka.art' || host.endsWith('.polevka.art'))
+    ? '; Domain=.polevka.art'
+    : '';
+  return `Path=/; Max-Age=600; SameSite=Lax; Secure${domain}`;
+}
+
+function writePkce(saved: PkceSaved) {
+  const raw = JSON.stringify(saved);
+  try { sessionStorage.setItem(PKCE_KEY, raw); } catch { /* */ }
+  try {
+    document.cookie = `${PKCE_KEY}=${encodeURIComponent(raw)}; ${pkceCookieAttrs()}`;
+  } catch { /* */ }
+}
+
+function readPkce(): string | null {
+  try {
+    const fromSession = sessionStorage.getItem(PKCE_KEY);
+    if (fromSession) return fromSession;
+  } catch { /* */ }
+  try {
+    const m = document.cookie.match(/(?:^|; )polevka_oauth_pkce=([^;]*)/);
+    if (m?.[1]) return decodeURIComponent(m[1]);
+  } catch { /* */ }
+  return null;
+}
+
+function clearPkce() {
+  try { sessionStorage.removeItem(PKCE_KEY); } catch { /* */ }
+  try {
+    const host = location.hostname;
+    const domain = (host === 'polevka.art' || host.endsWith('.polevka.art'))
+      ? '; Domain=.polevka.art'
+      : '';
+    document.cookie = `${PKCE_KEY}=; Path=/; Max-Age=0; SameSite=Lax; Secure${domain}`;
+  } catch { /* */ }
+}
+
 export async function loadOauthConfig(): Promise<OAuthPublic> {
   try {
     const data = await apiPublicConfig() as { oauth?: OAuthPublic };
@@ -41,12 +91,21 @@ export async function loadOauthConfig(): Promise<OAuthPublic> {
   }
 }
 
+/**
+ * Callback must stay on the same origin as the tab that started OAuth,
+ * otherwise PKCE (sessionStorage) and the JWT (localStorage) are lost
+ * when www ↔ apex differ from OAUTH_REDIRECT_URI.
+ */
+function resolveRedirectUri(_cfg: OAuthPublic) {
+  return `${location.origin}/oauth/callback`;
+}
+
 export async function beginOAuth(
   provider: OAuthProvider,
   opts?: { pdConsent?: boolean; intent?: OAuthIntent },
 ) {
   const cfg = await loadOauthConfig();
-  const redirectUri = cfg.redirectUri || `${location.origin}/oauth/callback`;
+  const redirectUri = resolveRedirectUri(cfg);
   const clientId = provider === 'yandex' ? cfg.yandexClientId : cfg.vkClientId;
   const enabled = provider === 'yandex' ? cfg.yandex : cfg.vk;
   if (!enabled || !clientId) {
@@ -62,10 +121,10 @@ export async function beginOAuth(
   const state = randomString(40);
   const verifier = randomString(64);
   const challenge = await sha256(verifier);
-  sessionStorage.setItem(PKCE_KEY, JSON.stringify({
+  writePkce({
     provider, state, verifier, redirectUri, intent,
     pdConsent: !!opts?.pdConsent, at: Date.now(),
-  }));
+  });
 
   if (provider === 'yandex') {
     const url = new URL('https://oauth.yandex.ru/authorize');
@@ -126,17 +185,15 @@ export async function finishOAuthFromUrl(search: string) {
   }
   if (!code) throw Object.assign(new Error('Нет кода авторизации'), { code: 'oauth_missing_code' });
 
-  const raw = sessionStorage.getItem(PKCE_KEY);
-  sessionStorage.removeItem(PKCE_KEY);
+  const raw = readPkce();
   if (!raw) throw Object.assign(new Error('Сессия OAuth истекла — попробуйте снова'), { code: 'oauth_state' });
-  const saved = JSON.parse(raw) as {
-    provider: OAuthProvider; state: string; verifier: string; redirectUri: string;
-    pdConsent?: boolean; intent?: OAuthIntent;
-  };
+  const saved = JSON.parse(raw) as PkceSaved;
   if (saved.state !== state) {
+    clearPkce();
     throw Object.assign(new Error('Неверный state OAuth'), { code: 'oauth_state' });
   }
   if (saved.provider === 'vk' && !deviceId) {
+    clearPkce();
     throw Object.assign(new Error('VK не вернул device_id'), { code: 'oauth_missing_device' });
   }
 
@@ -158,6 +215,7 @@ export async function finishOAuthFromUrl(search: string) {
       );
     }
     const data = await apiOauthLink(base);
+    clearPkce();
     return { intent, ...data };
   }
 
@@ -166,5 +224,28 @@ export async function finishOAuthFromUrl(search: string) {
     pdConsent: !!saved.pdConsent,
     rememberMe: true,
   });
+  clearPkce();
   return { intent, ...data };
+}
+
+/** One exchange per callback URL — survives React Strict Mode double-mount. */
+let finishOnce: Promise<Record<string, unknown>> | null = null;
+let finishOnceKey = '';
+
+export function finishOAuthFromUrlOnce(search: string) {
+  const key = search || '';
+  if (!finishOnce || finishOnceKey !== key) {
+    finishOnceKey = key;
+    finishOnce = finishOAuthFromUrl(key)
+      .then((data) => data as Record<string, unknown>)
+      .finally(() => {
+        window.setTimeout(() => {
+          if (finishOnceKey === key) {
+            finishOnce = null;
+            finishOnceKey = '';
+          }
+        }, 8000);
+      });
+  }
+  return finishOnce;
 }
