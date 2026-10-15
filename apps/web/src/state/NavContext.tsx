@@ -52,7 +52,8 @@ type NavCtx = {
 const Ctx = createContext<NavCtx | null>(null);
 
 function isDesktop() {
-  return typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches;
+  // Keep in sync with useIsDesktop (innerWidth) — matchMedia can disagree near 768px.
+  return typeof window !== 'undefined' && window.innerWidth >= 768;
 }
 
 function urlForScreen(s?: ScreenConfig | null): string | null {

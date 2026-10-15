@@ -41,8 +41,11 @@ export function DeepLinks() {
     if (!booted.current) {
       booted.current = true;
       apply();
-    } else if (parsePath(location.pathname).kind === 'sound') {
-      apply();
+    } else {
+      const kind = parsePath(location.pathname).kind;
+      if (kind === 'sound' || kind === 'expeditions' || kind === 'catalog' || kind === 'feed') {
+        apply();
+      }
     }
     window.addEventListener('popstate', apply);
     return () => window.removeEventListener('popstate', apply);
