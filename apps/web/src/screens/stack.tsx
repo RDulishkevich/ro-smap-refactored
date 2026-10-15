@@ -1454,11 +1454,16 @@ function CabinetScreen({ onBack }: { onBack: () => void }) {
   const changePw = async () => {
     if (newPw.length < 8) { toast('Новый пароль слишком короткий (мин. 8)'); return; }
     if (newPw !== newPw2) { toast('Новые пароли не совпадают'); return; }
+    const oauthSet = !!user?.oauth?.oauthOnly;
+    if (!oauthSet && !curPw) { toast('Введите текущий пароль'); return; }
     setBusy(true);
     try {
-      await apiChangePassword(curPw, newPw);
+      await apiChangePassword(oauthSet ? '' : curPw, newPw);
       setCurPw(''); setNewPw(''); setNewPw2('');
-      toast('Пароль обновлён. Другие устройства вышли из аккаунта.');
+      await refreshUser();
+      toast(oauthSet
+        ? 'Пароль задан. Можно входить логином или через соцсеть.'
+        : 'Пароль обновлён. Другие устройства вышли из аккаунта.');
     } catch (e: unknown) {
       const err = e as ApiError;
       toast(err.code === 'bad_credentials' ? 'Текущий пароль неверен' : (err.message || 'Не удалось сменить пароль'));
@@ -1538,15 +1543,19 @@ function CabinetScreen({ onBack }: { onBack: () => void }) {
 
         <div className="rounded-3xl p-4" style={{ background: th.cardBg }}>
           <p className="text-xs font-bold mb-2" style={{ color: th.inkText }}>Пароль</p>
-          {user?.oauth?.oauthOnly && (
+          {user?.oauth?.oauthOnly ? (
             <p className="text-[10px] mb-2" style={{ color: th.soft }}>
-              Аккаунт создан через соцсеть. Пароль можно задать через «Забыли пароль» на подтверждённый email.
+              Аккаунт через соцсеть — задайте пароль ниже (без текущего). Либо сброс на подтверждённый email с экрана входа.
             </p>
+          ) : null}
+          {!user?.oauth?.oauthOnly && (
+            <Field label="Текущий" value={curPw} onChange={setCurPw} th={th} password name="current-password" autoComplete="current-password" />
           )}
-          <Field label="Текущий" value={curPw} onChange={setCurPw} th={th} password name="current-password" autoComplete="current-password" />
-          <Field label="Новый" value={newPw} onChange={setNewPw} th={th} password name="new-password" autoComplete="new-password" />
+          <Field label={user?.oauth?.oauthOnly ? 'Новый пароль' : 'Новый'} value={newPw} onChange={setNewPw} th={th} password name="new-password" autoComplete="new-password" />
           <Field label="Повтор" value={newPw2} onChange={setNewPw2} th={th} password name="new-password-confirm" autoComplete="new-password" />
-          <button disabled={busy} onClick={() => void changePw()} className="mt-2 w-full py-2.5 rounded-2xl text-xs font-semibold text-white" style={{ background: ACCENT }}>Сменить пароль</button>
+          <button disabled={busy} onClick={() => void changePw()} className="mt-2 w-full py-2.5 rounded-2xl text-xs font-semibold text-white" style={{ background: ACCENT }}>
+            {user?.oauth?.oauthOnly ? 'Задать пароль' : 'Сменить пароль'}
+          </button>
         </div>
 
         {(oauthCfg.yandex || oauthCfg.vk) && (
@@ -1647,12 +1656,22 @@ function DeleteAccountScreen({ onBack }: { onBack: () => void }) {
   const { reset } = useNav();
   const { toast, confirm } = useUi();
   const [pw, setPw] = useState('');
+  const [confirmLogin, setConfirmLogin] = useState('');
   const [totp, setTotp] = useState('');
   const [busy, setBusy] = useState(false);
   const protectedAcc = user?.loginName === 'admin' || user?.loginName === 'support';
+  const oauthOnly = !!user?.oauth?.oauthOnly;
 
   const submit = async () => {
-    if (!pw) { toast(t('deleteAccountPw')); return; }
+    if (oauthOnly) {
+      if (normalizeLoginLocal(confirmLogin) !== normalizeLoginLocal(user?.loginName || '')) {
+        toast('Введите свой логин для подтверждения');
+        return;
+      }
+    } else if (!pw) {
+      toast(t('deleteAccountPw'));
+      return;
+    }
     if (user?.totpEnabled && !/^\d{6}$/.test(totp.trim())) {
       toast(t('deleteAccountTotp'));
       return;
@@ -1665,13 +1684,17 @@ function DeleteAccountScreen({ onBack }: { onBack: () => void }) {
     if (!ok) return;
     setBusy(true);
     try {
-      await apiDeleteAccount(pw, user?.totpEnabled ? totp.trim() : undefined);
+      await apiDeleteAccount(
+        oauthOnly ? '' : pw,
+        user?.totpEnabled ? totp.trim() : undefined,
+        oauthOnly ? user?.loginName : undefined,
+      );
       await logout();
       reset();
       toast(t('deleteAccountDone'));
     } catch (e: unknown) {
       const err = e as ApiError;
-      if (err.code === 'bad_credentials') toast('Неверный пароль');
+      if (err.code === 'bad_credentials') toast(oauthOnly ? 'Логин не совпал' : 'Неверный пароль');
       else if (err.code === 'bad_totp') toast('Неверный код 2FA');
       else if (err.code === 'protected_account') toast(t('deleteAccountProtected'));
       else toast(err.message || t('deleteAccount'));
@@ -1684,12 +1707,28 @@ function DeleteAccountScreen({ onBack }: { onBack: () => void }) {
       <div className="flex-1 overflow-y-auto scrollbar-none p-4 flex flex-col gap-3">
         <div className="rounded-3xl p-4" style={{ background: th.cardBg }}>
           <p className="text-xs leading-relaxed" style={{ color: th.soft }}>{t('deleteAccountBody')}</p>
+          {oauthOnly && (
+            <p className="text-[10px] mt-2" style={{ color: th.soft }}>
+              Привязки Яндекс/VK удалятся вместе с аккаунтом — тот же соцаккаунт можно будет зарегистрировать заново.
+            </p>
+          )}
         </div>
         {protectedAcc ? (
           <p className="text-xs" style={{ color: ACCENT }}>{t('deleteAccountProtected')}</p>
         ) : (
           <div className="rounded-3xl p-4 flex flex-col gap-3" style={{ background: th.cardBg }}>
-            <Field label={t('deleteAccountPw')} value={pw} onChange={setPw} th={th} password />
+            {oauthOnly ? (
+              <Field
+                label={`Введите логин «${user?.loginName || ''}»`}
+                value={confirmLogin}
+                onChange={setConfirmLogin}
+                th={th}
+                name="confirm-login"
+                autoComplete="username"
+              />
+            ) : (
+              <Field label={t('deleteAccountPw')} value={pw} onChange={setPw} th={th} password />
+            )}
             {user?.totpEnabled && (
               <div>
                 <p className="text-[10px] font-semibold mb-1" style={{ color: th.soft }}>{t('deleteAccountTotp')}</p>
@@ -1706,6 +1745,10 @@ function DeleteAccountScreen({ onBack }: { onBack: () => void }) {
       </div>
     </div>
   );
+}
+
+function normalizeLoginLocal(s: string) {
+  return String(s || '').trim().toLowerCase();
 }
 
 function GuessrScreen({ onBack }: { onBack: () => void }) {

@@ -9,7 +9,7 @@
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | проверка живости (`version: 27`, `ydb`, `vapid`) |
+| `health` | нет | проверка живости (`version: 28`, `ydb`, `vapid`) |
 | `publicConfig` | нет | публичные ключи (Maps + VAPID + OAuth client ids / flags) |
 | `oauthFinish` | нет | обмен code VK/Яндекс → сессия (нужен `pdConsent` для нового аккаунта) |
 | `oauthLink` | access | привязать VK/Яндекс к текущему аккаунту |
@@ -21,17 +21,17 @@
 | `refresh` | `body.refreshToken` или cookie | новая пара токенов |
 | `logout` / `logoutAll` | cookie / JWT | выход с устройства / везде (`tokenVersion++`) |
 | `me` | access | проверка сессии / PII + ротация cookies |
-| `changePassword` | access | смена пароля + инвалидация других сессий |
+| `changePassword` | access | смена пароля (+ первый пароль для `oauthOnly` без текущего) |
 | `totpSetup` / `totpConfirm` / `totpDisable` | access | TOTP 2FA |
 | `getSecurityEvents` | access admin | журнал security events |
 | `requestPasswordReset` | нет | код сброса на **подтверждённый** email |
-| `confirmPasswordReset` | нет | код + новый пароль |
+| `confirmPasswordReset` | нет | код + новый пароль (снимает `oauthOnly`) |
 | `sync` | access | CAS (If-Match) → merge → sanitize → PUT JSON (+ HMAC); 409 `write_conflict` |
 | `patchSound` | access | лёгкий патч plays/downloads/лайков без полной перезаписи `map_data.json` |
 | `presign` | access | presigned PUT; медиа и staging JSON требуют `contentLength` (≤ 30 MB / 1 GB / 2.5 MB) |
 | `commit` | access | взять staging → merge → sanitize → PUT публичный JSON |
 | `getMail` | access | свой ящик + партнёры; admin — все; moderator — свой + `support` |
-| `deleteAccount` | access | самоудаление: пароль + TOTP; нельзя `admin`/`support` |
+| `deleteAccount` | access | самоудаление: пароль + TOTP, или `oauthOnly`+`confirmLogin`; purge снимает `oauth.*`; нельзя `admin`/`support` |
 | `exportMyData` | access | JSON своих данных (без хешей пароля) |
 | `translate` | access | Yandex Translate RU→EN (UCS FXName) |
 | `requestEmailVerification` | access | 6-значный код на email (SMTP); хеш в `_auth/email_codes/{login}.json` |

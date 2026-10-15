@@ -256,8 +256,12 @@ export async function apiSyncJson(fileName: string, data: unknown) {
 }
 export const apiAdminSendEmail = (login: string, message: string, subject?: string) =>
   apiRequest('adminSendEmail', { login, message, subject }, { auth: true });
-export const apiDeleteAccount = (password: string, totpCode?: string) =>
-  apiRequest('deleteAccount', { password, ...(totpCode ? { totpCode } : {}) }, { auth: true });
+export const apiDeleteAccount = (password: string, totpCode?: string, confirmLogin?: string) =>
+  apiRequest('deleteAccount', {
+    password,
+    ...(totpCode ? { totpCode } : {}),
+    ...(confirmLogin ? { confirmLogin } : {}),
+  }, { auth: true });
 export const apiAdminDeleteUser = (login: string) =>
   apiRequest('adminDeleteUser', { login }, { auth: true });
 export const apiAdminUnbindEmail = (login: string) =>

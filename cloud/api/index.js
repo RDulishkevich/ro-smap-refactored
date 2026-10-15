@@ -2535,12 +2535,19 @@ async function handleChangePassword(event, body) {
 
     const { salt, hash } = hashPassword(newPassword);
     let nextTv = 0;
+    let setInitial = false;
     await mutateAuth((users) => {
         const row = users[authUser.login];
         if (!row) throw new ClientError(401, 'unauthorized');
-        const okCurrent = verifyPassword(currentPassword, row.salt, row.hash)
-            || (authUser.login === 'admin' && ADMIN_PASSWORD && currentPassword === ADMIN_PASSWORD);
-        if (!okCurrent) throw new ClientError(401, 'bad_credentials');
+        // oauthOnly: first password can be set without knowing the random hash
+        const initialOauthPassword = !!row.oauthOnly && !currentPassword;
+        if (!initialOauthPassword) {
+            const okCurrent = verifyPassword(currentPassword, row.salt, row.hash)
+                || (authUser.login === 'admin' && ADMIN_PASSWORD && currentPassword === ADMIN_PASSWORD);
+            if (!okCurrent) throw new ClientError(401, 'bad_credentials');
+        } else {
+            setInitial = true;
+        }
         nextTv = (Number(row.tokenVersion || 0) || 0) + 1;
         const next = {
             ...row,
@@ -2553,8 +2560,9 @@ async function handleChangePassword(event, body) {
         users[authUser.login] = next;
         return users;
     });
+    authUserCache.delete(authUser.login);
     await sessionSec.appendSecurityEvent(putJson, getJson, {
-        type: 'password_changed',
+        type: setInitial ? 'password_set_oauth' : 'password_changed',
         login: authUser.login
     });
     // Re-issue session on this device; other devices invalidated via tokenVersion
@@ -2937,13 +2945,15 @@ async function handleConfirmPasswordReset(body) {
         users = await ensureAdminUser(users);
         if (!users[login]) return respond(400, { ok: false, error: 'bad_code' });
         const nextTv = (Number(users[login].tokenVersion || 0) || 0) + 1;
-        users[login] = {
+        const next = {
             ...users[login],
             salt,
             hash,
             passwordUpdatedAt: new Date().toISOString(),
             tokenVersion: nextTv
         };
+        if (next.oauthOnly) delete next.oauthOnly;
+        users[login] = next;
         try {
             await putJson(AUTH_KEY, users, { privateObject: true, ifMatch: cas.missing ? undefined : cas.etag });
             savedReset = true;
@@ -2955,6 +2965,7 @@ async function handleConfirmPasswordReset(body) {
     }
     if (!savedReset) throw new WriteConflictError();
     await clearPasswordReset(login);
+    authUserCache.delete(login);
     await sessionSec.appendSecurityEvent(putJson, getJson, {
         type: 'password_reset',
         login
@@ -3131,11 +3142,14 @@ async function handleDeleteAccount(event, body) {
     }
 
     const password = String(body.password || '');
+    const confirmLogin = normalizeLogin(body.confirmLogin || '');
     const totpCode = String(body.totpCode || body.totp || '').trim();
     const users = await loadAuthUsers();
     const row = users[user.login];
     if (!row) return respond(401, { ok: false, error: 'unauthorized' });
-    if (!verifyPassword(password, row.salt, row.hash)) {
+    // oauthOnly: no known password — confirm by typing login (bindings live on this auth row and go with purge)
+    const oauthOnlyDelete = !!row.oauthOnly && confirmLogin === user.login;
+    if (!oauthOnlyDelete && !verifyPassword(password, row.salt, row.hash)) {
         return respond(401, { ok: false, error: 'bad_credentials' });
     }
     if (row.totpEnabled && row.totpSecret) {
@@ -3949,7 +3963,7 @@ exports.handler = async function handler(event = {}) {
 
     // health / publicConfig — без секретов и без тяжёлых лимитов
     if (action === 'health') {
-        return respond(200, { ok: true, version: 27, ydb: ydbDoc.enabled(), vapid: webPush.configured() });
+        return respond(200, { ok: true, version: 28, ydb: ydbDoc.enabled(), vapid: webPush.configured() });
     }
     if (action === 'publicConfig') {
         const oauth = oauthProviders.oauthPublicConfig();
