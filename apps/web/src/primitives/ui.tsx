@@ -238,6 +238,9 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
   /** Side-scoped layoutId so the pill never flies through the center FAB. */
   const renderTab = ({ id, Icon, label }: (typeof tabs)[number], side: 'L' | 'R' | 'C') => {
     const on = activeTab === id;
+    // Hollow (mobile + FAB): fixed-width column so expanding labels never slide under the plus.
+    // Full bar (no FAB): icon + horizontal label when active.
+    const hollow = hollowCenter;
     return (
       <motion.button
         key={id}
@@ -248,7 +251,11 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
         whileTap={tap.nav}
         aria-label={label}
         aria-current={on ? 'page' : undefined}
-        className={`relative z-0 flex items-center justify-center h-11 flex-shrink-0 overflow-hidden cursor-pointer ${on ? 'px-3.5 gap-1.5' : 'w-11'}`}
+        className={
+          hollow
+            ? 'relative z-0 flex flex-col items-center justify-center w-12 h-12 flex-shrink-0 overflow-hidden cursor-pointer gap-0.5'
+            : `relative z-0 flex items-center justify-center h-11 flex-shrink-0 overflow-hidden cursor-pointer ${on ? 'px-3.5 gap-1.5' : 'w-11'}`
+        }
       >
         {on && (
           <motion.span
@@ -259,7 +266,7 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
           />
         )}
         <span className="relative z-[1] flex items-center justify-center">
-          <Icon size={20} strokeWidth={on ? 2.25 : 1.75} color={on ? th.inkText : th.muted} />
+          <Icon size={hollow ? 18 : 20} strokeWidth={on ? 2.25 : 1.75} color={on ? th.inkText : th.muted} />
           {id === 'messages' && unread > 0 && (
             <span
               className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
@@ -271,11 +278,11 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
           {on && (
             <motion.span
               key={`${id}-label`}
-              initial={{ opacity: 0, x: -6 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -4 }}
+              initial={{ opacity: 0, ...(hollow ? { y: 4 } : { x: -6 }) }}
+              animate={{ opacity: 1, ...(hollow ? { y: 0 } : { x: 0 }) }}
+              exit={{ opacity: 0, ...(hollow ? { y: 2 } : { x: -4 }) }}
               transition={spring.pill}
-              className="relative z-[1] pv-subtitle whitespace-nowrap"
+              className={`relative z-[1] whitespace-nowrap ${hollow ? 'pv-micro leading-none max-w-[2.75rem] truncate' : 'pv-subtitle'}`}
               style={{ color: th.inkText }}
             >
               {label}
@@ -295,7 +302,8 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
           <div className="flex items-center gap-0.5 min-w-0 flex-1 justify-start">
             {left.map((tab) => renderTab(tab, 'L'))}
           </div>
-          <div className="w-14 h-12 flex-shrink-0" aria-hidden />
+          {/* FAB is 64px — keep ≥96px hole so icons never sit under the plus */}
+          <div className="w-24 h-12 flex-shrink-0" aria-hidden />
           <div className="flex items-center gap-0.5 min-w-0 flex-1 justify-end">
             {right.map((tab) => renderTab(tab, 'R'))}
           </div>
