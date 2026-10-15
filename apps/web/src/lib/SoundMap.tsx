@@ -163,10 +163,12 @@ function attachYandexCreditMargins(map: YMap, mapEl: HTMLElement): () => void {
     const obstacles = collectCreditObstacles(mapEl);
     for (const obstacle of obstacles) watch(obstacle);
     const insets = chromeInsets(mapEl.getBoundingClientRect(), obstacles);
-    mapEl.style.paddingLeft = `${insets.left}px`;
-    mapEl.style.paddingRight = `${insets.right}px`;
-    mapEl.style.paddingBottom = `${insets.bottom}px`;
-    mapEl.style.paddingTop = '0px';
+    // CSS padding on the Yandex root zeros overlay panes (places/ground) so every
+    // pin stacks in one pixel. Offset copyright via the Maps margin API only.
+    mapEl.style.paddingLeft = '';
+    mapEl.style.paddingRight = '';
+    mapEl.style.paddingBottom = '';
+    mapEl.style.paddingTop = '';
     try {
       map.margin.setDefaultMargin([0, insets.right, insets.bottom, insets.left]);
     } catch { /* */ }
@@ -272,6 +274,7 @@ export const SoundMap = forwardRef<SoundMapHandle, {
   const [ready, setReady] = useState(0);
   const pressTimer = useRef<number | null>(null);
   const lastCtx = useRef(0);
+  const didFitSounds = useRef(false);
   const soundsKey = sounds.map((s) => `${s.id}:${s.lat}:${s.lng}:${s.type}`).join('|');
   const routeKey = route.map((p) => `${p.lat},${p.lng}`).join('|');
   const walksKey = walks.map((w) => w.map((p) => `${p.lat},${p.lng}`).join(';')).join('|');
@@ -508,6 +511,7 @@ export const SoundMap = forwardRef<SoundMapHandle, {
         });
         map.geoObjects.add(pm);
       });
+      try { map.container.fitToViewport(); } catch { /* */ }
       const onClick = (ev: { get: (k: string) => unknown }) => {
         if (ev.get('target') !== map) return;
         if (pickMode) {
@@ -651,6 +655,30 @@ export const SoundMap = forwardRef<SoundMapHandle, {
     if (ymapRef.current) ymapRef.current.panTo(c, { duration: 300 });
     else leafletRef.current?.panTo(c);
   }, [activeId, pickMarker, routeKey, ready, route]);
+
+  useEffect(() => {
+    if (!ready || didFitSounds.current) return;
+    if (activeId || route.length >= 2 || pickMarker) return;
+    const pts = sounds.filter((s) => s.lat != null && s.lng != null);
+    if (!pts.length) return;
+    didFitSounds.current = true;
+    const lats = pts.map((s) => Number(s.lat));
+    const lngs = pts.map((s) => Number(s.lng));
+    const sw: [number, number] = [Math.min(...lats), Math.min(...lngs)];
+    const ne: [number, number] = [Math.max(...lats), Math.max(...lngs)];
+    const pad = 0.18;
+    const dLat = Math.max(0.12, (ne[0] - sw[0]) * pad);
+    const dLng = Math.max(0.12, (ne[1] - sw[1]) * pad);
+    const bounds: [[number, number], [number, number]] = [
+      [sw[0] - dLat, sw[1] - dLng],
+      [ne[0] + dLat, ne[1] + dLng],
+    ];
+    if (ymapRef.current) {
+      try { ymapRef.current.setBounds(bounds, { checkZoomRange: true, zoomMargin: 56 }); } catch { /* */ }
+    } else if (leafletRef.current) {
+      leafletRef.current.fitBounds(bounds, { padding: [36, 36], maxZoom: 12 });
+    }
+  }, [ready, soundsKey, activeId, pickMarker, route.length, sounds, route]);
 
   useImperativeHandle(ref, () => ({
     zoomBy(delta: number) {
