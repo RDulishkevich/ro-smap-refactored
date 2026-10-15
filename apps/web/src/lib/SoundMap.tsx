@@ -6,7 +6,10 @@ import type { Sound } from '@polevka/core';
 import { loadYandexMaps } from './pwa';
 
 const RUSSIA: [number, number] = [64.2, 94.2];
-const RUSSIA_ZOOM = 3;
+const RUSSIA_ZOOM = 4;
+/** Below this, OSM/Yandex show empty ocean bands around Russia. */
+const MIN_ZOOM = 4;
+const MAX_ZOOM = 19;
 const HIT_PX = 40;
 
 type YMap = {
@@ -166,8 +169,11 @@ export const SoundMap = forwardRef<SoundMapHandle, {
             controls: [],
           }, {
             yandexMapDisablePoiInteractivity: true,
+            minZoom: MIN_ZOOM,
+            maxZoom: MAX_ZOOM,
           });
           try { map.controls.remove('zoomControl'); } catch { /* */ }
+          try { map.options.set('minZoom', MIN_ZOOM); map.options.set('maxZoom', MAX_ZOOM); } catch { /* */ }
           if (dead) {
             try { map.destroy(); } catch { /* */ }
             return;
@@ -180,11 +186,17 @@ export const SoundMap = forwardRef<SoundMapHandle, {
         });
         return;
       }
-      const map = L.map(el, { zoomControl: false, attributionControl: true }).setView(RUSSIA, RUSSIA_ZOOM);
+      const map = L.map(el, {
+        zoomControl: false,
+        attributionControl: true,
+        minZoom: MIN_ZOOM,
+        maxZoom: MAX_ZOOM,
+      }).setView(RUSSIA, RUSSIA_ZOOM);
       map.attributionControl.setPrefix(false);
       map.attributionControl.setPosition('bottomright');
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
+        minZoom: MIN_ZOOM,
+        maxZoom: MAX_ZOOM,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map);
       leafletLayer.current = L.layerGroup().addTo(map);
@@ -553,25 +565,29 @@ export const SoundMap = forwardRef<SoundMapHandle, {
     zoomBy(delta: number) {
       const leaf = leafletRef.current;
       if (leaf) {
-        if (delta > 0) leaf.zoomIn();
-        else leaf.zoomOut();
+        const next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, leaf.getZoom() + delta));
+        leaf.setZoom(next);
         return;
       }
       const y = ymapRef.current;
       if (!y) return;
-      try { y.setZoom(y.getZoom() + delta); } catch { /* */ }
+      try {
+        const next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, y.getZoom() + delta));
+        y.setZoom(next);
+      } catch { /* */ }
     },
     flyTo(lat: number, lng: number, zoom?: number) {
+      const clamp = (z: number) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z));
       const y = ymapRef.current;
       if (y) {
         y.panTo([lat, lng], { duration: 400 });
         if (zoom != null) {
-          try { y.setZoom(zoom); } catch { /* */ }
+          try { y.setZoom(clamp(zoom)); } catch { /* */ }
         }
         return;
       }
       const leaf = leafletRef.current;
-      if (leaf) leaf.flyTo([lat, lng], zoom ?? leaf.getZoom(), { duration: 0.45 });
+      if (leaf) leaf.flyTo([lat, lng], clamp(zoom ?? leaf.getZoom()), { duration: 0.45 });
     },
   }), []);
 

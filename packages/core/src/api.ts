@@ -173,6 +173,12 @@ export const apiConfirmPasswordReset = (loginOrEmail: string, code: string, newP
   apiRequest('confirmPasswordReset', { loginOrEmail, code, newPassword }, { auth: false });
 export const apiChangePassword = (currentPassword: string, newPassword: string) =>
   apiRequest('changePassword', { currentPassword, newPassword }, { auth: true });
+export const apiChangeLogin = (payload: {
+  newLogin: string;
+  password?: string;
+  confirmLogin?: string;
+  totpCode?: string;
+}) => apiRequest('changeLogin', payload as unknown as Record<string, unknown>, { auth: true });
 export const apiPublicConfig = () => apiRequest('publicConfig');
 export const apiOauthFinish = (payload: {
   provider: 'yandex' | 'vk';

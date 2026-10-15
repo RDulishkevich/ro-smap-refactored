@@ -47,6 +47,8 @@ export function messageHomeBox(me: string, peer: string, mine: boolean) {
 
 export const SUPPORT_LOGIN = 'support';
 export const SUPPORT_NAME = 'Поддержка Полёвки';
+/** Public brand mark — same asset as site favicon / PWA icon. */
+export const SUPPORT_AVATAR = '/icon-192.png';
 
 export function normalizeMail(raw: unknown[]): MailBox[] {
   return (Array.isArray(raw) ? raw : []).map((row) => {
@@ -120,7 +122,7 @@ export function conversationPeers(boxes: MailBox[], me: string, profiles: Profil
     return {
       login,
       name: login === SUPPORT_LOGIN ? SUPPORT_NAME : String(p?.displayName || p?.username || login),
-      avatar: String(p?.avatar || ''),
+      avatar: login === SUPPORT_LOGIN ? SUPPORT_AVATAR : String(p?.avatar || ''),
       lastText: last?.deleted ? '' : previewMailText(last),
       lastDate: last?.date || '',
       unread,

@@ -6,12 +6,12 @@ import {
 } from 'lucide-react';
 import { color, type ThemeTokens } from '@polevka/design';
 import {
-  apiChangePassword, apiConfirmEmailVerification, apiConfirmPasswordReset,
+  apiChangeLogin, apiChangePassword, apiConfirmEmailVerification, apiConfirmPasswordReset,
   apiDeleteAccount, apiOauthUnlink,
   apiGetSecurityEvents, apiPatchSound, apiRequestEmailVerification, apiRequestPasswordReset,
   readLastLogin, hasCookieConsentForAuth,
   apiSyncJson, apiTotpConfirm, apiTotpDisable, apiTotpSetup, conversationPeers, makeMailMsg,
-  matchSupportBotFaq,   normalizeComment, normalizeTimeMarkers, spamGuardCheck, spamGuardMessage, SUPPORT_LOGIN,
+  matchSupportBotFaq,   normalizeComment, normalizeTimeMarkers, spamGuardCheck, spamGuardMessage, SUPPORT_AVATAR, SUPPORT_LOGIN,
   SUPPORT_NAME, uploadUserMedia, upsertInboxPatch, formatPlays,
   type ApiError, type Comment, type FeedPost, type Sound,
 } from '@polevka/core';
@@ -578,13 +578,14 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
       toast(t('cookiesNeed'));
       return;
     }
+    // New social accounts need PD consent; returning users already consented on the server.
     if (!pdConsent) {
       toast(t('oauthNeedConsent'));
       return;
     }
     setOauthBusy(provider);
     try {
-      await beginOAuth(provider, { pdConsent });
+      await beginOAuth(provider, { pdConsent: true });
     } catch (e: unknown) {
       toast((e as Error).message || t('oauthFailed'));
       setOauthBusy(null);
@@ -672,24 +673,34 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
     } finally { setBusy(false); }
   };
   const form = (
-    <form ref={formRef} autoComplete="on" method="post" action="." onSubmit={(e) => { e.preventDefault(); void submit(undefined, e.currentTarget); }} className="flex flex-col gap-3">
-      <div className="flex gap-6 mb-1" style={{ borderBottom: `1px solid ${th.border}` }}>
+    <form
+      ref={formRef}
+      autoComplete="on"
+      method="post"
+      action="."
+      onSubmit={(e) => { e.preventDefault(); void submit(undefined, e.currentTarget); }}
+      className="flex flex-col gap-5 w-full"
+    >
+      <div className="flex gap-1 p-1 rounded-2xl" style={{ background: th.cardBg }}>
         {(['in', 'up'] as const).map((m) => (
           <button
             key={m}
             type="button"
             onClick={() => { setMode(m); setNeedTotp(false); setTotp(''); setTotpError(false); }}
-            className="pv-label pb-2.5 -mb-px"
+            className="flex-1 pv-label min-h-10 rounded-xl"
             style={{
               color: mode === m ? th.inkText : th.muted,
-              borderBottom: mode === m ? `1.5px solid ${th.inkText}` : '1.5px solid transparent',
+              background: mode === m ? th.phoneBg : 'transparent',
+              boxShadow: mode === m ? `inset 0 0 0 1px ${th.border}` : undefined,
             }}
           >
             {m === 'in' ? t('login') : t('register')}
           </button>
         ))}
       </div>
-      <div className="flex flex-col gap-2 mb-1">
+
+      <section className="flex flex-col gap-2">
+        <p className="pv-micro uppercase tracking-wide" style={{ color: th.soft }}>Соцсети</p>
         <button
           type="button"
           disabled={!!oauthBusy}
@@ -710,64 +721,94 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
           <span className="pv-subtitle text-white">VK</span>
           {oauthBusy === 'vk' ? '…' : t('continueWithVk')}
         </button>
-        <label className="pv-caption flex items-start gap-2" style={{ color: th.muted }}>
-          <input type="checkbox" checked={pdConsent} onChange={(e) => setPdConsent(e.target.checked)} className="mt-0.5" />
-          <span>{t('pdConsent')} <button type="button" className="underline" onClick={() => push({ type: 'legal', doc: 'privacy' })}>{t('privacyPolicy')}</button>.</span>
+        <label className="pv-caption flex items-start gap-2.5 mt-1" style={{ color: th.muted }}>
+          <input type="checkbox" checked={pdConsent} onChange={(e) => setPdConsent(e.target.checked)} className="mt-0.5 shrink-0" />
+          <span className="leading-snug">
+            {t('pdConsent')}{' '}
+            <button type="button" className="underline" style={{ color: th.inkText }} onClick={() => push({ type: 'legal', doc: 'privacy' })}>
+              {t('privacyPolicy')}
+            </button>
+          </span>
         </label>
-        <div className="flex items-center gap-3 my-1">
-          <span className="flex-1 h-px" style={{ background: th.border }} />
-          <span className="pv-micro" style={{ color: th.soft }}>{t('orEmailLogin')}</span>
-          <span className="flex-1 h-px" style={{ background: th.border }} />
-        </div>
+      </section>
+
+      <div className="flex items-center gap-3" aria-hidden>
+        <span className="flex-1 h-px" style={{ background: th.border }} />
+        <span className="pv-micro" style={{ color: th.soft }}>{t('orEmailLogin')}</span>
+        <span className="flex-1 h-px" style={{ background: th.border }} />
       </div>
-      {mode === 'up' && (
-        <FormField label={t('name')} value={name} onChange={setName} name="name" autoComplete="name"
-          error={nameErr} onBlurValidate={() => setSeen((s) => ({ ...s, name: true }))} />
-      )}
-      <FormField label={t('loginName')} value={loginName} onChange={setLogin} name="username"
-        autoComplete={mode === 'in' ? 'username webauthn' : 'username'} autoCapitalize="none" autoCorrect="off"
-        hint={t('loginHint')} error={loginErr} onBlurValidate={() => setSeen((s) => ({ ...s, login: true }))} />
-      <FormField label={t('password')} value={password} onChange={setPassword} password name="password"
-        autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
-        hint={t('passwordHint')} error={passwordErr} onBlurValidate={() => setSeen((s) => ({ ...s, password: true }))} />
-      {mode === 'in' && (
-        <label className="pv-caption flex items-start gap-2" style={{ color: th.muted }}>
-          <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="mt-0.5" />
-          <span>{t('rememberMe')}</span>
-        </label>
-      )}
-      {mode === 'in' && needTotp && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <p className="pv-subtitle mb-1" style={{ color: th.inkText }}>Код из приложения</p>
-          <p className="pv-caption mb-3" style={{ color: th.soft }}>Шесть цифр из Google Authenticator, Яндекс Ключ или другого приложения</p>
-          <OtpInput value={totp} error={totpError} autoFocus disabled={busy}
-            onChange={(v) => { setTotp(v); setTotpError(false); }}
-            onComplete={(code) => { if (!busy) void submit(code, formRef.current); }} />
-        </motion.div>
-      )}
-      <button type="submit" disabled={busy} className="pv-button w-full min-h-12 py-3.5 rounded-2xl text-white cursor-pointer" style={{ background: ACCENT, opacity: busy ? 0.7 : 1 }}
-        onClick={() => setSeen({ login: true, password: true, name: true })}>
-        {busy ? '…' : mode === 'in' ? t('signIn') : t('createAccount')}
-      </button>
-      {seen.login && missing && <FormNeed>{mode === 'up' && !pdConsent ? t('pdNeed') : loginErr || passwordErr || nameErr || t('loginNeed')}</FormNeed>}
-      {mode === 'in' && <button type="button" className="pv-caption min-h-11" style={{ color: th.soft }} onClick={() => push({ type: 'reset-password' })}>{t('forgotPassword')}</button>}
-      {!hasCookieConsentForAuth() && <p className="pv-micro" style={{ color: th.soft }}>{t('cookiesNeed')}</p>}
+
+      <section className="flex flex-col gap-3">
+        {mode === 'up' && (
+          <FormField label={t('name')} value={name} onChange={setName} name="name" autoComplete="name"
+            error={nameErr} onBlurValidate={() => setSeen((s) => ({ ...s, name: true }))} />
+        )}
+        <FormField label={t('loginName')} value={loginName} onChange={setLogin} name="username"
+          autoComplete={mode === 'in' ? 'username webauthn' : 'username'} autoCapitalize="none" autoCorrect="off"
+          hint={t('loginHint')} error={loginErr} onBlurValidate={() => setSeen((s) => ({ ...s, login: true }))} />
+        <FormField label={t('password')} value={password} onChange={setPassword} password name="password"
+          autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
+          hint={t('passwordHint')} error={passwordErr} onBlurValidate={() => setSeen((s) => ({ ...s, password: true }))} />
+        {mode === 'in' && (
+          <label className="pv-caption flex items-start gap-2.5" style={{ color: th.muted }}>
+            <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="mt-0.5 shrink-0" />
+            <span>{t('rememberMe')}</span>
+          </label>
+        )}
+        {mode === 'in' && needTotp && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl p-4" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
+            <p className="pv-subtitle mb-1" style={{ color: th.inkText }}>Код из приложения</p>
+            <p className="pv-caption mb-3 leading-snug" style={{ color: th.soft }}>
+              Шесть цифр из Google Authenticator, Яндекс Ключ или другого приложения
+            </p>
+            <OtpInput value={totp} error={totpError} autoFocus disabled={busy}
+              onChange={(v) => { setTotp(v); setTotpError(false); }}
+              onComplete={(code) => { if (!busy) void submit(code, formRef.current); }} />
+          </motion.div>
+        )}
+      </section>
+
+      <div className="flex flex-col gap-2 pt-1">
+        <button type="submit" disabled={busy} className="pv-button w-full min-h-12 py-3.5 rounded-2xl text-white cursor-pointer" style={{ background: ACCENT, opacity: busy ? 0.7 : 1 }}
+          onClick={() => setSeen({ login: true, password: true, name: true })}>
+          {busy ? '…' : mode === 'in' ? t('signIn') : t('createAccount')}
+        </button>
+        {seen.login && missing && (
+          <FormNeed>{mode === 'up' && !pdConsent ? t('pdNeed') : loginErr || passwordErr || nameErr || t('loginNeed')}</FormNeed>
+        )}
+        {mode === 'in' && (
+          <button type="button" className="pv-caption min-h-11 self-start" style={{ color: th.soft }} onClick={() => push({ type: 'reset-password' })}>
+            {t('forgotPassword')}
+          </button>
+        )}
+        {!hasCookieConsentForAuth() && <p className="pv-micro leading-snug" style={{ color: th.soft }}>{t('cookiesNeed')}</p>}
+      </div>
     </form>
   );
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <ScreenHeader title={mode === 'in' ? t('login') : t('register')} onBack={onBack} />
+      {!desktop && <ScreenHeader title={mode === 'in' ? t('login') : t('register')} onBack={onBack} />}
       {desktop ? (
-        <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-8 pb-16">
-          <div className="w-11 h-11 mb-4"><BrandMark /></div>
-          <h2 className="pv-title mb-1" style={{ color: th.inkText }}>Полёвка</h2>
-          <p className="pv-body mb-8" style={{ color: th.muted }}>
-            {mode === 'in' ? t('welcomeBack') : t('newExplorer')}
-          </p>
-          <div className="w-full max-w-[400px] flex flex-col gap-3">{form}</div>
+        <div className="flex-1 overflow-y-auto">
+          <div className="min-h-full flex flex-col px-8 py-8 max-w-[440px] mx-auto w-full">
+            <button type="button" onClick={onBack} className="pv-caption self-start min-h-10 mb-6" style={{ color: th.soft }}>
+              ← Назад
+            </button>
+            <div className="w-12 h-12 mb-3"><BrandMark /></div>
+            <h2 className="pv-title mb-1" style={{ color: th.inkText }}>Полёвка</h2>
+            <p className="pv-body mb-6 leading-snug" style={{ color: th.muted }}>
+              {mode === 'in' ? t('welcomeBack') : t('newExplorer')}
+            </p>
+            {form}
+          </div>
         </div>
       ) : (
-        <div className="p-5 flex flex-col gap-3 flex-1 overflow-y-auto scrollbar-none">{form}</div>
+        <div className="px-5 pt-4 pb-8 flex flex-col gap-3 flex-1 overflow-y-auto scrollbar-none">
+          <p className="pv-caption mb-1 leading-snug" style={{ color: th.muted }}>
+            {mode === 'in' ? t('welcomeBack') : t('newExplorer')}
+          </p>
+          {form}
+        </div>
       )}
     </div>
   );
@@ -1084,7 +1125,7 @@ function MySoundsScreen({ onBack }: { onBack: () => void }) {
 function EditProfileScreen({ onBack }: { onBack: () => void }) {
   const th = useTh();
   const t = useT();
-  const { user, patchUser } = useAuth();
+  const { user, patchUser, applySession } = useAuth();
   const { profiles, reload } = useData();
   const { toast } = useUi();
   const mine = profiles.find((p) => String(p.loginName).toLowerCase() === user?.loginName);
@@ -1092,6 +1133,9 @@ function EditProfileScreen({ onBack }: { onBack: () => void }) {
   const [bio, setBio] = useState(user?.bio || mine?.bio || '');
   const [gear, setGear] = useState(String(mine?.gear || ''));
   const [links, setLinks] = useState(String(mine?.links || ''));
+  const [loginEdit, setLoginEdit] = useState(user?.loginName || '');
+  const [loginPw, setLoginPw] = useState('');
+  const [loginTotp, setLoginTotp] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -1136,6 +1180,34 @@ function EditProfileScreen({ onBack }: { onBack: () => void }) {
       toast((e as Error).message || 'Не удалось сохранить');
     } finally { setBusy(false); }
   };
+  const changeLogin = async () => {
+    if (!user) return;
+    const next = loginEdit.trim().toLowerCase();
+    if (next.length < 3) { toast('Логин: минимум 3 символа'); return; }
+    if (next === user.loginName) { toast('Это уже ваш логин'); return; }
+    setBusy(true);
+    try {
+      const data = await apiChangeLogin({
+        newLogin: next,
+        ...(user.oauth?.oauthOnly
+          ? { confirmLogin: user.loginName }
+          : { password: loginPw }),
+        totpCode: loginTotp.trim() || undefined,
+      }) as { token?: string; refreshToken?: string; user?: Record<string, unknown>; rememberMe?: boolean };
+      applySession(data);
+      setLoginPw('');
+      setLoginTotp('');
+      setLoginEdit(next);
+      toast('Логин обновлён');
+      await reload();
+    } catch (e: unknown) {
+      const err = e as ApiError;
+      if (err.code === 'login_taken') toast('Этот логин уже занят');
+      else if (err.code === 'bad_credentials') toast('Неверный пароль');
+      else if (err.code === 'bad_totp' || err.code === 'totp_required') toast('Нужен код 2FA');
+      else toast(err.message || 'Не удалось сменить логин');
+    } finally { setBusy(false); }
+  };
   const previewSrc = avatarPreview || user?.avatar || mine?.avatar;
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
@@ -1178,6 +1250,41 @@ function EditProfileScreen({ onBack }: { onBack: () => void }) {
           </label>
           <FormField label="Техника" value={gear} onChange={setGear} placeholder="Zoom H5, binaural…" maxLength={80} />
           <FormField label="Ссылки" value={links} onChange={setLinks} placeholder="сайт или соцсеть" maxLength={120} inputMode="url" />
+        </div>
+        <div className="rounded-3xl p-4 flex flex-col gap-3 mb-4" style={{ background: th.cardBg }}>
+          <p className="pv-subtitle" style={{ color: th.inkText }}>Логин</p>
+          <p className="pv-caption leading-snug" style={{ color: th.soft }}>
+            С ним входите на сайт. После смены другие устройства выйдут из аккаунта.
+          </p>
+          <FormField
+            label="Новый логин"
+            value={loginEdit}
+            onChange={setLoginEdit}
+            autoCapitalize="none"
+            autoCorrect="off"
+            autoComplete="username"
+            maxLength={32}
+            hint="Латиница, цифры, _ . -"
+          />
+          {user?.oauth?.oauthOnly ? (
+            <p className="pv-caption leading-snug" style={{ color: th.soft }}>
+              Аккаунт через соцсеть — пароль не нужен. Смена логина подтверждается текущей сессией.
+            </p>
+          ) : (
+            <FormField label="Текущий пароль" value={loginPw} onChange={setLoginPw} password autoComplete="current-password" />
+          )}
+          {user?.totpEnabled && (
+            <FormField label="Код 2FA" value={loginTotp} onChange={setLoginTotp} inputMode="numeric" autoComplete="one-time-code" maxLength={6} />
+          )}
+          <button
+            type="button"
+            disabled={busy || !loginEdit.trim() || loginEdit.trim().toLowerCase() === user?.loginName}
+            onClick={() => void changeLogin()}
+            className="w-full min-h-11 py-2.5 rounded-2xl pv-button text-white"
+            style={{ background: th.solid, opacity: busy ? 0.7 : 1 }}
+          >
+            Сменить логин
+          </button>
         </div>
         <motion.button type="button" whileTap={{ scale: 0.97 }} disabled={busy || !dirty}
           className="w-full min-h-12 py-3 rounded-2xl text-white pv-button"
@@ -1277,7 +1384,7 @@ function HelpScreen({ onBack }: { onBack: () => void }) {
           ))}
         </div>
         <div className="flex gap-2 pb-1">
-          <button className="text-[11px] font-semibold" style={{ color: th.soft }} onClick={() => push({ type: 'conversation', name: SUPPORT_NAME, avatar: '🛟', peer: SUPPORT_LOGIN })}>Чат с человеком</button>
+          <button className="text-[11px] font-semibold" style={{ color: th.soft }} onClick={() => push({ type: 'conversation', name: SUPPORT_NAME, avatar: SUPPORT_AVATAR, peer: SUPPORT_LOGIN })}>Чат с человеком</button>
         </div>
       </div>
       <div className="p-4 flex gap-2" style={{ borderTop: `1px solid ${th.border}` }}>

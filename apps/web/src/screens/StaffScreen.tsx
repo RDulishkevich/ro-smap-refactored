@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   apiAdminDeleteUser, apiAdminSendEmail, apiAdminUnbindEmail, apiSyncJson,
   pendingSounds, rejectedSounds,
-  SUPPORT_LOGIN, SUPPORT_NAME, type Profile, type Sound,
+  SUPPORT_AVATAR, SUPPORT_LOGIN, SUPPORT_NAME, type Profile, type Sound,
 } from '@polevka/core';
 import { getRejectSuggestionChips } from '../../../../src/data/publishRules.js';
 import { color, type ThemeTokens } from '@polevka/design';
@@ -150,7 +150,7 @@ export function StaffScreen({ onBack }: { onBack: () => void }) {
             ))}
             {!tickets.length && <p className="text-xs" style={{ color: th.soft }}>Нет обращений</p>}
             <button className="mt-3 text-[10px] font-semibold" style={{ color: th.soft }}
-              onClick={() => push({ type: 'conversation', name: SUPPORT_NAME, avatar: '🛟', peer: SUPPORT_LOGIN })}>Чат поддержки</button>
+              onClick={() => push({ type: 'conversation', name: SUPPORT_NAME, avatar: SUPPORT_AVATAR, peer: SUPPORT_LOGIN })}>Чат поддержки</button>
           </>
         )}
 

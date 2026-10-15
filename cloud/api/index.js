@@ -22,7 +22,7 @@
  *
  * Actions (POST JSON { action, ... }):
  *   health | publicConfig | register | login | oauthFinish | oauthLink | oauthUnlink
- *   | refresh | logout | logoutAll | changePassword | me | getMail
+ *   | refresh | logout | logoutAll | changePassword | changeLogin | me | getMail
  *   | sync | commit | presign | patchSound | translate
  *   | requestEmailVerification | confirmEmailVerification
  *   | requestPasswordReset | confirmPasswordReset | adminDeleteUser | adminUnbindEmail | adminSendEmail
@@ -571,6 +571,7 @@ function actionRateLimit(action, ip, login = '') {
     if (action === 'requestPasswordReset' && !rateLimit(`pwdreq:${base}`, 8, 600000)) return false;
     if (action === 'confirmPasswordReset' && !rateLimit(`pwdcfm:${base}`, 20, 600000)) return false;
     if (action === 'deleteAccount' && !rateLimit(`delacc:${who}`, 5, 600000)) return false;
+    if (action === 'changeLogin' && !rateLimit(`chglogin:${who}`, 5, 600000)) return false;
     if (action === 'exportMyData' && !rateLimit(`exportdata:${who}`, 10, 600000)) return false;
     if ((action === 'adminDeleteUser' || action === 'adminUnbindEmail') && !rateLimit(`adminops:${who}`, 20, 600000)) return false;
     if (action === 'adminSendEmail' && !rateLimit(`adminsend:${who}`, 30, 3600000)) return false;
@@ -2246,6 +2247,46 @@ async function handleOauthFinish(event, body) {
     });
 }
 
+/** Merge a throwaway oauthOnly stub into the signed-in account (same social subject). */
+async function absorbOauthOrphan(orphanLogin, intoLogin) {
+    const from = normalizeLogin(orphanLogin);
+    const to = normalizeLogin(intoLogin);
+    if (!from || !to || from === to) return;
+    await mutateMeta((meta) => {
+        const orphanMeta = meta[from] && typeof meta[from] === 'object' ? meta[from] : null;
+        const intoMeta = meta[to] && typeof meta[to] === 'object' ? meta[to] : {};
+        if (orphanMeta?.email && !intoMeta.email) {
+            const owner = verifiedEmailOwner(meta, orphanMeta.email);
+            if (!owner || owner === from) {
+                meta[to] = {
+                    ...intoMeta,
+                    email: orphanMeta.email,
+                    emailVerified: !!orphanMeta.emailVerified,
+                    updatedAt: new Date().toISOString(),
+                };
+            }
+        }
+        delete meta[from];
+        return meta;
+    });
+    await clearEmailCode(from);
+    await clearPasswordReset(from);
+    await mutateJson('profiles.json', [], (profiles) => (profiles || []).filter(
+        (p) => String(p.loginName || '').toLowerCase() !== from,
+    ));
+    try { await deletePrivateObject(mailBoxKey(from)); } catch (_) { /* */ }
+    try { await deletePrivateObject(pushSubsKey(from)); } catch (_) { /* */ }
+    await mutateJson('map_data.json', [], (sounds) => (sounds || []).map((s) => {
+        if (!s || typeof s !== 'object' || !isOwnedSound(s, from)) return s;
+        return { ...s, recordistId: to };
+    }));
+    await mutateJson('feed.json', [], (posts) => (posts || []).map((p) => {
+        if (!p || typeof p !== 'object') return p;
+        if (String(p.authorId || p.loginName || '').toLowerCase() !== from) return p;
+        return { ...p, authorId: to, loginName: to };
+    }));
+}
+
 async function handleOauthLink(event, body) {
     const payload = verifyJwt(extractToken(event, body));
     if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
@@ -2277,6 +2318,7 @@ async function handleOauthLink(event, body) {
     }
 
     let bindings = { yandex: false, vk: false, oauthOnly: false };
+    let claimedOrphan = '';
     try {
         await mutateAuth((users) => {
             const login = authUser.login;
@@ -2285,6 +2327,12 @@ async function handleOauthLink(event, body) {
             for (const [key, other] of Object.entries(users)) {
                 if (key === login || !other || typeof other !== 'object') continue;
                 if (other.oauth && String(other.oauth[provider] || '') === profile.subject) {
+                    // Earlier «войти через соцсеть» often created a ya_*/vk_* stub — claim it.
+                    if (other.oauthOnly) {
+                        claimedOrphan = key;
+                        delete users[key];
+                        break;
+                    }
                     throw new ClientError(409, 'provider_taken', 'Этот аккаунт уже привязан к другому пользователю');
                 }
             }
@@ -2301,6 +2349,18 @@ async function handleOauthLink(event, body) {
         throw err;
     }
     authUserCache.delete(authUser.login);
+    if (claimedOrphan) {
+        authUserCache.delete(claimedOrphan);
+        try {
+            await absorbOauthOrphan(claimedOrphan, authUser.login);
+        } catch (_) { /* best-effort cleanup */ }
+        await sessionSec.appendSecurityEvent(putJson, getJson, {
+            type: 'oauth_claim_orphan',
+            login: authUser.login,
+            provider,
+            orphan: claimedOrphan,
+        });
+    }
 
     if (profile.email) {
         await mutateMeta((meta) => {
@@ -2571,6 +2631,163 @@ async function handleChangePassword(event, body) {
         displayName: authUser.displayName,
         role: authUser.role,
         tokenVersion: nextTv
+    });
+}
+
+async function handleChangeLogin(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const authUser = await resolveAuthUser(payload);
+    if (!authUser) return respond(401, { ok: false, error: 'unauthorized' });
+    if (authUser.blocked) return respond(403, { ok: false, error: 'blocked' });
+    if (authUser.login === 'admin' || authUser.login === 'support') {
+        return respond(400, { ok: false, error: 'protected_account' });
+    }
+
+    const oldLogin = authUser.login;
+    const newLogin = normalizeLogin(body.newLogin || body.login);
+    const password = String(body.password || '');
+    const totpCode = String(body.totpCode || body.totp || '').trim();
+    if (!newLogin || newLogin.length < 3) {
+        return respond(400, { ok: false, error: 'bad_login', message: 'Логин: минимум 3 символа (a-z, 0-9, _.-)' });
+    }
+    if (newLogin === 'admin' || newLogin === 'support') {
+        return respond(400, { ok: false, error: 'protected_account' });
+    }
+    if (newLogin === oldLogin) {
+        return respond(200, { ok: true, login: oldLogin, unchanged: true });
+    }
+
+    const usersSnap = await loadAuthUsers();
+    const row = usersSnap[oldLogin];
+    if (!row) return respond(401, { ok: false, error: 'unauthorized' });
+    if (!row.oauthOnly) {
+        const okPw = verifyPassword(password, row.salt, row.hash)
+            || (oldLogin === 'admin' && ADMIN_PASSWORD && password === ADMIN_PASSWORD);
+        if (!okPw) return respond(401, { ok: false, error: 'bad_credentials' });
+    } else if (normalizeLogin(body.confirmLogin || '') !== oldLogin) {
+        return respond(400, { ok: false, error: 'confirm_login', message: 'Введите текущий логин для подтверждения' });
+    }
+    if (row.totpEnabled && row.totpSecret) {
+        if (!/^\d{6}$/.test(totpCode)) return respond(401, { ok: false, error: 'totp_required' });
+        if (!sessionSec.verifyTotp(row.totpSecret, totpCode)) {
+            return respond(401, { ok: false, error: 'bad_totp' });
+        }
+    }
+
+    let nextTv = 0;
+    let displayName = authUser.displayName;
+    try {
+        await mutateAuth((users) => {
+            if (!users[oldLogin]) throw new ClientError(401, 'unauthorized');
+            if (users[newLogin]) throw new ClientError(409, 'login_taken', 'Этот логин уже занят');
+            const cur = users[oldLogin];
+            nextTv = (Number(cur.tokenVersion || 0) || 0) + 1;
+            displayName = cur.displayName || displayName;
+            users[newLogin] = {
+                ...cur,
+                tokenVersion: nextTv,
+                loginChangedAt: new Date().toISOString(),
+            };
+            delete users[oldLogin];
+            return users;
+        });
+    } catch (err) {
+        if (err instanceof ClientError) {
+            return respond(err.status || 400, { ok: false, error: err.code, message: err.message });
+        }
+        if (err && err.code === 'write_conflict') return respond(409, { ok: false, error: 'write_conflict' });
+        throw err;
+    }
+    authUserCache.delete(oldLogin);
+    authUserCache.delete(newLogin);
+
+    await mutateMeta((meta) => {
+        if (meta[oldLogin]) {
+            meta[newLogin] = { ...meta[oldLogin], updatedAt: new Date().toISOString() };
+            delete meta[oldLogin];
+        }
+        return meta;
+    });
+    await clearEmailCode(oldLogin);
+    await clearPasswordReset(oldLogin);
+
+    await mutateJson('profiles.json', [], (profiles) => (profiles || []).map((p) => {
+        if (String(p.loginName || '').toLowerCase() !== oldLogin) return p;
+        return sanitizeProfileCard({
+            ...p,
+            loginName: newLogin,
+            profileUpdatedAt: new Date().toISOString(),
+        });
+    }));
+
+    try {
+        const oldMail = await getJson(mailBoxKey(oldLogin), null);
+        if (oldMail && typeof oldMail === 'object') {
+            await putJson(mailBoxKey(newLogin), sanitizeMailRecord({
+                ...oldMail,
+                loginName: newLogin,
+            }), { privateObject: true });
+            await deletePrivateObject(mailBoxKey(oldLogin));
+        }
+    } catch (_) { /* */ }
+    try {
+        const oldPush = await getJson(pushSubsKey(oldLogin), null);
+        if (oldPush) {
+            await putJson(pushSubsKey(newLogin), {
+                ...(typeof oldPush === 'object' ? oldPush : {}),
+                loginName: newLogin,
+            }, { privateObject: true });
+            await deletePrivateObject(pushSubsKey(oldLogin));
+        }
+    } catch (_) { /* */ }
+
+    await mutateJson('map_data.json', [], (sounds) => (sounds || []).map((s) => {
+        if (!s || typeof s !== 'object') return s;
+        let next = s;
+        if (isOwnedSound(s, oldLogin)) next = { ...next, recordistId: newLogin };
+        return {
+            ...next,
+            likedBy: (next.likedBy || []).map((u) => (normalizeLogin(u) === oldLogin ? newLogin : u)),
+            dislikedBy: (next.dislikedBy || []).map((u) => (normalizeLogin(u) === oldLogin ? newLogin : u)),
+            comments: (next.comments || []).map((c) => {
+                if (!c || typeof c !== 'object') return c;
+                const mine = normalizeLogin(c.authorId) === oldLogin
+                    || normalizeLogin(c.author) === oldLogin
+                    || normalizeLogin(c.userId || c.loginName) === oldLogin;
+                if (!mine) return c;
+                return {
+                    ...c,
+                    authorId: newLogin,
+                    author: c.author && normalizeLogin(c.author) === oldLogin ? newLogin : c.author,
+                    userId: c.userId ? newLogin : c.userId,
+                    loginName: c.loginName ? newLogin : c.loginName,
+                };
+            }),
+        };
+    }));
+    await mutateJson('feed.json', [], (posts) => (posts || []).map((p) => {
+        if (!p || typeof p !== 'object') return p;
+        const mine = String(p.authorId || p.loginName || '').toLowerCase() === oldLogin;
+        return {
+            ...p,
+            authorId: mine ? newLogin : p.authorId,
+            loginName: mine ? newLogin : p.loginName,
+            likedBy: (p.likedBy || []).map((u) => (normalizeLogin(u) === oldLogin ? newLogin : u)),
+        };
+    }));
+
+    await sessionSec.appendSecurityEvent(putJson, getJson, {
+        type: 'login_changed',
+        login: newLogin,
+        from: oldLogin,
+    });
+
+    return authSuccessResponse({
+        login: newLogin,
+        displayName,
+        role: authUser.role,
+        tokenVersion: nextTv,
     });
 }
 
@@ -3963,7 +4180,7 @@ exports.handler = async function handler(event = {}) {
 
     // health / publicConfig — без секретов и без тяжёлых лимитов
     if (action === 'health') {
-        return respond(200, { ok: true, version: 28, ydb: ydbDoc.enabled(), vapid: webPush.configured() });
+        return respond(200, { ok: true, version: 29, ydb: ydbDoc.enabled(), vapid: webPush.configured() });
     }
     if (action === 'publicConfig') {
         const oauth = oauthProviders.oauthPublicConfig();
@@ -3989,7 +4206,7 @@ exports.handler = async function handler(event = {}) {
     }
 
     const authActions = new Set([
-        'sync', 'commit', 'presign', 'me', 'changePassword', 'patchSound', 'translate',
+        'sync', 'commit', 'presign', 'me', 'changePassword', 'changeLogin', 'patchSound', 'translate',
         'getMail', 'requestEmailVerification', 'confirmEmailVerification',
         'adminDeleteUser', 'adminUnbindEmail', 'adminSendEmail',
         'logoutAll', 'totpSetup', 'totpConfirm', 'totpDisable', 'getSecurityEvents',
@@ -4015,6 +4232,7 @@ exports.handler = async function handler(event = {}) {
         if (action === 'logout') return await handleLogout(event, body);
         if (action === 'logoutAll') return await handleLogoutAll(event, body);
         if (action === 'changePassword') return await handleChangePassword(event, body);
+        if (action === 'changeLogin') return await handleChangeLogin(event, body);
         if (action === 'me') return await handleMe(event, body);
         if (action === 'getMail') return await handleGetMail(event, body);
         if (action === 'sync') return await handleSync(event, body);

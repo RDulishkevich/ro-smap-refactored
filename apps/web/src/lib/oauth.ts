@@ -150,7 +150,13 @@ export async function finishOAuthFromUrl(search: string) {
   };
 
   if (intent === 'link') {
-    await restoreAuthSession().catch(() => null);
+    const session = await restoreAuthSession().catch(() => null);
+    if (!session) {
+      throw Object.assign(
+        new Error('Сессия истекла — войдите снова и повторите привязку'),
+        { code: 'unauthorized' },
+      );
+    }
     const data = await apiOauthLink(base);
     return { intent, ...data };
   }
