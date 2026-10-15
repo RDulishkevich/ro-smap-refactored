@@ -3,7 +3,20 @@ import { formatClock, parseDurationLabel, peaksFromUrl } from './waveform';
 
 const durCache = new Map<string, number>();
 
-export const PLACEHOLDER_PEAKS = Array.from({ length: 80 }, () => 0.1);
+export function seedPeaks(seed: string, bars = 64): number[] {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
+  const out: number[] = [];
+  for (let i = 0; i < bars; i++) {
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    const n = (h >>> 0) / 4294967296;
+    const envelope = 0.45 + 0.55 * Math.sin((i / bars) * Math.PI);
+    out.push(Math.max(0.2, Math.min(1, 0.22 + n * 0.78 * envelope)));
+  }
+  return out;
+}
+
+export const PLACEHOLDER_PEAKS = seedPeaks('polevka', 64);
 
 export function probeDuration(url: string): Promise<number> {
   const hit = durCache.get(url);
@@ -56,7 +69,7 @@ export function useSoundMeta(
       });
     }
     if (wantPeaks) {
-      void peaksFromUrl(url, 80).then((p) => {
+      void peaksFromUrl(url, 64).then((p) => {
         if (!dead && p.length) setPeaks(p);
       }).catch(() => {});
     } else {

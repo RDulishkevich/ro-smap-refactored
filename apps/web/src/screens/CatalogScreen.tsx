@@ -13,7 +13,8 @@ import { PullToRefresh } from '../primitives/PullToRefresh';
 import { CatalogFilters } from '../primitives/filters';
 import { useScrollMemory } from '../lib/use-scroll-memory';
 import { downloadSound } from '../lib/download-sound';
-import { PLACEHOLDER_PEAKS, useSoundMeta } from '../lib/audio-meta';
+import { seedPeaks } from '../lib/audio-meta';
+import { peaksFromWavPreview } from '../lib/waveform';
 import { recordingsLabel, typeI18nKey } from '../lib/i18n';
 import { soundAuthor, soundCover } from '../lib/sound-media';
 import { isSoundSaved, setSoundSaved } from '../lib/saved-sounds';
@@ -157,11 +158,26 @@ function useRowVisible() {
     if (!el || typeof IntersectionObserver === 'undefined') { setSeen(true); return; }
     const io = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) setSeen(true);
-    }, { rootMargin: '120px' });
+    }, { rootMargin: '160px' });
     io.observe(el);
     return () => io.disconnect();
   }, []);
   return [ref, seen] as const;
+}
+
+function useRowPeaks(url: string | undefined, seed: string, enabled: boolean) {
+  const fallback = useMemo(() => seedPeaks(seed, 64), [seed]);
+  const [peaks, setPeaks] = useState<number[]>(fallback);
+  useEffect(() => { setPeaks(fallback); }, [fallback]);
+  useEffect(() => {
+    if (!enabled || !url) return;
+    let dead = false;
+    void peaksFromWavPreview(url, 64).then((p) => {
+      if (!dead && p?.length) setPeaks(p);
+    }).catch(() => {});
+    return () => { dead = true; };
+  }, [url, enabled]);
+  return peaks;
 }
 
 function SoundRow({ item, on, progress, onPlay, onSeek, onOpen, onDownload, thCard, ink }: {
@@ -178,8 +194,7 @@ function SoundRow({ item, on, progress, onPlay, onSeek, onOpen, onDownload, thCa
   const t = useT();
   const { toast } = useUi();
   const [rowRef, seen] = useRowVisible();
-  const meta = useSoundMeta(item, { peaks: seen });
-  const peaks = meta.peaks && meta.peaks.length ? meta.peaks : PLACEHOLDER_PEAKS;
+  const peaks = useRowPeaks(item.url, String(item.id || item.title || 's'), seen);
   const cover = soundCover(item);
   const author = soundAuthor(item);
   const tint = pinColor[String(item.type)] ?? ACCENT;
@@ -201,10 +216,10 @@ function SoundRow({ item, on, progress, onPlay, onSeek, onOpen, onDownload, thCa
   return (
     <div
       ref={rowRef}
-      className="rounded-2xl px-3 py-2.5 grid grid-cols-[3rem_minmax(0,1fr)_auto] md:grid-cols-[3rem_9.5rem_minmax(5.5rem,1fr)_9.5rem_auto] items-center gap-x-3 gap-y-1.5"
+      className="rounded-2xl px-3 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5"
       style={{ background: thCard }}>
       <button type="button" onClick={onPlay}
-        className="row-start-1 col-start-1 w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer relative"
+        className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer relative"
         style={{ background: tint }}
         aria-label={on ? t('pause') : t('listen')}>
         {cover
@@ -212,15 +227,15 @@ function SoundRow({ item, on, progress, onPlay, onSeek, onOpen, onDownload, thCa
           : <span className="absolute inset-0 flex items-center justify-center pv-subtitle text-white">{String(item.title || '?').slice(0, 1)}</span>}
       </button>
 
-      <div className="row-start-1 col-start-2 min-w-0">
-        <p className="pv-subtitle truncate" style={{ color: ink }}>{item.title}</p>
+      <div className="w-[8.5rem] flex-shrink-0 min-w-0">
+        <p className="pv-subtitle truncate" style={{ color: ink }}>{item.title || '—'}</p>
         <p className="pv-micro uppercase truncate mt-0.5" style={{ color: SAGE }}>{author}</p>
       </div>
 
       <div
         role="button"
         tabIndex={0}
-        className="col-span-3 md:col-span-1 md:col-start-3 md:row-start-1 min-w-0 h-8 flex items-center cursor-pointer"
+        className="flex-1 min-w-[7rem] h-8 flex items-center cursor-pointer"
         aria-label={on ? t('pause') : t('listen')}
         onClick={() => { if (!on) onPlay(); }}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!on) onPlay(); } }}>
@@ -228,14 +243,12 @@ function SoundRow({ item, on, progress, onPlay, onSeek, onOpen, onDownload, thCa
           onSeek={on ? onSeek : undefined} />
       </div>
 
-      {(tags.primary || tags.secondary) && (
-        <div className="col-span-3 md:col-span-1 md:col-start-4 md:row-start-1 min-w-0">
-          {tags.primary ? <p className="pv-caption truncate" style={{ color: ink }}>{tags.primary}</p> : null}
-          {tags.secondary ? <p className="pv-micro truncate mt-0.5" style={{ color: OLIVE }}>{tags.secondary}</p> : null}
-        </div>
-      )}
+      <div className="w-[8.5rem] flex-shrink-0 min-w-0">
+        {tags.primary ? <p className="pv-caption truncate" style={{ color: ink }}>{tags.primary}</p> : null}
+        {tags.secondary ? <p className="pv-micro truncate mt-0.5" style={{ color: OLIVE }}>{tags.secondary}</p> : null}
+      </div>
 
-      <div className="row-start-1 col-start-3 md:col-start-5 flex items-center gap-0.5 flex-shrink-0">
+      <div className="flex items-center gap-0.5 flex-shrink-0 ml-auto">
         <button type="button" onClick={toggleSave}
           className="w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer"
           aria-label={t('save')} aria-pressed={saved}>

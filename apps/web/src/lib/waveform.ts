@@ -66,10 +66,130 @@ export async function peaksFromBlob(blob: Blob, bars = 80): Promise<number[]> {
   return peaks;
 }
 
+const PREVIEW_BYTES = 1024 * 1024;
+const previewCache = new Map<string, number[]>();
+let peakQueue: Promise<unknown> = Promise.resolve();
+
+function enqueuePeak<T>(fn: () => Promise<T>): Promise<T> {
+  const run = peakQueue.then(fn, fn);
+  peakQueue = run.then(() => undefined, () => undefined);
+  return run;
+}
+
+/** PCM / IEEE-float WAV → peaks. Uses only the bytes we have (Range previews OK). */
+export function peaksFromWavArrayBuffer(ab: ArrayBuffer, sampleCount = 64): number[] | null {
+  if (!ab || ab.byteLength < 44) return null;
+  const view = new DataView(ab);
+  if (view.getUint32(0, false) !== 0x52494646 || view.getUint32(8, false) !== 0x57415645) return null;
+  let offset = 12;
+  let channels = 1;
+  let bits = 16;
+  let format = 1;
+  let dataOffset = -1;
+  let dataSize = 0;
+  while (offset + 8 <= view.byteLength) {
+    const id = view.getUint32(offset, false);
+    const size = view.getUint32(offset + 4, true);
+    const next = offset + 8 + size + (size % 2);
+    if (id === 0x666d7420) {
+      format = view.getUint16(offset + 8, true);
+      channels = Math.max(1, view.getUint16(offset + 10, true) || 1);
+      bits = view.getUint16(offset + 22, true) || 16;
+      if (format !== 1 && format !== 3) return null;
+      if (format === 3) bits = 32;
+    } else if (id === 0x64617461) {
+      dataOffset = offset + 8;
+      dataSize = size;
+      break;
+    }
+    if (next <= offset) break;
+    offset = next;
+  }
+  if (dataOffset < 0 || dataOffset >= view.byteLength) return null;
+  const n = Math.max(8, Math.min(160, sampleCount | 0 || 64));
+  const bytesPerSample = Math.max(1, bits / 8);
+  const frameSize = bytesPerSample * channels;
+  const available = view.byteLength - dataOffset;
+  const usable = Math.min(dataSize > 0 ? dataSize : available, available);
+  const totalFrames = Math.floor(usable / frameSize);
+  if (totalFrames < 8 || frameSize < 1) return null;
+  const block = Math.max(1, Math.floor(totalFrames / n));
+  const stride = Math.max(1, Math.floor(block / 48));
+  const endByte = dataOffset + usable;
+
+  const readSample = (byteOffset: number) => {
+    if (byteOffset + bytesPerSample > endByte) return 0;
+    if (bits === 8) return (view.getUint8(byteOffset) - 128) / 128;
+    if (bits === 16) return view.getInt16(byteOffset, true) / 32768;
+    if (bits === 24) {
+      const b0 = view.getUint8(byteOffset);
+      const b1 = view.getUint8(byteOffset + 1);
+      const b2 = view.getUint8(byteOffset + 2);
+      let sample = (b2 << 16) | (b1 << 8) | b0;
+      if (sample & 0x800000) sample |= ~0xffffff;
+      return sample / 8388608;
+    }
+    if (bits === 32) return format === 3 ? view.getFloat32(byteOffset, true) : view.getInt32(byteOffset, true) / 2147483648;
+    return 0;
+  };
+
+  const peaks = new Array<number>(n);
+  let maxPeak = 0.0001;
+  for (let i = 0; i < n; i++) {
+    const startFrame = i * block;
+    const endFrame = Math.min(totalFrames, startFrame + block);
+    let peak = 0;
+    for (let f = startFrame; f < endFrame; f += stride) {
+      const o = dataOffset + f * frameSize;
+      const a = Math.abs(readSample(o));
+      if (a > peak) peak = a;
+    }
+    peaks[i] = peak;
+    if (peak > maxPeak) maxPeak = peak;
+  }
+  for (let i = 0; i < n; i++) {
+    const norm = peaks[i] / maxPeak;
+    peaks[i] = Math.max(0.12, Math.min(1, Math.pow(norm, 0.72)));
+  }
+  return peaks;
+}
+
+/** First megabyte via Range — never decode the whole file. */
+export async function peaksFromWavPreview(url: string, bars = 64): Promise<number[] | null> {
+  const key = `prev:${url}:${bars}`;
+  const hit = previewCache.get(key);
+  if (hit) return hit;
+  return enqueuePeak(async () => {
+    const cached = previewCache.get(key);
+    if (cached) return cached;
+    try {
+      const res = await fetch(url, {
+        mode: 'cors',
+        credentials: 'omit',
+        cache: 'force-cache',
+        headers: { Range: `bytes=0-${PREVIEW_BYTES - 1}` },
+      });
+      if (!res.ok && res.status !== 206) return null;
+      const raw = await res.arrayBuffer();
+      const ab = raw.byteLength > PREVIEW_BYTES ? raw.slice(0, PREVIEW_BYTES) : raw;
+      const peaks = peaksFromWavArrayBuffer(ab, bars);
+      if (peaks?.length) previewCache.set(key, peaks);
+      return peaks;
+    } catch {
+      return null;
+    }
+  });
+}
+
 export async function peaksFromUrl(url: string, bars = 80): Promise<number[]> {
   const key = `${url}:${bars}`;
   const hit = cache.get(key);
   if (hit) return hit;
+  const preview = await peaksFromWavPreview(url, bars);
+  if (preview?.length) {
+    cache.set(key, preview);
+    return preview;
+  }
   const blob = await fetchAudioBlob(url);
   const buffer = await decode(await blob.arrayBuffer());
   const peaks = await peaksFromBuffer(buffer, bars);

@@ -36,10 +36,13 @@ export function WaveformSVG({
         const r = e.currentTarget.getBoundingClientRect();
         onSeek(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)));
       }}>
-      {data.map((v, i) => (
-        <rect key={i} x={i * 2} y={(1 - v) * h} width={1.35} height={Math.max(1.2, v * h)} rx="0.65"
-          fill={c} opacity={i <= idx ? 0.95 : 0.22} />
-      ))}
+      {data.map((v, i) => {
+        const bar = Math.max(3, v * h);
+        return (
+          <rect key={i} x={i * 2} y={h - bar} width={1.35} height={bar} rx="0.65"
+            fill={c} opacity={i <= idx ? 0.95 : 0.42} />
+        );
+      })}
     </svg>
   );
 }
