@@ -33,6 +33,7 @@ export function WaveformSVG({
       style={{ cursor: onSeek ? 'pointer' : undefined }}
       onClick={(e) => {
         if (!onSeek) return;
+        e.stopPropagation();
         const r = e.currentTarget.getBoundingClientRect();
         onSeek(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)));
       }}>
@@ -75,8 +76,15 @@ export function ScreenHeader({ title, subtitle, onBack, right, onTitleClick }: {
   const th = useTh();
   const t = useT();
   return (
-    <header className="sticky top-0 z-20 flex items-center gap-3 px-4 pv-safe-top pb-3 flex-shrink-0" style={{ background: th.headerBg, borderBottom: `1px solid ${th.border}` }}>
-      <motion.button whileTap={tap.nav} onClick={onBack} className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 cursor-pointer" style={{ background: th.lightBg }} aria-label={t('back')}>
+    <header data-no-swipe className="sticky top-0 z-30 flex items-center gap-3 px-4 pv-safe-top pb-3 flex-shrink-0 relative" style={{ background: th.headerBg, borderBottom: `1px solid ${th.border}` }}>
+      <motion.button
+        type="button"
+        data-no-swipe
+        whileTap={tap.nav}
+        onClick={(e) => { e.stopPropagation(); onBack(); }}
+        className="relative z-40 w-11 h-11 min-w-11 min-h-11 rounded-2xl flex items-center justify-center flex-shrink-0 cursor-pointer pointer-events-auto"
+        style={{ background: th.lightBg }}
+        aria-label={t('back')}>
         <ChevronLeft size={18} style={{ color: th.inkText }} />
       </motion.button>
       <div className="flex-1 min-w-0">

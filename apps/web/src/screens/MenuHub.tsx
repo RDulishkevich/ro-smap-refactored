@@ -9,7 +9,6 @@ import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import BrandMark from '@/brand/BrandMark';
 import { searchAll, type SearchHit } from '../lib/search-all';
-import { LanguageSwitch } from '../primitives/LanguageSwitch';
 import { EmptyNote } from '../primitives/EmptyNote';
 import { PullToRefresh } from '../primitives/PullToRefresh';
 import { useScrollMemory } from '../lib/use-scroll-memory';
@@ -59,7 +58,6 @@ export function MenuHub() {
         <div className="flex items-center gap-2.5 mb-3">
           <div className="w-9 h-9 relative flex-shrink-0"><BrandMark /></div>
           <h1 className="pv-page flex-1 truncate" style={{ color: th.inkText }}>{t('menu')}</h1>
-          <LanguageSwitch compact />
         </div>
         <label className="flex items-center gap-2 h-12 rounded-2xl px-3.5" style={{ background: th.cardBg }}>
           <Search size={16} color={th.soft} className="flex-shrink-0" />

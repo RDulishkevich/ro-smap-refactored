@@ -6,7 +6,7 @@ const DONE = 88;
 function blocked(el: EventTarget | null) {
   const node = el as HTMLElement | null;
   if (!node?.closest) return false;
-  return !!node.closest('input, textarea, select, [data-no-swipe], .pv-carousel');
+  return !!node.closest('input, textarea, select, button, a, [data-no-swipe], .pv-carousel, header');
 }
 
 export function SwipeBack({

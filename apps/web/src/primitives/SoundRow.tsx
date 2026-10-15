@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bookmark, ChevronRight, Download, MoreHorizontal } from 'lucide-react';
+import { ChevronRight, Download, MoreHorizontal } from 'lucide-react';
 import type { Sound } from '@polevka/core';
 import { color, pinColor } from '@polevka/design';
 import { useData } from '../state/DataContext';
@@ -13,8 +13,11 @@ import { peaksFromWavPreview } from '../lib/waveform';
 import { soundAuthor, soundCover, soundOwnerLogin } from '../lib/sound-media';
 import { isSoundSaved, setSoundSaved } from '../lib/saved-sounds';
 import { downloadSound } from '../lib/download-sound';
+import { pathForSound } from '../lib/routes';
+import { shareLink } from '../lib/share';
 import { SoundTagLines } from './SoundTagLines';
 import { Avatar } from './Avatar';
+import { HoverMenu } from './HoverMenu';
 
 const ACCENT = color.accent;
 
@@ -48,7 +51,7 @@ function useRowPeaks(url: string | undefined, seed: string, enabled: boolean) {
   return peaks;
 }
 
-/** Catalog-style audio row: cover/play, waveform, tags, save/download/open. */
+/** Catalog-style audio row: cover/play, title, waveform, tags, actions. */
 export function SoundRow({
   item,
   badge,
@@ -90,15 +93,33 @@ export function SoundRow({
     });
   };
 
+  const share = () => {
+    void shareLink(pathForSound(item.id), String(item.title || 'Полёвка')).then((how) => {
+      if (how === 'copied') toast('Ссылка скопирована');
+      if (how === 'fail') toast('Не удалось поделиться');
+    });
+  };
+
   return (
     <div
       ref={rowRef}
-      className="rounded-2xl px-3 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5"
-      style={{ background: th.cardBg }}>
+      role="button"
+      tabIndex={0}
+      onClick={open}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          open();
+        }
+      }}
+      className="pv-sound-row rounded-2xl px-3 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 cursor-pointer"
+      style={{ background: th.cardBg }}
+    >
       {badge ? (
         <p className="w-full pv-micro uppercase px-0.5" style={{ color: th.soft }}>{badge}</p>
       ) : null}
-      <button type="button" onClick={() => togglePlay(item)}
+
+      <button type="button" onClick={(e) => { e.stopPropagation(); togglePlay(item); }}
         className="group w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer relative isolate"
         style={{ background: tint }}
         aria-label={on ? t('pause') : t('listen')}>
@@ -120,12 +141,14 @@ export function SoundRow({
         </span>
       </button>
 
-      <div className="w-[8.5rem] flex-shrink-0 min-w-0">
+      {/* Title needs room — wider than before so mobile truncates later */}
+      <div className="min-w-0 flex-[1.35] basis-[9.5rem] max-w-[14rem] sm:max-w-[16rem]">
         <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{item.title || '—'}</p>
         <button
           type="button"
-          className="flex items-center gap-1.5 mt-0.5 max-w-full text-left cursor-pointer pv-tag-hit rounded-lg px-1 -mx-1"
-          onClick={() => {
+          className="flex items-center gap-1.5 mt-0.5 max-w-full text-left cursor-pointer rounded-lg px-1 -mx-1"
+          onClick={(e) => {
+            e.stopPropagation();
             if (!ownerLogin) return;
             push({
               type: 'user-profile',
@@ -141,37 +164,55 @@ export function SoundRow({
       </div>
 
       <div
-        role="button"
-        tabIndex={0}
-        className="flex-1 min-w-[7rem] h-8 flex items-center cursor-pointer"
-        aria-label={on ? t('pause') : t('listen')}
-        onClick={() => { if (!on) togglePlay(item); }}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!on) togglePlay(item); } }}>
+        role="presentation"
+        className="flex-1 min-w-[5.5rem] sm:min-w-[7rem] h-8 flex items-center ml-1 sm:ml-2"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!on) togglePlay(item);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!on) togglePlay(item);
+          }
+        }}
+      >
         <WaveformSVG data={peaks} color={on ? ACCENT : color.olive} progress={on ? progress : 0} h={28}
-          onSeek={on ? seek : undefined} />
+          onSeek={on ? (r) => { seek(r); } : undefined} />
       </div>
 
-      <SoundTagLines sound={item} className="w-[8.5rem] flex-shrink-0" />
+      <SoundTagLines sound={item} openOnClick={false} className="w-[6.5rem] sm:w-[8.5rem] flex-shrink-0 pointer-events-none" />
 
-      <div className="flex items-center gap-0.5 flex-shrink-0 ml-auto">
-        <button type="button" onClick={toggleSave}
-          className="w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer"
-          aria-label={t('save')} aria-pressed={saved}>
-          <Bookmark size={16} color={saved ? ACCENT : th.soft} fill={saved ? ACCENT : 'none'} />
-        </button>
+      <div className="flex items-center gap-0.5 flex-shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
         <button type="button" onClick={() => void downloadSound(item, toast)}
           className="w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer"
           style={{ background: 'rgba(146,179,177,0.18)' }}
           aria-label={t('download')}>
           <Download size={15} color={color.mist} />
         </button>
-        <button type="button" onClick={open}
-          className="w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer"
-          aria-label={trailing === 'edit' ? t('editSound') : t('openSound')}>
-          {trailing === 'edit'
-            ? <ChevronRight size={18} color={th.soft} strokeWidth={1.75} />
-            : <MoreHorizontal size={16} color={th.soft} />}
-        </button>
+        {trailing === 'edit' ? (
+          <button type="button" onClick={open}
+            className="w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer"
+            aria-label={t('editSound')}>
+            <ChevronRight size={18} color={th.soft} strokeWidth={1.75} />
+          </button>
+        ) : (
+          <HoverMenu
+            align="right"
+            items={[
+              { label: t('share'), onClick: share },
+              { label: saved ? t('fromFavorites') : t('toFavorites'), onClick: toggleSave },
+            ]}
+          >
+            <span
+              className="w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer"
+              aria-label={t('openSound')}
+            >
+              <MoreHorizontal size={16} color={th.soft} />
+            </span>
+          </HoverMenu>
+        )}
       </div>
     </div>
   );

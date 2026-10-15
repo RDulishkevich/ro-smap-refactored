@@ -204,12 +204,12 @@ export function DesktopShell() {
         style={{ background: th.cardBg }}>
         <nav className="flex flex-col py-5 px-2.5 flex-shrink-0" style={{ width: RAIL_W, borderRight: `1px solid ${th.border}` }}>
           <button onClick={() => { void reset().then((ok) => { if (ok) setDesktopView('map'); }); }}
-            className="flex items-center gap-2.5 px-2 mb-5 text-left w-full min-w-0">
-            <div className="w-10 h-10 flex-shrink-0 relative">
+            className="flex items-center gap-3 px-2 mb-5 text-left w-full min-w-0">
+            <div className="w-14 h-14 flex-shrink-0 relative">
               <BrandMark />
             </div>
             <div className="min-w-0 leading-none">
-              <p className="pv-wordmark truncate" style={{ color: th.inkText }}>Полёвка</p>
+              <p className="pv-heading truncate" style={{ color: th.inkText, fontSize: '1.2rem' }}>Полёвка</p>
               <p className="pv-micro mt-1 truncate" style={{ color: th.soft }}>{t('soundMap')}</p>
             </div>
           </button>

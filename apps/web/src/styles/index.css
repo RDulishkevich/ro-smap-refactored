@@ -185,6 +185,19 @@ html.pv-reduce-motion *::after {
   }
 }
 
+/* Sound row plate — whole card opens detail; soft gray hover */
+.pv-sound-row {
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .pv-sound-row:hover {
+    box-shadow: inset 0 0 0 999px rgba(26, 26, 26, 0.05);
+  }
+  html.dark .pv-sound-row:hover {
+    box-shadow: inset 0 0 0 999px rgba(255, 255, 255, 0.06);
+  }
+}
+
 /* Desktop: calm neutral hover — no sage/olive wash. */
 @media (hover: hover) and (pointer: fine) {
   .pv-desktop .pv-desk-hit {
