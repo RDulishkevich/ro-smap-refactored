@@ -9,6 +9,7 @@ import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import { NavBar, PlayPauseIcon, SoundTypeTag } from '../primitives/ui';
+import { EmptyNote } from '../primitives/EmptyNote';
 import BrandMark from '@/brand/BrandMark';
 import LogoApp from '@/brand/LogoApp';
 
@@ -27,7 +28,7 @@ export function GuestProfileScreen({ showNav = true }: { showNav?: boolean }) {
       <div className="relative flex-1 flex flex-col items-center justify-center px-6 text-center pv-safe-top">
         <div className="w-20 h-20 rounded-3xl overflow-hidden shadow-xl mx-auto mb-4"><LogoApp /></div>
         <h1 className="pv-title mb-2" style={{ color: th.inkText }}>Полёвка</h1>
-        <p className="pv-body mb-6" style={{ color: SAGE }}>
+        <p className="pv-body mb-6 max-w-[20rem]" style={{ color: SAGE }}>
           {t('signInToSave')}
         </p>
         <div className="w-full flex flex-col gap-3">
@@ -83,7 +84,7 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
                 : <LogoApp />}
             </div>
             <div>
-              <p className="pv-heading" style={{ color: th.inkText }}>{user?.displayName || user?.username}</p>
+              <p className="pv-page" style={{ color: th.inkText }}>{user?.displayName || user?.username}</p>
               <p className="pv-caption mb-2" style={{ color: SAGE }}>@{user?.loginName}</p>
               <div className="pv-micro inline-flex items-center gap-1 px-2.5 py-1 rounded-full" style={{ background: th.cream, color: ACCENT }}>
                 <Mic size={9} />{t('fieldResearcher')}
@@ -110,8 +111,8 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
               className="pv-button flex-1 py-2.5 rounded-2xl shadow-sm cursor-pointer" style={{ background: th.cardBg, color: th.isDark ? LIGHT : DARK }}>{t('cabinet')}</motion.button>
           </div>
         </div>
-        <div className="px-4 pb-48">
-          <p className="pv-heading mb-3" style={{ color: th.inkText }}>{t('mySounds')}</p>
+        <div className={`px-4 ${showNav ? 'pb-48' : 'pb-6'}`}>
+          <p className="pv-label uppercase mb-3" style={{ color: SAGE }}>{t('mySounds')}</p>
           <div className="flex flex-col gap-3">
             {drafts.map((item) => (
               <button key={`d${String(item.id)}`} onClick={() => {
@@ -127,7 +128,7 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
               <ProfileSoundCard key={String(item.id)} item={item} playing={playing && String(playingId) === String(item.id)}
                 onPlay={() => togglePlay(item)} onOpen={() => push({ type: 'sound-detail', sound: item })} />
             ))}
-            {!shown.length && !drafts.length && <p className="pv-caption" style={{ color: SAGE }}>{t('noOwnSounds')}</p>}
+            {!shown.length && !drafts.length && <EmptyNote title={t('noOwnSounds')} actionLabel={t('openCatalog')} onAction={() => push({ type: 'catalog' })} />}
           </div>
         </div>
       </div>
@@ -144,8 +145,8 @@ function ProfileSoundCard({ item, playing, onPlay, onOpen }: {
   const c = pinColor[String(item.type)] ?? ACCENT;
   return (
     <div className="rounded-2xl px-3 py-2.5 flex items-center gap-3" style={{ background: th.cardBg }}>
-      <motion.button type="button" onClick={onPlay} whileTap={{ scale: 0.88 }}
-        className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c }}>
+      <motion.button type="button" onClick={onPlay} whileTap={{ scale: 0.88 }} aria-label={playing ? 'Пауза' : 'Слушать'}
+        className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c }}>
         <PlayPauseIcon playing={playing} size={12} />
       </motion.button>
       <button type="button" className="flex-1 min-w-0 text-left" onClick={onOpen}>

@@ -8,11 +8,13 @@ import { getRejectSuggestionChips } from '../../../../src/data/publishRules.js';
 import { color } from '@polevka/design';
 import { Shield } from 'lucide-react';
 import { ScreenHeader } from '../primitives/ui';
+import { EmptyNote } from '../primitives/EmptyNote';
 import { useAuth } from '../state/AuthContext';
 import { useData } from '../state/DataContext';
 import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useUi } from '../state/UiContext';
+import { useT } from '../state/PrefsContext';
 import { useIsDesktop } from '../lib/use-media';
 
 const SAGE = color.sage;
@@ -24,6 +26,7 @@ type Tab = 'sounds' | 'reports' | 'users' | 'tickets';
 
 export function StaffScreen({ onBack }: { onBack: () => void }) {
   const th = useTh();
+  const t = useT();
   const desktop = useIsDesktop();
   const { allSounds, reload, profiles, mail } = useData();
   const { user } = useAuth();
@@ -110,7 +113,7 @@ export function StaffScreen({ onBack }: { onBack: () => void }) {
                 })()}
               />
             ))}
-            {!list.length && <p className="text-xs" style={{ color: SAGE }}>Пусто</p>}
+            {!list.length && <EmptyNote title={t('staffEmpty')} hint={t('staffEmptyHint')} />}
           </>
         )}
 

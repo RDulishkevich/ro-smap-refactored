@@ -136,6 +136,7 @@ export type AppEvent = {
   tag?: string;
   status?: string;
   attendees?: string[];
+  participants?: string[];
   [key: string]: unknown;
 };
 

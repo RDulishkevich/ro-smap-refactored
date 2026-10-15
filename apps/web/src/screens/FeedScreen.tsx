@@ -10,6 +10,9 @@ import { useAuth } from '../state/AuthContext';
 import { useUi } from '../state/UiContext';
 import { usePrefs } from '../state/PrefsContext';
 import { ListSkeleton, NavBar, PlayPauseIcon, ScreenHeader, SoundTypeTag } from '../primitives/ui';
+import { EmptyNote } from '../primitives/EmptyNote';
+import { PullToRefresh } from '../primitives/PullToRefresh';
+import { useScrollMemory } from '../lib/use-scroll-memory';
 import BrandMark from '@/brand/BrandMark';
 import { CatalogSoundList } from './CatalogScreen';
 import { downloadSound } from '../lib/download-sound';
@@ -41,6 +44,7 @@ export function FeedScreen({ showNav = true, embed = false, initialTab }: { show
   const th = useTh();
   const t = useT();
   const [tab, setTab] = useState<FeedTab>(initialTab || 'posts');
+  const scroll = useScrollMemory(`feed-${tab}`);
   const subTabs: { id: FeedTab; label: string }[] = [
     { id: 'posts', label: t('posts') },
     { id: 'catalog', label: t('catalog') },
@@ -53,7 +57,7 @@ export function FeedScreen({ showNav = true, embed = false, initialTab }: { show
         <div className="relative flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-9 h-9 relative flex-shrink-0"><BrandMark /></div>
-            <h1 className="pv-heading truncate" style={{ color: th.inkText }}>{t('feed')}</h1>
+            <h1 className="pv-page truncate" style={{ color: th.inkText }}>{t('feed')}</h1>
           </div>
           <div className="flex gap-1.5 flex-shrink-0">
             <motion.button whileTap={tap.cta} onClick={() => push({ type: 'search' })} className="w-11 h-11 rounded-2xl flex items-center justify-center cursor-pointer" style={{ background: th.cardBg }} aria-label={t('search')}>
@@ -76,10 +80,12 @@ export function FeedScreen({ showNav = true, embed = false, initialTab }: { show
       )}
       <div className="flex-1 overflow-hidden relative">
         <AnimatePresence mode="wait">
-          <motion.div key={tab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={spring.fade} className="absolute inset-0 overflow-y-auto scrollbar-none px-4 pb-48 pt-2">
-            {tab === 'posts' && <PostsList onCatalog={() => setTab('catalog')} />}
-            {tab === 'catalog' && <CatalogSoundList />}
-            {tab === 'expeditions' && <ExpeditionsList />}
+          <motion.div key={tab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={spring.fade} className="absolute inset-0">
+            <PullToRefresh ref={scroll} className={`h-full overflow-y-auto scrollbar-none px-4 pt-2 ${showNav ? 'pb-48' : 'pb-6'}`}>
+              {tab === 'posts' && <PostsList onCatalog={() => setTab('catalog')} />}
+              {tab === 'catalog' && <CatalogSoundList />}
+              {tab === 'expeditions' && <ExpeditionsList />}
+            </PullToRefresh>
           </motion.div>
         </AnimatePresence>
       </div>
@@ -192,12 +198,7 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
 
   if (!feed.length && !sounds.length) {
     return (
-      <div className="py-10 px-2 text-center">
-        <p className="pv-caption mb-4" style={{ color: SAGE }}>{t('noPosts')}</p>
-        <button type="button" onClick={onCatalog} className="pv-label h-10 px-4 rounded-full cursor-pointer" style={{ background: th.cardBg, color: ACCENT }}>
-          {t('openCatalog')}
-        </button>
-      </div>
+      <EmptyNote title={t('noPosts')} hint={t('noPostsHint')} actionLabel={t('openCatalog')} onAction={onCatalog} />
     );
   }
 
@@ -226,7 +227,7 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
           onOpen={() => push({ type: 'sound-detail', sound: item.sound })}
           onDownload={() => downloadSound(item.sound, toast)} />
       ))}
-      {!items.length && <p className="pv-caption py-8 text-center" style={{ color: SAGE }}>{t('nothingFound')}</p>}
+      {!items.length && <EmptyNote title={t('nothingFound')} hint={t('nothingFoundHint')} />}
     </div>
   );
 }
@@ -358,22 +359,15 @@ function ExpeditionsList() {
             {exp.photo && <img src={exp.photo} alt="" className="absolute inset-0 w-full h-full object-cover" />}
             <span className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(26,26,26,0.05), rgba(26,26,26,0.62))' }} />
             <span className="absolute left-3.5 right-3.5 bottom-3.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-white/80">{exp.emoji} · {exp.n} точек · {exp.dur}</span>
-              <span className="block text-[16px] font-bold text-white leading-tight mt-0.5">{exp.title}</span>
-              <span className="block text-[11px] text-white/80 truncate mt-0.5">{exp.desc}</span>
+              <span className="pv-micro text-white/80">{exp.emoji} · {exp.n} точек · {exp.dur}</span>
+              <span className="block pv-heading text-white mt-0.5">{exp.title}</span>
+              <span className="block pv-caption text-white/80 truncate mt-0.5">{exp.desc}</span>
             </span>
           </button>
         );
       })}
       {!list.length && (
-        <div className="relative rounded-3xl overflow-hidden h-[8.25rem]" style={{ background: color.mist }}>
-          <span className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(26,26,26,0.05), rgba(26,26,26,0.45))' }} />
-          <span className="absolute left-3.5 right-3.5 bottom-3.5 text-white">
-            <span className="block text-[10px] font-semibold uppercase tracking-wide text-white/80">Скоро</span>
-            <span className="block text-[16px] font-bold leading-tight mt-0.5">Первая экспедиция</span>
-            <span className="block text-[11px] text-white/80 mt-0.5">Маршруты и общие записи появятся здесь баннерами</span>
-          </span>
-        </div>
+        <EmptyNote title={t('expEmpty')} hint={t('expEmptyHint')} />
       )}
     </div>
   );

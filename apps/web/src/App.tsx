@@ -1,10 +1,11 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { MotionConfig } from 'motion/react';
 import { useUi } from './state/UiContext';
 import { AuthProvider, useAuth } from './state/AuthContext';
 import { NavProvider } from './state/NavContext';
 import { DataProvider, useData } from './state/DataContext';
 import { ThemeProvider, useTh } from './state/ThemeContext';
-import { PrefsProvider } from './state/PrefsContext';
+import { PrefsProvider, usePrefs, useT } from './state/PrefsContext';
 import { UiProvider } from './state/UiContext';
 import { useIsDesktop } from './lib/use-media';
 import { useLockPageGestures } from './lib/use-lock-page-gestures';
@@ -41,17 +42,30 @@ function ServiceGate({ children }: { children: ReactNode }) {
   );
 }
 
+function MotionGate({ children }: { children: ReactNode }) {
+  const { prefs } = usePrefs();
+  return (
+    <MotionConfig reducedMotion={prefs.reduceMotion ? 'always' : 'user'}>
+      {children}
+    </MotionConfig>
+  );
+}
+
 function Shell() {
   const desktop = useIsDesktop();
   const { isLoggedIn } = useAuth();
   const { toast } = useUi();
   const th = useTh();
+  const t = useT();
   useLockPageGestures(!desktop);
   return (
     <NavProvider isLoggedIn={isLoggedIn} onNeedAuth={() => toast('Войдите в аккаунт')}>
       <DeepLinks />
+      <a href="#pv-main" className="pv-skip">{t('skipToContent')}</a>
       <div data-app="polevka" className="w-screen h-dvh" style={{ background: th.isDark ? '#0E1A18' : '#F3F4F6' }}>
-        {desktop ? <DesktopShell /> : <MobileShell />}
+        <div id="pv-main" tabIndex={-1} className="contents">
+          {desktop ? <DesktopShell /> : <MobileShell />}
+        </div>
         <Overlays />
         <CookieBanner />
         <OpenInAppBanner />
@@ -65,17 +79,19 @@ export default function App() {
   return (
     <ThemeProvider>
       <PrefsProvider>
-        <ErrorBoundary>
-          <UiProvider>
-            <AuthProvider>
-              <DataProvider>
-                <ServiceGate>
-                  <Shell />
-                </ServiceGate>
-              </DataProvider>
-            </AuthProvider>
-          </UiProvider>
-        </ErrorBoundary>
+        <MotionGate>
+          <ErrorBoundary>
+            <UiProvider>
+              <AuthProvider>
+                <DataProvider>
+                  <ServiceGate>
+                    <Shell />
+                  </ServiceGate>
+                </DataProvider>
+              </AuthProvider>
+            </UiProvider>
+          </ErrorBoundary>
+        </MotionGate>
       </PrefsProvider>
     </ThemeProvider>
   );

@@ -12,13 +12,21 @@ export type AppPrefs = {
 const KEY = 'polevka_prefs';
 const DEFAULTS: AppPrefs = { notifyInApp: true, notifyDevice: true, autoplayPin: false, reduceMotion: false, locale: 'ru' };
 
+function osReduceMotion() {
+  try {
+    return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
+}
+
 function readPrefs(): AppPrefs {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return DEFAULTS;
+    if (!raw) return { ...DEFAULTS, reduceMotion: osReduceMotion() };
     return { ...DEFAULTS, ...JSON.parse(raw) };
   } catch {
-    return DEFAULTS;
+    return { ...DEFAULTS, reduceMotion: osReduceMotion() };
   }
 }
 

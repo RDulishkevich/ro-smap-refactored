@@ -48,7 +48,7 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       {!desktop && <ScreenHeader title={t('settings')} onBack={onBack} />}
       <div className={`flex-1 overflow-y-auto scrollbar-none flex flex-col gap-4 ${desktop ? 'p-6' : 'p-4'}`}>
-        {desktop && <p className="pv-heading" style={{ color: th.inkText }}>{t('settings')}</p>}
+        {desktop && <p className="pv-page" style={{ color: th.inkText }}>{t('settings')}</p>}
 
         <Section title={t('language')} th={th}>
           <Row label={t('lang')} th={th} right={<LanguageSwitch />} />
@@ -147,7 +147,13 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
           </>
         )}
 
-        <p className="pv-micro text-center pb-4" style={{ color: SAGE }}>Полёвка · polevka.art</p>
+        <p className="pv-micro text-center pb-4" style={{ color: SAGE }}>
+          Полёвка · polevka.art
+          {' · '}
+          <a href="https://yandex.ru/legal/maps_termsofuse" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: OLIVE }}>
+            {t('yandexMapsTerms')}
+          </a>
+        </p>
       </div>
     </div>
   );
@@ -183,7 +189,7 @@ function Row({ label, right, th, onClick }: { label: string; right?: ReactNode; 
 function Switch({ on, onChange }: { on: boolean; onChange: () => void }) {
   return (
     <button type="button" role="switch" aria-checked={on} onClick={(e) => { e.stopPropagation(); onChange(); }}
-      className="w-10 h-6 rounded-full relative flex-shrink-0"
+      className="w-11 h-7 rounded-full relative flex-shrink-0 min-h-11"
       style={{ background: on ? MIST : 'rgba(45,60,57,0.18)' }}>
       <span className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow"
         style={{ transform: on ? 'translateX(16px)' : 'translateX(0)' }} />

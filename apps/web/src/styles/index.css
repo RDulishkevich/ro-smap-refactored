@@ -3,12 +3,12 @@
 @import '../../../../packages/design/src/tokens.css';
 @import 'leaflet/dist/leaflet.css';
 
-/* One product copyright lives in the desktop footer. Hide map provider © (Yandex / OSM). */
-.pv-map [class*="copyrights-pane"],
-.pv-map [class*="copyright__"],
-.pv-map [class*="ymaps"][class*="copyright"],
-.leaflet-control-attribution {
-  display: none !important;
+.pv-map .leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.82) !important;
+  color: #2d3c39;
+  font-size: 10px !important;
+  line-height: 1.3;
+  max-width: min(70%, 22rem);
 }
 .leaflet-bar {
   border: 0 !important;
@@ -141,5 +141,35 @@ html.pv-reduce-motion *::after {
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
+}
+
+.pv-skip {
+  position: absolute;
+  left: 12px;
+  top: 8px;
+  z-index: 10000;
+  transform: translateY(-120%);
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: var(--pv-dark);
+  color: #fff;
+  font-size: 0.875rem;
+}
+.pv-skip:focus {
+  transform: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--pv-accent);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .pv-mobile button,
+  .pv-mobile [role="button"],
+  .pv-mobile [role="switch"],
+  .pv-mobile [role="menuitem"] {
+    min-height: 44px;
+  }
 }
 

@@ -11,6 +11,9 @@ import { useData } from '../state/DataContext';
 import BrandMark from '@/brand/BrandMark';
 import { searchAll, type SearchHit } from '../lib/search-all';
 import { LanguageSwitch } from '../primitives/LanguageSwitch';
+import { EmptyNote } from '../primitives/EmptyNote';
+import { PullToRefresh } from '../primitives/PullToRefresh';
+import { useScrollMemory } from '../lib/use-scroll-memory';
 import { useT } from '../state/PrefsContext';
 import { kindI18nKey } from '../lib/i18n';
 
@@ -25,6 +28,7 @@ export function MenuHub() {
   const { isStaff } = useAuth();
   const { sounds, profiles, events, feed } = useData();
   const [q, setQ] = useState('');
+  const scroll = useScrollMemory('menu');
   const hits = useMemo(() => searchAll(q, { sounds, profiles, events, feed }), [q, sounds, profiles, events, feed]);
 
   const openHit = (hit: SearchHit) => {
@@ -59,7 +63,7 @@ export function MenuHub() {
       <div className="px-4 pv-safe-top pb-2 flex-shrink-0">
         <div className="flex items-center gap-2.5 mb-3">
           <div className="w-9 h-9 relative flex-shrink-0"><BrandMark /></div>
-          <h1 className="pv-heading flex-1 truncate" style={{ color: th.inkText }}>{t('menu')}</h1>
+          <h1 className="pv-page flex-1 truncate" style={{ color: th.inkText }}>{t('menu')}</h1>
           <LanguageSwitch compact />
         </div>
         <label className="flex items-center gap-2 h-12 rounded-2xl px-3.5" style={{ background: th.cardBg }}>
@@ -73,13 +77,13 @@ export function MenuHub() {
             aria-label={t('searchGlobalAria')} />
         </label>
       </div>
-      <div className="flex-1 overflow-y-auto scrollbar-none px-4 pb-8">
+      <PullToRefresh ref={scroll} className="flex-1 overflow-y-auto scrollbar-none px-4 pb-8">
         {q.trim() ? (
           <div className="flex flex-col gap-2 pt-2">
-            {!hits.length && <p className="pv-caption py-10 text-center" style={{ color: SAGE }}>{t('nothingFound')}</p>}
+            {!hits.length && <EmptyNote title={t('nothingFound')} hint={t('nothingFoundHint')} />}
             {hits.map((hit) => (
               <button key={hit.id} type="button" onClick={() => openHit(hit)}
-                className="w-full text-left rounded-3xl px-4 py-3.5" style={{ background: th.cardBg }}>
+                className="w-full text-left rounded-3xl px-4 py-3.5 min-h-11" style={{ background: th.cardBg }}>
                 <p className="pv-micro uppercase" style={{ color: SAGE }}>{t(kindI18nKey(hit.kind))}</p>
                 <p className="pv-subtitle mt-0.5" style={{ color: th.inkText }}>{hit.title}</p>
                 {hit.hint && <p className="pv-caption mt-0.5 truncate" style={{ color: OLIVE }}>{hit.hint}</p>}
@@ -93,7 +97,7 @@ export function MenuHub() {
             ))}
           </div>
         )}
-      </div>
+      </PullToRefresh>
     </div>
   );
 }

@@ -16,6 +16,7 @@ import { useTh } from '../state/ThemeContext';
 import { useUi } from '../state/UiContext';
 import { useIsDesktop } from '../lib/use-media';
 import { getDraftRecording, setDraftRecording } from '../lib/record-buffer';
+import { clearAddDraft, readAddDraft, writeAddDraft } from '../lib/add-draft';
 import { applyTrimGain, parseDurationLabel } from '../lib/waveform';
 import { isAmbisonicChannels, isSoundwalkPrinciple, normalizeRoute } from '../lib/sound-media';
 
@@ -37,11 +38,12 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
   const { user, isLoggedIn } = useAuth();
   const { push, reset, requireAuth } = useNav();
   const askedRef = useRef(false);
-  const [title, setTitle] = useState(edit?.title || '');
-  const [desc, setDesc] = useState(String(edit?.description || ''));
-  const [location, setLocation] = useState(edit?.location || '');
-  const [fxName, setFxName] = useState(String(edit?.fxName || ''));
-  const [kind, setKind] = useState(String(edit?.type || 'nature'));
+  const saved = edit ? {} : readAddDraft();
+  const [title, setTitle] = useState(edit?.title || saved.title || '');
+  const [desc, setDesc] = useState(String(edit?.description || saved.desc || ''));
+  const [location, setLocation] = useState(edit?.location || saved.location || '');
+  const [fxName, setFxName] = useState(String(edit?.fxName || saved.fxName || ''));
+  const [kind, setKind] = useState(String(edit?.type || saved.kind || 'nature'));
   const [eco, setEco] = useState(String(edit?.ecoCategory || 'geophony'));
   const [ucsCat, setUcsCat] = useState(String(edit?.ucsCat || 'AMBIENCE'));
   const [ucsId, setUcsId] = useState(String(edit?.ucsCatId || 'AMBMisc'));
@@ -82,6 +84,11 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
   useEffect(() => {
     if (edit) setDraftRecording(null);
   }, [edit]);
+  useEffect(() => {
+    if (edit) return;
+    const id = window.setTimeout(() => writeAddDraft({ title, desc, location, fxName, kind }), 400);
+    return () => window.clearTimeout(id);
+  }, [edit, title, desc, location, fxName, kind]);
   useEffect(() => {
     if (!edit) return;
     const r = normalizeRoute(edit.route);
@@ -253,6 +260,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
       };
       await apiSyncJson('map_data.json', [record]);
       setDraftRecording(null);
+      if (!edit) clearAddDraft();
       setDraft(null);
       setPickedPoint(null);
       setRouteDraft([]);
@@ -273,7 +281,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
       <div className={`flex-1 min-h-0 overflow-y-auto ${desktop ? 'px-7 py-6' : 'p-5'}`}>
         {desktop && (
           <div className="mb-5">
-            <p className="pv-heading" style={{ color: th.inkText }}>{edit ? 'Черновик' : 'Добавить звук'}</p>
+            <p className="pv-page" style={{ color: th.inkText }}>{edit ? 'Черновик' : 'Добавить звук'}</p>
             <p className="pv-caption mt-1" style={{ color: OLIVE }}>Файл, место на карте и карточка публикации — по шагам, без спешки.</p>
           </div>
         )}

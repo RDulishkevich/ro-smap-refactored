@@ -29,12 +29,12 @@
 
 | Роль | Значение |
 |------|----------|
-| UI | Geist Variable (`--pv-font-ui`) |
-| Бренд | Klukva 400 — только «Полёвка» и крупные приветствия |
+| UI | Geist Variable (`--pv-font-ui`) — 400 текст, 500 UI |
+| Бренд | Klukva 400 — экраны (`.pv-page`), пустые (`.pv-title`), слово «Полёвка» |
 | Шкала | `.pv-display` … `.pv-micro` — [`docs/typography.md`](typography.md) |
 | Иконки | Lucide |
 
-Klukva нельзя жирнить. Заголовки экранов («Меню», «Лента») — `.pv-heading`, не Klukva.
+Klukva нельзя жирнить. Заголовки экранов («Меню», «Лента») — `.pv-page`. Пустые экраны — `EmptyNote`, не иконка в карточке.
 
 Legacy vanilla по-прежнему Iconsax + `src/fonts.css` — не смешивать в `apps/web`.
 

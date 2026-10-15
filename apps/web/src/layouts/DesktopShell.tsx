@@ -18,11 +18,12 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { ScreenContent } from '../screens/stack';
 import { StaffScreen } from '../screens/StaffScreen';
 import { PinPlayer } from '../primitives/ui';
-import { HoverMenu } from '../primitives/HoverMenu';
+import { HoverMenu, PopoverCaret } from '../primitives/HoverMenu';
 import BrandMark from '@/brand/BrandMark';
 import { RailBannerCarousel } from '../primitives/RailBannerCarousel';
 import { downloadSound } from '../lib/download-sound';
 import { LanguageSwitch } from '../primitives/LanguageSwitch';
+import { EmptyNote } from '../primitives/EmptyNote';
 import { SwipeBack } from '../lib/swipe-back';
 
 const ACCENT = color.accent;
@@ -95,15 +96,17 @@ function NotificationsPopover({ onClose }: { onClose: () => void }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={spring.fade}
-      className="absolute right-0 top-[calc(100%+10px)] z-[520] w-[320px] rounded-3xl shadow-[0_16px_40px_rgba(45,60,57,0.18)] overflow-hidden"
+      className="absolute right-0 top-[calc(100%+10px)] z-[520] w-[320px] rounded-3xl shadow-[0_16px_40px_rgba(45,60,57,0.18)]"
       style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
+      <PopoverCaret align="right" offset={14} fill={th.cardBg} border={th.border} />
+      <div className="rounded-3xl overflow-hidden">
       <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${th.border}` }}>
         <p className="pv-subtitle" style={{ color: th.inkText }}>{t('notifications')}</p>
         <span className="pv-micro" style={{ color: SAGE }}>{list.length ? `${list.length}` : ''}</span>
       </div>
       <div className="max-h-[360px] overflow-y-auto scrollbar-none p-2.5 flex flex-col gap-1.5">
         {list.length === 0 && (
-          <p className="pv-caption py-8 text-center" style={{ color: SAGE }}>{t('quiet')}</p>
+          <EmptyNote title={t('quiet')} />
         )}
         {list.map((n, i) => (
           <div key={i} className="rounded-2xl px-3 py-2.5" style={{ background: th.phoneBg }}>
@@ -112,6 +115,7 @@ function NotificationsPopover({ onClose }: { onClose: () => void }) {
             {n.date && <p className="text-[9px] mt-1" style={{ color: SAGE }}>{n.date}</p>}
           </div>
         ))}
+      </div>
       </div>
     </motion.div>
   );
@@ -337,6 +341,7 @@ export function DesktopShell() {
             <button className="hover:underline cursor-pointer" style={{ color: OLIVE }} onClick={() => openLegal('privacy')}>{t('privacyPolicy')}</button>
             <button className="hover:underline cursor-pointer" style={{ color: OLIVE }} onClick={() => openLegal('terms')}>{t('terms')}</button>
             <button className="hover:underline cursor-pointer" style={{ color: OLIVE }} onClick={() => openLegal('publish')}>{t('publishRules')}</button>
+            <a href="https://yandex.ru/legal/maps_termsofuse" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: OLIVE }}>{t('yandexMapsTerms')}</a>
           </footer>
         </div>
       </div>

@@ -33,7 +33,7 @@ export const RAIL_BANNERS: RailBanner[] = [
   },
   {
     id: 'guess',
-    title: 'Audio Guesser',
+    title: 'Угадайка',
     hint: 'Угадайте место по звуку',
     tint: color.accent,
     image: '/banners/guess.png',

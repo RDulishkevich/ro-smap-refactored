@@ -68,18 +68,19 @@ export function SoundTypeTag({ type }: { type: string }) {
 
 export function ScreenHeader({ title, onBack, right, onTitleClick }: { title: string; onBack: () => void; right?: ReactNode; onTitleClick?: () => void }) {
   const th = useTh();
+  const t = useT();
   return (
-    <div className="flex items-center gap-3 px-4 pv-safe-top pb-3 flex-shrink-0" style={{ background: th.headerBg, borderBottom: `1px solid ${th.border}` }}>
-      <motion.button whileTap={tap.nav} onClick={onBack} className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 cursor-pointer" style={{ background: th.lightBg }} aria-label="Назад">
+    <header className="sticky top-0 z-20 flex items-center gap-3 px-4 pv-safe-top pb-3 flex-shrink-0" style={{ background: th.headerBg, borderBottom: `1px solid ${th.border}` }}>
+      <motion.button whileTap={tap.nav} onClick={onBack} className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 cursor-pointer" style={{ background: th.lightBg }} aria-label={t('back')}>
         <ChevronLeft size={18} style={{ color: color.dark }} />
       </motion.button>
       {onTitleClick ? (
-        <button type="button" onClick={onTitleClick} className="pv-heading flex-1 truncate text-left" style={{ color: th.inkText }}>{title}</button>
+        <button type="button" onClick={onTitleClick} className="pv-page flex-1 truncate text-left" style={{ color: th.inkText }}>{title}</button>
       ) : (
-        <p className="pv-heading flex-1 truncate" style={{ color: th.inkText }}>{title}</p>
+        <p className="pv-page flex-1 truncate" style={{ color: th.inkText }}>{title}</p>
       )}
       {right}
-    </div>
+    </header>
   );
 }
 

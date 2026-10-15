@@ -231,7 +231,7 @@ export function RecordScreen({ onBack }: { onBack: () => void }) {
       {stage !== 'review' && (
         <div className="flex-1 flex flex-col px-5 py-5 min-h-0 overflow-y-auto">
           <div className="mb-4">
-            <p className="pv-heading" style={{ color: th.inkText }}>{stage === 'rec' ? t('recordingNow') : t('recordSound')}</p>
+            <p className="pv-page" style={{ color: th.inkText }}>{stage === 'rec' ? t('recordingNow') : t('recordSound')}</p>
             <p className="pv-caption mt-1 leading-relaxed" style={{ color: OLIVE }}>
               {stage === 'rec' ? t('recordingHint') : t('recordHint')}
             </p>
@@ -282,7 +282,7 @@ export function RecordScreen({ onBack }: { onBack: () => void }) {
       {stage === 'review' && draft && (
         <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4">
           <div>
-            <p className="pv-heading" style={{ color: th.inkText }}>{t('reviewTrim')}</p>
+            <p className="pv-page" style={{ color: th.inkText }}>{t('reviewTrim')}</p>
             <p className="pv-caption mt-1" style={{ color: OLIVE }}>{t('reviewHint')}</p>
           </div>
           <AudioEditor blob={draft.blob} durationSec={draft.durationSec}

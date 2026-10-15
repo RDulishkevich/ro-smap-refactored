@@ -1,12 +1,16 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
 
 type MenuItem = { label: string; danger?: boolean; onClick: () => void };
-type MenuAt = { x: number; y: number };
+type MenuAt = { x: number; y: number; caret?: 'left' | 'right' | 'center'; sheet?: boolean };
+export type ToastState = { msg: string; undo?: () => void };
+type ConfirmOpts = { title: string; body?: string; ok?: string; destructive?: boolean };
 type UiCtx = {
-  toast: (msg: string) => void;
+  toast: (msg: string, opts?: { undo?: () => void }) => void;
   toastMsg: string;
-  confirm: (opts: { title: string; body?: string; ok?: string }) => Promise<boolean>;
-  confirmState: { title: string; body?: string; ok?: string } | null;
+  toastState: ToastState | null;
+  dismissToast: () => void;
+  confirm: (opts: ConfirmOpts) => Promise<boolean>;
+  confirmState: ConfirmOpts | null;
   resolveConfirm: (v: boolean) => void;
   openMenu: (items: MenuItem[], title?: string, at?: MenuAt) => void;
   menu: { items: MenuItem[]; title?: string; at?: MenuAt } | null;
@@ -16,17 +20,24 @@ type UiCtx = {
 const Ctx = createContext<UiCtx | null>(null);
 
 export function UiProvider({ children }: { children: ReactNode }) {
-  const [toastMsg, setToast] = useState('');
+  const [toastState, setToastState] = useState<ToastState | null>(null);
   const [confirmState, setConfirm] = useState<UiCtx['confirmState']>(null);
   const [resolver, setResolver] = useState<((v: boolean) => void) | null>(null);
   const [menu, setMenu] = useState<UiCtx['menu']>(null);
+  const toastTimer = useRef(0);
 
-  const toast = useCallback((msg: string) => {
-    setToast(msg);
-    window.setTimeout(() => setToast(''), 2800);
+  const toast = useCallback((msg: string, opts?: { undo?: () => void }) => {
+    window.clearTimeout(toastTimer.current);
+    setToastState({ msg, undo: opts?.undo });
+    toastTimer.current = window.setTimeout(() => setToastState(null), opts?.undo ? 4200 : 2800);
   }, []);
 
-  const confirm = useCallback((opts: { title: string; body?: string; ok?: string }) => {
+  const dismissToast = useCallback(() => {
+    window.clearTimeout(toastTimer.current);
+    setToastState(null);
+  }, []);
+
+  const confirm = useCallback((opts: ConfirmOpts) => {
     return new Promise<boolean>((resolve) => {
       setConfirm(opts);
       setResolver(() => resolve);
@@ -41,9 +52,16 @@ export function UiProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider value={{
-      toast, toastMsg, confirm, confirmState, resolveConfirm,
+      toast,
+      toastMsg: toastState?.msg || '',
+      toastState,
+      dismissToast,
+      confirm,
+      confirmState,
+      resolveConfirm,
       openMenu: (items, title, at) => setMenu({ items, title, at }),
-      menu, closeMenu: () => setMenu(null),
+      menu,
+      closeMenu: () => setMenu(null),
     }}>
       {children}
     </Ctx.Provider>

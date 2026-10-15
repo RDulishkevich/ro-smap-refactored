@@ -9,7 +9,10 @@
     "build": "vite build --config apps/web/vite.config.ts",
     "build:web": "vite build --config apps/web/vite.config.ts",
     "preview:web": "vite preview --config apps/web/vite.config.ts",
-    "test": "node --test",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:legacy": "node --test",
     "build:css": "npx --yes tailwindcss@3.4.17 -i ./src/tailwind.input.css -o ./src/tailwind.built.css --minify",
     "watch:css": "npx --yes tailwindcss@3.4.17 -i ./src/tailwind.input.css -o ./src/tailwind.built.css --watch"
   },
@@ -24,14 +27,19 @@
   "devDependencies": {
     "@playwright/test": "^1.62.1",
     "@tailwindcss/vite": "4.1.12",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
     "@types/leaflet": "^1.9.16",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "4.7.0",
+    "jsdom": "^30.1.2",
     "playwright": "^1.62.1",
     "tailwindcss": "4.1.12",
     "typescript": "^5.8.2",
-    "vite": "6.3.5"
+    "vite": "6.3.5",
+    "vitest": "^3.2.4"
   },
   "allowScripts": {
     "puppeteer@25.3.0": true,

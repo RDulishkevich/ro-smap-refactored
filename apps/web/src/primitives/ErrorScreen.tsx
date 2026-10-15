@@ -1,6 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { motion } from 'motion/react';
-import { CloudOff, RefreshCw, WifiOff } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { color, spring, tap } from '@polevka/design';
 import BrandMark from '../brand/BrandMark';
 import { useTh } from '../state/ThemeContext';
@@ -13,52 +13,46 @@ export function ErrorScreen({ kind, onRetry }: { kind: ErrorKind; onRetry: () =>
   const t = useT();
   const title = kind === 'offline' ? t('errOfflineTitle') : kind === 'unavailable' ? t('errDownTitle') : t('errCrashTitle');
   const body = kind === 'offline' ? t('errOfflineBody') : kind === 'unavailable' ? t('errDownBody') : t('errCrashBody');
-  const Icon = kind === 'offline' ? WifiOff : CloudOff;
 
   return (
     <div
-      className="w-screen h-dvh flex items-center justify-center p-5"
+      className="w-screen h-dvh flex flex-col justify-center px-8"
       style={{ background: th.isDark ? '#0E1A18' : '#E8EDEA' }}
     >
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={spring.stack}
-        className="w-full max-w-[420px] rounded-3xl px-7 py-8 text-center"
-        style={{ background: th.cardBg, boxShadow: '0 18px 48px rgba(45,60,57,0.12)' }}
+        className="w-full max-w-[420px]"
       >
-        <div
-          className="mx-auto mb-5 size-16 rounded-2xl overflow-hidden flex items-center justify-center"
-          style={{ background: th.isDark ? '#1E2E2A' : color.cream }}
-        >
-          <BrandMark className="size-14" />
-        </div>
-        <div className="mx-auto mb-4 size-11 rounded-full flex items-center justify-center" style={{ background: `${color.accent}18` }}>
-          <Icon size={22} color={color.accent} />
+        <div className="w-11 h-11 mb-5">
+          <BrandMark className="size-11" />
         </div>
         <h1 className="pv-title mb-2" style={{ color: th.inkText }}>
           {title}
         </h1>
-        <p className="pv-body mb-6" style={{ color: color.olive }}>
+        <p className="pv-body mb-6 max-w-[22rem]" style={{ color: color.olive }}>
           {body}
         </p>
         <motion.button
           type="button"
-          whileTap={tap}
+          whileTap={tap.cta}
           onClick={onRetry}
-          className="pv-button inline-flex items-center justify-center gap-2 h-12 px-5 rounded-2xl text-white w-full"
+          className="pv-button inline-flex items-center justify-center gap-2 h-11 px-4 rounded-2xl text-white"
           style={{ background: color.accent }}
         >
-          <RefreshCw size={16} />
+          <RefreshCw size={15} />
           {t('errRetry')}
         </motion.button>
-        <a
-          href="/"
-          className="pv-button mt-3 inline-flex items-center justify-center h-11 w-full rounded-2xl"
-          style={{ color: color.olive }}
-        >
-          {t('errHome')}
-        </a>
+        <div>
+          <a
+            href="/"
+            className="pv-caption mt-4 inline-block"
+            style={{ color: color.olive }}
+          >
+            {t('errHome')}
+          </a>
+        </div>
       </motion.div>
     </div>
   );

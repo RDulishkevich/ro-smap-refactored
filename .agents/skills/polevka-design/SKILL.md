@@ -2,7 +2,7 @@
 name: polevka-design
 description: >-
   Полёвка (polevka.art) design system for the React/TSX app: Figma earth-tone
-  tokens, Geist Variable+Klukva, Lucide, Motion springs, desktop rail+map vs mobile
+  tokens, Klukva (screen titles) + Geist 400/500 (UI), Lucide, Motion springs, desktop rail+map vs mobile
   tabs+stack. Use when building, restyling, or reviewing UI in apps/web,
   packages/design, DESIGN.md, or native Expo chrome.
 ---
@@ -35,8 +35,10 @@ No peach Wellness (`#FBAB57`), no Wispr lavender, no glow rings.
 
 ## Type and icons
 
-- UI: **Geist Variable** (`--pv-font-ui`). Brand: **Klukva** 400 only — wordmark and display, never chrome titles, never `font-bold`.
+- **Klukva говорит, Geist работает.** Klukva 400: `.pv-display` / `.pv-title` / `.pv-page` (имена экранов, ScreenHeader, пустые состояния) / `.pv-wordmark`. Never `font-bold` on Klukva.
+- Geist Variable (`--pv-font-ui`): lists, buttons, forms — weights **400** and **500** only (no 450/550/600).
 - Roles: `.pv-display` … `.pv-micro` — `docs/typography.md` and `typeRoles` in `tokens.ts`.
+- Empty states: `EmptyNote` (title + hint, no Lucide chip in a card).
 - Icons: **Lucide** (shared with future React Native). Do not add Iconsax to the React app.
 
 ## Radii and motion

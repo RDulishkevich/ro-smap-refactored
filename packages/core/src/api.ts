@@ -72,6 +72,8 @@ export function clearSessionTokens() {
   persistRefreshToken('');
 }
 
+const API_TIMEOUT_MS = 20_000;
+
 export async function apiRequest(action: string, payload: Record<string, unknown> = {}, { auth = false, _retried = false } = {}) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   const body: Record<string, unknown> = { action, ...payload };
@@ -83,12 +85,25 @@ export async function apiRequest(action: string, payload: Record<string, unknown
     }
   }
 
-  const res = await fetch(FUNCTION_URL, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-    credentials: 'include',
-  });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), API_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(FUNCTION_URL, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      credentials: 'include',
+      signal: ctrl.signal,
+    });
+  } catch (e) {
+    const aborted = (e as { name?: string }).name === 'AbortError' || ctrl.signal.aborted;
+    const err = new Error(aborted ? 'Сервер не ответил' : 'Нет сети') as ApiError;
+    err.code = aborted ? 'timeout' : 'network';
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 
   let data: Record<string, unknown> | null = null;
   try {

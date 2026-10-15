@@ -8,6 +8,7 @@ import {
   assertDeviceUnlock, canUseDeviceUnlock, clearDeviceUnlock, enrollDeviceUnlock, hasDeviceUnlock,
 } from '../lib/device-unlock';
 import { unsubscribeDevicePush } from '../lib/notify';
+import { CONSENT_NECESSARY_EVENT } from '../primitives/CookieBanner';
 type AuthCtx = {
   user: SessionUser | null;
   isLoggedIn: boolean;
@@ -37,6 +38,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    if (!hasCookieConsentForAuth()) {
+      clearAuthSession();
+      setRestoring(false);
+      return;
+    }
     const gate = readRememberMe() && hasDeviceUnlock();
     if (gate) {
       setNeedsUnlock(true);
@@ -90,6 +96,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setNeedsUnlock(false);
     setUser(null);
   }, []);
+
+  useEffect(() => {
+    const on = () => { void logout(); };
+    window.addEventListener(CONSENT_NECESSARY_EVENT, on);
+    return () => window.removeEventListener(CONSENT_NECESSARY_EVENT, on);
+  }, [logout]);
 
   const refreshUser = useCallback(async () => {
     try {

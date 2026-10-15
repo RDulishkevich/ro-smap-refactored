@@ -31,6 +31,10 @@ type YMap = {
     add: (e: string, fn: (ev: { get: (k: string) => unknown; preventDefault?: () => void; stopPropagation?: () => void }) => void) => void;
     remove: (e: string, fn: unknown) => void;
   };
+  margin: {
+    addArea: (area: HTMLElement | Record<string, number | string>) => { remove: () => void };
+    setDefaultMargin: (margin: number | number[]) => void;
+  };
 };
 
 type YMapsApi = {
@@ -68,6 +72,127 @@ function clientPoint(ev: { get?: (k: string) => unknown; originalEvent?: MouseEv
   return {
     clientX: Number.isFinite(x) ? x : 24,
     clientY: Number.isFinite(y) ? y : 24,
+  };
+}
+
+function rectsOverlap(a: DOMRect, b: DOMRect): boolean {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+}
+
+/** Overlays on top of the map (zoom, FAB, filters). Not the player dock unless it actually covers tiles. */
+function collectCreditObstacles(mapEl: HTMLElement): HTMLElement[] {
+  const mapRect = mapEl.getBoundingClientRect();
+  if (mapRect.width < 8 || mapRect.height < 8) return [];
+  const found: HTMLElement[] = [];
+  const consider = (el: HTMLElement | null) => {
+    if (!el || el === mapEl || mapEl.contains(el) || found.includes(el)) return;
+    const st = getComputedStyle(el);
+    if (st.display === 'none' || st.visibility === 'hidden' || st.pointerEvents === 'none') return;
+    if (Number(st.opacity) === 0 || st.position === 'fixed') return;
+    const r = el.getBoundingClientRect();
+    if (r.width < 24 || r.height < 24) return;
+    if (r.width * r.height > mapRect.width * mapRect.height * 0.45) return;
+    if (!rectsOverlap(r, mapRect)) return;
+    found.push(el);
+  };
+  const parent = mapEl.parentElement;
+  if (parent) {
+    for (const node of parent.children) {
+      if (node instanceof HTMLElement) consider(node);
+    }
+  }
+  document.querySelectorAll('[data-player-dock], .pv-mobile-nav').forEach((node) => {
+    if (!(node instanceof HTMLElement)) return;
+    consider(node);
+    node.querySelectorAll('button, [role="button"]').forEach((child) => {
+      if (child instanceof HTMLElement) consider(child);
+    });
+  });
+  return found;
+}
+
+function chromeInsets(mapRect: DOMRect, obstacles: HTMLElement[]) {
+  const pad = 12;
+  const creditH = 40;
+  let right = 0;
+  let bottom = 0;
+  let left = 0;
+  for (const el of obstacles) {
+    const r = el.getBoundingClientRect();
+    if (!rectsOverlap(r, mapRect)) continue;
+    const inBottom = r.bottom > mapRect.top + mapRect.height * 0.55;
+    const inLeft = r.left < mapRect.left + 88;
+    const inRight = r.right > mapRect.right - 88;
+    if (!inBottom && !inLeft && !inRight) continue;
+    const distLeft = r.right - mapRect.left;
+    const distRight = mapRect.right - r.left;
+    const distBottom = mapRect.bottom - r.top;
+    const nearest = Math.min(distLeft, distRight, distBottom);
+    if (nearest === distLeft && inLeft && inBottom) left = Math.max(left, distLeft + pad);
+    else if (nearest === distRight && inRight && inBottom) right = Math.max(right, distRight + pad);
+    else if (inBottom) bottom = Math.max(bottom, distBottom + creditH + pad);
+  }
+  return {
+    right: Math.round(Math.min(right, 96)),
+    bottom: Math.round(Math.min(bottom, 96)),
+    left: Math.round(Math.min(left, 80)),
+  };
+}
+
+function attachYandexCreditMargins(map: YMap, mapEl: HTMLElement): () => void {
+  const observed = new Set<Element>();
+  let raf = 0;
+
+  const schedule = () => {
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(sync);
+  };
+
+  const ro = new ResizeObserver(schedule);
+
+  const watch = (el: Element | null) => {
+    if (!el || observed.has(el)) return;
+    observed.add(el);
+    try { ro.observe(el); } catch { /* */ }
+  };
+
+  const sync = () => {
+    raf = 0;
+    watch(mapEl);
+    if (mapEl.parentElement) watch(mapEl.parentElement);
+    const obstacles = collectCreditObstacles(mapEl);
+    for (const obstacle of obstacles) watch(obstacle);
+    const insets = chromeInsets(mapEl.getBoundingClientRect(), obstacles);
+    mapEl.style.paddingLeft = `${insets.left}px`;
+    mapEl.style.paddingRight = `${insets.right}px`;
+    mapEl.style.paddingBottom = `${insets.bottom}px`;
+    mapEl.style.paddingTop = '0px';
+    try {
+      map.margin.setDefaultMargin([0, insets.right, insets.bottom, insets.left]);
+    } catch { /* */ }
+    try { map.container.fitToViewport(); } catch { /* */ }
+  };
+
+  const mo = new MutationObserver(schedule);
+  const root = mapEl.closest('.pv-mobile') ?? document.getElementById('root') ?? document.body;
+  mo.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+  window.addEventListener('resize', schedule);
+  sync();
+  const later = window.setTimeout(sync, 400);
+  const later2 = window.setTimeout(sync, 1600);
+
+  return () => {
+    cancelAnimationFrame(raf);
+    window.clearTimeout(later);
+    window.clearTimeout(later2);
+    window.removeEventListener('resize', schedule);
+    mo.disconnect();
+    ro.disconnect();
+    mapEl.style.paddingLeft = '';
+    mapEl.style.paddingRight = '';
+    mapEl.style.paddingBottom = '';
+    mapEl.style.paddingTop = '';
+    try { map.margin.setDefaultMargin([0, 0, 0, 0]); } catch { /* */ }
   };
 }
 
@@ -155,6 +280,7 @@ export const SoundMap = forwardRef<SoundMapHandle, {
     const el = nodeRef.current;
     if (!el) return;
     let dead = false;
+    let creditCleanup: (() => void) | null = null;
 
     (async () => {
       const ok = await loadYandexMaps();
@@ -168,28 +294,28 @@ export const SoundMap = forwardRef<SoundMapHandle, {
             zoom: RUSSIA_ZOOM,
             controls: nativeZoomRef.current ? ['zoomControl'] : [],
           }, {
-            suppressMapOpenBlock: true,
             yandexMapDisablePoiInteractivity: true,
-            copyrightLogoVisible: false,
-            copyrightProvidersVisible: false,
-            copyrightUaVisible: false,
           });
-          try {
-            map.controls.remove('copyrightControl');
-            map.options.set('copyrightLogoVisible', false);
-            map.options.set('copyrightProvidersVisible', false);
-            map.options.set('copyrightUaVisible', false);
-          } catch { /* */ }
+          if (dead) {
+            try { map.destroy(); } catch { /* */ }
+            return;
+          }
           ymapRef.current = map;
           ymapsRef.current = ymaps;
           engine.current = 'yandex';
+          creditCleanup = attachYandexCreditMargins(map, nodeRef.current);
           setReady((n) => n + 1);
           setTimeout(() => map.container.fitToViewport(), 200);
         });
         return;
       }
-      const map = L.map(el, { zoomControl: false, attributionControl: false }).setView(RUSSIA, RUSSIA_ZOOM);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+      const map = L.map(el, { zoomControl: false, attributionControl: true }).setView(RUSSIA, RUSSIA_ZOOM);
+      map.attributionControl.setPrefix(false);
+      map.attributionControl.setPosition(nativeZoomRef.current ? 'bottomleft' : 'bottomright');
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }).addTo(map);
       if (nativeZoomRef.current) L.control.zoom({ position: 'bottomright' }).addTo(map);
       leafletLayer.current = L.layerGroup().addTo(map);
       leafletRef.current = map;
@@ -206,6 +332,7 @@ export const SoundMap = forwardRef<SoundMapHandle, {
 
     return () => {
       dead = true;
+      creditCleanup?.();
       ro.disconnect();
       ymapRef.current?.destroy();
       ymapRef.current = null;

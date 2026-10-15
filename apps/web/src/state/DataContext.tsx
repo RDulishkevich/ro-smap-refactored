@@ -48,6 +48,8 @@ type DataCtx = {
   setRouteDraft: (p: MapPoint[] | ((prev: MapPoint[]) => MapPoint[])) => void;
   routePreview: MapPoint[];
   setRoutePreview: (p: MapPoint[]) => void;
+  patchSoundLocal: (id: string | number, patch: Partial<Sound> | ((s: Sound) => Sound)) => void;
+  patchEventsLocal: (updater: (prev: AppEvent[]) => AppEvent[]) => void;
 };
 
 const Ctx = createContext<DataCtx | null>(null);
@@ -170,6 +172,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const setVolume = useCallback((v: number) => { audioService.setVolume(v); }, []);
   const toggleMute = useCallback(() => { audioService.toggleMute(); }, []);
 
+  const patchSoundLocal = useCallback((id: string | number, patch: Partial<Sound> | ((s: Sound) => Sound)) => {
+    setAll((prev) => prev.map((s) => {
+      if (String(s.id) !== String(id)) return s;
+      return typeof patch === 'function' ? patch(s) : { ...s, ...patch };
+    }));
+  }, []);
+
+  const patchEventsLocal = useCallback((updater: (prev: AppEvent[]) => AppEvent[]) => {
+    setEvents(updater);
+  }, []);
+
   const sounds = useMemo(() => publishedSounds(allSounds), [allSounds]);
   const filteredSounds = useMemo(() => filterSounds(sounds, filter), [sounds, filter]);
 
@@ -179,10 +192,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     playingId, playing, progress, volume, muted, togglePlay, seek, setVolume, toggleMute,
     focused, setFocused,
     pickMode, setPickMode, pickedPoint, setPickedPoint, routeDraft, setRouteDraft, routePreview, setRoutePreview,
+    patchSoundLocal, patchEventsLocal,
   }), [
     sounds, allSounds, filteredSounds, filter, feed, events, profiles, mail, loading, catalogStatus, reload, reloadMail, applyMail, markNotificationsRead,
     playingId, playing, progress, volume, muted, togglePlay, seek, setVolume, toggleMute,
-    focused,
+    focused, patchSoundLocal, patchEventsLocal,
     pickMode, pickedPoint, routeDraft, routePreview,
   ]);
 
