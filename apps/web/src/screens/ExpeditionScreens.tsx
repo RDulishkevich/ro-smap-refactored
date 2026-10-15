@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { apiSyncJson, soundsByAuthor, uploadUserMedia, type Expedition, type ExpeditionInvite, type Sound } from '@polevka/core';
+import {
+  apiSyncJson, normalizeComment, soundsByAuthor, uploadUserMedia,
+  type Comment, type Expedition, type ExpeditionInvite, type Sound,
+} from '@polevka/core';
 import { color, pinColor, typeMeta } from '@polevka/design';
 import { ChevronDown, Clock, ImagePlus, MapPin, Search, UserPlus, X } from 'lucide-react';
 import { EXPEDITION_KINDS, locLabel } from '../lib/onboarding';
@@ -14,39 +17,63 @@ import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useUi } from '../state/UiContext';
 import { useLeaveGuard } from '../lib/use-leave-guard';
-import { SoundTagLines } from '../primitives/SoundTagLines';
+import { SoundRow } from '../primitives/SoundRow';
+import { CommentsThread } from '../primitives/CommentsThread';
 
 const ACCENT = color.accent;
 
 export function ExpeditionDetailScreen({ exp, onBack }: { exp: Expedition; onBack: () => void }) {
   const th = useTh();
-  const { sounds, setRoutePreview } = useData();
+  const { sounds, setRoutePreview, profiles, reload } = useData();
   const { user } = useAuth();
   const { push } = useNav();
-  const route = exp.route || [];
-  const linked = sounds.filter((s) => (exp.soundIds || []).map(String).includes(String(s.id)) || String(s.sessionId) === String(exp.id));
-  const mine = String(exp.ownerLogin || '').toLowerCase() === user?.loginName;
+  const { toast } = useUi();
+  const ownerLogin = String(exp.ownerLogin || '').toLowerCase();
+  const ownerProfile = profiles.find((p) => String(p.loginName || '').toLowerCase() === ownerLogin);
+  const live = (ownerProfile?.sessions || []).find((s) => String(s.id) === String(exp.id)) || exp;
+  const route = live.route || [];
+  const linked = sounds.filter((s) => (live.soundIds || []).map(String).includes(String(s.id)) || String(s.sessionId) === String(live.id));
+  const mine = ownerLogin === user?.loginName;
+  const comments = (live.comments || []).map((c) => normalizeComment(c));
+
+  const saveComments = async (next: Comment[]) => {
+    if (!ownerProfile && !ownerLogin) throw new Error('Нет владельца экспедиции');
+    const sessions = [...(ownerProfile?.sessions || [])];
+    const idx = sessions.findIndex((s) => String(s.id) === String(live.id));
+    const updated: Expedition = { ...live, comments: next };
+    if (idx >= 0) sessions[idx] = updated;
+    else sessions.push(updated);
+    const record = {
+      ...(ownerProfile || { loginName: ownerLogin, displayName: ownerLogin }),
+      loginName: ownerLogin || ownerProfile?.loginName,
+      sessions,
+      profileUpdatedAt: new Date().toISOString(),
+    };
+    await apiSyncJson('profiles.json', [record]);
+    await reload();
+  };
+
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <ScreenHeader title={exp.title} onBack={onBack} right={mine ? (
-        <button className="text-[10px] font-semibold" style={{ color: ACCENT }} onClick={() => push({ type: 'expedition-edit', exp })}>Изменить</button>
+      <ScreenHeader title={live.title} onBack={onBack} right={mine ? (
+        <button className="text-[10px] font-semibold" style={{ color: ACCENT }} onClick={() => push({ type: 'expedition-edit', exp: live })}>Изменить</button>
       ) : undefined} />
       <div className="flex-1 overflow-y-auto scrollbar-none p-4">
         <div className="rounded-3xl p-5 mb-3 text-center" style={{ background: th.cardBg }}>
-          <div className="text-5xl mb-3">{exp.emoji || '🗺️'}</div>
-          <p className="text-sm font-bold mb-1" style={{ color: th.inkText }}>{exp.title}</p>
-          <p className="text-xs mb-4" style={{ color: th.muted }}>{exp.preview || exp.desc}</p>
-          {(exp.place || exp.date || exp.kind) && (
+          <div className="text-5xl mb-3">{live.emoji || '🗺️'}</div>
+          <p className="text-sm font-bold mb-1" style={{ color: th.inkText }}>{live.title}</p>
+          <p className="text-xs mb-4" style={{ color: th.muted }}>{live.preview || live.desc}</p>
+          {(live.place || live.date || live.kind) && (
             <p className="text-[11px] mb-3" style={{ color: th.soft }}>
-              {[exp.kind && (EXPEDITION_KINDS.find((k) => k.id === exp.kind)?.ru || exp.kind), exp.date, exp.place].filter(Boolean).join(' · ')}
+              {[live.kind && (EXPEDITION_KINDS.find((k) => k.id === live.kind)?.ru || live.kind), live.date, live.place].filter(Boolean).join(' · ')}
             </p>
           )}
-          {!!(exp.members || []).length && (
-            <p className="text-[11px] mb-3" style={{ color: th.muted }}>Участники: {(exp.members || []).join(', ')}</p>
+          {!!(live.members || []).length && (
+            <p className="text-[11px] mb-3" style={{ color: th.muted }}>Участники: {(live.members || []).join(', ')}</p>
           )}
           <div className="flex justify-around">
-            {[{ icon: <Clock size={13} />, val: exp.dur || '—', label: 'Время' },
-              { icon: <MapPin size={13} />, val: String(exp.n || route.length || '—'), label: 'Точек' }].map(({ icon, val, label }) => (
+            {[{ icon: <Clock size={13} />, val: live.dur || '—', label: 'Время' },
+              { icon: <MapPin size={13} />, val: String(live.n || route.length || '—'), label: 'Точек' }].map(({ icon, val, label }) => (
               <div key={label} className="text-center">
                 <div className="flex justify-center mb-0.5" style={{ color: th.soft }}>{icon}</div>
                 <p className="text-sm font-bold" style={{ color: th.inkText }}>{val}</p>
@@ -60,19 +87,26 @@ export function ExpeditionDetailScreen({ exp, onBack }: { exp: Expedition; onBac
             <SoundMap sounds={linked} activeId={null} onSelect={(s) => push({ type: 'sound-detail', sound: s })} route={route} />
           </div>
         )}
-        {!!(exp.photos || []).length && (
-          <PhotoStrip images={(exp.photos || []).filter(Boolean)} title={exp.title} />
+        {!!(live.photos || []).length && (
+          <PhotoStrip images={(live.photos || []).filter(Boolean)} title={live.title} />
         )}
-        {linked.map((s) => (
-          <button key={String(s.id)} onClick={() => push({ type: 'sound-detail', sound: s })} className="w-full text-left rounded-2xl p-3 mb-2" style={{ background: th.cardBg }}>
-            <p className="text-xs font-bold" style={{ color: th.inkText }}>{s.title}</p>
-            <p className="text-[10px] mb-1" style={{ color: th.soft }}>{s.location}</p>
-            <SoundTagLines sound={s} />
-          </button>
-        ))}
+        <div className="flex flex-col gap-2 mb-3">
+          {linked.map((s) => (
+            <SoundRow key={String(s.id)} item={s} onOpen={() => push({ type: 'sound-detail', sound: s })} />
+          ))}
+        </div>
         {!!route.length && (
-          <button className="text-[10px] font-semibold" style={{ color: ACCENT }} onClick={() => { setRoutePreview(route); push({ type: 'pick-location', mode: 'route' }); }}>Показать маршрут на карте</button>
+          <button className="text-[10px] font-semibold mb-3" style={{ color: ACCENT }} onClick={() => { setRoutePreview(route); push({ type: 'pick-location', mode: 'route' }); }}>Показать маршрут на карте</button>
         )}
+        <div className="rounded-3xl p-4 mb-2" style={{ background: th.cardBg }}>
+          <CommentsThread
+            comments={comments}
+            onSave={async (next) => {
+              try { await saveComments(next); }
+              catch (e: unknown) { toast((e as Error).message || 'Не удалось сохранить комментарий'); throw e; }
+            }}
+          />
+        </div>
       </div>
     </div>
   );

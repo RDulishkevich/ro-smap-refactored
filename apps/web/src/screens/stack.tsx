@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { motion } from 'motion/react';
 import {
-  ChevronRight, Flag, Heart, Headphones, MapPin, MessageCircle,
-  MoreHorizontal, Route, Send, Share2, UserPlus,
+  ChevronRight, Heart, Headphones, MapPin, MessageCircle,
+  MoreHorizontal, Route, Search, Send, Share2, UserPlus,
 } from 'lucide-react';
-import { color, pinColor, type ThemeTokens } from '@polevka/design';
+import { color, type ThemeTokens } from '@polevka/design';
 import {
   apiChangePassword, apiConfirmEmailVerification, apiConfirmPasswordReset,
   apiDeleteAccount, apiOauthUnlink,
@@ -22,7 +22,7 @@ import { useNav, type ScreenConfig } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import { useUi } from '../state/UiContext';
-import { ListSkeleton, PlayPauseIcon, PinPlayer, ScreenHeader, SoundTypeTag, OtpInput } from '../primitives/ui';
+import { ListSkeleton, PinPlayer, ScreenHeader, SoundTypeTag, OtpInput } from '../primitives/ui';
 import { EmptyNote } from '../primitives/EmptyNote';
 import { SwipeRow } from '../primitives/SwipeRow';
 import { FormField, FormNeed } from '../primitives/form';
@@ -56,6 +56,8 @@ import { pathForAuth } from '../lib/routes';
 import { Avatar } from '../primitives/Avatar';
 import { NotificationRow } from '../primitives/NotificationRow';
 import { SoundTagLines } from '../primitives/SoundTagLines';
+import { CommentsThread } from '../primitives/CommentsThread';
+import { SoundRow } from '../primitives/SoundRow';
 import { useLeaveGuard } from '../lib/use-leave-guard';
 import BrandMark from '@/brand/BrandMark';
 
@@ -107,7 +109,7 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
   const authorProfile = profiles.find((p) => String(p.loginName || '').toLowerCase() === authorLogin);
   const meta = useSoundMeta(live);
   const on = playing && String(playingId) === String(live.id);
-  const comments = live.comments || [];
+  const comments = (live.comments || []).map((c) => normalizeComment(c));
   const liked = !!user && (live.likedBy || []).includes(user.loginName);
   const disliked = !!user && (live.dislikedBy || []).includes(user.loginName);
 
@@ -148,42 +150,6 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
     }
     reset();
     setActiveTab('map');
-  };
-
-  const toggleCommentReaction = async (s: Sound, cm: Comment) => {
-    if (!user) { push({ type: 'auth' }); return; }
-    const guard = spamGuardCheck('like');
-    if (!guard.ok) { toast(spamGuardMessage(guard)); return; }
-    const login = user.loginName;
-    const now = new Date().toISOString();
-    const comments = (s.comments || []).map((c) => {
-      if (c.id !== cm.id) return c;
-      const reactedBy = [...(c.reactedBy || [])];
-      const i = reactedBy.indexOf(login);
-      if (i >= 0) reactedBy.splice(i, 1); else reactedBy.push(login);
-      return { ...c, reactedBy, reactedAt: now, updatedAt: now };
-    });
-    try {
-      await apiSyncJson('map_data.json', [{ ...s, comments }]);
-      await reload();
-    } catch (e: unknown) { toast((e as Error).message || 'Не удалось'); }
-  };
-
-  const reportComment = async (s: Sound, commentId: string) => {
-    if (!user) { push({ type: 'auth' }); toast('Войдите, чтобы пожаловаться'); return; }
-    const ok = await confirm({ title: 'Пожаловаться на комментарий?', body: 'Жалоба уйдёт модераторам.', ok: 'Отправить' });
-    if (!ok) return;
-    const next = {
-      ...s,
-      reports: [...((s.reports as unknown[]) || []), {
-        id: `r${Date.now()}`, fromId: user.loginName, reason: 'user', type: 'comment', commentId, date: new Date().toISOString(),
-      }],
-    };
-    try {
-      await apiSyncJson('map_data.json', [next]);
-      toast('Жалоба отправлена модераторам');
-      await reload();
-    } catch (e: unknown) { toast((e as Error).message || 'Не удалось'); }
   };
 
   return (
@@ -302,130 +268,22 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
           </div>
         </div>
         <div className="mx-4 mt-3 mb-6 rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <p className="pv-label uppercase mb-4" style={{ color: th.soft }}>Комментарии · {comments.length}</p>
-          {comments.length === 0 && <p className="pv-caption mb-3" style={{ color: th.soft }}>Пока нет комментариев — напишите первый</p>}
-          <div className="flex flex-col gap-3">
-          {comments.map((cm) => {
-            const likedC = (cm.reactedBy || []).includes(user?.loginName || '');
-            return (
-            <div key={cm.id} className="flex gap-3">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: th.lightBg, color: ACCENT }}>
-                {(cm.author || '?').slice(0, 1).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-baseline justify-between gap-2 mb-0.5">
-                  <p className="text-xs font-semibold truncate" style={{ color: th.inkText }}>{cm.author}</p>
-                  <p className="text-[10px] flex-shrink-0" style={{ color: th.soft }}>{cm.date}</p>
-                </div>
-                <p className="text-xs leading-relaxed" style={{ color: th.muted }}>{cm.text}</p>
-                {(cm.replies || []).length > 0 && (
-                  <div className="mt-2 pl-3 flex flex-col gap-2" style={{ borderLeft: `2px solid ${th.border}` }}>
-                    {(cm.replies || []).map((r) => (
-                      <div key={r.id}>
-                        <p className="text-[10px] font-semibold" style={{ color: th.inkText }}>{r.author}</p>
-                        <p className="text-[11px] leading-relaxed" style={{ color: th.muted }}>{r.text}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {isLoggedIn && (
-                  <div className="flex items-center gap-3 mt-1.5">
-                    <button className="text-[10px] flex items-center gap-1" style={{ color: likedC ? ACCENT : th.soft }}
-                      onClick={() => void toggleCommentReaction(live, cm)}>
-                      <Heart size={11} fill={likedC ? ACCENT : 'none'} />{(cm.reactedBy || []).length || ''}
-                    </button>
-                    <CommentReply sound={live} commentId={cm.id} onDone={reload} />
-                    <button className="text-[10px] flex items-center gap-1" style={{ color: th.soft }}
-                      onClick={() => void reportComment(live, cm.id)}>
-                      <Flag size={10} />пожаловаться
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-            );
-          })}
-          </div>
-          {isLoggedIn ? <CommentForm sound={live} onDone={reload} /> : (
-            <button className="mt-4 w-full py-2.5 rounded-2xl text-xs font-semibold" style={{ background: th.lightBg, color: th.muted }}
-              onClick={() => push({ type: 'auth' })}>Войдите, чтобы комментировать</button>
-          )}
+          <CommentsThread
+            comments={comments}
+            onSave={async (next) => {
+              await apiSyncJson('map_data.json', [{ ...live, comments: next }]);
+              await reload();
+            }}
+          />
         </div>
       </div>
     </div>
   );
 }
 
-function CommentForm({ sound, onDone }: { sound: Sound; onDone: () => Promise<void> }) {
-  const { user } = useAuth();
-  const { toast } = useUi();
-  const [text, setText] = useState('');
-  const th = useTh();
-  const send = async () => {
-    const t = text.trim();
-    if (!t) return;
-    const guard = spamGuardCheck('comment');
-    if (!guard.ok) { toast(spamGuardMessage(guard)); return; }
-    const next = {
-      ...sound,
-      comments: [...(sound.comments || []), normalizeComment({ author: user?.username || 'Я', authorId: user?.loginName, text: t, date: new Date().toLocaleDateString('ru') })],
-    };
-    try {
-      await apiSyncJson('map_data.json', [next]);
-      setText('');
-      toast('Комментарий отправлен');
-      await onDone();
-    } catch (e: unknown) {
-      toast((e as Error).message || 'Не удалось отправить');
-    }
-  };
-  return (
-    <div className="flex gap-2 mt-4 pt-3" style={{ borderTop: `1px solid ${th.border}` }}>
-      <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Написать комментарий…"
-        className="flex-1 text-sm rounded-2xl px-4 py-2.5 outline-none min-h-11" style={{ background: th.lightBg, color: th.inkText }}
-        onKeyDown={(e) => { if (e.key === 'Enter') void send(); }} />
-      <button type="button" onClick={() => void send()} aria-label="Отправить комментарий" className="w-11 h-11 rounded-2xl flex items-center justify-center text-white flex-shrink-0" style={{ background: ACCENT }}><Send size={15} /></button>
-    </div>
-  );
-}
-
-function CommentReply({ sound, commentId, onDone }: { sound: Sound; commentId: string; onDone: () => Promise<void> }) {
-  const { user } = useAuth();
-  const { toast } = useUi();
-  const [open, setOpen] = useState(false);
-  const [text, setText] = useState('');
-  const th = useTh();
-  const send = async () => {
-    const t = text.trim();
-    if (!t) return;
-    const guard = spamGuardCheck('comment');
-    if (!guard.ok) { toast(spamGuardMessage(guard)); return; }
-    const comments = (sound.comments || []).map((c) => c.id === commentId
-      ? { ...c, replies: [...(c.replies || []), { id: `cr${Date.now()}`, author: user?.username || 'Я', authorId: user?.loginName, text: t, date: new Date().toLocaleDateString('ru') }] }
-      : c);
-    try {
-      await apiSyncJson('map_data.json', [{ ...sound, comments }]);
-      setText(''); setOpen(false);
-      toast('Ответ отправлен');
-      await onDone();
-    } catch (e: unknown) { toast((e as Error).message || 'Не удалось'); }
-  };
-  return (
-    <div className="mt-0">
-      <button className="text-[9px]" style={{ color: th.soft }} onClick={() => setOpen((v) => !v)}>Ответить</button>
-      {open && (
-        <div className="flex gap-1 mt-1">
-          <input value={text} onChange={(e) => setText(e.target.value)} className="flex-1 text-[10px] rounded-xl px-2 py-1 outline-none" style={{ background: th.cardBg, color: th.inkText }} />
-          <button onClick={() => void send()} className="text-[9px] font-semibold" style={{ color: ACCENT }}>OK</button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function UserProfileScreen({ name, avatar, username, onBack }: { name: string; avatar: string; username: string; onBack: () => void }) {
   const { push } = useNav();
-  const { sounds, togglePlay, playing, playingId, profiles, reload } = useData();
+  const { sounds, profiles, reload } = useData();
   const { user, isLoggedIn } = useAuth();
   const { toast } = useUi();
   const th = useTh();
@@ -476,18 +334,11 @@ function UserProfileScreen({ name, avatar, username, onBack }: { name: string; a
             <SoundMap sounds={shown} activeId={null} onSelect={(s) => push({ type: 'sound-detail', sound: s })} />
           </div>
         )}
-        {shown.map((item) => (
-          <button key={String(item.id)} onClick={() => push({ type: 'sound-detail', sound: item })} className="w-full rounded-3xl p-3 mb-2 flex items-center gap-2.5 text-left" style={{ background: th.cardBg }}>
-            <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: pinColor[String(item.type)] || ACCENT }} onClick={(e) => { e.stopPropagation(); togglePlay(item); }}>
-              <PlayPauseIcon playing={playing && String(playingId) === String(item.id)} size={12} />
-            </span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-xs font-bold truncate" style={{ color: th.inkText }}>{item.title}</span>
-              <span className="block text-[10px] mb-0.5" style={{ color: th.muted }}>{item.location}</span>
-              <SoundTagLines sound={item} />
-            </span>
-          </button>
-        ))}
+        <div className="flex flex-col gap-2">
+          {shown.map((item) => (
+            <SoundRow key={String(item.id)} item={item} onOpen={() => push({ type: 'sound-detail', sound: item })} />
+          ))}
+        </div>
         {!shown.length && <p className="text-xs" style={{ color: th.soft }}>Нет опубликованных записей</p>}
       </div>
     </div>
@@ -635,39 +486,11 @@ function FeedPostScreen({ post, onBack }: { post: FeedPost; onBack: () => void }
   const th = useTh();
   const t = useT();
   const { feed, sounds, reload } = useData();
-  const { isLoggedIn, user } = useAuth();
   const { push } = useNav();
-  const { toast } = useUi();
   const live = feed.find((p) => String(p.id || p.title) === String(post.id || post.title)) || post;
   const images = (live.images || []).map(String).filter(Boolean);
-  const comments = Array.isArray(live.comments) ? live.comments : [];
+  const comments = (Array.isArray(live.comments) ? live.comments : []).map((c) => normalizeComment(c));
   const linked = live.soundId ? sounds.find((s) => String(s.id) === String(live.soundId)) : undefined;
-  const [text, setText] = useState('');
-  const [busy, setBusy] = useState(false);
-  const send = async () => {
-    const body = text.trim();
-    if (!body || !user) return;
-    if (!isLoggedIn) { push({ type: 'auth' }); return; }
-    const guard = spamGuardCheck('comment');
-    if (!guard.ok) { toast(spamGuardMessage(guard)); return; }
-    setBusy(true);
-    try {
-      const next = {
-        ...live,
-        comments: [...comments, normalizeComment({
-          author: user.displayName || user.username,
-          authorId: user.loginName,
-          text: body,
-          date: new Date().toISOString(),
-        })],
-      };
-      await apiSyncJson('feed.json', [next]);
-      setText('');
-      await reload();
-    } catch (e: unknown) {
-      toast((e as Error).message || 'Не удалось');
-    } finally { setBusy(false); }
-  };
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       <ScreenHeader title={String(live.title || t('kindPost'))} onBack={onBack} />
@@ -682,37 +505,19 @@ function FeedPostScreen({ post, onBack }: { post: FeedPost; onBack: () => void }
           <p className="pv-heading mt-2" style={{ color: th.inkText }}>{String(live.title || t('kindPost'))}</p>
           {live.text ? <p className="text-[13px] leading-relaxed mt-2" style={{ color: th.muted }}>{String(live.text)}</p> : null}
           {linked && (
-            <button type="button" className="mt-3 h-10 px-3 rounded-2xl text-[12px] font-semibold inline-flex items-center gap-1.5"
-              style={{ background: th.phoneBg, color: ACCENT }}
-              onClick={() => push({ type: 'sound-detail', sound: linked })}>
-              {t('listenRecording')}
-            </button>
+            <div className="mt-3">
+              <SoundRow item={linked} onOpen={() => push({ type: 'sound-detail', sound: linked })} />
+            </div>
           )}
         </div>
         <div className="mx-4 mt-3 mb-6 rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <p className="pv-label uppercase mb-3" style={{ color: th.soft }}>{t('comments')} · {comments.length}</p>
-          {!comments.length && <EmptyNote title={t('noComments')} hint={t('noCommentsHint')} />}
-          <div className="flex flex-col gap-3">
-            {comments.map((cm) => (
-              <div key={cm.id}>
-                <p className="text-xs font-semibold" style={{ color: th.inkText }}>{cm.author}</p>
-                <p className="text-xs leading-relaxed mt-0.5" style={{ color: th.muted }}>{cm.text}</p>
-              </div>
-            ))}
-          </div>
-          {isLoggedIn ? (
-            <div className="mt-4 flex gap-2">
-              <input value={text} onChange={(e) => setText(e.target.value)}
-                className="flex-1 rounded-2xl px-3 py-2 text-xs outline-none" style={{ background: th.phoneBg, color: th.inkText }} />
-              <button type="button" onClick={() => void send()}
-                className="w-11 h-11 rounded-2xl text-white flex items-center justify-center" style={{ background: ACCENT }} aria-label={t('sendComment')}>
-                <Send size={14} />
-              </button>
-            </div>
-          ) : (
-            <button type="button" className="mt-4 w-full py-2.5 rounded-2xl text-xs font-semibold" style={{ background: th.lightBg, color: th.muted }}
-              onClick={() => push({ type: 'auth' })}>{t('signIn')}</button>
-          )}
+          <CommentsThread
+            comments={comments}
+            onSave={async (next) => {
+              await apiSyncJson('feed.json', [{ ...live, comments: next }]);
+              await reload();
+            }}
+          />
         </div>
       </div>
     </div>
@@ -1010,24 +815,59 @@ export function MessagesScreen({ onBack, embed = false }: { onBack?: () => void;
   const { profiles, mail } = useData();
   const { user, isLoggedIn } = useAuth();
   const { prefs } = usePrefs();
+  const [q, setQ] = useState('');
+  const [tab, setTab] = useState<'all' | 'unread'>('all');
   const peers = isLoggedIn && user ? conversationPeers(mail, user.loginName, profiles) : [];
-  const letter = (name: string) => (name.trim()[0] || '?').toUpperCase();
+  const filtered = peers.filter((p) => {
+    if (tab === 'unread' && p.unread < 1) return false;
+    if (!q.trim()) return true;
+    const needle = q.trim().toLowerCase();
+    return p.name.toLowerCase().includes(needle) || p.login.toLowerCase().includes(needle) || (p.lastText || '').toLowerCase().includes(needle);
+  });
   useEffect(() => {
     if (isLoggedIn && prefs.notifyDevice) void syncDevicePush(true);
   }, [isLoggedIn, prefs.notifyDevice]);
+  const fmtTime = (iso?: string) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       {!desktop && !embed && onBack && <ScreenHeader title={t('messages')} onBack={onBack} />}
       <div className={`flex-1 overflow-y-auto ${desktop ? 'px-6 pt-6 pb-4' : 'p-4'}`}>
-        {embed && (
-          <div className="pv-safe-top mb-2">
+        {(embed || desktop) && (
+          <div className={`${embed ? 'pv-safe-top' : ''} mb-3`}>
             <p className="pv-page" style={{ color: th.inkText }}>{t('messages')}</p>
           </div>
         )}
-        {desktop && (
-          <div className="mb-3">
-            <p className="pv-page" style={{ color: th.inkText }}>{t('messages')}</p>
-          </div>
+        {isLoggedIn && (
+          <>
+            <label className="flex items-center gap-2 h-12 rounded-2xl px-3.5 mb-3" style={{ background: th.cardBg }}>
+              <Search size={16} color={th.soft} className="flex-shrink-0" />
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder={t('search')}
+                className="flex-1 min-w-0 bg-transparent outline-none"
+                style={{ color: th.inkText }}
+                aria-label={t('search')}
+              />
+            </label>
+            <div className="flex gap-1.5 mb-3 overflow-x-auto scrollbar-none">
+              {([
+                { id: 'all' as const, label: t('all') },
+                { id: 'unread' as const, label: `${t('unread')}${peers.some((p) => p.unread) ? ` ${peers.filter((p) => p.unread).length}` : ''}` },
+              ]).map((chip) => (
+                <button key={chip.id} type="button" onClick={() => setTab(chip.id)}
+                  className="pv-label min-h-9 h-9 px-3 rounded-full flex-shrink-0"
+                  style={{ background: tab === chip.id ? ACCENT : th.cardBg, color: tab === chip.id ? '#fff' : th.muted }}>
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          </>
         )}
         {!isLoggedIn && (
           <EmptyNote title={t('msgNeedAuth')} hint={t('msgNeedAuthHint')} actionLabel={t('signIn')} onAction={() => push({ type: 'auth' })} />
@@ -1035,18 +875,26 @@ export function MessagesScreen({ onBack, embed = false }: { onBack?: () => void;
         {isLoggedIn && peers.length === 0 && (
           <EmptyNote title={t('msgEmpty')} hint={t('msgEmptyHint')} />
         )}
-        {peers.map((p) => (
-          <button key={p.login} type="button" onClick={() => push({ type: 'conversation', name: p.name, avatar: p.avatar || '👤', peer: p.login })}
-            className="w-full flex items-center gap-3 p-3.5 rounded-[20px] mb-2 text-left min-h-[68px]" style={{ background: th.cardBg }}>
-            <Avatar src={p.avatar} name={p.name} size={48} />
+        {isLoggedIn && peers.length > 0 && filtered.length === 0 && (
+          <EmptyNote title={t('nothingFound')} hint={t('nothingFoundHint')} />
+        )}
+        {filtered.map((p) => (
+          <button key={p.login} type="button" onClick={() => push({ type: 'conversation', name: p.name, avatar: p.avatar || '', peer: p.login })}
+            className="w-full flex items-center gap-3 py-3 px-1 mb-0.5 text-left min-h-[68px]">
+            <Avatar src={p.avatar} name={p.name} size={52} rounded="rounded-full" fallback="icon" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <p className="pv-subtitle truncate flex-1" style={{ color: th.inkText }}>{p.name}</p>
+                <span className="pv-micro flex-shrink-0" style={{ color: th.soft }}>{fmtTime(p.lastDate)}</span>
+              </div>
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="pv-caption truncate flex-1" style={{ color: th.soft }}>{p.lastText || 'Написать'}</p>
                 {p.unread > 0 && (
-                  <span className="min-w-5 h-5 px-1.5 rounded-full text-white pv-micro flex items-center justify-center" style={{ background: ACCENT }}>{p.unread > 9 ? '9+' : p.unread}</span>
+                  <span className="min-w-5 h-5 px-1.5 rounded-full text-white pv-micro flex items-center justify-center flex-shrink-0" style={{ background: ACCENT }}>
+                    {p.unread > 9 ? '9+' : p.unread}
+                  </span>
                 )}
               </div>
-              <p className="pv-caption truncate mt-0.5" style={{ color: th.soft }}>{p.lastText || 'Написать'}</p>
             </div>
           </button>
         ))}

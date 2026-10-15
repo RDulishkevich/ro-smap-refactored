@@ -103,6 +103,7 @@ export type Expedition = {
   date?: string;
   place?: string;
   kind?: string;
+  comments?: Comment[];
 };
 
 export type ExpeditionInvite = {

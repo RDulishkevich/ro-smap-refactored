@@ -270,7 +270,7 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
         right={support ? undefined : (
           <button type="button" onClick={openProfile}
             className="flex-shrink-0" aria-label="Открыть профиль">
-            <Avatar src={profile?.avatar} name={name || letter} size={44} />
+            <Avatar src={profile?.avatar || avatar} name={name || letter} size={44} rounded="rounded-full" fallback="icon" />
           </button>
         )}
       />
@@ -486,14 +486,14 @@ function MessageBubble({ msg, fresh, th, me, onLightbox, onReply, onReact, onMen
         {msg.text && msg.text !== 'Фото' && msg.text !== 'Видео' && (
           <p className="pv-body whitespace-pre-wrap break-words">{msg.text}</p>
         )}
-        <div className="flex items-center gap-1 mt-1 justify-end"
-          style={{ color: msg.mine ? 'rgba(255,255,255,0.72)' : th.soft }}>
-          <span className="pv-micro">{formatTime(msg.date)}</span>
-          {msg.mine && delivered && (msg.read
-            ? <CheckCheck size={13} aria-label="Прочитано" />
-            : <Check size={13} aria-label="Отправлено" />)}
-        </div>
       </motion.div>
+      <div className={`flex items-center gap-1 mt-1 ${msg.mine ? 'justify-end' : 'justify-start'}`}
+        style={{ color: th.soft }}>
+        <span className="pv-micro">{formatTime(msg.date)}</span>
+        {msg.mine && delivered && (msg.read
+          ? <CheckCheck size={13} aria-label="Прочитано" />
+          : <Check size={13} aria-label="Отправлено" />)}
+      </div>
       {reactions.length > 0 && (
         <div className={`flex flex-wrap gap-1 mt-1 ${msg.mine ? 'justify-end' : 'justify-start'}`}>
           {reactions.map(([emoji, users]) => (

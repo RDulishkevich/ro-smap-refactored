@@ -1,12 +1,10 @@
 import { useRef, type ReactNode } from 'react';
 import { motion } from 'motion/react';
 import {
-  Bell, Calendar, ChevronRight, FilePenLine, Globe, Headphones, HelpCircle,
+  Bell, Calendar, ChevronRight, FilePenLine, Globe, HelpCircle,
   Lock, LogIn, LogOut, Moon, Settings, Sun, UserRound,
 } from 'lucide-react';
-import { color, pinColor, tap, type ThemeTokens } from '@polevka/design';
-import { formatPlays, type Sound } from '@polevka/core';
-import { useSoundMeta } from '../lib/audio-meta';
+import { color, tap, type ThemeTokens } from '@polevka/design';
 import { usePrefs, useT } from '../state/PrefsContext';
 import { useAuth } from '../state/AuthContext';
 import { useNav } from '../state/NavContext';
@@ -14,9 +12,9 @@ import { useIsDark, useTh, useToggleTheme } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import { useUi } from '../state/UiContext';
 import { useIsDesktop } from '../lib/use-media';
-import { NavBar, PlayPauseIcon } from '../primitives/ui';
+import { NavBar } from '../primitives/ui';
 import { EmptyNote } from '../primitives/EmptyNote';
-import { SoundTagLines } from '../primitives/SoundTagLines';
+import { SoundRow } from '../primitives/SoundRow';
 import { Avatar } from '../primitives/Avatar';
 
 const ACCENT = color.accent;
@@ -112,7 +110,7 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
   const dark = useIsDark();
   const toggleTheme = useToggleTheme();
   const { prefs, setPref } = usePrefs();
-  const { togglePlay, playing, playingId, allSounds, profiles } = useData();
+  const { allSounds, profiles } = useData();
   const loc = prefs.locale === 'en' ? 'en' : 'ru';
   const mineProfile = profiles.find((p) => String(p.loginName).toLowerCase() === String(user?.loginName || '').toLowerCase());
   const avatarUrl = String(user?.avatar || mineProfile?.avatar || '');
@@ -256,27 +254,20 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
             <p className="pv-label uppercase px-1 mb-1.5" style={{ color: th.soft }}>{t('mySounds')}</p>
             <div className="flex flex-col gap-2">
               {drafts.map((item) => (
-                <button
+                <SoundRow
                   key={`d${String(item.id)}`}
-                  type="button"
-                  onClick={() => {
+                  item={item}
+                  badge={item.status === 'pending' ? 'На модерации' : item.status === 'rejected' ? 'Отклонено' : 'Черновик'}
+                  onOpen={() => {
                     if (item.status === 'draft' || item.status === 'rejected') push({ type: 'add-sound', edit: item });
                     else push({ type: 'sound-detail', sound: item });
                   }}
-                  className="rounded-2xl p-3 text-left cursor-pointer"
-                  style={{ background: th.cardBg }}
-                >
-                  <p className="pv-micro uppercase" style={{ color: th.soft }}>{item.status}</p>
-                  <p className="pv-subtitle" style={{ color: th.inkText }}>{item.title}</p>
-                  {item.rejectNote ? <p className="pv-caption" style={{ color: ACCENT }}>{String(item.rejectNote)}</p> : null}
-                </button>
+                />
               ))}
               {shown.map((item) => (
-                <ProfileSoundCard
+                <SoundRow
                   key={String(item.id)}
                   item={item}
-                  playing={playing && String(playingId) === String(item.id)}
-                  onPlay={() => togglePlay(item)}
                   onOpen={() => push({ type: 'sound-detail', sound: item })}
                 />
               ))}
@@ -349,31 +340,3 @@ function MenuRow({
   );
 }
 
-function ProfileSoundCard({ item, playing, onPlay, onOpen }: {
-  item: Sound; playing: boolean; onPlay: () => void; onOpen: () => void;
-}) {
-  const th = useTh();
-  const meta = useSoundMeta(item);
-  const c = pinColor[String(item.type)] ?? ACCENT;
-  return (
-    <div className="rounded-2xl px-3 py-2.5 flex items-center gap-3" style={{ background: th.cardBg }}>
-      <motion.button type="button" onClick={onPlay} whileTap={{ scale: 0.88 }} aria-label={playing ? 'Пауза' : 'Слушать'}
-        className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: c }}>
-        <PlayPauseIcon playing={playing} size={12} />
-      </motion.button>
-      <button type="button" className="flex-1 min-w-0 text-left" onClick={onOpen}>
-        <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{item.title}</p>
-        <p className="pv-caption truncate mt-0.5" style={{ color: th.muted }}>
-          {item.location || '—'}
-          {meta.durationSec > 0 ? ` · ${meta.durationLabel}` : ''}
-        </p>
-        <div className="mt-1" onClick={(e) => e.stopPropagation()}>
-          <SoundTagLines sound={item} />
-        </div>
-      </button>
-      <span className="inline-flex items-center gap-0.5 flex-shrink-0" style={{ color: th.soft }}>
-        <Headphones size={11} /><span className="pv-micro">{formatPlays(item.plays)}</span>
-      </span>
-    </div>
-  );
-}

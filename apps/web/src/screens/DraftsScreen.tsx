@@ -8,10 +8,10 @@ import { useT } from '../state/PrefsContext';
 import { useUi } from '../state/UiContext';
 import { ScreenHeader } from '../primitives/ui';
 import { EmptyNote } from '../primitives/EmptyNote';
+import { SoundRow } from '../primitives/SoundRow';
 import { useIsDesktop } from '../lib/use-media';
 import { getDraftRecording } from '../lib/record-buffer';
 import { formatClock } from '../lib/waveform';
-import { SoundTagLines } from '../primitives/SoundTagLines';
 
 const ACCENT = color.accent;
 
@@ -60,20 +60,19 @@ export function DraftsScreen({ onBack }: { onBack: () => void }) {
             </motion.button>
           )}
           {drafts.map((item) => (
-            <motion.button key={String(item.id)} type="button" whileTap={tap.cta}
-              onClick={() => {
-                if (item.status === 'draft' || item.status === 'rejected') push({ type: 'add-sound', edit: item });
-                else push({ type: 'sound-detail', sound: item });
-              }}
-              className="w-full text-left rounded-3xl p-4"
-              style={{ background: th.cardBg }}>
-              <p className="pv-micro uppercase" style={{ color: item.status === 'rejected' ? ACCENT : th.soft }}>{statusLabel(item.status)}</p>
-              <p className="pv-subtitle mt-0.5" style={{ color: th.inkText }}>{item.title || 'Без названия'}</p>
-              <div className="mt-1" onClick={(e) => e.stopPropagation()}>
-                <SoundTagLines sound={item} />
-              </div>
-              {item.rejectNote ? <p className="pv-caption mt-1" style={{ color: ACCENT }}>{String(item.rejectNote)}</p> : null}
-            </motion.button>
+            <div key={String(item.id)}>
+              <SoundRow
+                item={item}
+                badge={statusLabel(item.status)}
+                onOpen={() => {
+                  if (item.status === 'draft' || item.status === 'rejected') push({ type: 'add-sound', edit: item });
+                  else push({ type: 'sound-detail', sound: item });
+                }}
+              />
+              {item.rejectNote ? (
+                <p className="pv-caption mt-1 px-1" style={{ color: ACCENT }}>{String(item.rejectNote)}</p>
+              ) : null}
+            </div>
           ))}
           {!local && !drafts.length && (
             <EmptyNote

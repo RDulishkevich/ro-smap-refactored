@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { LocateFixed, MoreHorizontal, Search, SlidersHorizontal } from 'lucide-react';
+import { MoreHorizontal, Search, SlidersHorizontal } from 'lucide-react';
 import { apiSyncJson, pendingSounds, type Sound } from '@polevka/core';
 import { color, spring, tap, typeMeta } from '@polevka/design';
 import { useNav } from '../state/NavContext';
@@ -11,7 +11,7 @@ import { useAuth } from '../state/AuthContext';
 import { NavBar, PinPlayer, SoundTypeTag } from '../primitives/ui';
 import { HoverMenu } from '../primitives/HoverMenu';
 import { MapFab } from '../primitives/chrome';
-import { SoundMap, type MapContext, type MapHover, type MapPoint, type SoundMapHandle } from '../lib/SoundMap';
+import { SoundMap, type MapContext, type MapHover, type MapPoint } from '../lib/SoundMap';
 import { CatalogFilters } from '../primitives/filters';
 import { normalizeRoute, soundRoute } from '../lib/sound-media';
 import { downloadSound } from '../lib/download-sound';
@@ -40,7 +40,6 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
   const [fabOpen, setFabOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [hover, setHover] = useState<MapHover | null>(null);
-  const mapRef = useRef<SoundMapHandle | null>(null);
   useEffect(() => { onFabChange?.(fabOpen); }, [fabOpen, onFabChange]);
   const onSelect = useCallback((s: Sound) => {
     setActive(s);
@@ -141,7 +140,7 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: th.phoneBg }}>
       <div className="relative flex-1 min-h-0">
-        <SoundMap ref={mapRef} sounds={uniquePins} activeId={active?.id ?? null} onSelect={onSelect}
+        <SoundMap sounds={uniquePins} activeId={active?.id ?? null} onSelect={onSelect}
           onPick={onPick} onContext={onContext} onEmpty={onEmpty} onHover={setHover} pickMode={!!pickMode}
           route={routes} walks={walks} pickMarker={pickedPoint} />
         {!desktop && (
@@ -164,21 +163,6 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
           </HoverMenu>
         </div>
         )}
-        <div
-          className={`absolute z-[400] flex flex-col gap-1.5 ${desktop ? 'bottom-5 left-5' : 'bottom-3 left-3'}`}
-          onClick={(e) => e.stopPropagation()}>
-          <motion.button whileTap={tap.cta} onClick={() => {
-            if (!navigator.geolocation) { toast('Геолокация недоступна'); return; }
-            navigator.geolocation.getCurrentPosition(
-              (pos) => mapRef.current?.flyTo(pos.coords.latitude, pos.coords.longitude, 14),
-              () => toast('Не удалось определить место'),
-              { enableHighAccuracy: true, timeout: 7000 },
-            );
-          }}
-            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: mapChromeBg }} aria-label="Моё место">
-            <LocateFixed size={16} style={{ color: mapChromeInk }} />
-          </motion.button>
-        </div>
         {!desktop && (
         <AnimatePresence>
           {showFilters && (
