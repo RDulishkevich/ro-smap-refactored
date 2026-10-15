@@ -48,6 +48,7 @@ type DataCtx = {
   setRouteDraft: (p: MapPoint[] | ((prev: MapPoint[]) => MapPoint[])) => void;
   routePreview: MapPoint[];
   setRoutePreview: (p: MapPoint[]) => void;
+  clearMapPick: () => void;
   patchSoundLocal: (id: string | number, patch: Partial<Sound> | ((s: Sound) => Sound)) => void;
   patchEventsLocal: (updater: (prev: AppEvent[]) => AppEvent[]) => void;
 };
@@ -55,7 +56,7 @@ type DataCtx = {
 const Ctx = createContext<DataCtx | null>(null);
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const { isLoggedIn, user } = useAuth();
+  const { isLoggedIn, user, patchUser } = useAuth();
   const { prefs } = usePrefs();
   const [allSounds, setAll] = useState<Sound[]>([]);
   const [feed, setFeed] = useState<FeedPost[]>([]);
@@ -131,6 +132,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }, 90_000);
     return () => clearInterval(t);
   }, [reload]);
+
+  // Session user historically omitted avatar — keep it in sync with public profile card.
+  useEffect(() => {
+    if (!user?.loginName || !profiles.length) return;
+    const mine = profiles.find((p) => String(p.loginName || '').toLowerCase() === String(user.loginName).toLowerCase());
+    if (!mine) return;
+    const nextAvatar = String(mine.avatar || '');
+    const nextBio = mine.bio != null ? String(mine.bio) : undefined;
+    const nextName = mine.displayName != null ? String(mine.displayName) : undefined;
+    if (
+      (nextAvatar && nextAvatar !== String(user.avatar || ''))
+      || (nextBio != null && nextBio !== String(user.bio || ''))
+      || (nextName && nextName !== String(user.displayName || user.username || ''))
+    ) {
+      patchUser({
+        ...(nextAvatar ? { avatar: nextAvatar } : {}),
+        ...(nextBio != null ? { bio: nextBio } : {}),
+        ...(nextName ? { displayName: nextName, username: nextName } : {}),
+      });
+    }
+  }, [profiles, user?.loginName, user?.avatar, user?.bio, user?.displayName, user?.username, patchUser]);
+
   useEffect(() => {
     if (!isLoggedIn) { setMail([]); return; }
     if (prefs.notifyDevice) void syncDevicePush(true);
@@ -183,6 +206,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setEvents(updater);
   }, []);
 
+  const clearMapPick = useCallback(() => {
+    setPickMode(null);
+    setPickedPoint(null);
+    setRouteDraft([]);
+    setRoutePreview([]);
+  }, []);
+
   const sounds = useMemo(() => publishedSounds(allSounds), [allSounds]);
   const filteredSounds = useMemo(() => filterSounds(sounds, filter), [sounds, filter]);
 
@@ -192,11 +222,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     playingId, playing, progress, volume, muted, togglePlay, seek, setVolume, toggleMute,
     focused, setFocused,
     pickMode, setPickMode, pickedPoint, setPickedPoint, routeDraft, setRouteDraft, routePreview, setRoutePreview,
-    patchSoundLocal, patchEventsLocal,
+    clearMapPick, patchSoundLocal, patchEventsLocal,
   }), [
     sounds, allSounds, filteredSounds, filter, feed, events, profiles, mail, loading, catalogStatus, reload, reloadMail, applyMail, markNotificationsRead,
     playingId, playing, progress, volume, muted, togglePlay, seek, setVolume, toggleMute,
-    focused, patchSoundLocal, patchEventsLocal,
+    focused, patchSoundLocal, patchEventsLocal, clearMapPick,
     pickMode, pickedPoint, routeDraft, routePreview,
   ]);
 

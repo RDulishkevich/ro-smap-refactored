@@ -5,7 +5,7 @@ import {
   SUPPORT_LOGIN, SUPPORT_NAME, type Profile, type Sound,
 } from '@polevka/core';
 import { getRejectSuggestionChips } from '../../../../src/data/publishRules.js';
-import { color } from '@polevka/design';
+import { color, type ThemeTokens } from '@polevka/design';
 import { Shield } from 'lucide-react';
 import { ScreenHeader } from '../primitives/ui';
 import { EmptyNote } from '../primitives/EmptyNote';
@@ -17,10 +17,7 @@ import { useUi } from '../state/UiContext';
 import { useT } from '../state/PrefsContext';
 import { useIsDesktop } from '../lib/use-media';
 
-const SAGE = color.sage;
-const OLIVE = color.olive;
 const ACCENT = color.accent;
-const DARK = color.dark;
 
 type Tab = 'sounds' | 'reports' | 'users' | 'tickets';
 
@@ -73,11 +70,11 @@ export function StaffScreen({ onBack }: { onBack: () => void }) {
       <div className={`${desktop ? 'px-6 pt-5' : 'px-4 pt-2'} flex gap-1.5`}>
         {([['sounds', 'Звуки'], ['reports', 'Жалобы'], ['users', 'Люди'], ['tickets', 'Тикеты']] as const).map(([id, lab]) => (
           <button key={id} onClick={() => setTab(id)} className="flex-1 py-2.5 rounded-2xl text-xs font-semibold"
-            style={{ background: tab === id ? ACCENT : th.lightBg, color: tab === id ? '#fff' : OLIVE }}>{lab}</button>
+            style={{ background: tab === id ? ACCENT : th.lightBg, color: tab === id ? '#fff' : th.muted }}>{lab}</button>
         ))}
       </div>
       <div className={`${desktop ? 'p-6' : 'p-4'} overflow-y-auto flex-1`}>
-        <p className="text-xs mb-4" style={{ color: SAGE }}>{user?.role} · очередь {pendingSounds(allSounds).length} · жалоб {reported.length} · тикетов {tickets.length}</p>
+        <p className="text-xs mb-4" style={{ color: th.soft }}>{user?.role} · очередь {pendingSounds(allSounds).length} · жалоб {reported.length} · тикетов {tickets.length}</p>
 
         {tab === 'sounds' && (
           <>
@@ -90,7 +87,7 @@ export function StaffScreen({ onBack }: { onBack: () => void }) {
                 ['all', 'Все'],
               ] as const).map(([id, lab]) => (
                 <button key={id} onClick={() => setStatus(id)} className="px-3 py-1.5 rounded-full text-[11px] font-semibold"
-                  style={{ background: status === id ? ACCENT : th.lightBg, color: status === id ? '#fff' : OLIVE }}>{lab}</button>
+                  style={{ background: status === id ? ACCENT : th.lightBg, color: status === id ? '#fff' : th.muted }}>{lab}</button>
               ))}
             </div>
             {list.map((s) => (
@@ -122,17 +119,17 @@ export function StaffScreen({ onBack }: { onBack: () => void }) {
             {reported.map((s) => (
               <div key={String(s.id)} className="rounded-2xl p-3 mb-2" style={{ background: th.cardBg }}>
                 <p className="text-xs font-bold" style={{ color: th.inkText }}>{s.title}</p>
-                <p className="text-[10px] mb-2" style={{ color: OLIVE }}>жалоб: {(s.reports as unknown[]).length}
+                <p className="text-[10px] mb-2" style={{ color: th.muted }}>жалоб: {(s.reports as unknown[]).length}
                   {(s.reports as Array<{ type?: string }>).some((r) => r?.type === 'comment') ? ' · есть на комментарии' : ''}</p>
                 <div className="flex gap-1.5">
                   <button className="text-[10px] font-semibold text-white px-3 py-2 rounded-xl" style={{ background: ACCENT }}
                     onClick={() => push({ type: 'sound-detail', sound: s })}>К записи</button>
-                  <button className="text-[10px] font-semibold px-3 py-2 rounded-xl" style={{ background: th.lightBg, color: OLIVE }}
+                  <button className="text-[10px] font-semibold px-3 py-2 rounded-xl" style={{ background: th.lightBg, color: th.muted }}
                     onClick={() => void patchStatus(s.id, s.status || 'published', { reports: [] }).then(() => toast('Жалобы сняты'))}>Снять</button>
                 </div>
               </div>
             ))}
-            {!reported.length && <p className="text-xs" style={{ color: SAGE }}>Нет жалоб</p>}
+            {!reported.length && <p className="text-xs" style={{ color: th.soft }}>Нет жалоб</p>}
           </>
         )}
 
@@ -146,20 +143,20 @@ export function StaffScreen({ onBack }: { onBack: () => void }) {
             {tickets.map((t) => (
               <div key={t.msg.id} className="rounded-2xl p-3 mb-2" style={{ background: th.cardBg }}>
                 <p className="text-xs font-bold" style={{ color: th.inkText }}>№{t.msg.ticketNumber || '—'} · {t.box}</p>
-                <p className="text-[10px] mb-2" style={{ color: OLIVE }}>{t.msg.text}</p>
+                <p className="text-[10px] mb-2" style={{ color: th.muted }}>{t.msg.text}</p>
                 <button className="text-[10px] font-semibold text-white px-3 py-2 rounded-xl" style={{ background: ACCENT }}
                   onClick={() => push({ type: 'conversation', name: t.box, avatar: '🛟', peer: t.box })}>Ответить как поддержка</button>
               </div>
             ))}
-            {!tickets.length && <p className="text-xs" style={{ color: SAGE }}>Нет обращений</p>}
-            <button className="mt-3 text-[10px] font-semibold" style={{ color: SAGE }}
+            {!tickets.length && <p className="text-xs" style={{ color: th.soft }}>Нет обращений</p>}
+            <button className="mt-3 text-[10px] font-semibold" style={{ color: th.soft }}
               onClick={() => push({ type: 'conversation', name: SUPPORT_NAME, avatar: '🛟', peer: SUPPORT_LOGIN })}>Чат поддержки</button>
           </>
         )}
 
         <div className="mt-4 rounded-2xl p-3 flex items-center gap-2" style={{ background: th.cardBg }}>
-          <Shield size={14} color={OLIVE} />
-          <p className="text-[10px]" style={{ color: OLIVE }}>Консоль CLI не переносится. Операции — кнопками. 2FA staff обязательна. Удаление аккаунта только admin.</p>
+          <Shield size={14} color={th.muted} />
+          <p className="text-[10px]" style={{ color: th.muted }}>Консоль CLI не переносится. Операции — кнопками. 2FA staff обязательна. Удаление аккаунта только admin.</p>
         </div>
       </div>
     </div>
@@ -167,7 +164,7 @@ export function StaffScreen({ onBack }: { onBack: () => void }) {
 }
 
 function SoundModRow({ s, th, chips, onOpen, onApprove, onReject, onDelete }: {
-  s: Sound; th: { cardBg: string; inkText: string; lightBg: string };
+  s: Sound; th: ThemeTokens;
   chips: Array<{ id: string; text: string }>;
   onOpen: () => void; onApprove: () => void; onReject: (note: string) => void; onDelete: () => void;
 }) {
@@ -175,12 +172,12 @@ function SoundModRow({ s, th, chips, onOpen, onApprove, onReject, onDelete }: {
     <div className="rounded-3xl p-4 mb-3 shadow-sm" style={{ background: th.cardBg }}>
       <button className="text-left w-full" onClick={onOpen}>
         <p className="text-sm font-bold" style={{ color: th.inkText }}>{s.title}</p>
-        <p className="text-xs mb-3" style={{ color: OLIVE }}>{s.user} · {s.status} · {s.ucsCatId || s.ucsCat || s.type}</p>
+        <p className="text-xs mb-3" style={{ color: th.muted }}>{s.user} · {s.status} · {s.ucsCatId || s.ucsCat || s.type}</p>
       </button>
       <div className="flex flex-wrap gap-1.5">
         <button className="text-xs font-semibold text-white px-3 py-2 rounded-2xl" style={{ background: ACCENT }} onClick={onApprove}>Одобрить</button>
         {chips.slice(0, 4).map((c) => (
-          <button key={c.id} className="text-xs font-semibold px-3 py-2 rounded-2xl" style={{ background: th.lightBg, color: OLIVE }}
+          <button key={c.id} className="text-xs font-semibold px-3 py-2 rounded-2xl" style={{ background: th.lightBg, color: th.muted }}
             onClick={() => onReject(c.text)}>{c.id}</button>
         ))}
         <button className="text-xs font-semibold px-3 py-2 rounded-2xl" style={{ background: th.lightBg, color: ACCENT }} onClick={onDelete}>Удалить</button>
@@ -193,7 +190,7 @@ function UsersTab({ profiles, q, setQ, th, isAdmin, toast, confirm, saveProfile 
   profiles: Profile[];
   q: string;
   setQ: (v: string) => void;
-  th: { cardBg: string; inkText: string; lightBg: string };
+  th: ThemeTokens;
   isAdmin: boolean;
   toast: (m: string) => void;
   confirm: (o: { title: string; body: string; ok: string }) => Promise<boolean>;
@@ -210,18 +207,18 @@ function UsersTab({ profiles, q, setQ, th, isAdmin, toast, confirm, saveProfile 
         return (
           <div key={login} className="rounded-2xl p-3 mb-2" style={{ background: th.cardBg }}>
             <p className="text-xs font-bold" style={{ color: th.inkText }}>{p.displayName || login}</p>
-            <p className="text-[10px] mb-2" style={{ color: OLIVE }}>@{login} · {p.role || 'user'}{p.blocked ? ' · blocked' : ''}</p>
+            <p className="text-[10px] mb-2" style={{ color: th.muted }}>@{login} · {p.role || 'user'}{p.blocked ? ' · blocked' : ''}</p>
             <div className="flex flex-wrap gap-1.5">
-              <button className="text-[10px] px-2 py-1.5 rounded-xl" style={{ background: th.lightBg, color: OLIVE }} onClick={() => void saveProfile({ ...p, blocked: !p.blocked }).then(() => toast(p.blocked ? 'Разблокирован' : 'Заблокирован'))}>
+              <button className="text-[10px] px-2 py-1.5 rounded-xl" style={{ background: th.lightBg, color: th.muted }} onClick={() => void saveProfile({ ...p, blocked: !p.blocked }).then(() => toast(p.blocked ? 'Разблокирован' : 'Заблокирован'))}>
                 {p.blocked ? 'Разблок.' : 'Блок'}
               </button>
               {isAdmin && (
                 <>
-                  <button className="text-[10px] px-2 py-1.5 rounded-xl" style={{ background: th.lightBg, color: OLIVE }} onClick={() => {
+                  <button className="text-[10px] px-2 py-1.5 rounded-xl" style={{ background: th.lightBg, color: th.muted }} onClick={() => {
                     const role = p.role === 'moderator' ? 'user' : 'moderator';
                     void saveProfile({ ...p, role }).then(() => toast(`Роль: ${role}`));
                   }}>Роль</button>
-                  <button className="text-[10px] px-2 py-1.5 rounded-xl" style={{ background: th.lightBg, color: OLIVE }} onClick={() => {
+                  <button className="text-[10px] px-2 py-1.5 rounded-xl" style={{ background: th.lightBg, color: th.muted }} onClick={() => {
                     setEmailLogin(login);
                   }}>Письмо</button>
                   <button className="text-[10px] px-2 py-1.5 rounded-xl" style={{ background: th.lightBg, color: ACCENT }} onClick={() => void (async () => {
@@ -247,7 +244,7 @@ function UsersTab({ profiles, q, setQ, th, isAdmin, toast, confirm, saveProfile 
           <p className="text-xs font-bold mb-2" style={{ color: th.inkText }}>Письмо на email</p>
           <input value={emailLogin} onChange={(e) => setEmailLogin(e.target.value)} placeholder="Логин" className="w-full rounded-xl px-3 py-2 text-xs outline-none mb-2" style={{ background: th.lightBg, color: th.inkText }} />
           <textarea value={emailBody} onChange={(e) => setEmailBody(e.target.value)} className="w-full rounded-xl px-3 py-2 text-xs outline-none min-h-[64px]" style={{ background: th.lightBg, color: th.inkText }} />
-          <button className="mt-2 w-full py-2.5 rounded-2xl text-xs font-semibold text-white" style={{ background: DARK }} onClick={async () => {
+          <button className="mt-2 w-full py-2.5 rounded-2xl text-xs font-semibold text-white" style={{ background: th.solid }} onClick={async () => {
             try { await apiAdminSendEmail(emailLogin.trim(), emailBody.trim()); toast('Письмо отправлено'); setEmailBody(''); }
             catch (e: unknown) { toast((e as Error).message || 'Не удалось'); }
           }}>Отправить</button>

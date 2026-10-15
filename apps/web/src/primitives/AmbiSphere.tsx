@@ -38,7 +38,7 @@ export function AmbiSphere() {
   return (
     <div className="mt-2.5 flex flex-col items-center gap-1.5">
       <div className="w-full flex justify-between items-center px-0.5">
-        <span className="text-[10px] uppercase font-bold tracking-widest" style={{ color: color.sage }}>Звуковая сфера</span>
+        <span className="text-[10px] uppercase font-bold tracking-widest" style={{ color: th.soft }}>Звуковая сфера</span>
         <span className="text-[10px] font-mono font-semibold" style={{ color: color.accent }}>
           Y: {Math.round(yaw)}° · P: {Math.round(pitch)}°
         </span>
@@ -66,7 +66,7 @@ export function AmbiSphere() {
             { top: '86%', left: '50%' },
           ][i];
           return (
-            <span key={ch} className="absolute text-[9px] font-bold -translate-x-1/2 -translate-y-1/2" style={{ ...pos, color: color.olive }}>{ch}</span>
+            <span key={ch} className="absolute text-[9px] font-bold -translate-x-1/2 -translate-y-1/2" style={{ ...pos, color: th.muted }}>{ch}</span>
           );
         })}
         <div className="absolute left-1/2 top-0 bottom-0 w-px" style={{ background: th.border }} />
@@ -76,7 +76,7 @@ export function AmbiSphere() {
           style={{ left: `${x}%`, top: `${y}%`, background: color.accent, border: '2px solid #fff' }}
         />
       </div>
-      <p className="text-[9px] text-center" style={{ color: color.sage }}>Секторы W·X·Y·Z · тяните точку (Yaw & Pitch)</p>
+      <p className="text-[9px] text-center" style={{ color: th.soft }}>Секторы W·X·Y·Z · тяните точку (Yaw & Pitch)</p>
     </div>
   );
 }

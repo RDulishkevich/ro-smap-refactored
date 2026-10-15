@@ -135,6 +135,20 @@ html.pv-lock .pv-map {
   box-shadow: 0 0 0 4px rgba(146, 179, 177, 0.42), 0 4px 12px rgba(45, 60, 57, 0.35);
 }
 
+/* Dark map: invert tiles only; pins stay in places-pane unfiltered. */
+html.dark .pv-map {
+  background: #121212;
+}
+html.dark .pv-map [class*="ground-pane"],
+html.dark .pv-map [class*="areas-pane"],
+html.dark .pv-map .leaflet-tile-pane {
+  filter: invert(0.92) hue-rotate(180deg) brightness(0.95) contrast(0.95) saturate(0.25);
+}
+html.dark .pv-map .leaflet-control-attribution {
+  background: rgba(23, 23, 23, 0.88) !important;
+  color: #b0b0b0;
+}
+
 html.pv-reduce-motion *,
 html.pv-reduce-motion *::before,
 html.pv-reduce-motion *::after {
@@ -164,12 +178,57 @@ html.pv-reduce-motion *::after {
   outline-offset: 2px;
 }
 
+/* Catalog / list tag chips — light gray hover for clickability */
+.pv-tag-hit {
+  transition: background-color 140ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .pv-tag-hit:hover {
+    background-color: rgba(26, 26, 26, 0.06);
+  }
+  html.dark .pv-tag-hit:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* Desktop: calm neutral hover — no sage/olive wash. */
+@media (hover: hover) and (pointer: fine) {
+  .pv-desktop .pv-desk-hit {
+    transition: box-shadow 140ms ease, background-color 140ms ease, color 140ms ease;
+  }
+  .pv-desktop .pv-desk-hit:hover {
+    box-shadow: inset 0 0 0 999px rgba(26, 26, 26, 0.05);
+  }
+  html.dark .pv-desktop .pv-desk-hit:hover {
+    box-shadow: inset 0 0 0 999px rgba(255, 255, 255, 0.08);
+  }
+  .pv-desktop nav .pv-desk-hit:hover {
+    background-color: #F0F1F3 !important;
+    box-shadow: none;
+  }
+  html.dark .pv-desktop nav .pv-desk-hit:hover {
+    background-color: #2E2E2E !important;
+  }
+  .pv-desktop footer a,
+  .pv-desktop footer button {
+    transition: color 140ms ease;
+  }
+  .pv-desktop footer a:hover,
+  .pv-desktop footer button:hover {
+    color: var(--pv-ink) !important;
+  }
+}
+
 @media (pointer: coarse) {
   .pv-mobile button,
   .pv-mobile [role="button"],
-  .pv-mobile [role="switch"],
   .pv-mobile [role="menuitem"] {
     min-height: 44px;
+  }
+  /* Hit target only — do not stretch the visual track into a circle. */
+  .pv-mobile [role="switch"] {
+    min-height: 44px;
+    min-width: 44px;
   }
 }
 

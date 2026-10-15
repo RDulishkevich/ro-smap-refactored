@@ -579,5 +579,5 @@ export const SoundMap = forwardRef<SoundMapHandle, {
     },
   }), []);
 
-  return <div ref={nodeRef} className="absolute inset-0 z-0 bg-[#E4EDE9] pv-map" onContextMenu={(e) => e.preventDefault()} />;
+  return <div ref={nodeRef} className="absolute inset-0 z-0 pv-map" style={{ background: 'var(--pv-phone-bg, #E4EDE9)' }} onContextMenu={(e) => e.preventDefault()} />;
 });

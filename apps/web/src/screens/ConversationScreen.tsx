@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Check, CheckCheck, Copy, CornerUpLeft, ImagePlus, Reply, Send, Trash2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { color, spring, tap } from '@polevka/design';
+import { color, spring, tap, type ThemeTokens } from '@polevka/design';
 import {
   apiSyncJson, makeMailMsg, markThreadReadPatch, messageHomeBox, patchInboxMessage,
   previewReply, REACTION_EMOJIS, spamGuardCheck, spamGuardMessage, SUPPORT_LOGIN,
@@ -15,14 +15,14 @@ import { useTh } from '../state/ThemeContext';
 import { useUi } from '../state/UiContext';
 import { ScreenHeader } from '../primitives/ui';
 import { PhotoLightbox } from '../primitives/PhotoCarousel';
+import { Avatar } from '../primitives/Avatar';
 import { useKeyboardInset } from '../lib/keyboard-inset';
 
-const SAGE = color.sage;
 const ACCENT = color.accent;
 const MAX_IMAGE = 12 * 1024 * 1024;
 const MAX_VIDEO = 80 * 1024 * 1024;
 
-type ThreadMsg = MailMsg & { mine: boolean };
+type ThreadMsg = MailMsg & { mine: boolean; delivery?: 'sending' | 'sent' };
 
 function formatTime(iso?: string) {
   if (!iso) return '';
@@ -66,11 +66,26 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
   const bootRef = useRef(true);
   const kb = useKeyboardInset();
   const live = user ? threadWith(mail, user.loginName, peer) : [];
-  const liveIds = new Set(live.map((m) => m.id));
-  const msgs = [...live, ...pending.filter((m) => !liveIds.has(m.id))];
+  const liveIdsKey = live.map((m) => m.id).join('|');
+  const liveIds = new Set(liveIdsKey ? liveIdsKey.split('|') : []);
+  const pendingById = new Map(pending.map((m) => [m.id, m]));
+  const msgs = [
+    ...live.map((m) => {
+      const p = pendingById.get(m.id);
+      return p ? { ...m, delivery: p.delivery } : { ...m, delivery: m.mine ? 'sent' as const : undefined };
+    }),
+    ...pending.filter((m) => !liveIds.has(m.id)),
+  ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const support = peer === SUPPORT_LOGIN;
   const profile = profiles.find((p) => String(p.loginName || '').toLowerCase() === peer);
   const letter = (name.trim()[0] || '?').toUpperCase();
+
+  useEffect(() => {
+    setPending((cur) => {
+      const next = cur.filter((m) => !(liveIds.has(m.id) && m.delivery === 'sent'));
+      return next.length === cur.length ? cur : next;
+    });
+  }, [liveIdsKey]);
 
   useEffect(() => {
     const el = listRef.current;
@@ -228,7 +243,7 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
       read: false,
     };
     applyMail((prev) => upsertInbox(prev, peer, msg, notif));
-    setPending((cur) => [...cur, { ...msg, mine: true }]);
+    setPending((cur) => [...cur, { ...msg, mine: true, delivery: 'sending' }]);
     setBusy(false);
     void apiSyncJson('mail.json', [{
       loginName: String(peer).toLowerCase(),
@@ -236,7 +251,9 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
       notifications: notif ? [notif] : [],
       activityLog: [],
     }])
-      .then(() => setPending((cur) => cur.filter((row) => row.id !== msg.id)))
+      .then(() => {
+        setPending((cur) => cur.map((row) => (row.id === msg.id ? { ...row, delivery: 'sent' } : row)));
+      })
       .catch((e: unknown) => {
         setPending((cur) => cur.filter((row) => row.id !== msg.id));
         applyMail((prev) => patchInboxMessage(prev, peer, msg.id, { deleted: true }));
@@ -252,16 +269,13 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
         onTitleClick={support ? undefined : openProfile}
         right={support ? undefined : (
           <button type="button" onClick={openProfile}
-            className="w-11 h-11 rounded-2xl overflow-hidden flex items-center justify-center flex-shrink-0"
-            style={{ background: th.lightBg, color: SAGE }} aria-label="Открыть профиль">
-            {profile?.avatar && String(profile.avatar).startsWith('http')
-              ? <img src={String(profile.avatar)} alt="" className="w-full h-full object-cover" />
-              : letter}
+            className="flex-shrink-0" aria-label="Открыть профиль">
+            <Avatar src={profile?.avatar} name={name || letter} size={44} />
           </button>
         )}
       />
       <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-2 scrollbar-none">
-        {msgs.length === 0 && <p className="pv-caption text-center py-8" style={{ color: SAGE }}>Начните переписку</p>}
+        {msgs.length === 0 && <p className="pv-caption text-center py-8" style={{ color: th.soft }}>Начните переписку</p>}
         {msgs.map((m) => (
           <MessageBubble
             key={m.id}
@@ -303,9 +317,9 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
             <Reply size={14} color={ACCENT} className="flex-shrink-0" />
             <div className="min-w-0 flex-1">
               <p className="pv-micro" style={{ color: ACCENT }}>{replyTo.fromName || 'Сообщение'}</p>
-              <p className="pv-caption truncate" style={{ color: SAGE }}>{previewReply(replyTo) || 'Сообщение'}</p>
+              <p className="pv-caption truncate" style={{ color: th.soft }}>{previewReply(replyTo) || 'Сообщение'}</p>
             </div>
-            <button type="button" className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ color: SAGE }}
+            <button type="button" className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ color: th.soft }}
               onClick={() => setReplyTo(null)} aria-label="Отменить ответ">×</button>
           </motion.div>
         )}
@@ -328,7 +342,7 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
           onClick={() => pickRef.current?.click()}
           className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
           style={{ background: th.cardBg }} aria-label="Фото или видео">
-          <ImagePlus size={18} color={SAGE} />
+          <ImagePlus size={18} color={th.soft} />
         </motion.button>
         <textarea
           ref={areaRef}
@@ -368,13 +382,14 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
 function MessageBubble({ msg, fresh, th, me, onLightbox, onReply, onReact, onMenu }: {
   msg: ThreadMsg;
   fresh: boolean;
-  th: { cardBg: string; inkText: string; lightBg: string };
+  th: ThemeTokens;
   me: string;
   onLightbox: (src: string) => void;
   onReply: () => void;
   onReact: (emoji: string) => void;
   onMenu: (x: number, y: number) => void;
 }) {
+  const delivered = msg.mine && msg.delivery !== 'sending';
   const [dx, setDx] = useState(0);
   const start = useRef<{ x: number; y: number; t: number } | null>(null);
   const hold = useRef<number>(0);
@@ -431,7 +446,7 @@ function MessageBubble({ msg, fresh, th, me, onLightbox, onReply, onReact, onMen
         className="absolute top-1/2 -translate-y-1/2"
         style={{ [msg.mine ? 'right' : 'left']: -28, opacity: Math.min(1, Math.abs(dx) / 48) }}
         aria-hidden>
-        <CornerUpLeft size={16} color={SAGE} />
+        <CornerUpLeft size={16} color={th.soft} />
       </motion.div>
       <motion.div
         data-no-swipe
@@ -472,11 +487,11 @@ function MessageBubble({ msg, fresh, th, me, onLightbox, onReply, onReact, onMen
           <p className="pv-body whitespace-pre-wrap break-words">{msg.text}</p>
         )}
         <div className="flex items-center gap-1 mt-1 justify-end"
-          style={{ color: msg.mine ? 'rgba(255,255,255,0.72)' : SAGE }}>
+          style={{ color: msg.mine ? 'rgba(255,255,255,0.72)' : th.soft }}>
           <span className="pv-micro">{formatTime(msg.date)}</span>
-          {msg.mine && (msg.read
+          {msg.mine && delivered && (msg.read
             ? <CheckCheck size={13} aria-label="Прочитано" />
-            : <Check size={13} aria-label="Доставлено" />)}
+            : <Check size={13} aria-label="Отправлено" />)}
         </div>
       </motion.div>
       {reactions.length > 0 && (
@@ -502,7 +517,7 @@ function MessageBubble({ msg, fresh, th, me, onLightbox, onReply, onReact, onMen
 
 function ActionHover({ x, y, mine, th, onReact, onReply, onCopy, onDelete }: {
   x: number; y: number; mine: boolean;
-  th: { cardBg: string; inkText: string };
+  th: ThemeTokens;
   onReact: (emoji: string) => void;
   onReply: () => void;
   onCopy: () => void;
@@ -530,11 +545,11 @@ function ActionHover({ x, y, mine, th, onReact, onReply, onCopy, onDelete }: {
       </div>
       <button type="button" className="w-full flex items-center gap-2 px-3 py-2 rounded-2xl pv-subtitle text-left"
         style={{ color: th.inkText }} onClick={onReply}>
-        <Reply size={15} color={SAGE} /> Ответить
+        <Reply size={15} color={th.soft} /> Ответить
       </button>
       <button type="button" className="w-full flex items-center gap-2 px-3 py-2 rounded-2xl pv-subtitle text-left"
         style={{ color: th.inkText }} onClick={onCopy}>
-        <Copy size={15} color={SAGE} /> Копировать
+        <Copy size={15} color={th.soft} /> Копировать
       </button>
       {mine && onDelete && (
         <button type="button" className="w-full flex items-center gap-2 px-3 py-2 rounded-2xl pv-subtitle text-left"

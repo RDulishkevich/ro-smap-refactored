@@ -14,13 +14,13 @@ import { LiveAnalyzers } from '../primitives/AnalyzersPanel';
 import { setDraftRecording } from '../lib/record-buffer';
 import { formatClock } from '../lib/waveform';
 import { useIsDesktop } from '../lib/use-media';
+import { useLeaveGuard } from '../lib/use-leave-guard';
 import {
   applyCtxSink, listAudioDevices, readRecInput, readRecOutput, writeRecInput, writeRecOutput,
   type AudioPick,
 } from '../lib/record-devices';
 
 const SAGE = color.sage;
-const OLIVE = color.olive;
 const ACCENT = color.accent;
 const DARK = color.dark;
 
@@ -32,13 +32,6 @@ export function RecordScreen({ onBack }: { onBack: () => void }) {
   const { isLoggedIn } = useAuth();
   const { reset, requireAuth } = useNav();
   const askedAuth = useRef(false);
-
-  useEffect(() => {
-    if (isLoggedIn || askedAuth.current) return;
-    askedAuth.current = true;
-    toast('Войдите, чтобы записывать и публиковать');
-    reset({ type: 'auth' });
-  }, [isLoggedIn, reset, toast]);
   const [stage, setStage] = useState<'idle' | 'rec' | 'review'>('idle');
   const [sec, setSec] = useState(0);
   const [mix, setMix] = useState<AnalyserNode | null>(null);
@@ -50,6 +43,15 @@ export function RecordScreen({ onBack }: { onBack: () => void }) {
   const [outputId, setOutputId] = useState(readRecOutput);
   const [monitor, setMonitor] = useState(false);
   const [draft, setDraft] = useState<{ blob: Blob; durationSec: number; mime: string; trimStart: number; trimEnd: number; gain: number; timeMarkers: TimeMarker[] } | null>(null);
+
+  useEffect(() => {
+    if (isLoggedIn || askedAuth.current) return;
+    askedAuth.current = true;
+    toast('Войдите, чтобы записывать и публиковать');
+    void reset({ type: 'auth' });
+  }, [isLoggedIn, reset, toast]);
+  useLeaveGuard(stage === 'rec' || stage === 'review' || !!draft);
+
   const recRef = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -232,14 +234,14 @@ export function RecordScreen({ onBack }: { onBack: () => void }) {
         <div className="flex-1 flex flex-col px-5 py-5 min-h-0 overflow-y-auto">
           <div className="mb-4">
             <p className="pv-page" style={{ color: th.inkText }}>{stage === 'rec' ? t('recordingNow') : t('recordSound')}</p>
-            <p className="pv-caption mt-1 leading-relaxed" style={{ color: OLIVE }}>
+            <p className="pv-caption mt-1 leading-relaxed" style={{ color: th.muted }}>
               {stage === 'rec' ? t('recordingHint') : t('recordHint')}
             </p>
           </div>
           {desktop && (
             <div className="grid grid-cols-2 gap-2 mb-3">
               <label className="rounded-2xl px-3 py-2" style={{ background: th.cardBg }}>
-                <span className="pv-micro uppercase" style={{ color: SAGE }}>{t('recInput')}</span>
+                <span className="pv-micro uppercase" style={{ color: th.soft }}>{t('recInput')}</span>
                 <select value={inputId} onChange={(e) => changeInput(e.target.value)}
                   className="w-full bg-transparent outline-none pv-caption mt-1" style={{ color: th.inkText }}
                   onFocus={() => void refreshDevices()}>
@@ -248,7 +250,7 @@ export function RecordScreen({ onBack }: { onBack: () => void }) {
                 </select>
               </label>
               <label className="rounded-2xl px-3 py-2" style={{ background: th.cardBg }}>
-                <span className="pv-micro uppercase" style={{ color: SAGE }}>{t('recOutput')}</span>
+                <span className="pv-micro uppercase" style={{ color: th.soft }}>{t('recOutput')}</span>
                 <select value={outputId} onChange={(e) => changeOutput(e.target.value)}
                   className="w-full bg-transparent outline-none pv-caption mt-1" style={{ color: th.inkText }}
                   onFocus={() => void refreshDevices()}>
@@ -258,7 +260,7 @@ export function RecordScreen({ onBack }: { onBack: () => void }) {
               </label>
               <button type="button" onClick={() => setMonitor((v) => !v)}
                 className="col-span-2 rounded-2xl px-3 py-2.5 text-left pv-caption"
-                style={{ background: th.cardBg, color: monitor ? ACCENT : OLIVE }}>
+                style={{ background: th.cardBg, color: monitor ? ACCENT : th.muted }}>
                 {t('recMonitor')}: {monitor ? t('on') : t('off')}
               </button>
             </div>
@@ -273,7 +275,7 @@ export function RecordScreen({ onBack }: { onBack: () => void }) {
                 aria-label={stage === 'rec' ? t('stop') : t('startRec')}>
                 {stage === 'rec' ? <span className="w-5 h-5 rounded-md bg-white" /> : <Mic size={26} color="white" />}
               </motion.button>
-              <p className="pv-caption" style={{ color: SAGE }}>{stage === 'rec' ? t('stop') : t('startRec')}</p>
+              <p className="pv-caption" style={{ color: th.soft }}>{stage === 'rec' ? t('stop') : t('startRec')}</p>
             </div>
             <LiveAnalyzers mix={mix} left={anL} right={anR} active={stage === 'rec'} />
           </div>
@@ -283,7 +285,7 @@ export function RecordScreen({ onBack }: { onBack: () => void }) {
         <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4">
           <div>
             <p className="pv-page" style={{ color: th.inkText }}>{t('reviewTrim')}</p>
-            <p className="pv-caption mt-1" style={{ color: OLIVE }}>{t('reviewHint')}</p>
+            <p className="pv-caption mt-1" style={{ color: th.muted }}>{t('reviewHint')}</p>
           </div>
           <AudioEditor blob={draft.blob} durationSec={draft.durationSec}
             trimStart={draft.trimStart} trimEnd={draft.trimEnd} gain={draft.gain}
@@ -292,7 +294,7 @@ export function RecordScreen({ onBack }: { onBack: () => void }) {
             onMarkers={(timeMarkers) => setDraft({ ...draft, timeMarkers })}
             onChange={(next) => setDraft({ ...draft, ...next })} />
           <div className="flex gap-2">
-            <button type="button" className="flex-1 py-3 rounded-2xl pv-button" style={{ background: th.lightBg, color: OLIVE }}
+            <button type="button" className="flex-1 py-3 rounded-2xl pv-button" style={{ background: th.lightBg, color: th.muted }}
               onClick={() => { setDraft(null); setStage('idle'); setSec(0); }}>{t('recordAgain')}</button>
             <button type="button" className="flex-[1.4] py-3.5 rounded-2xl pv-button text-white" style={{ background: ACCENT }}
               onClick={toPublish}>{t('toPublish')}</button>

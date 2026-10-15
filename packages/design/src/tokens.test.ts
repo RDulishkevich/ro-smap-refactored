@@ -22,6 +22,13 @@ describe('design tokens', () => {
   it('splits chrome at 768px', () => {
     expect(breakpoint).toBe(768);
     expect(makeTheme(false).isDark).toBe(false);
-    expect(makeTheme(true).cardBg).toBe('#243530');
+    expect(makeTheme(true).cardBg).toBe('#171717');
+    expect(makeTheme(true).phoneBg).toBe('#0B0B0B');
+    expect(makeTheme(true).inkText).toBe('#F0F0F0');
+    expect(makeTheme(true).muted).toBe('#A0A0A0');
+    expect(makeTheme(true).soft).toBe('#B0B0B0');
+    expect(makeTheme(true).solid).toBe('#3A3A3A');
+    expect(makeTheme(true).lightBg).toBe('#2E2E2E');
+    expect(makeTheme(true).border).toMatch(/255,\s*255,\s*255/);
   });
 });

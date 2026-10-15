@@ -9,8 +9,6 @@ import { durationFromBlob, formatClock, peaksFromBlob, peaksFromUrl, playLength 
 import { applyCtxSink, applySinkId } from '../lib/record-devices';
 import { WaveformSVG } from './ui';
 
-const SAGE = color.sage;
-const OLIVE = color.olive;
 const ACCENT = color.accent;
 const MIN = 0.02;
 
@@ -330,10 +328,10 @@ export function AudioEditor({
   return (
     <div className="rounded-3xl p-4" style={{ background: th.cardBg }}>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-[11px] font-semibold" style={{ color: SAGE }}>
+        <p className="text-[11px] font-semibold" style={{ color: th.soft }}>
           {allowTrim ? `Обрезка · ${formatClock(cut)}` : 'Превью'}
         </p>
-        <p className="text-[10px] tabular-nums" style={{ color: OLIVE }}>{formatClock(progress * dur)} / {formatClock(dur)}</p>
+        <p className="text-[10px] tabular-nums" style={{ color: th.muted }}>{formatClock(progress * dur)} / {formatClock(dur)}</p>
       </div>
       <div
         ref={waveRef}
@@ -376,7 +374,7 @@ export function AudioEditor({
               style={{ left: `${pct}%` }}
               onClick={(e) => { e.stopPropagation(); seekTo(m.t / dur); }}>
               <span className="w-2 h-2 rounded-full" style={{ background: color.dark }} />
-              <span className="mt-0.5 max-w-[72px] truncate text-[8px] font-semibold px-1 rounded" style={{ background: th.cardBg, color: OLIVE }}>{m.label}</span>
+              <span className="mt-0.5 max-w-[72px] truncate text-[8px] font-semibold px-1 rounded" style={{ background: th.cardBg, color: th.muted }}>{m.label}</span>
             </button>
           );
         })}
@@ -389,16 +387,16 @@ export function AudioEditor({
         </motion.button>
         <div className="flex-1 min-w-0">
           {allowTrim && (
-            <p className="text-[10px] font-semibold mb-1" style={{ color: SAGE }}>
+            <p className="text-[10px] font-semibold mb-1" style={{ color: th.soft }}>
               {formatClock(a * dur)} — {formatClock(b * dur)} · тяните ручки на волне
             </p>
           )}
           <div className="flex items-center gap-2">
-            <Volume2 size={14} color={OLIVE} />
+            <Volume2 size={14} color={th.muted} />
             <input type="range" min={0.2} max={2} step={0.05} value={gain}
               className="flex-1 accent-[#B5613F] h-1" aria-label="Громкость фрагмента"
               onChange={(e) => onChange({ trimStart: a, trimEnd: b, gain: Number(e.target.value) })} />
-            <span className="text-[10px] w-10 text-right tabular-nums" style={{ color: SAGE }}>{Math.round(gain * 100)}%</span>
+            <span className="text-[10px] w-10 text-right tabular-nums" style={{ color: th.soft }}>{Math.round(gain * 100)}%</span>
           </div>
         </div>
       </div>
@@ -425,7 +423,7 @@ export function AudioEditor({
                   <span className="flex-1 min-w-0 truncate text-[11px]" style={{ color: th.inkText }}>{m.label}</span>
                   <button type="button" aria-label="Удалить метку" className="w-8 h-8 rounded-full flex items-center justify-center"
                     onClick={() => onMarkers(markers.filter((_, n) => n !== i))}>
-                    <X size={12} color={OLIVE} />
+                    <X size={12} color={th.muted} />
                   </button>
                 </li>
               ))}

@@ -4,7 +4,7 @@ import {
   normalizeTimeMarkers, preparePublishWav, remapMarkersAfterTrim, spamGuardCheck,
   spamGuardMessage, ucsCategories, ucsStructure, uploadUserMedia, type Sound, type TimeMarker,
 } from '@polevka/core';
-import { color } from '@polevka/design';
+import { color, type ThemeTokens } from '@polevka/design';
 import { ImagePlus, Route, X } from 'lucide-react';
 import { ScreenHeader } from '../primitives/ui';
 import { PhotoLightbox } from '../primitives/PhotoCarousel';
@@ -19,9 +19,8 @@ import { getDraftRecording, setDraftRecording } from '../lib/record-buffer';
 import { clearAddDraft, readAddDraft, writeAddDraft } from '../lib/add-draft';
 import { applyTrimGain, parseDurationLabel } from '../lib/waveform';
 import { isAmbisonicChannels, isSoundwalkPrinciple, normalizeRoute } from '../lib/sound-media';
+import { useLeaveGuard } from '../lib/use-leave-guard';
 
-const SAGE = color.sage;
-const OLIVE = color.olive;
 const ACCENT = color.accent;
 
 const LICENSES = ['CC BY 4.0', 'CC BY-SA 4.0', 'CC BY-NC 4.0', 'CC0'];
@@ -34,7 +33,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
   const th = useTh();
   const desktop = useIsDesktop();
   const { toast } = useUi();
-  const { reload, profiles, pickedPoint, setPickedPoint, setPickMode, routeDraft, setRouteDraft } = useData();
+  const { reload, profiles, pickedPoint, setPickedPoint, setPickMode, routeDraft, setRouteDraft, clearMapPick } = useData();
   const { user, isLoggedIn } = useAuth();
   const { push, reset, requireAuth } = useNav();
   const askedRef = useRef(false);
@@ -78,8 +77,11 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
     if (isLoggedIn || askedRef.current) return;
     askedRef.current = true;
     toast('Войдите, чтобы записывать и публиковать');
-    reset({ type: 'auth' });
+    void reset({ type: 'auth' });
   }, [isLoggedIn, reset, toast]);
+
+  const dirty = !!(title.trim() || desc.trim() || draft || fileLabel || photos.length || pickedPoint || routeDraft.length >= 2 || markers.length);
+  useLeaveGuard(dirty, clearMapPick);
 
   useEffect(() => {
     if (edit) setDraftRecording(null);
@@ -262,9 +264,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
       setDraftRecording(null);
       if (!edit) clearAddDraft();
       setDraft(null);
-      setPickedPoint(null);
-      setRouteDraft([]);
-      setPickMode(null);
+      clearMapPick();
       toast(status === 'draft' ? 'Черновик сохранён' : 'Отправлено на модерацию');
       await reload();
       onBack();
@@ -282,7 +282,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
         {desktop && (
           <div className="mb-5">
             <p className="pv-page" style={{ color: th.inkText }}>{edit ? 'Черновик' : 'Добавить звук'}</p>
-            <p className="pv-caption mt-1" style={{ color: OLIVE }}>Файл, место на карте и карточка публикации — по шагам, без спешки.</p>
+            <p className="pv-caption mt-1" style={{ color: th.muted }}>Файл, место на карте и карточка публикации — по шагам, без спешки.</p>
           </div>
         )}
         <div className="flex flex-col gap-4 max-w-3xl">
@@ -297,7 +297,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
                 if (file) void onPickFile(file);
               }}>
               <p className="text-[13px] font-semibold" style={{ color: th.inkText }}>{fileLabel || 'Перетащите файл или нажмите'}</p>
-              <p className="text-[11px] mt-1" style={{ color: SAGE }}>WAV, MP3, M4A, OGG, WebM · для ambisonic — 4-канальный WAV (WXYZ)</p>
+              <p className="text-[11px] mt-1" style={{ color: th.soft }}>WAV, MP3, M4A, OGG, WebM · для ambisonic — 4-канальный WAV (WXYZ)</p>
               <input type="file" accept="audio/*,.webm,.ogg,.mp3,.wav,.m4a" className="hidden"
                 onChange={(e) => void onPickFile(e.target.files?.[0] || null)} />
             </label>
@@ -335,7 +335,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
                 <Field label="FXName" value={fxName} onChange={setFxName} th={th} />
                 <button type="button" className="text-[11px] mt-1.5 font-semibold" style={{ color: ACCENT }} onClick={() => void translateFx()}>Перевести FXName</button>
               </div>
-              <label className="text-[10px] font-semibold col-span-2" style={{ color: SAGE }}>Описание
+              <label className="text-[10px] font-semibold col-span-2" style={{ color: th.soft }}>Описание
                 <textarea value={desc} onChange={(e) => setDesc(e.target.value)} className="mt-1 w-full rounded-2xl px-3 py-3 text-sm outline-none min-h-[88px]" style={{ background: th.phoneBg, color: th.inkText }} />
               </label>
             </div>
@@ -343,18 +343,18 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
 
           <Section title="Место" th={th}>
             <Field label="Где записано" value={location} onChange={setLocation} th={th} />
-            <p className="text-[11px] mt-2" style={{ color: SAGE }}>
+            <p className="text-[11px] mt-2" style={{ color: th.soft }}>
               Координаты: {pickedPoint ? `${pickedPoint.lat.toFixed(5)}, ${pickedPoint.lng.toFixed(5)}` : (edit?.lat != null ? `${Number(edit.lat).toFixed(5)}, ${Number(edit.lng).toFixed(5)}` : 'точка на карте или геолокация')}
             </p>
             <div className="flex flex-wrap gap-2 mt-2">
-              <button type="button" className="h-10 px-4 rounded-full text-[12px] font-semibold" style={{ background: th.phoneBg, color: OLIVE }}
+              <button type="button" className="h-10 px-4 rounded-full text-[12px] font-semibold" style={{ background: th.phoneBg, color: th.muted }}
                 onClick={() => {
                   setPickMode('point');
                   if (desktop) toast('Кликните по карте справа — метка останется, можно поставить заново');
                   else push({ type: 'pick-location', mode: 'point' });
                 }}>Указать точку на карте</button>
               <button type="button" className="h-10 px-4 rounded-full text-[12px] font-semibold inline-flex items-center gap-1.5"
-                style={{ background: isWalk ? ACCENT : th.phoneBg, color: isWalk ? '#fff' : OLIVE }}
+                style={{ background: isWalk ? ACCENT : th.phoneBg, color: isWalk ? '#fff' : th.muted }}
                 onClick={() => {
                   setPrincipleAndMode(isWalk ? principle : 'Звуковая прогулка (Soundwalk)');
                   setPickMode('route');
@@ -374,7 +374,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
                     {routeDraft.map((pt, i) => (
                       <button key={`${pt.lat}-${pt.lng}-${i}`} type="button"
                         className="text-[10px] px-2 py-1 rounded-full"
-                        style={{ background: th.cardBg, color: OLIVE }}
+                        style={{ background: th.cardBg, color: th.muted }}
                         onClick={() => setRouteDraft((prev) => prev.filter((_, n) => n !== i))}
                         title="Убрать точку">
                         {i + 1}. {pt.lat.toFixed(3)}, {pt.lng.toFixed(3)} ×
@@ -391,13 +391,13 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
           </Section>
 
           <Section title="Тип звука" th={th}>
-            <p className="text-[10px] font-semibold mb-1.5" style={{ color: SAGE }}>Категория</p>
+            <p className="text-[10px] font-semibold mb-1.5" style={{ color: th.soft }}>Категория</p>
             <div className="flex flex-wrap gap-1.5 mb-3">
               {[['nature', 'Природа'], ['water', 'Вода'], ['urban', 'Город'], ['forest', 'Лес'], ['birds', 'Птицы']].map(([id, lab]) => (
                 <Chip key={id} on={kind === id} onClick={() => setKind(id)} label={lab} th={th} />
               ))}
             </div>
-            <p className="text-[10px] font-semibold mb-1.5" style={{ color: SAGE }}>Экокатегория</p>
+            <p className="text-[10px] font-semibold mb-1.5" style={{ color: th.soft }}>Экокатегория</p>
             <div className="flex flex-wrap gap-1.5">
               {[['geophony', 'Геофония'], ['biophony', 'Биофония'], ['anthrophony', 'Антропофония']].map(([id, lab]) => (
                 <Chip key={id} on={eco === id} onClick={() => setEco(id)} label={lab} th={th} />
@@ -407,7 +407,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
 
           <Section title="Классификация UCS" th={th}>
             <div className={desktop ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-3'}>
-              <label className="text-[10px] font-semibold" style={{ color: SAGE }}>Категория
+              <label className="text-[10px] font-semibold" style={{ color: th.soft }}>Категория
                 <select value={ucsCat} onChange={(e) => {
                   const next = e.target.value;
                   setUcsCat(next);
@@ -417,42 +417,42 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
                   {(ucsCategories as string[]).map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </label>
-              <label className="text-[10px] font-semibold" style={{ color: SAGE }}>CatID
+              <label className="text-[10px] font-semibold" style={{ color: th.soft }}>CatID
                 <select value={ucsId} onChange={(e) => setUcsId(e.target.value)} className="mt-1 w-full rounded-2xl px-3 py-2.5 text-xs outline-none" style={{ background: th.phoneBg, color: th.inkText }}>
                   {subcats.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </label>
             </div>
-            <p className="text-[10px] break-all mt-2" style={{ color: SAGE }}>{ucsFilePreview}</p>
+            <p className="text-[10px] break-all mt-2" style={{ color: th.soft }}>{ucsFilePreview}</p>
           </Section>
 
           <Section title="Техника" th={th}>
             <div className={desktop ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-3'}>
-              <label className="text-[10px] font-semibold" style={{ color: SAGE }}>Рекордер
+              <label className="text-[10px] font-semibold" style={{ color: th.soft }}>Рекордер
                 <input list="recorders" value={recorder} onChange={(e) => setRecorder(e.target.value)} className="mt-1 w-full rounded-2xl px-3 py-2.5 text-xs outline-none" style={{ background: th.phoneBg, color: th.inkText }} />
                 <datalist id="recorders">{(FIELD_RECORDERS as string[]).map((g) => <option key={g} value={g} />)}</datalist>
               </label>
-              <label className="text-[10px] font-semibold" style={{ color: SAGE }}>Микрофон
+              <label className="text-[10px] font-semibold" style={{ color: th.soft }}>Микрофон
                 <input list="mics" value={microphone} onChange={(e) => setMicrophone(e.target.value)} className="mt-1 w-full rounded-2xl px-3 py-2.5 text-xs outline-none" style={{ background: th.phoneBg, color: th.inkText }} />
                 <datalist id="mics">{(FIELD_MICROPHONES as string[]).map((g) => <option key={g} value={g} />)}</datalist>
               </label>
-              <label className="text-[10px] font-semibold" style={{ color: SAGE }}>Каналы
+              <label className="text-[10px] font-semibold" style={{ color: th.soft }}>Каналы
                 <select value={channels} onChange={(e) => setChannels(e.target.value)} className="mt-1 w-full rounded-2xl px-3 py-2.5 text-xs outline-none" style={{ background: th.phoneBg, color: th.inkText }}>
                   {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </label>
-              <label className="text-[10px] font-semibold" style={{ color: SAGE }}>Принцип записи
+              <label className="text-[10px] font-semibold" style={{ color: th.soft }}>Принцип записи
                 <select value={principle} onChange={(e) => setPrincipleAndMode(e.target.value)} className="mt-1 w-full rounded-2xl px-3 py-2.5 text-xs outline-none" style={{ background: th.phoneBg, color: th.inkText }}>
                   {PRINCIPLES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </label>
               <Field label="Погода" value={weather} onChange={setWeather} th={th} />
-              <label className="text-[10px] font-semibold" style={{ color: SAGE }}>Лицензия
+              <label className="text-[10px] font-semibold" style={{ color: th.soft }}>Лицензия
                 <select value={license} onChange={(e) => setLicense(e.target.value)} className="mt-1 w-full rounded-2xl px-3 py-2.5 text-xs outline-none" style={{ background: th.phoneBg, color: th.inkText }}>
                   {LICENSES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </label>
-              <label className="text-[10px] font-semibold col-span-2" style={{ color: SAGE }}>Экспедиция
+              <label className="text-[10px] font-semibold col-span-2" style={{ color: th.soft }}>Экспедиция
                 <select value={sessionId} onChange={(e) => setSessionId(e.target.value)} className="mt-1 w-full rounded-2xl px-3 py-2.5 text-xs outline-none" style={{ background: th.phoneBg, color: th.inkText }}>
                   <option value="">— не привязывать —</option>
                   {mySessions.map((s) => <option key={String(s.id)} value={String(s.id)}>{s.title}</option>)}
@@ -462,7 +462,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
           </Section>
 
           <Section title="Фото сцены" th={th}>
-            <p className="text-[11px] mb-2" style={{ color: SAGE }}>До трёх кадров места записи — перетащите или выберите файлы.</p>
+            <p className="text-[11px] mb-2" style={{ color: th.soft }}>До трёх кадров места записи — перетащите или выберите файлы.</p>
             <div className="grid grid-cols-3 gap-2 mb-2">
               {keptImages.map((src, i) => (
                 <div key={src} className="relative aspect-[4/3] rounded-2xl overflow-hidden" style={{ background: th.phoneBg }}>
@@ -495,8 +495,8 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
                     e.preventDefault();
                     addPhotos(Array.from(e.dataTransfer.files || []));
                   }}>
-                  <ImagePlus size={18} color={SAGE} />
-                  <span className="text-[10px] font-semibold" style={{ color: SAGE }}>Добавить</span>
+                  <ImagePlus size={18} color={th.soft} />
+                  <span className="text-[10px] font-semibold" style={{ color: th.soft }}>Добавить</span>
                   <input type="file" accept="image/*" multiple className="hidden"
                     onChange={(e) => { addPhotos(Array.from(e.target.files || [])); e.target.value = ''; }} />
                 </label>
@@ -505,7 +505,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
           </Section>
 
           <div className="flex gap-2 pb-4">
-            <button disabled={busy} onClick={() => void publish('draft')} className="pv-button flex-1 py-3 rounded-2xl" style={{ background: th.cardBg, color: OLIVE }}>
+            <button disabled={busy} onClick={() => void publish('draft')} className="pv-button flex-1 py-3 rounded-2xl" style={{ background: th.cardBg, color: th.muted }}>
               {busy ? '…' : 'Черновик'}
             </button>
             <button disabled={busy} onClick={() => void publish('pending')} className="pv-button flex-[1.5] py-3.5 rounded-2xl text-white" style={{ background: ACCENT }}>
@@ -526,26 +526,26 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
   );
 }
 
-function Section({ title, th, children }: { title: string; th: { cardBg: string }; children: ReactNode }) {
+function Section({ title, th, children }: { title: string; th: ThemeTokens; children: ReactNode }) {
   return (
     <section className="rounded-[24px] p-4" style={{ background: th.cardBg }}>
-      <p className="pv-label uppercase mb-3" style={{ color: SAGE }}>{title}</p>
+      <p className="pv-label uppercase mb-3" style={{ color: th.soft }}>{title}</p>
       {children}
     </section>
   );
 }
 
-function Field({ label, value, onChange, th }: { label: string; value: string; onChange: (v: string) => void; th: { phoneBg: string; cardBg: string; inkText: string } }) {
+function Field({ label, value, onChange, th }: { label: string; value: string; onChange: (v: string) => void; th: ThemeTokens }) {
   return (
-    <label className="pv-label" style={{ color: SAGE }}>{label}
+    <label className="pv-label" style={{ color: th.soft }}>{label}
       <input value={value} onChange={(e) => onChange(e.target.value)} className="mt-1 w-full rounded-2xl px-3 py-2.5 outline-none" style={{ background: th.phoneBg, color: th.inkText }} />
     </label>
   );
 }
 
-function Chip({ on, onClick, label, th }: { on: boolean; onClick: () => void; label: string; th: { lightBg: string } }) {
+function Chip({ on, onClick, label, th }: { on: boolean; onClick: () => void; label: string; th: ThemeTokens }) {
   return (
     <button type="button" onClick={onClick} className="pv-label px-3 py-1.5 rounded-full"
-      style={{ background: on ? ACCENT : th.lightBg, color: on ? '#fff' : OLIVE }}>{label}</button>
+      style={{ background: on ? ACCENT : th.lightBg, color: on ? '#fff' : th.muted }}>{label}</button>
   );
 }

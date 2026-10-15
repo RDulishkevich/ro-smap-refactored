@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { color, spring } from '@polevka/design';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { color, spring, tap } from '@polevka/design';
 import { RAIL_BANNER_MS, RAIL_BANNERS, type RailBanner } from '../lib/rail-banners';
 import { useNav, type DesktopView } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
@@ -10,28 +11,36 @@ export function RailBannerCarousel() {
   const { setDesktopView, reset, push } = useNav();
   const [i, setI] = useState(0);
   const [broken, setBroken] = useState<Record<string, boolean>>({});
-  const banner = RAIL_BANNERS[i % RAIL_BANNERS.length];
+  const n = RAIL_BANNERS.length;
+  const banner = RAIL_BANNERS[((i % n) + n) % n];
 
   useEffect(() => {
-    const id = window.setInterval(() => setI((n) => n + 1), RAIL_BANNER_MS);
+    const id = window.setInterval(() => setI((v) => v + 1), RAIL_BANNER_MS);
     return () => window.clearInterval(id);
-  }, []);
+  }, [i]);
 
   const open = (item: RailBanner) => {
     if (item.action === 'guessr') {
-      reset();
-      push({ type: 'guessr' });
+      void reset().then((ok) => { if (ok) push({ type: 'guessr' }); });
       return;
     }
-    reset();
-    setDesktopView(item.action as DesktopView);
+    void reset().then((ok) => { if (ok) setDesktopView(item.action as DesktopView); });
+  };
+
+  const prev = (e: MouseEvent) => {
+    e.stopPropagation();
+    setI((v) => v - 1);
+  };
+  const next = (e: MouseEvent) => {
+    e.stopPropagation();
+    setI((v) => v + 1);
   };
 
   const showImg = !!banner.image && !broken[banner.id];
 
   return (
     <div className="flex-1 min-h-[10.5rem] flex flex-col justify-end px-1 pb-3">
-      <div className="relative h-[10.25rem] rounded-2xl overflow-hidden" style={{ background: banner.tint }}>
+      <div className="relative h-[10.25rem] rounded-2xl overflow-hidden group" style={{ background: banner.tint }}>
         <AnimatePresence mode="wait">
           <motion.button
             key={banner.id}
@@ -58,6 +67,22 @@ export function RailBannerCarousel() {
             </span>
           </motion.button>
         </AnimatePresence>
+        {n > 1 && (
+          <>
+            <motion.button type="button" whileTap={tap.cta} onClick={prev}
+              className="absolute left-1.5 top-1/2 -translate-y-1/2 z-[2] w-6 h-6 rounded-full flex items-center justify-center"
+              style={{ background: 'rgba(26,26,26,0.45)' }}
+              aria-label="Предыдущий баннер">
+              <ChevronLeft size={14} color="#fff" />
+            </motion.button>
+            <motion.button type="button" whileTap={tap.cta} onClick={next}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 z-[2] w-6 h-6 rounded-full flex items-center justify-center"
+              style={{ background: 'rgba(26,26,26,0.45)' }}
+              aria-label="Следующий баннер">
+              <ChevronRight size={14} color="#fff" />
+            </motion.button>
+          </>
+        )}
       </div>
       <div className="flex justify-center gap-1 mt-1.5">
         {RAIL_BANNERS.map((b, idx) => (
@@ -67,7 +92,7 @@ export function RailBannerCarousel() {
             aria-label={`Баннер ${idx + 1}`}
             onClick={() => setI(idx)}
             className="w-1.5 h-1.5 rounded-full"
-            style={{ background: idx === i % RAIL_BANNERS.length ? color.mist : th.border }} />
+            style={{ background: idx === ((i % n) + n) % n ? color.mist : th.border }} />
         ))}
       </div>
     </div>

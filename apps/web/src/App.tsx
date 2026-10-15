@@ -62,7 +62,7 @@ function Shell() {
     <NavProvider isLoggedIn={isLoggedIn} onNeedAuth={() => toast('Войдите в аккаунт')}>
       <DeepLinks />
       <a href="#pv-main" className="pv-skip">{t('skipToContent')}</a>
-      <div data-app="polevka" className="w-screen h-dvh" style={{ background: th.isDark ? '#0E1A18' : '#F3F4F6' }}>
+      <div data-app="polevka" className="w-screen h-dvh" style={{ background: th.isDark ? '#000000' : '#F3F4F6' }}>
         <div id="pv-main" tabIndex={-1} className="contents">
           {desktop ? <DesktopShell /> : <MobileShell />}
         </div>

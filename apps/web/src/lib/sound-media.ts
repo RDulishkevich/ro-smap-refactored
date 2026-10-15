@@ -1,4 +1,5 @@
 import type { Sound } from '@polevka/core';
+import { resolveMediaUrl } from './media-url';
 
 export type RoutePt = { lat: number; lng: number };
 
@@ -41,7 +42,7 @@ export function soundCover(sound?: Sound | null): string | undefined {
   const imgs = sound?.images;
   if (!Array.isArray(imgs) || !imgs.length) return undefined;
   const first = String(imgs[0] || '');
-  return first || undefined;
+  return resolveMediaUrl(first) || first || undefined;
 }
 
 export function soundOwnerLogin(sound?: Sound | null): string {

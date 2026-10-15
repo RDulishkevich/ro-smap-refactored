@@ -9,7 +9,6 @@ import { useT } from '../state/PrefsContext';
 import { isStandaloneApp } from '../lib/standalone';
 import LogoApp from '@/brand/LogoApp';
 
-const SAGE = color.sage;
 const ACCENT = color.accent;
 
 function hideHtmlSplash() {
@@ -67,7 +66,7 @@ export function WelcomeSplash() {
         <motion.div
           key="welcome"
           className="fixed inset-0 z-[200] flex flex-col items-center justify-center px-8"
-          style={{ background: th.isDark ? '#0E1A18' : '#E8EDEA' }}
+          style={{ background: th.isDark ? '#000000' : '#E8EDEA' }}
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={spring.fade}
@@ -83,7 +82,7 @@ export function WelcomeSplash() {
           <h1 className="pv-display mb-2" style={{ color: th.inkText }}>
             Полёвка
           </h1>
-          <p className="pv-caption text-center max-w-[260px] mb-8" style={{ color: SAGE }}>
+          <p className="pv-caption text-center max-w-[260px] mb-8" style={{ color: th.soft }}>
             {needsUnlock ? t('unlockDeviceHint') : t('welcomeTag')}
           </p>
           {needsUnlock ? (
@@ -104,7 +103,7 @@ export function WelcomeSplash() {
                 disabled={busy}
                 onClick={() => void skipDeviceUnlock()}
                 className="pv-button w-full h-11 rounded-2xl"
-                style={{ color: SAGE }}
+                style={{ color: th.soft }}
               >
                 {t('unlockPassword')}
               </button>

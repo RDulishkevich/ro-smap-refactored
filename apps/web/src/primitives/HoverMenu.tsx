@@ -233,7 +233,7 @@ export function HoverMenu({
             className={`absolute top-[calc(100%+8px)] z-[640] min-w-[188px] rounded-2xl p-1.5 shadow-[0_12px_32px_rgba(45,60,57,0.16)] ${align === 'right' ? 'right-0' : 'left-0'}`}
             style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
             <PopoverCaret align={align} fill={th.cardBg} border={th.border} />
-            {title && <p className="pv-micro uppercase px-2.5 py-1.5" style={{ color: color.sage }}>{title}</p>}
+            {title && <p className="pv-micro uppercase px-2.5 py-1.5" style={{ color: th.soft }}>{title}</p>}
             {items.map((it, i) => (
               <motion.button
                 key={it.label}

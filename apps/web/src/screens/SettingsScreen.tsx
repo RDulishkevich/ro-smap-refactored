@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { motion } from 'motion/react';
 import { Info, LogOut, Volume2 } from 'lucide-react';
-import { color } from '@polevka/design';
+import { color, type ThemeTokens } from '@polevka/design';
 import { apiLogoutAll } from '@polevka/core';
 import { canUseDeviceUnlock } from '../lib/device-unlock';
 import { useAuth } from '../state/AuthContext';
@@ -15,11 +15,6 @@ import { ScreenHeader } from '../primitives/ui';
 import { LanguageSwitch } from '../primitives/LanguageSwitch';
 import { openCookieBanner } from '../primitives/CookieBanner';
 import { syncDevicePush } from '../lib/notify';
-
-const OLIVE = color.olive;
-const SAGE = color.sage;
-const DARK = color.dark;
-const MIST = color.mist;
 
 export function SettingsScreen({ onBack }: { onBack: () => void }) {
   const th = useTh();
@@ -55,7 +50,9 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
         </Section>
 
         <Section title={t('appearance')} th={th}>
-          <Row label={t('darkTheme')} th={th} right={<Switch on={dark} onChange={toggle} />} />
+          {!desktop && (
+            <Row label={t('darkTheme')} th={th} right={<Switch on={dark} onChange={toggle} />} />
+          )}
           <Row label={t('lessMotion')} th={th} right={<Switch on={prefs.reduceMotion} onChange={() => setPref('reduceMotion', !prefs.reduceMotion)} />} />
         </Section>
 
@@ -65,10 +62,10 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
           <div className="px-4 py-3.5">
             <div className="flex items-center justify-between mb-2">
               <span className="pv-label" style={{ color: th.inkText }}>{t('volume')}</span>
-              <span className="pv-micro" style={{ color: SAGE }}>{Math.round(volume * 100)}%</span>
+              <span className="pv-micro" style={{ color: th.soft }}>{Math.round(volume * 100)}%</span>
             </div>
             <div className="flex items-center gap-2">
-              <Volume2 size={14} color={OLIVE} />
+              <Volume2 size={14} color={th.muted} />
               <input type="range" min={0} max={1} step={0.01} value={volume} aria-label={t('volume')}
                 className="flex-1 accent-[#92B3B1]"
                 onChange={(e) => setVolume(Number(e.target.value))} />
@@ -92,11 +89,11 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
                 setPref('notifyDevice', true);
               })();
             }} />} />
-          <p className="pv-micro px-4 pb-3 -mt-1" style={{ color: SAGE }}>{t('notifyDeviceHint')}</p>
+          <p className="pv-micro px-4 pb-3 -mt-1" style={{ color: th.soft }}>{t('notifyDeviceHint')}</p>
         </Section>
 
         <Section title={t('privacy')} th={th}>
-          <Row label={t('cookies')} th={th} right={<Info size={16} color={OLIVE} />} onClick={() => openCookieBanner()} />
+          <Row label={t('cookies')} th={th} right={<Info size={16} color={th.muted} />} onClick={() => openCookieBanner()} />
           <Row label={t('privacyPolicy')} th={th} onClick={() => push({ type: 'legal', doc: 'privacy' })} />
           <Row label={t('terms')} th={th} onClick={() => push({ type: 'legal', doc: 'terms' })} />
           <Row label={t('publishRules')} th={th} onClick={() => push({ type: 'legal', doc: 'publish' })} />
@@ -136,21 +133,21 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
 
         {isLoggedIn && (
           <>
-            <motion.button whileTap={{ scale: 0.96 }} className="pv-button w-full py-3 rounded-2xl flex items-center justify-center gap-2 text-white" style={{ background: DARK }}
+            <motion.button whileTap={{ scale: 0.96 }} className="pv-button w-full py-3 rounded-2xl flex items-center justify-center gap-2 text-white" style={{ background: th.solid }}
               onClick={async () => { await logout(); reset(); toast(t('loggedOut')); }}>
               <LogOut size={15} />{t('logout')}
             </motion.button>
-            <button type="button" className="pv-button w-full py-3 rounded-2xl cursor-pointer" style={{ background: th.cardBg, color: OLIVE }}
+            <button type="button" className="pv-button w-full py-3 rounded-2xl cursor-pointer" style={{ background: th.lightBg, color: th.inkText }}
               onClick={() => void logoutEverywhere()}>
               {t('logoutAll')}
             </button>
           </>
         )}
 
-        <p className="pv-micro text-center pb-4" style={{ color: SAGE }}>
+        <p className="pv-micro text-center pb-4" style={{ color: th.soft }}>
           Полёвка · polevka.art
           {' · '}
-          <a href="https://yandex.ru/legal/maps_termsofuse" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: OLIVE }}>
+          <a href="https://yandex.ru/legal/maps_termsofuse" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: th.muted }}>
             {t('yandexMapsTerms')}
           </a>
         </p>
@@ -159,22 +156,22 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
-function Section({ title, children, th }: { title: string; children: ReactNode; th: { inkText: string; cardBg: string } }) {
+function Section({ title, children, th }: { title: string; children: ReactNode; th: ThemeTokens }) {
   return (
     <section>
-      <p className="pv-label uppercase px-1 mb-1.5" style={{ color: SAGE }}>{title}</p>
+      <p className="pv-label uppercase px-1 mb-1.5" style={{ color: th.soft }}>{title}</p>
       <div className="rounded-3xl overflow-hidden" style={{ background: th.cardBg }}>{children}</div>
     </section>
   );
 }
 
-function Row({ label, right, th, onClick }: { label: string; right?: ReactNode; th: { cardBg: string; inkText: string }; onClick?: () => void }) {
+function Row({ label, right, th, onClick }: { label: string; right?: ReactNode; th: ThemeTokens; onClick?: () => void }) {
   const cls = 'w-full flex items-center justify-between px-4 py-3.5 text-left';
   if (onClick) {
     return (
       <button type="button" onClick={onClick} className={`${cls} cursor-pointer`} style={{ background: th.cardBg }}>
         <span className="pv-subtitle" style={{ color: th.inkText }}>{label}</span>
-        {right || <span style={{ color: SAGE }}>›</span>}
+        {right || <span style={{ color: th.soft }}>›</span>}
       </button>
     );
   }
@@ -187,12 +184,25 @@ function Row({ label, right, th, onClick }: { label: string; right?: ReactNode; 
 }
 
 function Switch({ on, onChange }: { on: boolean; onChange: () => void }) {
+  const th = useTh();
   return (
-    <button type="button" role="switch" aria-checked={on} onClick={(e) => { e.stopPropagation(); onChange(); }}
-      className="w-11 h-7 rounded-full relative flex-shrink-0 min-h-11"
-      style={{ background: on ? MIST : 'rgba(45,60,57,0.18)' }}>
-      <span className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow"
-        style={{ transform: on ? 'translateX(16px)' : 'translateX(0)' }} />
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={(e) => { e.stopPropagation(); onChange(); }}
+      className="relative flex-shrink-0 inline-flex items-center justify-center min-h-11 min-w-[2.75rem] p-0 bg-transparent"
+    >
+      <span
+        className="pointer-events-none block w-11 h-7 rounded-full relative"
+        style={{ background: on ? color.accent : th.switchOff }}
+        aria-hidden
+      >
+        <span
+          className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow"
+          style={{ transform: on ? 'translateX(16px)' : 'translateX(0)', transition: 'transform 180ms ease' }}
+        />
+      </span>
     </button>
   );
 }

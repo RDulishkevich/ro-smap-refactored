@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { MapPin, Mic, Plus } from 'lucide-react';
-import { color, spring, tap } from '@polevka/design';
+import { color, spring, tap, type ThemeTokens } from '@polevka/design';
 import { useNav } from '../state/NavContext';
 import { useUi } from '../state/UiContext';
 import { useTh } from '../state/ThemeContext';
@@ -13,11 +13,11 @@ export function MapFab({ open, onToggle, from = 'corner' }: { open: boolean; onT
   const { requireAuth } = useNav();
   const actions = from === 'center'
     ? [
-        { Icon: MapPin, bg: color.dark, screen: { type: 'add-sound' as const }, x: -78, y: -78, label: 'Добавить звук' },
+        { Icon: MapPin, bg: '#3A3A3A', screen: { type: 'add-sound' as const }, x: -78, y: -78, label: 'Добавить звук' },
         { Icon: Mic, bg: color.accent, screen: { type: 'record' as const }, x: 78, y: -78, label: 'Записать' },
       ]
     : [
-        { Icon: MapPin, bg: color.dark, screen: { type: 'add-sound' as const }, x: -72, y: -72, label: 'Добавить звук' },
+        { Icon: MapPin, bg: '#3A3A3A', screen: { type: 'add-sound' as const }, x: -72, y: -72, label: 'Добавить звук' },
         { Icon: Mic, bg: color.accent, screen: { type: 'record' as const }, x: -132, y: -132, label: 'Записать' },
       ];
   return (
@@ -58,7 +58,7 @@ export function Overlays() {
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} transition={spring.fade}
             role="status"
             className="pv-caption fixed left-1/2 z-[300] -translate-x-1/2 bottom-28 md:bottom-6 px-4 py-2 rounded-2xl font-semibold text-white shadow-lg flex items-center gap-3"
-            style={{ background: color.dark }}>
+            style={{ background: th.isDark ? th.solid : color.dark }}>
             <span>{toastState.msg}</span>
             {toastState.undo && (
               <button type="button" className="underline min-h-11 px-1" onClick={() => { const undo = toastState.undo; dismissToast(); undo?.(); }}>
@@ -81,9 +81,9 @@ export function Overlays() {
               onClick={(e) => e.stopPropagation()}>
               {!desktop && <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: th.border }} />}
               <p className="pv-heading mb-2" style={{ color: th.inkText }}>{confirmState.title}</p>
-              {confirmState.body && <p className="pv-body mb-4" style={{ color: color.olive }}>{confirmState.body}</p>}
+              {confirmState.body && <p className="pv-body mb-4" style={{ color: th.muted }}>{confirmState.body}</p>}
               <div className="flex gap-2">
-                <button className="pv-button flex-1 min-h-11 py-2.5 rounded-2xl" style={{ background: th.lightBg, color: color.olive }} onClick={() => resolveConfirm(false)}>Отмена</button>
+                <button className="pv-button flex-1 min-h-11 py-2.5 rounded-2xl" style={{ background: th.lightBg, color: th.muted }} onClick={() => resolveConfirm(false)}>Отмена</button>
                 <button className="pv-button flex-1 min-h-11 py-2.5 rounded-2xl text-white" style={{ background: color.accent }} onClick={() => resolveConfirm(true)}>{confirmState.ok || 'ОК'}</button>
               </div>
             </motion.div>
@@ -111,7 +111,7 @@ function MenuPanel({
   closeMenu,
 }: {
   menu: { items: Array<{ label: string; danger?: boolean; onClick: () => void }>; title?: string; at?: { x: number; y: number; caret?: 'left' | 'right' | 'center' } };
-  th: { cardBg: string; border: string; inkText: string; lightBg: string };
+  th: ThemeTokens;
   closeMenu: () => void;
 }) {
   const [hot, setHot] = useState<string | null>(null);
@@ -132,7 +132,7 @@ function MenuPanel({
       }}
       onClick={(e) => e.stopPropagation()}>
       <PopoverCaret align={menu.at?.caret || 'left'} offset={16} fill={th.cardBg} border={th.border} />
-      {menu.title && <p className="pv-micro uppercase px-2.5 py-1.5" style={{ color: color.sage }}>{menu.title}</p>}
+      {menu.title && <p className="pv-micro uppercase px-2.5 py-1.5" style={{ color: th.soft }}>{menu.title}</p>}
       {menu.items.map((it) => (
         <motion.button
           key={it.label}
@@ -162,7 +162,7 @@ function MenuSheet({
   closeMenu,
 }: {
   menu: { items: Array<{ label: string; danger?: boolean; onClick: () => void }>; title?: string };
-  th: { cardBg: string; border: string; inkText: string; lightBg: string };
+  th: ThemeTokens;
   closeMenu: () => void;
 }) {
   const [hot, setHot] = useState<string | null>(null);
@@ -181,7 +181,7 @@ function MenuSheet({
       style={{ background: th.cardBg, border: `1px solid ${th.border}` }}
       onClick={(e) => e.stopPropagation()}>
       <div className="w-10 h-1 rounded-full mx-auto mb-3" style={{ background: th.border }} />
-      {menu.title && <p className="pv-micro uppercase px-3 py-1.5" style={{ color: color.sage }}>{menu.title}</p>}
+      {menu.title && <p className="pv-micro uppercase px-3 py-1.5" style={{ color: th.soft }}>{menu.title}</p>}
       {menu.items.map((it) => (
         <motion.button
           key={it.label}

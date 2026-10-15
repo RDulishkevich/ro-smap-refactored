@@ -39,7 +39,7 @@ export function OpenInAppBanner() {
             try { sessionStorage.setItem(HIDE, '1'); } catch { /* */ }
             setShow(false);
           }}>
-          <X size={14} color={color.olive} />
+          <X size={14} color={th.muted} />
         </button>
       </div>
     </div>

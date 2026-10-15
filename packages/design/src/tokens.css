@@ -36,14 +36,17 @@
 }
 
 .dark {
-  --pv-phone-bg: #1A2926;
-  --pv-card: #243530;
-  --pv-cream: #243530;
-  --pv-ink: #D9E2C3;
-  --pv-header: #1E2E2A;
-  --pv-nav: #1E2E2A;
-  --pv-light: #2A3D38;
-  --pv-border: rgba(157, 177, 112, 0.1);
+  --pv-phone-bg: #0B0B0B;
+  --pv-card: #171717;
+  --pv-cream: #1C1C1C;
+  --pv-ink: #F0F0F0;
+  --pv-header: #111111;
+  --pv-nav: #111111;
+  --pv-light: #2E2E2E;
+  --pv-solid: #3A3A3A;
+  --pv-olive: #A0A0A0;
+  --pv-sage: #B0B0B0;
+  --pv-border: rgba(255, 255, 255, 0.12);
 }
 
 html, body, #root {

@@ -17,7 +17,7 @@ export function ErrorScreen({ kind, onRetry }: { kind: ErrorKind; onRetry: () =>
   return (
     <div
       className="w-screen h-dvh flex flex-col justify-center px-8"
-      style={{ background: th.isDark ? '#0E1A18' : '#E8EDEA' }}
+      style={{ background: th.isDark ? '#000000' : '#E8EDEA' }}
     >
       <motion.div
         initial={{ opacity: 0, y: 12 }}
@@ -31,7 +31,7 @@ export function ErrorScreen({ kind, onRetry }: { kind: ErrorKind; onRetry: () =>
         <h1 className="pv-title mb-2" style={{ color: th.inkText }}>
           {title}
         </h1>
-        <p className="pv-body mb-6 max-w-[22rem]" style={{ color: color.olive }}>
+        <p className="pv-body mb-6 max-w-[22rem]" style={{ color: th.muted }}>
           {body}
         </p>
         <motion.button
@@ -48,7 +48,7 @@ export function ErrorScreen({ kind, onRetry }: { kind: ErrorKind; onRetry: () =>
           <a
             href="/"
             className="pv-caption mt-4 inline-block"
-            style={{ color: color.olive }}
+            style={{ color: th.muted }}
           >
             {t('errHome')}
           </a>
@@ -68,8 +68,8 @@ export function DegradedBanner({ onRetry }: { onRetry: () => void }) {
       className="pv-caption fixed left-1/2 z-[80] -translate-x-1/2 px-4 py-2 rounded-full max-w-[min(92vw,420px)]"
       style={{
         top: 'max(16px, env(safe-area-inset-top))',
-        background: th.isDark ? '#2A3D38' : color.cream,
-        color: color.olive,
+        background: th.isDark ? th.lightBg : color.cream,
+        color: th.muted,
         boxShadow: '0 8px 24px rgba(45,60,57,0.12)',
       }}
     >

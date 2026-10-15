@@ -1,12 +1,10 @@
 import { EMPTY_FILTER, ucsCategories, ucsStructure, type CatalogFilter } from '@polevka/core';
-import { color } from '@polevka/design';
+import { color, type ThemeTokens } from '@polevka/design';
 import { useState } from 'react';
 import { useData } from '../state/DataContext';
 import { useTh } from '../state/ThemeContext';
 import { useIsDesktop } from '../lib/use-media';
 
-const SAGE = color.sage;
-const OLIVE = color.olive;
 const ACCENT = color.accent;
 
 const ECO = [
@@ -64,21 +62,21 @@ export function CatalogFilters() {
       )}
       <div className="flex items-center gap-2">
         {!desktop && (
-          <button type="button" className="text-[10px] font-semibold" style={{ color: extra ? OLIVE : ACCENT }} onClick={() => setMore((v) => !v)}>
+          <button type="button" className="text-[10px] font-semibold" style={{ color: extra ? th.muted : ACCENT }} onClick={() => setMore((v) => !v)}>
             {extra ? 'Свернуть фильтры' : 'Ещё фильтры'}
           </button>
         )}
         {(filter.eco || filter.ucs || filter.ucsSub || filter.tag || filter.gear || filter.channels || filter.q || filter.type) && (
-          <button className="text-[10px]" style={{ color: SAGE }} onClick={() => setFilter(EMPTY_FILTER)}>Сбросить</button>
+          <button className="text-[10px]" style={{ color: th.soft }} onClick={() => setFilter(EMPTY_FILTER)}>Сбросить</button>
         )}
       </div>
     </div>
   );
 }
 
-function Chip({ on, onClick, label, th }: { on: boolean; onClick: () => void; label: string; th: { lightBg: string } }) {
+function Chip({ on, onClick, label, th }: { on: boolean; onClick: () => void; label: string; th: ThemeTokens }) {
   return (
     <button type="button" onClick={onClick} className="px-3 py-1.5 rounded-full text-[10px] font-semibold flex-shrink-0"
-      style={{ background: on ? ACCENT : th.lightBg, color: on ? '#fff' : OLIVE }}>{label}</button>
+      style={{ background: on ? ACCENT : th.lightBg, color: on ? '#fff' : th.muted }}>{label}</button>
   );
 }

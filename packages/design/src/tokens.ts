@@ -19,14 +19,20 @@ export const color = {
 } as const;
 
 export const darkColor = {
-  phoneBg: '#1A2926',
-  cardBg: '#243530',
-  cream: '#243530',
-  inkText: color.light,
-  headerBg: '#1E2E2A',
-  navBg: '#1E2E2A',
-  lightBg: '#2A3D38',
-  border: 'rgba(157,177,112,0.1)',
+  phoneBg: '#0B0B0B',
+  cardBg: '#171717',
+  cream: '#1C1C1C',
+  inkText: '#F0F0F0',
+  headerBg: '#111111',
+  navBg: '#111111',
+  lightBg: '#2E2E2E',
+  muted: '#A0A0A0',
+  soft: '#B0B0B0',
+  /** Secondary solid CTA (logout, 2FA) — replaces forest `color.dark` in chrome. */
+  solid: '#3A3A3A',
+  mapBg: '#121212',
+  switchOff: 'rgba(255,255,255,0.2)',
+  border: 'rgba(255,255,255,0.12)',
 } as const;
 
 export const lightTheme = {
@@ -37,6 +43,11 @@ export const lightTheme = {
   headerBg: '#ffffff',
   navBg: '#ffffff',
   lightBg: color.light,
+  muted: color.olive,
+  soft: color.sage,
+  solid: color.dark,
+  mapBg: color.mapFill,
+  switchOff: 'rgba(45,60,57,0.18)',
   border: 'rgba(45,60,57,0.07)',
   isDark: false as const,
 };
@@ -49,6 +60,11 @@ export const darkTheme = {
   headerBg: darkColor.headerBg,
   navBg: darkColor.navBg,
   lightBg: darkColor.lightBg,
+  muted: darkColor.muted,
+  soft: darkColor.soft,
+  solid: darkColor.solid,
+  mapBg: darkColor.mapBg,
+  switchOff: darkColor.switchOff,
   border: darkColor.border,
   isDark: true as const,
 };
@@ -61,6 +77,11 @@ export type ThemeTokens = {
   headerBg: string;
   navBg: string;
   lightBg: string;
+  muted: string;
+  soft: string;
+  solid: string;
+  mapBg: string;
+  switchOff: string;
   border: string;
   isDark: boolean;
 };

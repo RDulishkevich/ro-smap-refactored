@@ -2,6 +2,7 @@ import { forwardRef, useRef, useState, type ReactNode, type TouchEvent, type UIE
 import { useData } from '../state/DataContext';
 import { useT } from '../state/PrefsContext';
 import { color } from '@polevka/design';
+import { useTh } from '../state/ThemeContext';
 
 export const PullToRefresh = forwardRef<HTMLDivElement, {
   children: ReactNode;
@@ -9,6 +10,7 @@ export const PullToRefresh = forwardRef<HTMLDivElement, {
   onScroll?: (e: UIEvent<HTMLDivElement>) => void;
 }>(function PullToRefresh({ children, className = '', onScroll }, ref) {
   const { reload, catalogStatus } = useData();
+  const th = useTh();
   const t = useT();
   const startY = useRef(0);
   const [pull, setPull] = useState(0);
@@ -44,7 +46,7 @@ export const PullToRefresh = forwardRef<HTMLDivElement, {
       <div
         aria-hidden
         className="overflow-hidden flex items-center justify-center pv-caption"
-        style={{ height: pull, color: color.sage, opacity: pull > 8 ? 1 : 0 }}>
+        style={{ height: pull, color: th.soft, opacity: pull > 8 ? 1 : 0 }}>
         {busy || pull > 48 ? t('pullToRefresh') : ''}
       </div>
       {degraded && (

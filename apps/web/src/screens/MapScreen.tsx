@@ -28,6 +28,8 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
   const { prefs } = usePrefs();
   const { isLoggedIn, isStaff } = useAuth();
   const th = useTh();
+  const mapChromeBg = th.isDark ? '#F2F2F2' : th.cardBg;
+  const mapChromeInk = th.isDark ? '#1A1A1A' : th.muted;
   const {
     filteredSounds, allSounds, playingId, playing, progress, togglePlay, seek, volume, muted, setVolume, toggleMute,
     pickMode, setPickMode, pickedPoint, setPickedPoint, routeDraft, setRouteDraft, routePreview, reload,
@@ -145,19 +147,19 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
         {!desktop && (
         <div className="absolute top-3 right-3 flex gap-2 z-[400]" onClick={(e) => e.stopPropagation()}>
           <motion.button whileTap={tap.cta} onClick={(e) => { e.stopPropagation(); push({ type: 'search' }); }}
-            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }} aria-label="Поиск">
-            <Search size={16} style={{ color: color.olive }} />
+            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: mapChromeBg }} aria-label="Поиск">
+            <Search size={16} style={{ color: mapChromeInk }} />
           </motion.button>
           <motion.button whileTap={tap.cta} onClick={(e) => { e.stopPropagation(); setShowFilters((v) => !v); }}
-            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }} aria-label="Фильтры" aria-pressed={showFilters}>
-            <SlidersHorizontal size={16} style={{ color: showFilters ? color.accent : color.olive }} />
+            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: mapChromeBg }} aria-label="Фильтры" aria-pressed={showFilters}>
+            <SlidersHorizontal size={16} style={{ color: showFilters ? color.accent : mapChromeInk }} />
           </motion.button>
           <HoverMenu title="Карта" items={[
             { label: 'Открыть запись', onClick: () => active && push({ type: 'sound-detail', sound: active }) },
             { label: 'Указать точку публикации', onClick: () => { setPickMode('point'); toast('Коснитесь карты'); } },
           ]}>
-            <span className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }}>
-              <MoreHorizontal size={16} style={{ color: color.olive }} />
+            <span className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: mapChromeBg }}>
+              <MoreHorizontal size={16} style={{ color: mapChromeInk }} />
             </span>
           </HoverMenu>
         </div>
@@ -166,12 +168,12 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
           className={`absolute z-[400] flex flex-col gap-1.5 ${desktop ? 'bottom-5 left-5' : 'bottom-3 left-3'}`}
           onClick={(e) => e.stopPropagation()}>
           <motion.button whileTap={tap.cta} onClick={() => mapRef.current?.zoomBy(1)}
-            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }} aria-label="Приблизить">
-            <Plus size={16} style={{ color: color.olive }} />
+            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: mapChromeBg }} aria-label="Приблизить">
+            <Plus size={16} style={{ color: mapChromeInk }} />
           </motion.button>
           <motion.button whileTap={tap.cta} onClick={() => mapRef.current?.zoomBy(-1)}
-            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }} aria-label="Отдалить">
-            <Minus size={16} style={{ color: color.olive }} />
+            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: mapChromeBg }} aria-label="Отдалить">
+            <Minus size={16} style={{ color: mapChromeInk }} />
           </motion.button>
           <motion.button whileTap={tap.cta} onClick={() => {
             if (!navigator.geolocation) { toast('Геолокация недоступна'); return; }
@@ -181,8 +183,8 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
               { enableHighAccuracy: true, timeout: 7000 },
             );
           }}
-            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }} aria-label="Моё место">
-            <LocateFixed size={16} style={{ color: color.olive }} />
+            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: mapChromeBg }} aria-label="Моё место">
+            <LocateFixed size={16} style={{ color: mapChromeInk }} />
           </motion.button>
         </div>
         {!desktop && (
@@ -271,16 +273,16 @@ function MarkerHover({ sound, x, y }: { sound: Sound; x: number; y: number }) {
         <div className="flex items-center gap-1.5 mb-1">
           <SoundTypeTag type={String(sound.type)} />
           {sound.ecoCategory && (
-            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: th.lightBg, color: color.olive }}>
+            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: th.lightBg, color: th.muted }}>
               {ECO[sound.ecoCategory] || type?.label || 'Звук'}
             </span>
           )}
         </div>
         <p className="text-xs font-bold leading-snug" style={{ color: th.inkText }}>{sound.title || 'Без названия'}</p>
-        <p className="text-[10px] mt-0.5 truncate" style={{ color: color.olive }}>
+        <p className="text-[10px] mt-0.5 truncate" style={{ color: th.muted }}>
           {[sound.duration, sound.recordist || sound.user, sound.location].filter(Boolean).join(' · ')}
         </p>
-        {short && <p className="text-[10px] mt-1.5 leading-snug" style={{ color: color.sage }}>{short}</p>}
+        {short && <p className="text-[10px] mt-1.5 leading-snug" style={{ color: th.soft }}>{short}</p>}
       </div>
     </div>
   );

@@ -1358,13 +1358,16 @@ function issueToken(user) {
     return pair.access;
 }
 
-function publicUser(user) {
+function publicUser(user, extras = {}) {
+    const avatar = sanitizeMediaUrl(extras.avatar, { allowEmpty: true }) || '';
     return {
         login: user.login,
         loginName: user.login,
         username: user.displayName || user.login,
         displayName: user.displayName || user.login,
-        role: normalizeStaffRole(user.role, user.login)
+        role: normalizeStaffRole(user.role, user.login),
+        ...(avatar ? { avatar } : {}),
+        ...(extras.bio != null && String(extras.bio) ? { bio: String(extras.bio).slice(0, MAX_BIO) } : {})
     };
 }
 
@@ -2183,7 +2186,7 @@ async function handleLogin(event, body) {
         rememberMe: body.rememberMe !== false,
         mustEnableTotp,
         user: {
-            ...publicUser(user),
+            ...publicUser(user, { avatar: profile?.avatar, bio: profile?.bio }),
             ...extractProfilePii(mergedPii),
             totpEnabled: !!row.totpEnabled,
             mustEnableTotp
@@ -3122,7 +3125,7 @@ async function handleMe(event, body) {
     return authSuccessResponse(user, {
         mustEnableTotp,
         user: {
-            ...publicUser(user),
+            ...publicUser(user, { avatar: profile?.avatar, bio: profile?.bio }),
             ...extractProfilePii(pii),
             totpEnabled: !!user.totpEnabled,
             mustEnableTotp
@@ -3625,7 +3628,7 @@ exports.handler = async function handler(event = {}) {
 
     // health / publicConfig — без секретов и без тяжёлых лимитов
     if (action === 'health') {
-        return respond(200, { ok: true, version: 24, ydb: ydbDoc.enabled(), vapid: webPush.configured() });
+        return respond(200, { ok: true, version: 25, ydb: ydbDoc.enabled(), vapid: webPush.configured() });
     }
     if (action === 'publicConfig') {
         return respond(200, {

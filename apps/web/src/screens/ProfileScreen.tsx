@@ -8,16 +8,14 @@ import { useAuth } from '../state/AuthContext';
 import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
-import { NavBar, PlayPauseIcon, SoundTypeTag } from '../primitives/ui';
+import { NavBar, PlayPauseIcon } from '../primitives/ui';
 import { EmptyNote } from '../primitives/EmptyNote';
+import { SoundTagLines } from '../primitives/SoundTagLines';
+import { Avatar } from '../primitives/Avatar';
 import BrandMark from '@/brand/BrandMark';
 import LogoApp from '@/brand/LogoApp';
 
-const SAGE = color.sage;
-const OLIVE = color.olive;
 const ACCENT = color.accent;
-const DARK = color.dark;
-const LIGHT = color.light;
 
 export function GuestProfileScreen({ showNav = true }: { showNav?: boolean }) {
   const { push } = useNav();
@@ -28,7 +26,7 @@ export function GuestProfileScreen({ showNav = true }: { showNav?: boolean }) {
       <div className="relative flex-1 flex flex-col items-center justify-center px-6 text-center pv-safe-top">
         <div className="w-20 h-20 rounded-3xl overflow-hidden shadow-xl mx-auto mb-4"><LogoApp /></div>
         <h1 className="pv-title mb-2" style={{ color: th.inkText }}>Полёвка</h1>
-        <p className="pv-body mb-6 max-w-[20rem]" style={{ color: SAGE }}>
+        <p className="pv-body mb-6 max-w-[20rem]" style={{ color: th.soft }}>
           {t('signInToSave')}
         </p>
         <div className="w-full flex flex-col gap-3">
@@ -37,11 +35,11 @@ export function GuestProfileScreen({ showNav = true }: { showNav?: boolean }) {
             <LogIn size={15} />{t('signInAccount')}
           </motion.button>
           <motion.button whileTap={{ scale: 0.96 }} onClick={() => push({ type: 'auth', mode: 'up' })}
-            className="pv-button w-full py-3 rounded-2xl cursor-pointer" style={{ background: th.lightBg, color: OLIVE }}>
+            className="pv-button w-full py-3 rounded-2xl cursor-pointer" style={{ background: th.lightBg, color: th.inkText }}>
             {t('register')}
           </motion.button>
         </div>
-        <p className="pv-micro mt-6 px-4" style={{ color: th.isDark ? '#6A8A78' : '#B0B8A8' }}>
+        <p className="pv-micro mt-6 px-4" style={{ color: th.muted }}>
           <button className="underline" onClick={() => push({ type: 'legal', doc: 'terms' })}>{t('terms')}</button>
           {' · '}
           <button className="underline" onClick={() => push({ type: 'legal', doc: 'privacy' })}>{t('privacyPolicy')}</button>
@@ -74,18 +72,14 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
           <div className="relative flex items-center mb-5">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 relative flex-shrink-0"><BrandMark /></div>
-              <p className="pv-label uppercase" style={{ color: SAGE }}>{t('profile')}</p>
+              <p className="pv-label uppercase" style={{ color: th.soft }}>{t('profile')}</p>
             </div>
           </div>
           <div className="relative flex items-center gap-4 mb-5">
-            <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-md flex-shrink-0">
-              {/^(https?:|data:)/i.test(avatarUrl)
-                ? <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                : <LogoApp />}
-            </div>
+            <Avatar src={avatarUrl} name={user?.displayName || user?.username} size={64} className="shadow-md" />
             <div>
               <p className="pv-page" style={{ color: th.inkText }}>{user?.displayName || user?.username}</p>
-              <p className="pv-caption mb-2" style={{ color: SAGE }}>@{user?.loginName}</p>
+              <p className="pv-caption mb-2" style={{ color: th.soft }}>@{user?.loginName}</p>
               <div className="pv-micro inline-flex items-center gap-1 px-2.5 py-1 rounded-full" style={{ background: th.cream, color: ACCENT }}>
                 <Mic size={9} />{t('fieldResearcher')}
               </div>
@@ -99,27 +93,27 @@ export function ProfileScreen({ showNav = true }: { showNav?: boolean }) {
                   else if (l === t('expeditions')) push({ type: 'expeditions' });
                 }}>
                   <p className="pv-heading tabular-nums" style={{ color: th.inkText }}>{v}</p>
-                  <p className="pv-micro" style={{ color: SAGE }}>{l}</p>
+                  <p className="pv-micro" style={{ color: th.soft }}>{l}</p>
                 </button>
               ))}
             </div>
           </div>
           <div className="flex gap-2 mb-2 relative">
             <motion.button whileTap={{ scale: 0.94 }} onClick={() => push({ type: 'edit-profile' })}
-              className="pv-button flex-1 py-2.5 rounded-2xl shadow-sm cursor-pointer" style={{ background: th.cardBg, color: th.isDark ? LIGHT : DARK }}>{t('edit')}</motion.button>
+              className="pv-button flex-1 py-2.5 rounded-2xl shadow-sm cursor-pointer" style={{ background: th.lightBg, color: th.inkText }}>{t('edit')}</motion.button>
             <motion.button whileTap={{ scale: 0.94 }} onClick={() => push({ type: 'cabinet' })}
-              className="pv-button flex-1 py-2.5 rounded-2xl shadow-sm cursor-pointer" style={{ background: th.cardBg, color: th.isDark ? LIGHT : DARK }}>{t('cabinet')}</motion.button>
+              className="pv-button flex-1 py-2.5 rounded-2xl shadow-sm cursor-pointer" style={{ background: th.lightBg, color: th.inkText }}>{t('cabinet')}</motion.button>
           </div>
         </div>
         <div className={`px-4 ${showNav ? 'pb-48' : 'pb-6'}`}>
-          <p className="pv-label uppercase mb-3" style={{ color: SAGE }}>{t('mySounds')}</p>
+          <p className="pv-label uppercase mb-3" style={{ color: th.soft }}>{t('mySounds')}</p>
           <div className="flex flex-col gap-3">
             {drafts.map((item) => (
               <button key={`d${String(item.id)}`} onClick={() => {
                 if (item.status === 'draft' || item.status === 'rejected') push({ type: 'add-sound', edit: item });
                 else push({ type: 'sound-detail', sound: item });
               }} className="rounded-2xl p-3 text-left" style={{ background: th.lightBg }}>
-                <p className="pv-micro uppercase" style={{ color: SAGE }}>{item.status}</p>
+                <p className="pv-micro uppercase" style={{ color: th.soft }}>{item.status}</p>
                 <p className="pv-subtitle" style={{ color: th.inkText }}>{item.title}</p>
                 {item.rejectNote ? <p className="pv-caption" style={{ color: ACCENT }}>{String(item.rejectNote)}</p> : null}
               </button>
@@ -151,13 +145,15 @@ function ProfileSoundCard({ item, playing, onPlay, onOpen }: {
       </motion.button>
       <button type="button" className="flex-1 min-w-0 text-left" onClick={onOpen}>
         <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{item.title}</p>
-        <p className="pv-caption truncate mt-0.5" style={{ color: OLIVE }}>
+        <p className="pv-caption truncate mt-0.5" style={{ color: th.muted }}>
           {item.location || '—'}
           {meta.durationSec > 0 ? ` · ${meta.durationLabel}` : ''}
         </p>
+        <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+          <SoundTagLines sound={item} />
+        </div>
       </button>
-      <SoundTypeTag type={String(item.type)} />
-      <span className="inline-flex items-center gap-0.5 flex-shrink-0" style={{ color: SAGE }}>
+      <span className="inline-flex items-center gap-0.5 flex-shrink-0" style={{ color: th.soft }}>
         <Headphones size={11} /><span className="pv-micro">{formatPlays(item.plays)}</span>
       </span>
     </div>

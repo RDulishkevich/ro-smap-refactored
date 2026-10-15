@@ -17,8 +17,6 @@ import { useScrollMemory } from '../lib/use-scroll-memory';
 import { useT } from '../state/PrefsContext';
 import { kindI18nKey } from '../lib/i18n';
 
-const SAGE = color.sage;
-const OLIVE = color.olive;
 const ACCENT = color.accent;
 
 export function MenuHub() {
@@ -67,7 +65,7 @@ export function MenuHub() {
           <LanguageSwitch compact />
         </div>
         <label className="flex items-center gap-2 h-12 rounded-2xl px-3.5" style={{ background: th.cardBg }}>
-          <Search size={16} color={SAGE} className="flex-shrink-0" />
+          <Search size={16} color={th.soft} className="flex-shrink-0" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -84,9 +82,9 @@ export function MenuHub() {
             {hits.map((hit) => (
               <button key={hit.id} type="button" onClick={() => openHit(hit)}
                 className="w-full text-left rounded-3xl px-4 py-3.5 min-h-11" style={{ background: th.cardBg }}>
-                <p className="pv-micro uppercase" style={{ color: SAGE }}>{t(kindI18nKey(hit.kind))}</p>
+                <p className="pv-micro uppercase" style={{ color: th.soft }}>{t(kindI18nKey(hit.kind))}</p>
                 <p className="pv-subtitle mt-0.5" style={{ color: th.inkText }}>{hit.title}</p>
-                {hit.hint && <p className="pv-caption mt-0.5 truncate" style={{ color: OLIVE }}>{hit.hint}</p>}
+                {hit.hint && <p className="pv-caption mt-0.5 truncate" style={{ color: th.muted }}>{hit.hint}</p>}
               </button>
             ))}
           </div>

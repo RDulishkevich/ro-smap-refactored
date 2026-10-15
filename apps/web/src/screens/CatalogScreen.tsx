@@ -7,7 +7,7 @@ import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useUi } from '../state/UiContext';
 import { usePrefs, useT } from '../state/PrefsContext';
-import { ListSkeleton, ScreenHeader, WaveformSVG } from '../primitives/ui';
+import { ListSkeleton, PlayPauseIcon, ScreenHeader, WaveformSVG } from '../primitives/ui';
 import { EmptyNote } from '../primitives/EmptyNote';
 import { PullToRefresh } from '../primitives/PullToRefresh';
 import { CatalogFilters } from '../primitives/filters';
@@ -16,12 +16,11 @@ import { downloadSound } from '../lib/download-sound';
 import { seedPeaks } from '../lib/audio-meta';
 import { peaksFromWavPreview } from '../lib/waveform';
 import { recordingsLabel, typeI18nKey } from '../lib/i18n';
-import { soundAuthor, soundCover } from '../lib/sound-media';
+import { soundAuthor, soundCover, soundOwnerLogin } from '../lib/sound-media';
 import { isSoundSaved, setSoundSaved } from '../lib/saved-sounds';
-import { soundTagLines } from '../lib/sound-tags';
+import { SoundTagLines } from '../primitives/SoundTagLines';
+import { Avatar } from '../primitives/Avatar';
 
-const SAGE = color.sage;
-const OLIVE = color.olive;
 const ACCENT = color.accent;
 const TYPES = ['', 'nature', 'water', 'urban', 'forest', 'birds'] as const;
 const SORTS = [
@@ -75,7 +74,7 @@ export function CatalogBrowse() {
   return (
     <div className="flex flex-col gap-3 pt-3">
       <label className="flex items-center gap-2 h-12 rounded-2xl px-3.5" style={{ background: th.cardBg }}>
-        <Search size={16} color={SAGE} className="flex-shrink-0" />
+        <Search size={16} color={th.soft} className="flex-shrink-0" />
         <input
           value={filter.q}
           onChange={(e) => setFilter({ ...filter, q: e.target.value })}
@@ -88,7 +87,7 @@ export function CatalogBrowse() {
         {SORTS.map((s) => (
           <button key={s.id} type="button" onClick={() => setSort(s.id)}
             className="pv-label min-h-11 h-11 px-3 rounded-full flex-shrink-0"
-            style={{ background: sort === s.id ? ACCENT : th.cardBg, color: sort === s.id ? '#fff' : OLIVE }}>
+            style={{ background: sort === s.id ? ACCENT : th.cardBg, color: sort === s.id ? '#fff' : th.muted }}>
             {sortLabels[s.id]}
           </button>
         ))}
@@ -100,16 +99,16 @@ export function CatalogBrowse() {
           return (
             <button key={id || 'all'} type="button" onClick={() => setFilter({ ...filter, type: id })}
               className="pv-label min-h-11 h-11 px-3 rounded-full flex-shrink-0"
-              style={{ background: on ? ACCENT : th.cardBg, color: on ? '#fff' : OLIVE }}>
+              style={{ background: on ? ACCENT : th.cardBg, color: on ? '#fff' : th.muted }}>
               {label}
             </button>
           );
         })}
       </div>
       <div className="flex items-center justify-between">
-        <p className="pv-label" style={{ color: SAGE }}>{sorted.length} {pluralSounds(sorted.length, t, prefs.locale === 'en' ? 'en' : 'ru')}</p>
+        <p className="pv-label" style={{ color: th.soft }}>{sorted.length} {pluralSounds(sorted.length, t, prefs.locale === 'en' ? 'en' : 'ru')}</p>
         <button type="button" className="pv-label inline-flex items-center gap-1"
-          style={{ color: more ? OLIVE : ACCENT }} onClick={() => setMore((v) => !v)}>
+          style={{ color: more ? th.muted : ACCENT }} onClick={() => setMore((v) => !v)}>
           <SlidersHorizontal size={12} /> {more ? t('hideFilters') : t('filters')}
         </button>
       </div>
@@ -119,13 +118,13 @@ export function CatalogBrowse() {
         </div>
       )}
       {(filter.q || filter.type || filter.eco || filter.ucs || filter.tag) && (
-        <button type="button" className="pv-label self-start" style={{ color: SAGE }}
+        <button type="button" className="pv-label self-start" style={{ color: th.soft }}
           onClick={() => { setFilter(EMPTY_FILTER); setSort('new'); }}>{t('resetSearch')}</button>
       )}
       {grouped.map((g) => (
         <section key={g.type} className="flex flex-col gap-2">
           {!filter.type && (
-            <p className="pv-label uppercase px-1" style={{ color: SAGE }}>
+            <p className="pv-label uppercase px-1" style={{ color: th.soft }}>
               {g.type === 'other' ? t('other') : t(typeI18nKey(g.type))} · {g.items.length}
             </p>
           )}
@@ -191,14 +190,18 @@ function SoundRow({ item, on, progress, onPlay, onSeek, onOpen, onDownload, thCa
   thCard: string;
   ink: string;
 }) {
+  const th = useTh();
   const t = useT();
+  const { push } = useNav();
+  const { profiles } = useData();
   const { toast } = useUi();
   const [rowRef, seen] = useRowVisible();
   const peaks = useRowPeaks(item.url, String(item.id || item.title || 's'), seen);
   const cover = soundCover(item);
   const author = soundAuthor(item);
+  const ownerLogin = soundOwnerLogin(item);
+  const ownerProfile = profiles.find((p) => String(p.loginName || '').toLowerCase() === ownerLogin);
   const tint = pinColor[String(item.type)] ?? ACCENT;
-  const tags = soundTagLines(item, t(typeI18nKey(String(item.type || ''))));
   const [saved, setSaved] = useState(() => isSoundSaved(item.id));
 
   const toggleSave = () => {
@@ -219,17 +222,45 @@ function SoundRow({ item, on, progress, onPlay, onSeek, onOpen, onDownload, thCa
       className="rounded-2xl px-3 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5"
       style={{ background: thCard }}>
       <button type="button" onClick={onPlay}
-        className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer relative"
+        className="group w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer relative isolate"
         style={{ background: tint }}
         aria-label={on ? t('pause') : t('listen')}>
         {cover
-          ? <img src={cover} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          ? <img
+              src={cover}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover transition-[filter,transform] duration-200 ease-out group-hover:scale-105 group-hover:blur-[1.25px] group-focus-visible:scale-105 group-focus-visible:blur-[1.25px]"
+            />
           : <span className="absolute inset-0 flex items-center justify-center pv-subtitle text-white">{String(item.title || '?').slice(0, 1)}</span>}
+        <span
+          className={`absolute inset-0 rounded-xl overflow-hidden flex items-center justify-center transition-opacity duration-200 ${on ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100'}`}
+          style={{ background: 'rgba(26,26,26,0.38)' }}
+          aria-hidden
+        >
+          <span className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.94)' }}>
+            <PlayPauseIcon playing={on} size={12} tone="#1A1A1A" />
+          </span>
+        </span>
       </button>
 
       <div className="w-[8.5rem] flex-shrink-0 min-w-0">
         <p className="pv-subtitle truncate" style={{ color: ink }}>{item.title || '—'}</p>
-        <p className="pv-micro uppercase truncate mt-0.5" style={{ color: SAGE }}>{author}</p>
+        <button
+          type="button"
+          className="flex items-center gap-1.5 mt-0.5 max-w-full text-left cursor-pointer pv-tag-hit rounded-lg px-1 -mx-1"
+          onClick={() => {
+            if (!ownerLogin) return;
+            push({
+              type: 'user-profile',
+              name: String(ownerProfile?.displayName || ownerProfile?.username || author),
+              avatar: String(ownerProfile?.avatar || '🎙️'),
+              username: `@${ownerLogin}`,
+            });
+          }}
+        >
+          <Avatar src={ownerProfile?.avatar} name={author} size={18} rounded="rounded-full" fallback="icon" />
+          <span className="pv-micro uppercase truncate" style={{ color: th.soft }}>{author}</span>
+        </button>
       </div>
 
       <div
@@ -243,16 +274,13 @@ function SoundRow({ item, on, progress, onPlay, onSeek, onOpen, onDownload, thCa
           onSeek={on ? onSeek : undefined} />
       </div>
 
-      <div className="w-[8.5rem] flex-shrink-0 min-w-0">
-        {tags.primary ? <p className="pv-caption truncate" style={{ color: ink }}>{tags.primary}</p> : null}
-        {tags.secondary ? <p className="pv-micro truncate mt-0.5" style={{ color: OLIVE }}>{tags.secondary}</p> : null}
-      </div>
+      <SoundTagLines sound={item} className="w-[8.5rem] flex-shrink-0" />
 
       <div className="flex items-center gap-0.5 flex-shrink-0 ml-auto">
         <button type="button" onClick={toggleSave}
           className="w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer"
           aria-label={t('save')} aria-pressed={saved}>
-          <Bookmark size={16} color={saved ? ACCENT : SAGE} fill={saved ? ACCENT : 'none'} />
+          <Bookmark size={16} color={saved ? ACCENT : th.soft} fill={saved ? ACCENT : 'none'} />
         </button>
         <button type="button" onClick={() => void onDownload()}
           className="w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer"
@@ -263,7 +291,7 @@ function SoundRow({ item, on, progress, onPlay, onSeek, onOpen, onDownload, thCa
         <button type="button" onClick={onOpen}
           className="w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer"
           aria-label={t('openSound')}>
-          <MoreHorizontal size={16} color={SAGE} />
+          <MoreHorizontal size={16} color={th.soft} />
         </button>
       </div>
     </div>

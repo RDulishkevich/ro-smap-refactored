@@ -195,12 +195,12 @@ export function PhotoCarousel({ images, title }: { images: string[]; title?: str
             <button type="button" aria-label="Предыдущее фото" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); go(-1); }}
               className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center shadow-md z-[1]"
               style={{ background: 'rgba(255,255,255,0.92)' }}>
-              <ChevronLeft size={16} color={color.olive} />
+              <ChevronLeft size={16} color={th.muted} />
             </button>
             <button type="button" aria-label="Следующее фото" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); go(1); }}
               className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center shadow-md z-[1]"
               style={{ background: 'rgba(255,255,255,0.92)' }}>
-              <ChevronRight size={16} color={color.olive} />
+              <ChevronRight size={16} color={th.muted} />
             </button>
             <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 z-[1] pointer-events-none">
               {images.map((_, nDot) => (

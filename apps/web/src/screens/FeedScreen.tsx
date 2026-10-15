@@ -9,14 +9,16 @@ import { useData } from '../state/DataContext';
 import { useAuth } from '../state/AuthContext';
 import { useUi } from '../state/UiContext';
 import { usePrefs } from '../state/PrefsContext';
-import { ListSkeleton, NavBar, PlayPauseIcon, ScreenHeader, SoundTypeTag } from '../primitives/ui';
+import { ListSkeleton, NavBar, PlayPauseIcon, ScreenHeader } from '../primitives/ui';
 import { EmptyNote } from '../primitives/EmptyNote';
 import { PullToRefresh } from '../primitives/PullToRefresh';
 import { useScrollMemory } from '../lib/use-scroll-memory';
 import BrandMark from '@/brand/BrandMark';
 import { CatalogSoundList } from './CatalogScreen';
 import { downloadSound } from '../lib/download-sound';
-import { soundAuthor, soundCover, soundDateLabel, soundTime } from '../lib/sound-media';
+import { soundAuthor, soundCover, soundDateLabel, soundOwnerLogin, soundTime } from '../lib/sound-media';
+import { SoundTagLines } from '../primitives/SoundTagLines';
+import { Avatar } from '../primitives/Avatar';
 import { useSoundMeta } from '../lib/audio-meta';
 import { useT } from '../state/PrefsContext';
 import { setExpeditionSaved } from '../lib/saved-expeditions';
@@ -24,8 +26,6 @@ import { setExpeditionSaved } from '../lib/saved-expeditions';
 export { CatalogSoundList } from './CatalogScreen';
 export { CatalogScreen as CatalogPage } from './CatalogScreen';
 
-const SAGE = color.sage;
-const OLIVE = color.olive;
 const ACCENT = color.accent;
 
 function FeedUnreadDot() {
@@ -62,17 +62,17 @@ export function FeedScreen({ showNav = true, embed = false, initialTab }: { show
           </div>
           <div className="flex gap-1.5 flex-shrink-0">
             <motion.button whileTap={tap.cta} onClick={() => push({ type: 'search' })} className="w-11 h-11 rounded-2xl flex items-center justify-center cursor-pointer" style={{ background: th.cardBg }} aria-label={t('search')}>
-              <Search size={16} style={{ color: OLIVE }} />
+              <Search size={16} style={{ color: th.muted }} />
             </motion.button>
             <motion.button whileTap={tap.cta} onClick={() => push({ type: 'notifications' })} className="relative w-11 h-11 rounded-2xl flex items-center justify-center cursor-pointer" style={{ background: th.cardBg }} aria-label={t('notifications')}>
-              <Bell size={16} style={{ color: OLIVE }} />
+              <Bell size={16} style={{ color: th.muted }} />
               <FeedUnreadDot />
             </motion.button>
           </div>
         </div>
         <div className="relative flex gap-1 p-1 rounded-2xl mb-2" style={{ background: th.lightBg }}>
           {subTabs.map(({ id, label }) => (
-            <button key={id} onClick={() => setTab(id)} className="flex-1 py-2.5 rounded-xl text-[11px] font-semibold" style={{ background: tab === id ? th.cardBg : 'transparent', color: tab === id ? ACCENT : OLIVE, boxShadow: tab === id ? '0 1px 4px rgba(45,60,57,0.08)' : 'none' }}>
+            <button key={id} onClick={() => setTab(id)} className="flex-1 py-2.5 rounded-xl text-[11px] font-semibold" style={{ background: tab === id ? th.cardBg : 'transparent', color: tab === id ? ACCENT : th.muted, boxShadow: tab === id ? '0 1px 4px rgba(45,60,57,0.08)' : 'none' }}>
               {label}
             </button>
           ))}
@@ -105,7 +105,7 @@ export function FeedPage({ onBack }: { onBack: () => void }) {
         <button type="button" className="w-11 h-11 rounded-2xl flex items-center justify-center cursor-pointer" aria-label={t('notifications')}
           style={{ background: th.lightBg }}
           onClick={() => push({ type: 'notifications' })}>
-          <Bell size={16} color={OLIVE} />
+          <Bell size={16} color={th.muted} />
         </button>
       } />
       <div className="flex-1 overflow-y-auto scrollbar-none px-4 pb-8 pt-2">
@@ -206,7 +206,7 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
   return (
     <div className="flex flex-col gap-3 pt-1">
       <label className="flex items-center gap-2 h-12 rounded-2xl px-3.5" style={{ background: th.cardBg }}>
-        <Search size={16} color={SAGE} className="flex-shrink-0" />
+        <Search size={16} color={th.soft} className="flex-shrink-0" />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('searchFeed')}
           className="flex-1 min-w-0 bg-transparent outline-none" style={{ color: th.inkText }}
           aria-label={t('searchFeedAria')} />
@@ -215,7 +215,7 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
         {FEED_SORTS.map((s) => (
           <button key={s.id} type="button" onClick={() => setSort(s.id)}
             className="pv-label h-8 px-3 rounded-full flex-shrink-0"
-            style={{ background: sort === s.id ? ACCENT : th.cardBg, color: sort === s.id ? '#fff' : OLIVE }}>
+            style={{ background: sort === s.id ? ACCENT : th.cardBg, color: sort === s.id ? '#fff' : th.muted }}>
             {sortLabel[s.id]}
           </button>
         ))}
@@ -250,7 +250,7 @@ function FeedPostCard({ post, onOpen }: { post: FeedPost; onOpen: () => void }) 
         </span>
         <div className="min-w-0">
           <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{author}</p>
-          {when ? <p className="pv-micro" style={{ color: SAGE }}>{when}</p> : null}
+          {when ? <p className="pv-micro" style={{ color: th.soft }}>{when}</p> : null}
         </div>
       </div>
       {!!images.length && (
@@ -260,8 +260,8 @@ function FeedPostCard({ post, onOpen }: { post: FeedPost; onOpen: () => void }) 
       )}
       <div className="px-4 py-3.5">
         <p className="pv-heading" style={{ color: th.inkText }}>{String(post.title || t('kindPost'))}</p>
-        {text ? <p className="pv-body mt-1.5" style={{ color: OLIVE }}>{text}</p> : null}
-        <div className="flex items-center gap-1.5 mt-3" style={{ color: SAGE }}>
+        {text ? <p className="pv-body mt-1.5" style={{ color: th.muted }}>{text}</p> : null}
+        <div className="flex items-center gap-1.5 mt-3" style={{ color: th.soft }}>
           <MessageCircle size={11} />
           <span className="pv-micro">{comments} {t('comments')}</span>
         </div>
@@ -275,24 +275,35 @@ function MarkerFeedCard({ sound, playing, onPlay, onOpen, onDownload }: {
 }) {
   const th = useTh();
   const t = useT();
+  const { push } = useNav();
+  const { profiles } = useData();
   const meta = useSoundMeta(sound);
   const cover = soundCover(sound);
   const author = soundAuthor(sound);
   const when = soundDateLabel(sound);
+  const login = soundOwnerLogin(sound);
+  const profile = profiles.find((p) => String(p.loginName || '').toLowerCase() === login);
   const c = pinColor[String(sound.type)] || ACCENT;
   const likes = Number(sound.likes || 0);
   const comments = Array.isArray(sound.comments) ? sound.comments.length : 0;
   return (
     <article className="rounded-3xl p-3.5 shadow-sm" style={{ background: th.cardBg }}>
       <div className="flex items-center gap-2.5 mb-3">
-        <span className="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold flex-shrink-0" style={{ background: th.lightBg, color: ACCENT }}>
-          {author.slice(0, 1).toUpperCase()}
-        </span>
+        <button type="button" className="flex-shrink-0" onClick={() => {
+          if (!login) return;
+          push({
+            type: 'user-profile',
+            name: String(profile?.displayName || profile?.username || author),
+            avatar: String(profile?.avatar || '🎙️'),
+            username: `@${login}`,
+          });
+        }}>
+          <Avatar src={profile?.avatar} name={author} size={32} rounded="rounded-full" />
+        </button>
         <div className="min-w-0 flex-1">
           <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{author}</p>
-          {when ? <p className="pv-micro" style={{ color: SAGE }}>{when}</p> : null}
+          {when ? <p className="pv-micro" style={{ color: th.soft }}>{when}</p> : null}
         </div>
-        <SoundTypeTag type={String(sound.type || '')} />
       </div>
       <div className="flex gap-3">
         <button type="button" onClick={onOpen} className="relative w-[88px] h-[88px] rounded-2xl overflow-hidden flex-shrink-0 cursor-pointer" style={{ background: c }} aria-label={sound.title}>
@@ -301,13 +312,16 @@ function MarkerFeedCard({ sound, playing, onPlay, onOpen, onDownload }: {
         <div className="min-w-0 flex-1 flex flex-col">
           <button type="button" className="text-left cursor-pointer" onClick={onOpen}>
             <p className="pv-subtitle" style={{ color: th.inkText }}>{sound.title}</p>
-            <p className="pv-caption truncate mt-1" style={{ color: OLIVE }}>
+            <p className="pv-caption truncate mt-1" style={{ color: th.muted }}>
               <MapPin size={10} className="inline -mt-0.5 mr-0.5" />
               {sound.location || t('onMap')}
               {meta.durationSec > 0 ? ` · ${meta.durationLabel}` : ''}
             </p>
           </button>
-          <div className="mt-auto pt-2 flex items-center gap-2.5" style={{ color: SAGE }}>
+          <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
+            <SoundTagLines sound={sound} />
+          </div>
+          <div className="mt-auto pt-2 flex items-center gap-2.5" style={{ color: th.soft }}>
             <span className="inline-flex items-center gap-0.5" title={t('likes')}><Heart size={11} /><span className="pv-micro">{likes}</span></span>
             <span className="inline-flex items-center gap-0.5" title={t('comments')}><MessageCircle size={11} /><span className="pv-micro">{comments}</span></span>
             <span className="inline-flex items-center gap-0.5" title={t('views')}><Headphones size={11} /><span className="pv-micro">{formatPlays(sound.plays)}</span></span>
@@ -335,7 +349,7 @@ type ExpCard = Expedition & {
 
 type ExpFilter = 'all' | 'photo' | 'route' | 'saved';
 
-const EXP_TINTS = [color.mist, color.olive, color.accent, color.dark, color.sage];
+const EXP_TINTS = [color.mist, color.accent, '#5A5A5A', '#3A3A3A', '#7A6A5A'];
 
 function collectExpeditions(profiles: ReturnType<typeof useData>['profiles']): ExpCard[] {
   return profiles.flatMap((p, pi) => (p.sessions || []).map((s, si) => {
@@ -365,14 +379,16 @@ function collectExpeditions(profiles: ReturnType<typeof useData>['profiles']): E
   }));
 }
 
-function SectionHead({ title, action, onAction }: { title: string; action: string; onAction: () => void }) {
+function SectionHead({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
   const th = useTh();
   return (
     <div className="flex items-center justify-between px-0.5">
       <h2 className="pv-heading" style={{ color: th.inkText }}>{title}</h2>
-      <button type="button" onClick={onAction} className="pv-caption cursor-pointer" style={{ color: SAGE }}>
-        {action}
-      </button>
+      {action && onAction ? (
+        <button type="button" onClick={onAction} className="pv-caption cursor-pointer" style={{ color: th.soft }}>
+          {action}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -421,12 +437,12 @@ function RecommendedCard({ exp, onOpen, onToggleSave, wide = false, saved }: {
           style={{ background: th.cardBg }}
           aria-label={saved ? t('expUnsave') : t('expSave')}
           aria-pressed={saved}>
-          <Heart size={15} color={saved ? ACCENT : SAGE} fill={saved ? ACCENT : 'none'} />
+          <Heart size={15} color={saved ? ACCENT : th.soft} fill={saved ? ACCENT : 'none'} />
         </button>
       </div>
       <div className="px-1.5 pt-3 pb-1.5 text-left">
         <p className="pv-subtitle leading-snug" style={{ color: th.inkText }}>{exp.title}</p>
-        <p className="pv-caption mt-1 truncate" style={{ color: OLIVE }}>{exp.subtitle}</p>
+        <p className="pv-caption mt-1 truncate" style={{ color: th.muted }}>{exp.subtitle}</p>
       </div>
     </div>
   );
@@ -443,7 +459,6 @@ function ExpeditionsList() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [filter, setFilter] = useState<ExpFilter>('all');
   const [showPopularAll, setShowPopularAll] = useState(false);
-  const [showRecommendedAll, setShowRecommendedAll] = useState(false);
   const [savedIds, setSavedIds] = useState<string[]>(() => {
     try {
       return listIdsFromStorage();
@@ -477,17 +492,16 @@ function ExpeditionsList() {
     return ranked;
   }, [filtered]);
 
-  const recommended = useMemo(() => {
+  const allExps = useMemo(() => {
     return [...filtered].sort((a, b) => {
       const ta = Date.parse(String(a.createdAt || a.date || '')) || 0;
       const tb = Date.parse(String(b.createdAt || b.date || '')) || 0;
       if (tb !== ta) return tb - ta;
-      return b.points - a.points;
+      return String(a.title || '').localeCompare(String(b.title || ''), 'ru');
     });
   }, [filtered]);
 
   const popularView = showPopularAll ? popular : popular.slice(0, 8);
-  const recommendedView = showRecommendedAll ? recommended : recommended.slice(0, 8);
   const searching = !!q.trim();
 
   const open = (exp: ExpCard) => push({ type: 'expedition-detail', exp });
@@ -530,7 +544,7 @@ function ExpeditionsList() {
     <div className="flex flex-col gap-5 pt-1">
       <div className="flex items-center gap-2.5">
         <label className="flex-1 flex items-center gap-2 h-12 rounded-2xl px-3.5 min-w-0" style={{ background: th.cardBg }}>
-          <Search size={16} color={SAGE} className="flex-shrink-0" />
+          <Search size={16} color={th.soft} className="flex-shrink-0" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -546,7 +560,7 @@ function ExpeditionsList() {
           style={{ background: filterOpen || filter !== 'all' ? ACCENT : th.cardBg }}
           aria-label={t('filters')}
           aria-pressed={filterOpen || filter !== 'all'}>
-          <SlidersHorizontal size={16} color={filterOpen || filter !== 'all' ? '#fff' : OLIVE} />
+          <SlidersHorizontal size={16} color={filterOpen || filter !== 'all' ? '#fff' : th.muted} />
         </button>
       </div>
 
@@ -555,7 +569,7 @@ function ExpeditionsList() {
           {filters.map((f) => (
             <button key={f.id} type="button" onClick={() => setFilter(f.id)}
               className="pv-label h-9 px-3 rounded-full flex-shrink-0 cursor-pointer"
-              style={{ background: filter === f.id ? ACCENT : th.cardBg, color: filter === f.id ? '#fff' : OLIVE }}>
+              style={{ background: filter === f.id ? ACCENT : th.cardBg, color: filter === f.id ? '#fff' : th.muted }}>
               {f.label}
             </button>
           ))}
@@ -586,24 +600,18 @@ function ExpeditionsList() {
         </section>
       )}
 
-      {!!recommendedView.length && (
+      {!!allExps.length && (
         <section className="flex flex-col gap-3">
-          <SectionHead
-            title={searching ? t('expeditions') : t('recommended')}
-            action={t('showAll')}
-            onAction={() => setShowRecommendedAll((v) => !v)} />
-          <div className={showRecommendedAll || searching
-            ? 'flex flex-col gap-3'
-            : 'flex gap-3 overflow-x-auto scrollbar-none pb-1 snap-x snap-mandatory'}>
-            {recommendedView.map((exp) => (
-              <div key={`rec-${exp.id || exp.title}`} className={showRecommendedAll || searching ? '' : 'snap-start'}>
-                <RecommendedCard
-                  exp={exp}
-                  wide={showRecommendedAll || searching}
-                  saved={savedSet.has(String(exp.id || exp.title))}
-                  onOpen={() => open(exp)}
-                  onToggleSave={() => toggleSave(exp)} />
-              </div>
+          <SectionHead title={searching ? t('expeditions') : t('all')} />
+          <div className="flex flex-col gap-3">
+            {allExps.map((exp) => (
+              <RecommendedCard
+                key={`all-${exp.id || exp.title}`}
+                exp={exp}
+                wide
+                saved={savedSet.has(String(exp.id || exp.title))}
+                onOpen={() => open(exp)}
+                onToggleSave={() => toggleSave(exp)} />
             ))}
           </div>
         </section>

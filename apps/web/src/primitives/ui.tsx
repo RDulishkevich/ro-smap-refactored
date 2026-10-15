@@ -47,15 +47,15 @@ export function WaveformSVG({
   );
 }
 
-export function PlayPauseIcon({ playing, size = 14 }: { playing: boolean; size?: number }) {
+export function PlayPauseIcon({ playing, size = 14, tone = '#fff' }: { playing: boolean; size?: number; tone?: string }) {
   return playing
     ? (
       <span className="flex gap-0.5 items-center">
-        <span className="w-1 bg-white rounded-full" style={{ height: size * 0.9 }} />
-        <span className="w-1 bg-white rounded-full" style={{ height: size * 0.9 }} />
+        <span className="w-1 rounded-full" style={{ height: size * 0.9, background: tone }} />
+        <span className="w-1 rounded-full" style={{ height: size * 0.9, background: tone }} />
       </span>
     )
-    : <Play size={size} fill="white" color="white" className="ml-0.5" />;
+    : <Play size={size} fill={tone} color={tone} className="ml-0.5" />;
 }
 
 export function SoundTypeTag({ type }: { type: string }) {
@@ -75,7 +75,7 @@ export function ScreenHeader({ title, onBack, right, onTitleClick }: { title: st
   return (
     <header className="sticky top-0 z-20 flex items-center gap-3 px-4 pv-safe-top pb-3 flex-shrink-0" style={{ background: th.headerBg, borderBottom: `1px solid ${th.border}` }}>
       <motion.button whileTap={tap.nav} onClick={onBack} className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 cursor-pointer" style={{ background: th.lightBg }} aria-label={t('back')}>
-        <ChevronLeft size={18} style={{ color: color.dark }} />
+        <ChevronLeft size={18} style={{ color: th.inkText }} />
       </motion.button>
       {onTitleClick ? (
         <button type="button" onClick={onTitleClick} className="pv-page flex-1 truncate text-left" style={{ color: th.inkText }}>{title}</button>
@@ -143,7 +143,7 @@ export function OtpInput({
   return (
     <div>
       {label && (
-        <label htmlFor={id} className="pv-label block mb-2" style={{ color: color.sage }}>{label}</label>
+        <label htmlFor={id} className="pv-label block mb-2" style={{ color: th.soft }}>{label}</label>
       )}
       <motion.div
         animate={error ? { x: [0, -8, 8, -6, 6, -3, 0] } : { x: 0 }}
@@ -224,7 +224,7 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
           <motion.button key={id} onClick={() => setActiveTab(id)} className="flex items-center justify-center" whileTap={tap.nav} aria-label={label} aria-current={on ? 'page' : undefined}>
             <div className="relative w-11 h-11 rounded-2xl flex items-center justify-center"
               style={{ background: on ? color.accent : 'transparent' }}>
-              <Icon size={20} color={on ? 'white' : th.isDark ? '#7A9A88' : '#B0B8A8'} />
+              <Icon size={20} color={on ? 'white' : th.muted} />
               {id === 'messages' && unread > 0 && (
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full" style={{ background: on ? '#fff' : color.accent }} />
               )}
@@ -377,8 +377,8 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
         </button>
         <div className="flex-1 min-w-0">
           <button type="button" className="pv-subtitle block w-full text-left truncate" style={{ color: th.inkText }} onClick={onOpen}>{sound.title}</button>
-          <p className="pv-caption tabular-nums mt-0.5 truncate" style={{ color: color.olive }}>
-            <span className="font-medium" style={{ color: color.dark }}>{formatClock(nowSec)}</span>
+          <p className="pv-caption tabular-nums mt-0.5 truncate" style={{ color: th.muted }}>
+            <span className="font-medium" style={{ color: th.inkText }}>{formatClock(nowSec)}</span>
             <span> / {totalLabel}</span>
             {sound.location ? <span> · {sound.location}</span> : null}
           </p>
@@ -410,7 +410,7 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
           return (
             <button key={`${m.t}-${m.label}`} type="button"
               className="absolute -top-1 z-[3] -translate-x-1/2 w-4 h-4 rounded-full cursor-pointer"
-              style={{ left: `${pct}%`, background: color.dark, boxShadow: '0 0 0 3px rgba(45,60,57,0.16)' }}
+              style={{ left: `${pct}%`, background: th.isDark ? th.inkText : color.dark, boxShadow: th.isDark ? '0 0 0 3px rgba(255,255,255,0.16)' : '0 0 0 3px rgba(45,60,57,0.16)' }}
               onMouseEnter={() => setMarkTip({ label: m.label, left: pct })}
               onMouseLeave={() => setMarkTip(null)}
               onFocus={() => setMarkTip({ label: m.label, left: pct })}
@@ -424,7 +424,7 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
         })}
         {markTip && (
           <div className="absolute z-[4] -top-8 -translate-x-1/2 pointer-events-none px-2 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap"
-            style={{ left: `${markTip.left}%`, background: color.dark, color: '#fff' }}>
+            style={{ left: `${markTip.left}%`, background: th.isDark ? th.solid : color.dark, color: '#fff' }}>
             {markTip.label}
           </div>
         )}

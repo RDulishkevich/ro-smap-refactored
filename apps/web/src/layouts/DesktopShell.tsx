@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   Bell, Calendar, ChevronDown, FilePenLine, HelpCircle, LayoutGrid, LogIn,
-  MessageCircle, Radio, Search, Settings, Shield, User,
+  MessageCircle, Moon, Radio, Search, Settings, Shield, Sun, Ticket, User,
 } from 'lucide-react';
 import { color, spring, tap } from '@polevka/design';
 import type { Sound } from '@polevka/core';
 import { useAuth } from '../state/AuthContext';
 import { useNav, type DesktopView } from '../state/NavContext';
-import { useTh } from '../state/ThemeContext';
+import { useIsDark, useTh, useToggleTheme } from '../state/ThemeContext';
 import { useData } from '../state/DataContext';
 import { useUi } from '../state/UiContext';
 import { usePrefs, useT } from '../state/PrefsContext';
@@ -24,11 +24,11 @@ import { RailBannerCarousel } from '../primitives/RailBannerCarousel';
 import { downloadSound } from '../lib/download-sound';
 import { LanguageSwitch } from '../primitives/LanguageSwitch';
 import { EmptyNote } from '../primitives/EmptyNote';
+import { Avatar } from '../primitives/Avatar';
+import { NotificationRow } from '../primitives/NotificationRow';
 import { SwipeBack } from '../lib/swipe-back';
 
 const ACCENT = color.accent;
-const OLIVE = color.olive;
-const SAGE = color.sage;
 const RAIL_W = 216;
 const LIST_W = 360;
 const SIDE_W = 400;
@@ -47,7 +47,7 @@ const VIEW_WORKSPACE = new Set<DesktopView>(['library', 'feed', 'expeditions', '
 type ChromeMode = 'map' | 'list' | 'workspace';
 
 function RailItem({
-  label, Icon, on, onClick, ink, mute,
+  label, Icon, on, onClick, ink, mute, dark,
 }: {
   label: string;
   Icon: typeof Radio;
@@ -55,11 +55,12 @@ function RailItem({
   onClick: () => void;
   ink: string;
   mute: string;
+  dark: boolean;
 }) {
   return (
     <motion.button whileTap={tap.cta} onClick={onClick}
-      className="flex items-center gap-3 w-full h-11 px-3 rounded-2xl text-left"
-      style={{ background: on ? color.cream : 'transparent' }}>
+      className="pv-desk-hit flex items-center gap-3 w-full h-11 px-3 rounded-2xl text-left"
+      style={{ background: on ? (dark ? '#2E2E2E' : '#F0F1F3') : 'transparent' }}>
       <Icon size={18} color={on ? ACCENT : mute} strokeWidth={on ? 2.25 : 1.75} className="flex-shrink-0" />
       <span className="pv-subtitle truncate" style={{ color: on ? ink : mute }}>{label}</span>
     </motion.button>
@@ -69,10 +70,13 @@ function RailItem({
 function NotificationsPopover({ onClose }: { onClose: () => void }) {
   const th = useTh();
   const t = useT();
-  const { mail, markNotificationsRead } = useData();
+  const { mail, markNotificationsRead, sounds, profiles, events } = useData();
   const { user } = useAuth();
   const box = mail.find((b) => b.loginName === user?.loginName);
-  const list = (box?.notifications || []) as Array<{ fromName?: string; fromId?: string; text?: string; date?: string; read?: boolean }>;
+  const list = (box?.notifications || []) as Array<{
+    fromName?: string; fromId?: string; text?: string; date?: string; read?: boolean;
+    type?: string; soundId?: string; expeditionId?: string; expeditionOwner?: string; soundTitle?: string;
+  }>;
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => { void markNotificationsRead(); }, [markNotificationsRead]);
@@ -102,18 +106,20 @@ function NotificationsPopover({ onClose }: { onClose: () => void }) {
       <div className="rounded-3xl overflow-hidden">
       <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${th.border}` }}>
         <p className="pv-subtitle" style={{ color: th.inkText }}>{t('notifications')}</p>
-        <span className="pv-micro" style={{ color: SAGE }}>{list.length ? `${list.length}` : ''}</span>
+        <span className="pv-micro" style={{ color: th.soft }}>{list.length ? `${list.length}` : ''}</span>
       </div>
       <div className="max-h-[360px] overflow-y-auto scrollbar-none p-2.5 flex flex-col gap-1.5">
         {list.length === 0 && (
           <EmptyNote title={t('quiet')} />
         )}
         {list.map((n, i) => (
-          <div key={i} className="rounded-2xl px-3 py-2.5" style={{ background: th.phoneBg }}>
-            <p className="pv-subtitle" style={{ color: th.inkText }}>{n.fromName || n.fromId || 'Полёвка'}</p>
-            <p className="pv-caption mt-0.5" style={{ color: OLIVE }}>{n.text}</p>
-            {n.date && <p className="text-[9px] mt-1" style={{ color: SAGE }}>{n.date}</p>}
-          </div>
+          <NotificationRow
+            key={i}
+            n={n}
+            soft
+            ctx={{ sounds, profiles, events }}
+            onOpened={onClose}
+          />
         ))}
       </div>
       </div>
@@ -123,15 +129,21 @@ function NotificationsPopover({ onClose }: { onClose: () => void }) {
 
 export function DesktopShell() {
   const th = useTh();
+  const dark = useIsDark();
+  const toggleTheme = useToggleTheme();
   const { toast } = useUi();
   const { prefs } = usePrefs();
   const { isLoggedIn, isStaff, user, logout } = useAuth();
   const { desktopView, setDesktopView, push, stack, pop, reset } = useNav();
   const {
-    filter, setFilter, mail, pickMode,
+    filter, setFilter, mail, pickMode, clearMapPick, pickedPoint, routeDraft,
     playing, playingId, progress, togglePlay, seek, volume, muted, setVolume, toggleMute, allSounds,
-    focused, setFocused,
+    focused, setFocused, profiles,
   } = useData();
+  const myProfile = profiles.find((p) => String(p.loginName || '').toLowerCase() === String(user?.loginName || '').toLowerCase());
+  const dropMapPick = () => {
+    if (pickMode || pickedPoint || routeDraft.length) clearMapPick();
+  };
   const t = useT();
   const [q, setQ] = useState(filter.tag);
   const [notifyOpen, setNotifyOpen] = useState(false);
@@ -145,44 +157,43 @@ export function DesktopShell() {
   const isWorkspace = (!!vis && WORKSPACE.has(vis.type)) || (!vis && VIEW_WORKSPACE.has(desktopView));
   const isList = !isWorkspace && (desktopView !== 'map' || !!vis);
   const mode: ChromeMode = isWorkspace ? 'workspace' : isList ? 'list' : 'map';
-  const unread = (mail.find((b) => b.loginName === user?.loginName)?.notifications || [])
+  const myBox = mail.find((b) => b.loginName === user?.loginName);
+  const unread = (myBox?.notifications || [])
     .filter((n) => !(n as { read?: boolean }).read).length;
+  const msgUnread = (myBox?.inbox || [])
+    .filter((m) => !m.deleted && !m.read).length;
 
   const dockSound = focused || allSounds.find((s) => String(s.id) === String(playingId)) || null;
-  const mute = th.isDark ? '#7A9A88' : '#B8BFC0';
+  const mute = th.isDark ? th.muted : '#B8BFC0';
   const year = new Date().getFullYear();
 
   useEffect(() => {
     if (vis?.type === 'sound-detail') setFocused(vis.sound);
   }, [vis]);
 
-  const mainNav: Array<{ id: DesktopView | 'messages'; Icon: typeof Radio; label: string }> = [
+  const mainNav: Array<{ id: DesktopView; Icon: typeof Radio; label: string }> = [
     { id: 'library', Icon: LayoutGrid, label: t('catalog') },
     { id: 'feed', Icon: Radio, label: t('feed') },
     { id: 'expeditions', Icon: Calendar, label: t('expeditions') },
-    ...(isLoggedIn ? [{ id: 'messages' as const, Icon: MessageCircle, label: t('messages') }] : []),
     ...(isStaff ? [{ id: 'staff' as const, Icon: Shield, label: t('staff') }] : []),
   ];
 
-  const goView = (id: DesktopView | 'messages') => {
-    if (id === 'messages') {
-      if (vis?.type === 'messages') { reset(); return; }
-      reset();
-      push({ type: 'messages' });
-      return;
-    }
+  const goView = (id: DesktopView) => {
     if (desktopView === id && !vis) {
-      setDesktopView('map');
+      void reset().then((ok) => { if (ok) { dropMapPick(); setDesktopView('map'); } });
       return;
     }
-    reset();
-    setDesktopView(id);
+    void reset().then((ok) => { if (ok) { dropMapPick(); setDesktopView(id); } });
   };
 
-  const toggleStack = (type: 'help' | 'settings' | 'drafts') => {
-    if (vis?.type === type) { reset(); return; }
-    reset();
-    push({ type });
+  const openMessages = () => {
+    if (vis?.type === 'messages') { void reset(); return; }
+    void reset().then((ok) => { if (ok) { dropMapPick(); push({ type: 'messages' }); } });
+  };
+
+  const toggleStack = (type: 'help' | 'settings' | 'drafts' | 'events') => {
+    if (vis?.type === type) { void reset(); return; }
+    void reset().then((ok) => { if (ok) { dropMapPick(); push({ type }); } });
   };
 
   const openLegal = (doc: 'privacy' | 'terms' | 'publish') => {
@@ -193,31 +204,47 @@ export function DesktopShell() {
   const download = (s: Sound) => downloadSound(s, toast);
 
   return (
-    <div className="relative h-full w-full p-4 lg:p-5">
+    <div className="pv-desktop relative h-full w-full p-4 lg:p-5">
       <div className="flex h-full w-full overflow-hidden rounded-[32px] shadow-[0_24px_64px_rgba(45,60,57,0.14)]"
         style={{ background: th.cardBg }}>
-        <nav className="flex flex-col py-5 px-2.5 flex-shrink-0" style={{ width: RAIL_W, borderRight: `1px solid ${th.border}` }}>
-          <button onClick={() => { reset(); setDesktopView('map'); }}
+        <nav className="flex flex-col pt-5 px-2.5 flex-shrink-0" style={{ width: RAIL_W, borderRight: `1px solid ${th.border}` }}>
+          <button onClick={() => { void reset().then((ok) => { if (ok) setDesktopView('map'); }); }}
             className="flex items-center gap-2.5 px-2 mb-5 text-left w-full min-w-0">
             <div className="w-10 h-10 flex-shrink-0 relative">
               <BrandMark />
             </div>
             <div className="min-w-0 leading-none">
               <p className="pv-wordmark truncate" style={{ color: th.inkText }}>Полёвка</p>
-              <p className="pv-micro mt-1 truncate" style={{ color: SAGE }}>{t('soundMap')}</p>
+              <p className="pv-micro mt-1 truncate" style={{ color: th.soft }}>{t('soundMap')}</p>
             </div>
           </button>
           <div className="flex flex-col gap-0.5">
-            {mainNav.map(({ id, Icon, label }) => {
-              const on = id === 'messages' ? vis?.type === 'messages' : desktopView === id && !vis;
-              return <RailItem key={id} label={label} Icon={Icon} on={on} onClick={() => goView(id)} ink={th.inkText} mute={mute} />;
-            })}
+            {mainNav.map(({ id, Icon, label }) => (
+              <RailItem key={id} label={label} Icon={Icon} on={desktopView === id && !vis} onClick={() => goView(id)} ink={th.inkText} mute={mute} dark={th.isDark} />
+            ))}
+            <RailItem label={t('events')} Icon={Ticket} on={vis?.type === 'events'} onClick={() => toggleStack('events')} ink={th.inkText} mute={mute} dark={th.isDark} />
           </div>
           <RailBannerCarousel />
-          <div className="flex flex-col gap-0.5 mb-3">
-            <RailItem label={t('drafts')} Icon={FilePenLine} on={vis?.type === 'drafts'} onClick={() => toggleStack('drafts')} ink={th.inkText} mute={mute} />
-            <RailItem label={t('help')} Icon={HelpCircle} on={vis?.type === 'help'} onClick={() => toggleStack('help')} ink={th.inkText} mute={mute} />
-            <RailItem label={t('settings')} Icon={Settings} on={vis?.type === 'settings'} onClick={() => toggleStack('settings')} ink={th.inkText} mute={mute} />
+          <div className="flex flex-col gap-0.5 mb-2">
+            <RailItem label={t('drafts')} Icon={FilePenLine} on={vis?.type === 'drafts'} onClick={() => toggleStack('drafts')} ink={th.inkText} mute={mute} dark={th.isDark} />
+            <RailItem label={t('help')} Icon={HelpCircle} on={vis?.type === 'help'} onClick={() => toggleStack('help')} ink={th.inkText} mute={mute} dark={th.isDark} />
+            <RailItem label={t('settings')} Icon={Settings} on={vis?.type === 'settings'} onClick={() => toggleStack('settings')} ink={th.inkText} mute={mute} dark={th.isDark} />
+          </div>
+          <div
+            className="mt-auto h-8 px-2 flex items-center flex-shrink-0"
+            style={{ borderTop: `1px solid ${th.border}` }}>
+            <motion.button
+              type="button"
+              whileTap={tap.cta}
+              onClick={toggleTheme}
+              className="pv-desk-hit h-7 px-2.5 rounded-full inline-flex items-center gap-1.5 cursor-pointer"
+              style={{ background: chipBg, color: th.muted }}
+              aria-label={t('darkTheme')}
+              aria-pressed={dark}
+              title={t('darkTheme')}>
+              {dark ? <Sun size={14} /> : <Moon size={14} />}
+              <span className="pv-micro">{t('darkTheme')}</span>
+            </motion.button>
           </div>
         </nav>
 
@@ -225,7 +252,7 @@ export function DesktopShell() {
           <header className="flex items-center gap-4 px-6 h-[64px] flex-shrink-0" style={{ borderBottom: `1px solid ${th.border}` }}>
             <div className="flex-1 flex justify-center min-w-0">
               <label className="flex items-center gap-2 w-full max-w-[420px] h-11 rounded-full px-4" style={{ background: chipBg }}>
-                <Search size={15} color={SAGE} className="flex-shrink-0" />
+                <Search size={15} color={th.soft} className="flex-shrink-0" />
                 <input value={q} placeholder={t('searchSounds')}
                   className="flex-1 min-w-0 bg-transparent outline-none" style={{ color: th.inkText }}
                   onChange={(e) => {
@@ -236,12 +263,20 @@ export function DesktopShell() {
                   onKeyDown={(e) => { if (e.key === 'Enter') push({ type: 'search' }); }} />
               </label>
             </div>
-            <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <LanguageSwitch compact />
+              {isLoggedIn && (
+                <motion.button whileTap={tap.cta} onClick={openMessages}
+                  className="pv-desk-hit relative w-10 h-10 rounded-full flex items-center justify-center cursor-pointer" style={{ background: chipBg }}
+                  aria-label={t('messages')} aria-current={vis?.type === 'messages' || vis?.type === 'conversation' ? 'page' : undefined}>
+                  <MessageCircle size={16} color={vis?.type === 'messages' || vis?.type === 'conversation' ? ACCENT : th.muted} />
+                  {msgUnread > 0 && <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ background: ACCENT }} />}
+                </motion.button>
+              )}
               <div className="relative">
                 <motion.button whileTap={tap.cta} onMouseDown={(e) => e.stopPropagation()} onClick={() => setNotifyOpen((v) => !v)}
-                  className="relative w-10 h-10 rounded-full flex items-center justify-center cursor-pointer" style={{ background: chipBg }} aria-expanded={notifyOpen} aria-label={t('notifications')}>
-                  <Bell size={16} color={OLIVE} />
+                  className="pv-desk-hit relative w-10 h-10 rounded-full flex items-center justify-center cursor-pointer" style={{ background: chipBg }} aria-expanded={notifyOpen} aria-label={t('notifications')}>
+                  <Bell size={16} color={th.muted} />
                   {prefs.notifyInApp && unread > 0 && <span className="absolute top-2 right-2 w-2 h-2 rounded-full" style={{ background: ACCENT }} />}
                 </motion.button>
                 <AnimatePresence>
@@ -252,25 +287,20 @@ export function DesktopShell() {
                 <div className="flex items-center gap-1 pl-1 pr-1.5 py-1 rounded-full" style={{ background: chipBg }}>
                   <button type="button" onClick={() => {
                     if (desktopView === 'cabinet' && !vis) { setDesktopView('map'); return; }
-                    reset();
-                    setDesktopView('cabinet');
+                    void reset().then((ok) => { if (ok) setDesktopView('cabinet'); });
                   }} className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center text-sm" style={{ background: th.lightBg }}>
-                      {user?.avatar && String(user.avatar).startsWith('http')
-                        ? <img src={String(user.avatar)} alt="" className="w-full h-full object-cover" />
-                        : <User size={16} color={OLIVE} />}
-                    </div>
+                    <Avatar src={user?.avatar || myProfile?.avatar} name={user?.displayName || user?.username} size={36} rounded="rounded-full" />
                     <div className="text-left hidden lg:block pr-1">
                       <p className="pv-subtitle leading-tight" style={{ color: th.inkText }}>{user?.displayName || user?.username}</p>
-                      <p className="pv-micro leading-tight" style={{ color: SAGE }}>@{user?.loginName}</p>
+                      <p className="pv-micro leading-tight" style={{ color: th.soft }}>@{user?.loginName}</p>
                     </div>
                   </button>
                   <HoverMenu items={[
-                    { label: t('profile'), onClick: () => { reset(); setDesktopView('cabinet'); } },
-                    { label: t('logout'), danger: true, onClick: () => { void logout().then(() => { reset(); setDesktopView('map'); toast(t('loggedOut')); }); } },
+                    { label: t('profile'), onClick: () => { void reset().then((ok) => { if (ok) setDesktopView('cabinet'); }); } },
+                    { label: t('logout'), danger: true, onClick: () => { void logout().then(() => { void reset().then((ok) => { if (ok) setDesktopView('map'); toast(t('loggedOut')); }); }); } },
                   ]}>
                     <span className="w-8 h-8 rounded-full flex items-center justify-center">
-                      <ChevronDown size={14} color={SAGE} />
+                      <ChevronDown size={14} color={th.soft} />
                     </span>
                   </HoverMenu>
                 </div>
@@ -336,12 +366,12 @@ export function DesktopShell() {
               ) : null}
             </div>
           </div>
-          <footer className="pv-micro flex-shrink-0 h-8 px-6 flex items-center gap-x-3 whitespace-nowrap overflow-hidden" style={{ borderTop: `1px solid ${th.border}`, color: SAGE }}>
+          <footer className="pv-micro flex-shrink-0 h-8 px-6 flex items-center gap-x-3 whitespace-nowrap overflow-hidden" style={{ borderTop: `1px solid ${th.border}`, color: th.soft }}>
             <span>© {year} Полёвка</span>
-            <button className="hover:underline cursor-pointer" style={{ color: OLIVE }} onClick={() => openLegal('privacy')}>{t('privacyPolicy')}</button>
-            <button className="hover:underline cursor-pointer" style={{ color: OLIVE }} onClick={() => openLegal('terms')}>{t('terms')}</button>
-            <button className="hover:underline cursor-pointer" style={{ color: OLIVE }} onClick={() => openLegal('publish')}>{t('publishRules')}</button>
-            <a href="https://yandex.ru/legal/maps_termsofuse" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: OLIVE }}>{t('yandexMapsTerms')}</a>
+            <button className="hover:underline cursor-pointer" style={{ color: th.muted }} onClick={() => openLegal('privacy')}>{t('privacyPolicy')}</button>
+            <button className="hover:underline cursor-pointer" style={{ color: th.muted }} onClick={() => openLegal('terms')}>{t('terms')}</button>
+            <button className="hover:underline cursor-pointer" style={{ color: th.muted }} onClick={() => openLegal('publish')}>{t('publishRules')}</button>
+            <a href="https://yandex.ru/legal/maps_termsofuse" target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: th.muted }}>{t('yandexMapsTerms')}</a>
           </footer>
         </div>
       </div>

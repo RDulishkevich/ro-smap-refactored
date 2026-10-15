@@ -29,7 +29,7 @@ Canonical tokens live in `packages/design` (`tokens.ts`, `tokens.css`, `motion.t
 | ink | `#1A1A1A` | Primary text (light) |
 | phoneBg | `#E8EDEA` | App canvas |
 
-Dark theme: `makeTheme(true)` — `#1A2926` canvas, `#243530` cards, `#1E2E2A` chrome.
+Dark theme: `makeTheme(true)` — `#0B0B0B` canvas, `#171717` cards, `#111111` chrome, `#2E2E2E` elevated, `#3A3A3A` solid CTA (neutral black, no green). Map tiles inverted; map chrome light.
 
 No peach Wellness (`#FBAB57`), no Wispr lavender, no glow rings.
 

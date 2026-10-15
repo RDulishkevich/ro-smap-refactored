@@ -204,7 +204,7 @@ export function AnalyzersPanel({ playing }: { playing: boolean }) {
 
   const meter = (lab: string, rms: typeof lRms, peak: typeof lPeak) => (
     <div className="flex items-center gap-2">
-      <span className="w-3 text-[9px] font-bold" style={{ color: color.sage }}>{lab}</span>
+      <span className="w-3 text-[9px] font-bold" style={{ color: th.soft }}>{lab}</span>
       <div className="relative flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: dark ? 'rgba(26,41,38,0.65)' : 'rgba(255,255,255,0.7)' }}>
         <div ref={rms} className="absolute inset-y-0 left-0 rounded-full" style={{ width: '0%', background: color.accent }} />
         <div ref={peak} className="absolute top-0 bottom-0 w-0.5" style={{ left: '0%', background: color.dark }} />
@@ -218,18 +218,18 @@ export function AnalyzersPanel({ playing }: { playing: boolean }) {
       border: `1px solid ${th.border}`,
     }}>
       <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: `1px solid ${th.border}` }}>
-        <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: color.sage }}>{t('analyzers')}</span>
+        <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: th.soft }}>{t('analyzers')}</span>
         <span ref={dbRef} className="text-[11px] font-mono font-bold tabular-nums" style={{ color: color.accent }}>−∞ dB</span>
       </div>
       <div className="grid grid-cols-[108px_minmax(0,1fr)] gap-2 p-2.5">
         <div>
-          <p className="text-[9px] font-bold uppercase tracking-widest mb-1.5" style={{ color: color.sage }}>{t('goniometer')}</p>
-          <canvas ref={gonioRef} width={200} height={200} className="w-full aspect-square rounded-2xl block" style={{ background: dark ? '#1A2926' : '#F8FAF6' }} />
+          <p className="text-[9px] font-bold uppercase tracking-widest mb-1.5" style={{ color: th.soft }}>{t('goniometer')}</p>
+          <canvas ref={gonioRef} width={200} height={200} className="w-full aspect-square rounded-2xl block" style={{ background: dark ? '#0B0B0B' : '#F8FAF6' }} />
         </div>
         <div className="min-w-0 flex flex-col gap-2">
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-widest mb-1.5" style={{ color: color.sage }}>{t('spectrogram')}</p>
-            <canvas ref={specRef} width={720} height={160} className="w-full h-[108px] rounded-2xl block" style={{ background: dark ? '#1A2926' : '#F8FAF6' }} />
+            <p className="text-[9px] font-bold uppercase tracking-widest mb-1.5" style={{ color: th.soft }}>{t('spectrogram')}</p>
+            <canvas ref={specRef} width={720} height={160} className="w-full h-[108px] rounded-2xl block" style={{ background: dark ? '#0B0B0B' : '#F8FAF6' }} />
           </div>
           <div className="flex flex-col gap-1.5">
             {meter('L', lRms, lPeak)}
@@ -239,22 +239,22 @@ export function AnalyzersPanel({ playing }: { playing: boolean }) {
       </div>
       <div className="px-3 py-2.5 flex flex-col gap-2" style={{ borderTop: `1px solid ${th.border}` }}>
         <div className="flex items-center gap-2">
-          <span className="text-[9px] font-bold w-3 text-center" style={{ color: color.sage }}>L</span>
+          <span className="text-[9px] font-bold w-3 text-center" style={{ color: th.soft }}>L</span>
           <input type="range" min={-1} max={1} step={0.01} value={pan} aria-label="Pan"
             className="flex-1 h-1.5 accent-[#B5613F] cursor-pointer"
             onChange={(e) => { const v = Number(e.target.value); setPan(v); audioService.setPan(v); }} />
-          <span className="text-[9px] font-bold w-3 text-center" style={{ color: color.sage }}>R</span>
+          <span className="text-[9px] font-bold w-3 text-center" style={{ color: th.soft }}>R</span>
           <span className="text-[10px] font-mono font-semibold w-10 text-right" style={{ color: color.accent }}>{panLabel(pan)}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[9px] font-bold" style={{ color: color.sage }}>−12</span>
+          <span className="text-[9px] font-bold" style={{ color: th.soft }}>−12</span>
           <input type="range" min={-12} max={12} step={1} value={pitch} aria-label={t('pitch')}
             className="flex-1 h-1.5 accent-[#B5613F] cursor-pointer"
             onChange={(e) => { const v = Number(e.target.value); setPitch(v); audioService.setPitch(v); }} />
-          <span className="text-[9px] font-bold" style={{ color: color.sage }}>+12</span>
+          <span className="text-[9px] font-bold" style={{ color: th.soft }}>+12</span>
           <span className="text-[10px] font-mono font-semibold w-10 text-right" style={{ color: color.accent }}>{pitch} st</span>
           <button type="button" className="text-[10px] font-bold px-2.5 h-7 rounded-xl cursor-pointer"
-            style={{ color: color.olive, background: th.cardBg }}
+            style={{ color: th.muted, background: th.cardBg }}
             onClick={() => { setPan(0); setPitch(0); audioService.setPan(0); audioService.setPitch(0); }}>{t('reset')}</button>
         </div>
       </div>
@@ -401,7 +401,7 @@ export function LiveAnalyzers({
 
   const meter = (lab: string, rms: typeof lRms, peak: typeof lPeak) => (
     <div className="flex items-center gap-2">
-      <span className="w-3 text-[9px] font-bold" style={{ color: color.sage }}>{lab}</span>
+      <span className="w-3 text-[9px] font-bold" style={{ color: th.soft }}>{lab}</span>
       <div className="relative flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: dark ? 'rgba(26,41,38,0.65)' : 'rgba(255,255,255,0.7)' }}>
         <div ref={rms} className="absolute inset-y-0 left-0 rounded-full" style={{ width: '0%', background: color.accent }} />
         <div ref={peak} className="absolute top-0 bottom-0 w-0.5" style={{ left: '0%', background: color.dark }} />
@@ -415,18 +415,18 @@ export function LiveAnalyzers({
       border: `1px solid ${th.border}`,
     }}>
       <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: `1px solid ${th.border}` }}>
-        <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: color.sage }}>{t('analyzers')}</span>
+        <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: th.soft }}>{t('analyzers')}</span>
         <span ref={dbRef} className="text-[11px] font-mono font-bold tabular-nums" style={{ color: color.accent }}>−∞ dB</span>
       </div>
       <div className="grid grid-cols-[108px_minmax(0,1fr)] gap-2 p-2.5">
         <div>
-          <p className="text-[9px] font-bold uppercase tracking-widest mb-1.5" style={{ color: color.sage }}>{t('goniometer')}</p>
-          <canvas ref={gonioRef} width={200} height={200} className="w-full aspect-square rounded-2xl block" style={{ background: dark ? '#1A2926' : '#F8FAF6' }} />
+          <p className="text-[9px] font-bold uppercase tracking-widest mb-1.5" style={{ color: th.soft }}>{t('goniometer')}</p>
+          <canvas ref={gonioRef} width={200} height={200} className="w-full aspect-square rounded-2xl block" style={{ background: dark ? '#0B0B0B' : '#F8FAF6' }} />
         </div>
         <div className="min-w-0 flex flex-col gap-2">
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-widest mb-1.5" style={{ color: color.sage }}>{t('spectrogram')}</p>
-            <canvas ref={specRef} width={720} height={160} className="w-full h-[108px] rounded-2xl block" style={{ background: dark ? '#1A2926' : '#F8FAF6' }} />
+            <p className="text-[9px] font-bold uppercase tracking-widest mb-1.5" style={{ color: th.soft }}>{t('spectrogram')}</p>
+            <canvas ref={specRef} width={720} height={160} className="w-full h-[108px] rounded-2xl block" style={{ background: dark ? '#0B0B0B' : '#F8FAF6' }} />
           </div>
           <div className="flex flex-col gap-1.5">
             {meter('L', lRms, lPeak)}

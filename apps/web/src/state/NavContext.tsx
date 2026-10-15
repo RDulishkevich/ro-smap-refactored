@@ -35,10 +35,12 @@ export type ScreenConfig =
 export type TabId = 'menu' | 'map' | 'messages' | 'profile';
 export type DesktopView = 'map' | 'library' | 'feed' | 'expeditions' | 'help' | 'staff' | 'cabinet';
 
+export type LeaveGuard = () => boolean | Promise<boolean>;
+
 type NavCtx = {
   push: (s: ScreenConfig) => void;
   pop: () => void;
-  reset: (s?: ScreenConfig) => void;
+  reset: (s?: ScreenConfig) => Promise<boolean>;
   applyRoute: (route: DeepRoute) => void;
   stack: Array<ScreenConfig & { _id: number }>;
   activeTab: TabId;
@@ -47,6 +49,7 @@ type NavCtx = {
   desktopView: DesktopView;
   setDesktopView: (v: DesktopView) => void;
   requireAuth: (s: ScreenConfig) => void;
+  setLeaveGuard: (fn: LeaveGuard | null) => void;
 };
 
 const Ctx = createContext<NavCtx | null>(null);
@@ -111,10 +114,21 @@ export function NavProvider({ children, isLoggedIn, onNeedAuth }: { children: Re
   const [desktopView, setDesktopViewState] = useState<DesktopView>('map');
   const nextId = useRef(0);
   const skipUrl = useRef(false);
+  const leaveGuardRef = useRef<LeaveGuard | null>(null);
   const tabRef = useRef(activeTab);
   const viewRef = useRef(desktopView);
   tabRef.current = activeTab;
   viewRef.current = desktopView;
+
+  const setLeaveGuard = useCallback((fn: LeaveGuard | null) => {
+    leaveGuardRef.current = fn;
+  }, []);
+
+  const runLeaveGuard = useCallback(async () => {
+    const g = leaveGuardRef.current;
+    if (!g) return true;
+    return !!(await g());
+  }, []);
 
   const sync = useCallback((nextStack: Array<ScreenConfig>, tab: TabId, view: DesktopView, mode: 'push' | 'replace') => {
     writeUrl(pathFromNav(nextStack, tab, view), mode);
@@ -129,29 +143,42 @@ export function NavProvider({ children, isLoggedIn, onNeedAuth }: { children: Re
     });
   }, [sync]);
   const pop = useCallback(() => {
-    setStack((p) => {
-      const next = p.slice(0, -1);
-      skipUrl.current = false;
-      sync(next, tabRef.current, viewRef.current, 'replace');
-      return next;
-    });
-  }, [sync]);
-  const reset = useCallback((s?: ScreenConfig) => {
-    setStack(() => {
-      const next = s ? [{ ...s, _id: nextId.current++ }] : [];
-      skipUrl.current = true;
-      sync(next, tabRef.current, viewRef.current, 'replace');
-      return next;
-    });
-  }, [sync]);
+    void (async () => {
+      if (!(await runLeaveGuard())) return;
+      leaveGuardRef.current = null;
+      setStack((p) => {
+        const next = p.slice(0, -1);
+        skipUrl.current = false;
+        sync(next, tabRef.current, viewRef.current, 'replace');
+        return next;
+      });
+    })();
+  }, [sync, runLeaveGuard]);
+  const reset = useCallback((s?: ScreenConfig) => (
+    (async () => {
+      if (!(await runLeaveGuard())) return false;
+      leaveGuardRef.current = null;
+      setStack(() => {
+        const next = s ? [{ ...s, _id: nextId.current++ }] : [];
+        skipUrl.current = true;
+        sync(next, tabRef.current, viewRef.current, 'replace');
+        return next;
+      });
+      return true;
+    })()
+  ), [sync, runLeaveGuard]);
   const setActiveTab = useCallback((t: TabId) => {
-    setPrevTab(tabRef.current);
-    setActiveTabState(t);
-    tabRef.current = t;
-    setStack([]);
-    skipUrl.current = false;
-    sync([], t, viewRef.current, 'push');
-  }, [sync]);
+    void (async () => {
+      if (!(await runLeaveGuard())) return;
+      leaveGuardRef.current = null;
+      setPrevTab(tabRef.current);
+      setActiveTabState(t);
+      tabRef.current = t;
+      setStack([]);
+      skipUrl.current = false;
+      sync([], t, viewRef.current, 'push');
+    })();
+  }, [sync, runLeaveGuard]);
   const setDesktopView = useCallback((v: DesktopView) => {
     setDesktopViewState(v);
     viewRef.current = v;
@@ -280,8 +307,8 @@ export function NavProvider({ children, isLoggedIn, onNeedAuth }: { children: Re
   }, []);
 
   const value = useMemo(() => ({
-    push, pop, reset, applyRoute, stack, activeTab, setActiveTab, prevTab, desktopView, setDesktopView, requireAuth,
-  }), [push, pop, reset, applyRoute, stack, activeTab, setActiveTab, prevTab, desktopView, setDesktopView, requireAuth]);
+    push, pop, reset, applyRoute, stack, activeTab, setActiveTab, prevTab, desktopView, setDesktopView, requireAuth, setLeaveGuard,
+  }), [push, pop, reset, applyRoute, stack, activeTab, setActiveTab, prevTab, desktopView, setDesktopView, requireAuth, setLeaveGuard]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

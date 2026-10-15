@@ -28,7 +28,7 @@
 | ink | `#1A1A1A` | Text on light |
 | phoneBg | `#E8EDEA` | Canvas |
 
-Dark: canvas `#1A2926`, cards `#243530`, chrome `#1E2E2A`.
+Dark: canvas `#0B0B0B`, cards `#171717`, chrome `#111111`, elevated `#2E2E2E`, solid CTA `#3A3A3A` (neutral black, no green). Map tiles inverted for contrast; map chrome buttons light.
 
 Radii: 12 / 16 / 24 / pill FAB. Map FAB notch 36px. Icons: **Lucide**. Motion springs: see `packages/design/src/motion.ts`.
 

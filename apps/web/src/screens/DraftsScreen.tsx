@@ -11,9 +11,8 @@ import { EmptyNote } from '../primitives/EmptyNote';
 import { useIsDesktop } from '../lib/use-media';
 import { getDraftRecording } from '../lib/record-buffer';
 import { formatClock } from '../lib/waveform';
+import { SoundTagLines } from '../primitives/SoundTagLines';
 
-const SAGE = color.sage;
-const OLIVE = color.olive;
 const ACCENT = color.accent;
 
 function statusLabel(status?: string) {
@@ -46,7 +45,7 @@ export function DraftsScreen({ onBack }: { onBack: () => void }) {
         {desktop && (
           <div className="mb-4">
             <p className="pv-page" style={{ color: th.inkText }}>{t('drafts')}</p>
-            <p className="pv-caption mt-1" style={{ color: OLIVE }}>{t('draftsHint')}</p>
+            <p className="pv-caption mt-1" style={{ color: th.muted }}>{t('draftsHint')}</p>
           </div>
         )}
         <div className="flex flex-col gap-2.5">
@@ -57,7 +56,7 @@ export function DraftsScreen({ onBack }: { onBack: () => void }) {
               style={{ background: th.cardBg }}>
               <p className="pv-micro uppercase" style={{ color: ACCENT }}>{t('draftLocal')}</p>
               <p className="pv-subtitle mt-0.5" style={{ color: th.inkText }}>{t('draftContinue')}</p>
-              <p className="pv-caption mt-1" style={{ color: SAGE }}>{formatClock(local.durationSec)}</p>
+              <p className="pv-caption mt-1" style={{ color: th.soft }}>{formatClock(local.durationSec)}</p>
             </motion.button>
           )}
           {drafts.map((item) => (
@@ -68,8 +67,11 @@ export function DraftsScreen({ onBack }: { onBack: () => void }) {
               }}
               className="w-full text-left rounded-3xl p-4"
               style={{ background: th.cardBg }}>
-              <p className="pv-micro uppercase" style={{ color: item.status === 'rejected' ? ACCENT : SAGE }}>{statusLabel(item.status)}</p>
+              <p className="pv-micro uppercase" style={{ color: item.status === 'rejected' ? ACCENT : th.soft }}>{statusLabel(item.status)}</p>
               <p className="pv-subtitle mt-0.5" style={{ color: th.inkText }}>{item.title || 'Без названия'}</p>
+              <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+                <SoundTagLines sound={item} />
+              </div>
               {item.rejectNote ? <p className="pv-caption mt-1" style={{ color: ACCENT }}>{String(item.rejectNote)}</p> : null}
             </motion.button>
           ))}
