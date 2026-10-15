@@ -37,6 +37,9 @@ export function MobileShell() {
   const hideForScreen = !!top && HIDE_PLAYER.includes(top.type);
   const showPlayer = !!dock && !fabOpen && !hideForScreen;
 
+  useEffect(() => { setFabOpen(false); }, [activeTab]);
+  useEffect(() => { if (stack.length) setFabOpen(false); }, [stack.length]);
+
   useEffect(() => {
     const el = dockRef.current;
     if (!showPlayer || !el) {
@@ -123,6 +126,23 @@ export function MobileShell() {
             onMute={toggleMute} />
         </div>
       )}
+
+      <AnimatePresence>
+        {showChrome && fabOpen && (
+          <motion.button
+            key="fab-scrim"
+            type="button"
+            aria-label="Закрыть"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={spring.fade}
+            className="absolute inset-0 z-[90]"
+            style={{ background: 'rgba(26,26,26,0.28)' }}
+            onClick={() => setFabOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {showChrome && (
         <div className="absolute left-0 right-0 z-[95] pv-mobile-nav" style={{ bottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))' }}>

@@ -235,14 +235,15 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
   const left = tabs.slice(0, 2);
   const right = tabs.slice(2);
 
-  const renderTab = ({ id, Icon, label }: (typeof tabs)[number]) => {
+  /** Side-scoped layoutId so the pill never flies through the center FAB. */
+  const renderTab = ({ id, Icon, label }: (typeof tabs)[number], side: 'L' | 'R' | 'C') => {
     const on = activeTab === id;
     return (
       <motion.button
         key={id}
         type="button"
         layout
-        transition={spring.tab}
+        transition={spring.pill}
         onClick={() => setActiveTab(id)}
         whileTap={tap.nav}
         aria-label={label}
@@ -251,10 +252,10 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
       >
         {on && (
           <motion.span
-            layoutId="pv-nav-pill"
+            layoutId={`pv-nav-pill-${side}`}
             className="absolute inset-0 rounded-full shadow-[0_2px_10px_rgba(45,60,57,0.10)]"
             style={{ background: pillBg }}
-            transition={spring.tab}
+            transition={spring.pill}
           />
         )}
         <span className="relative z-[1] flex items-center justify-center">
@@ -270,11 +271,11 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
           {on && (
             <motion.span
               key={`${id}-label`}
-              initial={{ opacity: 0, x: -8, width: 0 }}
-              animate={{ opacity: 1, x: 0, width: 'auto' }}
-              exit={{ opacity: 0, x: -6, width: 0 }}
-              transition={spring.tab}
-              className="relative z-[1] pv-subtitle whitespace-nowrap overflow-hidden"
+              initial={{ opacity: 0, x: -6 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -4 }}
+              transition={spring.pill}
+              className="relative z-[1] pv-subtitle whitespace-nowrap"
               style={{ color: th.inkText }}
             >
               {label}
@@ -288,16 +289,19 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
   return (
     <div
       className={`flex items-center min-h-[3.5rem] flex-shrink-0 py-1.5 ${hollowCenter ? 'px-2 justify-between' : 'px-3 justify-around'}`}
-      style={{ background: hollowCenter ? 'transparent' : 'transparent' }}
     >
       {hollowCenter ? (
         <>
-          <div className="flex items-center gap-0.5 min-w-0">{left.map(renderTab)}</div>
+          <div className="flex items-center gap-0.5 min-w-0 flex-1 justify-start">
+            {left.map((tab) => renderTab(tab, 'L'))}
+          </div>
           <div className="w-14 h-12 flex-shrink-0" aria-hidden />
-          <div className="flex items-center gap-0.5 min-w-0 justify-end">{right.map(renderTab)}</div>
+          <div className="flex items-center gap-0.5 min-w-0 flex-1 justify-end">
+            {right.map((tab) => renderTab(tab, 'R'))}
+          </div>
         </>
       ) : (
-        tabs.map(renderTab)
+        tabs.map((tab) => renderTab(tab, 'C'))
       )}
     </div>
   );

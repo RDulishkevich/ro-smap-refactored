@@ -9,22 +9,87 @@ import { useIsDesktop } from '../lib/use-media';
 import { useT } from '../state/PrefsContext';
 import { PopoverCaret } from './HoverMenu';
 
+type FabAction = {
+  Icon: typeof MapPin;
+  bg: string;
+  screen: { type: 'add-sound' } | { type: 'record' };
+  label: string;
+};
+
 export function MapFab({ open, onToggle, from = 'corner' }: { open: boolean; onToggle: () => void; from?: 'corner' | 'center' }) {
   const { requireAuth } = useNav();
-  // Desktop corner: add above, record to the left. Mobile center: same axes from the FAB.
-  const actions = from === 'center'
-    ? [
-        { Icon: MapPin, bg: '#3A3A3A', screen: { type: 'add-sound' as const }, x: 0, y: -96, label: 'Добавить звук' },
-        { Icon: Mic, bg: color.accent, screen: { type: 'record' as const }, x: -96, y: 0, label: 'Записать' },
-      ]
-    : [
-        { Icon: MapPin, bg: '#3A3A3A', screen: { type: 'add-sound' as const }, x: 0, y: -88, label: 'Добавить звук' },
-        { Icon: Mic, bg: color.accent, screen: { type: 'record' as const }, x: -88, y: 0, label: 'Записать' },
-      ];
+  const th = useTh();
+  const actions: FabAction[] = [
+    { Icon: MapPin, bg: th.isDark ? '#2E2E2E' : '#3A3A3A', screen: { type: 'add-sound' }, label: 'Добавить звук' },
+    { Icon: Mic, bg: color.accent, screen: { type: 'record' }, label: 'Записать' },
+  ];
+
+  if (from === 'center') {
+    return (
+      <div className="relative w-16 h-16 pointer-events-none">
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              key="fab-sheet"
+              initial={{ opacity: 0, y: 12, scale: 0.92 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.94 }}
+              transition={spring.fab}
+              className="absolute left-1/2 bottom-[4.75rem] -translate-x-1/2 flex flex-col gap-2 pointer-events-auto z-[2] w-[min(16.5rem,calc(100vw-2.5rem))]"
+            >
+              {actions.map(({ Icon, bg, screen, label }, i) => (
+                <motion.button
+                  key={label}
+                  type="button"
+                  initial={{ opacity: 0, y: 14, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.92 }}
+                  transition={{ ...spring.chip, delay: i * 0.05 }}
+                  whileTap={tap.cta}
+                  onClick={() => { onToggle(); requireAuth(screen); }}
+                  className="w-full min-h-12 rounded-2xl px-3.5 flex items-center gap-3 text-left shadow-[0_10px_28px_rgba(45,60,57,0.18)]"
+                  style={{ background: th.cardBg, border: `1px solid ${th.border}` }}
+                  aria-label={label}
+                >
+                  <span
+                    className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ background: bg }}
+                  >
+                    <Icon size={18} color="white" />
+                  </span>
+                  <span className="pv-subtitle" style={{ color: th.inkText }}>{label}</span>
+                </motion.button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <motion.button
+          type="button"
+          onClick={onToggle}
+          title="Добавить"
+          aria-label="Добавить"
+          aria-expanded={open}
+          className="relative z-10 w-16 h-16 rounded-full flex items-center justify-center shadow-[0_10px_28px_rgba(181,97,63,0.35)] pointer-events-auto"
+          style={{ background: color.accent }}
+          whileTap={{ scale: 0.94 }}
+          animate={{ rotate: open ? 45 : 0 }}
+          transition={spring.fab}
+        >
+          <Plus size={26} color="white" strokeWidth={2.5} />
+        </motion.button>
+      </div>
+    );
+  }
+
+  // Desktop corner: add above, record to the left.
+  const corner = [
+    { Icon: MapPin, bg: '#3A3A3A', screen: { type: 'add-sound' as const }, x: 0, y: -88, label: 'Добавить звук' },
+    { Icon: Mic, bg: color.accent, screen: { type: 'record' as const }, x: -88, y: 0, label: 'Записать' },
+  ];
   return (
     <div className="relative w-16 h-16 pointer-events-none">
       <AnimatePresence>
-        {open && actions.map(({ Icon, bg, screen, x, y, label }, i) => (
+        {open && corner.map(({ Icon, bg, screen, x, y, label }, i) => (
           <motion.button key={label} title={label} aria-label={label}
             initial={{ opacity: 0, x: x * 0.4, y: y * 0.4, scale: 0.72 }}
             animate={{ opacity: 1, x, y, scale: 1 }}
@@ -38,7 +103,7 @@ export function MapFab({ open, onToggle, from = 'corner' }: { open: boolean; onT
           </motion.button>
         ))}
       </AnimatePresence>
-      <motion.button onClick={onToggle} title="Добавить" aria-label="Добавить"
+      <motion.button type="button" onClick={onToggle} title="Добавить" aria-label="Добавить" aria-expanded={open}
         className="relative z-10 w-16 h-16 rounded-full flex items-center justify-center shadow-xl pointer-events-auto" style={{ background: color.accent }}
         whileTap={{ scale: 0.96 }} animate={{ rotate: open ? 45 : 0 }} transition={spring.fab}>
         <Plus size={26} color="white" strokeWidth={2.5} />
