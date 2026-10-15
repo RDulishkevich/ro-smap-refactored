@@ -12,6 +12,7 @@ export type DeepRoute =
   | { kind: 'staff' }
   | { kind: 'guessr' }
   | { kind: 'profile' }
+  | { kind: 'auth'; mode?: 'in' | 'up' }
   | { kind: 'drafts' }
   | { kind: 'sound'; id: string }
   | { kind: 'user'; login: string };
@@ -32,11 +33,22 @@ export function parsePath(pathname: string): DeepRoute {
   if (head === 'staff' || head === 'admin') return { kind: 'staff' };
   if (head === 'guessr' || head === 'guesser') return { kind: 'guessr' };
   if (head === 'profile' || head === 'cabinet') return { kind: 'profile' };
+  if (head === 'auth' || head === 'login') {
+    const sub = String(parts[1] || '').toLowerCase();
+    if (sub === 'up' || sub === 'register' || sub === 'signup') return { kind: 'auth', mode: 'up' };
+    return { kind: 'auth', mode: 'in' };
+  }
+  if (head === 'register' || head === 'signup') return { kind: 'auth', mode: 'up' };
   if (head === 'oauth') return { kind: 'home' }; // callback handled by OAuthReturn
   if (head === 'drafts' || head === 'draft') return { kind: 'drafts' };
   if (head === 'menu') return { kind: 'menu' };
   if (head === 'map') return { kind: 'map' };
   return { kind: 'home' };
+}
+
+/** Canonical URL for the auth overlay. */
+export function pathForAuth(mode?: 'in' | 'up') {
+  return mode === 'up' ? '/auth/register' : '/auth';
 }
 
 export function pathForSound(id: string | number) {

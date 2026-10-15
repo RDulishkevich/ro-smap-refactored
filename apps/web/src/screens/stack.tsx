@@ -52,6 +52,7 @@ import { resolveExpeditionInvite } from '../lib/expedition-invite';
 import { isAmbisonicSound, isSoundwalkPrinciple, soundRoute } from '../lib/sound-media';
 import { watchConditionalUnlock } from '../lib/device-unlock';
 import { beginOAuth } from '../lib/oauth';
+import { pathForAuth } from '../lib/routes';
 import { Avatar } from '../primitives/Avatar';
 import { NotificationRow } from '../primitives/NotificationRow';
 import { SoundTagLines } from '../primitives/SoundTagLines';
@@ -758,6 +759,12 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
       setOauthBusy(null);
     }
   };
+
+  useEffect(() => {
+    const path = pathForAuth(mode);
+    if (`${location.pathname}` !== path) history.replaceState({ polevka: true }, '', path);
+  }, [mode]);
+
   const loginErr = seen.login && !loginName.trim() ? t('loginNeed') : '';
   const passwordErr = seen.password && password.length < 8 ? t('passwordNeed') : '';
   const nameErr = mode === 'up' && seen.name && !name.trim() ? t('nameNeed') : '';

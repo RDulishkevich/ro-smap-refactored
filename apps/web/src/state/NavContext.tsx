@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Expedition, FeedPost, Sound } from '@polevka/core';
-import { parsePath, pathForEvent, pathForSound, pathForUser, type DeepRoute } from '../lib/routes';
+import { parsePath, pathForAuth, pathForEvent, pathForSound, pathForUser, type DeepRoute } from '../lib/routes';
 
 export type ScreenConfig =
   | { type: 'sound-detail'; sound: Sound }
@@ -74,6 +74,8 @@ function urlForScreen(s?: ScreenConfig | null): string | null {
   if (s.type === 'guessr') return '/guessr';
   if (s.type === 'cabinet') return '/profile';
   if (s.type === 'drafts') return '/drafts';
+  if (s.type === 'auth') return pathForAuth(s.mode);
+  if (s.type === 'reset-password') return '/auth';
   return null;
 }
 
@@ -274,6 +276,13 @@ export function NavProvider({ children, isLoggedIn, onNeedAuth }: { children: Re
       setTab(desk ? 'map' : 'menu');
       setStack(screen({ type: 'drafts' }));
       writeUrl('/drafts', 'replace');
+      return;
+    }
+    if (route.kind === 'auth') {
+      setTab(desk ? 'map' : 'profile');
+      setView('map');
+      setStack(screen({ type: 'auth', mode: route.mode || 'in' }));
+      writeUrl(pathForAuth(route.mode), 'replace');
       return;
     }
     if (route.kind === 'menu') {

@@ -43,7 +43,7 @@ export function DeepLinks() {
       apply();
     } else {
       const kind = parsePath(location.pathname).kind;
-      if (kind === 'sound' || kind === 'expeditions' || kind === 'catalog' || kind === 'feed') {
+      if (kind === 'sound' || kind === 'expeditions' || kind === 'catalog' || kind === 'feed' || kind === 'auth') {
         apply();
       }
     }
