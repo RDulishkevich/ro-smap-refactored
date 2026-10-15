@@ -238,13 +238,8 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
   /** Side-scoped layoutId so the pill never flies through the center FAB. */
   const renderTab = ({ id, Icon, label }: (typeof tabs)[number], side: 'L' | 'R' | 'C') => {
     const on = activeTab === id;
-    // Hollow (mobile + FAB): fixed-width column so expanding labels never slide under the plus.
-    // Full bar (no FAB): icon + horizontal label when active.
-    const hollow = hollowCenter;
-    const hollowLabel =
-      id === 'messages' ? 'Чаты'
-        : id === 'profile' ? (isLoggedIn ? 'Я' : 'Вход')
-          : label;
+    // Hollow: keep label beside the icon, but use short copy so pills fit in side slots.
+    const showLabel = on ? (hollowCenter && id === 'messages' ? 'Чаты' : label) : '';
     return (
       <motion.button
         key={id}
@@ -255,11 +250,9 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
         whileTap={tap.nav}
         aria-label={label}
         aria-current={on ? 'page' : undefined}
-        className={
-          hollow
-            ? 'relative z-0 flex flex-col items-center justify-center w-12 h-12 flex-shrink-0 overflow-hidden cursor-pointer gap-0.5'
-            : `relative z-0 flex items-center justify-center h-11 flex-shrink-0 overflow-hidden cursor-pointer ${on ? 'px-3.5 gap-1.5' : 'w-11'}`
-        }
+        className={`relative z-0 flex items-center justify-center h-11 max-w-full min-w-0 overflow-hidden cursor-pointer ${
+          on ? (hollowCenter ? 'px-2.5 gap-1' : 'px-3.5 gap-1.5') : 'w-11 shrink-0'
+        }`}
       >
         {on && (
           <motion.span
@@ -269,8 +262,8 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
             transition={spring.pill}
           />
         )}
-        <span className="relative z-[1] flex items-center justify-center">
-          <Icon size={hollow ? 18 : 20} strokeWidth={on ? 2.25 : 1.75} color={on ? th.inkText : th.muted} />
+        <span className="relative z-[1] flex items-center justify-center flex-shrink-0">
+          <Icon size={20} strokeWidth={on ? 2.25 : 1.75} color={on ? th.inkText : th.muted} />
           {id === 'messages' && unread > 0 && (
             <span
               className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
@@ -279,17 +272,17 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
           )}
         </span>
         <AnimatePresence initial={false} mode="popLayout">
-          {on && (
+          {on && showLabel && (
             <motion.span
               key={`${id}-label`}
-              initial={{ opacity: 0, ...(hollow ? { y: 4 } : { x: -6 }) }}
-              animate={{ opacity: 1, ...(hollow ? { y: 0 } : { x: 0 }) }}
-              exit={{ opacity: 0, ...(hollow ? { y: 2 } : { x: -4 }) }}
+              initial={{ opacity: 0, x: side === 'R' ? 6 : -6 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: side === 'R' ? 4 : -4 }}
               transition={spring.pill}
-              className={`relative z-[1] whitespace-nowrap ${hollow ? 'pv-micro leading-none' : 'pv-subtitle'}`}
+              className={`relative z-[1] whitespace-nowrap ${hollowCenter ? 'pv-caption' : 'pv-subtitle'}`}
               style={{ color: th.inkText }}
             >
-              {hollow ? hollowLabel : label}
+              {showLabel}
             </motion.span>
           )}
         </AnimatePresence>
@@ -299,17 +292,25 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
 
   return (
     <div
-      className={`flex items-center min-h-[3.5rem] flex-shrink-0 py-1.5 ${hollowCenter ? 'px-2 justify-between' : 'px-3 justify-around'}`}
+      className={`flex items-center min-h-[3.5rem] flex-shrink-0 py-1.5 ${hollowCenter ? 'px-1.5 justify-between' : 'px-3 justify-around'}`}
     >
       {hollowCenter ? (
         <>
-          <div className="flex items-center gap-0.5 min-w-0 flex-1 justify-start">
-            {left.map((tab) => renderTab(tab, 'L'))}
+          {/* Equal slots keep horizontal labels inside each half — never under the FAB. */}
+          <div className="grid grid-cols-2 items-center gap-0.5 min-w-0 flex-1">
+            {left.map((tab) => (
+              <div key={tab.id} className="min-w-0 flex justify-center">
+                {renderTab(tab, 'L')}
+              </div>
+            ))}
           </div>
-          {/* FAB is 64px — keep ≥96px hole so icons never sit under the plus */}
-          <div className="w-24 h-12 flex-shrink-0" aria-hidden />
-          <div className="flex items-center gap-0.5 min-w-0 flex-1 justify-end">
-            {right.map((tab) => renderTab(tab, 'R'))}
+          <div className="w-[4.75rem] h-12 flex-shrink-0" aria-hidden />
+          <div className="grid grid-cols-2 items-center gap-0.5 min-w-0 flex-1">
+            {right.map((tab) => (
+              <div key={tab.id} className="min-w-0 flex justify-center">
+                {renderTab(tab, 'R')}
+              </div>
+            ))}
           </div>
         </>
       ) : (
