@@ -241,6 +241,10 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
     // Hollow (mobile + FAB): fixed-width column so expanding labels never slide under the plus.
     // Full bar (no FAB): icon + horizontal label when active.
     const hollow = hollowCenter;
+    const hollowLabel =
+      id === 'messages' ? 'Чаты'
+        : id === 'profile' ? (isLoggedIn ? 'Я' : 'Вход')
+          : label;
     return (
       <motion.button
         key={id}
@@ -282,10 +286,10 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
               animate={{ opacity: 1, ...(hollow ? { y: 0 } : { x: 0 }) }}
               exit={{ opacity: 0, ...(hollow ? { y: 2 } : { x: -4 }) }}
               transition={spring.pill}
-              className={`relative z-[1] whitespace-nowrap ${hollow ? 'pv-micro leading-none max-w-[2.75rem] truncate' : 'pv-subtitle'}`}
+              className={`relative z-[1] whitespace-nowrap ${hollow ? 'pv-micro leading-none' : 'pv-subtitle'}`}
               style={{ color: th.inkText }}
             >
-              {label}
+              {hollow ? hollowLabel : label}
             </motion.span>
           )}
         </AnimatePresence>
