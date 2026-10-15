@@ -141,7 +141,7 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
       <div className="relative flex-1 min-h-0">
         <SoundMap ref={mapRef} sounds={uniquePins} activeId={active?.id ?? null} onSelect={onSelect}
           onPick={onPick} onContext={onContext} onEmpty={onEmpty} onHover={setHover} pickMode={!!pickMode}
-          route={routes} walks={walks} pickMarker={pickedPoint} nativeZoom={desktop} />
+          route={routes} walks={walks} pickMarker={pickedPoint} nativeZoom={false} />
         {!desktop && (
         <div className="absolute top-3 right-3 flex gap-2 z-[400]" onClick={(e) => e.stopPropagation()}>
           <motion.button whileTap={tap.cta} onClick={(e) => { e.stopPropagation(); push({ type: 'search' }); }}
@@ -162,8 +162,9 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
           </HoverMenu>
         </div>
         )}
-        {!desktop && (
-        <div className="absolute bottom-3 left-3 z-[400] flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
+        <div
+          className={`absolute z-[400] flex flex-col gap-1.5 ${desktop ? 'bottom-5 left-5' : 'bottom-3 left-3'}`}
+          onClick={(e) => e.stopPropagation()}>
           <motion.button whileTap={tap.cta} onClick={() => mapRef.current?.zoomBy(1)}
             className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: th.cardBg }} aria-label="Приблизить">
             <Plus size={16} style={{ color: color.olive }} />
@@ -184,7 +185,6 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
             <LocateFixed size={16} style={{ color: color.olive }} />
           </motion.button>
         </div>
-        )}
         {!desktop && (
         <AnimatePresence>
           {showFilters && (

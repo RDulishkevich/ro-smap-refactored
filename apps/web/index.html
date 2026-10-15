@@ -129,7 +129,9 @@
     </div>
     <script>
       (function () {
+        var ready = false;
         function show() {
+          if (ready) return;
           var el = document.getElementById('boot-fail');
           if (!el) return;
           el.classList.add('is-on');
@@ -137,12 +139,10 @@
           el.setAttribute('aria-hidden', 'false');
         }
         window.__polevkaReady = function () {
+          ready = true;
           clearTimeout(window.__polevkaBoot);
           var el = document.getElementById('boot-fail');
-          if (!el) return;
-          el.classList.remove('is-on');
-          el.setAttribute('hidden', '');
-          el.setAttribute('aria-hidden', 'true');
+          if (el && el.parentNode) el.parentNode.removeChild(el);
         };
         (function showWelcome() {
           var standalone = (window.matchMedia && (
@@ -157,7 +157,12 @@
           }
         })();
         window.addEventListener('error', function (ev) {
-          if (ev.target && ev.target.tagName === 'SCRIPT') show();
+          var t = ev && ev.target;
+          if (!t || t.tagName !== 'SCRIPT') return;
+          var src = String(t.src || '');
+          // Only our app bundle — Yandex Maps script noise must not flash boot-fail.
+          if (!/\/assets\/index-|\/src\/main\.tsx/.test(src)) return;
+          show();
         }, true);
         window.__polevkaBoot = setTimeout(function () {
           var r = document.getElementById('root');

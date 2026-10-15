@@ -122,7 +122,7 @@ export const SoundMap = forwardRef<SoundMapHandle, {
   route = [],
   walks = [],
   pickMarker = null,
-  nativeZoom = true,
+  nativeZoom = false,
 }, ref) {
   const nodeRef = useRef<HTMLDivElement>(null);
   const nativeZoomRef = useRef(nativeZoom);
