@@ -109,7 +109,6 @@ export const SoundMap = forwardRef<SoundMapHandle, {
   route?: MapPoint[];
   walks?: MapPoint[][];
   pickMarker?: MapPoint | null;
-  nativeZoom?: boolean;
 }>(function SoundMap({
   sounds,
   activeId,
@@ -122,11 +121,8 @@ export const SoundMap = forwardRef<SoundMapHandle, {
   route = [],
   walks = [],
   pickMarker = null,
-  nativeZoom = false,
 }, ref) {
   const nodeRef = useRef<HTMLDivElement>(null);
-  const nativeZoomRef = useRef(nativeZoom);
-  nativeZoomRef.current = nativeZoom;
   const leafletRef = useRef<L.Map | null>(null);
   const leafletLayer = useRef<L.LayerGroup | null>(null);
   const ymapRef = useRef<YMap | null>(null);
@@ -167,10 +163,11 @@ export const SoundMap = forwardRef<SoundMapHandle, {
           const map = new ymaps.Map(nodeRef.current, {
             center: RUSSIA,
             zoom: RUSSIA_ZOOM,
-            controls: nativeZoomRef.current ? ['zoomControl'] : [],
+            controls: [],
           }, {
             yandexMapDisablePoiInteractivity: true,
           });
+          try { map.controls.remove('zoomControl'); } catch { /* */ }
           if (dead) {
             try { map.destroy(); } catch { /* */ }
             return;
@@ -185,12 +182,11 @@ export const SoundMap = forwardRef<SoundMapHandle, {
       }
       const map = L.map(el, { zoomControl: false, attributionControl: true }).setView(RUSSIA, RUSSIA_ZOOM);
       map.attributionControl.setPrefix(false);
-      map.attributionControl.setPosition(nativeZoomRef.current ? 'bottomleft' : 'bottomright');
+      map.attributionControl.setPosition('bottomright');
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map);
-      if (nativeZoomRef.current) L.control.zoom({ position: 'bottomright' }).addTo(map);
       leafletLayer.current = L.layerGroup().addTo(map);
       leafletRef.current = map;
       engine.current = 'leaflet';

@@ -1235,7 +1235,7 @@ function MapLocationScreen({ sound, onBack }: { sound: Sound; onBack: () => void
       <ScreenHeader title={sound.title} onBack={onBack} />
       <div className="flex-1 min-h-0 mx-3 mb-2 rounded-[24px] overflow-hidden">
         <div className="relative h-full">
-          <SoundMap sounds={[sound]} activeId={sound.id} onSelect={() => {}} route={route} nativeZoom={false} />
+          <SoundMap sounds={[sound]} activeId={sound.id} onSelect={() => {}} route={route} />
         </div>
       </div>
       <div className="flex-shrink-0 mx-3 mb-3 rounded-3xl overflow-hidden" style={{ background: th.cardBg }}>
