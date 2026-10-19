@@ -28,6 +28,7 @@ import { SwipeRow } from '../primitives/SwipeRow';
 import { FormField, FormNeed } from '../primitives/form';
 import { PhotoCarousel } from '../primitives/PhotoCarousel';
 import { HoverMenu } from '../primitives/HoverMenu';
+import { SoundPlayerMenuButton, SoundPlayerSheet } from '../primitives/SoundPlayerSheet';
 import { openCookieBanner } from '../primitives/CookieBanner';
 import { SoundMap } from '../lib/SoundMap';
 import { formatClock, parseDurationLabel } from '../lib/waveform';
@@ -49,7 +50,7 @@ import { useIsDesktop } from '../lib/use-media';
 import { downloadSound } from '../lib/download-sound';
 import { usePrefs, useT } from '../state/PrefsContext';
 import { resolveExpeditionInvite } from '../lib/expedition-invite';
-import { isAmbisonicSound, isSoundwalkPrinciple, soundRoute } from '../lib/sound-media';
+import { isAmbisonicSound, isSoundwalkPrinciple, soundAuthor, soundRoute } from '../lib/sound-media';
 import { watchConditionalUnlock } from '../lib/device-unlock';
 import { beginOAuth, loadOauthConfig } from '../lib/oauth';
 import { pathForAuth } from '../lib/routes';
@@ -102,7 +103,9 @@ export function ScreenContent({ screen, onBack }: { screen: ScreenConfig; onBack
 function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void }) {
   const { push, reset, setActiveTab } = useNav();
   const { isLoggedIn, user } = useAuth();
-  const { togglePlay, playing, playingId, allSounds, reload, setFocused, seek, patchSoundLocal, profiles } = useData();
+  const {
+    togglePlay, playing, playingId, progress, allSounds, reload, setFocused, seek, patchSoundLocal, profiles,
+  } = useData();
   const { toast, confirm } = useUi();
   const th = useTh();
   const desktop = useIsDesktop();
@@ -114,6 +117,10 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
   const comments = (live.comments || []).map((c) => normalizeComment(c));
   const liked = !!user && (live.likedBy || []).includes(user.loginName);
   const disliked = !!user && (live.dislikedBy || []).includes(user.loginName);
+
+  useEffect(() => {
+    if (!desktop) setFocused(live);
+  }, [desktop, live.id, setFocused]);
 
   const toggleReaction = async (kind: 'like' | 'dislike', onNow: boolean) => {
     if (!isLoggedIn || !user) { push({ type: 'auth' }); toast('Войдите, чтобы оценить запись'); return; }
@@ -152,24 +159,158 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
     setActiveTab('map');
   };
 
+  const menuItems = [
+    { label: 'Пожаловаться', danger: true, onClick: () => { void (async () => {
+      if (!isLoggedIn) { push({ type: 'auth' }); toast('Войдите, чтобы пожаловаться'); return; }
+      const ok = await confirm({ title: 'Пожаловаться на запись?', body: 'Жалоба уйдёт модераторам.', ok: 'Отправить' });
+      if (!ok) return;
+      const next = {
+        ...live,
+        reports: [...((live.reports as unknown[]) || []), { id: `r${Date.now()}`, fromId: user?.loginName, reason: 'user', type: 'sound', date: new Date().toISOString() }],
+      };
+      try { await apiSyncJson('map_data.json', [next]); toast('Жалоба отправлена модераторам'); await reload(); }
+      catch (e: unknown) { toast((e as Error).message || 'Не удалось'); }
+    })(); } },
+    { label: 'На карте', onClick: goToMap },
+    { label: 'Скачать WAV', onClick: download },
+  ];
+
+  const cardBody = (
+    <>
+      <div className="mx-4 mt-2 rounded-3xl p-4" style={{ background: th.cardBg }}>
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <div className="min-w-0">
+            {desktop && <p className="pv-heading" style={{ color: th.inkText }}>{live.title}</p>}
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <MapPin size={11} style={{ color: th.soft }} /><span className="pv-caption" style={{ color: th.muted }}>{live.location}</span>
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+            <SoundTypeTag type={String(live.type)} />
+            {meta.durationSec > 0 && (
+              <span className="pv-micro" style={{ color: th.soft }}>{meta.durationLabel}</span>
+            )}
+          </div>
+        </div>
+        {live.description && <p className="pv-body mb-3" style={{ color: th.muted }}>{live.description}</p>}
+        {!!normalizeTimeMarkers(live.timeMarkers).length && (
+          <ul className="mb-3 flex flex-col gap-1.5">
+            {normalizeTimeMarkers(live.timeMarkers).map((m, i) => (
+              <li key={`${m.t}-${m.label}-${i}`}>
+                <button type="button" className="flex items-baseline gap-2 text-left w-full"
+                  onClick={() => {
+                    const total = meta.durationSec || parseDurationLabel(live.duration);
+                    if (total > 0) seek(Math.max(0, Math.min(1, m.t / total)));
+                    if (!on) togglePlay(live);
+                  }}>
+                  <span className="pv-label tabular-nums" style={{ color: ACCENT }}>{formatClock(m.t)}</span>
+                  <span className="pv-caption min-w-0 truncate" style={{ color: th.inkText }}>{m.label}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {(live.principle || live.channels) && (
+          <p className="pv-caption mb-2" style={{ color: th.soft }}>
+            {[live.principle, live.channels].filter(Boolean).join(' · ')}
+            {isAmbisonicSound(live) ? ' · сфера 360° в плеере' : ''}
+          </p>
+        )}
+        {(isSoundwalkPrinciple(live.principle) || soundRoute(live).length >= 2) && (
+          <button type="button" className="pv-label mb-3 h-9 px-3 rounded-full inline-flex items-center gap-1.5"
+            style={{ background: th.phoneBg, color: ACCENT }}
+            onClick={goToMap}>
+            <Route size={13} /> Показать прогулку на карте
+          </button>
+        )}
+        {(live.user || soundAuthor(live)) && (
+          <motion.button whileTap={{ scale: 0.97 }} onClick={() => push({ type: 'user-profile', name: String(live.user || soundAuthor(live)), avatar: String(authorProfile?.avatar || live.avatar || '🎙️'), username: `@${String(live.recordistId || live.user || 'user').toLowerCase().replace(/\s/g, '_')}` })}
+            className="flex items-center gap-2.5 w-full p-2.5 rounded-2xl" style={{ background: th.phoneBg }}>
+            <Avatar src={authorProfile?.avatar || live.avatar} name={String(live.user || soundAuthor(live))} size={36} rounded="rounded-full" />
+            <div className="flex-1 text-left">
+              <p className="pv-subtitle" style={{ color: th.inkText }}>{live.user || soundAuthor(live)}</p>
+              <p className="pv-micro" style={{ color: th.soft }}>{live.gear || 'полевая запись'}</p>
+            </div>
+            <ChevronRight size={13} style={{ color: th.soft }} />
+          </motion.button>
+        )}
+      </div>
+      <div className="mx-4 mt-3 rounded-3xl p-4" style={{ background: th.cardBg }}>
+        <div className="flex gap-4 mb-4">
+          {[{ icon: <Headphones size={13} />, val: formatPlays(live.plays), label: 'прослушиваний' },
+            { icon: <Heart size={13} />, val: String(live.likes ?? 0), label: 'лайков' },
+            { icon: <MessageCircle size={13} />, val: String(comments.length), label: 'комментариев' }].map(({ icon, val, label }) => (
+            <div key={label} className="flex-1 text-center">
+              <div className="flex items-center justify-center gap-1 mb-0.5" style={{ color: th.soft }}>{icon}<span className="pv-subtitle" style={{ color: th.inkText }}>{val}</span></div>
+              <p className="pv-micro" style={{ color: th.soft }}>{label}</p>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <motion.button whileTap={{ scale: 0.92 }} onClick={() => void toggleReaction('like', liked)} className="pv-button flex-1 py-2.5 rounded-2xl flex items-center justify-center gap-1.5"
+            style={{ background: liked ? ACCENT : th.lightBg, color: liked ? '#fff' : th.muted }}>
+            <Heart size={13} fill={liked ? '#fff' : 'none'} />Нравится
+          </motion.button>
+          <motion.button whileTap={{ scale: 0.92 }} onClick={() => void toggleReaction('dislike', disliked)} className="pv-button flex-1 py-2.5 rounded-2xl flex items-center justify-center gap-1.5"
+            style={{ background: disliked ? th.solid : th.lightBg, color: disliked ? '#fff' : th.muted }}>
+            Не нравится
+          </motion.button>
+          {!desktop && (
+            <motion.button whileTap={{ scale: 0.92 }} className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}
+              aria-label="Скачать" onClick={download}>
+              <Download size={16} style={{ color: th.muted }} />
+            </motion.button>
+          )}
+          <motion.button whileTap={{ scale: 0.92 }} className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}
+            aria-label="Поделиться"
+            onClick={() => {
+              void shareLink(pathForSound(live.id), String(live.title || 'Полёвка')).then((how) => {
+                if (how === 'copied') toast('Ссылка скопирована');
+                if (how === 'fail') toast('Не удалось поделиться');
+              });
+            }}>
+            <Share2 size={16} style={{ color: th.muted }} />
+          </motion.button>
+        </div>
+      </div>
+      <div className="mx-4 mt-3 mb-6 rounded-3xl p-4" style={{ background: th.cardBg }}>
+        <CommentsThread
+          comments={comments}
+          onSave={async (next) => {
+            patchSoundLocal(live.id, { comments: next });
+            try {
+              await apiSyncJson('map_data.json', [{ ...live, comments: next }]);
+            } catch (e) {
+              await reload();
+              throw e;
+            }
+          }}
+        />
+      </div>
+    </>
+  );
+
+  if (!desktop) {
+    return (
+      <SoundPlayerSheet
+        sound={live}
+        playing={on}
+        progress={on ? progress : 0}
+        liked={liked}
+        onToggle={() => togglePlay(live)}
+        onSeek={on ? seek : (r) => { togglePlay(live); seek(r); }}
+        onLike={() => void toggleReaction('like', liked)}
+        onClose={onBack}
+        menu={<SoundPlayerMenuButton title={live.title} items={menuItems} />}>
+        {cardBody}
+      </SoundPlayerSheet>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       <ScreenHeader title={live.title} onBack={onBack} right={
-        <HoverMenu title={live.title} items={[
-          { label: 'Пожаловаться', danger: true, onClick: () => { void (async () => {
-            if (!isLoggedIn) { push({ type: 'auth' }); toast('Войдите, чтобы пожаловаться'); return; }
-            const ok = await confirm({ title: 'Пожаловаться на запись?', body: 'Жалоба уйдёт модераторам.', ok: 'Отправить' });
-            if (!ok) return;
-            const next = {
-              ...live,
-              reports: [...((live.reports as unknown[]) || []), { id: `r${Date.now()}`, fromId: user?.loginName, reason: 'user', type: 'sound', date: new Date().toISOString() }],
-            };
-            try { await apiSyncJson('map_data.json', [next]); toast('Жалоба отправлена модераторам'); await reload(); }
-            catch (e: unknown) { toast((e as Error).message || 'Не удалось'); }
-          })(); } },
-          { label: 'На карте', onClick: goToMap },
-          { label: 'Скачать WAV', onClick: download },
-        ]}>
+        <HoverMenu title={live.title} items={menuItems}>
           <span className="w-9 h-9 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}>
             <MoreHorizontal size={15} color={th.muted} />
           </span>
@@ -177,116 +318,7 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
       } />
       <div className="flex-1 overflow-y-auto scrollbar-none">
         <PhotoCarousel images={(live.images || []).filter(Boolean)} title={live.title} />
-        <div className="mx-4 mt-4 rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <div className="flex items-start justify-between gap-3 mb-2">
-            <div className="min-w-0">
-              <p className="pv-heading" style={{ color: th.inkText }}>{live.title}</p>
-              <div className="flex items-center gap-1.5 mt-1">
-                <MapPin size={11} style={{ color: th.soft }} /><span className="pv-caption" style={{ color: th.muted }}>{live.location}</span>
-              </div>
-            </div>
-            <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-              <SoundTypeTag type={String(live.type)} />
-              {meta.durationSec > 0 && (
-                <span className="pv-micro" style={{ color: th.soft }}>{meta.durationLabel}</span>
-              )}
-            </div>
-          </div>
-          {live.description && <p className="pv-body mb-3" style={{ color: th.muted }}>{live.description}</p>}
-          {!!normalizeTimeMarkers(live.timeMarkers).length && (
-            <ul className="mb-3 flex flex-col gap-1.5">
-              {normalizeTimeMarkers(live.timeMarkers).map((m, i) => (
-                <li key={`${m.t}-${m.label}-${i}`}>
-                  <button type="button" className="flex items-baseline gap-2 text-left w-full"
-                    onClick={() => {
-                      const total = meta.durationSec || parseDurationLabel(live.duration);
-                      if (total > 0) seek(Math.max(0, Math.min(1, m.t / total)));
-                      if (!on) togglePlay(live);
-                    }}>
-                    <span className="pv-label tabular-nums" style={{ color: ACCENT }}>{formatClock(m.t)}</span>
-                    <span className="pv-caption min-w-0 truncate" style={{ color: th.inkText }}>{m.label}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {(live.principle || live.channels) && (
-            <p className="pv-caption mb-2" style={{ color: th.soft }}>
-              {[live.principle, live.channels].filter(Boolean).join(' · ')}
-              {isAmbisonicSound(live) ? ' · сфера 360° в плеере' : ''}
-            </p>
-          )}
-          {(isSoundwalkPrinciple(live.principle) || soundRoute(live).length >= 2) && (
-            <button type="button" className="pv-label mb-3 h-9 px-3 rounded-full inline-flex items-center gap-1.5"
-              style={{ background: th.phoneBg, color: ACCENT }}
-              onClick={goToMap}>
-              <Route size={13} /> Показать прогулку на карте
-            </button>
-          )}
-          {live.user && (
-            <motion.button whileTap={{ scale: 0.97 }} onClick={() => push({ type: 'user-profile', name: String(live.user), avatar: String(authorProfile?.avatar || live.avatar || '🎙️'), username: `@${String(live.recordistId || live.user).toLowerCase().replace(/\s/g, '_')}` })}
-              className="flex items-center gap-2.5 w-full p-2.5 rounded-2xl" style={{ background: th.phoneBg }}>
-              <Avatar src={authorProfile?.avatar || live.avatar} name={String(live.user)} size={36} rounded="rounded-full" />
-              <div className="flex-1 text-left">
-                <p className="pv-subtitle" style={{ color: th.inkText }}>{live.user}</p>
-                <p className="pv-micro" style={{ color: th.soft }}>{live.gear || 'полевая запись'}</p>
-              </div>
-              <ChevronRight size={13} style={{ color: th.soft }} />
-            </motion.button>
-          )}
-        </div>
-        <div className="mx-4 mt-3 rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <div className="flex gap-4 mb-4">
-            {[{ icon: <Headphones size={13} />, val: formatPlays(live.plays), label: 'прослушиваний' },
-              { icon: <Heart size={13} />, val: String(live.likes ?? 0), label: 'лайков' },
-              { icon: <MessageCircle size={13} />, val: String(comments.length), label: 'комментариев' }].map(({ icon, val, label }) => (
-              <div key={label} className="flex-1 text-center">
-                <div className="flex items-center justify-center gap-1 mb-0.5" style={{ color: th.soft }}>{icon}<span className="pv-subtitle" style={{ color: th.inkText }}>{val}</span></div>
-                <p className="pv-micro" style={{ color: th.soft }}>{label}</p>
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <motion.button whileTap={{ scale: 0.92 }} onClick={() => void toggleReaction('like', liked)} className="pv-button flex-1 py-2.5 rounded-2xl flex items-center justify-center gap-1.5"
-              style={{ background: liked ? ACCENT : th.lightBg, color: liked ? '#fff' : th.muted }}>
-              <Heart size={13} fill={liked ? '#fff' : 'none'} />Нравится
-            </motion.button>
-            <motion.button whileTap={{ scale: 0.92 }} onClick={() => void toggleReaction('dislike', disliked)} className="pv-button flex-1 py-2.5 rounded-2xl flex items-center justify-center gap-1.5"
-              style={{ background: disliked ? th.solid : th.lightBg, color: disliked ? '#fff' : th.muted }}>
-              Не нравится
-            </motion.button>
-            {!desktop && (
-              <motion.button whileTap={{ scale: 0.92 }} className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}
-                aria-label="Скачать" onClick={download}>
-                <Download size={16} style={{ color: th.muted }} />
-              </motion.button>
-            )}
-            <motion.button whileTap={{ scale: 0.92 }} className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}
-              aria-label="Поделиться"
-              onClick={() => {
-                void shareLink(pathForSound(live.id), String(live.title || 'Полёвка')).then((how) => {
-                  if (how === 'copied') toast('Ссылка скопирована');
-                  if (how === 'fail') toast('Не удалось поделиться');
-                });
-              }}>
-              <Share2 size={16} style={{ color: th.muted }} />
-            </motion.button>
-          </div>
-        </div>
-        <div className="mx-4 mt-3 mb-6 rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <CommentsThread
-            comments={comments}
-            onSave={async (next) => {
-              patchSoundLocal(live.id, { comments: next });
-              try {
-                await apiSyncJson('map_data.json', [{ ...live, comments: next }]);
-              } catch (e) {
-                await reload();
-                throw e;
-              }
-            }}
-          />
-        </div>
+        {cardBody}
       </div>
     </div>
   );

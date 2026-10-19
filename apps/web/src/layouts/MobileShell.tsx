@@ -8,14 +8,15 @@ import { MapScreen } from '../screens/MapScreen';
 import { GuestProfileScreen, ProfileScreen } from '../screens/ProfileScreen';
 import { MenuHub } from '../screens/MenuHub';
 import { ScreenContent, MessagesScreen } from '../screens/stack';
-import { NavBar, PinPlayer } from '../primitives/ui';
+import { NavBar } from '../primitives/ui';
+import { MiniPlayer } from '../primitives/MiniPlayer';
 import { MapFab, MapFabMenu } from '../primitives/chrome';
 import { useData } from '../state/DataContext';
 import { SwipeBack } from '../lib/swipe-back';
 
 const HIDE_PLAYER: ScreenConfig['type'][] = [
   'auth', 'record', 'add-sound', 'legal', 'reset-password',
-  'pick-location', 'guessr', 'map-location',
+  'pick-location', 'guessr', 'map-location', 'sound-detail',
 ];
 
 export function MobileShell() {
@@ -23,8 +24,7 @@ export function MobileShell() {
   const th = useTh();
   const { activeTab, setActiveTab, stack, pop, push } = useNav();
   const {
-    sounds, playingId, playing, progress, togglePlay, seek, volume, muted, setVolume, toggleMute,
-    focused, setFocused,
+    sounds, playingId, playing, progress, togglePlay, seek, focused, setFocused,
   } = useData();
   const [fabOpen, setFabOpen] = useState(false);
   const dockRef = useRef<HTMLDivElement | null>(null);
@@ -99,17 +99,16 @@ export function MobileShell() {
         <div
           ref={dockRef}
           data-player-dock
-          className="absolute z-[220] rounded-[24px] overflow-hidden shadow-[0_12px_32px_rgba(45,60,57,0.16)] max-h-[min(42vh,360px)] overflow-y-auto"
+          className="absolute z-[220] rounded-[24px] overflow-hidden shadow-[0_12px_32px_rgba(45,60,57,0.16)]"
           style={{
             left: 'var(--pv-gutter)',
             right: 'var(--pv-gutter)',
             bottom: playerBottom,
             background: th.cardBg,
           }}>
-          <PinPlayer
+          <MiniPlayer
             key={String(dock.id)}
             sound={dock}
-            simple
             onClose={() => setFocused(null)}
             playing={playing && String(playingId) === String(dock.id)}
             onToggle={() => togglePlay(dock)}
@@ -120,10 +119,7 @@ export function MobileShell() {
               }
             }}
             onSeek={String(playingId) === String(dock.id) ? seek : undefined}
-            volume={volume}
-            muted={muted}
-            onVolume={setVolume}
-            onMute={toggleMute} />
+          />
         </div>
       )}
 
@@ -170,10 +166,15 @@ export function MobileShell() {
           <motion.div key={screen._id} className="absolute inset-0" style={{
             zIndex: 100 + i,
             background: th.phoneBg,
-            bottom: showPlayer ? `calc(${Math.max(dockH, 72)}px + 0.75rem)` : 0,
+            bottom: showPlayer && screen.type !== 'sound-detail'
+              ? `calc(${Math.max(dockH, 72)}px + 0.75rem)`
+              : 0,
           }}
-            initial={{ opacity: 0, x: 36 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={spring.stack}>
-            <SwipeBack className="h-full" onBack={pop}>
+            initial={screen.type === 'sound-detail' ? { opacity: 0, y: 48 } : { opacity: 0, x: 36 }}
+            animate={{ opacity: 1, x: 0, y: 0 }}
+            exit={screen.type === 'sound-detail' ? { opacity: 0, y: 40 } : { opacity: 0, x: 20 }}
+            transition={screen.type === 'sound-detail' ? spring.sheet : spring.stack}>
+            <SwipeBack className="h-full" onBack={pop} enabled={screen.type !== 'sound-detail'}>
               <ScreenContent screen={screen} onBack={pop} />
             </SwipeBack>
           </motion.div>

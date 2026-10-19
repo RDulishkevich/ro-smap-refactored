@@ -137,7 +137,18 @@ export function PhotoLightbox({
   );
 }
 
-export function PhotoCarousel({ images, title }: { images: string[]; title?: string }) {
+export function PhotoCarousel({
+  images,
+  title,
+  aspect = '16 / 10',
+  className = 'mx-4 mt-4 rounded-3xl',
+}: {
+  images: string[];
+  title?: string;
+  /** CSS aspect-ratio value */
+  aspect?: string;
+  className?: string;
+}) {
   const th = useTh();
   const [i, setI] = useState(0);
   const [full, setFull] = useState(false);
@@ -176,7 +187,7 @@ export function PhotoCarousel({ images, title }: { images: string[]; title?: str
 
   return (
     <>
-      <div className="relative mx-4 mt-4 rounded-3xl overflow-hidden pv-carousel" style={{ background: th.lightBg, aspectRatio: '16 / 10' }} {...bindSwipe}>
+      <div className={`relative overflow-hidden pv-carousel ${className}`} style={{ background: th.lightBg, aspectRatio: aspect }} {...bindSwipe}>
         <AnimatePresence mode="wait">
           <motion.img
             key={images[i]}
