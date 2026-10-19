@@ -228,8 +228,10 @@ async function withWriteRetry<T>(fn: () => Promise<T>): Promise<T> {
     } catch (err) {
       last = err;
       const e = err as ApiError;
-      if (e.code !== 'write_conflict' && e.status !== 409) throw err;
-      await new Promise((r) => setTimeout(r, 80 * (i + 1)));
+      const retryable = e.code === 'write_conflict' || e.code === 'slow_down'
+        || e.status === 409 || e.status === 429;
+      if (!retryable) throw err;
+      await new Promise((r) => setTimeout(r, (e.code === 'slow_down' || e.status === 429 ? 500 : 80) * (i + 1)));
     }
   }
   throw last instanceof Error ? last : Object.assign(new Error('write_conflict'), { code: 'write_conflict' });

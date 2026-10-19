@@ -3,8 +3,9 @@ import { Check, CheckCheck, Copy, CornerUpLeft, ImagePlus, Reply, Send, Trash2 }
 import { AnimatePresence, motion } from 'motion/react';
 import { color, spring, tap, type ThemeTokens } from '@polevka/design';
 import {
-  apiSyncJson, makeMailMsg, markThreadReadPatch, messageHomeBox, patchInboxMessage,
-  previewReply, REACTION_EMOJIS, spamGuardCheck, spamGuardMessage, SUPPORT_LOGIN,
+  apiSyncJson, applyThreadReadLocal, makeMailMsg, markThreadReadPatch, messageHomeBox,
+  patchInboxMessage, previewReply, REACTION_EMOJIS, removeInboxMessage,
+  spamGuardCheck, spamGuardMessage, SUPPORT_LOGIN,
   threadWith, toggleMailReaction, uploadUserMedia, upsertInbox,
   type MailMsg, type MailReplyTo,
 } from '@polevka/core';
@@ -51,7 +52,7 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
   const t = useT();
   const { prefs } = usePrefs();
   const { user, isLoggedIn } = useAuth();
-  const { mail, profiles, reloadMail, applyMail } = useData();
+  const { mail, profiles, reloadMail, applyMail, absorbMail } = useData();
   const { toast, confirm } = useUi();
   const { push } = useNav();
   const locale = prefs.locale === 'en' ? 'en' : 'ru';
@@ -121,11 +122,14 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
     if (!user) return;
     const patch = markThreadReadPatch(mail, user.loginName, peer);
     if (!patch) return;
-    void apiSyncJson('mail.json', [patch]).catch(() => {});
+    applyMail((prev) => applyThreadReadLocal(prev, user.loginName, peer));
+    void apiSyncJson('mail.json', [patch])
+      .then((res) => { if (Array.isArray(res?.data)) absorbMail(res.data); })
+      .catch(() => {});
   }, [peer, user?.loginName, live.filter((m) => !m.mine && !m.read).length]);
 
   useEffect(() => {
-    const t = window.setInterval(() => { void reloadMail(); }, 12000);
+    const t = window.setInterval(() => { void reloadMail(); }, 15000);
     return () => window.clearInterval(t);
   }, [reloadMail]);
 
@@ -172,7 +176,9 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
       inbox: [next],
       notifications: [],
       activityLog: [],
-    }]).catch(() => toast('Не удалось поставить реакцию'));
+    }])
+      .then((res) => { if (Array.isArray(res?.data)) absorbMail(res.data); })
+      .catch(() => toast('Не удалось поставить реакцию'));
     setMenu(null);
   };
 
@@ -193,7 +199,9 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
       inbox: [{ ...m, deleted: true, text: '', image: undefined, video: undefined, reactions: {} }],
       notifications: [],
       activityLog: [],
-    }]).catch(() => toast('Не удалось удалить'));
+    }])
+      .then((res) => { if (Array.isArray(res?.data)) absorbMail(res.data); })
+      .catch(() => toast('Не удалось удалить'));
     setMenu(null);
   };
 
@@ -260,12 +268,14 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
       notifications: notif ? [notif] : [],
       activityLog: [],
     }])
-      .then(() => {
+      .then((res) => {
+        if (Array.isArray(res?.data)) absorbMail(res.data);
         setPending((cur) => cur.map((row) => (row.id === msg.id ? { ...row, delivery: 'sent' } : row)));
       })
       .catch((e: unknown) => {
         setPending((cur) => cur.filter((row) => row.id !== msg.id));
-        applyMail((prev) => patchInboxMessage(prev, peer, msg.id, { deleted: true }));
+        // Remove optimistic row only — never tombstone (timeout after server success would delete a delivered msg).
+        applyMail((prev) => removeInboxMessage(prev, peer, msg.id));
         toast((e as Error).message || 'Не удалось отправить');
       });
   };

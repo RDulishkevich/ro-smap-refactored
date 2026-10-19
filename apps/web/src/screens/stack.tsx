@@ -1323,7 +1323,7 @@ function HelpScreen({ onBack }: { onBack: () => void }) {
   const desktop = useIsDesktop();
   const { push } = useNav();
   const { user, isLoggedIn } = useAuth();
-  const { mail, reloadMail } = useData();
+  const { mail, reloadMail, absorbMail } = useData();
   const { toast } = useUi();
   const [q, setQ] = useState('');
   const [log, setLog] = useState<{ from: 'me' | 'bot'; text: string }[]>([{ from: 'bot', text: 'Поддержка Полёвки. Спросите про публикацию, аккаунт или карту — или напишите «обращение», если нужен человек.' }]);
@@ -1342,8 +1342,9 @@ function HelpScreen({ onBack }: { onBack: () => void }) {
     if (isLoggedIn && user) {
       try {
         const msg = makeMailMsg(user.loginName, user.displayName || user.username, isTicket ? `Обращение: ${t}` : t, ticketNumber ? { ticketNumber, _ticket: true } : {});
-        await apiSyncJson('mail.json', upsertInboxPatch(mail, SUPPORT_LOGIN, msg));
-        await reloadMail();
+        const res = await apiSyncJson('mail.json', upsertInboxPatch(mail, SUPPORT_LOGIN, msg));
+        if (Array.isArray(res?.data)) absorbMail(res.data);
+        else await reloadMail();
       } catch (e: unknown) {
         toast((e as Error).message || 'Не удалось сохранить обращение');
       }

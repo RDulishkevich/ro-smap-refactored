@@ -930,6 +930,32 @@ function smtpLog(label, err) {
     console.error(label, err && (err.code || err.name || 'send_failed'));
 }
 
+/**
+ * Read receipts / reactions / deletes share mail.json with real sends.
+ * Sends use makeMailMsg (read:false + body) and usually a type=message notification.
+ */
+function mailPatchIsLightweight(proposed) {
+    if (!Array.isArray(proposed) || !proposed.length) return true;
+    for (const row of proposed) {
+        for (const n of row && Array.isArray(row.notifications) ? row.notifications : []) {
+            if (n && n.type === 'message' && n.read === false) return false;
+        }
+        for (const msg of row && Array.isArray(row.inbox) ? row.inbox : []) {
+            if (!msg || !msg.id || msg.deleted) continue;
+            const hasBody = !!(String(msg.text || '').trim() || msg.image || msg.video);
+            // New outbound: unread + body. Read receipts set read:true; reaction-only patches often omit body changes.
+            if (hasBody && msg.read !== true && Object.prototype.hasOwnProperty.call(msg, 'fromId')) {
+                // Reaction patches still include text from the existing row — distinguish by reactions-only intent:
+                // if client sent reactions and read is not explicitly true, could be send OR reaction.
+                // Prefer: not lightweight when notification accompanies OR when no reactions field and has body.
+                if (!msg.reactions || Object.keys(msg.reactions).length === 0) return false;
+                // reactions present without deleted/read → treat as reaction (lightweight) unless fresh notif above
+            }
+        }
+    }
+    return true;
+}
+
 function assertCooldown(login, kind) {
     const wait = {
         message: 1600,
@@ -1197,17 +1223,28 @@ async function applyMailMerge(proposed, user) {
 
     const actorFresh = fresh.find((r) => normalizeLogin(r.loginName) === actor) || emptyMailBox(actor);
     const partners = new Set([...(actorFresh.partners || [])]);
+    const deliveredPeers = new Set();
     for (const row of merged) {
         const login = normalizeLogin(row.loginName);
         if (login === actor) {
             for (const p of row.partners || []) partners.add(normalizeLogin(p));
             continue;
         }
-        if ((row.inbox || []).some((m) => normalizeLogin(m.fromId) === actor)) partners.add(login);
+        if ((row.inbox || []).some((m) => normalizeLogin(m.fromId) === actor && !m.deleted)) {
+            partners.add(login);
+            deliveredPeers.add(login);
+        }
     }
     merged = merged.map((row) => {
-        if (normalizeLogin(row.loginName) !== actor) return row;
-        return sanitizeMailRecord({ ...row, partners: Array.from(partners).filter(Boolean).slice(0, 200) });
+        const login = normalizeLogin(row.loginName);
+        if (login === actor) {
+            return sanitizeMailRecord({ ...row, partners: Array.from(partners).filter(Boolean).slice(0, 200) });
+        }
+        if (deliveredPeers.has(login)) {
+            const peerPartners = new Set([...(row.partners || []), ...(fresh.find((r) => normalizeLogin(r.loginName) === login)?.partners || []), actor]);
+            return sanitizeMailRecord({ ...row, partners: Array.from(peerPartners).filter(Boolean).slice(0, 200) });
+        }
+        return row;
     });
 
     const pushJobs = [];
@@ -1228,7 +1265,13 @@ async function applyMailMerge(proposed, user) {
         });
     }
 
-    for (const row of merged) {
+    // Actor box first so getMail(partners) sees the peer before/while the message lands.
+    const writeRows = [...merged].sort((a, b) => {
+        const al = normalizeLogin(a.loginName) === actor ? 0 : 1;
+        const bl = normalizeLogin(b.loginName) === actor ? 0 : 1;
+        return al - bl;
+    });
+    for (const row of writeRows) {
         const login = normalizeLogin(row.loginName);
         await mutateJson(mailBoxKey(login), emptyMailBox(login), (cur) => {
             const plain = mailCrypto.decryptMailBox(cur && cur.loginName ? cur : emptyMailBox(login));
@@ -1236,7 +1279,12 @@ async function applyMailMerge(proposed, user) {
             const again = mergeMailArrays([base], [row]);
             const sanitized = sanitizeMail([base], again, user);
             const next = sanitized.find((r) => normalizeLogin(r.loginName) === login) || row;
-            if (login === actor) next.partners = Array.from(partners).filter(Boolean).slice(0, 200);
+            if (login === actor) {
+                next.partners = Array.from(partners).filter(Boolean).slice(0, 200);
+            } else if (deliveredPeers.has(login)) {
+                next.partners = Array.from(new Set([...(next.partners || []), ...(base.partners || []), actor]))
+                    .filter(Boolean).slice(0, 200);
+            }
             return mailCrypto.encryptMailBox(sanitizeMailRecord(next));
         }, { privateObject: true });
     }
@@ -1808,7 +1856,11 @@ function sanitizeMail(fresh, merged, user) {
                 partners: Array.from(new Set([...(cloud.partners || []), ...(row.partners || [])]))
             });
         }
-        // Чужой ящик: можно только дописать свои исходящие в inbox получателя + нотифы от себя
+        // Чужой ящик: исходящие + можно добавить себя в partners получателя (для зеркального getMail)
+        const peerPartners = new Set([...(cloud.partners || [])]);
+        for (const p of row.partners || []) {
+            if (normalizeLogin(p) === user.login) peerPartners.add(user.login);
+        }
         return sanitizeMailRecord({
             loginName: login,
             inbox: sanitizeInbox(cloud.inbox || [], row.inbox || [], user.login),
@@ -1816,7 +1868,7 @@ function sanitizeMail(fresh, merged, user) {
                 return !n?.id || (cloud.notifications || []).some((x) => x.id === n.id) || String(n.fromId || '').toLowerCase() === user.login;
             })),
             activityLog: cloud.activityLog || [],
-            partners: cloud.partners || []
+            partners: Array.from(peerPartners)
         });
     });
 }
@@ -3702,8 +3754,13 @@ async function handleGetMail(event, body) {
         return respond(200, { ok: true, data: [mine, support].map(sanitizeMailRecord) });
     }
     const mine = await loadMailBox(user.login);
-    const partners = (mine.partners || []).map((p) => normalizeLogin(p)).filter(Boolean);
-    const extra = await Promise.all(partners.map((p) => loadMailBox(p)));
+    const partners = new Set((mine.partners || []).map((p) => normalizeLogin(p)).filter(Boolean));
+    // Also pull boxes for people who already wrote us — covers missing partner backfill.
+    for (const m of mine.inbox || []) {
+        const from = normalizeLogin(m && m.fromId);
+        if (from && from !== user.login) partners.add(from);
+    }
+    const extra = await Promise.all([...partners].map((p) => loadMailBox(p)));
     return respond(200, { ok: true, data: projectMailForClient([mine, ...extra], user) });
 }
 
@@ -3740,7 +3797,12 @@ async function handleSync(event, body) {
         });
     }
 
-    const cool = assertCooldown(user.login, fileName === 'mail.json' ? 'message' : 'sync');
+    let coolKind = 'sync';
+    if (fileName === 'mail.json') {
+        // Read receipts / reactions share mail.json but must not block real sends (1.6s).
+        coolKind = mailPatchIsLightweight(proposed) ? 'sync' : 'message';
+    }
+    const cool = assertCooldown(user.login, coolKind);
     if (cool) return cool;
 
     return applyMergeAndSave(fileName, proposed, user);

@@ -41,6 +41,79 @@ export function patchInboxMessage(
   });
 }
 
+/** Drop a message from a local box (failed send) — never tombstone; that can race a successful server write. */
+export function removeInboxMessage(boxes: MailBox[], boxLogin: string, msgId: string): MailBox[] {
+  const key = String(boxLogin || '').toLowerCase();
+  return boxes.map((b) => {
+    if (b.loginName !== key) return b;
+    return { ...b, inbox: (b.inbox || []).filter((m) => m.id !== msgId) };
+  });
+}
+
+const OPTIMISTIC_MAIL_MS = 120_000;
+
+function mergeNotifArrays(
+  a: Array<Record<string, unknown>> = [],
+  b: Array<Record<string, unknown>> = [],
+): Array<Record<string, unknown>> {
+  const map = new Map<string, Record<string, unknown>>();
+  for (const n of [...a, ...b]) {
+    const id = String((n as { id?: string }).id || '');
+    if (!id) continue;
+    map.set(id, { ...(map.get(id) || {}), ...n });
+  }
+  return Array.from(map.values()).slice(0, 60);
+}
+
+/**
+ * Merge server mail into local state without dropping in-flight optimistic rows.
+ * Server fields win per id; local-only recent messages are kept until confirmed or aged out.
+ */
+export function mergeMailState(prev: MailBox[], incoming: MailBox[]): MailBox[] {
+  const now = Date.now();
+  const map = new Map<string, MailBox>();
+  for (const b of prev || []) {
+    const key = String(b.loginName || '').toLowerCase();
+    if (!key) continue;
+    map.set(key, {
+      loginName: key,
+      inbox: [...(b.inbox || [])],
+      notifications: [...(b.notifications || [])],
+      activityLog: [...(b.activityLog || [])],
+    });
+  }
+  for (const b of incoming || []) {
+    const key = String(b.loginName || '').toLowerCase();
+    if (!key) continue;
+    const old = map.get(key);
+    const byId = new Map<string, MailMsg>();
+    for (const m of old?.inbox || []) {
+      if (m?.id) byId.set(m.id, m);
+    }
+    for (const m of b.inbox || []) {
+      if (!m?.id) continue;
+      const prevMsg = byId.get(m.id);
+      byId.set(m.id, prevMsg ? { ...prevMsg, ...m } : m);
+    }
+    // Keep optimistic local-only messages briefly (reload races with in-flight sync).
+    for (const m of old?.inbox || []) {
+      if (!m?.id || byId.has(m.id) || m.deleted) continue;
+      const age = now - new Date(m.date).getTime();
+      if (Number.isFinite(age) && age >= 0 && age < OPTIMISTIC_MAIL_MS) byId.set(m.id, m);
+    }
+    const inbox = Array.from(byId.values())
+      .sort((a, c) => new Date(c.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 200);
+    map.set(key, {
+      loginName: key,
+      inbox,
+      notifications: mergeNotifArrays(old?.notifications || [], b.notifications || []),
+      activityLog: Array.isArray(b.activityLog) ? b.activityLog : (old?.activityLog || []),
+    });
+  }
+  return Array.from(map.values());
+}
+
 export function messageHomeBox(me: string, peer: string, mine: boolean) {
   return mine ? String(peer || '').toLowerCase() : String(me || '').toLowerCase();
 }
@@ -159,20 +232,53 @@ export function markThreadReadPatch(boxes: MailBox[], me: string, peer: string):
   const other = String(peer || '').toLowerCase();
   const box = boxes.find((b) => b.loginName === self);
   if (!box) return null;
-  let changed = false;
+  const readAt = new Date().toISOString();
+  const changedInbox: MailMsg[] = [];
   const inbox = (box.inbox || []).map((m) => {
     if (String(m.fromId || '').toLowerCase() !== other || m.deleted || m.read) return m;
-    changed = true;
-    return { ...m, read: true, readAt: new Date().toISOString() };
+    const next = { ...m, read: true, readAt };
+    changedInbox.push(next);
+    return next;
   });
+  const changedNotifs: Array<Record<string, unknown>> = [];
   const notifications = (box.notifications || []).map((n) => {
     const row = n as { fromId?: string; type?: string; read?: boolean };
     if (String(row.fromId || '').toLowerCase() !== other || row.type !== 'message' || row.read) return n;
-    changed = true;
-    return { ...n, read: true };
+    const next = { ...n, read: true };
+    changedNotifs.push(next);
+    return next;
   });
-  if (!changed) return null;
-  return { ...box, inbox, notifications };
+  if (!changedInbox.length && !changedNotifs.length) return null;
+  // Partial row — server merge preserves the rest of the mailbox.
+  return {
+    loginName: self,
+    inbox: changedInbox,
+    notifications: changedNotifs,
+    activityLog: [],
+  };
+}
+
+/** Apply markThreadReadPatch locally to full mailbox state. */
+export function applyThreadReadLocal(boxes: MailBox[], me: string, peer: string): MailBox[] {
+  const self = String(me || '').toLowerCase();
+  const other = String(peer || '').toLowerCase();
+  const readAt = new Date().toISOString();
+  return boxes.map((b) => {
+    if (b.loginName !== self) return b;
+    return {
+      ...b,
+      inbox: (b.inbox || []).map((m) => (
+        String(m.fromId || '').toLowerCase() !== other || m.deleted || m.read
+          ? m
+          : { ...m, read: true, readAt }
+      )),
+      notifications: (b.notifications || []).map((n) => {
+        const row = n as { fromId?: string; type?: string; read?: boolean };
+        if (String(row.fromId || '').toLowerCase() !== other || row.type !== 'message' || row.read) return n;
+        return { ...n, read: true };
+      }),
+    };
+  });
 }
 
 export function makeMailMsg(fromId: string, fromName: string, text: string, extra: Partial<MailMsg> = {}): MailMsg {

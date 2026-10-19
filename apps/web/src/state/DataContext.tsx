@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   apiGetMail, apiPatchSound, apiSyncJson, fetchEvents, fetchFeed, fetchMapData, fetchProfiles,
-  filterSounds, markBoxNotificationsRead, normalizeMail, publishedSounds, EMPTY_FILTER,
+  filterSounds, markBoxNotificationsRead, mergeMailState, normalizeMail, publishedSounds, EMPTY_FILTER,
   type AppEvent, type CatalogFilter, type FeedPost, type MailBox, type Profile, type Sound,
 } from '@polevka/core';
 import { audioService } from '../lib/audio-player';
@@ -28,6 +28,8 @@ type DataCtx = {
   reload: () => Promise<void>;
   reloadMail: () => Promise<void>;
   applyMail: (updater: (prev: MailBox[]) => MailBox[]) => void;
+  /** Merge server mail projection (sync/getMail) into local state without dropping optimistic rows. */
+  absorbMail: (raw: unknown) => void;
   markNotificationsRead: () => Promise<void>;
   playingId: string | number | null;
   playing: boolean;
@@ -79,6 +81,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [routeDraft, setRouteDraft] = useState<MapPoint[]>([]);
   const [routePreview, setRoutePreview] = useState<MapPoint[]>([]);
 
+  const absorbMail = useCallback((raw: unknown) => {
+    const incoming = normalizeMail(Array.isArray(raw) ? raw : []);
+    if (!incoming.length) return;
+    setMail((prev) => mergeMailState(prev, incoming));
+  }, []);
+
   const reloadMail = useCallback(async () => {
     if (!isLoggedIn) { setMail([]); return; }
     try {
@@ -89,7 +97,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         seedSeenMail(next, login);
         if (prefs.notifyDevice) void notifyNewMail(next, login);
       }
-      setMail(next);
+      setMail((prev) => mergeMailState(prev, next));
     } catch { /* keep last mailbox — do not wipe on a blip */ }
   }, [isLoggedIn, prefs.notifyDevice, user?.loginName]);
 
@@ -271,13 +279,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({
     sounds, allSounds, filteredSounds, filter, setFilter,
-    feed, events, profiles, mail, loading, catalogStatus, reload, reloadMail, applyMail, markNotificationsRead,
+    feed, events, profiles, mail, loading, catalogStatus, reload, reloadMail, applyMail, absorbMail, markNotificationsRead,
     playingId, playing, progress, volume, muted, togglePlay, seek, setVolume, toggleMute,
     focused, setFocused,
     pickMode, setPickMode, pickedPoint, setPickedPoint, routeDraft, setRouteDraft, routePreview, setRoutePreview,
     clearMapPick, patchSoundLocal, patchFeedLocal, patchProfilesLocal, patchEventsLocal,
   }), [
-    sounds, allSounds, filteredSounds, filter, feed, events, profiles, mail, loading, catalogStatus, reload, reloadMail, applyMail, markNotificationsRead,
+    sounds, allSounds, filteredSounds, filter, feed, events, profiles, mail, loading, catalogStatus, reload, reloadMail, applyMail, absorbMail, markNotificationsRead,
     playingId, playing, progress, volume, muted, togglePlay, seek, setVolume, toggleMute,
     focused, patchSoundLocal, patchFeedLocal, patchProfilesLocal, patchEventsLocal, clearMapPick,
     pickMode, pickedPoint, routeDraft, routePreview,
