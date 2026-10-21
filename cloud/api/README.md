@@ -35,6 +35,7 @@
 | `deleteAccount` | access | самоудаление: пароль + TOTP, или `oauthOnly`+`confirmLogin`; purge снимает `oauth.*`; нельзя `admin`/`support` |
 | `exportMyData` | access | JSON своих данных (без хешей пароля) |
 | `translate` | access | Yandex Translate RU→EN (UCS FXName) |
+| `suggestUcs` | access | UCS CatID/FXName from description (Groq Llama free-tier; keyword fallback). `mode:"audio"` = beta Whisper clip |
 | `requestEmailVerification` | access | 6-значный код на email (SMTP); хеш в `_auth/email_codes/{login}.json` |
 | `confirmEmailVerification` | access | проверка кода → `email` + `emailVerified` в private_meta |
 | `adminDeleteUser` | access admin | полное удаление учётки + PII; профиль → «Удалённый аккаунт» |
@@ -87,7 +88,7 @@
 | Пароль | мин. 8 символов |
 | Access JWT / refresh | 30 мин / 14 суток при «запомнить меня»; иначе refresh — session cookie |
 | Login lockout | 8 fails → 15 мин (IP+login) |
-| Rate limit | IP 360/мин (без health); login 25; refresh 60; sync/commit 120; patchSound 180; presign 90; translate 40; getMail 120; email/reset request 5/10мин на логин, 20/час на IP; confirm 20/10мин; totp 20/10мин |
+| Rate limit | IP 360/мин (без health); login 25; refresh 60; sync/commit 120; patchSound 180; presign 90; translate 40; suggestUcs 12; getMail 120; email/reset request 5/10мин на логин, 20/час на IP; confirm 20/10мин; totp 20/10мин |
 | Cooldown | sync 400 мс; сообщение 1.6 с; лайк 280 мс; play 800 мс |
 
 ## Переменные окружения функции
@@ -135,7 +136,7 @@ v17: YDB Document API — источник правды (строки звуко
 ```bash
 cd cloud/api
 npm install --omit=dev
-zip -r ../rosmap-api.zip index.js sessionSecurity.js mailTemplates.js ydbDoc.js mailCrypto.js webPush.js package.json node_modules
+zip -r ../rosmap-api.zip index.js sessionSecurity.js mailTemplates.js ydbDoc.js mailCrypto.js webPush.js oauthProviders.js ucsSuggest.js package.json node_modules
 ```
 
 Или PowerShell: `Compress-Archive -Path index.js, mailTemplates.js, package.json, package-lock.json, node_modules ...`  

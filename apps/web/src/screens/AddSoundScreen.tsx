@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  apiSyncJson, apiTranslate, buildUcsFileName, FIELD_MICROPHONES, FIELD_RECORDERS,
+  apiSuggestUcs, apiSyncJson, apiTranslate, buildUcsFileName, FIELD_MICROPHONES, FIELD_RECORDERS,
   normalizeTimeMarkers, preparePublishWav, remapMarkersAfterTrim, spamGuardCheck,
-  spamGuardMessage, ucsCategories, ucsStructure, uploadUserMedia, type Sound, type TimeMarker,
+  spamGuardMessage, ucsByCatId, ucsCategories, ucsStructure, uploadUserMedia,
+  type Sound, type TimeMarker, type UcsSuggestion,
 } from '@polevka/core';
 import { color, type ThemeTokens } from '@polevka/design';
-import { ImagePlus, Route, X } from 'lucide-react';
+import { ImagePlus, Route, Sparkles, X } from 'lucide-react';
 import { ScreenHeader } from '../primitives/ui';
 import { PhotoLightbox } from '../primitives/PhotoCarousel';
 import { AudioEditor } from '../primitives/AudioEditor';
@@ -20,6 +21,7 @@ import { clearAddDraft, readAddDraft, writeAddDraft } from '../lib/add-draft';
 import { applyTrimGain, parseDurationLabel } from '../lib/waveform';
 import { isAmbisonicChannels, isSoundwalkPrinciple, normalizeRoute } from '../lib/sound-media';
 import { useLeaveGuard } from '../lib/use-leave-guard';
+import { buildUcsAudioClip } from '../lib/ucs-clip';
 
 const ACCENT = color.accent;
 
@@ -54,6 +56,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
   const [license, setLicense] = useState(String(edit?.license || LICENSES[0]));
   const [sessionId, setSessionId] = useState(String(edit?.sessionId || ''));
   const [busy, setBusy] = useState(false);
+  const [ucsBusy, setUcsBusy] = useState<'text' | 'audio' | null>(null);
   const [fileLabel, setFileLabel] = useState(edit?.url ? 'Текущий файл сохранён' : '');
   const [photos, setPhotos] = useState<File[]>([]);
   const [keptImages, setKeptImages] = useState<string[]>(() => (edit?.images || []).filter(Boolean));
@@ -168,6 +171,87 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
       else toast('Пустой ответ перевода');
     } catch (e: unknown) {
       toast((e as Error).message || 'Перевод недоступен');
+    }
+  };
+
+  const applyUcsSuggestion = (s: UcsSuggestion) => {
+    const meta = (ucsByCatId as Record<string, { category?: string } | undefined>)[s.catId];
+    if (meta?.category) {
+      setUcsCat(meta.category);
+      setUcsId(s.catId);
+    } else {
+      toast(`CatID ${s.catId} не найден в каталоге — проверьте вручную`);
+    }
+    if (s.fxName) setFxName(s.fxName.replace(/\s+/g, '_'));
+    if (s.title && !title.trim()) setTitle(s.title);
+    if (s.kind) setKind(s.kind);
+    if (s.ecoCategory) setEco(s.ecoCategory);
+  };
+
+  const suggestFromDescription = async () => {
+    if (!isLoggedIn) {
+      toast('Войдите, чтобы подобрать UCS');
+      requireAuth({ type: 'add-sound', edit });
+      return;
+    }
+    if (desc.trim().length < 8 && title.trim().length < 3) {
+      toast('Сначала опишите звук (хотя бы пару предложений)');
+      return;
+    }
+    setUcsBusy('text');
+    try {
+      const data = await apiSuggestUcs({
+        mode: 'text',
+        description: desc.trim(),
+        title: title.trim(),
+        location: location.trim(),
+      }) as { suggestion?: UcsSuggestion };
+      if (!data.suggestion) throw new Error('empty');
+      applyUcsSuggestion(data.suggestion);
+      toast(data.suggestion.source?.startsWith('groq') ? 'UCS предложен нейросетью' : 'UCS подобран по описанию');
+    } catch (e: unknown) {
+      toast((e as Error).message || 'Не удалось подобрать UCS');
+    } finally {
+      setUcsBusy(null);
+    }
+  };
+
+  const suggestFromAudio = async () => {
+    if (!isLoggedIn) {
+      toast('Войдите, чтобы запустить beta-анализ');
+      requireAuth({ type: 'add-sound', edit });
+      return;
+    }
+    const rec = getDraftRecording();
+    const source = rec?.blob || (edit?.url ? String(edit.url) : null);
+    if (!source) {
+      toast('Сначала запишите или выберите аудиофайл');
+      return;
+    }
+    setUcsBusy('audio');
+    try {
+      const clip = await buildUcsAudioClip(source);
+      const data = await apiSuggestUcs({
+        mode: 'audio',
+        description: desc.trim(),
+        title: title.trim(),
+        location: location.trim(),
+        audioBase64: clip.audioBase64,
+        audioMime: clip.audioMime,
+      }) as { suggestion?: UcsSuggestion };
+      if (!data.suggestion) throw new Error('empty');
+      applyUcsSuggestion(data.suggestion);
+      if (data.suggestion.title) setTitle(data.suggestion.title);
+      toast('Beta: запись разобрана, UCS заполнен — проверьте');
+    } catch (e: unknown) {
+      const err = e as { code?: string; message?: string };
+      if (err.code === 'ucs_ai_unconfigured') {
+        toast('Beta-анализ пока выключен на сервере (нужен GROQ_API_KEY)');
+      } else {
+        toast(err.message || 'Не удалось проанализировать запись');
+      }
+    } finally {
+      setUcsBusy(null);
     }
   };
 
@@ -417,6 +501,35 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
           </Section>
 
           <Section title="Классификация UCS" th={th}>
+            <div className="flex flex-wrap gap-2 mb-3">
+              <button
+                type="button"
+                disabled={!!ucsBusy}
+                onClick={() => void suggestFromDescription()}
+                className="h-10 px-3.5 rounded-full pv-button inline-flex items-center gap-1.5 cursor-pointer"
+                style={{ background: th.phoneBg, color: th.inkText, opacity: ucsBusy ? 0.7 : 1 }}
+              >
+                <Sparkles size={14} color={ACCENT} />
+                {ucsBusy === 'text' ? 'Подбираем…' : 'UCS по описанию'}
+              </button>
+              <button
+                type="button"
+                disabled={!!ucsBusy}
+                onClick={() => void suggestFromAudio()}
+                className="h-10 px-3.5 rounded-full pv-button inline-flex items-center gap-1.5 cursor-pointer"
+                style={{
+                  background: th.isDark ? '#2E2E2E' : '#F0F1F3',
+                  color: th.muted,
+                  boxShadow: `inset 0 0 0 1px ${th.border}`,
+                  opacity: ucsBusy ? 0.7 : 1,
+                }}
+              >
+                {ucsBusy === 'audio' ? 'Слушаем…' : 'Beta: анализ записи'}
+              </button>
+            </div>
+            <p className="pv-micro mb-3 leading-snug" style={{ color: th.soft }}>
+              Нейросеть предлагает CatID и FXName по описанию (бесплатный Groq). Beta дополнительно слушает клип записи.
+            </p>
             <div className={desktop ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-3'}>
               <label className="text-[10px] font-semibold" style={{ color: th.soft }}>Категория
                 <select value={ucsCat} onChange={(e) => {

@@ -13,6 +13,7 @@
  *   YC_TRANSLATE_API_KEY — Yandex Cloud Translate API key (Api-Key …)
  *   YC_FOLDER_ID      — folder id (required with some key types)
  *   YANDEX_MAPS_API_KEY — browser Maps JS key (HTTP Referer lock); exposed only via publicConfig
+ *   GROQ_API_KEY      — free-tier Groq key for UCS suggest (Llama) + optional Whisper beta
  *   SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / MAIL_FROM — transactional email
  *   VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT — Web Push (device notifications)
  *   ALLOW_DEMO_EMAIL_CODES — set to 1 on staging only: return demoCode when SMTP missing
@@ -23,7 +24,7 @@
  * Actions (POST JSON { action, ... }):
  *   health | publicConfig | register | login | oauthFinish | oauthLink | oauthUnlink
  *   | refresh | logout | logoutAll | changePassword | changeLogin | me | getMail
- *   | sync | commit | presign | patchSound | translate
+ *   | sync | commit | presign | patchSound | translate | suggestUcs
  *   | requestEmailVerification | confirmEmailVerification
  *   | requestPasswordReset | confirmPasswordReset | adminDeleteUser | adminUnbindEmail | adminSendEmail
  *   | totpSetup | totpConfirm | totpDisable | getSecurityEvents
@@ -41,6 +42,7 @@ const ydbDoc = require('./ydbDoc');
 const mailCrypto = require('./mailCrypto');
 const webPush = require('./webPush');
 const oauthProviders = require('./oauthProviders');
+const ucsSuggest = require('./ucsSuggest');
 
 let nodemailer = null;
 try {
@@ -564,6 +566,7 @@ function actionRateLimit(action, ip, login = '') {
     if (action === 'presign' && !rateLimit(`presign:${who}`, 90, 60000)) return false;
     if (action === 'patchSound' && !rateLimit(`patch:${who}`, 180, 60000)) return false;
     if (action === 'translate' && !rateLimit(`translate:${who}`, 40, 60000)) return false;
+    if (action === 'suggestUcs' && !rateLimit(`suggestucs:${who}`, 12, 60000)) return false;
     if (action === 'getMail' && !rateLimit(`getmail:${who}`, 120, 60000)) return false;
     if (action === 'requestEmailVerification' && !rateLimit(`emailreq:${who}`, 5, 600000)) return false;
     if (action === 'requestEmailVerification' && !rateLimit(`emailreqip:${base}`, 20, 3600000)) return false;
@@ -4226,6 +4229,54 @@ async function handleTranslate(event, body) {
     return respond(200, { ok: true, translations, sourceLanguageCode, targetLanguageCode });
 }
 
+async function handleSuggestUcs(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const user = await resolveAuthUser(payload);
+    if (!user) return respond(401, { ok: false, error: 'unauthorized' });
+    if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
+    const totpBlock = await assertStaffTotp(user);
+    if (totpBlock) return totpBlock;
+
+    const mode = body.mode === 'audio' ? 'audio' : 'text';
+    try {
+        const suggestion = await ucsSuggest.suggestUcs({
+            mode,
+            description: String(body.description || '').slice(0, 4000),
+            title: String(body.title || '').slice(0, 200),
+            location: String(body.location || '').slice(0, 200),
+            audioBase64: mode === 'audio' ? String(body.audioBase64 || '') : '',
+            audioMime: String(body.audioMime || 'audio/wav').slice(0, 64),
+        });
+        return respond(200, {
+            ok: true,
+            suggestion,
+            groq: ucsSuggest.configured(),
+        });
+    } catch (err) {
+        const code = String(err && err.message || 'ucs_failed');
+        const status = Number(err && err.status) || 502;
+        if (code === 'need_description') {
+            return respond(400, { ok: false, error: 'need_description', message: 'Добавьте описание звука' });
+        }
+        if (code === 'audio_too_large') {
+            return respond(400, { ok: false, error: 'audio_too_large', message: 'Клип для анализа слишком большой' });
+        }
+        if (code === 'ucs_ai_unconfigured') {
+            return respond(503, {
+                ok: false,
+                error: 'ucs_ai_unconfigured',
+                message: 'Анализ записи недоступен: не задан GROQ_API_KEY',
+            });
+        }
+        return respond(status >= 400 && status < 600 ? status : 502, {
+            ok: false,
+            error: 'ucs_failed',
+            message: 'Не удалось подобрать UCS',
+        });
+    }
+}
+
 exports.handler = async function handler(event = {}) {
     __reqEvent = event || {};
     const method = (event.httpMethod || event.requestContext?.http?.method || 'POST').toUpperCase();
@@ -4242,7 +4293,13 @@ exports.handler = async function handler(event = {}) {
 
     // health / publicConfig — без секретов и без тяжёлых лимитов
     if (action === 'health') {
-        return respond(200, { ok: true, version: 29, ydb: ydbDoc.enabled(), vapid: webPush.configured() });
+        return respond(200, {
+            ok: true,
+            version: 30,
+            ydb: ydbDoc.enabled(),
+            vapid: webPush.configured(),
+            ucsAi: ucsSuggest.configured(),
+        });
     }
     if (action === 'publicConfig') {
         const oauth = oauthProviders.oauthPublicConfig();
@@ -4269,6 +4326,7 @@ exports.handler = async function handler(event = {}) {
 
     const authActions = new Set([
         'sync', 'commit', 'presign', 'me', 'changePassword', 'changeLogin', 'patchSound', 'translate',
+        'suggestUcs',
         'getMail', 'requestEmailVerification', 'confirmEmailVerification',
         'adminDeleteUser', 'adminUnbindEmail', 'adminSendEmail',
         'logoutAll', 'totpSetup', 'totpConfirm', 'totpDisable', 'getSecurityEvents',
@@ -4302,6 +4360,7 @@ exports.handler = async function handler(event = {}) {
         if (action === 'presign') return await handlePresign(event, body);
         if (action === 'patchSound') return await handlePatchSound(event, body);
         if (action === 'translate') return await handleTranslate(event, body);
+        if (action === 'suggestUcs') return await handleSuggestUcs(event, body);
         if (action === 'requestEmailVerification') return await handleRequestEmailVerification(event, body);
         if (action === 'confirmEmailVerification') return await handleConfirmEmailVerification(event, body);
         if (action === 'requestPasswordReset') return await handleRequestPasswordReset(event, body);

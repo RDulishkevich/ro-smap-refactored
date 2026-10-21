@@ -74,7 +74,11 @@ export function clearSessionTokens() {
 
 const API_TIMEOUT_MS = 20_000;
 
-export async function apiRequest(action: string, payload: Record<string, unknown> = {}, { auth = false, _retried = false } = {}) {
+export async function apiRequest(
+  action: string,
+  payload: Record<string, unknown> = {},
+  { auth = false, _retried = false, timeoutMs = API_TIMEOUT_MS }: { auth?: boolean; _retried?: boolean; timeoutMs?: number } = {},
+) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   const body: Record<string, unknown> = { action, ...payload };
   if (auth) {
@@ -86,7 +90,7 @@ export async function apiRequest(action: string, payload: Record<string, unknown
   }
 
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), API_TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   let res: Response;
   try {
     res = await fetch(FUNCTION_URL, {
@@ -116,7 +120,7 @@ export async function apiRequest(action: string, payload: Record<string, unknown
     && action !== 'refresh' && action !== 'login' && action !== 'logout') {
     const refreshed = await apiRefreshSession().catch(() => null) as { ok?: boolean } | null;
     if (refreshed?.ok) {
-      return apiRequest(action, payload, { auth: true, _retried: true });
+      return apiRequest(action, payload, { auth: true, _retried: true, timeoutMs });
     }
   }
 
@@ -276,6 +280,26 @@ export const apiAdminUnbindEmail = (login: string) =>
   apiRequest('adminUnbindEmail', { login }, { auth: true });
 export const apiTranslate = (texts: string | string[], sourceLanguageCode = 'ru', targetLanguageCode = 'en') =>
   apiRequest('translate', { texts, sourceLanguageCode, targetLanguageCode }, { auth: true });
+
+export type UcsSuggestion = {
+  catId: string;
+  fxName: string;
+  title?: string;
+  kind?: string;
+  ecoCategory?: string;
+  source?: string;
+  rationale?: string;
+  audioNotes?: string;
+};
+
+export const apiSuggestUcs = (payload: {
+  mode?: 'text' | 'audio';
+  description?: string;
+  title?: string;
+  location?: string;
+  audioBase64?: string;
+  audioMime?: string;
+}) => apiRequest('suggestUcs', payload, { auth: true, timeoutMs: 55_000 });
 export const apiTotpSetup = () => apiRequest('totpSetup', {}, { auth: true });
 export const apiTotpConfirm = (totpCode: string) => apiRequest('totpConfirm', { totpCode }, { auth: true });
 export const apiTotpDisable = (password: string, totpCode: string) =>

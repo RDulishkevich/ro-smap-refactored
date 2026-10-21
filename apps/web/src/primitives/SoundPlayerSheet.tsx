@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import { ChevronDown, Heart, MoreHorizontal, SkipBack, SkipForward } from 'lucide-react';
 import { color, pinColor, spring, tap } from '@polevka/design';
 import type { Sound } from '@polevka/core';
@@ -47,11 +47,9 @@ export function SoundPlayerSheet({
   const meta = useSoundMeta(sound, { peaks: true });
   const peaks = meta.peaks?.length ? meta.peaks : PLACEHOLDER_PEAKS;
   const [liveDur, setLiveDur] = useState(0);
-  const [stuck, setStuck] = useState(false);
   const [dragY, setDragY] = useState(0);
   const [closing, setClosing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const heroEndRef = useRef<HTMLDivElement>(null);
   const atTopRef = useRef(true);
   const dragRef = useRef<{ y0: number; x0: number; active: boolean; armed?: boolean } | null>(null);
   const onCloseRef = useRef(onClose);
@@ -65,18 +63,6 @@ export function SoundPlayerSheet({
     };
     sync();
     return audioService.subscribe(sync);
-  }, [sound.id]);
-
-  useEffect(() => {
-    const root = scrollRef.current;
-    const end = heroEndRef.current;
-    if (!root || !end) return;
-    const io = new IntersectionObserver(
-      ([entry]) => setStuck(!entry.isIntersecting),
-      { root, threshold: 0 },
-    );
-    io.observe(end);
-    return () => io.disconnect();
   }, [sound.id]);
 
   useEffect(() => {
@@ -208,66 +194,6 @@ export function SoundPlayerSheet({
         </div>
       </div>
 
-      <AnimatePresence>
-        {stuck && (
-          <motion.div
-            key="sticky"
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={spring.fade}
-            className="flex-shrink-0 px-4 pb-2 border-b"
-            style={{ background: th.phoneBg, borderColor: th.border }}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{sound.title}</p>
-                <p className="pv-caption truncate" style={{ color: th.muted }}>{author}</p>
-              </div>
-              {onLike && (
-                <motion.button type="button" whileTap={tap.btn} onClick={onLike}
-                  className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: liked ? `${color.accent}22` : th.lightBg }}
-                  aria-label="Нравится">
-                  <Heart size={16} color={liked ? color.accent : th.muted} fill={liked ? color.accent : 'none'} />
-                </motion.button>
-              )}
-            </div>
-            <button
-              type="button"
-              className="relative mt-2 h-1 w-full rounded-full overflow-hidden"
-              style={{ background: th.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(45,60,57,0.12)' }}
-              onClick={(e) => {
-                if (!onSeek) return;
-                const r = e.currentTarget.getBoundingClientRect();
-                onSeek(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)));
-              }}>
-              <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(progress || 0) * 100}%`, background: th.inkText }} />
-            </button>
-            <div className="flex justify-between pv-micro tabular-nums mt-1" style={{ color: th.soft }}>
-              <span>{formatClock(nowSec)}</span>
-              <span>{totalSec ? formatClock(totalSec) : '—'}</span>
-            </div>
-            <div className="flex items-center justify-center gap-5 mt-2">
-              {showSkip && (
-                <button type="button" className="w-10 h-10 flex items-center justify-center" aria-label={skipBackLabel} onClick={() => skip(-1)}>
-                  <SkipBack size={18} color={th.inkText} fill={th.inkText} />
-                </button>
-              )}
-              <motion.button type="button" whileTap={tap.btn} onClick={onToggle}
-                className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: tone }}
-                aria-label={playing ? t('pause') : t('listen')}>
-                <PlayPauseIcon playing={!!playing} size={18} />
-              </motion.button>
-              {showSkip && (
-                <button type="button" className="w-10 h-10 flex items-center justify-center" aria-label={skipFwdLabel} onClick={() => skip(1)}>
-                  <SkipForward size={18} color={th.inkText} fill={th.inkText} />
-                </button>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <div
         ref={scrollRef}
         className="flex-1 min-h-0 overflow-y-auto scrollbar-none overscroll-y-contain"
@@ -330,8 +256,6 @@ export function SoundPlayerSheet({
             )}
           </div>
         </div>
-
-        <div ref={heroEndRef} className="h-px w-full" aria-hidden />
 
         <div className="pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           {children}

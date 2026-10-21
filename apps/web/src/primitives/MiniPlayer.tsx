@@ -46,8 +46,14 @@ export function MiniPlayer({
   const nowSec = totalSec ? (progress || 0) * totalSec : 0;
   const pct = Math.max(0, Math.min(100, (progress || 0) * 100));
 
+  const seekAt = (clientX: number, el: HTMLElement) => {
+    if (!onSeek) return;
+    const r = el.getBoundingClientRect();
+    onSeek(Math.max(0, Math.min(1, (clientX - r.left) / r.width)));
+  };
+
   return (
-    <div className="px-3 pt-2.5 pb-2" style={{ background: th.cardBg }}>
+    <div className="px-3 pt-2.5 pb-2.5" style={{ background: th.cardBg }}>
       <div className="flex items-center gap-2.5 min-w-0">
         <button
           type="button"
@@ -86,21 +92,42 @@ export function MiniPlayer({
           <X size={15} color={th.muted} />
         </motion.button>
       </div>
-      <button
-        type="button"
-        className="relative mt-2 h-1.5 w-full rounded-full overflow-hidden cursor-pointer"
-        style={{ background: th.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(45,60,57,0.12)' }}
-        aria-label={`${formatClock(nowSec)} / ${totalSec ? formatClock(totalSec) : '—'}`}
-        onClick={(e) => {
-          if (!onSeek) return;
-          const r = e.currentTarget.getBoundingClientRect();
-          onSeek(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)));
-        }}>
-        <span
-          className="absolute inset-y-0 left-0 rounded-full"
-          style={{ width: `${pct}%`, background: tone }}
-        />
-      </button>
+
+      <div className="mt-2.5">
+        <div className="flex justify-between pv-micro tabular-nums mb-1.5" style={{ color: th.soft }}>
+          <span>{formatClock(nowSec)}</span>
+          <span>{totalSec ? formatClock(totalSec) : '—'}</span>
+        </div>
+        <button
+          type="button"
+          className="relative h-3 w-full rounded-full cursor-pointer touch-none"
+          style={{ background: th.isDark ? 'rgba(255,255,255,0.14)' : 'rgba(45,60,57,0.14)' }}
+          aria-label={`${formatClock(nowSec)} / ${totalSec ? formatClock(totalSec) : '—'}`}
+          disabled={!onSeek}
+          onClick={(e) => seekAt(e.clientX, e.currentTarget)}
+          onPointerDown={(e) => {
+            if (!onSeek || e.button !== 0) return;
+            e.currentTarget.setPointerCapture(e.pointerId);
+            seekAt(e.clientX, e.currentTarget);
+          }}
+          onPointerMove={(e) => {
+            if (!onSeek || !e.currentTarget.hasPointerCapture(e.pointerId)) return;
+            seekAt(e.clientX, e.currentTarget);
+          }}>
+          <span
+            className="absolute inset-y-0 left-0 rounded-full"
+            style={{ width: `${pct}%`, background: tone }}
+          />
+          <span
+            className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full shadow-sm pointer-events-none"
+            style={{
+              left: `clamp(0px, calc(${pct}% - 7px), calc(100% - 14px))`,
+              background: th.cardBg,
+              boxShadow: `0 0 0 2px ${tone}`,
+            }}
+          />
+        </button>
+      </div>
     </div>
   );
 }
