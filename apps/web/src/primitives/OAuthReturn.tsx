@@ -5,7 +5,10 @@ import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useUi } from '../state/UiContext';
 import { useT } from '../state/PrefsContext';
-import { finishOAuthFromUrlOnce } from '../lib/oauth';
+import { captureOauthCallbackSearch, finishOAuthFromUrlOnce } from '../lib/oauth';
+
+// Capture ?code= before any nav effect can replace the URL with `/`.
+if (typeof location !== 'undefined') captureOauthCallbackSearch();
 
 /** Handles `/oauth/callback` after VK / Yandex redirect (login or link). */
 export function OAuthReturn() {
@@ -19,11 +22,16 @@ export function OAuthReturn() {
   const active = typeof location !== 'undefined' && location.pathname.startsWith('/oauth/callback');
 
   useEffect(() => {
+    if (!active) return;
+    captureOauthCallbackSearch();
+  }, [active]);
+
+  useEffect(() => {
     if (!active || restoring) return;
     let live = true;
     void (async () => {
       try {
-        const data = await finishOAuthFromUrlOnce(location.search) as {
+        const data = await finishOAuthFromUrlOnce() as {
           intent?: 'login' | 'link';
           token?: string; refreshToken?: string; user?: Record<string, unknown>; rememberMe?: boolean;
           provider?: string;
@@ -58,13 +66,15 @@ export function OAuthReturn() {
         const err = e as { message?: string; code?: string };
         const text = err.code === 'provider_taken'
           ? t('oauthProviderTaken')
-          : (err.message || t('oauthFailed'));
+          : err.code === 'pd_consent'
+            ? 'Нужно согласие на обработку персональных данных'
+            : (err.message || t('oauthFailed'));
         setMsg(text);
         toast(text);
         window.setTimeout(() => {
-          history.replaceState({}, '', '/');
-          void reset();
-        }, 1600);
+          history.replaceState({}, '', '/auth');
+          void reset({ type: 'auth', mode: 'in' });
+        }, 2800);
       }
     })();
     return () => { live = false; };

@@ -24,6 +24,7 @@ import { applyTrimGain, parseDurationLabel } from '../lib/waveform';
 import { isAmbisonicChannels, isSoundwalkPrinciple, normalizeRoute } from '../lib/sound-media';
 import { useLeaveGuard } from '../lib/use-leave-guard';
 import { buildUcsAudioClip } from '../lib/ucs-clip';
+import { runSmartCaptcha } from '../lib/smart-captcha';
 
 const ACCENT = color.accent;
 
@@ -320,6 +321,9 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
     setBusy(true);
     setPubPhase('prepare');
     try {
+      const captchaToken = status === 'pending'
+        ? ((await runSmartCaptcha()) || undefined)
+        : undefined;
       let url = String(edit?.url || '');
       let formatLabel = String(edit?.formatLabel || '');
       let dur = String(edit?.duration || '0:01');
@@ -398,7 +402,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
         route: walkRoute.length >= 2 ? walkRoute : undefined,
         timeMarkers,
       };
-      await apiSyncJson('map_data.json', [record]);
+      await apiSyncJson('map_data.json', [record], captchaToken ? { captchaToken } : undefined);
       setDraftRecording(null);
       if (!edit) clearAddDraft();
       setDraft(null);

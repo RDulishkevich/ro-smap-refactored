@@ -153,16 +153,35 @@ export function apiRefreshSession() {
   return refreshInFlight;
 }
 
-export const apiRegister = (login: string, password: string, displayName?: string, pdConsent?: boolean) =>
+export const apiRegister = (
+  login: string,
+  password: string,
+  displayName?: string,
+  pdConsent?: boolean,
+  captchaToken?: string,
+) =>
   apiRequest('register', {
     login,
     password,
     displayName: displayName || login,
     ...(pdConsent ? { pdConsent: true, pdConsentAt: new Date().toISOString() } : {}),
+    ...(captchaToken ? { captchaToken } : {}),
   });
 
-export const apiLogin = (login: string, password: string, totpCode?: string, rememberMe = true) =>
-  apiRequest('login', { login, password, rememberMe, ...(totpCode ? { totpCode } : {}) });
+export const apiLogin = (
+  login: string,
+  password: string,
+  totpCode?: string,
+  rememberMe = true,
+  captchaToken?: string,
+) =>
+  apiRequest('login', {
+    login,
+    password,
+    rememberMe,
+    ...(totpCode ? { totpCode } : {}),
+    ...(captchaToken ? { captchaToken } : {}),
+  });
 
 export const apiLogout = () => apiRequest('logout', {}, { auth: false }).catch(() => ({ ok: true }));
 export const apiLogoutAll = () => apiRequest('logoutAll', {}, { auth: true });
@@ -171,8 +190,11 @@ export const apiRequestEmailVerification = (email: string) =>
   apiRequest('requestEmailVerification', { email }, { auth: true });
 export const apiConfirmEmailVerification = (code: string) =>
   apiRequest('confirmEmailVerification', { code }, { auth: true });
-export const apiRequestPasswordReset = (loginOrEmail: string) =>
-  apiRequest('requestPasswordReset', { loginOrEmail }, { auth: false });
+export const apiRequestPasswordReset = (loginOrEmail: string, captchaToken?: string) =>
+  apiRequest('requestPasswordReset', {
+    loginOrEmail,
+    ...(captchaToken ? { captchaToken } : {}),
+  }, { auth: false });
 export const apiConfirmPasswordReset = (loginOrEmail: string, code: string, newPassword: string) =>
   apiRequest('confirmPasswordReset', { loginOrEmail, code, newPassword }, { auth: false });
 export const apiChangePassword = (currentPassword: string, newPassword: string) =>
@@ -209,7 +231,11 @@ export const apiGetMail = async () => {
 };
 export const apiPatchSound = (soundId: string | number, ops: Record<string, unknown>) =>
   apiRequest('patchSound', { soundId, ops }, { auth: true });
-export const apiCommit = (fileName: string) => apiRequest('commit', { fileName }, { auth: true });
+export const apiCommit = (fileName: string, captchaToken?: string) =>
+  apiRequest('commit', {
+    fileName,
+    ...(captchaToken ? { captchaToken } : {}),
+  }, { auth: true });
 export const apiPresignUpload = (fileName: string, contentType: string, contentLength: number) =>
   apiRequest('presign', { fileName, contentType, contentLength: Number(contentLength) || 0 }, { auth: true });
 
@@ -241,13 +267,23 @@ async function withWriteRetry<T>(fn: () => Promise<T>): Promise<T> {
   throw last instanceof Error ? last : Object.assign(new Error('write_conflict'), { code: 'write_conflict' });
 }
 
-export async function apiSyncJson(fileName: string, data: unknown) {
+export async function apiSyncJson(
+  fileName: string,
+  data: unknown,
+  opts?: { captchaToken?: string },
+) {
   // Server merge (handleSync): send only changed rows. Full-array overwrite races with other writers.
   const payload = Array.isArray(data) ? data : [];
   const raw = JSON.stringify(payload);
+  const captchaToken = opts?.captchaToken;
+  const syncBody = {
+    fileName,
+    data: payload,
+    ...(captchaToken ? { captchaToken } : {}),
+  };
   if (raw.length < 2_000_000) {
     try {
-      return await withWriteRetry(() => apiRequest('sync', { fileName, data: payload }, { auth: true }));
+      return await withWriteRetry(() => apiRequest('sync', syncBody, { auth: true }));
     } catch (err) {
       const e = err as ApiError;
       if (e.code !== 'payload_too_large' && e.status !== 413) throw err;
@@ -264,7 +300,7 @@ export async function apiSyncJson(fileName: string, data: unknown) {
     body: raw,
   });
   if (!putRes.ok) throw new Error('Ошибка staging-загрузки в облако');
-  return withWriteRetry(() => apiCommit(fileName));
+  return withWriteRetry(() => apiCommit(fileName, captchaToken));
 }
 export const apiAdminSendEmail = (login: string, message: string, subject?: string) =>
   apiRequest('adminSendEmail', { login, message, subject }, { auth: true });

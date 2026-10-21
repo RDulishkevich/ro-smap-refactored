@@ -13,8 +13,8 @@ type AuthCtx = {
   user: SessionUser | null;
   isLoggedIn: boolean;
   isStaff: boolean;
-  login: (login: string, password: string, totp?: string, rememberMe?: boolean) => Promise<void>;
-  register: (login: string, password: string, displayName?: string, pdConsent?: boolean) => Promise<void>;
+  login: (login: string, password: string, totp?: string, rememberMe?: boolean, captchaToken?: string) => Promise<void>;
+  register: (login: string, password: string, displayName?: string, pdConsent?: boolean, captchaToken?: string) => Promise<void>;
   applySession: (data: { token?: string; refreshToken?: string; user?: Record<string, unknown>; rememberMe?: boolean }) => void;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -60,10 +60,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, []);
 
-  const login = useCallback(async (loginName: string, password: string, totp?: string, rememberMe = true) => {
+  const login = useCallback(async (
+    loginName: string,
+    password: string,
+    totp?: string,
+    rememberMe = true,
+    captchaToken?: string,
+  ) => {
     if (!hasCookieConsentForAuth()) throw Object.assign(new Error('Нужно принять cookies сессии'), { code: 'consent' });
     setRememberMe(rememberMe);
-    const data = await apiLogin(loginName, password, totp, rememberMe) as {
+    const data = await apiLogin(loginName, password, totp, rememberMe, captchaToken) as {
       token?: string; refreshToken?: string; user?: Record<string, unknown>; needsTotp?: boolean;
     };
     if (data.needsTotp) {
@@ -80,12 +86,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const register = useCallback(async (loginName: string, password: string, displayName?: string, pdConsent?: boolean) => {
+  const register = useCallback(async (
+    loginName: string,
+    password: string,
+    displayName?: string,
+    pdConsent?: boolean,
+    captchaToken?: string,
+  ) => {
     if (!hasCookieConsentForAuth()) throw Object.assign(new Error('Нужно принять cookies сессии'), { code: 'consent' });
     if (!pdConsent) throw Object.assign(new Error('Нужно согласие на обработку персональных данных'), { code: 'pd_consent' });
-    await apiRegister(loginName, password, displayName, true);
-    await login(loginName, password, undefined, true);
-  }, [login]);
+    // Register already returns a session — do not login again (captcha token is one-shot).
+    const data = await apiRegister(loginName, password, displayName, true, captchaToken) as {
+      token?: string; refreshToken?: string; user?: Record<string, unknown>;
+    };
+    setRememberMe(true);
+    const next = userFromApi(data.user);
+    if (!data.token || !next) {
+      throw Object.assign(new Error('Не удалось создать сессию'), { code: 'register_failed' });
+    }
+    if (data.refreshToken) persistRefreshToken(data.refreshToken, true);
+    setAuthSession(String(data.token), next, true);
+    setUser(next);
+    setNeedsUnlock(false);
+  }, []);
 
   const applySession = useCallback((data: {
     token?: string; refreshToken?: string; user?: Record<string, unknown>; rememberMe?: boolean;

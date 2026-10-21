@@ -43,6 +43,7 @@ const mailCrypto = require('./mailCrypto');
 const webPush = require('./webPush');
 const oauthProviders = require('./oauthProviders');
 const ucsSuggest = require('./ucsSuggest');
+const smartCaptcha = require('./smartCaptcha');
 
 let nodemailer = null;
 try {
@@ -463,6 +464,27 @@ function getHeader(event, name) {
     const headers = event.headers || {};
     const key = Object.keys(headers).find(k => k.toLowerCase() === name.toLowerCase());
     return key ? headers[key] : '';
+}
+
+function clientIp(event) {
+    const raw = getHeader(event, 'x-forwarded-for') || event.requestContext?.identity?.sourceIp || '';
+    return String(raw).split(',')[0].trim().slice(0, 64);
+}
+
+/** @returns {Promise<null | object>} respond() payload when captcha fails */
+async function assertSmartCaptcha(event, body) {
+    if (!smartCaptcha.configured()) return null;
+    const check = await smartCaptcha.validateToken(body?.captchaToken || body?.smartToken, clientIp(event));
+    if (check.ok) return null;
+    const code = check.message === 'captcha_required' ? 'captcha_required'
+        : check.message === 'captcha_unavailable' ? 'captcha_unavailable'
+            : 'captcha_failed';
+    const messages = {
+        captcha_required: 'Подтвердите, что вы не робот',
+        captcha_unavailable: 'Проверка временно недоступна — попробуйте ещё раз',
+        captcha_failed: 'Проверка не пройдена — попробуйте ещё раз',
+    };
+    return respond(400, { ok: false, error: code, message: messages[code] || messages.captcha_failed });
 }
 
 function rateLimit(key, limit = 60, windowMs = 60000) {
@@ -2073,7 +2095,9 @@ function sanitizeEvents(fresh, merged, user) {
     return out;
 }
 
-async function handleRegister(body) {
+async function handleRegister(event, body) {
+    const captchaBlock = await assertSmartCaptcha(event, body);
+    if (captchaBlock) return captchaBlock;
     const login = normalizeLogin(body.login || body.username);
     const password = String(body.password || '');
     const displayName = String(body.displayName || body.username || login).trim().slice(0, 40) || login;
@@ -2502,11 +2526,12 @@ async function handleOauthUnlink(event, body) {
 }
 
 async function handleLogin(event, body) {
+    const captchaBlock = await assertSmartCaptcha(event, body);
+    if (captchaBlock) return captchaBlock;
     const login = normalizeLogin(body.login || body.username);
     const password = String(body.password || '');
     const totpCode = String(body.totpCode || body.totp || '').trim();
-    const ip = getHeader(event, 'x-forwarded-for') || event.requestContext?.identity?.sourceIp || 'unknown';
-    const ipKey = String(ip).split(',')[0].trim();
+    const ipKey = clientIp(event) || 'unknown';
 
     if (!login || !password) return respond(400, { ok: false, error: 'missing_fields' });
 
@@ -3142,6 +3167,8 @@ async function findLoginByEmailOrLogin(loginOrEmail) {
 }
 
 async function handleRequestPasswordReset(event, body) {
+    const captchaBlock = await assertSmartCaptcha(event, body);
+    if (captchaBlock) return captchaBlock;
     const loginOrEmail = String(body.loginOrEmail || '').trim();
     const generic = respond(200, { ok: true, message: 'if_account_exists_email_sent' });
 
@@ -3782,6 +3809,17 @@ async function handleSync(event, body) {
     const proposed = Array.isArray(body.data) ? body.data : null;
     if (!proposed) return respond(400, { ok: false, error: 'bad_data' });
 
+    // Captcha on submit-to-moderation (pending sounds), not on every draft sync.
+    if (
+        smartCaptcha.configured()
+        && fileName === 'map_data.json'
+        && !isStaffUser(user)
+        && proposed.some((row) => row && String(row.status || '') === 'pending')
+    ) {
+        const captchaBlock = await assertSmartCaptcha(event, body);
+        if (captchaBlock) return captchaBlock;
+    }
+
     // Крупные базы не влезают в HTTP-триггер (~3.5MB) — используйте staging+commit
     const approx = Buffer.byteLength(JSON.stringify(proposed), 'utf8');
     if (approx > MAX_JSON_SYNC_BYTES) {
@@ -4079,6 +4117,16 @@ async function handleCommit(event, body) {
         return respond(413, { ok: false, error: 'file_too_large', maxBytes: MAX_JSON_SYNC_BYTES });
     }
 
+    if (
+        smartCaptcha.configured()
+        && fileName === 'map_data.json'
+        && !isStaffUser(user)
+        && proposed.some((row) => row && String(row.status || '') === 'pending')
+    ) {
+        const captchaBlock = await assertSmartCaptcha(event, body);
+        if (captchaBlock) return captchaBlock;
+    }
+
     const result = await applyMergeAndSave(fileName, proposed, user);
 
     try {
@@ -4295,10 +4343,11 @@ exports.handler = async function handler(event = {}) {
     if (action === 'health') {
         return respond(200, {
             ok: true,
-            version: 32,
+            version: 33,
             ydb: ydbDoc.enabled(),
             vapid: webPush.configured(),
             ucsAi: ucsSuggest.configured(),
+            smartCaptcha: smartCaptcha.configured(),
         });
     }
     if (action === 'publicConfig') {
@@ -4309,6 +4358,7 @@ exports.handler = async function handler(event = {}) {
             bucketUrl: `https://storage.yandexcloud.net/${BUCKET}`,
             vapidPublicKey: webPush.vapidPublic(),
             oauth,
+            smartCaptcha: smartCaptcha.publicConfig(),
         });
     }
 
@@ -4343,7 +4393,7 @@ exports.handler = async function handler(event = {}) {
     if (rateDirty) void flushRateBuckets(false);
 
     try {
-        if (action === 'register') return await handleRegister(body);
+        if (action === 'register') return await handleRegister(event, body);
         if (action === 'login') return await handleLogin(event, body);
         if (action === 'oauthFinish') return await handleOauthFinish(event, body);
         if (action === 'oauthLink') return await handleOauthLink(event, body);

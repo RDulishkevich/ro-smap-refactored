@@ -14,6 +14,7 @@ export type DeepRoute =
   | { kind: 'profile' }
   | { kind: 'auth'; mode?: 'in' | 'up' }
   | { kind: 'drafts' }
+  | { kind: 'oauth' }
   | { kind: 'sound'; id: string }
   | { kind: 'user'; login: string };
 
@@ -39,7 +40,8 @@ export function parsePath(pathname: string): DeepRoute {
     return { kind: 'auth', mode: 'in' };
   }
   if (head === 'register' || head === 'signup') return { kind: 'auth', mode: 'up' };
-  if (head === 'oauth') return { kind: 'home' }; // callback handled by OAuthReturn
+  // /oauth/callback and /oauth/bridge — handled by OAuthReturn / OAuthBridge; do not rewrite to home.
+  if (head === 'oauth') return { kind: 'oauth' };
   if (head === 'drafts' || head === 'draft') return { kind: 'drafts' };
   if (head === 'menu') return { kind: 'menu' };
   if (head === 'map') return { kind: 'map' };

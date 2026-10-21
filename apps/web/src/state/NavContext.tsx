@@ -204,7 +204,7 @@ export function NavProvider({ children, isLoggedIn, onNeedAuth }: { children: Re
       s ? [{ ...s, _id: nextId.current++ }] : []
     );
 
-    if (route.kind === 'sound' || route.kind === 'user') return;
+    if (route.kind === 'sound' || route.kind === 'user' || route.kind === 'oauth') return;
 
     if (route.kind === 'catalog') {
       setView('library');

@@ -17,6 +17,9 @@ export function DeepLinks() {
       const { allSounds: all, sounds: pub, profiles: profs, events: evs, reset: rst, applyRoute: go } = dataRef.current;
       const route = parsePath(location.pathname);
 
+      // Keep /oauth/callback?code=… intact — rewriting to `/` drops the auth code.
+      if (route.kind === 'oauth') return;
+
       if (route.kind === 'sound') {
         const s = all.find((x) => String(x.id) === route.id) || pub.find((x) => String(x.id) === route.id);
         if (s) rst({ type: 'sound-detail', sound: s });

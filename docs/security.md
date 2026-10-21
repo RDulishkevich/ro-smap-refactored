@@ -23,6 +23,8 @@
 
 **Правило:** всё, что приходит с клиента, считается поддельным, пока сервер не проверил сессию и не прогнал данные через sanitize.
 
+**SmartCaptcha (опционально):** при `SMARTCAPTCHA_SERVER_KEY` + `SMARTCAPTCHA_CLIENT_KEY` сервер проверяет one-shot token на `register` / `login` / `requestPasswordReset` и на отправку звука в `pending`. Без ключей проверка выключена.
+
 ---
 
 ## 2. Архитектура защиты (кратко)

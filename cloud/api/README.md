@@ -9,8 +9,8 @@
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | проверка живости (`version: 29`, `ydb`, `vapid`) |
-| `publicConfig` | нет | публичные ключи (Maps + VAPID + OAuth client ids / flags) |
+| `health` | нет | проверка живости (`version: 33`, `ydb`, `vapid`, `ucsAi`, `smartCaptcha`) |
+| `publicConfig` | нет | публичные ключи (Maps + VAPID + OAuth + SmartCaptcha sitekey) |
 | `oauthFinish` | нет | обмен code VK/Яндекс → сессия (нужен `pdConsent` для нового аккаунта) |
 | `oauthLink` | access | привязать VK/Яндекс к текущему аккаунту (забирает orphan `oauthOnly` stub) |
 | `changeLogin` | access | смена логина (пароль или confirm для oauthOnly; +2FA) |
@@ -114,7 +114,12 @@ ALLOW_DEMO_EMAIL_CODES=0
 VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
 VAPID_SUBJECT=mailto:support@polevka.art
+SMARTCAPTCHA_CLIENT_KEY=ysc1_…   # публичный sitekey
+SMARTCAPTCHA_SERVER_KEY=ysc2_…   # только на сервере
+GROQ_API_KEY=…                   # опц. UCS AI
 ```
+
+Без пары SmartCaptcha ключей проверка отключена (удобно для локалки). С ключами — обязательна на `register` / `login` / `requestPasswordReset` и на `sync`/`commit` звука со `status: pending`.
 
 Без SMTP email/reset отвечают `503 mail_not_configured`. SMTP только у провайдеров в РФ (см. [`docs/email-setup.md`](../../docs/email-setup.md)) — не Brevo/зарубежные ESP из‑за 152‑ФЗ.
 
@@ -136,8 +141,9 @@ v17: YDB Document API — источник правды (строки звуко
 ```bash
 cd cloud/api
 npm install --omit=dev
-zip -r ../rosmap-api.zip index.js sessionSecurity.js mailTemplates.js ydbDoc.js mailCrypto.js webPush.js oauthProviders.js ucsSuggest.js package.json node_modules
+zip -r ../rosmap-api.zip index.js sessionSecurity.js mailTemplates.js ydbDoc.js mailCrypto.js webPush.js oauthProviders.js ucsSuggest.js smartCaptcha.js package.json node_modules
 ```
+
 
 Или PowerShell: `Compress-Archive -Path index.js, mailTemplates.js, package.json, package-lock.json, node_modules ...`  
 (см. `cloud/ops/set-regru-smtp.ps1`).

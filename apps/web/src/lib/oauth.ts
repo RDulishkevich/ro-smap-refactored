@@ -37,6 +37,31 @@ type BridgePayload = {
 
 const PKCE_KEY = 'polevka_oauth_pkce';
 const BRIDGE_KEY = 'polevka_oauth_bridge';
+const CB_SEARCH_KEY = 'polevka_oauth_cb_search';
+
+/** Snapshot callback query before DeepLinks / nav can rewrite the URL to `/`. */
+export function captureOauthCallbackSearch() {
+  if (typeof location === 'undefined') return;
+  if (location.pathname.startsWith('/oauth/callback') && location.search.length > 1) {
+    try { sessionStorage.setItem(CB_SEARCH_KEY, location.search); } catch { /* */ }
+  }
+}
+
+function readOauthCallbackSearch(fallback = '') {
+  captureOauthCallbackSearch();
+  if (typeof location !== 'undefined'
+    && location.pathname.startsWith('/oauth/callback')
+    && location.search.length > 1) {
+    return location.search;
+  }
+  try { return sessionStorage.getItem(CB_SEARCH_KEY) || fallback; } catch { return fallback; }
+}
+
+function clearOauthCallbackSearch() {
+  try { sessionStorage.removeItem(CB_SEARCH_KEY); } catch { /* */ }
+}
+
+if (typeof location !== 'undefined') captureOauthCallbackSearch();
 
 function b64url(buf: ArrayBuffer | Uint8Array) {
   const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
@@ -274,7 +299,8 @@ function parseCallbackParams(search: string) {
 }
 
 export async function finishOAuthFromUrl(search: string) {
-  const { code, state, deviceId, error, errorDescription } = parseCallbackParams(search);
+  const resolved = readOauthCallbackSearch(search);
+  const { code, state, deviceId, error, errorDescription } = parseCallbackParams(resolved);
   if (error) {
     throw Object.assign(new Error(errorDescription || error), { code: 'oauth_denied' });
   }
@@ -311,6 +337,7 @@ export async function finishOAuthFromUrl(search: string) {
     }
     const data = await apiOauthLink(exchange);
     clearPkce();
+    clearOauthCallbackSearch();
     return { intent, ...data };
   }
 
@@ -320,14 +347,16 @@ export async function finishOAuthFromUrl(search: string) {
     rememberMe: true,
   });
   clearPkce();
+  clearOauthCallbackSearch();
   return { intent, ...data };
 }
 
 let finishOnce: Promise<Record<string, unknown>> | null = null;
 let finishOnceKey = '';
 
-export function finishOAuthFromUrlOnce(search: string) {
-  const key = search || '';
+export function finishOAuthFromUrlOnce(search?: string) {
+  captureOauthCallbackSearch();
+  const key = readOauthCallbackSearch(search || '') || '';
   if (!finishOnce || finishOnceKey !== key) {
     finishOnceKey = key;
     finishOnce = finishOAuthFromUrl(key)

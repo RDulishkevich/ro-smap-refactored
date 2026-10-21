@@ -53,6 +53,7 @@ import { resolveExpeditionInvite } from '../lib/expedition-invite';
 import { isAmbisonicSound, isSoundwalkPrinciple, soundAuthor, soundRoute } from '../lib/sound-media';
 import { watchConditionalUnlock } from '../lib/device-unlock';
 import { beginOAuth, loadOauthConfig } from '../lib/oauth';
+import { runSmartCaptcha } from '../lib/smart-captcha';
 import { pathForAuth } from '../lib/routes';
 import { Avatar } from '../primitives/Avatar';
 import { NotificationRow } from '../primitives/NotificationRow';
@@ -619,9 +620,14 @@ function AuthScreen({
   const [resetLogin, setResetLogin] = useState('');
   const [resetCode, setResetCode] = useState('');
   const [resetPw, setResetPw] = useState('');
+  const [captchaOn, setCaptchaOn] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   /** Consent is implied by continuing (shown as footer copy); API still needs the flag. */
   const pdConsent = true;
+
+  useEffect(() => {
+    void import('../lib/smart-captcha').then((m) => m.getSmartCaptchaSitekey()).then((k) => setCaptchaOn(!!k)).catch(() => {});
+  }, []);
 
   const startOauth = async (provider: 'yandex' | 'vk') => {
     if (!hasCookieConsentForAuth()) {
@@ -681,9 +687,10 @@ function AuthScreen({
     setBusy(true);
     setTotpError(false);
     try {
+      const captchaToken = (await runSmartCaptcha()) || undefined;
       const code = (totpCode ?? totp).trim();
       if (mode === 'up') {
-        await register(nextLogin, nextPassword, nextName || nextLogin, pdConsent);
+        await register(nextLogin, nextPassword, nextName || nextLogin, pdConsent, captchaToken);
         await apiSyncJson('profiles.json', [{
           loginName: nextLogin,
           displayName: nextName || nextLogin,
@@ -691,7 +698,7 @@ function AuthScreen({
         }]);
         await reload();
       }
-      else await login(nextLogin, nextPassword, code || undefined, rememberMe);
+      else await login(nextLogin, nextPassword, code || undefined, rememberMe, captchaToken);
       if (rememberMe) {
         const enable = await confirm({
           title: t('enableFaceId'),
@@ -715,6 +722,8 @@ function AuthScreen({
         toast(err.message || 'Нужно принять cookies сессии');
       } else if (err.code === 'pd_consent') {
         toast('Нужно согласие на обработку персональных данных');
+      } else if (err.code === 'captcha_required' || err.code === 'captcha_failed' || err.code === 'captcha_unavailable') {
+        toast(err.message || t('captchaFailed'));
       } else if (err.code === 'bad_totp') {
         setTotpError(true);
         setTotp('');
@@ -744,7 +753,8 @@ function AuthScreen({
     if (!who) { toast(t('loginNeed')); return; }
     setBusy(true);
     try {
-      await apiRequestPasswordReset(who);
+      const captchaToken = (await runSmartCaptcha()) || undefined;
+      await apiRequestPasswordReset(who, captchaToken);
       toast('Если аккаунт есть, код отправлен');
     } catch (e: unknown) {
       toast((e as Error).message);
@@ -1006,6 +1016,9 @@ function AuthScreen({
           {busy ? '…' : mode === 'in' ? t('signIn') : t('createAccount')}
         </button>
         {consentNote}
+        {captchaOn && (
+          <p className="pv-micro leading-snug" style={{ color: th.soft }}>{t('captchaNotice')}</p>
+        )}
         {seen.login && missing && (
           <FormNeed>{loginErr || passwordErr || firstErr || lastErr || t('loginNeed')}</FormNeed>
         )}
