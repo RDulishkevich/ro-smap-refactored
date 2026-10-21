@@ -199,8 +199,22 @@ export function DesktopShell() {
 
   const download = (s: Sound) => downloadSound(s, toast);
 
+  useEffect(() => {
+    if (!isOverlay) return;
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtml = html.style.overflow;
+    const prevBody = body.style.overflow;
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    return () => {
+      html.style.overflow = prevHtml;
+      body.style.overflow = prevBody;
+    };
+  }, [isOverlay]);
+
   return (
-    <div className="pv-desktop relative h-full w-full p-4 lg:p-5">
+    <div className="pv-desktop relative h-full w-full p-4 lg:p-5 overflow-hidden">
       <div className="flex h-full w-full overflow-hidden rounded-[32px] shadow-[0_24px_64px_rgba(45,60,57,0.14)]"
         style={{ background: th.cardBg }}>
         <nav className="flex flex-col py-5 px-2.5 flex-shrink-0" style={{ width: RAIL_W, borderRight: `1px solid ${th.border}` }}>
@@ -380,8 +394,10 @@ export function DesktopShell() {
               visibility: pickMode ? 'hidden' : 'visible',
               pointerEvents: pickMode ? 'none' : 'auto',
             }}>
-            <SwipeBack className="h-full min-h-0 overflow-hidden" onBack={pop}>
-              <ScreenContent screen={top} onBack={pop} />
+            <SwipeBack className="h-full min-h-0 overflow-hidden overscroll-none" onBack={pop}>
+              <div className="h-full min-h-0 overflow-hidden">
+                <ScreenContent screen={top} onBack={pop} />
+              </div>
             </SwipeBack>
           </motion.div>
         )}

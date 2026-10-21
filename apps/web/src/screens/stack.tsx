@@ -800,7 +800,7 @@ function AuthScreen({
         type="button"
         disabled={!!oauthBusy}
         onClick={() => void startOauth('yandex')}
-        className={`pv-button rounded-2xl flex items-center justify-center gap-2 cursor-pointer ${desktop ? 'flex-1 min-h-10' : 'w-full min-h-11'}`}
+        className={`pv-button rounded-2xl flex items-center justify-center gap-2 cursor-pointer ${desktop ? 'flex-1 min-h-9' : 'w-full min-h-11'}`}
         style={{
           background: oauthSurface,
           color: th.inkText,
@@ -815,7 +815,7 @@ function AuthScreen({
         type="button"
         disabled={!!oauthBusy}
         onClick={() => void startOauth('vk')}
-        className={`pv-button rounded-2xl flex items-center justify-center gap-2 cursor-pointer ${desktop ? 'flex-1 min-h-10' : 'w-full min-h-11'}`}
+        className={`pv-button rounded-2xl flex items-center justify-center gap-2 cursor-pointer ${desktop ? 'flex-1 min-h-9' : 'w-full min-h-11'}`}
         style={{ background: '#0077FF', color: '#fff', opacity: oauthBusy && oauthBusy !== 'vk' ? 0.6 : 1 }}
       >
         <span className="pv-subtitle text-white shrink-0">VK</span>
@@ -826,7 +826,7 @@ function AuthScreen({
   );
 
   const resetForm = (
-    <div className={`flex flex-col w-full ${desktop ? 'gap-2' : 'gap-3'}`}>
+    <div className={`flex flex-col w-full ${desktop ? 'gap-1.5' : 'gap-3'}`}>
       <FormField
         label={t('loginName')}
         value={resetLogin}
@@ -834,12 +834,12 @@ function AuthScreen({
         name="username"
         autoComplete="username"
         compact={desktop}
-        tip={t('loginCreatorTip')}
+        tip={desktop ? undefined : t('loginCreatorTip')}
       />
       <button
         type="button"
         disabled={busy}
-        className="pv-button w-full min-h-10 py-2.5 rounded-2xl text-white cursor-pointer"
+        className={`pv-button w-full rounded-2xl text-white cursor-pointer ${desktop ? 'min-h-9 py-2' : 'min-h-10 py-2.5'}`}
         style={{ background: th.solid, opacity: busy ? 0.7 : 1 }}
         onClick={() => void sendResetCode()}
       >
@@ -867,19 +867,11 @@ function AuthScreen({
       <button
         type="button"
         disabled={busy}
-        className="pv-button w-full min-h-10 py-2.5 rounded-2xl text-white cursor-pointer"
+        className={`pv-button w-full rounded-2xl text-white cursor-pointer ${desktop ? 'min-h-9 py-2' : 'min-h-10 py-2.5'}`}
         style={{ background: ACCENT, opacity: busy ? 0.7 : 1 }}
         onClick={() => void saveResetPassword()}
       >
         {busy ? '…' : t('authResetSave')}
-      </button>
-      <button
-        type="button"
-        className="pv-caption self-start min-h-8"
-        style={{ color: ACCENT }}
-        onClick={() => switchMode('in')}
-      >
-        {t('authResetBack')}
       </button>
     </div>
   );
@@ -891,7 +883,7 @@ function AuthScreen({
       method="post"
       action="."
       onSubmit={(e) => { e.preventDefault(); void submit(undefined, e.currentTarget); }}
-      className={`flex flex-col w-full ${desktop ? 'gap-2' : 'gap-4'}`}
+      className={`flex flex-col w-full ${desktop ? 'gap-1.5' : 'gap-4'}`}
     >
       {!desktop && (
         <div className="flex gap-1 p-1 rounded-2xl" style={{ background: th.cardBg }}>
@@ -915,13 +907,13 @@ function AuthScreen({
 
       {oauthRow}
 
-      <div className="flex items-center gap-3" aria-hidden>
+      <div className={`flex items-center ${desktop ? 'gap-2' : 'gap-3'}`} aria-hidden>
         <span className="flex-1 h-px" style={{ background: th.border }} />
         <span className="pv-micro" style={{ color: th.soft }}>{t('orEmailLogin')}</span>
         <span className="flex-1 h-px" style={{ background: th.border }} />
       </div>
 
-      <section className={`flex flex-col ${desktop ? 'gap-1.5' : 'gap-3'}`}>
+      <section className={`flex flex-col ${desktop ? 'gap-1' : 'gap-3'}`}>
         {mode === 'up' && (
           <div className={`grid ${desktop ? 'grid-cols-2 gap-2' : 'grid-cols-1 gap-3'}`}>
             <FormField
@@ -931,7 +923,7 @@ function AuthScreen({
               name="given-name"
               autoComplete="given-name"
               compact={desktop}
-              tip={t('firstNameTip')}
+              tip={desktop ? undefined : t('firstNameTip')}
               error={firstErr}
               onBlurValidate={() => setSeen((s) => ({ ...s, first: true }))}
             />
@@ -942,7 +934,7 @@ function AuthScreen({
               name="family-name"
               autoComplete="family-name"
               compact={desktop}
-              tip={t('lastNameTip')}
+              tip={desktop ? undefined : t('lastNameTip')}
               error={lastErr}
               onBlurValidate={() => setSeen((s) => ({ ...s, last: true }))}
             />
@@ -954,7 +946,7 @@ function AuthScreen({
           onChange={mode === 'up' ? setLoginSafe : setLogin}
           name="username"
           compact={desktop}
-          tip={t('loginCreatorTip')}
+          tip={desktop ? undefined : t('loginCreatorTip')}
           autoComplete={mode === 'in' ? 'username webauthn' : 'username'}
           autoCapitalize="none"
           autoCorrect="off"
@@ -1005,18 +997,18 @@ function AuthScreen({
         )}
       </section>
 
-      <div className={`flex flex-col ${desktop ? 'gap-1.5' : 'gap-2'} pt-0.5`}>
+      <div className={`flex flex-col ${desktop ? 'gap-1' : 'gap-2'} pt-0.5`}>
         <button
           type="submit"
           disabled={busy}
-          className={`pv-button w-full rounded-2xl text-white cursor-pointer ${desktop ? 'min-h-10 py-2.5' : 'min-h-11 py-3'}`}
+          className={`pv-button w-full rounded-2xl text-white cursor-pointer ${desktop ? 'min-h-9 py-2' : 'min-h-11 py-3'}`}
           style={{ background: ACCENT, opacity: busy ? 0.7 : 1 }}
           onClick={() => setSeen({ login: true, password: true, first: true, last: true })}
         >
           {busy ? '…' : mode === 'in' ? t('signIn') : t('createAccount')}
         </button>
         {consentNote}
-        {captchaOn && (
+        {captchaOn && !desktop && (
           <p className="pv-micro leading-snug" style={{ color: th.soft }}>{t('captchaNotice')}</p>
         )}
         {seen.login && missing && (
@@ -1038,12 +1030,20 @@ function AuthScreen({
   const panelBody = mode === 'reset' ? resetForm : form;
 
   if (desktop) {
+    const headerBack = () => {
+      if (mode === 'reset') switchMode('in');
+      else onBack();
+    };
     return (
-      <div className="relative flex h-full min-h-0 overflow-hidden overscroll-none" style={{ background: panelBg }}>
-        <div className="relative z-10 flex flex-col w-full max-w-[440px] xl:max-w-[480px] flex-shrink-0 h-full min-h-0 overflow-hidden px-7 xl:px-10 py-4">
-          <header className="flex items-center gap-3 flex-shrink-0 mb-2">
-            <button type="button" onClick={onBack} className="pv-caption min-h-8" style={{ color: th.soft }}>
-              ← Назад
+      <div
+        className="relative flex h-full min-h-0 overflow-hidden overscroll-none"
+        style={{ background: panelBg, overscrollBehavior: 'none' }}
+        onWheel={(e) => { e.preventDefault(); e.stopPropagation(); }}
+      >
+        <div className="relative z-10 flex flex-col w-full max-w-[420px] xl:max-w-[460px] flex-shrink-0 h-full min-h-0 overflow-hidden px-6 xl:px-9 py-3">
+          <header className="flex items-center gap-3 flex-shrink-0 mb-1.5">
+            <button type="button" onClick={headerBack} className="pv-caption min-h-8" style={{ color: th.soft }}>
+              ← {mode === 'reset' ? t('authResetBack') : 'Назад'}
             </button>
             <div className="flex items-center gap-2 ml-auto">
               <div className="w-6 h-6"><BrandMark /></div>
@@ -1051,16 +1051,16 @@ function AuthScreen({
             </div>
           </header>
 
-          <div className="flex-1 min-h-0 flex flex-col justify-center max-w-[380px] w-full overflow-hidden">
-            <p className="pv-micro uppercase tracking-[0.12em] mb-1" style={{ color: th.soft }}>
+          <div className="flex-1 min-h-0 flex flex-col justify-center max-w-[360px] w-full overflow-hidden">
+            <p className="pv-micro uppercase tracking-[0.12em] mb-0.5" style={{ color: th.soft }}>
               {eyebrow}
             </p>
-            <h1 className="pv-title mb-1.5 text-[1.65rem] leading-tight" style={{ color: th.inkText }}>
+            <h1 className="pv-title mb-1 text-[1.5rem] leading-tight" style={{ color: th.inkText }}>
               {title}
               <span style={{ color: ACCENT }}>.</span>
             </h1>
             {mode !== 'reset' && (
-              <p className="pv-caption mb-3 leading-snug" style={{ color: th.muted }}>
+              <p className="pv-caption mb-2 leading-snug" style={{ color: th.muted }}>
                 {mode === 'up' ? t('authHaveAccount') : t('authNoAccount')}{' '}
                 <button
                   type="button"
@@ -1073,7 +1073,7 @@ function AuthScreen({
               </p>
             )}
             {mode === 'reset' && (
-              <p className="pv-caption mb-3 leading-snug" style={{ color: th.muted }}>
+              <p className="pv-caption mb-2 leading-snug" style={{ color: th.muted }}>
                 Код придёт на подтверждённый email аккаунта.
               </p>
             )}
