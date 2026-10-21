@@ -137,13 +137,22 @@ export async function loadOauthConfig(): Promise<OAuthPublic> {
   }
 }
 
+/** Canonical callback on Pages — apex 301 → www breaks some IdP handoffs mid-flight. */
+const POLEVKA_OAUTH_CALLBACK = 'https://www.polevka.art/oauth/callback';
+
 function redirectOrigin(cfg: OAuthPublic) {
-  const raw = String(cfg.redirectUri || 'https://polevka.art/oauth/callback').trim();
-  try { return new URL(raw).origin; } catch { return 'https://polevka.art'; }
+  const raw = String(cfg.redirectUri || POLEVKA_OAUTH_CALLBACK).trim();
+  try { return new URL(raw).origin; } catch { return 'https://www.polevka.art'; }
 }
 
 function redirectUriFor(cfg: OAuthPublic) {
-  return String(cfg.redirectUri || `${redirectOrigin(cfg)}/oauth/callback`).trim();
+  const host = location.hostname;
+  if (host === 'polevka.art' || host === 'www.polevka.art' || host.endsWith('.polevka.art')) {
+    return POLEVKA_OAUTH_CALLBACK;
+  }
+  const raw = String(cfg.redirectUri || '').trim();
+  if (raw) return raw;
+  return `${location.origin}/oauth/callback`;
 }
 
 function apexHost(hostname: string) {
@@ -151,11 +160,14 @@ function apexHost(hostname: string) {
 }
 
 /**
- * GitHub Pages serves the site on www and 301s apex → www (query kept).
- * Bridging www → apex/oauth/bridge only bounces back to www and often drops
- * the bridge cookie (double-mount / Fastly). Skip that round-trip.
+ * Bridge only when the registered OAuth host is a truly different site.
+ * www ↔ apex on polevka.art is the same Pages app — never bridge (cookie drops).
  */
 function needsHostBridge(cfg: OAuthPublic) {
+  const host = location.hostname;
+  if (host === 'polevka.art' || host === 'www.polevka.art' || host.endsWith('.polevka.art')) {
+    return false;
+  }
   const confOrigin = redirectOrigin(cfg);
   if (location.origin === confOrigin) return false;
   try {
@@ -164,6 +176,15 @@ function needsHostBridge(cfg: OAuthPublic) {
     if (confHost && confHost === hereHost) return false;
   } catch { /* */ }
   return true;
+}
+
+function encodeOauthState(intent: OAuthIntent) {
+  return `${intent}.${randomString(32)}`;
+}
+
+function intentFromOauthState(state: string, fallback: OAuthIntent = 'login'): OAuthIntent {
+  const head = String(state || '').split('.')[0];
+  return head === 'link' ? 'link' : fallback === 'link' ? 'link' : 'login';
 }
 
 function readLocalRefresh() {
@@ -279,14 +300,16 @@ export async function beginOAuth(
   const intent: OAuthIntent = opts?.intent === 'link' ? 'link' : 'login';
   const redirectUri = redirectUriFor(cfg);
 
-  // Only bridge when OAuth is registered on a truly different host.
-  // www ↔ apex on polevka.art shares storage after Pages 301 — skip.
   if (!opts?._bridged && needsHostBridge(cfg)) {
     stashBridgeAndGo(cfg, provider, intent, !!opts?.pdConsent);
     return;
   }
 
-  const state = randomString(40);
+  // Drop stale PKCE so a cancelled «привязать» cannot turn the next «войти» into link.
+  clearPkce();
+  clearOauthCallbackSearch();
+
+  const state = encodeOauthState(intent);
   // Yandex confidential clients (client_secret on server) break when mixed with PKCE.
   // VK ID web requires PKCE + device_id.
   const usePkce = provider === 'vk';
@@ -367,11 +390,12 @@ export async function finishOAuthFromUrl(search: string) {
     throw Object.assign(new Error('VK не вернул device_id'), { code: 'oauth_missing_device' });
   }
 
-  const intent: OAuthIntent = saved.intent === 'link' ? 'link' : 'login';
+  // Prefer intent encoded in state (survives stale PKCE intent field).
+  const intent: OAuthIntent = intentFromOauthState(state, saved.intent === 'link' ? 'link' : 'login');
   const exchange = {
     provider: saved.provider,
     code,
-    redirectUri: saved.redirectUri,
+    redirectUri: saved.redirectUri || POLEVKA_OAUTH_CALLBACK,
     deviceId: deviceId || undefined,
     ...(saved.verifier ? { codeVerifier: saved.verifier } : {}),
   };

@@ -7,7 +7,9 @@ const YANDEX_OAUTH_CLIENT_ID = process.env.YANDEX_OAUTH_CLIENT_ID || '';
 const YANDEX_OAUTH_CLIENT_SECRET = process.env.YANDEX_OAUTH_CLIENT_SECRET || '';
 const VK_OAUTH_CLIENT_ID = process.env.VK_OAUTH_CLIENT_ID || '';
 const VK_OAUTH_CLIENT_SECRET = process.env.VK_OAUTH_CLIENT_SECRET || '';
-const OAUTH_REDIRECT_URI = process.env.OAUTH_REDIRECT_URI || 'https://polevka.art/oauth/callback';
+// GitHub Pages serves the app on www and 301s apex → www. Callback must be www
+// so the OAuth code never depends on that bounce (and IdP redirect_uri matches).
+const OAUTH_REDIRECT_URI = process.env.OAUTH_REDIRECT_URI || 'https://www.polevka.art/oauth/callback';
 
 function oauthPublicConfig() {
   return {
@@ -55,7 +57,13 @@ async function exchangeYandex(code, redirectUri) {
     err.code = 'oauth_profile';
     throw err;
   }
-  const displayName = String(info.display_name || info.real_name || info.login || `Яндекс ${info.id}`).slice(0, 40);
+  const subject = String(info.id || '').trim();
+  if (!subject) {
+    const err = new Error('yandex_subject_missing');
+    err.code = 'oauth_profile';
+    throw err;
+  }
+  const displayName = String(info.display_name || info.real_name || info.login || `Яндекс ${subject}`).slice(0, 40);
   const email = info.default_email || (Array.isArray(info.emails) ? info.emails[0] : '') || '';
   const avatar = info.is_avatar_empty
     ? ''
@@ -64,7 +72,7 @@ async function exchangeYandex(code, redirectUri) {
       : '');
   return {
     provider: 'yandex',
-    subject: String(info.id),
+    subject,
     displayName,
     email: String(email || '').slice(0, 200),
     avatar: String(avatar || '').slice(0, 2048),
@@ -107,7 +115,7 @@ async function exchangeVk(code, redirectUri, codeVerifier, deviceId) {
   });
   const infoWrap = await infoRes.json().catch(() => ({}));
   const info = infoWrap.user || infoWrap;
-  const subject = String(info.user_id || info.id || data.user_id || '');
+  const subject = String(info.user_id || info.id || data.user_id || '').trim();
   if (!infoRes.ok || !subject) {
     const err = new Error('vk_profile_failed');
     err.code = 'oauth_profile';

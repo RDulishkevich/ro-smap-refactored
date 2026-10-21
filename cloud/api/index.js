@@ -19,7 +19,7 @@
  *   ALLOW_DEMO_EMAIL_CODES — set to 1 on staging only: return demoCode when SMTP missing
  *   YANDEX_OAUTH_CLIENT_ID / YANDEX_OAUTH_CLIENT_SECRET — Яндекс ID OAuth
  *   VK_OAUTH_CLIENT_ID / VK_OAUTH_CLIENT_SECRET — VK ID OAuth
- *   OAUTH_REDIRECT_URI — default https://polevka.art/oauth/callback
+ *   OAUTH_REDIRECT_URI — default https://www.polevka.art/oauth/callback
  *
  * Actions (POST JSON { action, ... }):
  *   health | publicConfig | register | login | oauthFinish | oauthLink | oauthUnlink
@@ -2201,13 +2201,36 @@ async function handleOauthFinish(event, body) {
     let users = usersCas.data && typeof usersCas.data === 'object' ? { ...usersCas.data } : {};
     users = await ensureAdminUser(users);
 
+    const subject = String(profile.subject || '').trim();
+    if (!subject) {
+        return respond(401, { ok: false, error: 'oauth_profile', message: 'Провайдер не вернул id пользователя' });
+    }
+
     let login = '';
     for (const [key, row] of Object.entries(users)) {
         if (!row || typeof row !== 'object') continue;
         const bound = row.oauth && row.oauth[provider];
-        if (bound && String(bound) === profile.subject) {
+        if (bound && String(bound) === subject) {
             login = key;
             break;
+        }
+    }
+
+    // Same verified email as an existing account → sign into that account (attach provider).
+    // Avoids a second ya_*/vk_* stub when the user already registered by password/email.
+    if (!login && profile.email) {
+        const privateMetaEarly = await loadPrivateMeta();
+        const owner = verifiedEmailOwner(privateMetaEarly, profile.email);
+        if (owner && users[owner] && !users[owner].blocked) {
+            const existingBound = users[owner].oauth && users[owner].oauth[provider];
+            if (existingBound && String(existingBound) !== subject) {
+                return respond(409, {
+                    ok: false,
+                    error: 'email_taken',
+                    message: 'Этот email уже привязан к другому входу через соцсеть',
+                });
+            }
+            login = owner;
         }
     }
 
@@ -2216,7 +2239,7 @@ async function handleOauthFinish(event, body) {
         if (!body.pdConsent) {
             return respond(400, { ok: false, error: 'pd_consent' });
         }
-        let candidate = oauthLoginCandidate(provider, profile.subject);
+        let candidate = oauthLoginCandidate(provider, subject);
         if (!candidate || users[candidate]) {
             candidate = normalizeLogin(`${candidate || 'oauth'}${crypto.randomBytes(2).toString('hex')}`).slice(0, 32);
         }
@@ -2228,7 +2251,7 @@ async function handleOauthFinish(event, body) {
             displayName: profile.displayName || login,
             role: 'user',
             tokenVersion: 0,
-            oauth: { [provider]: profile.subject },
+            oauth: { [provider]: subject },
             oauthOnly: true,
             createdAt: new Date().toISOString(),
         };
@@ -2272,13 +2295,13 @@ async function handleOauthFinish(event, body) {
     } else {
         const row = users[login];
         if (row?.blocked) return respond(403, { ok: false, error: 'blocked' });
-        const oauth = { ...(row.oauth || {}), [provider]: profile.subject };
+        const oauth = { ...(row.oauth || {}), [provider]: subject };
         let dirty = false;
         if (JSON.stringify(row.oauth || {}) !== JSON.stringify(oauth)) {
             users[login] = { ...row, oauth };
             dirty = true;
         }
-        if (profile.displayName && profile.displayName !== row.displayName) {
+        if (profile.displayName && !row.displayName) {
             users[login] = { ...users[login], displayName: profile.displayName };
             dirty = true;
         }
@@ -2296,6 +2319,21 @@ async function handleOauthFinish(event, body) {
                 if (p.avatar) return p;
                 return sanitizeProfileCard({ ...p, avatar: profile.avatar, profileUpdatedAt: new Date().toISOString() });
             }));
+        }
+        if (profile.email) {
+            await mutateMeta((meta) => {
+                const cur = meta[login] && typeof meta[login] === 'object' ? meta[login] : {};
+                if (cur.email) return meta;
+                const owner = verifiedEmailOwner(meta, profile.email);
+                if (owner && owner !== login) return meta;
+                meta[login] = {
+                    ...cur,
+                    email: profile.email,
+                    emailVerified: true,
+                    updatedAt: new Date().toISOString(),
+                };
+                return meta;
+            });
         }
     }
 
@@ -2403,9 +2441,12 @@ async function handleOauthLink(event, body) {
             const login = authUser.login;
             const row = users[login];
             if (!row) throw new ClientError(401, 'unauthorized');
+            const subject = String(profile.subject || '').trim();
+            if (!subject) throw new ClientError(401, 'oauth_profile', 'Провайдер не вернул id пользователя');
             for (const [key, other] of Object.entries(users)) {
                 if (key === login || !other || typeof other !== 'object') continue;
-                if (other.oauth && String(other.oauth[provider] || '') === profile.subject) {
+                const otherBound = other.oauth && other.oauth[provider];
+                if (otherBound && String(otherBound) === subject) {
                     // Earlier «войти через соцсеть» often created a ya_*/vk_* stub — claim it.
                     if (other.oauthOnly) {
                         claimedOrphan = key;
@@ -2415,7 +2456,7 @@ async function handleOauthLink(event, body) {
                     throw new ClientError(409, 'provider_taken', 'Этот аккаунт уже привязан к другому пользователю');
                 }
             }
-            const oauth = { ...(row.oauth || {}), [provider]: profile.subject };
+            const oauth = { ...(row.oauth || {}), [provider]: subject };
             users[login] = { ...row, oauth };
             bindings = oauthBindingsPublic(users[login]);
             return users;
@@ -4343,7 +4384,7 @@ exports.handler = async function handler(event = {}) {
     if (action === 'health') {
         return respond(200, {
             ok: true,
-            version: 33,
+            version: 34,
             ydb: ydbDoc.enabled(),
             vapid: webPush.configured(),
             ucsAi: ucsSuggest.configured(),

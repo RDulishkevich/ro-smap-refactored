@@ -59,20 +59,22 @@ export function OAuthReturn() {
         await reload();
         if (!live) return;
         toast('Добро пожаловать');
-        history.replaceState({}, '', '/');
-        void reset();
+        history.replaceState({ polevka: true }, '', '/');
+        await reset();
       } catch (e: unknown) {
         if (!live) return;
         const err = e as { message?: string; code?: string };
         const text = err.code === 'provider_taken'
           ? t('oauthProviderTaken')
-          : err.code === 'pd_consent'
-            ? 'Нужно согласие на обработку персональных данных'
-            : (err.message || t('oauthFailed'));
+          : err.code === 'pd_consent' || err.code === 'consent'
+            ? 'Нужно принять cookies сессии и согласие на обработку данных'
+            : err.code === 'email_taken'
+              ? (err.message || 'Этот email уже занят другим входом')
+              : (err.message || t('oauthFailed'));
         setMsg(text);
         toast(text);
         window.setTimeout(() => {
-          history.replaceState({}, '', '/auth');
+          history.replaceState({ polevka: true }, '', '/auth');
           void reset({ type: 'auth', mode: 'in' });
         }, 2800);
       }
