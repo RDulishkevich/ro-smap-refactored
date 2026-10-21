@@ -154,7 +154,7 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
             <SlidersHorizontal size={16} style={{ color: showFilters ? color.accent : mapChromeInk }} />
           </motion.button>
           <HoverMenu title="Карта" items={[
-            { label: 'Открыть запись', onClick: () => active && push({ type: 'sound-detail', sound: active }) },
+            ...(active ? [{ label: 'Открыть запись', onClick: () => push({ type: 'sound-detail', sound: active }) }] : []),
             { label: 'Указать точку публикации', onClick: () => { setPickMode('point'); toast('Коснитесь карты'); } },
           ]}>
             <span className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-md" style={{ background: mapChromeBg }}>

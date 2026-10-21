@@ -162,7 +162,7 @@ export function SoundPlayerSheet({
   };
 
   const skip = (dir: -1 | 1) => {
-    if (!totalSec || !onSeek || !markers.length) return;
+    if (!totalSec || !onSeek) return;
     const cur = nowSec;
     if (dir > 0) {
       const next = markers.find((m) => m.t > cur + 0.4);
@@ -172,6 +172,9 @@ export function SoundPlayerSheet({
       onSeek(Math.max(0, (prev ? prev.t : Math.max(0, cur - 15)) / totalSec));
     }
   };
+  const skipBackLabel = markers.length ? 'Предыдущая метка' : 'На 15 секунд назад';
+  const skipFwdLabel = markers.length ? 'Следующая метка' : 'На 15 секунд вперёд';
+  const showSkip = !!onSeek && totalSec > 0;
 
   return (
     <motion.div
@@ -245,17 +248,21 @@ export function SoundPlayerSheet({
               <span>{totalSec ? formatClock(totalSec) : '—'}</span>
             </div>
             <div className="flex items-center justify-center gap-5 mt-2">
-              <button type="button" className="w-10 h-10 flex items-center justify-center" aria-label="Назад" onClick={() => skip(-1)}>
-                <SkipBack size={18} color={th.inkText} fill={th.inkText} />
-              </button>
+              {showSkip && (
+                <button type="button" className="w-10 h-10 flex items-center justify-center" aria-label={skipBackLabel} onClick={() => skip(-1)}>
+                  <SkipBack size={18} color={th.inkText} fill={th.inkText} />
+                </button>
+              )}
               <motion.button type="button" whileTap={tap.btn} onClick={onToggle}
                 className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: tone }}
                 aria-label={playing ? t('pause') : t('listen')}>
                 <PlayPauseIcon playing={!!playing} size={18} />
               </motion.button>
-              <button type="button" className="w-10 h-10 flex items-center justify-center" aria-label="Вперёд" onClick={() => skip(1)}>
-                <SkipForward size={18} color={th.inkText} fill={th.inkText} />
-              </button>
+              {showSkip && (
+                <button type="button" className="w-10 h-10 flex items-center justify-center" aria-label={skipFwdLabel} onClick={() => skip(1)}>
+                  <SkipForward size={18} color={th.inkText} fill={th.inkText} />
+                </button>
+              )}
             </div>
           </motion.div>
         )}
@@ -305,18 +312,22 @@ export function SoundPlayerSheet({
           </div>
 
           <div className="flex items-center justify-center gap-6 mt-3 mb-2">
-            <button type="button" className="w-11 h-11 flex items-center justify-center" aria-label="Назад" onClick={() => skip(-1)}>
-              <SkipBack size={20} color={th.inkText} fill={th.inkText} />
-            </button>
+            {showSkip && (
+              <button type="button" className="w-11 h-11 flex items-center justify-center" aria-label={skipBackLabel} onClick={() => skip(-1)}>
+                <SkipBack size={20} color={th.inkText} fill={th.inkText} />
+              </button>
+            )}
             <motion.button type="button" whileTap={tap.cta} onClick={onToggle}
               className="w-[68px] h-[68px] rounded-full flex items-center justify-center shadow-[0_8px_24px_rgba(45,60,57,0.18)]"
               style={{ background: tone }}
               aria-label={playing ? t('pause') : t('listen')}>
               <PlayPauseIcon playing={!!playing} size={22} />
             </motion.button>
-            <button type="button" className="w-11 h-11 flex items-center justify-center" aria-label="Вперёд" onClick={() => skip(1)}>
-              <SkipForward size={20} color={th.inkText} fill={th.inkText} />
-            </button>
+            {showSkip && (
+              <button type="button" className="w-11 h-11 flex items-center justify-center" aria-label={skipFwdLabel} onClick={() => skip(1)}>
+                <SkipForward size={20} color={th.inkText} fill={th.inkText} />
+              </button>
+            )}
           </div>
         </div>
 

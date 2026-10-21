@@ -36,6 +36,7 @@ export function MobileShell() {
   const top = stack[stack.length - 1];
   const hideForScreen = !!top && HIDE_PLAYER.includes(top.type);
   const showPlayer = !!dock && !fabOpen && !hideForScreen;
+  const stackOpen = stack.length > 0;
 
   useEffect(() => { setFabOpen(false); }, [activeTab]);
   useEffect(() => { if (stack.length) setFabOpen(false); }, [stack.length]);
@@ -64,7 +65,15 @@ export function MobileShell() {
 
   return (
     <div className="relative w-full h-full overflow-hidden pv-mobile" style={{ background: th.phoneBg }}>
-      <div className="absolute inset-0" style={{ bottom: contentBottom }}>
+      <div
+        className="absolute inset-0"
+        style={{ bottom: contentBottom }}
+        aria-hidden={stackOpen || undefined}
+        ref={(el) => {
+          if (!el) return;
+          if (stackOpen) el.setAttribute('inert', '');
+          else el.removeAttribute('inert');
+        }}>
         <div
           className={`pv-mobile-map ${onMap && showChrome ? 'z-[1]' : 'invisible pointer-events-none z-0'}`}
           aria-hidden={!onMap || !showChrome}>
@@ -109,7 +118,10 @@ export function MobileShell() {
           <MiniPlayer
             key={String(dock.id)}
             sound={dock}
-            onClose={() => setFocused(null)}
+            onClose={() => {
+              // X dismisses the dock: stop playback and clear focus (not pause-only).
+              setFocused(null);
+            }}
             playing={playing && String(playingId) === String(dock.id)}
             onToggle={() => togglePlay(dock)}
             progress={String(playingId) === String(dock.id) ? progress : 0}
@@ -162,23 +174,35 @@ export function MobileShell() {
       )}
 
       <AnimatePresence>
-        {stack.map((screen, i) => (
-          <motion.div key={screen._id} className="absolute inset-0" style={{
-            zIndex: 100 + i,
-            background: th.phoneBg,
-            bottom: showPlayer && screen.type !== 'sound-detail'
-              ? `calc(${Math.max(dockH, 72)}px + 0.75rem)`
-              : 0,
-          }}
-            initial={screen.type === 'sound-detail' ? { opacity: 0, y: 48 } : { opacity: 0, x: 36 }}
-            animate={{ opacity: 1, x: 0, y: 0 }}
-            exit={screen.type === 'sound-detail' ? { opacity: 0, y: 40 } : { opacity: 0, x: 20 }}
-            transition={screen.type === 'sound-detail' ? spring.sheet : spring.stack}>
-            <SwipeBack className="h-full" onBack={pop} enabled={screen.type !== 'sound-detail'}>
-              <ScreenContent screen={screen} onBack={pop} />
-            </SwipeBack>
-          </motion.div>
-        ))}
+        {stack.map((screen, i) => {
+          const underTop = i < stack.length - 1;
+          return (
+            <motion.div
+              key={screen._id}
+              className="absolute inset-0"
+              aria-hidden={underTop || undefined}
+              ref={(el) => {
+                if (!el) return;
+                if (underTop) el.setAttribute('inert', '');
+                else el.removeAttribute('inert');
+              }}
+              style={{
+                zIndex: 100 + i,
+                background: th.phoneBg,
+                bottom: showPlayer && screen.type !== 'sound-detail'
+                  ? `calc(${Math.max(dockH, 72)}px + 0.75rem)`
+                  : 0,
+              }}
+              initial={screen.type === 'sound-detail' ? { opacity: 0, y: 48 } : { opacity: 0, x: 36 }}
+              animate={{ opacity: 1, x: 0, y: 0 }}
+              exit={screen.type === 'sound-detail' ? { opacity: 0, y: 40 } : { opacity: 0, x: 20 }}
+              transition={screen.type === 'sound-detail' ? spring.sheet : spring.stack}>
+              <SwipeBack className="h-full" onBack={pop} enabled={screen.type !== 'sound-detail'}>
+                <ScreenContent screen={screen} onBack={pop} />
+              </SwipeBack>
+            </motion.div>
+          );
+        })}
       </AnimatePresence>
     </div>
   );

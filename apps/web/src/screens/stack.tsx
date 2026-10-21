@@ -159,6 +159,7 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
     setActiveTab('map');
   };
 
+  const hasWalk = isSoundwalkPrinciple(live.principle) || soundRoute(live).length >= 2;
   const menuItems = [
     { label: 'Пожаловаться', danger: true, onClick: () => { void (async () => {
       if (!isLoggedIn) { push({ type: 'auth' }); toast('Войдите, чтобы пожаловаться'); return; }
@@ -171,8 +172,10 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
       try { await apiSyncJson('map_data.json', [next]); toast('Жалоба отправлена модераторам'); await reload(); }
       catch (e: unknown) { toast((e as Error).message || 'Не удалось'); }
     })(); } },
-    { label: 'На карте', onClick: goToMap },
-    { label: 'Скачать WAV', onClick: download },
+    // Walk CTA is inline on the card — avoid a second «На карте» when that button is shown.
+    ...(!hasWalk || desktop ? [{ label: 'На карте', onClick: goToMap }] : []),
+    // Download is inline on mobile sheet; keep in ⋯ for desktop header.
+    ...(desktop ? [{ label: 'Скачать WAV', onClick: download }] : []),
   ];
 
   const cardBody = (
@@ -216,7 +219,7 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
             {isAmbisonicSound(live) ? ' · сфера 360° в плеере' : ''}
           </p>
         )}
-        {(isSoundwalkPrinciple(live.principle) || soundRoute(live).length >= 2) && (
+        {hasWalk && (
           <button type="button" className="pv-label mb-3 h-9 px-3 rounded-full inline-flex items-center gap-1.5"
             style={{ background: th.phoneBg, color: ACCENT }}
             onClick={goToMap}>
@@ -247,10 +250,13 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
           ))}
         </div>
         <div className="flex gap-2">
-          <motion.button whileTap={{ scale: 0.92 }} onClick={() => void toggleReaction('like', liked)} className="pv-button flex-1 py-2.5 rounded-2xl flex items-center justify-center gap-1.5"
-            style={{ background: liked ? ACCENT : th.lightBg, color: liked ? '#fff' : th.muted }}>
-            <Heart size={13} fill={liked ? '#fff' : 'none'} />Нравится
-          </motion.button>
+          {/* Mobile: like lives on the player sheet heart — avoid a third «Нравится». */}
+          {desktop && (
+            <motion.button whileTap={{ scale: 0.92 }} onClick={() => void toggleReaction('like', liked)} className="pv-button flex-1 py-2.5 rounded-2xl flex items-center justify-center gap-1.5"
+              style={{ background: liked ? ACCENT : th.lightBg, color: liked ? '#fff' : th.muted }}>
+              <Heart size={13} fill={liked ? '#fff' : 'none'} />Нравится
+            </motion.button>
+          )}
           <motion.button whileTap={{ scale: 0.92 }} onClick={() => void toggleReaction('dislike', disliked)} className="pv-button flex-1 py-2.5 rounded-2xl flex items-center justify-center gap-1.5"
             style={{ background: disliked ? th.solid : th.lightBg, color: disliked ? '#fff' : th.muted }}>
             Не нравится
@@ -704,6 +710,19 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
       }
     } finally { setBusy(false); }
   };
+  const ink = desktop;
+  const inkMuted = 'rgba(244,232,216,0.62)';
+  const inkSoft = 'rgba(244,232,216,0.48)';
+  const inkText = '#F4E8D8';
+  const inkBorder = 'rgba(244,232,216,0.12)';
+  const authBg = '#0B0B0B';
+  const switchMode = (m: 'in' | 'up') => {
+    setMode(m);
+    setNeedTotp(false);
+    setTotp('');
+    setTotpError(false);
+  };
+
   const form = (
     <form
       ref={formRef}
@@ -713,32 +732,39 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
       onSubmit={(e) => { e.preventDefault(); void submit(undefined, e.currentTarget); }}
       className="flex flex-col gap-5 w-full"
     >
-      <div className="flex gap-1 p-1 rounded-2xl" style={{ background: th.cardBg }}>
-        {(['in', 'up'] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => { setMode(m); setNeedTotp(false); setTotp(''); setTotpError(false); }}
-            className="flex-1 pv-label min-h-10 rounded-xl"
-            style={{
-              color: mode === m ? th.inkText : th.muted,
-              background: mode === m ? th.phoneBg : 'transparent',
-              boxShadow: mode === m ? `inset 0 0 0 1px ${th.border}` : undefined,
-            }}
-          >
-            {m === 'in' ? t('login') : t('register')}
-          </button>
-        ))}
-      </div>
+      {!desktop && (
+        <div className="flex gap-1 p-1 rounded-2xl" style={{ background: th.cardBg }}>
+          {(['in', 'up'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => switchMode(m)}
+              className="flex-1 pv-label min-h-10 rounded-xl"
+              style={{
+                color: mode === m ? th.inkText : th.muted,
+                background: mode === m ? th.phoneBg : 'transparent',
+                boxShadow: mode === m ? `inset 0 0 0 1px ${th.border}` : undefined,
+              }}
+            >
+              {m === 'in' ? t('login') : t('register')}
+            </button>
+          ))}
+        </div>
+      )}
 
       <section className="flex flex-col gap-2">
-        <p className="pv-micro uppercase tracking-wide" style={{ color: th.soft }}>Соцсети</p>
+        <p className="pv-micro uppercase tracking-wide" style={{ color: ink ? inkSoft : th.soft }}>Соцсети</p>
         <button
           type="button"
           disabled={!!oauthBusy}
           onClick={() => void startOauth('yandex')}
           className="pv-button w-full min-h-12 rounded-2xl flex items-center justify-center gap-2 cursor-pointer"
-          style={{ background: th.isDark ? '#2E2E2E' : '#F0F1F3', color: th.inkText, opacity: oauthBusy && oauthBusy !== 'yandex' ? 0.6 : 1 }}
+          style={{
+            background: ink ? '#1A1F1C' : (th.isDark ? '#2E2E2E' : '#F0F1F3'),
+            color: ink ? inkText : th.inkText,
+            boxShadow: ink ? `inset 0 0 0 1px ${inkBorder}` : undefined,
+            opacity: oauthBusy && oauthBusy !== 'yandex' ? 0.6 : 1,
+          }}
         >
           <span className="w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-semibold text-white" style={{ background: '#FC3F1D' }}>Я</span>
           {oauthBusy === 'yandex' ? '…' : t('continueWithYandex')}
@@ -753,11 +779,11 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
           <span className="pv-subtitle text-white">VK</span>
           {oauthBusy === 'vk' ? '…' : t('continueWithVk')}
         </button>
-        <label className="pv-caption flex items-start gap-2.5 mt-1" style={{ color: th.muted }}>
+        <label className="pv-caption flex items-start gap-2.5 mt-1" style={{ color: ink ? inkMuted : th.muted }}>
           <input type="checkbox" checked={pdConsent} onChange={(e) => setPdConsent(e.target.checked)} className="mt-0.5 shrink-0" />
           <span className="leading-snug">
             {t('pdConsent')}{' '}
-            <button type="button" className="underline" style={{ color: th.inkText }} onClick={() => push({ type: 'legal', doc: 'privacy' })}>
+            <button type="button" className="underline" style={{ color: ink ? inkText : th.inkText }} onClick={() => push({ type: 'legal', doc: 'privacy' })}>
               {t('privacyPolicy')}
             </button>
           </span>
@@ -765,32 +791,36 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
       </section>
 
       <div className="flex items-center gap-3" aria-hidden>
-        <span className="flex-1 h-px" style={{ background: th.border }} />
-        <span className="pv-micro" style={{ color: th.soft }}>{t('orEmailLogin')}</span>
-        <span className="flex-1 h-px" style={{ background: th.border }} />
+        <span className="flex-1 h-px" style={{ background: ink ? inkBorder : th.border }} />
+        <span className="pv-micro" style={{ color: ink ? inkSoft : th.soft }}>{t('orEmailLogin')}</span>
+        <span className="flex-1 h-px" style={{ background: ink ? inkBorder : th.border }} />
       </div>
 
       <section className="flex flex-col gap-3">
         {mode === 'up' && (
           <FormField label={t('name')} value={name} onChange={setName} name="name" autoComplete="name"
+            tone={ink ? 'ink' : 'default'}
             error={nameErr} onBlurValidate={() => setSeen((s) => ({ ...s, name: true }))} />
         )}
         <FormField label={t('loginName')} value={loginName} onChange={setLogin} name="username"
+          tone={ink ? 'ink' : 'default'}
           autoComplete={mode === 'in' ? 'username webauthn' : 'username'} autoCapitalize="none" autoCorrect="off"
           hint={t('loginHint')} error={loginErr} onBlurValidate={() => setSeen((s) => ({ ...s, login: true }))} />
         <FormField label={t('password')} value={password} onChange={setPassword} password name="password"
+          tone={ink ? 'ink' : 'default'}
           autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
           hint={t('passwordHint')} error={passwordErr} onBlurValidate={() => setSeen((s) => ({ ...s, password: true }))} />
         {mode === 'in' && (
-          <label className="pv-caption flex items-start gap-2.5" style={{ color: th.muted }}>
+          <label className="pv-caption flex items-start gap-2.5" style={{ color: ink ? inkMuted : th.muted }}>
             <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="mt-0.5 shrink-0" />
             <span>{t('rememberMe')}</span>
           </label>
         )}
         {mode === 'in' && needTotp && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl p-4" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
-            <p className="pv-subtitle mb-1" style={{ color: th.inkText }}>Код из приложения</p>
-            <p className="pv-caption mb-3 leading-snug" style={{ color: th.soft }}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl p-4"
+            style={{ background: ink ? '#1A1F1C' : th.cardBg, border: `1px solid ${ink ? inkBorder : th.border}` }}>
+            <p className="pv-subtitle mb-1" style={{ color: ink ? inkText : th.inkText }}>Код из приложения</p>
+            <p className="pv-caption mb-3 leading-snug" style={{ color: ink ? inkSoft : th.soft }}>
               Шесть цифр из Google Authenticator, Яндекс Ключ или другого приложения
             </p>
             <OtpInput value={totp} error={totpError} autoFocus disabled={busy}
@@ -800,48 +830,111 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
         )}
       </section>
 
-      <div className="flex flex-col gap-2 pt-1">
-        <button type="submit" disabled={busy} className="pv-button w-full min-h-12 py-3.5 rounded-2xl text-white cursor-pointer" style={{ background: ACCENT, opacity: busy ? 0.7 : 1 }}
+      <div className={`flex ${desktop ? 'flex-row items-center gap-3' : 'flex-col gap-2'} pt-1`}>
+        {desktop && (
+          <button
+            type="button"
+            className="pv-button flex-1 min-h-12 py-3.5 rounded-2xl cursor-pointer"
+            style={{ background: '#1A1F1C', color: inkText, boxShadow: `inset 0 0 0 1px ${inkBorder}` }}
+            onClick={() => switchMode(mode === 'up' ? 'in' : 'up')}
+          >
+            {mode === 'up' ? t('signIn') : t('createAccount')}
+          </button>
+        )}
+        <button type="submit" disabled={busy}
+          className={`pv-button min-h-12 py-3.5 rounded-2xl text-white cursor-pointer ${desktop ? 'flex-1' : 'w-full'}`}
+          style={{ background: ACCENT, opacity: busy ? 0.7 : 1 }}
           onClick={() => setSeen({ login: true, password: true, name: true })}>
           {busy ? '…' : mode === 'in' ? t('signIn') : t('createAccount')}
         </button>
-        {seen.login && missing && (
-          <FormNeed>{mode === 'up' && !pdConsent ? t('pdNeed') : loginErr || passwordErr || nameErr || t('loginNeed')}</FormNeed>
-        )}
-        {mode === 'in' && (
-          <button type="button" className="pv-caption min-h-11 self-start" style={{ color: th.soft }} onClick={() => push({ type: 'reset-password' })}>
-            {t('forgotPassword')}
-          </button>
-        )}
-        {!hasCookieConsentForAuth() && <p className="pv-micro leading-snug" style={{ color: th.soft }}>{t('cookiesNeed')}</p>}
       </div>
+      {seen.login && missing && (
+        <FormNeed>{mode === 'up' && !pdConsent ? t('pdNeed') : loginErr || passwordErr || nameErr || t('loginNeed')}</FormNeed>
+      )}
+      {mode === 'in' && (
+        <button type="button" className="pv-caption min-h-11 self-start" style={{ color: ink ? inkSoft : th.soft }}
+          onClick={() => push({ type: 'reset-password' })}>
+          {t('forgotPassword')}
+        </button>
+      )}
+      {!hasCookieConsentForAuth() && <p className="pv-micro leading-snug" style={{ color: ink ? inkSoft : th.soft }}>{t('cookiesNeed')}</p>}
     </form>
   );
-  return (
-    <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      {!desktop && <ScreenHeader title={mode === 'in' ? t('login') : t('register')} onBack={onBack} />}
-      {desktop ? (
-        <div className="flex-1 overflow-y-auto">
-          <div className="min-h-full flex flex-col px-8 py-8 max-w-[440px] mx-auto w-full">
-            <button type="button" onClick={onBack} className="pv-caption self-start min-h-10 mb-6" style={{ color: th.soft }}>
+
+  if (desktop) {
+    return (
+      <div className="relative flex h-full overflow-hidden" style={{ background: authBg }}>
+        <div className="relative z-10 flex flex-col w-full max-w-[520px] xl:max-w-[560px] flex-shrink-0 h-full overflow-y-auto scrollbar-none px-10 xl:px-14 py-8">
+          <div className="flex items-center gap-3 mb-8">
+            <button type="button" onClick={onBack} className="pv-caption min-h-10" style={{ color: inkSoft }}>
               ← Назад
             </button>
-            <div className="w-12 h-12 mb-3"><BrandMark /></div>
-            <h2 className="pv-title mb-1" style={{ color: th.inkText }}>Полёвка</h2>
-            <p className="pv-body mb-6 leading-snug" style={{ color: th.muted }}>
-              {mode === 'in' ? t('welcomeBack') : t('newExplorer')}
+            <div className="flex items-center gap-2.5 ml-auto">
+              <div className="w-8 h-8"><BrandMark /></div>
+              <span className="pv-wordmark" style={{ color: inkText }}>Полёвка</span>
+            </div>
+          </div>
+
+          <div className="flex-1 flex flex-col justify-center py-4 max-w-[420px] w-full">
+            <p className="pv-micro uppercase tracking-[0.14em] mb-3" style={{ color: inkSoft }}>
+              {mode === 'up' ? t('authStartFree') : t('welcomeBack')}
+            </p>
+            <h1 className="pv-display mb-3" style={{ color: inkText }}>
+              {mode === 'up' ? t('authCreateTitle') : t('authSignInTitle')}
+              <span style={{ color: ACCENT }}>.</span>
+            </h1>
+            <p className="pv-body mb-8 leading-snug" style={{ color: inkMuted }}>
+              {mode === 'up' ? t('authHaveAccount') : t('authNoAccount')}{' '}
+              <button
+                type="button"
+                className="pv-subtitle underline-offset-2 hover:underline"
+                style={{ color: ACCENT }}
+                onClick={() => switchMode(mode === 'up' ? 'in' : 'up')}
+              >
+                {mode === 'up' ? t('signIn') : t('createAccount')}
+              </button>
             </p>
             {form}
           </div>
         </div>
-      ) : (
-        <div className="px-5 pt-4 pb-8 flex flex-col gap-3 flex-1 overflow-y-auto scrollbar-none">
-          <p className="pv-caption mb-1 leading-snug" style={{ color: th.muted }}>
-            {mode === 'in' ? t('welcomeBack') : t('newExplorer')}
-          </p>
-          {form}
+
+        <div className="relative flex-1 min-w-[280px] h-full" aria-hidden>
+          <img
+            src="/auth/field.jpg"
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ objectPosition: '28% center' }}
+            decoding="async"
+          />
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: `linear-gradient(90deg, ${authBg} 0%, rgba(11,11,11,0.92) 12%, rgba(11,11,11,0.45) 38%, rgba(11,11,11,0.12) 62%, transparent 78%)`,
+            }}
+          />
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: 'linear-gradient(180deg, rgba(11,11,11,0.35) 0%, transparent 28%, transparent 70%, rgba(11,11,11,0.55) 100%)',
+            }}
+          />
+          <div className="absolute bottom-8 right-8 w-10 h-10 opacity-90">
+            <BrandMark />
+          </div>
         </div>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
+      <ScreenHeader title={mode === 'in' ? t('login') : t('register')} onBack={onBack} />
+      <div className="px-5 pt-4 pb-8 flex flex-col gap-3 flex-1 overflow-y-auto scrollbar-none">
+        <p className="pv-caption mb-1 leading-snug" style={{ color: th.muted }}>
+          {mode === 'in' ? t('welcomeBack') : t('newExplorer')}
+        </p>
+        {form}
+      </div>
     </div>
   );
 }
