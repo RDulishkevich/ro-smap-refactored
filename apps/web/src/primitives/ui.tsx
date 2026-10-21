@@ -122,6 +122,7 @@ export function OtpInput({
   autoFocus = false,
   disabled = false,
   label = 'Код 2FA',
+  showPaste = true,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -131,12 +132,15 @@ export function OtpInput({
   autoFocus?: boolean;
   disabled?: boolean;
   label?: string;
+  /** Clipboard paste control next to the digit row. */
+  showPaste?: boolean;
 }) {
   const th = useTh();
   const id = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const done = useRef('');
   const [focused, setFocused] = useState(false);
+  const [pasteBusy, setPasteBusy] = useState(false);
   const digits = value.replace(/\D/g, '').slice(0, length);
   const caret = digits.length < length ? digits.length : length - 1;
 
@@ -155,10 +159,61 @@ export function OtpInput({
     }
   }, [digits, length, onComplete]);
 
+  const pasteFromClipboard = async () => {
+    if (disabled || pasteBusy) return;
+    setPasteBusy(true);
+    try {
+      const text = await navigator.clipboard.readText();
+      const next = String(text || '').replace(/\D/g, '').slice(0, length);
+      if (next) onChange(next);
+      inputRef.current?.focus();
+    } catch {
+      inputRef.current?.focus();
+    } finally {
+      setPasteBusy(false);
+    }
+  };
+
   return (
     <div>
       {label && (
-        <label htmlFor={id} className="pv-label block mb-2" style={{ color: th.soft }}>{label}</label>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <label htmlFor={id} className="pv-label" style={{ color: th.soft }}>{label}</label>
+          {showPaste && (
+            <button
+              type="button"
+              disabled={disabled || pasteBusy}
+              onClick={() => void pasteFromClipboard()}
+              className="pv-caption min-h-8 px-2.5 rounded-xl shrink-0"
+              style={{
+                color: th.inkText,
+                background: th.cardBg,
+                boxShadow: `inset 0 0 0 1px ${th.border}`,
+                opacity: disabled || pasteBusy ? 0.6 : 1,
+              }}
+            >
+              {pasteBusy ? '…' : 'Paste'}
+            </button>
+          )}
+        </div>
+      )}
+      {!label && showPaste && (
+        <div className="flex justify-end mb-2">
+          <button
+            type="button"
+            disabled={disabled || pasteBusy}
+            onClick={() => void pasteFromClipboard()}
+            className="pv-caption min-h-8 px-2.5 rounded-xl"
+            style={{
+              color: th.inkText,
+              background: th.cardBg,
+              boxShadow: `inset 0 0 0 1px ${th.border}`,
+              opacity: disabled || pasteBusy ? 0.6 : 1,
+            }}
+          >
+            {pasteBusy ? '…' : 'Paste'}
+          </button>
+        </div>
       )}
       <motion.div
         animate={error ? { x: [0, -8, 8, -6, 6, -3, 0] } : { x: 0 }}

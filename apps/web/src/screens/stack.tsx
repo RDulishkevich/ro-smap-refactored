@@ -990,9 +990,15 @@ function AuthScreen({
             <p className="pv-caption mb-2 leading-snug" style={{ color: th.soft }}>
               Шесть цифр из Google Authenticator, Яндекс Ключ или другого приложения
             </p>
-            <OtpInput value={totp} error={totpError} autoFocus disabled={busy}
+            <OtpInput
+              label="Код"
+              value={totp}
+              error={totpError}
+              autoFocus
+              disabled={busy}
               onChange={(v) => { setTotp(v); setTotpError(false); }}
-              onComplete={(code) => { if (!busy) void submit(code, formRef.current); }} />
+              onComplete={(code) => { if (!busy) void submit(code, formRef.current); }}
+            />
           </motion.div>
         )}
       </section>
@@ -1045,10 +1051,6 @@ function AuthScreen({
             <button type="button" onClick={headerBack} className="pv-caption min-h-8" style={{ color: th.soft }}>
               ← {mode === 'reset' ? t('authResetBack') : 'Назад'}
             </button>
-            <div className="flex items-center gap-2 ml-auto">
-              <div className="w-6 h-6"><BrandMark /></div>
-              <span className="pv-wordmark text-[15px]" style={{ color: th.inkText }}>Полёвка</span>
-            </div>
           </header>
 
           <div className="flex-1 min-h-0 flex flex-col justify-center max-w-[360px] w-full overflow-hidden">
@@ -1079,31 +1081,35 @@ function AuthScreen({
             )}
             {panelBody}
           </div>
+
+          <p className="pv-micro flex-shrink-0 pt-2" style={{ color: th.soft }}>
+            © {new Date().getFullYear()} Полёвка
+          </p>
         </div>
 
         <div className="relative flex-1 min-w-[240px] h-full overflow-hidden" aria-hidden>
           <img
             src="/auth/field.jpg"
             alt=""
-            className="absolute inset-0 w-full h-full object-cover"
-            style={{ objectPosition: '28% center' }}
+            className="absolute inset-0 w-full h-full object-cover scale-[1.04]"
+            style={{ objectPosition: '12% center' }}
             decoding="async"
           />
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
-              background: `linear-gradient(90deg, ${panelBg} 0%, rgba(${panelRgb},0.94) 14%, rgba(${panelRgb},0.55) 40%, rgba(${panelRgb},0.16) 64%, transparent 82%)`,
+              background: `linear-gradient(90deg, ${panelBg} 0%, rgba(${panelRgb},0.98) 8%, rgba(${panelRgb},0.88) 18%, rgba(${panelRgb},0.55) 34%, rgba(${panelRgb},0.22) 52%, rgba(${panelRgb},0.06) 68%, transparent 84%)`,
             }}
           />
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
               background: th.isDark
-                ? 'linear-gradient(180deg, rgba(11,11,11,0.28) 0%, transparent 30%, transparent 72%, rgba(11,11,11,0.45) 100%)'
-                : 'linear-gradient(180deg, rgba(232,237,234,0.2) 0%, transparent 28%, transparent 75%, rgba(45,60,57,0.22) 100%)',
+                ? 'linear-gradient(180deg, rgba(11,11,11,0.22) 0%, transparent 26%, transparent 70%, rgba(11,11,11,0.4) 100%)'
+                : 'linear-gradient(180deg, rgba(232,237,234,0.18) 0%, transparent 24%, transparent 72%, rgba(45,60,57,0.2) 100%)',
             }}
           />
-          <div className="absolute bottom-6 right-6 w-9 h-9 opacity-90">
+          <div className="absolute bottom-7 right-7 w-[72px] h-[72px] opacity-95">
             <BrandMark />
           </div>
         </div>

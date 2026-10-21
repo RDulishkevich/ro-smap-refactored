@@ -115,18 +115,40 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [mail, reloadMail, user?.loginName]);
 
   const hadCatalog = useRef(false);
+  /** Skip setState when the public JSON fingerprint is unchanged — avoids list remounts. */
+  const catalogFp = useRef({ sounds: '', feed: '', events: '', profiles: '' });
   const reload = useCallback(async () => {
     const results = await Promise.allSettled([fetchMapData(), fetchFeed(), fetchEvents(), fetchProfiles()]);
     const [s, f, e, p] = results;
     if (s.status === 'fulfilled') {
-      setAll(s.value);
+      const fp = JSON.stringify(s.value);
+      if (fp !== catalogFp.current.sounds) {
+        catalogFp.current.sounds = fp;
+        setAll(s.value);
+      }
       hadCatalog.current = true;
     }
-    if (f.status === 'fulfilled') setFeed(f.value);
-    if (e.status === 'fulfilled') setEvents(e.value);
+    if (f.status === 'fulfilled') {
+      const fp = JSON.stringify(f.value);
+      if (fp !== catalogFp.current.feed) {
+        catalogFp.current.feed = fp;
+        setFeed(f.value);
+      }
+    }
+    if (e.status === 'fulfilled') {
+      const fp = JSON.stringify(e.value);
+      if (fp !== catalogFp.current.events) {
+        catalogFp.current.events = fp;
+        setEvents(e.value);
+      }
+    }
     if (p.status === 'fulfilled') {
-      setProfiles(p.value);
-      rememberSessionTitles(p.value);
+      const fp = JSON.stringify(p.value);
+      if (fp !== catalogFp.current.profiles) {
+        catalogFp.current.profiles = fp;
+        setProfiles(p.value);
+        rememberSessionTitles(p.value);
+      }
     }
     const failed = results.some((row) => row.status === 'rejected');
     if (!failed) setCatalogStatus('ok');
