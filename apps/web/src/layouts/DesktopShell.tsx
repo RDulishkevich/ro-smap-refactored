@@ -375,7 +375,7 @@ export function DesktopShell() {
             exit={{ opacity: 0, y: 8 }}
             transition={spring.sheet}
             style={{
-              background: top.type === 'auth' ? '#0B0B0B' : th.phoneBg,
+              background: th.phoneBg,
               visibility: pickMode ? 'hidden' : 'visible',
               pointerEvents: pickMode ? 'none' : 'auto',
             }}>

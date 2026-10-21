@@ -604,21 +604,17 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
   const [totp, setTotp] = useState('');
   const [needTotp, setNeedTotp] = useState(false);
   const [totpError, setTotpError] = useState(false);
-  const [pdConsent, setPdConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [oauthBusy, setOauthBusy] = useState<'yandex' | 'vk' | null>(null);
   const [seen, setSeen] = useState({ login: false, password: false, name: false });
   const formRef = useRef<HTMLFormElement>(null);
+  /** Consent is implied by continuing (shown as footer copy); API still needs the flag. */
+  const pdConsent = true;
 
   const startOauth = async (provider: 'yandex' | 'vk') => {
     if (!hasCookieConsentForAuth()) {
       openCookieBanner();
       toast(t('cookiesNeed'));
-      return;
-    }
-    // New social accounts need PD consent; returning users already consented on the server.
-    if (!pdConsent) {
-      toast(t('oauthNeedConsent'));
       return;
     }
     setOauthBusy(provider);
@@ -638,7 +634,7 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
   const loginErr = seen.login && !loginName.trim() ? t('loginNeed') : '';
   const passwordErr = seen.password && password.length < 8 ? t('passwordNeed') : '';
   const nameErr = mode === 'up' && seen.name && !name.trim() ? t('nameNeed') : '';
-  const missing = !loginName.trim() || password.length < 8 || (mode === 'up' && (!name.trim() || !pdConsent));
+  const missing = !loginName.trim() || password.length < 8 || (mode === 'up' && !name.trim());
 
   useEffect(() => {
     if (mode !== 'in') return;
@@ -710,18 +706,29 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
       }
     } finally { setBusy(false); }
   };
-  const ink = desktop;
-  const inkMuted = 'rgba(244,232,216,0.62)';
-  const inkSoft = 'rgba(244,232,216,0.48)';
-  const inkText = '#F4E8D8';
-  const inkBorder = 'rgba(244,232,216,0.12)';
-  const authBg = '#0B0B0B';
+  const panelBg = th.phoneBg;
+  const panelRgb = th.isDark ? '11,11,11' : '232,237,234';
+  const oauthSurface = th.isDark ? '#2E2E2E' : '#F0F1F3';
   const switchMode = (m: 'in' | 'up') => {
     setMode(m);
     setNeedTotp(false);
     setTotp('');
     setTotpError(false);
   };
+
+  const consentNote = (
+    <p className="pv-micro leading-snug" style={{ color: th.soft }}>
+      {t('pdConsentContinue')}{' '}
+      <button
+        type="button"
+        className="underline underline-offset-2"
+        style={{ color: th.muted }}
+        onClick={() => push({ type: 'legal', doc: 'privacy' })}
+      >
+        {t('privacyPolicy')}
+      </button>
+    </p>
+  );
 
   const form = (
     <form
@@ -730,7 +737,7 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
       method="post"
       action="."
       onSubmit={(e) => { e.preventDefault(); void submit(undefined, e.currentTarget); }}
-      className="flex flex-col gap-5 w-full"
+      className={`flex flex-col w-full ${desktop ? 'gap-3' : 'gap-5'}`}
     >
       {!desktop && (
         <div className="flex gap-1 p-1 rounded-2xl" style={{ background: th.cardBg }}>
@@ -752,75 +759,68 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
         </div>
       )}
 
-      <section className="flex flex-col gap-2">
-        <p className="pv-micro uppercase tracking-wide" style={{ color: ink ? inkSoft : th.soft }}>Соцсети</p>
+      <section className={`flex ${desktop ? 'flex-row gap-2' : 'flex-col gap-2'}`}>
         <button
           type="button"
           disabled={!!oauthBusy}
           onClick={() => void startOauth('yandex')}
-          className="pv-button w-full min-h-12 rounded-2xl flex items-center justify-center gap-2 cursor-pointer"
+          className={`pv-button min-h-11 rounded-2xl flex items-center justify-center gap-2 cursor-pointer ${desktop ? 'flex-1' : 'w-full'}`}
           style={{
-            background: ink ? '#1A1F1C' : (th.isDark ? '#2E2E2E' : '#F0F1F3'),
-            color: ink ? inkText : th.inkText,
-            boxShadow: ink ? `inset 0 0 0 1px ${inkBorder}` : undefined,
+            background: oauthSurface,
+            color: th.inkText,
+            boxShadow: `inset 0 0 0 1px ${th.border}`,
             opacity: oauthBusy && oauthBusy !== 'yandex' ? 0.6 : 1,
           }}
         >
           <span className="w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-semibold text-white" style={{ background: '#FC3F1D' }}>Я</span>
-          {oauthBusy === 'yandex' ? '…' : t('continueWithYandex')}
+          <span className="truncate">{oauthBusy === 'yandex' ? '…' : (desktop ? 'Яндекс' : t('continueWithYandex'))}</span>
         </button>
         <button
           type="button"
           disabled={!!oauthBusy}
           onClick={() => void startOauth('vk')}
-          className="pv-button w-full min-h-12 rounded-2xl flex items-center justify-center gap-2 cursor-pointer"
+          className={`pv-button min-h-11 rounded-2xl flex items-center justify-center gap-2 cursor-pointer ${desktop ? 'flex-1' : 'w-full'}`}
           style={{ background: '#0077FF', color: '#fff', opacity: oauthBusy && oauthBusy !== 'vk' ? 0.6 : 1 }}
         >
-          <span className="pv-subtitle text-white">VK</span>
-          {oauthBusy === 'vk' ? '…' : t('continueWithVk')}
+          <span className="pv-subtitle text-white shrink-0">VK</span>
+          {!desktop && <span className="truncate">{oauthBusy === 'vk' ? '…' : t('continueWithVk')}</span>}
+          {desktop && oauthBusy === 'vk' && <span>…</span>}
         </button>
-        <label className="pv-caption flex items-start gap-2.5 mt-1" style={{ color: ink ? inkMuted : th.muted }}>
-          <input type="checkbox" checked={pdConsent} onChange={(e) => setPdConsent(e.target.checked)} className="mt-0.5 shrink-0" />
-          <span className="leading-snug">
-            {t('pdConsent')}{' '}
-            <button type="button" className="underline" style={{ color: ink ? inkText : th.inkText }} onClick={() => push({ type: 'legal', doc: 'privacy' })}>
-              {t('privacyPolicy')}
-            </button>
-          </span>
-        </label>
       </section>
 
       <div className="flex items-center gap-3" aria-hidden>
-        <span className="flex-1 h-px" style={{ background: ink ? inkBorder : th.border }} />
-        <span className="pv-micro" style={{ color: ink ? inkSoft : th.soft }}>{t('orEmailLogin')}</span>
-        <span className="flex-1 h-px" style={{ background: ink ? inkBorder : th.border }} />
+        <span className="flex-1 h-px" style={{ background: th.border }} />
+        <span className="pv-micro" style={{ color: th.soft }}>{t('orEmailLogin')}</span>
+        <span className="flex-1 h-px" style={{ background: th.border }} />
       </div>
 
-      <section className="flex flex-col gap-3">
+      <section className={`flex flex-col ${desktop ? 'gap-2' : 'gap-3'}`}>
         {mode === 'up' && (
           <FormField label={t('name')} value={name} onChange={setName} name="name" autoComplete="name"
-            tone={ink ? 'ink' : 'default'}
+            compact={desktop}
             error={nameErr} onBlurValidate={() => setSeen((s) => ({ ...s, name: true }))} />
         )}
         <FormField label={t('loginName')} value={loginName} onChange={setLogin} name="username"
-          tone={ink ? 'ink' : 'default'}
+          compact={desktop}
           autoComplete={mode === 'in' ? 'username webauthn' : 'username'} autoCapitalize="none" autoCorrect="off"
-          hint={t('loginHint')} error={loginErr} onBlurValidate={() => setSeen((s) => ({ ...s, login: true }))} />
+          hint={desktop ? undefined : t('loginHint')} error={loginErr}
+          onBlurValidate={() => setSeen((s) => ({ ...s, login: true }))} />
         <FormField label={t('password')} value={password} onChange={setPassword} password name="password"
-          tone={ink ? 'ink' : 'default'}
+          compact={desktop}
           autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
-          hint={t('passwordHint')} error={passwordErr} onBlurValidate={() => setSeen((s) => ({ ...s, password: true }))} />
+          hint={desktop ? undefined : t('passwordHint')} error={passwordErr}
+          onBlurValidate={() => setSeen((s) => ({ ...s, password: true }))} />
         {mode === 'in' && (
-          <label className="pv-caption flex items-start gap-2.5" style={{ color: ink ? inkMuted : th.muted }}>
-            <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="mt-0.5 shrink-0" />
+          <label className="pv-caption flex items-center gap-2.5" style={{ color: th.muted }}>
+            <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="shrink-0" />
             <span>{t('rememberMe')}</span>
           </label>
         )}
         {mode === 'in' && needTotp && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl p-4"
-            style={{ background: ink ? '#1A1F1C' : th.cardBg, border: `1px solid ${ink ? inkBorder : th.border}` }}>
-            <p className="pv-subtitle mb-1" style={{ color: ink ? inkText : th.inkText }}>Код из приложения</p>
-            <p className="pv-caption mb-3 leading-snug" style={{ color: ink ? inkSoft : th.soft }}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl p-3"
+            style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
+            <p className="pv-subtitle mb-1" style={{ color: th.inkText }}>Код из приложения</p>
+            <p className="pv-caption mb-2 leading-snug" style={{ color: th.soft }}>
               Шесть цифр из Google Authenticator, Яндекс Ключ или другого приложения
             </p>
             <OtpInput value={totp} error={totpError} autoFocus disabled={busy}
@@ -830,60 +830,53 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
         )}
       </section>
 
-      <div className={`flex ${desktop ? 'flex-row items-center gap-3' : 'flex-col gap-2'} pt-1`}>
-        {desktop && (
-          <button
-            type="button"
-            className="pv-button flex-1 min-h-12 py-3.5 rounded-2xl cursor-pointer"
-            style={{ background: '#1A1F1C', color: inkText, boxShadow: `inset 0 0 0 1px ${inkBorder}` }}
-            onClick={() => switchMode(mode === 'up' ? 'in' : 'up')}
-          >
-            {mode === 'up' ? t('signIn') : t('createAccount')}
-          </button>
-        )}
+      <div className="flex flex-col gap-2 pt-0.5">
         <button type="submit" disabled={busy}
-          className={`pv-button min-h-12 py-3.5 rounded-2xl text-white cursor-pointer ${desktop ? 'flex-1' : 'w-full'}`}
+          className="pv-button w-full min-h-11 py-3 rounded-2xl text-white cursor-pointer"
           style={{ background: ACCENT, opacity: busy ? 0.7 : 1 }}
           onClick={() => setSeen({ login: true, password: true, name: true })}>
           {busy ? '…' : mode === 'in' ? t('signIn') : t('createAccount')}
         </button>
+        {consentNote}
+        {seen.login && missing && (
+          <FormNeed>{loginErr || passwordErr || nameErr || t('loginNeed')}</FormNeed>
+        )}
+        {mode === 'in' && (
+          <button type="button" className="pv-caption self-start min-h-9" style={{ color: th.soft }}
+            onClick={() => push({ type: 'reset-password' })}>
+            {t('forgotPassword')}
+          </button>
+        )}
+        {!hasCookieConsentForAuth() && (
+          <p className="pv-micro leading-snug" style={{ color: th.soft }}>{t('cookiesNeed')}</p>
+        )}
       </div>
-      {seen.login && missing && (
-        <FormNeed>{mode === 'up' && !pdConsent ? t('pdNeed') : loginErr || passwordErr || nameErr || t('loginNeed')}</FormNeed>
-      )}
-      {mode === 'in' && (
-        <button type="button" className="pv-caption min-h-11 self-start" style={{ color: ink ? inkSoft : th.soft }}
-          onClick={() => push({ type: 'reset-password' })}>
-          {t('forgotPassword')}
-        </button>
-      )}
-      {!hasCookieConsentForAuth() && <p className="pv-micro leading-snug" style={{ color: ink ? inkSoft : th.soft }}>{t('cookiesNeed')}</p>}
     </form>
   );
 
   if (desktop) {
     return (
-      <div className="relative flex h-full overflow-hidden" style={{ background: authBg }}>
-        <div className="relative z-10 flex flex-col w-full max-w-[520px] xl:max-w-[560px] flex-shrink-0 h-full overflow-y-auto scrollbar-none px-10 xl:px-14 py-8">
-          <div className="flex items-center gap-3 mb-8">
-            <button type="button" onClick={onBack} className="pv-caption min-h-10" style={{ color: inkSoft }}>
+      <div className="relative flex h-full min-h-0 overflow-hidden" style={{ background: panelBg }}>
+        <div className="relative z-10 flex flex-col w-full max-w-[480px] xl:max-w-[520px] flex-shrink-0 h-full min-h-0 overflow-hidden px-8 xl:px-12 py-5">
+          <header className="flex items-center gap-3 flex-shrink-0">
+            <button type="button" onClick={onBack} className="pv-caption min-h-9" style={{ color: th.soft }}>
               ← Назад
             </button>
-            <div className="flex items-center gap-2.5 ml-auto">
-              <div className="w-8 h-8"><BrandMark /></div>
-              <span className="pv-wordmark" style={{ color: inkText }}>Полёвка</span>
+            <div className="flex items-center gap-2 ml-auto">
+              <div className="w-7 h-7"><BrandMark /></div>
+              <span className="pv-wordmark" style={{ color: th.inkText }}>Полёвка</span>
             </div>
-          </div>
+          </header>
 
-          <div className="flex-1 flex flex-col justify-center py-4 max-w-[420px] w-full">
-            <p className="pv-micro uppercase tracking-[0.14em] mb-3" style={{ color: inkSoft }}>
+          <div className="flex-1 min-h-0 flex flex-col justify-center max-w-[400px] w-full py-3">
+            <p className="pv-micro uppercase tracking-[0.12em] mb-2" style={{ color: th.soft }}>
               {mode === 'up' ? t('authStartFree') : t('welcomeBack')}
             </p>
-            <h1 className="pv-display mb-3" style={{ color: inkText }}>
+            <h1 className="pv-title mb-2" style={{ color: th.inkText }}>
               {mode === 'up' ? t('authCreateTitle') : t('authSignInTitle')}
               <span style={{ color: ACCENT }}>.</span>
             </h1>
-            <p className="pv-body mb-8 leading-snug" style={{ color: inkMuted }}>
+            <p className="pv-caption mb-4 leading-snug" style={{ color: th.muted }}>
               {mode === 'up' ? t('authHaveAccount') : t('authNoAccount')}{' '}
               <button
                 type="button"
@@ -898,7 +891,7 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
           </div>
         </div>
 
-        <div className="relative flex-1 min-w-[280px] h-full" aria-hidden>
+        <div className="relative flex-1 min-w-[240px] h-full" aria-hidden>
           <img
             src="/auth/field.jpg"
             alt=""
@@ -909,16 +902,18 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
-              background: `linear-gradient(90deg, ${authBg} 0%, rgba(11,11,11,0.92) 12%, rgba(11,11,11,0.45) 38%, rgba(11,11,11,0.12) 62%, transparent 78%)`,
+              background: `linear-gradient(90deg, ${panelBg} 0%, rgba(${panelRgb},0.94) 14%, rgba(${panelRgb},0.55) 40%, rgba(${panelRgb},0.16) 64%, transparent 82%)`,
             }}
           />
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
-              background: 'linear-gradient(180deg, rgba(11,11,11,0.35) 0%, transparent 28%, transparent 70%, rgba(11,11,11,0.55) 100%)',
+              background: th.isDark
+                ? 'linear-gradient(180deg, rgba(11,11,11,0.28) 0%, transparent 30%, transparent 72%, rgba(11,11,11,0.45) 100%)'
+                : 'linear-gradient(180deg, rgba(232,237,234,0.2) 0%, transparent 28%, transparent 75%, rgba(45,60,57,0.22) 100%)',
             }}
           />
-          <div className="absolute bottom-8 right-8 w-10 h-10 opacity-90">
+          <div className="absolute bottom-6 right-6 w-9 h-9 opacity-90">
             <BrandMark />
           </div>
         </div>
