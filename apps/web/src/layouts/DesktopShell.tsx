@@ -34,7 +34,8 @@ const LIST_W = 360;
 const SIDE_W = 400;
 const PANEL_GAP = 12;
 
-const OVERLAY = new Set(['auth', 'reset-password']);
+/** Full-window overlays keep the workspace screen mounted underneath (leave guard / drafts). */
+const OVERLAY = new Set(['auth', 'reset-password', 'legal']);
 const WORKSPACE = new Set([
   'add-sound', 'record', 'sound-detail',
   'expedition-detail', 'expedition-edit',
@@ -192,7 +193,7 @@ export function DesktopShell() {
   };
 
   const openLegal = (doc: 'privacy' | 'terms' | 'publish') => {
-    if (vis?.type === 'legal' && vis.doc === doc) return;
+    if (top?.type === 'legal' && top.doc === doc) return;
     push({ type: 'legal', doc });
   };
 
@@ -379,7 +380,7 @@ export function DesktopShell() {
               visibility: pickMode ? 'hidden' : 'visible',
               pointerEvents: pickMode ? 'none' : 'auto',
             }}>
-            <SwipeBack className="h-full" onBack={pop}>
+            <SwipeBack className="h-full min-h-0 overflow-hidden" onBack={pop}>
               <ScreenContent screen={top} onBack={pop} />
             </SwipeBack>
           </motion.div>

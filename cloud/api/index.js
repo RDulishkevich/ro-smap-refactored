@@ -4295,7 +4295,7 @@ exports.handler = async function handler(event = {}) {
     if (action === 'health') {
         return respond(200, {
             ok: true,
-            version: 30,
+            version: 32,
             ydb: ydbDoc.enabled(),
             vapid: webPush.configured(),
             ucsAi: ucsSuggest.configured(),

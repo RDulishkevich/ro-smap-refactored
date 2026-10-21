@@ -6,7 +6,8 @@
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 const GROQ_CHAT = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_STT = 'https://api.groq.com/openai/v1/audio/transcriptions';
-const CHAT_MODEL = process.env.GROQ_CHAT_MODEL || 'llama-3.1-8b-instant';
+// llama-3.1-8b-instant shut down 2026-08-16 — free-tier replacement:
+const CHAT_MODEL = process.env.GROQ_CHAT_MODEL || 'openai/gpt-oss-20b';
 const STT_MODEL = process.env.GROQ_STT_MODEL || 'whisper-large-v3-turbo';
 
 const KIND_SET = new Set(['nature', 'water', 'urban', 'forest', 'birds']);
@@ -96,42 +97,59 @@ function normalizeSuggestion(raw, source) {
   };
 }
 
-async function groqChat(userPrompt) {
+async function groqChatOnce(userPrompt, withJsonFormat) {
+  const payload = {
+    model: CHAT_MODEL,
+    temperature: 0.2,
+    max_tokens: 400,
+    messages: [
+      {
+        role: 'system',
+        content: [
+          'You catalog field recordings for Полёвка using UCS 8.2.1.',
+          'Reply with ONLY compact JSON:',
+          '{"catId":"AMBForst","fxName":"Forest_Dawn_Birds","title":"Утренний лес","kind":"forest","ecoCategory":"biophony","rationale":"..."}',
+          'Rules: catId must be a real UCS CatID (e.g. AMBForst, AMBBird, WATRFlow, AMBUrbn, RAIN, WIND, THUN, AMBMisc).',
+          'fxName: English Title_Case words joined by underscores, max 8 words.',
+          'title: short Russian display title.',
+          'kind: nature|water|urban|forest|birds.',
+          'ecoCategory: geophony|biophony|anthrophony.',
+        ].join(' '),
+      },
+      { role: 'user', content: userPrompt },
+    ],
+  };
+  if (withJsonFormat) payload.response_format = { type: 'json_object' };
+
   const res = await fetch(GROQ_CHAT, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${GROQ_API_KEY}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: CHAT_MODEL,
-      temperature: 0.2,
-      max_tokens: 400,
-      messages: [
-        {
-          role: 'system',
-          content: [
-            'You catalog field recordings for Полёвка using UCS 8.2.1.',
-            'Reply with ONLY compact JSON:',
-            '{"catId":"AMBForst","fxName":"Forest_Dawn_Birds","title":"Утренний лес","kind":"forest","ecoCategory":"biophony","rationale":"..."}',
-            'Rules: catId must be a real UCS CatID (e.g. AMBForst, AMBBird, WATRFlow, AMBUrbn, RAIN, WIND, THUN).',
-            'fxName: English Title_Case words joined by underscores, max 8 words.',
-            'title: short Russian display title.',
-            'kind: nature|water|urban|forest|birds.',
-            'ecoCategory: geophony|biophony|anthrophony.',
-          ].join(' '),
-        },
-        { role: 'user', content: userPrompt },
-      ],
-    }),
+    body: JSON.stringify(payload),
   });
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = new Error(`groq_chat_${res.status}`);
+    const detail = data?.error?.message || data?.error || `HTTP ${res.status}`;
+    const err = new Error(`groq_chat_${res.status}:${detail}`);
     err.status = res.status;
     throw err;
   }
-  const data = await res.json();
-  return parseModelJson(data?.choices?.[0]?.message?.content || '');
+  const content = data?.choices?.[0]?.message?.content
+    || data?.choices?.[0]?.message?.reasoning
+    || '';
+  return parseModelJson(content);
+}
+
+async function groqChat(userPrompt) {
+  try {
+    return await groqChatOnce(userPrompt, true);
+  } catch (e) {
+    // Some models reject response_format — retry plain.
+    if (e && e.status === 400) return groqChatOnce(userPrompt, false);
+    throw e;
+  }
 }
 
 function multipartBody(fields, file) {

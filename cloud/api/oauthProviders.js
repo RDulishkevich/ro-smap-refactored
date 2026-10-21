@@ -27,7 +27,8 @@ function formBody(fields) {
     .join('&');
 }
 
-async function exchangeYandex(code, redirectUri, codeVerifier) {
+async function exchangeYandex(code, redirectUri) {
+  // Confidential Yandex app: client_secret only — do not mix with PKCE verifier.
   const res = await fetch('https://oauth.yandex.ru/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -37,7 +38,6 @@ async function exchangeYandex(code, redirectUri, codeVerifier) {
       client_id: YANDEX_OAUTH_CLIENT_ID,
       client_secret: YANDEX_OAUTH_CLIENT_SECRET,
       redirect_uri: redirectUri || OAUTH_REDIRECT_URI,
-      ...(codeVerifier ? { code_verifier: codeVerifier } : {}),
     }),
   });
   const data = await res.json().catch(() => ({}));
@@ -133,7 +133,7 @@ async function exchangeOAuthCode(provider, { code, redirectUri, codeVerifier, de
       err.code = 'oauth_disabled';
       throw err;
     }
-    return exchangeYandex(code, redirectUri, codeVerifier);
+    return exchangeYandex(code, redirectUri);
   }
   if (provider === 'vk') {
     if (!VK_OAUTH_CLIENT_ID) {

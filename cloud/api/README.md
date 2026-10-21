@@ -35,7 +35,7 @@
 | `deleteAccount` | access | самоудаление: пароль + TOTP, или `oauthOnly`+`confirmLogin`; purge снимает `oauth.*`; нельзя `admin`/`support` |
 | `exportMyData` | access | JSON своих данных (без хешей пароля) |
 | `translate` | access | Yandex Translate RU→EN (UCS FXName) |
-| `suggestUcs` | access | UCS CatID/FXName from description (Groq Llama free-tier; keyword fallback). `mode:"audio"` = beta Whisper clip |
+| `suggestUcs` | access | UCS CatID/FXName from description (Groq `openai/gpt-oss-20b` + Whisper beta; keyword fallback). Needs `GROQ_API_KEY`. |
 | `requestEmailVerification` | access | 6-значный код на email (SMTP); хеш в `_auth/email_codes/{login}.json` |
 | `confirmEmailVerification` | access | проверка кода → `email` + `emailVerified` в private_meta |
 | `adminDeleteUser` | access admin | полное удаление учётки + PII; профиль → «Удалённый аккаунт» |

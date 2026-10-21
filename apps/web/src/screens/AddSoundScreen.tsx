@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  apiSuggestUcs, apiSyncJson, apiTranslate, buildUcsFileName, FIELD_MICROPHONES, FIELD_RECORDERS,
+  apiHealth, apiSuggestUcs, apiSyncJson, apiTranslate, buildUcsFileName, FIELD_MICROPHONES, FIELD_RECORDERS,
   normalizeTimeMarkers, preparePublishWav, remapMarkersAfterTrim, spamGuardCheck,
   spamGuardMessage, ucsByCatId, ucsCategories, ucsStructure, uploadUserMedia,
   type Sound, type TimeMarker, type UcsSuggestion,
 } from '@polevka/core';
-import { color, type ThemeTokens } from '@polevka/design';
+import { color, spring, tap, type ThemeTokens } from '@polevka/design';
+import { AnimatePresence, motion } from 'motion/react';
 import { ImagePlus, Route, Sparkles, X } from 'lucide-react';
 import { ScreenHeader } from '../primitives/ui';
 import { PhotoLightbox } from '../primitives/PhotoCarousel';
 import { AudioEditor } from '../primitives/AudioEditor';
+import { BusySpinner, FillProgress, FormField, SelectField } from '../primitives/form';
 import { useAuth } from '../state/AuthContext';
 import { useData } from '../state/DataContext';
 import { useNav } from '../state/NavContext';
@@ -30,12 +32,20 @@ const PRINCIPLES = ['стерео XY', 'стерео ORTF', 'моно', 'бин�
 const CHANNELS = ['mono', 'stereo', 'binaural', 'quad', 'ambisonic'];
 
 type UcsCat = Record<string, Array<{ id: string; name: string }>>;
+type PubPhase = null | 'prepare' | 'upload' | 'photos' | 'save';
+
+const PUB_LABEL: Record<Exclude<PubPhase, null>, string> = {
+  prepare: 'Готовим WAV…',
+  upload: 'Загружаем аудио…',
+  photos: 'Загружаем фото…',
+  save: 'Сохраняем карточку…',
+};
 
 export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: Sound }) {
   const th = useTh();
   const desktop = useIsDesktop();
   const { toast } = useUi();
-  const { reload, profiles, pickedPoint, setPickedPoint, setPickMode, routeDraft, setRouteDraft, clearMapPick } = useData();
+  const { reload, profiles, pickedPoint, setPickMode, routeDraft, setRouteDraft, clearMapPick } = useData();
   const { user, isLoggedIn } = useAuth();
   const { push, reset, requireAuth } = useNav();
   const askedRef = useRef(false);
@@ -56,7 +66,10 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
   const [license, setLicense] = useState(String(edit?.license || LICENSES[0]));
   const [sessionId, setSessionId] = useState(String(edit?.sessionId || ''));
   const [busy, setBusy] = useState(false);
+  const [pubPhase, setPubPhase] = useState<PubPhase>(null);
   const [ucsBusy, setUcsBusy] = useState<'text' | 'audio' | null>(null);
+  const [ucsAiOn, setUcsAiOn] = useState<boolean | null>(null);
+  const [ucsNote, setUcsNote] = useState('');
   const [fileLabel, setFileLabel] = useState(edit?.url ? 'Текущий файл сохранён' : '');
   const [photos, setPhotos] = useState<File[]>([]);
   const [keptImages, setKeptImages] = useState<string[]>(() => (edit?.images || []).filter(Boolean));
@@ -83,6 +96,12 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
     void reset({ type: 'auth' });
   }, [isLoggedIn, reset, toast]);
 
+  useEffect(() => {
+    void apiHealth()
+      .then((d) => setUcsAiOn(!!(d as { ucsAi?: boolean }).ucsAi))
+      .catch(() => setUcsAiOn(null));
+  }, []);
+
   const dirty = !!(title.trim() || desc.trim() || draft || fileLabel || photos.length || pickedPoint || routeDraft.length >= 2 || markers.length);
   useLeaveGuard(dirty, clearMapPick);
 
@@ -107,6 +126,28 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
   const mySessions = (profiles.find((p) => String(p.loginName).toLowerCase() === user?.loginName)?.sessions || []);
   const structure = ucsStructure as UcsCat;
   const subcats = structure[ucsCat] || [];
+
+  const fillPercent = useMemo(() => {
+    let score = 0;
+    if (draft || edit?.url || fileLabel) score += 22;
+    if (title.trim()) score += 12;
+    if (desc.trim().length >= 12) score += 12;
+    else if (desc.trim().length >= 4) score += 6;
+    if (fxName.trim()) score += 8;
+    const hasPlace = !!(location.trim() || pickedPoint || (isWalk && routeDraft.length >= 2) || edit?.lat != null);
+    if (hasPlace) score += 14;
+    if (kind) score += 5;
+    if (eco) score += 5;
+    if (ucsId) score += 8;
+    if (recorder || microphone) score += 6;
+    if (license) score += 4;
+    if (keptImages.length + photos.length > 0) score += 4;
+    return Math.min(100, score);
+  }, [
+    draft, edit?.url, edit?.lat, fileLabel, title, desc, fxName, location, pickedPoint,
+    isWalk, routeDraft.length, kind, eco, ucsId, recorder, microphone, license,
+    keptImages.length, photos.length,
+  ]);
 
   const ucsFilePreview = useMemo(() => buildUcsFileName({
     catId: ucsId,
@@ -186,6 +227,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
     if (s.title && !title.trim()) setTitle(s.title);
     if (s.kind) setKind(s.kind);
     if (s.ecoCategory) setEco(s.ecoCategory);
+    setUcsNote(String(s.rationale || '').trim());
   };
 
   const suggestFromDescription = async () => {
@@ -199,16 +241,20 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
       return;
     }
     setUcsBusy('text');
+    setUcsNote('');
     try {
       const data = await apiSuggestUcs({
         mode: 'text',
         description: desc.trim(),
         title: title.trim(),
         location: location.trim(),
-      }) as { suggestion?: UcsSuggestion };
+      }) as { suggestion?: UcsSuggestion; groq?: boolean };
       if (!data.suggestion) throw new Error('empty');
       applyUcsSuggestion(data.suggestion);
-      toast(data.suggestion.source?.startsWith('groq') ? 'UCS предложен нейросетью' : 'UCS подобран по описанию');
+      const src = String(data.suggestion.source || '');
+      if (src.startsWith('groq')) toast('UCS предложен нейросетью');
+      else if (src.includes('fallback')) toast('Нейросеть недоступна — подобран по ключевым словам');
+      else toast('UCS подобран по описанию');
     } catch (e: unknown) {
       toast((e as Error).message || 'Не удалось подобрать UCS');
     } finally {
@@ -229,6 +275,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
       return;
     }
     setUcsBusy('audio');
+    setUcsNote('');
     try {
       const clip = await buildUcsAudioClip(source);
       const data = await apiSuggestUcs({
@@ -271,6 +318,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
       return;
     }
     setBusy(true);
+    setPubPhase('prepare');
     try {
       let url = String(edit?.url || '');
       let formatLabel = String(edit?.formatLabel || '');
@@ -289,6 +337,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
           channels,
           ucsCategory: ucsCat,
         });
+        setPubPhase('upload');
         url = await uploadUserMedia(prepared.blob, prepared.fileName, 'audio/wav');
         formatLabel = prepared.formatLabel;
         dur = `${Math.floor(trimmed.durationSec / 60)}:${String(trimmed.durationSec % 60).padStart(2, '0')}`;
@@ -297,9 +346,14 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
         ? remapMarkersAfterTrim(markers, rec.trimStart ?? 0, rec.trimEnd ?? 1, rec.durationSec)
         : normalizeTimeMarkers(markers);
       const images: string[] = [...keptImages];
-      for (const photo of photos.slice(0, Math.max(0, 3 - keptImages.length))) {
-        images.push(await uploadUserMedia(photo, photo.name, photo.type || 'image/jpeg'));
+      const toUpload = photos.slice(0, Math.max(0, 3 - keptImages.length));
+      if (toUpload.length) {
+        setPubPhase('photos');
+        for (const photo of toUpload) {
+          images.push(await uploadUserMedia(photo, photo.name, photo.type || 'image/jpeg'));
+        }
       }
+      setPubPhase('save');
       const walkRoute = isSoundwalkPrinciple(principle) ? routeDraft : [];
       let lat = pickedPoint?.lat ?? Number(edit?.lat) ?? 47.2313;
       let lng = pickedPoint?.lng ?? Number(edit?.lng) ?? 39.7233;
@@ -356,8 +410,29 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
       toast((e as Error).message || 'Не удалось опубликовать');
     } finally {
       setBusy(false);
+      setPubPhase(null);
     }
   };
+
+  const openLegal = (doc: 'privacy' | 'terms' | 'publish') => {
+    push({ type: 'legal', doc });
+  };
+
+  const recorderOpts = useMemo(
+    () => [{ value: '', label: '— не указан —' }, ...(FIELD_RECORDERS as string[]).map((g) => ({ value: g, label: g }))],
+    [],
+  );
+  const micOpts = useMemo(
+    () => [{ value: '', label: '— не указан —' }, ...(FIELD_MICROPHONES as string[]).map((g) => ({ value: g, label: g }))],
+    [],
+  );
+  const sessionOpts = useMemo(
+    () => [
+      { value: '', label: '— не привязывать —' },
+      ...mySessions.map((s) => ({ value: String(s.id), label: String(s.title || s.id) })),
+    ],
+    [mySessions],
+  );
 
   return (
     <div className="flex flex-col h-full min-h-0" style={{ background: th.phoneBg }}>
@@ -370,6 +445,11 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
           </div>
         )}
         <div className="flex flex-col gap-4 max-w-3xl">
+          <FillProgress
+            percent={fillPercent}
+            label={fillPercent >= 85 ? 'Почти готово к модерации' : 'Заполненность карточки'}
+          />
+
           {edit?.status === 'rejected' && (
             <div className="rounded-3xl px-4 py-3.5" style={{ background: th.cardBg, border: `1px solid ${ACCENT}55` }}>
               <p className="pv-label uppercase" style={{ color: ACCENT }}>Причина отклонения</p>
@@ -381,6 +461,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
               </p>
             </div>
           )}
+
           <Section title="Аудио" th={th}>
             <label
               className="block rounded-2xl px-4 py-5 text-center cursor-pointer"
@@ -391,8 +472,8 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
                 const file = e.dataTransfer.files?.[0];
                 if (file) void onPickFile(file);
               }}>
-              <p className="text-[13px] font-semibold" style={{ color: th.inkText }}>{fileLabel || 'Перетащите файл или нажмите'}</p>
-              <p className="text-[11px] mt-1" style={{ color: th.soft }}>WAV, MP3, M4A, OGG, WebM · для ambisonic — 4-канальный WAV (WXYZ)</p>
+              <p className="pv-subtitle" style={{ color: th.inkText }}>{fileLabel || 'Перетащите файл или нажмите'}</p>
+              <p className="pv-micro mt-1" style={{ color: th.soft }}>WAV, MP3, M4A, OGG, WebM · для ambisonic — 4-канальный WAV (WXYZ)</p>
               <input type="file" accept="audio/*,.webm,.ogg,.mp3,.wav,.m4a" className="hidden"
                 onChange={(e) => void onPickFile(e.target.files?.[0] || null)} />
             </label>
@@ -425,31 +506,39 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
 
           <Section title="Карточка" th={th}>
             <div className={desktop ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-3'}>
-              <Field label="Название" value={title} onChange={setTitle} th={th} />
+              <FormField label="Название" value={title} onChange={setTitle} inset />
               <div>
-                <Field label="FXName" value={fxName} onChange={setFxName} th={th} />
-                <button type="button" className="text-[11px] mt-1.5 font-semibold" style={{ color: ACCENT }} onClick={() => void translateFx()}>Перевести FXName</button>
+                <FormField label="FXName" value={fxName} onChange={setFxName} tip="Английское имя в UCS-файле (слова через _)." inset />
+                <button type="button" className="pv-caption mt-1.5 font-medium" style={{ color: ACCENT }} onClick={() => void translateFx()}>
+                  Перевести FXName
+                </button>
               </div>
-              <label className="text-[10px] font-semibold col-span-2" style={{ color: th.soft }}>Описание
-                <textarea value={desc} onChange={(e) => setDesc(e.target.value)} className="mt-1 w-full rounded-2xl px-3 py-3 text-sm outline-none min-h-[88px]" style={{ background: th.phoneBg, color: th.inkText }} />
+              <label className="pv-label col-span-2 block" style={{ color: th.soft }}>Описание
+                <textarea
+                  value={desc}
+                  onChange={(e) => setDesc(e.target.value)}
+                  className="mt-1 w-full rounded-2xl px-3 py-3 pv-body outline-none min-h-[88px]"
+                  style={{ background: th.phoneBg, color: th.inkText, boxShadow: `inset 0 0 0 1px ${th.border}` }}
+                />
               </label>
             </div>
           </Section>
 
           <Section title="Место" th={th}>
-            <Field label="Где записано" value={location} onChange={setLocation} th={th} />
-            <p className="text-[11px] mt-2" style={{ color: th.soft }}>
+            <FormField label="Где записано" value={location} onChange={setLocation} inset />
+            <p className="pv-micro mt-2" style={{ color: th.soft }}>
               Координаты: {pickedPoint ? `${pickedPoint.lat.toFixed(5)}, ${pickedPoint.lng.toFixed(5)}` : (edit?.lat != null ? `${Number(edit.lat).toFixed(5)}, ${Number(edit.lng).toFixed(5)}` : 'точка на карте или геолокация')}
             </p>
             <div className="flex flex-wrap gap-2 mt-2">
-              <button type="button" className="h-10 px-4 rounded-full text-[12px] font-semibold" style={{ background: th.phoneBg, color: th.muted }}
+              <motion.button type="button" whileTap={tap.btn} className="h-10 px-4 rounded-full pv-button"
+                style={{ background: th.phoneBg, color: th.muted, boxShadow: `inset 0 0 0 1px ${th.border}` }}
                 onClick={() => {
                   setPickMode('point');
                   if (desktop) toast('Кликните по карте справа — метка останется, можно поставить заново');
                   else push({ type: 'pick-location', mode: 'point' });
-                }}>Указать точку на карте</button>
-              <button type="button" className="h-10 px-4 rounded-full text-[12px] font-semibold inline-flex items-center gap-1.5"
-                style={{ background: isWalk ? ACCENT : th.phoneBg, color: isWalk ? '#fff' : th.muted }}
+                }}>Указать точку на карте</motion.button>
+              <motion.button type="button" whileTap={tap.btn} className="h-10 px-4 rounded-full pv-button inline-flex items-center gap-1.5"
+                style={{ background: isWalk ? ACCENT : th.phoneBg, color: isWalk ? '#fff' : th.muted, boxShadow: isWalk ? undefined : `inset 0 0 0 1px ${th.border}` }}
                 onClick={() => {
                   setPrincipleAndMode(isWalk ? principle : 'Звуковая прогулка (Soundwalk)');
                   setPickMode('route');
@@ -457,18 +546,18 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
                   else push({ type: 'pick-location', mode: 'route' });
                 }}>
                 <Route size={13} /> Нарисовать прогулку
-              </button>
+              </motion.button>
             </div>
             {isWalk && (
               <div className="mt-3 rounded-2xl px-3 py-2.5" style={{ background: th.phoneBg }}>
-                <p className="text-[11px] font-semibold" style={{ color: th.inkText }}>
+                <p className="pv-caption font-medium" style={{ color: th.inkText }}>
                   {routeDraft.length < 2 ? 'Нужно минимум 2 точки маршрута' : `Маршрут: ${routeDraft.length} точек`}
                 </p>
                 {routeDraft.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {routeDraft.map((pt, i) => (
                       <button key={`${pt.lat}-${pt.lng}-${i}`} type="button"
-                        className="text-[10px] px-2 py-1 rounded-full"
+                        className="pv-micro px-2 py-1 rounded-full"
                         style={{ background: th.cardBg, color: th.muted }}
                         onClick={() => setRouteDraft((prev) => prev.filter((_, n) => n !== i))}
                         title="Убрать точку">
@@ -478,7 +567,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
                   </div>
                 )}
                 {routeDraft.length > 0 && (
-                  <button type="button" className="text-[11px] font-semibold mt-2" style={{ color: ACCENT }}
+                  <button type="button" className="pv-caption font-medium mt-2" style={{ color: ACCENT }}
                     onClick={() => setRouteDraft([])}>Сбросить маршрут</button>
                 )}
               </div>
@@ -486,13 +575,13 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
           </Section>
 
           <Section title="Тип звука" th={th}>
-            <p className="text-[10px] font-semibold mb-1.5" style={{ color: th.soft }}>Категория</p>
+            <p className="pv-micro font-medium mb-1.5" style={{ color: th.soft }}>Категория</p>
             <div className="flex flex-wrap gap-1.5 mb-3">
               {[['nature', 'Природа'], ['water', 'Вода'], ['urban', 'Город'], ['forest', 'Лес'], ['birds', 'Птицы']].map(([id, lab]) => (
                 <Chip key={id} on={kind === id} onClick={() => setKind(id)} label={lab} th={th} />
               ))}
             </div>
-            <p className="text-[10px] font-semibold mb-1.5" style={{ color: th.soft }}>Экокатегория</p>
+            <p className="pv-micro font-medium mb-1.5" style={{ color: th.soft }}>Экокатегория</p>
             <div className="flex flex-wrap gap-1.5">
               {[['geophony', 'Геофония'], ['biophony', 'Биофония'], ['anthrophony', 'Антропофония']].map(([id, lab]) => (
                 <Chip key={id} on={eco === id} onClick={() => setEco(id)} label={lab} th={th} />
@@ -502,18 +591,21 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
 
           <Section title="Классификация UCS" th={th}>
             <div className="flex flex-wrap gap-2 mb-3">
-              <button
+              <motion.button
                 type="button"
+                whileTap={tap.btn}
                 disabled={!!ucsBusy}
                 onClick={() => void suggestFromDescription()}
                 className="h-10 px-3.5 rounded-full pv-button inline-flex items-center gap-1.5 cursor-pointer"
-                style={{ background: th.phoneBg, color: th.inkText, opacity: ucsBusy ? 0.7 : 1 }}
+                style={{ background: th.phoneBg, color: th.inkText, boxShadow: `inset 0 0 0 1px ${th.border}`, opacity: ucsBusy ? 0.75 : 1 }}
               >
-                <Sparkles size={14} color={ACCENT} />
-                {ucsBusy === 'text' ? 'Подбираем…' : 'UCS по описанию'}
-              </button>
-              <button
+                {ucsBusy === 'text' ? <BusySpinner label="Подбираем…" /> : (
+                  <><Sparkles size={14} color={ACCENT} /> UCS по описанию</>
+                )}
+              </motion.button>
+              <motion.button
                 type="button"
+                whileTap={tap.btn}
                 disabled={!!ucsBusy}
                 onClick={() => void suggestFromAudio()}
                 className="h-10 px-3.5 rounded-full pv-button inline-flex items-center gap-1.5 cursor-pointer"
@@ -521,72 +613,83 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
                   background: th.isDark ? '#2E2E2E' : '#F0F1F3',
                   color: th.muted,
                   boxShadow: `inset 0 0 0 1px ${th.border}`,
-                  opacity: ucsBusy ? 0.7 : 1,
+                  opacity: ucsBusy ? 0.75 : 1,
                 }}
               >
-                {ucsBusy === 'audio' ? 'Слушаем…' : 'Beta: анализ записи'}
-              </button>
+                {ucsBusy === 'audio' ? <BusySpinner label="Слушаем…" /> : 'Beta: анализ записи'}
+              </motion.button>
             </div>
-            <p className="pv-micro mb-3 leading-snug" style={{ color: th.soft }}>
-              Нейросеть предлагает CatID и FXName по описанию (бесплатный Groq). Beta дополнительно слушает клип записи.
+            <p className="pv-micro mb-2 leading-snug" style={{ color: th.soft }}>
+              {ucsAiOn === false
+                ? 'Нейросеть на сервере выключена — работает подбор по ключевым словам. Для AI нужен GROQ_API_KEY и деплой API.'
+                : 'Нейросеть предлагает CatID и FXName по описанию. Beta дополнительно слушает клип записи.'}
             </p>
+            <AnimatePresence>
+              {ucsNote ? (
+                <motion.p
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={spring.fade}
+                  className="pv-caption mb-3 leading-snug rounded-2xl px-3 py-2"
+                  style={{ background: th.phoneBg, color: th.muted }}
+                >
+                  {ucsNote}
+                </motion.p>
+              ) : null}
+            </AnimatePresence>
             <div className={desktop ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-3'}>
-              <label className="text-[10px] font-semibold" style={{ color: th.soft }}>Категория
-                <select value={ucsCat} onChange={(e) => {
-                  const next = e.target.value;
+              <SelectField
+                label="Категория"
+                value={ucsCat}
+                options={(ucsCategories as string[]).map((c) => ({ value: c, label: c }))}
+                onChange={(next) => {
                   setUcsCat(next);
                   const first = (structure[next] || [])[0];
                   if (first) setUcsId(first.id);
-                }} className="mt-1 w-full rounded-2xl px-3 py-2.5 text-xs outline-none" style={{ background: th.phoneBg, color: th.inkText }}>
-                  {(ucsCategories as string[]).map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </label>
-              <label className="text-[10px] font-semibold" style={{ color: th.soft }}>CatID
-                <select value={ucsId} onChange={(e) => setUcsId(e.target.value)} className="mt-1 w-full rounded-2xl px-3 py-2.5 text-xs outline-none" style={{ background: th.phoneBg, color: th.inkText }}>
-                  {subcats.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </label>
+                }}
+              />
+              <SelectField
+                label="CatID"
+                value={ucsId}
+                options={subcats.map((s) => ({ value: s.id, label: s.name }))}
+                onChange={setUcsId}
+              />
             </div>
-            <p className="text-[10px] break-all mt-2" style={{ color: th.soft }}>{ucsFilePreview}</p>
+            <p className="pv-micro break-all mt-2" style={{ color: th.soft }}>{ucsFilePreview}</p>
           </Section>
 
           <Section title="Техника" th={th}>
             <div className={desktop ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-3'}>
-              <label className="text-[10px] font-semibold" style={{ color: th.soft }}>Рекордер
-                <input list="recorders" value={recorder} onChange={(e) => setRecorder(e.target.value)} className="mt-1 w-full rounded-2xl px-3 py-2.5 text-xs outline-none" style={{ background: th.phoneBg, color: th.inkText }} />
-                <datalist id="recorders">{(FIELD_RECORDERS as string[]).map((g) => <option key={g} value={g} />)}</datalist>
-              </label>
-              <label className="text-[10px] font-semibold" style={{ color: th.soft }}>Микрофон
-                <input list="mics" value={microphone} onChange={(e) => setMicrophone(e.target.value)} className="mt-1 w-full rounded-2xl px-3 py-2.5 text-xs outline-none" style={{ background: th.phoneBg, color: th.inkText }} />
-                <datalist id="mics">{(FIELD_MICROPHONES as string[]).map((g) => <option key={g} value={g} />)}</datalist>
-              </label>
-              <label className="text-[10px] font-semibold" style={{ color: th.soft }}>Каналы
-                <select value={channels} onChange={(e) => setChannels(e.target.value)} className="mt-1 w-full rounded-2xl px-3 py-2.5 text-xs outline-none" style={{ background: th.phoneBg, color: th.inkText }}>
-                  {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </label>
-              <label className="text-[10px] font-semibold" style={{ color: th.soft }}>Принцип записи
-                <select value={principle} onChange={(e) => setPrincipleAndMode(e.target.value)} className="mt-1 w-full rounded-2xl px-3 py-2.5 text-xs outline-none" style={{ background: th.phoneBg, color: th.inkText }}>
-                  {PRINCIPLES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </label>
-              <Field label="Погода" value={weather} onChange={setWeather} th={th} />
-              <label className="text-[10px] font-semibold" style={{ color: th.soft }}>Лицензия
-                <select value={license} onChange={(e) => setLicense(e.target.value)} className="mt-1 w-full rounded-2xl px-3 py-2.5 text-xs outline-none" style={{ background: th.phoneBg, color: th.inkText }}>
-                  {LICENSES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </label>
-              <label className="text-[10px] font-semibold col-span-2" style={{ color: th.soft }}>Экспедиция
-                <select value={sessionId} onChange={(e) => setSessionId(e.target.value)} className="mt-1 w-full rounded-2xl px-3 py-2.5 text-xs outline-none" style={{ background: th.phoneBg, color: th.inkText }}>
-                  <option value="">— не привязывать —</option>
-                  {mySessions.map((s) => <option key={String(s.id)} value={String(s.id)}>{s.title}</option>)}
-                </select>
-              </label>
+              <SelectField label="Рекордер" value={recorder} options={recorderOpts} onChange={setRecorder} />
+              <SelectField label="Микрофон" value={microphone} options={micOpts} onChange={setMicrophone} />
+              <SelectField
+                label="Каналы"
+                value={channels}
+                options={CHANNELS.map((c) => ({ value: c, label: c }))}
+                onChange={setChannels}
+              />
+              <SelectField
+                label="Принцип записи"
+                value={principle}
+                options={PRINCIPLES.map((c) => ({ value: c, label: c }))}
+                onChange={setPrincipleAndMode}
+              />
+              <FormField label="Погода" value={weather} onChange={setWeather} inset />
+              <SelectField
+                label="Лицензия"
+                value={license}
+                options={LICENSES.map((c) => ({ value: c, label: c }))}
+                onChange={setLicense}
+              />
+              <div className="col-span-2">
+                <SelectField label="Экспедиция" value={sessionId} options={sessionOpts} onChange={setSessionId} />
+              </div>
             </div>
           </Section>
 
           <Section title="Фото сцены" th={th}>
-            <p className="text-[11px] mb-2" style={{ color: th.soft }}>До трёх кадров места записи — перетащите или выберите файлы.</p>
+            <p className="pv-caption mb-2" style={{ color: th.soft }}>До трёх кадров места записи — перетащите или выберите файлы.</p>
             <div className="grid grid-cols-3 gap-2 mb-2">
               {keptImages.map((src, i) => (
                 <div key={src} className="relative aspect-[4/3] rounded-2xl overflow-hidden" style={{ background: th.phoneBg }}>
@@ -620,7 +723,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
                     addPhotos(Array.from(e.dataTransfer.files || []));
                   }}>
                   <ImagePlus size={18} color={th.soft} />
-                  <span className="text-[10px] font-semibold" style={{ color: th.soft }}>Добавить</span>
+                  <span className="pv-micro font-medium" style={{ color: th.soft }}>Добавить</span>
                   <input type="file" accept="image/*" multiple className="hidden"
                     onChange={(e) => { addPhotos(Array.from(e.target.files || [])); e.target.value = ''; }} />
                 </label>
@@ -628,13 +731,64 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
             </div>
           </Section>
 
+          <div className="rounded-2xl px-3.5 py-3" style={{ background: th.cardBg }}>
+            <p className="pv-micro leading-snug" style={{ color: th.soft }}>
+              Публикуя, вы соглашаетесь с{' '}
+              <button type="button" className="underline underline-offset-2" style={{ color: th.muted }} onClick={() => openLegal('publish')}>
+                правилами публикации
+              </button>
+              {' '}и{' '}
+              <button type="button" className="underline underline-offset-2" style={{ color: th.muted }} onClick={() => openLegal('terms')}>
+                условиями использования
+              </button>
+              .
+            </p>
+          </div>
+
+          <AnimatePresence>
+            {busy && pubPhase && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={spring.fade}
+                className="rounded-2xl px-4 py-3 flex items-center gap-3"
+                style={{ background: th.cardBg, border: `1px solid ${th.border}` }}
+              >
+                <BusySpinner label={PUB_LABEL[pubPhase]} />
+                <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: th.phoneBg }}>
+                  <motion.div
+                    className="h-full rounded-full"
+                    style={{ background: ACCENT }}
+                    animate={{ width: pubPhase === 'prepare' ? '25%' : pubPhase === 'upload' ? '55%' : pubPhase === 'photos' ? '80%' : '95%' }}
+                    transition={spring.pill}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div className="flex gap-2 pb-4">
-            <button disabled={busy} onClick={() => void publish('draft')} className="pv-button flex-1 py-3 rounded-2xl" style={{ background: th.cardBg, color: th.muted }}>
+            <motion.button
+              type="button"
+              whileTap={tap.cta}
+              disabled={busy}
+              onClick={() => void publish('draft')}
+              className="pv-button flex-1 py-3 rounded-2xl cursor-pointer"
+              style={{ background: th.cardBg, color: th.muted, opacity: busy ? 0.7 : 1 }}
+            >
               {busy ? '…' : 'Черновик'}
-            </button>
-            <button disabled={busy} onClick={() => void publish('pending')} className="pv-button flex-[1.5] py-3.5 rounded-2xl text-white" style={{ background: ACCENT }}>
-              {busy ? 'Отправка…' : 'На модерацию'}
-            </button>
+            </motion.button>
+            <motion.button
+              type="button"
+              whileTap={tap.cta}
+              disabled={busy}
+              onClick={() => void publish('pending')}
+              className="pv-button flex-[1.5] py-3.5 rounded-2xl text-white cursor-pointer inline-flex items-center justify-center gap-2"
+              style={{ background: ACCENT, opacity: busy ? 0.85 : 1 }}
+            >
+              {busy ? <BusySpinner label="Отправка…" /> : 'На модерацию'}
+            </motion.button>
           </div>
         </div>
       </div>
@@ -659,17 +813,9 @@ function Section({ title, th, children }: { title: string; th: ThemeTokens; chil
   );
 }
 
-function Field({ label, value, onChange, th }: { label: string; value: string; onChange: (v: string) => void; th: ThemeTokens }) {
-  return (
-    <label className="pv-label" style={{ color: th.soft }}>{label}
-      <input value={value} onChange={(e) => onChange(e.target.value)} className="mt-1 w-full rounded-2xl px-3 py-2.5 outline-none" style={{ background: th.phoneBg, color: th.inkText }} />
-    </label>
-  );
-}
-
 function Chip({ on, onClick, label, th }: { on: boolean; onClick: () => void; label: string; th: ThemeTokens }) {
   return (
-    <button type="button" onClick={onClick} className="pv-label px-3 py-1.5 rounded-full"
-      style={{ background: on ? ACCENT : th.lightBg, color: on ? '#fff' : th.muted }}>{label}</button>
+    <motion.button type="button" whileTap={tap.chip} onClick={onClick} className="pv-label px-3 py-1.5 rounded-full cursor-pointer"
+      style={{ background: on ? ACCENT : th.lightBg, color: on ? '#fff' : th.muted }}>{label}</motion.button>
   );
 }

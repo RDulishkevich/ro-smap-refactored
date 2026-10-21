@@ -74,6 +74,7 @@ export function ScreenContent({ screen, onBack }: { screen: ScreenConfig; onBack
     case 'settings': return <SettingsScreen onBack={onBack} />;
     case 'events': return <EventsScreen onBack={onBack} focusId={screen.focusId} />;
     case 'auth': return <AuthScreen onBack={onBack} mode={screen.mode} />;
+    case 'reset-password': return <AuthScreen onBack={onBack} mode="in" panel="reset" />;
     case 'feed-post': return <FeedPostScreen post={screen.post} onBack={onBack} />;
     case 'record': return <RecordScreen onBack={onBack} />;
     case 'add-sound': return <AddSoundScreen onBack={onBack} edit={screen.edit} />;
@@ -90,7 +91,6 @@ export function ScreenContent({ screen, onBack }: { screen: ScreenConfig; onBack
     case 'cabinet': return <CabinetScreen onBack={onBack} />;
     case 'delete-account': return <DeleteAccountScreen onBack={onBack} />;
     case 'guessr': return <GuessrScreen onBack={onBack} />;
-    case 'reset-password': return <ResetPasswordScreen onBack={onBack} />;
     case 'catalog': return <CatalogPage onBack={onBack} />;
     case 'feed': return <FeedPage onBack={onBack} />;
     case 'expeditions': return <ExpeditionsPage onBack={onBack} />;
@@ -588,7 +588,15 @@ function FeedPostScreen({ post, onBack }: { post: FeedPost; onBack: () => void }
   );
 }
 
-function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mode?: 'in' | 'up' }) {
+function AuthScreen({
+  onBack,
+  mode: startMode = 'in',
+  panel: startPanel,
+}: {
+  onBack: () => void;
+  mode?: 'in' | 'up';
+  panel?: 'in' | 'up' | 'reset';
+}) {
   const th = useTh();
   const desktop = useIsDesktop();
   const { login, register, offerDeviceUnlock, resumeStoredSession } = useAuth();
@@ -596,17 +604,21 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
   const { push, pop } = useNav();
   const { reload } = useData();
   const t = useT();
-  const [mode, setMode] = useState<'in' | 'up'>(startMode);
+  const [mode, setMode] = useState<'in' | 'up' | 'reset'>(startPanel || startMode);
   const [loginName, setLogin] = useState(() => readLastLogin());
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [totp, setTotp] = useState('');
   const [needTotp, setNeedTotp] = useState(false);
   const [totpError, setTotpError] = useState(false);
   const [busy, setBusy] = useState(false);
   const [oauthBusy, setOauthBusy] = useState<'yandex' | 'vk' | null>(null);
-  const [seen, setSeen] = useState({ login: false, password: false, name: false });
+  const [seen, setSeen] = useState({ login: false, password: false, first: false, last: false });
+  const [resetLogin, setResetLogin] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [resetPw, setResetPw] = useState('');
   const formRef = useRef<HTMLFormElement>(null);
   /** Consent is implied by continuing (shown as footer copy); API still needs the flag. */
   const pdConsent = true;
@@ -627,14 +639,17 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
   };
 
   useEffect(() => {
+    if (mode === 'reset') return;
     const path = pathForAuth(mode);
     if (`${location.pathname}` !== path) history.replaceState({ polevka: true }, '', path);
   }, [mode]);
 
   const loginErr = seen.login && !loginName.trim() ? t('loginNeed') : '';
   const passwordErr = seen.password && password.length < 8 ? t('passwordNeed') : '';
-  const nameErr = mode === 'up' && seen.name && !name.trim() ? t('nameNeed') : '';
-  const missing = !loginName.trim() || password.length < 8 || (mode === 'up' && !name.trim());
+  const firstErr = mode === 'up' && seen.first && !firstName.trim() ? t('nameNeed') : '';
+  const lastErr = mode === 'up' && seen.last && !lastName.trim() ? t('nameNeed') : '';
+  const missing = !loginName.trim() || password.length < 8
+    || (mode === 'up' && (!firstName.trim() || !lastName.trim()));
 
   useEffect(() => {
     if (mode !== 'in') return;
@@ -656,10 +671,13 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
     const fd = formEl ? new FormData(formEl) : null;
     const nextLogin = String(fd?.get('username') || loginName).trim();
     const nextPassword = String(fd?.get('password') || password);
-    const nextName = String(fd?.get('name') || name).trim();
+    const nextFirst = String(fd?.get('given-name') || firstName).trim();
+    const nextLast = String(fd?.get('family-name') || lastName).trim();
+    const nextName = `${nextFirst} ${nextLast}`.trim();
     if (nextLogin !== loginName) setLogin(nextLogin);
     if (nextPassword !== password) setPassword(nextPassword);
-    if (nextName !== name) setName(nextName);
+    if (nextFirst !== firstName) setFirstName(nextFirst);
+    if (nextLast !== lastName) setLastName(nextLast);
     setBusy(true);
     setTotpError(false);
     try {
@@ -709,11 +727,47 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
   const panelBg = th.phoneBg;
   const panelRgb = th.isDark ? '11,11,11' : '232,237,234';
   const oauthSurface = th.isDark ? '#2E2E2E' : '#F0F1F3';
-  const switchMode = (m: 'in' | 'up') => {
+  const switchMode = (m: 'in' | 'up' | 'reset') => {
     setMode(m);
     setNeedTotp(false);
     setTotp('');
     setTotpError(false);
+    if (m === 'reset' && loginName.trim()) setResetLogin(loginName.trim());
+  };
+
+  const setLoginSafe = (v: string) => {
+    setLogin(v.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32));
+  };
+
+  const sendResetCode = async () => {
+    const who = resetLogin.trim();
+    if (!who) { toast(t('loginNeed')); return; }
+    setBusy(true);
+    try {
+      await apiRequestPasswordReset(who);
+      toast('Если аккаунт есть, код отправлен');
+    } catch (e: unknown) {
+      toast((e as Error).message);
+    } finally { setBusy(false); }
+  };
+
+  const saveResetPassword = async () => {
+    const who = resetLogin.trim();
+    if (!who || !resetCode.trim() || resetPw.length < 8) {
+      toast(t('passwordNeed'));
+      return;
+    }
+    setBusy(true);
+    try {
+      await apiConfirmPasswordReset(who, resetCode.trim(), resetPw);
+      toast('Пароль обновлён');
+      setResetCode('');
+      setResetPw('');
+      switchMode('in');
+      setLogin(who);
+    } catch (e: unknown) {
+      toast((e as Error).message);
+    } finally { setBusy(false); }
   };
 
   const consentNote = (
@@ -730,6 +784,96 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
     </p>
   );
 
+  const oauthRow = (
+    <section className={`flex ${desktop ? 'flex-row gap-2' : 'flex-col gap-2'}`}>
+      <button
+        type="button"
+        disabled={!!oauthBusy}
+        onClick={() => void startOauth('yandex')}
+        className={`pv-button rounded-2xl flex items-center justify-center gap-2 cursor-pointer ${desktop ? 'flex-1 min-h-10' : 'w-full min-h-11'}`}
+        style={{
+          background: oauthSurface,
+          color: th.inkText,
+          boxShadow: `inset 0 0 0 1px ${th.border}`,
+          opacity: oauthBusy && oauthBusy !== 'yandex' ? 0.6 : 1,
+        }}
+      >
+        <span className="w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-semibold text-white" style={{ background: '#FC3F1D' }}>Я</span>
+        <span className="truncate">{oauthBusy === 'yandex' ? '…' : (desktop ? 'Яндекс' : t('continueWithYandex'))}</span>
+      </button>
+      <button
+        type="button"
+        disabled={!!oauthBusy}
+        onClick={() => void startOauth('vk')}
+        className={`pv-button rounded-2xl flex items-center justify-center gap-2 cursor-pointer ${desktop ? 'flex-1 min-h-10' : 'w-full min-h-11'}`}
+        style={{ background: '#0077FF', color: '#fff', opacity: oauthBusy && oauthBusy !== 'vk' ? 0.6 : 1 }}
+      >
+        <span className="pv-subtitle text-white shrink-0">VK</span>
+        {!desktop && <span className="truncate">{oauthBusy === 'vk' ? '…' : t('continueWithVk')}</span>}
+        {desktop && oauthBusy === 'vk' && <span>…</span>}
+      </button>
+    </section>
+  );
+
+  const resetForm = (
+    <div className={`flex flex-col w-full ${desktop ? 'gap-2' : 'gap-3'}`}>
+      <FormField
+        label={t('loginName')}
+        value={resetLogin}
+        onChange={setResetLogin}
+        name="username"
+        autoComplete="username"
+        compact={desktop}
+        tip={t('loginCreatorTip')}
+      />
+      <button
+        type="button"
+        disabled={busy}
+        className="pv-button w-full min-h-10 py-2.5 rounded-2xl text-white cursor-pointer"
+        style={{ background: th.solid, opacity: busy ? 0.7 : 1 }}
+        onClick={() => void sendResetCode()}
+      >
+        {busy ? '…' : t('authResetSend')}
+      </button>
+      <FormField
+        label="Код"
+        value={resetCode}
+        onChange={setResetCode}
+        name="one-time-code"
+        autoComplete="one-time-code"
+        inputMode="numeric"
+        compact={desktop}
+        maxLength={8}
+      />
+      <FormField
+        label="Новый пароль"
+        value={resetPw}
+        onChange={setResetPw}
+        password
+        name="new-password"
+        autoComplete="new-password"
+        compact={desktop}
+      />
+      <button
+        type="button"
+        disabled={busy}
+        className="pv-button w-full min-h-10 py-2.5 rounded-2xl text-white cursor-pointer"
+        style={{ background: ACCENT, opacity: busy ? 0.7 : 1 }}
+        onClick={() => void saveResetPassword()}
+      >
+        {busy ? '…' : t('authResetSave')}
+      </button>
+      <button
+        type="button"
+        className="pv-caption self-start min-h-8"
+        style={{ color: ACCENT }}
+        onClick={() => switchMode('in')}
+      >
+        {t('authResetBack')}
+      </button>
+    </div>
+  );
+
   const form = (
     <form
       ref={formRef}
@@ -737,7 +881,7 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
       method="post"
       action="."
       onSubmit={(e) => { e.preventDefault(); void submit(undefined, e.currentTarget); }}
-      className={`flex flex-col w-full ${desktop ? 'gap-3' : 'gap-5'}`}
+      className={`flex flex-col w-full ${desktop ? 'gap-2' : 'gap-4'}`}
     >
       {!desktop && (
         <div className="flex gap-1 p-1 rounded-2xl" style={{ background: th.cardBg }}>
@@ -759,34 +903,7 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
         </div>
       )}
 
-      <section className={`flex ${desktop ? 'flex-row gap-2' : 'flex-col gap-2'}`}>
-        <button
-          type="button"
-          disabled={!!oauthBusy}
-          onClick={() => void startOauth('yandex')}
-          className={`pv-button min-h-11 rounded-2xl flex items-center justify-center gap-2 cursor-pointer ${desktop ? 'flex-1' : 'w-full'}`}
-          style={{
-            background: oauthSurface,
-            color: th.inkText,
-            boxShadow: `inset 0 0 0 1px ${th.border}`,
-            opacity: oauthBusy && oauthBusy !== 'yandex' ? 0.6 : 1,
-          }}
-        >
-          <span className="w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-semibold text-white" style={{ background: '#FC3F1D' }}>Я</span>
-          <span className="truncate">{oauthBusy === 'yandex' ? '…' : (desktop ? 'Яндекс' : t('continueWithYandex'))}</span>
-        </button>
-        <button
-          type="button"
-          disabled={!!oauthBusy}
-          onClick={() => void startOauth('vk')}
-          className={`pv-button min-h-11 rounded-2xl flex items-center justify-center gap-2 cursor-pointer ${desktop ? 'flex-1' : 'w-full'}`}
-          style={{ background: '#0077FF', color: '#fff', opacity: oauthBusy && oauthBusy !== 'vk' ? 0.6 : 1 }}
-        >
-          <span className="pv-subtitle text-white shrink-0">VK</span>
-          {!desktop && <span className="truncate">{oauthBusy === 'vk' ? '…' : t('continueWithVk')}</span>}
-          {desktop && oauthBusy === 'vk' && <span>…</span>}
-        </button>
-      </section>
+      {oauthRow}
 
       <div className="flex items-center gap-3" aria-hidden>
         <span className="flex-1 h-px" style={{ background: th.border }} />
@@ -794,27 +911,75 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
         <span className="flex-1 h-px" style={{ background: th.border }} />
       </div>
 
-      <section className={`flex flex-col ${desktop ? 'gap-2' : 'gap-3'}`}>
+      <section className={`flex flex-col ${desktop ? 'gap-1.5' : 'gap-3'}`}>
         {mode === 'up' && (
-          <FormField label={t('name')} value={name} onChange={setName} name="name" autoComplete="name"
-            compact={desktop}
-            error={nameErr} onBlurValidate={() => setSeen((s) => ({ ...s, name: true }))} />
+          <div className={`grid ${desktop ? 'grid-cols-2 gap-2' : 'grid-cols-1 gap-3'}`}>
+            <FormField
+              label={t('firstName')}
+              value={firstName}
+              onChange={setFirstName}
+              name="given-name"
+              autoComplete="given-name"
+              compact={desktop}
+              tip={t('firstNameTip')}
+              error={firstErr}
+              onBlurValidate={() => setSeen((s) => ({ ...s, first: true }))}
+            />
+            <FormField
+              label={t('lastName')}
+              value={lastName}
+              onChange={setLastName}
+              name="family-name"
+              autoComplete="family-name"
+              compact={desktop}
+              tip={t('lastNameTip')}
+              error={lastErr}
+              onBlurValidate={() => setSeen((s) => ({ ...s, last: true }))}
+            />
+          </div>
         )}
-        <FormField label={t('loginName')} value={loginName} onChange={setLogin} name="username"
+        <FormField
+          label={t('loginName')}
+          value={loginName}
+          onChange={mode === 'up' ? setLoginSafe : setLogin}
+          name="username"
           compact={desktop}
-          autoComplete={mode === 'in' ? 'username webauthn' : 'username'} autoCapitalize="none" autoCorrect="off"
-          hint={desktop ? undefined : t('loginHint')} error={loginErr}
-          onBlurValidate={() => setSeen((s) => ({ ...s, login: true }))} />
-        <FormField label={t('password')} value={password} onChange={setPassword} password name="password"
+          tip={t('loginCreatorTip')}
+          autoComplete={mode === 'in' ? 'username webauthn' : 'username'}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          hint={desktop || mode === 'up' ? undefined : t('loginHint')}
+          error={loginErr}
+          onBlurValidate={() => setSeen((s) => ({ ...s, login: true }))}
+        />
+        <FormField
+          label={t('password')}
+          value={password}
+          onChange={setPassword}
+          password
+          name="password"
           compact={desktop}
           autoComplete={mode === 'in' ? 'current-password' : 'new-password'}
-          hint={desktop ? undefined : t('passwordHint')} error={passwordErr}
-          onBlurValidate={() => setSeen((s) => ({ ...s, password: true }))} />
+          hint={desktop ? undefined : t('passwordHint')}
+          error={passwordErr}
+          onBlurValidate={() => setSeen((s) => ({ ...s, password: true }))}
+        />
         {mode === 'in' && (
-          <label className="pv-caption flex items-center gap-2.5" style={{ color: th.muted }}>
-            <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="shrink-0" />
-            <span>{t('rememberMe')}</span>
-          </label>
+          <div className="flex items-center justify-between gap-3">
+            <label className="pv-caption flex items-center gap-2" style={{ color: th.muted }}>
+              <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="shrink-0" />
+              <span>{t('rememberMe')}</span>
+            </label>
+            <button
+              type="button"
+              className="pv-caption min-h-8 shrink-0"
+              style={{ color: th.soft }}
+              onClick={() => switchMode('reset')}
+            >
+              {t('forgotPassword')}
+            </button>
+          </div>
         )}
         {mode === 'in' && needTotp && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl p-3"
@@ -830,22 +995,19 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
         )}
       </section>
 
-      <div className="flex flex-col gap-2 pt-0.5">
-        <button type="submit" disabled={busy}
-          className="pv-button w-full min-h-11 py-3 rounded-2xl text-white cursor-pointer"
+      <div className={`flex flex-col ${desktop ? 'gap-1.5' : 'gap-2'} pt-0.5`}>
+        <button
+          type="submit"
+          disabled={busy}
+          className={`pv-button w-full rounded-2xl text-white cursor-pointer ${desktop ? 'min-h-10 py-2.5' : 'min-h-11 py-3'}`}
           style={{ background: ACCENT, opacity: busy ? 0.7 : 1 }}
-          onClick={() => setSeen({ login: true, password: true, name: true })}>
+          onClick={() => setSeen({ login: true, password: true, first: true, last: true })}
+        >
           {busy ? '…' : mode === 'in' ? t('signIn') : t('createAccount')}
         </button>
         {consentNote}
         {seen.login && missing && (
-          <FormNeed>{loginErr || passwordErr || nameErr || t('loginNeed')}</FormNeed>
-        )}
-        {mode === 'in' && (
-          <button type="button" className="pv-caption self-start min-h-9" style={{ color: th.soft }}
-            onClick={() => push({ type: 'reset-password' })}>
-            {t('forgotPassword')}
-          </button>
+          <FormNeed>{loginErr || passwordErr || firstErr || lastErr || t('loginNeed')}</FormNeed>
         )}
         {!hasCookieConsentForAuth() && (
           <p className="pv-micro leading-snug" style={{ color: th.soft }}>{t('cookiesNeed')}</p>
@@ -854,44 +1016,59 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
     </form>
   );
 
+  const eyebrow = mode === 'reset'
+    ? t('authResetTitle')
+    : mode === 'up' ? t('authStartFree') : t('welcomeBack');
+  const title = mode === 'reset'
+    ? t('authResetTitle')
+    : mode === 'up' ? t('authCreateTitle') : t('authSignInTitle');
+  const panelBody = mode === 'reset' ? resetForm : form;
+
   if (desktop) {
     return (
-      <div className="relative flex h-full min-h-0 overflow-hidden" style={{ background: panelBg }}>
-        <div className="relative z-10 flex flex-col w-full max-w-[480px] xl:max-w-[520px] flex-shrink-0 h-full min-h-0 overflow-hidden px-8 xl:px-12 py-5">
-          <header className="flex items-center gap-3 flex-shrink-0">
-            <button type="button" onClick={onBack} className="pv-caption min-h-9" style={{ color: th.soft }}>
+      <div className="relative flex h-full min-h-0 overflow-hidden overscroll-none" style={{ background: panelBg }}>
+        <div className="relative z-10 flex flex-col w-full max-w-[440px] xl:max-w-[480px] flex-shrink-0 h-full min-h-0 overflow-hidden px-7 xl:px-10 py-4">
+          <header className="flex items-center gap-3 flex-shrink-0 mb-2">
+            <button type="button" onClick={onBack} className="pv-caption min-h-8" style={{ color: th.soft }}>
               ← Назад
             </button>
             <div className="flex items-center gap-2 ml-auto">
-              <div className="w-7 h-7"><BrandMark /></div>
-              <span className="pv-wordmark" style={{ color: th.inkText }}>Полёвка</span>
+              <div className="w-6 h-6"><BrandMark /></div>
+              <span className="pv-wordmark text-[15px]" style={{ color: th.inkText }}>Полёвка</span>
             </div>
           </header>
 
-          <div className="flex-1 min-h-0 flex flex-col justify-center max-w-[400px] w-full py-3">
-            <p className="pv-micro uppercase tracking-[0.12em] mb-2" style={{ color: th.soft }}>
-              {mode === 'up' ? t('authStartFree') : t('welcomeBack')}
+          <div className="flex-1 min-h-0 flex flex-col justify-center max-w-[380px] w-full overflow-hidden">
+            <p className="pv-micro uppercase tracking-[0.12em] mb-1" style={{ color: th.soft }}>
+              {eyebrow}
             </p>
-            <h1 className="pv-title mb-2" style={{ color: th.inkText }}>
-              {mode === 'up' ? t('authCreateTitle') : t('authSignInTitle')}
+            <h1 className="pv-title mb-1.5 text-[1.65rem] leading-tight" style={{ color: th.inkText }}>
+              {title}
               <span style={{ color: ACCENT }}>.</span>
             </h1>
-            <p className="pv-caption mb-4 leading-snug" style={{ color: th.muted }}>
-              {mode === 'up' ? t('authHaveAccount') : t('authNoAccount')}{' '}
-              <button
-                type="button"
-                className="pv-subtitle underline-offset-2 hover:underline"
-                style={{ color: ACCENT }}
-                onClick={() => switchMode(mode === 'up' ? 'in' : 'up')}
-              >
-                {mode === 'up' ? t('signIn') : t('createAccount')}
-              </button>
-            </p>
-            {form}
+            {mode !== 'reset' && (
+              <p className="pv-caption mb-3 leading-snug" style={{ color: th.muted }}>
+                {mode === 'up' ? t('authHaveAccount') : t('authNoAccount')}{' '}
+                <button
+                  type="button"
+                  className="pv-subtitle underline-offset-2 hover:underline"
+                  style={{ color: ACCENT }}
+                  onClick={() => switchMode(mode === 'up' ? 'in' : 'up')}
+                >
+                  {mode === 'up' ? t('signIn') : t('createAccount')}
+                </button>
+              </p>
+            )}
+            {mode === 'reset' && (
+              <p className="pv-caption mb-3 leading-snug" style={{ color: th.muted }}>
+                Код придёт на подтверждённый email аккаунта.
+              </p>
+            )}
+            {panelBody}
           </div>
         </div>
 
-        <div className="relative flex-1 min-w-[240px] h-full" aria-hidden>
+        <div className="relative flex-1 min-w-[240px] h-full overflow-hidden" aria-hidden>
           <img
             src="/auth/field.jpg"
             alt=""
@@ -923,12 +1100,17 @@ function AuthScreen({ onBack, mode: startMode = 'in' }: { onBack: () => void; mo
 
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <ScreenHeader title={mode === 'in' ? t('login') : t('register')} onBack={onBack} />
+      <ScreenHeader
+        title={mode === 'reset' ? t('authResetTitle') : mode === 'in' ? t('login') : t('register')}
+        onBack={mode === 'reset' ? () => switchMode('in') : onBack}
+      />
       <div className="px-5 pt-4 pb-8 flex flex-col gap-3 flex-1 overflow-y-auto scrollbar-none">
         <p className="pv-caption mb-1 leading-snug" style={{ color: th.muted }}>
-          {mode === 'in' ? t('welcomeBack') : t('newExplorer')}
+          {mode === 'reset'
+            ? 'Код придёт на подтверждённый email аккаунта.'
+            : mode === 'in' ? t('welcomeBack') : t('newExplorer')}
         </p>
-        {form}
+        {panelBody}
       </div>
     </div>
   );
@@ -957,40 +1139,6 @@ function Field({ label, value, onChange, th, password, inputMode, readOnly, auto
         className={`mt-1 w-full rounded-2xl px-3 py-3 outline-none ${readOnly ? 'opacity-80' : ''}`}
         style={{ background: th.cardBg, color: th.inkText }} />
     </label>
-  );
-}
-
-function ResetPasswordScreen({ onBack }: { onBack: () => void }) {
-  const th = useTh();
-  const desktop = useIsDesktop();
-  const { toast } = useUi();
-  const [loginOrEmail, setL] = useState('');
-  const [code, setCode] = useState('');
-  const [pw, setPw] = useState('');
-  const fields = (
-    <>
-      <Field label="Логин или email" value={loginOrEmail} onChange={setL} th={th} name="username" autoComplete="username" />
-      <button type="button" className="py-3 rounded-2xl text-xs font-semibold text-white" style={{ background: th.solid }} onClick={async () => {
-        try { await apiRequestPasswordReset(loginOrEmail); toast('Если аккаунт есть, код отправлен'); } catch (e: unknown) { toast((e as Error).message); }
-      }}>Отправить код</button>
-      <Field label="Код" value={code} onChange={setCode} th={th} name="one-time-code" autoComplete="one-time-code" inputMode="numeric" />
-      <Field label="Новый пароль" value={pw} onChange={setPw} th={th} password name="new-password" autoComplete="new-password" />
-      <button className="py-3 rounded-2xl text-xs font-semibold text-white" style={{ background: ACCENT }} onClick={async () => {
-        try { await apiConfirmPasswordReset(loginOrEmail, code, pw); toast('Пароль обновлён'); onBack(); } catch (e: unknown) { toast((e as Error).message); }
-      }}>Сохранить пароль</button>
-    </>
-  );
-  return (
-    <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <ScreenHeader title="Сброс пароля" onBack={onBack} />
-      {desktop ? (
-        <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-8 pb-16">
-          <div className="w-full max-w-[400px] flex flex-col gap-3">{fields}</div>
-        </div>
-      ) : (
-        <div className="p-5 flex flex-col gap-3">{fields}</div>
-      )}
-    </div>
   );
 }
 
@@ -1584,7 +1732,13 @@ function CabinetScreen({ onBack }: { onBack: () => void }) {
   const linkOauth = async (provider: 'yandex' | 'vk') => {
     setBusy(true);
     try {
-      await beginOAuth(provider, { intent: 'link' });
+      if (!hasCookieConsentForAuth()) {
+        openCookieBanner();
+        toast(t('cookiesNeed'));
+        setBusy(false);
+        return;
+      }
+      await beginOAuth(provider, { intent: 'link', pdConsent: true });
     } catch (e: unknown) {
       toast((e as Error).message || t('oauthFailed'));
       setBusy(false);

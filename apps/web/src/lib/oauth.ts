@@ -1,7 +1,7 @@
 import {
-  REFRESH_KEY, REMEMBER_KEY, TOKEN_KEY, USER_KEY,
+  REFRESH_KEY, REMEMBER_KEY,
   apiOauthFinish, apiOauthLink, apiPublicConfig, restoreAuthSession,
-  setAccessToken, persistRefreshToken, setRememberMe, persistUser, userFromApi,
+  persistRefreshToken, setRememberMe,
 } from '@polevka/core';
 
 export type OAuthProvider = 'yandex' | 'vk';
@@ -121,21 +121,9 @@ function redirectUriFor(cfg: OAuthPublic) {
   return String(cfg.redirectUri || `${redirectOrigin(cfg)}/oauth/callback`).trim();
 }
 
-function readLocalToken() {
-  try {
-    return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || '';
-  } catch { return ''; }
-}
-
 function readLocalRefresh() {
   try {
     return localStorage.getItem(REFRESH_KEY) || sessionStorage.getItem(REFRESH_KEY) || '';
-  } catch { return ''; }
-}
-
-function readLocalUserRaw() {
-  try {
-    return localStorage.getItem(USER_KEY) || sessionStorage.getItem(USER_KEY) || '';
   } catch { return ''; }
 }
 
@@ -143,7 +131,11 @@ function readLocalRemember() {
   try { return localStorage.getItem(REMEMBER_KEY) === '1'; } catch { return true; }
 }
 
-/** www → apex handoff so JWT + PKCE land on the OAuth redirect host. */
+/**
+ * www → apex handoff so PKCE + (for link) a short refresh token land on the
+ * registered OAuth host. Keep the cookie tiny — full JWT+user JSON exceeds
+ * browser cookie limits and silently drops the bridge.
+ */
 function stashBridgeAndGo(cfg: OAuthPublic, provider: OAuthProvider, intent: OAuthIntent, pdConsent: boolean) {
   const targetOrigin = redirectOrigin(cfg);
   const payload: BridgePayload = {
@@ -151,11 +143,17 @@ function stashBridgeAndGo(cfg: OAuthPublic, provider: OAuthProvider, intent: OAu
     intent,
     pdConsent,
     remember: readLocalRemember(),
-    at: readLocalToken() || undefined,
-    rt: readLocalRefresh() || undefined,
-    user: readLocalUserRaw() || undefined,
+    // Refresh only — restoreAuthSession exchanges it on apex.
+    rt: intent === 'link' ? (readLocalRefresh() || undefined) : undefined,
   };
-  writeCookie(BRIDGE_KEY, JSON.stringify(payload), 300);
+  const raw = JSON.stringify(payload);
+  if (raw.length > 3500) {
+    throw Object.assign(
+      new Error('Сессия слишком длинная для привязки — откройте polevka.art (без www) и повторите'),
+      { code: 'oauth_bridge' },
+    );
+  }
+  writeCookie(BRIDGE_KEY, raw, 300);
   location.assign(`${targetOrigin}/oauth/bridge`);
 }
 
@@ -164,25 +162,18 @@ export async function consumeOauthBridge(): Promise<boolean> {
   const raw = readCookie(BRIDGE_KEY);
   clearCookie(BRIDGE_KEY);
   if (!raw) {
-    throw Object.assign(new Error('Сессия для привязки истекла — откройте кабинет и повторите'), { code: 'oauth_bridge' });
+    throw Object.assign(new Error('Сессия для привязки истекла — откройте кабинет на polevka.art и повторите'), { code: 'oauth_bridge' });
   }
   const bridge = JSON.parse(raw) as BridgePayload;
   const remember = bridge.remember !== false;
   setRememberMe(remember);
-  if (bridge.at) setAccessToken(bridge.at, remember);
   if (bridge.rt) persistRefreshToken(bridge.rt, remember);
-  if (bridge.user) {
-    try {
-      const u = userFromApi(JSON.parse(bridge.user) as Record<string, unknown>);
-      if (u) persistUser(u, remember);
-    } catch { /* */ }
-  }
   // Ensure session is valid on this origin before leaving for the IdP.
   if (bridge.intent === 'link') {
     const session = await restoreAuthSession().catch(() => null);
     if (!session) {
       throw Object.assign(
-        new Error('Войдите снова на этом адресе (polevka.art), затем привяжите соцсеть'),
+        new Error('Войдите снова на polevka.art (без www), затем привяжите соцсеть'),
         { code: 'unauthorized' },
       );
     }
@@ -222,8 +213,11 @@ export async function beginOAuth(
   }
 
   const state = randomString(40);
-  const verifier = randomString(64);
-  const challenge = await sha256(verifier);
+  // Yandex confidential clients (client_secret on server) break when mixed with PKCE.
+  // VK ID web requires PKCE + device_id.
+  const usePkce = provider === 'vk';
+  const verifier = usePkce ? randomString(64) : '';
+  const challenge = usePkce ? await sha256(verifier) : '';
   writePkce({
     provider, state, verifier, redirectUri, intent,
     pdConsent: !!opts?.pdConsent, at: Date.now(),
@@ -236,8 +230,6 @@ export async function beginOAuth(
     url.searchParams.set('redirect_uri', redirectUri);
     url.searchParams.set('state', state);
     url.searchParams.set('force_confirm', 'yes');
-    url.searchParams.set('code_challenge', challenge);
-    url.searchParams.set('code_challenge_method', 'S256');
     location.assign(url.toString());
     return;
   }
@@ -301,12 +293,12 @@ export async function finishOAuthFromUrl(search: string) {
   }
 
   const intent: OAuthIntent = saved.intent === 'link' ? 'link' : 'login';
-  const base = {
+  const exchange = {
     provider: saved.provider,
     code,
-    codeVerifier: saved.verifier,
     redirectUri: saved.redirectUri,
     deviceId: deviceId || undefined,
+    ...(saved.verifier ? { codeVerifier: saved.verifier } : {}),
   };
 
   if (intent === 'link') {
@@ -317,13 +309,13 @@ export async function finishOAuthFromUrl(search: string) {
         { code: 'unauthorized' },
       );
     }
-    const data = await apiOauthLink(base);
+    const data = await apiOauthLink(exchange);
     clearPkce();
     return { intent, ...data };
   }
 
   const data = await apiOauthFinish({
-    ...base,
+    ...exchange,
     pdConsent: !!saved.pdConsent,
     rememberMe: true,
   });
