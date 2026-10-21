@@ -146,6 +146,26 @@ function redirectUriFor(cfg: OAuthPublic) {
   return String(cfg.redirectUri || `${redirectOrigin(cfg)}/oauth/callback`).trim();
 }
 
+function apexHost(hostname: string) {
+  return String(hostname || '').replace(/^www\./i, '').toLowerCase();
+}
+
+/**
+ * GitHub Pages serves the site on www and 301s apex → www (query kept).
+ * Bridging www → apex/oauth/bridge only bounces back to www and often drops
+ * the bridge cookie (double-mount / Fastly). Skip that round-trip.
+ */
+function needsHostBridge(cfg: OAuthPublic) {
+  const confOrigin = redirectOrigin(cfg);
+  if (location.origin === confOrigin) return false;
+  try {
+    const confHost = apexHost(new URL(confOrigin).hostname);
+    const hereHost = apexHost(location.hostname);
+    if (confHost && confHost === hereHost) return false;
+  } catch { /* */ }
+  return true;
+}
+
 function readLocalRefresh() {
   try {
     return localStorage.getItem(REFRESH_KEY) || sessionStorage.getItem(REFRESH_KEY) || '';
@@ -156,10 +176,27 @@ function readLocalRemember() {
   try { return localStorage.getItem(REMEMBER_KEY) === '1'; } catch { return true; }
 }
 
+function writeBridgePayload(raw: string) {
+  try { sessionStorage.setItem(BRIDGE_KEY, raw); } catch { /* */ }
+  writeCookie(BRIDGE_KEY, raw, 300);
+}
+
+function readBridgePayload(): string | null {
+  try {
+    const fromSession = sessionStorage.getItem(BRIDGE_KEY);
+    if (fromSession) return fromSession;
+  } catch { /* */ }
+  return readCookie(BRIDGE_KEY);
+}
+
+function clearBridgePayload() {
+  try { sessionStorage.removeItem(BRIDGE_KEY); } catch { /* */ }
+  clearCookie(BRIDGE_KEY);
+}
+
 /**
- * www → apex handoff so PKCE + (for link) a short refresh token land on the
- * registered OAuth host. Keep the cookie tiny — full JWT+user JSON exceeds
- * browser cookie limits and silently drops the bridge.
+ * Cross-site handoff when the registered OAuth host is a different site
+ * (not www↔apex of the same Pages deployment). Keep the cookie tiny.
  */
 function stashBridgeAndGo(cfg: OAuthPublic, provider: OAuthProvider, intent: OAuthIntent, pdConsent: boolean) {
   const targetOrigin = redirectOrigin(cfg);
@@ -168,47 +205,59 @@ function stashBridgeAndGo(cfg: OAuthPublic, provider: OAuthProvider, intent: OAu
     intent,
     pdConsent,
     remember: readLocalRemember(),
-    // Refresh only — restoreAuthSession exchanges it on apex.
     rt: intent === 'link' ? (readLocalRefresh() || undefined) : undefined,
   };
   const raw = JSON.stringify(payload);
   if (raw.length > 3500) {
     throw Object.assign(
-      new Error('Сессия слишком длинная для привязки — откройте polevka.art (без www) и повторите'),
+      new Error(intent === 'link'
+        ? 'Сессия слишком длинная для привязки — откройте сайт без www и повторите'
+        : 'Не удалось начать вход — откройте сайт без www и повторите'),
       { code: 'oauth_bridge' },
     );
   }
-  writeCookie(BRIDGE_KEY, raw, 300);
+  writeBridgePayload(raw);
   location.assign(`${targetOrigin}/oauth/bridge`);
 }
 
+let bridgeOnce: Promise<boolean> | null = null;
+
 export async function consumeOauthBridge(): Promise<boolean> {
   if (!location.pathname.startsWith('/oauth/bridge')) return false;
-  const raw = readCookie(BRIDGE_KEY);
-  clearCookie(BRIDGE_KEY);
-  if (!raw) {
-    throw Object.assign(new Error('Сессия для привязки истекла — откройте кабинет на polevka.art и повторите'), { code: 'oauth_bridge' });
-  }
-  const bridge = JSON.parse(raw) as BridgePayload;
-  const remember = bridge.remember !== false;
-  setRememberMe(remember);
-  if (bridge.rt) persistRefreshToken(bridge.rt, remember);
-  // Ensure session is valid on this origin before leaving for the IdP.
-  if (bridge.intent === 'link') {
-    const session = await restoreAuthSession().catch(() => null);
-    if (!session) {
+  if (bridgeOnce) return bridgeOnce;
+  bridgeOnce = (async () => {
+    const raw = readBridgePayload();
+    if (!raw) {
       throw Object.assign(
-        new Error('Войдите снова на polevka.art (без www), затем привяжите соцсеть'),
-        { code: 'unauthorized' },
+        new Error('Сессия входа истекла — нажмите «Войти» через Яндекс или VK ещё раз'),
+        { code: 'oauth_bridge' },
       );
     }
-  }
-  await beginOAuth(bridge.provider, {
-    intent: bridge.intent,
-    pdConsent: bridge.pdConsent,
-    _bridged: true,
+    clearBridgePayload();
+    const bridge = JSON.parse(raw) as BridgePayload;
+    const remember = bridge.remember !== false;
+    setRememberMe(remember);
+    if (bridge.rt) persistRefreshToken(bridge.rt, remember);
+    if (bridge.intent === 'link') {
+      const session = await restoreAuthSession().catch(() => null);
+      if (!session) {
+        throw Object.assign(
+          new Error('Войдите снова, затем привяжите соцсеть'),
+          { code: 'unauthorized' },
+        );
+      }
+    }
+    await beginOAuth(bridge.provider, {
+      intent: bridge.intent,
+      pdConsent: bridge.pdConsent,
+      _bridged: true,
+    });
+    return true;
+  })().catch((err) => {
+    bridgeOnce = null;
+    throw err;
   });
-  return true;
+  return bridgeOnce;
 }
 
 export async function beginOAuth(
@@ -229,10 +278,10 @@ export async function beginOAuth(
 
   const intent: OAuthIntent = opts?.intent === 'link' ? 'link' : 'login';
   const redirectUri = redirectUriFor(cfg);
-  const confOrigin = redirectOrigin(cfg);
 
-  // Must authorize+callback on the registered host (usually apex), not www.
-  if (!opts?._bridged && location.origin !== confOrigin && /\.polevka\.art$/i.test(location.hostname)) {
+  // Only bridge when OAuth is registered on a truly different host.
+  // www ↔ apex on polevka.art shares storage after Pages 301 — skip.
+  if (!opts?._bridged && needsHostBridge(cfg)) {
     stashBridgeAndGo(cfg, provider, intent, !!opts?.pdConsent);
     return;
   }
