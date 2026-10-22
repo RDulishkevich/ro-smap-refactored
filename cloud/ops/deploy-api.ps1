@@ -53,7 +53,7 @@ if (-not $envMap.ContainsKey("VAPID_PUBLIC_KEY") -or -not $envMap["VAPID_PUBLIC_
     if (-not $envMap["VAPID_SUBJECT"]) { $envMap["VAPID_SUBJECT"] = "mailto:support@polevka.art" }
     Write-Host "vapid=existing"
 }
-Compress-Archive -Path index.js, sessionSecurity.js, mailTemplates.js, ydbDoc.js, mailCrypto.js, webPush.js, oauthProviders.js, ucsSuggest.js, smartCaptcha.js, package.json, package-lock.json, node_modules -DestinationPath $zip -Force
+Compress-Archive -Path index.js, sessionSecurity.js, mailTemplates.js, ydbDoc.js, mailCrypto.js, webPush.js, oauthProviders.js, ucsSuggest.js, smartCaptcha.js, ids.js, passwordPolicy.js, package.json, package-lock.json, node_modules -DestinationPath $zip -Force
 Pop-Location
 
 $ycArgs = @(

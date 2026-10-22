@@ -28,7 +28,7 @@ export default defineConfig({
     },
     {
       name: 'desktop-chrome',
-      testMatch: /desktop-chrome|audit-desktop/,
+      testMatch: /desktop-chrome|audit-desktop|auth-storage-guards|process-regression/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } },
     },
   ],

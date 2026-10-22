@@ -206,6 +206,8 @@ export type OauthBindings = {
 export type SessionUser = {
   username: string;
   loginName: string;
+  /** Opaque usr_… when issued by API */
+  userId?: string;
   role: StaffRole;
   totpEnabled?: boolean;
   email?: string;

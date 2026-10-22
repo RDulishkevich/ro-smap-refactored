@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-  apiAdminDeleteUser, apiAdminSendEmail, apiAdminUnbindEmail, apiSyncJson,
+  apiAdminDeleteUser, apiAdminEmailConflicts, apiAdminSendEmail, apiAdminUnbindEmail, apiSyncJson,
   pendingSounds, rejectedSounds,
   SUPPORT_AVATAR, SUPPORT_LOGIN, SUPPORT_NAME, type Profile, type Sound,
 } from '@polevka/core';
@@ -21,7 +21,7 @@ const ACCENT = color.accent;
 
 type Tab = 'sounds' | 'reports' | 'users' | 'tickets';
 
-export function StaffScreen({ onBack }: { onBack: () => void }) {
+export function StaffScreen({ onBack, mode = 'gate' }: { onBack: () => void; mode?: 'gate' | 'host' }) {
   const th = useTh();
   const t = useT();
   const desktop = useIsDesktop();
@@ -47,10 +47,17 @@ export function StaffScreen({ onBack }: { onBack: () => void }) {
     return s;
   }, [allSounds, status, q]);
 
-    const reported = allSounds.filter((s) => !s.deleted && Array.isArray(s.reports) && s.reports.length > 0);
+  const reported = allSounds.filter((s) => !s.deleted && Array.isArray(s.reports) && s.reports.length > 0);
   const tickets = mail.flatMap((box) => (box.inbox || [])
     .filter((m) => m._ticket || m.ticketNumber)
     .map((m) => ({ box: box.loginName, msg: m })));
+
+  const openStaffHost = () => {
+    const url = import.meta.env.DEV
+      ? `${window.location.origin}/staff.html`
+      : 'https://staff.polevka.art/';
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
 
   const patchStatus = async (id: string | number, nextStatus: string, extra: Record<string, unknown> = {}) => {
     const cur = allSounds.find((s) => String(s.id) === String(id));
@@ -64,14 +71,73 @@ export function StaffScreen({ onBack }: { onBack: () => void }) {
     await reload();
   };
 
+  const scanEmailConflicts = async () => {
+    try {
+      const data = await apiAdminEmailConflicts() as {
+        conflicts?: Array<{ email: string; accounts: Array<{ login: string; emailVerified?: boolean }> }>;
+      };
+      const list = data.conflicts || [];
+      if (!list.length) {
+        toast('Конфликтов email нет');
+        return;
+      }
+      const body = list.slice(0, 12).map((c) => `${c.email}: ${c.accounts.map((a) => a.login).join(', ')}`).join('\n');
+      await confirm({
+        title: `Конфликты email (${list.length})`,
+        body: `${body}${list.length > 12 ? '\n…' : ''}\n\nСнимите лишний email через «Отвязать» или объедините вручную.`,
+        ok: 'Понятно',
+      });
+    } catch (e: unknown) {
+      toast((e as Error).message || 'Не удалось');
+    }
+  };
+
+  /** In-app: deep-link only — full console lives on staff.polevka.art */
+  if (mode === 'gate') {
+    return (
+      <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
+        {!desktop && <ScreenHeader title="Модерация" onBack={onBack} />}
+        <div className={`${desktop ? 'p-6' : 'p-4'} flex flex-col gap-4`}>
+          <div className="rounded-3xl px-4 py-5 flex flex-col gap-3" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
+            <div className="flex items-center gap-2">
+              <Shield size={20} color={ACCENT} />
+              <p className="pv-heading" style={{ color: th.inkText }}>Staff</p>
+            </div>
+            <p className="pv-body leading-snug" style={{ color: th.muted }}>
+              Модерация, жалобы и опасные операции — только на отдельном хосте с staff-сессией.
+            </p>
+            <p className="pv-caption" style={{ color: th.soft }}>staff.polevka.art · JWT aud: staff</p>
+            <button type="button" onClick={openStaffHost} className="pv-button w-full min-h-11 rounded-2xl text-white mt-1"
+              style={{ background: ACCENT }}>
+              Открыть админку
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       {!desktop && <ScreenHeader title="Модерация" onBack={onBack} />}
-      <div className={`${desktop ? 'px-6 pt-5' : 'px-4 pt-2'} flex gap-1.5`}>
+      <div className={`${desktop ? 'px-6 pt-4' : 'px-4 pt-2'} flex flex-col gap-2`}>
+        <div className="rounded-2xl px-3 py-2.5 flex flex-wrap items-center gap-2" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
+          <Shield size={16} color={ACCENT} />
+          <p className="pv-caption flex-1" style={{ color: th.muted }}>
+            staff.polevka.art · {user?.role}
+          </p>
+          {isAdmin && (
+            <button type="button" onClick={() => void scanEmailConflicts()} className="pv-caption px-3 py-1.5 rounded-xl" style={{ background: th.lightBg, color: th.inkText }}>
+              Конфликты email
+            </button>
+          )}
+        </div>
+        <div className="flex gap-1.5">
         {([['sounds', 'Звуки'], ['reports', 'Жалобы'], ['users', 'Люди'], ['tickets', 'Тикеты']] as const).map(([id, lab]) => (
           <button key={id} onClick={() => setTab(id)} className="flex-1 py-2.5 rounded-2xl text-xs font-semibold"
             style={{ background: tab === id ? ACCENT : th.lightBg, color: tab === id ? '#fff' : th.muted }}>{lab}</button>
         ))}
+        </div>
       </div>
       <div className={`${desktop ? 'p-6' : 'p-4'} overflow-y-auto flex-1`}>
         <p className="text-xs mb-4" style={{ color: th.soft }}>{user?.role} · очередь {pendingSounds(allSounds).length} · жалоб {reported.length} · тикетов {tickets.length}</p>

@@ -314,6 +314,10 @@ export const apiAdminDeleteUser = (login: string) =>
   apiRequest('adminDeleteUser', { login }, { auth: true });
 export const apiAdminUnbindEmail = (login: string) =>
   apiRequest('adminUnbindEmail', { login }, { auth: true });
+export const apiAdminEmailConflicts = () =>
+  apiRequest('adminEmailConflicts', {}, { auth: true });
+export const apiStaffLogin = (login: string, password: string, totp?: string) =>
+  apiRequest('staffLogin', { login, password, ...(totp ? { totp } : {}), rememberMe: true });
 export const apiTranslate = (texts: string | string[], sourceLanguageCode = 'ru', targetLanguageCode = 'en') =>
   apiRequest('translate', { texts, sourceLanguageCode, targetLanguageCode }, { auth: true });
 
@@ -356,9 +360,11 @@ export function userFromApi(user: Record<string, unknown> | undefined | null): S
   const login = String(user.loginName || user.login || user.username || '');
   if (!login) return null;
   const oauthRaw = user.oauth && typeof user.oauth === 'object' ? user.oauth as Record<string, unknown> : null;
+  const userId = user.userId != null ? String(user.userId) : (user.uid != null ? String(user.uid) : undefined);
   return {
     username: String(user.username || user.displayName || login),
     loginName: login,
+    ...(userId ? { userId } : {}),
     role: normalizeRole(user.role),
     totpEnabled: !!user.totpEnabled,
     email: user.email != null ? String(user.email) : undefined,

@@ -12,9 +12,10 @@ import {
   readLastLogin, hasCookieConsentForAuth,
   apiSyncJson, apiTotpConfirm, apiTotpDisable, apiTotpSetup, conversationPeers, makeMailMsg,
   matchSupportBotFaq,   normalizeComment, normalizeTimeMarkers, spamGuardCheck, spamGuardMessage, SUPPORT_AVATAR, SUPPORT_LOGIN,
-  SUPPORT_NAME, uploadUserMedia, upsertInboxPatch, formatPlays,
-  type ApiError, type Comment, type FeedPost, type Sound,
+  SUPPORT_NAME, uploadUserMedia, upsertInboxPatch, formatPlays, assertPasswordStrength,
+  type ApiError, type Comment, type FeedPost, type Sound, type UploadProgress,
 } from '@polevka/core';
+import { UploadProgressBar } from '../primitives/UploadProgress';
 import { LEGAL_DOCS } from '../../../../src/data/legalDocs.js';
 import { PUBLISH_RULE_SECTIONS } from '../../../../src/data/publishRules.js';
 import { useAuth } from '../state/AuthContext';
@@ -651,10 +652,15 @@ function AuthScreen({
   }, [mode]);
 
   const loginErr = seen.login && !loginName.trim() ? t('loginNeed') : '';
-  const passwordErr = seen.password && password.length < 8 ? t('passwordNeed') : '';
+  const passwordStrength = mode === 'up'
+    ? assertPasswordStrength(password, { login: loginName })
+    : (password.length >= 1 ? { ok: true as const } : { ok: false as const, message: t('passwordNeed') });
+  const passwordErr = seen.password && !passwordStrength.ok
+    ? ('message' in passwordStrength ? passwordStrength.message : t('passwordNeed'))
+    : '';
   const firstErr = mode === 'up' && seen.first && !firstName.trim() ? t('nameNeed') : '';
   const lastErr = mode === 'up' && seen.last && !lastName.trim() ? t('nameNeed') : '';
-  const missing = !loginName.trim() || password.length < 8
+  const missing = !loginName.trim() || !passwordStrength.ok
     || (mode === 'up' && (!firstName.trim() || !lastName.trim()));
 
   useEffect(() => {
@@ -1425,6 +1431,7 @@ function EditProfileScreen({ onBack }: { onBack: () => void }) {
   const [loginTotp, setLoginTotp] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarProg, setAvatarProg] = useState<UploadProgress | null>(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -1445,7 +1452,16 @@ function EditProfileScreen({ onBack }: { onBack: () => void }) {
     try {
       const login = user.loginName;
       let avatarUrl = user.avatar || mine?.avatar;
-      if (avatarFile) avatarUrl = await uploadUserMedia(avatarFile, avatarFile.name, avatarFile.type || 'image/jpeg');
+      if (avatarFile) {
+        avatarUrl = await uploadUserMedia(
+          avatarFile,
+          avatarFile.name,
+          avatarFile.type || 'image/jpeg',
+          setAvatarProg,
+          { kind: 'avatar' },
+        );
+        setAvatarProg(null);
+      }
       const idx = profiles.findIndex((p) => String(p.loginName || '').toLowerCase() === login);
       const prev = idx >= 0 ? profiles[idx] : {};
       const record = {
@@ -1465,7 +1481,10 @@ function EditProfileScreen({ onBack }: { onBack: () => void }) {
       onBack();
     } catch (e: unknown) {
       toast((e as Error).message || 'Не удалось сохранить');
-    } finally { setBusy(false); }
+    } finally {
+      setAvatarProg(null);
+      setBusy(false);
+    }
   };
   const changeLogin = async () => {
     if (!user) return;
@@ -1521,6 +1540,11 @@ function EditProfileScreen({ onBack }: { onBack: () => void }) {
             <p className="pv-caption" style={{ color: th.soft }}>@{user?.loginName}</p>
           </div>
         </div>
+        {avatarProg && (
+          <div className="mb-4">
+            <UploadProgressBar label="Аватар" progress={avatarProg} />
+          </div>
+        )}
         <div className="rounded-3xl p-4 flex flex-col gap-3.5 mb-4" style={{ background: th.cardBg }}>
           <FormField label="Имя" value={name} onChange={setName} maxLength={48} autoComplete="nickname" />
           <label className="pv-label block" style={{ color: th.soft }}>

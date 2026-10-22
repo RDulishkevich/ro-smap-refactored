@@ -19,8 +19,10 @@ Code: `cloud/api/index.js`, `sessionSecurity.js`, `mailTemplates.js`. Client: `p
 1. **Writes are CAS or YDB rows.** S3: `mutateJson` / `mutateAuth` / `mutateMeta` (`If-Match`, 4 tries). YDB (when `YDB_DOCAPI_ENDPOINT` is set): one row per sound/user/mailbox; then publish public JSON cache. Never `load` + `save` a stale snapshot.
 2. **HMAC fail-closed.** Integrity mismatch or corrupt JSON → 503, never merge against `[]`. Missing `.sig` on `INTEGRITY_KEYS` (catalog + auth) and `_mail/` → 503 `integrity_missing` unless `INTEGRITY_ALLOW_UNSIGNED=1`. Seal existing objects with `cloud/ops/seal-integrity.cjs`. YDB collection saves use BatchWriteItem (25); leftover unprocessed → do not publish public JSON.
 3. **Partial sync.** Clients send changed rows only. Merge keeps cloud actor-sets; `forceActorInList` applies only the current login (staff included). Keyed lists union (comments, inbox). Last-writer-wins only for scalars with timestamps.
-4. **Auth sessions.** Password change **and** reset bump `tokenVersion`. Login missing user = `401 bad_credentials` (same as wrong password). Do not reveal accounts.
-5. **Email.** Codes only via SMTP. `emailVerified` only in `confirmEmailVerification`. One verified email → one login. Reset looks up **verified** email only. `persistActorPrivateMeta` must not steal another verified address.
+4. **Auth sessions.** Password change **and** reset bump `tokenVersion`. Login missing user = `401 bad_credentials` (same as wrong password). Do not reveal accounts. Passwords travel over **TLS only** — never invent browser-side “password encryption”; hash with scrypt/`passwordPolicy.js` (min 10, not login/common). Staff JWT may carry `aud: staff` for `staff.polevka.art`.
+5. **Email.** Codes only via SMTP. `emailVerified` only in `confirmEmailVerification`. One verified email → one login (and one `userId`). Reset looks up **verified** email only. `persistActorPrivateMeta` must not steal another verified address. OAuth finish/link must not create a second account for the same verified email.
+5a. **Login uniqueness.** `normalizeLogin` key is unique; register/changeLogin → `409 login_taken`. Display names may collide; logins must not.
+5b. **Storage layout.** Follow `docs/storage-layout.md` and skill `polevka-storage-ids`. Private auth/mail vs public media; opaque IDs (`usr_`/`snd_`).
 6. **Consent.** Register requires `pdConsent`; store `pdConsent` / `pdConsentAt` in `private_meta`.
 7. **Profiles.** Non-admin cannot insert `loginName` that is not already on the card (except self). Drop logins missing from `_auth` when the set is known.
 8. **Uploads.** Presign requires `contentLength` **and binds it in the signed PUT**. Enforce 30 MB image / 1 GB audio. No `octet-stream` for media. No `_auth/` or root JSON keys. Non-staff sync ≤ 80 rows.
@@ -35,11 +37,12 @@ Code: `cloud/api/index.js`, `sessionSecurity.js`, `mailTemplates.js`. Client: `p
 
 ## After editing API
 
-- Bump `health.version` if the contract changed (current: **28**).
-- Update `cloud/api/README.md` + `docs/security.md` when behavior changes.
-- Deploy zip must include `index.js`, `sessionSecurity.js`, `mailTemplates.js`, `ydbDoc.js`, `mailCrypto.js`, `webPush.js`, `oauthProviders.js`, `ucsSuggest.js`, `smartCaptcha.js`.
+- Bump `health.version` if the contract changed (current: **34+**).
+- Update `cloud/api/README.md` + `docs/security.md` + `docs/storage-layout.md` when behavior changes.
+- Deploy zip must include `index.js`, `sessionSecurity.js`, `mailTemplates.js`, `ydbDoc.js`, `mailCrypto.js`, `webPush.js`, `oauthProviders.js`, `ucsSuggest.js`, `smartCaptcha.js`, `ids.js`, `passwordPolicy.js`.
 - If you add a write path, it must go through merge + sanitize + CAS (S3) or YDB row mutate + publish public JSON.
 - When `YDB_DOCAPI_ENDPOINT` is set, YDB is source of truth; Object Storage public JSON is a cache. Do not invent a second write path.
+- File uploads on the client must use skill `polevka-upload-ux` (real % progress).
 
 ## Do not
 
@@ -47,4 +50,5 @@ Code: `cloud/api/index.js`, `sessionSecurity.js`, `mailTemplates.js`. Client: `p
 - Let `persistActorPrivateMeta` set `emailVerified`.
 - Return empty JSON on integrity failure “to keep the app up”.
 - Treat the JSON bucket as a database without retries.
+- Client-side encrypt passwords instead of TLS + server scrypt.
 - Frame work as “хватает для диплома”.

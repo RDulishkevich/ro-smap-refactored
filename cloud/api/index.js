@@ -42,6 +42,8 @@ const ydbDoc = require('./ydbDoc');
 const mailCrypto = require('./mailCrypto');
 const webPush = require('./webPush');
 const oauthProviders = require('./oauthProviders');
+const ids = require('./ids');
+const passwordPolicy = require('./passwordPolicy');
 const ucsSuggest = require('./ucsSuggest');
 const smartCaptcha = require('./smartCaptcha');
 
@@ -60,6 +62,7 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const DEFAULT_ALLOWED_ORIGINS = [
     'https://polevka.art',
     'https://www.polevka.art',
+    'https://staff.polevka.art',
     'http://localhost',
     'http://127.0.0.1'
 ].join(',');
@@ -90,9 +93,9 @@ const PRIVATE_META_KEY = '_auth/private_meta.json';
 const EMAIL_CODES_PREFIX = '_auth/email_codes/';
 const PASSWORD_RESET_PREFIX = '_auth/password_resets/';
 const ALLOWED_JSON = new Set(['map_data.json', 'profiles.json', 'feed.json', 'mail.json', 'events.json']);
-const MEDIA_PREFIXES = ['uploads/', 'audio/', 'images/'];
+const MEDIA_PREFIXES = ['uploads/', 'audio/', 'images/', 'media/'];
 const TOKEN_TTL_SEC = sessionSec.ACCESS_TTL_SEC; // access JWT (short); refresh via cookie
-const MIN_PASSWORD_LEN = 8;
+const MIN_PASSWORD_LEN = passwordPolicy.MIN_LEN;
 const MAX_IMAGE_BYTES = 30 * 1024 * 1024;      // 30 MB — фото/обложки с телефона
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024;      // 80 MB — короткое видео в чате
 const MAX_AUDIO_BYTES = 1024 * 1024 * 1024;    // 1 GB — длинные WAV / амбисоник
@@ -1385,11 +1388,13 @@ async function resolveAuthUser(payload) {
     if (profile?.role === 'user' && login !== 'admin') role = 'user';
     const resolved = {
         login,
+        userId: row.userId || null,
         role,
         displayName: profile?.displayName || row.displayName || payload.displayName || login,
         blocked: false,
         tokenVersion: tv,
-        totpEnabled: !!row.totpEnabled
+        totpEnabled: !!row.totpEnabled,
+        aud: payload.aud || null,
     };
     authUserCache.set(login, { at: Date.now(), tv, user: resolved });
     return resolved;
@@ -1434,7 +1439,8 @@ function issueToken(user) {
         login: user.login,
         role: normalizeStaffRole(user.role, user.login),
         displayName: user.displayName || user.login,
-        tokenVersion: user.tokenVersion || 0
+        tokenVersion: user.tokenVersion || 0,
+        userId: user.userId || undefined,
     });
     return pair.access;
 }
@@ -1453,12 +1459,127 @@ function publicUser(user, extras = {}) {
     return {
         login: user.login,
         loginName: user.login,
+        userId: user.userId || extras.userId || undefined,
         username: user.displayName || user.login,
         displayName: user.displayName || user.login,
         role: normalizeStaffRole(user.role, user.login),
         ...(avatar ? { avatar } : {}),
         ...(extras.bio != null && String(extras.bio) ? { bio: String(extras.bio).slice(0, MAX_BIO) } : {})
     };
+}
+
+/** Dedicated staff actions require JWT aud=staff (issued by staffLogin on staff.polevka.art). */
+function assertStaffAudience(payload, authUser) {
+    if (!isStaffUser(authUser)) return respond(403, { ok: false, error: 'forbidden' });
+    if (payload?.aud !== 'staff') {
+        return respond(403, { ok: false, error: 'staff_aud_required', message: 'Откройте staff.polevka.art' });
+    }
+    return null;
+}
+
+/** Backfill opaque usr_… on legacy auth rows (idempotent CAS). */
+async function ensureUserId(login) {
+    const key = normalizeLogin(login);
+    if (!key) return null;
+    let assigned = null;
+    await mutateAuth((users) => {
+        const row = users[key];
+        if (!row || typeof row !== 'object') return users;
+        if (row.userId) {
+            assigned = row.userId;
+            return users;
+        }
+        assigned = ids.newUserId();
+        users[key] = { ...row, userId: assigned };
+        return users;
+    });
+    return assigned;
+}
+
+async function handleAdminEmailConflicts(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const actor = await resolveAuthUser(payload);
+    if (!actor || !isAdminUser(actor)) return respond(403, { ok: false, error: 'forbidden' });
+    const audBlock = assertStaffAudience(payload, actor);
+    if (audBlock) return audBlock;
+    const totpBlock = await assertStaffTotp(actor);
+    if (totpBlock) return totpBlock;
+
+    const meta = await loadPrivateMeta();
+    const users = await loadAuthUsers();
+    const byEmail = new Map();
+    for (const [login, row] of Object.entries(meta || {})) {
+        const email = normalizeEmail(row?.email);
+        if (!email) continue;
+        if (!byEmail.has(email)) byEmail.set(email, []);
+        byEmail.get(email).push({
+            login,
+            userId: users[login]?.userId || null,
+            emailVerified: !!row.emailVerified,
+            oauth: oauthBindingsPublic(users[login] || {}),
+        });
+    }
+    const conflicts = [];
+    for (const [email, rows] of byEmail.entries()) {
+        if (rows.length > 1) conflicts.push({ email, accounts: rows });
+    }
+    return respond(200, { ok: true, conflicts, totalEmails: byEmail.size });
+}
+
+async function handleStaffLogin(event, body) {
+    const captchaBlock = await assertSmartCaptcha(event, body);
+    if (captchaBlock) return captchaBlock;
+    const login = normalizeLogin(body.login || body.username);
+    const password = String(body.password || '');
+    if (!login || !password) return respond(400, { ok: false, error: 'missing_fields' });
+
+    const users = await loadAuthUsers();
+    const row = users[login];
+    if (!row || !verifyPassword(password, row.salt, row.hash)) {
+        if (login === 'admin' && ADMIN_PASSWORD && password === ADMIN_PASSWORD) {
+            /* fall through with bootstrap admin */
+        } else {
+            return respond(401, { ok: false, error: 'bad_credentials' });
+        }
+    }
+    const role = normalizeStaffRole(row?.role || (login === 'admin' ? 'admin' : 'user'), login);
+    if (role !== 'admin' && role !== 'moderator') {
+        return respond(403, { ok: false, error: 'forbidden', message: 'Только сотрудники' });
+    }
+    if (row?.blocked) return respond(403, { ok: false, error: 'blocked' });
+    if (row?.totpEnabled && row.totpSecret) {
+        const code = String(body.totp || body.code || '').trim();
+        if (!code) return respond(401, { ok: false, error: 'totp_required' });
+        if (!sessionSec.verifyTotp(row.totpSecret, code)) {
+            return respond(401, { ok: false, error: 'bad_totp' });
+        }
+    }
+    const user = {
+        login,
+        userId: row?.userId || null,
+        role,
+        displayName: row?.displayName || login,
+        tokenVersion: Number(row?.tokenVersion || 0) || 0,
+    };
+    const remember = body.rememberMe !== false;
+    const pair = sessionSec.issueTokenPair(signJwt, user, remember, { aud: 'staff' });
+    const cookies = sessionSec.sessionCookiesFor(
+        event,
+        getHeader,
+        pair.access,
+        pair.refresh,
+        pair.accessTtl,
+        pair.refreshTtl
+    );
+    return respond(200, {
+        ok: true,
+        token: pair.access,
+        refreshToken: remember ? pair.refresh : undefined,
+        tokenExpiresIn: pair.accessTtl,
+        rememberMe: remember,
+        user: { ...publicUser(user), totpEnabled: !!row?.totpEnabled },
+    }, { cookies });
 }
 
 function recordTime(item) {
@@ -2102,18 +2223,21 @@ async function handleRegister(event, body) {
     const password = String(body.password || '');
     const displayName = String(body.displayName || body.username || login).trim().slice(0, 40) || login;
     if (!login || login.length < 2) return respond(400, { ok: false, error: 'bad_login' });
-    if (password.length < MIN_PASSWORD_LEN) return respond(400, { ok: false, error: 'weak_password' });
-    if (login === 'admin') return respond(403, { ok: false, error: 'reserved_login' });
+    const strength = passwordPolicy.assertPasswordStrength(password, { login });
+    if (!strength.ok) return respond(400, { ok: false, error: strength.error, message: strength.message });
+    if (login === 'admin' || login === 'support') return respond(403, { ok: false, error: 'reserved_login' });
     if (!body.pdConsent) return respond(400, { ok: false, error: 'pd_consent' });
 
     const { salt, hash } = hashPassword(password);
+    const userId = ids.newUserId();
     let created = false;
     for (let attempt = 0; attempt < WRITE_RETRIES; attempt++) {
         const usersCas = await getJsonCas(AUTH_KEY, {});
         let users = usersCas.data && typeof usersCas.data === 'object' ? { ...usersCas.data } : {};
         users = await ensureAdminUser(users);
-        if (users[login]) return respond(409, { ok: false, error: 'login_taken' });
+        if (users[login]) return respond(409, { ok: false, error: 'login_taken', message: 'Этот логин уже занят' });
         users[login] = {
+            userId,
             salt,
             hash,
             displayName,
@@ -2246,6 +2370,7 @@ async function handleOauthFinish(event, body) {
         login = candidate;
         const { salt, hash } = hashPassword(crypto.randomBytes(32).toString('hex'));
         users[login] = {
+            userId: ids.newUserId(),
             salt,
             hash,
             displayName: profile.displayName || login,
@@ -2339,8 +2464,13 @@ async function handleOauthFinish(event, body) {
 
     const row = users[login] || {};
     const role = normalizeStaffRole(row.role, login);
+    let userId = row.userId || null;
+    if (!userId) {
+        try { userId = await ensureUserId(login); } catch (_) { /* best-effort */ }
+    }
     const user = {
         login,
+        userId: userId || undefined,
         displayName: row.displayName || profile.displayName || login,
         role,
         tokenVersion: Number(row.tokenVersion || 0) || 0,
@@ -2656,8 +2786,13 @@ async function handleLogin(event, body) {
         return next;
     }, { privateObject: true }).catch(() => {});
 
+    let userId = row.userId || null;
+    if (!userId) {
+        try { userId = await ensureUserId(login); } catch (_) { /* best-effort */ }
+    }
     const user = {
         login,
+        userId: userId || undefined,
         displayName: profile?.displayName || row.displayName || login,
         role,
         tokenVersion: Number(row.tokenVersion || 0) || 0
@@ -2712,7 +2847,8 @@ async function handleChangePassword(event, body) {
 
     const currentPassword = String(body.currentPassword || '');
     const newPassword = String(body.newPassword || '');
-    if (newPassword.length < MIN_PASSWORD_LEN) return respond(400, { ok: false, error: 'weak_password' });
+    const strength = passwordPolicy.assertPasswordStrength(newPassword, { login: authUser.login });
+    if (!strength.ok) return respond(400, { ok: false, error: strength.error, message: strength.message });
 
     const { salt, hash } = hashPassword(newPassword);
     let nextTv = 0;
@@ -3091,10 +3227,11 @@ async function handleGetSecurityEvents(event, body) {
     const authUser = await resolveAuthUser(payload);
     if (!authUser) return respond(401, { ok: false, error: 'unauthorized' });
     if (authUser.blocked) return respond(403, { ok: false, error: 'blocked' });
+    if (authUser.role !== 'admin') return respond(403, { ok: false, error: 'forbidden' });
+    const audBlock = assertStaffAudience(payload, authUser);
+    if (audBlock) return audBlock;
     const totpBlock = await assertStaffTotp(authUser);
     if (totpBlock) return totpBlock;
-
-    if (authUser.role !== 'admin') return respond(403, { ok: false, error: 'forbidden' });
 
     const list = await getJson(sessionSec.SECURITY_EVENTS_KEY, []);
     return respond(200, {
@@ -3254,7 +3391,11 @@ async function handleConfirmPasswordReset(body) {
     const code = String(body.code || '').trim();
     const newPassword = String(body.newPassword || '');
     if (!/^\d{6}$/.test(code)) return respond(400, { ok: false, error: 'bad_code' });
-    if (newPassword.length < MIN_PASSWORD_LEN) return respond(400, { ok: false, error: 'weak_password' });
+    const strength = passwordPolicy.assertPasswordStrength(newPassword, {
+        login: String(loginOrEmail || '').split('@')[0],
+        email: loginOrEmail.includes('@') ? loginOrEmail : '',
+    });
+    if (!strength.ok) return respond(400, { ok: false, error: strength.error, message: strength.message });
 
     const login = await findLoginByEmailOrLogin(loginOrEmail);
     if (!login || login === 'admin') return respond(400, { ok: false, error: 'bad_code' });
@@ -3459,6 +3600,8 @@ async function handleAdminDeleteUser(event, body) {
     if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
     const actor = await resolveAuthUser(payload);
     if (!actor || !isAdminUser(actor)) return respond(403, { ok: false, error: 'forbidden' });
+    const audBlock = assertStaffAudience(payload, actor);
+    if (audBlock) return audBlock;
     const totpBlock = await assertStaffTotp(actor);
     if (totpBlock) return totpBlock;
 
@@ -3572,6 +3715,8 @@ async function handleAdminUnbindEmail(event, body) {
     if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
     const actor = await resolveAuthUser(payload);
     if (!actor || !isAdminUser(actor)) return respond(403, { ok: false, error: 'forbidden' });
+    const audBlock = assertStaffAudience(payload, actor);
+    if (audBlock) return audBlock;
     const totpBlock = await assertStaffTotp(actor);
     if (totpBlock) return totpBlock;
 
@@ -3599,6 +3744,8 @@ async function handleAdminSendEmail(event, body) {
     const actor = await resolveAuthUser(payload);
     if (!actor || !isStaffUser(actor)) return respond(403, { ok: false, error: 'forbidden' });
     if (actor.blocked) return respond(403, { ok: false, error: 'blocked' });
+    const audBlock = assertStaffAudience(payload, actor);
+    if (audBlock) return audBlock;
     const totpBlock = await assertStaffTotp(actor);
     if (totpBlock) return totpBlock;
 
@@ -4221,9 +4368,17 @@ async function handlePresign(event, body) {
         const allowed = MEDIA_PREFIXES.some((p) => fileName.startsWith(p));
         if (!allowed) return respond(403, { ok: false, error: 'bad_prefix' });
         const safe = fileName.replace(/[^a-zA-Z0-9_\-./]/g, '_');
-        key = safe.startsWith(`uploads/${user.login}/`)
-            ? safe
-            : `uploads/${user.login}/${safe.split('/').pop()}`;
+        const uid = String(user.userId || user.login || '').replace(/[^a-zA-Z0-9_\-]/g, '_');
+        // Prefer opaque media/ layout; keep legacy uploads/{login}/ for dual-read clients.
+        if (safe.startsWith('media/sounds/') || safe.startsWith('media/avatars/')) {
+            key = safe;
+        } else if (safe.startsWith(`uploads/${user.login}/`) || safe.startsWith(`uploads/${uid}/`)) {
+            key = safe;
+        } else if (safe.startsWith('media/')) {
+            key = `media/avatars/${uid}/${safe.split('/').pop()}`;
+        } else {
+            key = `uploads/${user.login}/${safe.split('/').pop()}`;
+        }
 
         const isImage = /^image\//i.test(contentType);
         const isVideo = /^video\//i.test(contentType);
@@ -4384,7 +4539,7 @@ exports.handler = async function handler(event = {}) {
     if (action === 'health') {
         return respond(200, {
             ok: true,
-            version: 34,
+            version: 35,
             ydb: ydbDoc.enabled(),
             vapid: webPush.configured(),
             ucsAi: ucsSuggest.configured(),
@@ -4419,7 +4574,7 @@ exports.handler = async function handler(event = {}) {
         'sync', 'commit', 'presign', 'me', 'changePassword', 'changeLogin', 'patchSound', 'translate',
         'suggestUcs',
         'getMail', 'requestEmailVerification', 'confirmEmailVerification',
-        'adminDeleteUser', 'adminUnbindEmail', 'adminSendEmail',
+        'adminDeleteUser', 'adminUnbindEmail', 'adminSendEmail', 'adminEmailConflicts',
         'logoutAll', 'totpSetup', 'totpConfirm', 'totpDisable', 'getSecurityEvents',
         'deleteAccount', 'exportMyData', 'savePushSubscription', 'deletePushSubscription',
         'oauthLink', 'oauthUnlink',
@@ -4436,6 +4591,7 @@ exports.handler = async function handler(event = {}) {
     try {
         if (action === 'register') return await handleRegister(event, body);
         if (action === 'login') return await handleLogin(event, body);
+        if (action === 'staffLogin') return await handleStaffLogin(event, body);
         if (action === 'oauthFinish') return await handleOauthFinish(event, body);
         if (action === 'oauthLink') return await handleOauthLink(event, body);
         if (action === 'oauthUnlink') return await handleOauthUnlink(event, body);
@@ -4461,6 +4617,7 @@ exports.handler = async function handler(event = {}) {
         if (action === 'adminDeleteUser') return await handleAdminDeleteUser(event, body);
         if (action === 'adminUnbindEmail') return await handleAdminUnbindEmail(event, body);
         if (action === 'adminSendEmail') return await handleAdminSendEmail(event, body);
+        if (action === 'adminEmailConflicts') return await handleAdminEmailConflicts(event, body);
         if (action === 'totpSetup') return await handleTotpSetup(event, body);
         if (action === 'totpConfirm') return await handleTotpConfirm(event, body);
         if (action === 'totpDisable') return await handleTotpDisable(event, body);

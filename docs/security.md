@@ -54,9 +54,13 @@ Object Storage
 ### 3.1 Аутентификация и пароли
 
 - Регистрация / вход только через API (`register` / `login`).
-- Пароли: **scrypt** + salt, сравнение через `timingSafeEqual`.
-- Хеши в `_auth/users.json` (private bucket).
-- Минимальная длина пароля: **8**.
+- Пароли: **TLS in transit** + **scrypt** + salt на сервере, сравнение через `timingSafeEqual`. Клиент **не** «шифрует» пароль отдельным алгоритмом (антипаттерн).
+- Политика сложности: [`cloud/api/passwordPolicy.js`](../cloud/api/passwordPolicy.js) — минимум **10** символов, не common, не содержит логин/email-local, не только буквы или только цифры → `weak_password`.
+- Хеши в `_auth/users.json` (private bucket); целевая раскладка — [`docs/storage-layout.md`](storage-layout.md) (`auth/users/{userId}.json`).
+- Один **логин** — один аккаунт (`409 login_taken`). Имя/фамилия могут совпадать.
+- Один **подтверждённый** email — один аккаунт (OAuth не создаёт второй stub при том же email). Staff: `adminEmailConflicts`.
+- Opaque `userId` (`usr_…`) выдаётся при register/OAuth и backfill при login; в JWT как `uid`. См. [`docs/storage-layout.md`](storage-layout.md).
+- **Staff host:** `staff.polevka.art` + `staffLogin` → JWT `aud: staff`. Admin-операции (`adminDeleteUser`, `adminUnbindEmail`, `adminSendEmail`, `adminEmailConflicts`, `getSecurityEvents`) требуют `aud=staff`. В основном SPA — только deep-link.
 - **Access JWT** TTL **30 минут** (`typ: access`); **refresh JWT** TTL **14 суток** (`typ: refresh`) при «Запомнить меня»; иначе refresh — session cookie (`rm: 0` в JWT).
 - Быстрый вход с домашнего экрана: WebAuthn platform authenticator (Face ID / отпечаток / PIN) на устройстве; биометрия на сервер не уходит.
 - Оба токена в **HttpOnly** cookies (`rosmap_at` / `rosmap_rt`), `Secure; SameSite=None` (SPA на другом origin).
@@ -214,6 +218,7 @@ URL функции и бакета публичны по природе SPA.
 - Whitelist Origin (не `*`):
   - `https://polevka.art`
   - `https://www.polevka.art`
+  - `https://staff.polevka.art`
   - `http://localhost` / `http://127.0.0.1` (любой порт)
 - `Access-Control-Allow-Credentials: true` для trusted Origin (нужно для cookie-сессий).
 - Чужой Origin получает «чужой» ACAO (`https://polevka.art`) → браузер блокирует.

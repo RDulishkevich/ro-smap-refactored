@@ -8,6 +8,8 @@ export * from './cloud';
 export * from './antispam';
 export * from './support-bot';
 export * from './upload';
+export * from './ids';
+export * from './password-policy';
 export * from './mail';
 export * from './catalogs';
 export * from './publish-audio';
