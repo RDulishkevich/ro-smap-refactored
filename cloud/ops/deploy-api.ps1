@@ -68,6 +68,14 @@ $ycArgs = @(
     "--format", "json"
 )
 $envMap["INTEGRITY_ALLOW_UNSIGNED"] = "0"
+# Keep staff console origin on the CORS allow-list
+$needOrigins = @("https://staff.polevka.art", "https://www.polevka.art", "https://polevka.art")
+$cors = [string]$envMap["ALLOWED_ORIGIN"]
+if (-not $cors) { $cors = ($needOrigins -join ",") }
+foreach ($o in $needOrigins) {
+    if ($cors -notmatch [regex]::Escape($o)) { $cors = "$cors,$o" }
+}
+$envMap["ALLOWED_ORIGIN"] = ($cors -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ } | Select-Object -Unique) -join ","
 if (-not $YdbEndpoint) { $YdbEndpoint = [string]$env:YDB_DOCAPI_ENDPOINT }
 if ($YdbEndpoint) {
     $envMap["YDB_DOCAPI_ENDPOINT"] = $YdbEndpoint.Trim()
