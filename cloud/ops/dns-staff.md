@@ -2,22 +2,12 @@
 
 ## Как войти
 
-1. Открой **https://www.polevka.art/staff/**
-2. Введи **пароль админки** (не логин/пароль обычного аккаунта на сайте).
-3. Готово — сессия только для панели (`aud: staff`).
+1. На сайте включите **2FA** (кабинет → безопасность) под staff-аккаунтом.
+2. Откройте **https://www.polevka.art/staff/**
+3. Введите **логин** и **код из аутентификатора** (пароль аккаунта не нужен).
 
-Пароль на сервере: env `STAFF_PANEL_PASSWORD`. Если не задан — используется `ADMIN_PASSWORD` (тот же bootstrap, что для admin).
+Роли: `moderator` → `admin` → `owner` (владелец). Bootstrap-логин `admin` = owner.
 
-Задать отдельный пароль (на машине с `yc`, значение не светить в чат):
+## DNS staff.polevka.art
 
-```powershell
-# пример: перед deploy-api.ps1
-$env:STAFF_PANEL_PASSWORD = "…"   # только локально
-# или дописать ключ в envMap внутри deploy / yc version create --environment
-```
-
-## DNS staff.polevka.art (опционально)
-
-Сейчас достаточно `/staff/` на www. Отдельный поддомен упирается в SSL GitHub Pages (сертификат на www).
-
-Если всё же нужен CNAME: хост `staff` → `rdulishkevich.github.io` (уже может быть в DNS), но HTTPS без своего cert/Cloudflare не заведётся, пока custom domain в Pages — `www`.
+Опционально. SSL на отдельном поддомене упирается в один custom domain GitHub Pages (`www`). Рабочий URL — `/staff/` на www.

@@ -6,9 +6,11 @@ import {
 } from 'lucide-react';
 import { color, type ThemeTokens } from '@polevka/design';
 import {
-  apiChangeLogin, apiChangePassword, apiConfirmEmailVerification, apiConfirmPasswordReset,
+  apiChangeLogin, apiChangePassword, apiConfirmEmailVerification, apiConfirmLoginEmailStepUp,
+  apiConfirmPasswordReset,
   apiDeleteAccount, apiOauthUnlink,
   apiGetSecurityEvents, apiPatchSound, apiRequestEmailVerification, apiRequestPasswordReset,
+  apiRequestRegisterEmail,
   readLastLogin, hasCookieConsentForAuth,
   apiSyncJson, apiTotpConfirm, apiTotpDisable, apiTotpSetup, conversationPeers, makeMailMsg,
   matchSupportBotFaq,   normalizeComment, normalizeTimeMarkers, spamGuardCheck, spamGuardMessage, SUPPORT_AVATAR, SUPPORT_LOGIN,
@@ -601,7 +603,7 @@ function AuthScreen({
 }) {
   const th = useTh();
   const desktop = useIsDesktop();
-  const { login, register, offerDeviceUnlock, resumeStoredSession } = useAuth();
+  const { login, register, offerDeviceUnlock, resumeStoredSession, applySession } = useAuth();
   const { toast, confirm } = useUi();
   const { push, pop } = useNav();
   const { reload } = useData();
@@ -615,6 +617,11 @@ function AuthScreen({
   const [totp, setTotp] = useState('');
   const [needTotp, setNeedTotp] = useState(false);
   const [totpError, setTotpError] = useState(false);
+  const [email, setEmail] = useState('');
+  const [emailCode, setEmailCode] = useState('');
+  const [emailCodeSent, setEmailCodeSent] = useState(false);
+  const [needEmailStepUp, setNeedEmailStepUp] = useState(false);
+  const [stepUpMasked, setStepUpMasked] = useState('');
   const [busy, setBusy] = useState(false);
   const [oauthBusy, setOauthBusy] = useState<'yandex' | 'vk' | null>(null);
   const [seen, setSeen] = useState({ login: false, password: false, first: false, last: false });
@@ -661,7 +668,7 @@ function AuthScreen({
   const firstErr = mode === 'up' && seen.first && !firstName.trim() ? t('nameNeed') : '';
   const lastErr = mode === 'up' && seen.last && !lastName.trim() ? t('nameNeed') : '';
   const missing = !loginName.trim() || !passwordStrength.ok
-    || (mode === 'up' && (!firstName.trim() || !lastName.trim()));
+    || (mode === 'up' && (!firstName.trim() || !lastName.trim() || !email.trim() || emailCode.trim().length < 6));
 
   useEffect(() => {
     if (mode !== 'in') return;
@@ -696,13 +703,27 @@ function AuthScreen({
       const captchaToken = (await runSmartCaptcha()) || undefined;
       const code = (totpCode ?? totp).trim();
       if (mode === 'up') {
-        await register(nextLogin, nextPassword, nextName || nextLogin, pdConsent, captchaToken);
+        await register(
+          nextLogin,
+          nextPassword,
+          nextName || nextLogin,
+          pdConsent,
+          captchaToken,
+          email.trim(),
+          emailCode.trim(),
+        );
         await apiSyncJson('profiles.json', [{
           loginName: nextLogin,
           displayName: nextName || nextLogin,
           profileUpdatedAt: new Date().toISOString(),
         }]);
         await reload();
+      } else if (needEmailStepUp) {
+        const data = await apiConfirmLoginEmailStepUp(nextLogin, emailCode.trim() || code, captchaToken) as {
+          token?: string; refreshToken?: string; user?: Record<string, unknown>; rememberMe?: boolean;
+        };
+        applySession({ ...data, rememberMe });
+        setNeedEmailStepUp(false);
       }
       else await login(nextLogin, nextPassword, code || undefined, rememberMe, captchaToken);
       if (rememberMe) {
@@ -720,7 +741,12 @@ function AuthScreen({
       pop();
     } catch (e: unknown) {
       const err = e as ApiError;
-      if (err.code === 'totp_required') {
+      if (err.code === 'email_stepup') {
+        setNeedEmailStepUp(true);
+        const masked = (err.data as { toMasked?: string } | undefined)?.toMasked || '';
+        setStepUpMasked(masked);
+        toast(err.message || 'Код отправлен на почту');
+      } else if (err.code === 'totp_required') {
         setNeedTotp(true);
         toast('Введите код из приложения-аутентификатора');
       } else if (err.code === 'consent') {
@@ -946,6 +972,56 @@ function AuthScreen({
             />
           </div>
         )}
+        {mode === 'up' && (
+          <>
+            <FormField
+              label="Email"
+              value={email}
+              onChange={setEmail}
+              name="email"
+              autoComplete="email"
+              inputMode="email"
+              compact={desktop}
+              tip="На него придёт код подтверждения"
+            />
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <FormField
+                  label="Код из письма"
+                  value={emailCode}
+                  onChange={setEmailCode}
+                  name="email-code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  compact={desktop}
+                  maxLength={6}
+                />
+              </div>
+              <button
+                type="button"
+                disabled={busy || !email.trim()}
+                className="pv-caption px-3 min-h-11 rounded-2xl shrink-0"
+                style={{ background: th.lightBg, color: th.inkText, opacity: !email.trim() ? 0.5 : 1 }}
+                onClick={() => void (async () => {
+                  setBusy(true);
+                  try {
+                    const captchaToken = (await runSmartCaptcha()) || undefined;
+                    const data = await apiRequestRegisterEmail(email.trim(), captchaToken) as { demoCode?: string };
+                    setEmailCodeSent(true);
+                    if (data.demoCode) {
+                      setEmailCode(data.demoCode);
+                      toast(`Демо-код: ${data.demoCode}`);
+                    } else toast('Код отправлен на почту');
+                  } catch (e: unknown) {
+                    toast((e as Error).message || 'Не удалось отправить код');
+                  } finally { setBusy(false); }
+                })()}
+              >
+                {emailCodeSent ? 'Ещё раз' : 'Код'}
+              </button>
+            </div>
+          </>
+        )}
         <FormField
           label={t('loginName')}
           value={loginName}
@@ -988,6 +1064,23 @@ function AuthScreen({
               {t('forgotPassword')}
             </button>
           </div>
+        )}
+        {mode === 'in' && needEmailStepUp && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl p-3 flex flex-col gap-2"
+            style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
+            <p className="pv-caption" style={{ color: th.muted }}>
+              Вход из новой страны. Код отправлен{stepUpMasked ? ` на ${stepUpMasked}` : ' на почту'}.
+            </p>
+            <FormField
+              label="Код с почты"
+              value={emailCode}
+              onChange={setEmailCode}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              compact={desktop}
+              maxLength={6}
+            />
+          </motion.div>
         )}
         {mode === 'in' && needTotp && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl p-3"

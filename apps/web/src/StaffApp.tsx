@@ -36,7 +36,8 @@ function StaffLoginGate({ children }: { children: React.ReactNode }) {
   const th = useTh();
   const { toast } = useUi();
   const { logout } = useAuth();
-  const [password, setPassword] = useState('');
+  const [login, setLogin] = useState('');
+  const [totp, setTotp] = useState('');
   const [busy, setBusy] = useState(false);
 
   if (hasStaffAudience()) {
@@ -48,7 +49,7 @@ function StaffLoginGate({ children }: { children: React.ReactNode }) {
           <a href="https://www.polevka.art/" className="pv-caption" style={{ color: th.soft }}>К сайту</a>
           <button type="button" className="pv-caption" style={{ color: ACCENT }} onClick={() => void logout()}>Выйти</button>
         </header>
-        <div className="flex-1 min-h-0 overflow-hidden rounded-none" style={{ background: th.phoneBg }}>
+        <div className="flex-1 min-h-0 overflow-hidden" style={{ background: th.phoneBg }}>
           {children}
         </div>
       </div>
@@ -58,8 +59,8 @@ function StaffLoginGate({ children }: { children: React.ReactNode }) {
   const submit = async () => {
     setBusy(true);
     try {
-      const data = await apiStaffLogin(password) as {
-        token?: string; refreshToken?: string; user?: Record<string, unknown>;
+      const data = await apiStaffLogin(login.trim(), totp.trim()) as {
+        token?: string; user?: Record<string, unknown>;
       };
       const next = userFromApi(data.user) as SessionUser | null;
       if (!data.token || !next) throw Object.assign(new Error('Нет сессии'), { code: 'oauth_failed' });
@@ -67,8 +68,9 @@ function StaffLoginGate({ children }: { children: React.ReactNode }) {
       setAuthSession(String(data.token), next, true);
       window.location.reload();
     } catch (e: unknown) {
-      const err = e as { message?: string };
-      toast(err.message || 'Неверный пароль');
+      const err = e as { code?: string; message?: string };
+      if (err.code === 'totp_required') toast(err.message || 'Включите 2FA в кабинете на сайте');
+      else toast(err.message || 'Неверный логин или код');
     } finally {
       setBusy(false);
     }
@@ -85,27 +87,28 @@ function StaffLoginGate({ children }: { children: React.ReactNode }) {
           <div className="w-9 h-9"><BrandMark /></div>
           <div>
             <p className="pv-heading" style={{ color: th.inkText }}>Админка</p>
-            <p className="pv-micro" style={{ color: th.soft }}>www.polevka.art/staff</p>
+            <p className="pv-micro" style={{ color: th.soft }}>логин + аутентификатор</p>
           </div>
         </div>
         <label className="pv-label" style={{ color: th.soft }}>
-          Пароль админки
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            autoFocus
-            className="mt-1 w-full rounded-2xl px-4 py-2.5 outline-none"
-            style={{ background: th.phoneBg, color: th.inkText }}
-          />
+          Логин
+          <input value={login} onChange={(e) => setLogin(e.target.value)} autoComplete="username" autoFocus
+            className="mt-1 w-full rounded-2xl px-4 py-2.5 outline-none" style={{ background: th.phoneBg, color: th.inkText }} />
         </label>
-        <button type="submit" disabled={busy || !password} className="pv-button w-full min-h-11 rounded-2xl text-white mt-1"
-          style={{ background: ACCENT, opacity: busy || !password ? 0.7 : 1 }}>
+        <label className="pv-label" style={{ color: th.soft }}>
+          Код из приложения
+          <input value={totp} onChange={(e) => setTotp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            inputMode="numeric" autoComplete="one-time-code" maxLength={6}
+            className="mt-1 w-full rounded-2xl px-4 py-2.5 outline-none tracking-widest"
+            style={{ background: th.phoneBg, color: th.inkText }} />
+        </label>
+        <button type="submit" disabled={busy || !login.trim() || totp.length < 6}
+          className="pv-button w-full min-h-11 rounded-2xl text-white mt-1"
+          style={{ background: ACCENT, opacity: busy || !login.trim() || totp.length < 6 ? 0.7 : 1 }}>
           {busy ? '…' : 'Войти'}
         </button>
         <p className="pv-micro leading-snug" style={{ color: th.soft }}>
-          Отдельный пароль панели — не пароль аккаунта на сайте. Только HTTPS.
+          Пароль аккаунта не нужен. Сначала включите 2FA в кабинете на сайте.
         </p>
         <button type="button" className="pv-caption self-start" style={{ color: th.soft }}
           onClick={() => { clearAuthSession(); window.location.href = 'https://www.polevka.art/'; }}>
@@ -120,7 +123,7 @@ function StaffShell() {
   const { isLoggedIn } = useAuth();
   const { toast } = useUi();
   return (
-    <NavProvider isLoggedIn={isLoggedIn} onNeedAuth={() => toast('Нужен пароль админки')}>
+    <NavProvider isLoggedIn={isLoggedIn} onNeedAuth={() => toast('Нужен вход staff')}>
       <StaffLoginGate>
         <StaffScreen mode="host" onBack={() => { window.location.href = 'https://www.polevka.art/'; }} />
       </StaffLoginGate>

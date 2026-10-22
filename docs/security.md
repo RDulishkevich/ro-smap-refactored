@@ -60,7 +60,9 @@ Object Storage
 - Один **логин** — один аккаунт (`409 login_taken`). Имя/фамилия могут совпадать.
 - Один **подтверждённый** email — один аккаунт (OAuth не создаёт второй stub при том же email). Staff: `adminEmailConflicts`.
 - Opaque `userId` (`usr_…`) выдаётся при register/OAuth и backfill при login; в JWT как `uid`. См. [`docs/storage-layout.md`](storage-layout.md).
-- **Staff host:** https://www.polevka.art/staff/ — форма только с **паролем админки** (`STAFF_PANEL_PASSWORD`, иначе `ADMIN_PASSWORD`). Не пароль пользовательского аккаунта. `staffLogin` → JWT `aud: staff`. Admin-операции требуют `aud=staff`. В основном SPA — deep-link.
+- **Staff host:** https://www.polevka.art/staff/ — **логин + TOTP** (пароль не используется). Роли: `moderator` < `admin` < `owner`. JWT `aud: staff`. Удаление пользователей — только `owner`. В основном SPA — deep-link.
+- **Регистрация:** email + код до создания аккаунта. **OAuth** не перезаписывает существующий email.
+- **Вход с новой страны IP:** код на verified email (`needsEmailStepUp`). Обычный вход **без** TOTP.
 - **Access JWT** TTL **30 минут** (`typ: access`); **refresh JWT** TTL **14 суток** (`typ: refresh`) при «Запомнить меня»; иначе refresh — session cookie (`rm: 0` в JWT).
 - Быстрый вход с домашнего экрана: WebAuthn platform authenticator (Face ID / отпечаток / PIN) на устройстве; биометрия на сервер не уходит.
 - Оба токена в **HttpOnly** cookies (`rosmap_at` / `rosmap_rt`), `Secure; SameSite=None` (SPA на другом origin).

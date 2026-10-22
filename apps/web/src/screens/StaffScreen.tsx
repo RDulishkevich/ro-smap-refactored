@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
-  apiAdminDeleteUser, apiAdminEmailConflicts, apiAdminSendEmail, apiAdminUnbindEmail, apiSyncJson,
-  pendingSounds, rejectedSounds,
+  apiAdminDeleteUser, apiAdminEmailConflicts, apiAdminSendEmail, apiAdminUnbindEmail, apiGetSecurityEvents,
+  apiSyncJson, pendingSounds, rejectedSounds, roleAtLeast,
   SUPPORT_AVATAR, SUPPORT_LOGIN, SUPPORT_NAME, type Profile, type Sound,
 } from '@polevka/core';
 import { getRejectSuggestionChips } from '../../../../src/data/publishRules.js';
@@ -19,7 +19,7 @@ import { useIsDesktop } from '../lib/use-media';
 
 const ACCENT = color.accent;
 
-type Tab = 'sounds' | 'reports' | 'users' | 'tickets';
+type Tab = 'overview' | 'moderation' | 'reports' | 'users' | 'tickets' | 'analytics' | 'console';
 
 export function StaffScreen({ onBack, mode = 'gate' }: { onBack: () => void; mode?: 'gate' | 'host' }) {
   const th = useTh();
@@ -29,11 +29,12 @@ export function StaffScreen({ onBack, mode = 'gate' }: { onBack: () => void; mod
   const { user } = useAuth();
   const { toast, confirm } = useUi();
   const { push } = useNav();
-  const [tab, setTab] = useState<Tab>('sounds');
+  const [tab, setTab] = useState<Tab>('overview');
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<'all' | 'pending' | 'rejected' | 'published'>('pending');
   const chips = getRejectSuggestionChips() as Array<{ id: string; label: string; text: string }>;
-  const isAdmin = user?.role === 'admin';
+  const canAdmin = roleAtLeast(user?.role, 'admin');
+  const canOwner = roleAtLeast(user?.role, 'owner');
 
   const list = useMemo(() => {
     let s = allSounds.filter((x) => !x.deleted);
@@ -51,9 +52,11 @@ export function StaffScreen({ onBack, mode = 'gate' }: { onBack: () => void; mod
   const tickets = mail.flatMap((box) => (box.inbox || [])
     .filter((m) => m._ticket || m.ticketNumber)
     .map((m) => ({ box: box.loginName, msg: m })));
+  const pendingCount = pendingSounds(allSounds).length;
+  const publishedCount = allSounds.filter((x) => !x.deleted && (!x.status || x.status === 'published')).length;
+  const rejectedCount = rejectedSounds(allSounds).length;
 
   const openStaffHost = () => {
-    // Live path works today on Pages; staff.polevka.art when DNS CNAME is set.
     const url = import.meta.env.DEV
       ? `${window.location.origin}/staff.html`
       : 'https://www.polevka.art/staff/';
@@ -77,15 +80,15 @@ export function StaffScreen({ onBack, mode = 'gate' }: { onBack: () => void; mod
       const data = await apiAdminEmailConflicts() as {
         conflicts?: Array<{ email: string; accounts: Array<{ login: string; emailVerified?: boolean }> }>;
       };
-      const list = data.conflicts || [];
-      if (!list.length) {
+      const listC = data.conflicts || [];
+      if (!listC.length) {
         toast('Конфликтов email нет');
         return;
       }
-      const body = list.slice(0, 12).map((c) => `${c.email}: ${c.accounts.map((a) => a.login).join(', ')}`).join('\n');
+      const body = listC.slice(0, 12).map((c) => `${c.email}: ${c.accounts.map((a) => a.login).join(', ')}`).join('\n');
       await confirm({
-        title: `Конфликты email (${list.length})`,
-        body: `${body}${list.length > 12 ? '\n…' : ''}\n\nСнимите лишний email через «Отвязать» или объедините вручную.`,
+        title: `Конфликты email (${listC.length})`,
+        body: `${body}${listC.length > 12 ? '\n…' : ''}`,
         ok: 'Понятно',
       });
     } catch (e: unknown) {
@@ -93,11 +96,10 @@ export function StaffScreen({ onBack, mode = 'gate' }: { onBack: () => void; mod
     }
   };
 
-  /** In-app: deep-link only — full console lives on staff.polevka.art */
   if (mode === 'gate') {
     return (
       <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-        {!desktop && <ScreenHeader title="Модерация" onBack={onBack} />}
+        {!desktop && <ScreenHeader title="Staff" onBack={onBack} />}
         <div className={`${desktop ? 'p-6' : 'p-4'} flex flex-col gap-4`}>
           <div className="rounded-3xl px-4 py-5 flex flex-col gap-3" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
             <div className="flex items-center gap-2">
@@ -105,7 +107,7 @@ export function StaffScreen({ onBack, mode = 'gate' }: { onBack: () => void; mod
               <p className="pv-heading" style={{ color: th.inkText }}>Staff</p>
             </div>
             <p className="pv-body leading-snug" style={{ color: th.muted }}>
-              Откройте панель и введите пароль админки — вход в обычный аккаунт сайта не нужен.
+              Админка: логин + код из аутентификатора. Пароль аккаунта не нужен.
             </p>
             <p className="pv-caption" style={{ color: th.soft }}>www.polevka.art/staff</p>
             <button type="button" onClick={openStaffHost} className="pv-button w-full min-h-11 rounded-2xl text-white mt-1"
@@ -118,32 +120,58 @@ export function StaffScreen({ onBack, mode = 'gate' }: { onBack: () => void; mod
     );
   }
 
+  const tabs: Array<[Tab, string, boolean]> = [
+    ['overview', 'Обзор', true],
+    ['moderation', 'Модерация', true],
+    ['reports', 'Жалобы', true],
+    ['tickets', 'Поддержка', true],
+    ['users', 'Люди', canAdmin],
+    ['analytics', 'Аналитика', true],
+    ['console', 'Консоль', canOwner],
+  ];
+
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      {!desktop && <ScreenHeader title="Модерация" onBack={onBack} />}
+      {!desktop && <ScreenHeader title="Dashboard" onBack={onBack} />}
       <div className={`${desktop ? 'px-6 pt-4' : 'px-4 pt-2'} flex flex-col gap-2`}>
         <div className="rounded-2xl px-3 py-2.5 flex flex-wrap items-center gap-2" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
           <Shield size={16} color={ACCENT} />
           <p className="pv-caption flex-1" style={{ color: th.muted }}>
-            staff.polevka.art · {user?.role}
+            {user?.role === 'owner' ? 'Владелец' : user?.role === 'admin' ? 'Админ' : 'Модератор'} · @{user?.loginName}
           </p>
-          {isAdmin && (
+          {canAdmin && (
             <button type="button" onClick={() => void scanEmailConflicts()} className="pv-caption px-3 py-1.5 rounded-xl" style={{ background: th.lightBg, color: th.inkText }}>
               Конфликты email
             </button>
           )}
         </div>
-        <div className="flex gap-1.5">
-        {([['sounds', 'Звуки'], ['reports', 'Жалобы'], ['users', 'Люди'], ['tickets', 'Тикеты']] as const).map(([id, lab]) => (
-          <button key={id} onClick={() => setTab(id)} className="flex-1 py-2.5 rounded-2xl text-xs font-semibold"
-            style={{ background: tab === id ? ACCENT : th.lightBg, color: tab === id ? '#fff' : th.muted }}>{lab}</button>
-        ))}
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {tabs.filter(([, , on]) => on).map(([id, lab]) => (
+            <button key={id} onClick={() => setTab(id)} className="px-3 py-2 rounded-2xl text-xs font-semibold whitespace-nowrap"
+              style={{ background: tab === id ? ACCENT : th.lightBg, color: tab === id ? '#fff' : th.muted }}>{lab}</button>
+          ))}
         </div>
       </div>
       <div className={`${desktop ? 'p-6' : 'p-4'} overflow-y-auto flex-1`}>
-        <p className="text-xs mb-4" style={{ color: th.soft }}>{user?.role} · очередь {pendingSounds(allSounds).length} · жалоб {reported.length} · тикетов {tickets.length}</p>
+        {tab === 'overview' && (
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            {[
+              ['На модерации', pendingCount],
+              ['Жалобы', reported.length],
+              ['Тикеты', tickets.length],
+              ['Люди', profiles.length],
+              ['Опубликовано', publishedCount],
+              ['Отклонено', rejectedCount],
+            ].map(([lab, n]) => (
+              <div key={String(lab)} className="rounded-2xl p-3" style={{ background: th.cardBg }}>
+                <p className="pv-micro" style={{ color: th.soft }}>{lab}</p>
+                <p className="pv-heading" style={{ color: th.inkText }}>{n}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
-        {tab === 'sounds' && (
+        {tab === 'moderation' && (
           <>
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск" className="w-full rounded-2xl px-3 py-2.5 text-sm outline-none mb-3" style={{ background: th.cardBg, color: th.inkText }} />
             <div className="flex gap-1.5 mb-4 flex-wrap">
@@ -186,8 +214,7 @@ export function StaffScreen({ onBack, mode = 'gate' }: { onBack: () => void; mod
             {reported.map((s) => (
               <div key={String(s.id)} className="rounded-2xl p-3 mb-2" style={{ background: th.cardBg }}>
                 <p className="text-xs font-bold" style={{ color: th.inkText }}>{s.title}</p>
-                <p className="text-[10px] mb-2" style={{ color: th.muted }}>жалоб: {(s.reports as unknown[]).length}
-                  {(s.reports as Array<{ type?: string }>).some((r) => r?.type === 'comment') ? ' · есть на комментарии' : ''}</p>
+                <p className="text-[10px] mb-2" style={{ color: th.muted }}>жалоб: {(s.reports as unknown[]).length}</p>
                 <div className="flex gap-1.5">
                   <button className="text-[10px] font-semibold text-white px-3 py-2 rounded-xl" style={{ background: ACCENT }}
                     onClick={() => push({ type: 'sound-detail', sound: s })}>К записи</button>
@@ -200,19 +227,28 @@ export function StaffScreen({ onBack, mode = 'gate' }: { onBack: () => void; mod
           </>
         )}
 
-        {tab === 'users' && (
-          <UsersTab profiles={profiles} q={q} setQ={setQ} th={th} isAdmin={isAdmin} toast={toast} confirm={confirm}
-            saveProfile={saveProfile} />
+        {tab === 'users' && canAdmin && (
+          <UsersTab
+            profiles={profiles}
+            q={q}
+            setQ={setQ}
+            th={th}
+            canAdmin={canAdmin}
+            canOwner={canOwner}
+            toast={toast}
+            confirm={confirm}
+            saveProfile={saveProfile}
+          />
         )}
 
         {tab === 'tickets' && (
           <>
-            {tickets.map((t) => (
-              <div key={t.msg.id} className="rounded-2xl p-3 mb-2" style={{ background: th.cardBg }}>
-                <p className="text-xs font-bold" style={{ color: th.inkText }}>№{t.msg.ticketNumber || '—'} · {t.box}</p>
-                <p className="text-[10px] mb-2" style={{ color: th.muted }}>{t.msg.text}</p>
+            {tickets.map((row) => (
+              <div key={row.msg.id} className="rounded-2xl p-3 mb-2" style={{ background: th.cardBg }}>
+                <p className="text-xs font-bold" style={{ color: th.inkText }}>№{row.msg.ticketNumber || '—'} · {row.box}</p>
+                <p className="text-[10px] mb-2" style={{ color: th.muted }}>{row.msg.text}</p>
                 <button className="text-[10px] font-semibold text-white px-3 py-2 rounded-xl" style={{ background: ACCENT }}
-                  onClick={() => push({ type: 'conversation', name: t.box, avatar: '🛟', peer: t.box })}>Ответить как поддержка</button>
+                  onClick={() => push({ type: 'conversation', name: row.box, avatar: '🛟', peer: row.box })}>Ответить</button>
               </div>
             ))}
             {!tickets.length && <p className="text-xs" style={{ color: th.soft }}>Нет обращений</p>}
@@ -221,10 +257,35 @@ export function StaffScreen({ onBack, mode = 'gate' }: { onBack: () => void; mod
           </>
         )}
 
-        <div className="mt-4 rounded-2xl p-3 flex items-center gap-2" style={{ background: th.cardBg }}>
-          <Shield size={14} color={th.muted} />
-          <p className="text-[10px]" style={{ color: th.muted }}>Консоль CLI не переносится. Операции — кнопками. 2FA staff обязательна. Удаление аккаунта только admin.</p>
-        </div>
+        {tab === 'analytics' && (
+          <div className="flex flex-col gap-3">
+            <p className="pv-subtitle" style={{ color: th.inkText }}>Статусы звуков</p>
+            {[
+              ['Опубликовано', publishedCount, publishedCount + pendingCount + rejectedCount],
+              ['Очередь', pendingCount, publishedCount + pendingCount + rejectedCount],
+              ['Отклонено', rejectedCount, publishedCount + pendingCount + rejectedCount],
+            ].map(([lab, n, total]) => {
+              const pct = total ? Math.round((Number(n) / Number(total)) * 100) : 0;
+              return (
+                <div key={String(lab)}>
+                  <div className="flex justify-between pv-caption mb-1" style={{ color: th.muted }}>
+                    <span>{lab}</span><span>{n} · {pct}%</span>
+                  </div>
+                  <div className="h-2 rounded-full overflow-hidden" style={{ background: th.lightBg }}>
+                    <div className="h-full rounded-full" style={{ width: `${Math.max(pct, 2)}%`, background: ACCENT }} />
+                  </div>
+                </div>
+              );
+            })}
+            {!canAdmin && (
+              <p className="pv-micro mt-2" style={{ color: th.soft }}>Модератору доступна урезанная сводка.</p>
+            )}
+          </div>
+        )}
+
+        {tab === 'console' && canOwner && (
+          <ConsoleTab th={th} toast={toast} scanEmailConflicts={scanEmailConflicts} />
+        )}
       </div>
     </div>
   );
@@ -253,12 +314,13 @@ function SoundModRow({ s, th, chips, onOpen, onApprove, onReject, onDelete }: {
   );
 }
 
-function UsersTab({ profiles, q, setQ, th, isAdmin, toast, confirm, saveProfile }: {
+function UsersTab({ profiles, q, setQ, th, canAdmin, canOwner, toast, confirm, saveProfile }: {
   profiles: Profile[];
   q: string;
   setQ: (v: string) => void;
   th: ThemeTokens;
-  isAdmin: boolean;
+  canAdmin: boolean;
+  canOwner: boolean;
   toast: (m: string) => void;
   confirm: (o: { title: string; body: string; ok: string }) => Promise<boolean>;
   saveProfile: (p: Profile) => Promise<void>;
@@ -276,37 +338,47 @@ function UsersTab({ profiles, q, setQ, th, isAdmin, toast, confirm, saveProfile 
             <p className="text-xs font-bold" style={{ color: th.inkText }}>{p.displayName || login}</p>
             <p className="text-[10px] mb-2" style={{ color: th.muted }}>@{login} · {p.role || 'user'}{p.blocked ? ' · blocked' : ''}</p>
             <div className="flex flex-wrap gap-1.5">
-              <button className="text-[10px] px-2 py-1.5 rounded-xl" style={{ background: th.lightBg, color: th.muted }} onClick={() => void saveProfile({ ...p, blocked: !p.blocked }).then(() => toast(p.blocked ? 'Разблокирован' : 'Заблокирован'))}>
-                {p.blocked ? 'Разблок.' : 'Блок'}
-              </button>
-              {isAdmin && (
+              {canAdmin && (
+                <button className="text-[10px] px-2 py-1.5 rounded-xl" style={{ background: th.lightBg, color: th.muted }} onClick={() => void saveProfile({ ...p, blocked: !p.blocked }).then(() => toast(p.blocked ? 'Разблокирован' : 'Заблокирован'))}>
+                  {p.blocked ? 'Разблок.' : 'Блок'}
+                </button>
+              )}
+              {canAdmin && (
+                <button className="text-[10px] px-2 py-1.5 rounded-xl" style={{ background: th.lightBg, color: th.muted }} onClick={() => {
+                  const role = p.role === 'moderator' ? 'user' : 'moderator';
+                  void saveProfile({ ...p, role }).then(() => toast(`Роль: ${role}`));
+                }}>mod ↔ user</button>
+              )}
+              {canOwner && (
+                <button className="text-[10px] px-2 py-1.5 rounded-xl" style={{ background: th.lightBg, color: th.muted }} onClick={() => {
+                  const role = p.role === 'admin' ? 'moderator' : 'admin';
+                  void saveProfile({ ...p, role }).then(() => toast(`Роль: ${role}`));
+                }}>admin</button>
+              )}
+              {canAdmin && (
                 <>
-                  <button className="text-[10px] px-2 py-1.5 rounded-xl" style={{ background: th.lightBg, color: th.muted }} onClick={() => {
-                    const role = p.role === 'moderator' ? 'user' : 'moderator';
-                    void saveProfile({ ...p, role }).then(() => toast(`Роль: ${role}`));
-                  }}>Роль</button>
-                  <button className="text-[10px] px-2 py-1.5 rounded-xl" style={{ background: th.lightBg, color: th.muted }} onClick={() => {
-                    setEmailLogin(login);
-                  }}>Письмо</button>
+                  <button className="text-[10px] px-2 py-1.5 rounded-xl" style={{ background: th.lightBg, color: th.muted }} onClick={() => setEmailLogin(login)}>Письмо</button>
                   <button className="text-[10px] px-2 py-1.5 rounded-xl" style={{ background: th.lightBg, color: ACCENT }} onClick={() => void (async () => {
-                    const ok = await confirm({ title: `Снять email ${login}?`, body: 'Только admin.', ok: 'Снять' });
+                    const ok = await confirm({ title: `Снять email ${login}?`, body: 'admin+', ok: 'Снять' });
                     if (!ok) return;
                     try { await apiAdminUnbindEmail(login); toast('Email снят'); }
                     catch (e: unknown) { toast((e as Error).message); }
-                  })()}>Unbind email</button>
-                  <button className="text-[10px] px-2 py-1.5 rounded-xl" style={{ background: th.lightBg, color: ACCENT }} onClick={() => void (async () => {
-                    const ok = await confirm({ title: `Удалить ${login}?`, body: 'Необратимо.', ok: 'Удалить' });
-                    if (!ok) return;
-                    try { await apiAdminDeleteUser(login); toast('Удалён'); }
-                    catch (e: unknown) { toast((e as Error).message); }
-                  })()}>Удалить</button>
+                  })()}>Unbind</button>
                 </>
+              )}
+              {canOwner && (
+                <button className="text-[10px] px-2 py-1.5 rounded-xl" style={{ background: th.lightBg, color: ACCENT }} onClick={() => void (async () => {
+                  const ok = await confirm({ title: `Удалить ${login}?`, body: 'Только владелец. Необратимо.', ok: 'Удалить' });
+                  if (!ok) return;
+                  try { await apiAdminDeleteUser(login); toast('Удалён'); }
+                  catch (e: unknown) { toast((e as Error).message); }
+                })()}>Удалить</button>
               )}
             </div>
           </div>
         );
       })}
-      {isAdmin && (
+      {canAdmin && (
         <div className="mt-3 rounded-2xl p-3" style={{ background: th.cardBg }}>
           <p className="text-xs font-bold mb-2" style={{ color: th.inkText }}>Письмо на email</p>
           <input value={emailLogin} onChange={(e) => setEmailLogin(e.target.value)} placeholder="Логин" className="w-full rounded-xl px-3 py-2 text-xs outline-none mb-2" style={{ background: th.lightBg, color: th.inkText }} />
@@ -318,5 +390,46 @@ function UsersTab({ profiles, q, setQ, th, isAdmin, toast, confirm, saveProfile 
         </div>
       )}
     </>
+  );
+}
+
+function ConsoleTab({ th, toast, scanEmailConflicts }: {
+  th: ThemeTokens;
+  toast: (m: string) => void;
+  scanEmailConflicts: () => Promise<void>;
+}) {
+  const [events, setEvents] = useState<Array<{ type?: string; login?: string; at?: string }>>([]);
+  const [loaded, setLoaded] = useState(false);
+  const load = async () => {
+    try {
+      const data = await apiGetSecurityEvents() as { events?: Array<{ type?: string; login?: string; at?: string }> };
+      setEvents(data.events || []);
+      setLoaded(true);
+    } catch (e: unknown) {
+      toast((e as Error).message || 'Нет доступа');
+    }
+  };
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="pv-subtitle" style={{ color: th.inkText }}>Консоль владельца</p>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="pv-caption px-3 py-2 rounded-xl text-white" style={{ background: ACCENT }} onClick={() => void load()}>
+          Security events
+        </button>
+        <button type="button" className="pv-caption px-3 py-2 rounded-xl" style={{ background: th.lightBg, color: th.inkText }} onClick={() => void scanEmailConflicts()}>
+          Email conflicts
+        </button>
+      </div>
+      {loaded && (
+        <div className="rounded-2xl p-3 max-h-80 overflow-y-auto" style={{ background: th.cardBg }}>
+          {events.slice(0, 40).map((ev, i) => (
+            <p key={`${ev.at}-${i}`} className="pv-micro mb-1" style={{ color: th.muted }}>
+              {ev.at || '—'} · {ev.type || '?'} · {ev.login || ''}
+            </p>
+          ))}
+          {!events.length && <p className="pv-caption" style={{ color: th.soft }}>Пусто</p>}
+        </div>
+      )}
+    </div>
   );
 }

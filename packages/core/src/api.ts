@@ -1,5 +1,5 @@
 import { FUNCTION_URL, REFRESH_KEY, REMEMBER_KEY, TOKEN_KEY, USER_KEY } from './config';
-import type { SessionUser } from './types';
+import type { SessionUser, StaffRole } from './types';
 
 export type ApiError = Error & { code?: string; status?: number; data?: unknown };
 
@@ -159,11 +159,15 @@ export const apiRegister = (
   displayName?: string,
   pdConsent?: boolean,
   captchaToken?: string,
+  email?: string,
+  emailCode?: string,
 ) =>
   apiRequest('register', {
     login,
     password,
     displayName: displayName || login,
+    email: email || '',
+    emailCode: emailCode || '',
     ...(pdConsent ? { pdConsent: true, pdConsentAt: new Date().toISOString() } : {}),
     ...(captchaToken ? { captchaToken } : {}),
   });
@@ -316,13 +320,17 @@ export const apiAdminUnbindEmail = (login: string) =>
   apiRequest('adminUnbindEmail', { login }, { auth: true });
 export const apiAdminEmailConflicts = () =>
   apiRequest('adminEmailConflicts', {}, { auth: true });
-/** Password-only staff panel unlock. Optional login keeps legacy admin/moderator path. */
-export const apiStaffLogin = (password: string, opts?: { login?: string; totp?: string }) =>
-  apiRequest('staffLogin', {
-    password,
-    ...(opts?.login ? { login: opts.login } : {}),
-    ...(opts?.totp ? { totp: opts.totp } : {}),
+/** Staff panel: login + TOTP only (no password). */
+export const apiStaffLogin = (login: string, totp: string) =>
+  apiRequest('staffLogin', { login, totp, rememberMe: true });
+export const apiRequestRegisterEmail = (email: string, captchaToken?: string) =>
+  apiRequest('requestRegisterEmail', { email, ...(captchaToken ? { captchaToken } : {}) });
+export const apiConfirmLoginEmailStepUp = (login: string, code: string, captchaToken?: string) =>
+  apiRequest('confirmLoginEmailStepUp', {
+    login,
+    code,
     rememberMe: true,
+    ...(captchaToken ? { captchaToken } : {}),
   });
 export const apiTranslate = (texts: string | string[], sourceLanguageCode = 'ru', targetLanguageCode = 'en') =>
   apiRequest('translate', { texts, sourceLanguageCode, targetLanguageCode }, { auth: true });
@@ -358,7 +366,22 @@ export const apiDeletePushSubscription = (endpoint?: string) =>
 
 export function normalizeRole(role: unknown): SessionUser['role'] {
   const r = String(role || '').toLowerCase();
-  return r === 'admin' || r === 'moderator' ? r : 'user';
+  if (r === 'owner' || r === 'superadmin') return 'owner';
+  if (r === 'admin') return 'admin';
+  if (r === 'moderator') return 'moderator';
+  return 'user';
+}
+
+export function roleRank(role: unknown): number {
+  const r = normalizeRole(role);
+  if (r === 'owner') return 3;
+  if (r === 'admin') return 2;
+  if (r === 'moderator') return 1;
+  return 0;
+}
+
+export function roleAtLeast(role: unknown, min: StaffRole): boolean {
+  return roleRank(role) >= roleRank(min);
 }
 
 export function userFromApi(user: Record<string, unknown> | undefined | null): SessionUser | null {

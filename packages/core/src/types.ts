@@ -1,4 +1,4 @@
-export type StaffRole = 'admin' | 'moderator' | 'user';
+export type StaffRole = 'owner' | 'admin' | 'moderator' | 'user';
 
 export type Comment = {
   id: string;
