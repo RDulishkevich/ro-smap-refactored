@@ -59,6 +59,8 @@ const PRIVATE_BUCKET = process.env.PRIVATE_BUCKET || 'rosmap2026-private';
 const ENDPOINT = process.env.STORAGE_ENDPOINT || 'https://storage.yandexcloud.net';
 const JWT_SECRET = process.env.JWT_SECRET || '';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+/** Separate password for /staff panel (preferred). Falls back to ADMIN_PASSWORD. */
+const STAFF_PANEL_PASSWORD = process.env.STAFF_PANEL_PASSWORD || '';
 const DEFAULT_ALLOWED_ORIGINS = [
     'https://polevka.art',
     'https://www.polevka.art',
@@ -1527,23 +1529,85 @@ async function handleAdminEmailConflicts(event, body) {
     return respond(200, { ok: true, conflicts, totalEmails: byEmail.size });
 }
 
+function secretPasswordEquals(provided, expected) {
+    const a = Buffer.from(String(provided || ''), 'utf8');
+    const b = Buffer.from(String(expected || ''), 'utf8');
+    if (!expected || !a.length || a.length !== b.length) {
+        try {
+            const dummy = Buffer.alloc(32);
+            crypto.timingSafeEqual(dummy, dummy);
+        } catch (_) { /* ignore */ }
+        return false;
+    }
+    return crypto.timingSafeEqual(a, b);
+}
+
+async function issueStaffSession(event, user, extras = {}) {
+    const remember = extras.rememberMe !== false;
+    const pair = sessionSec.issueTokenPair(signJwt, user, remember, { aud: 'staff' });
+    const cookies = sessionSec.sessionCookiesFor(
+        event,
+        getHeader,
+        pair.access,
+        pair.refresh,
+        pair.accessTtl,
+        pair.refreshTtl
+    );
+    await sessionSec.appendSecurityEvent(putJson, getJson, {
+        type: 'staff_login_ok',
+        login: user.login,
+        via: extras.via || 'staff',
+    });
+    return respond(200, {
+        ok: true,
+        token: pair.access,
+        refreshToken: remember ? pair.refresh : undefined,
+        tokenExpiresIn: pair.accessTtl,
+        rememberMe: remember,
+        user: { ...publicUser(user), totpEnabled: !!extras.totpEnabled },
+    }, { cookies });
+}
+
+/**
+ * Staff panel gate: password-only unlock (STAFF_PANEL_PASSWORD or ADMIN_PASSWORD).
+ * Optional fallback: login+password for admin/moderator accounts.
+ */
 async function handleStaffLogin(event, body) {
     const captchaBlock = await assertSmartCaptcha(event, body);
     if (captchaBlock) return captchaBlock;
-    const login = normalizeLogin(body.login || body.username);
     const password = String(body.password || '');
-    if (!login || !password) return respond(400, { ok: false, error: 'missing_fields' });
+    if (!password) return respond(400, { ok: false, error: 'missing_fields', message: 'Введите пароль админки' });
+
+    const panelSecret = STAFF_PANEL_PASSWORD || ADMIN_PASSWORD;
+    const loginHint = normalizeLogin(body.login || body.username);
+
+    // Preferred path: one panel password, no site account required.
+    if (panelSecret && secretPasswordEquals(password, panelSecret) && !loginHint) {
+        const users = await loadAuthUsers();
+        const row = users.admin || {};
+        return issueStaffSession(event, {
+            login: 'admin',
+            userId: row.userId || undefined,
+            role: 'admin',
+            displayName: row.displayName || 'Admin',
+            tokenVersion: Number(row.tokenVersion || 0) || 0,
+        }, { rememberMe: body.rememberMe !== false, via: 'panel_password', totpEnabled: !!row.totpEnabled });
+    }
+
+    if (!loginHint) {
+        return respond(401, { ok: false, error: 'bad_credentials', message: 'Неверный пароль админки' });
+    }
 
     const users = await loadAuthUsers();
-    const row = users[login];
+    const row = users[loginHint];
     if (!row || !verifyPassword(password, row.salt, row.hash)) {
-        if (login === 'admin' && ADMIN_PASSWORD && password === ADMIN_PASSWORD) {
-            /* fall through with bootstrap admin */
+        if (loginHint === 'admin' && ADMIN_PASSWORD && secretPasswordEquals(password, ADMIN_PASSWORD)) {
+            /* bootstrap admin */
         } else {
             return respond(401, { ok: false, error: 'bad_credentials' });
         }
     }
-    const role = normalizeStaffRole(row?.role || (login === 'admin' ? 'admin' : 'user'), login);
+    const role = normalizeStaffRole(row?.role || (loginHint === 'admin' ? 'admin' : 'user'), loginHint);
     if (role !== 'admin' && role !== 'moderator') {
         return respond(403, { ok: false, error: 'forbidden', message: 'Только сотрудники' });
     }
@@ -1555,31 +1619,13 @@ async function handleStaffLogin(event, body) {
             return respond(401, { ok: false, error: 'bad_totp' });
         }
     }
-    const user = {
-        login,
+    return issueStaffSession(event, {
+        login: loginHint,
         userId: row?.userId || null,
         role,
-        displayName: row?.displayName || login,
+        displayName: row?.displayName || loginHint,
         tokenVersion: Number(row?.tokenVersion || 0) || 0,
-    };
-    const remember = body.rememberMe !== false;
-    const pair = sessionSec.issueTokenPair(signJwt, user, remember, { aud: 'staff' });
-    const cookies = sessionSec.sessionCookiesFor(
-        event,
-        getHeader,
-        pair.access,
-        pair.refresh,
-        pair.accessTtl,
-        pair.refreshTtl
-    );
-    return respond(200, {
-        ok: true,
-        token: pair.access,
-        refreshToken: remember ? pair.refresh : undefined,
-        tokenExpiresIn: pair.accessTtl,
-        rememberMe: remember,
-        user: { ...publicUser(user), totpEnabled: !!row?.totpEnabled },
-    }, { cookies });
+    }, { rememberMe: body.rememberMe !== false, via: 'staff_user', totpEnabled: !!row?.totpEnabled });
 }
 
 function recordTime(item) {
@@ -2828,6 +2874,8 @@ async function handleLogin(event, body) {
 
 async function assertStaffTotp(authUser) {
     if (!isStaffUser(authUser)) return null;
+    // /staff panel sessions already unlocked with STAFF_PANEL_PASSWORD / ADMIN_PASSWORD
+    if (authUser.aud === 'staff') return null;
     const users = await loadAuthUsers();
     const row = users[authUser.login];
     if (row?.totpEnabled) return null;
@@ -4539,7 +4587,7 @@ exports.handler = async function handler(event = {}) {
     if (action === 'health') {
         return respond(200, {
             ok: true,
-            version: 35,
+            version: 36,
             ydb: ydbDoc.enabled(),
             vapid: webPush.configured(),
             ucsAi: ucsSuggest.configured(),

@@ -35,15 +35,11 @@ function hasStaffAudience() {
 function StaffLoginGate({ children }: { children: React.ReactNode }) {
   const th = useTh();
   const { toast } = useUi();
-  const { user, logout } = useAuth();
-  const [login, setLogin] = useState('');
+  const { logout } = useAuth();
   const [password, setPassword] = useState('');
-  const [totp, setTotp] = useState('');
   const [busy, setBusy] = useState(false);
-  const [needTotp, setNeedTotp] = useState(false);
 
-  const isStaff = user?.role === 'admin' || user?.role === 'moderator';
-  if (isStaff && hasStaffAudience()) {
+  if (hasStaffAudience()) {
     return (
       <div className="h-dvh w-screen flex flex-col" style={{ background: th.isDark ? '#000' : '#F3F4F6' }}>
         <header className="flex items-center gap-3 px-5 h-14 flex-shrink-0" style={{ background: th.cardBg, borderBottom: `1px solid ${th.border}` }}>
@@ -62,9 +58,8 @@ function StaffLoginGate({ children }: { children: React.ReactNode }) {
   const submit = async () => {
     setBusy(true);
     try {
-      const data = await apiStaffLogin(login.trim(), password, totp.trim() || undefined) as {
+      const data = await apiStaffLogin(password) as {
         token?: string; refreshToken?: string; user?: Record<string, unknown>;
-        error?: string;
       };
       const next = userFromApi(data.user) as SessionUser | null;
       if (!data.token || !next) throw Object.assign(new Error('Нет сессии'), { code: 'oauth_failed' });
@@ -72,13 +67,8 @@ function StaffLoginGate({ children }: { children: React.ReactNode }) {
       setAuthSession(String(data.token), next, true);
       window.location.reload();
     } catch (e: unknown) {
-      const err = e as { code?: string; message?: string };
-      if (err.code === 'totp_required') {
-        setNeedTotp(true);
-        toast('Введите код 2FA');
-      } else {
-        toast(err.message || 'Ошибка входа');
-      }
+      const err = e as { message?: string };
+      toast(err.message || 'Неверный пароль');
     } finally {
       setBusy(false);
     }
@@ -94,33 +84,28 @@ function StaffLoginGate({ children }: { children: React.ReactNode }) {
         <div className="flex items-center gap-2 mb-1">
           <div className="w-9 h-9"><BrandMark /></div>
           <div>
-            <p className="pv-heading" style={{ color: th.inkText }}>Staff</p>
-            <p className="pv-micro" style={{ color: th.soft }}>Staff · /staff</p>
+            <p className="pv-heading" style={{ color: th.inkText }}>Админка</p>
+            <p className="pv-micro" style={{ color: th.soft }}>www.polevka.art/staff</p>
           </div>
         </div>
         <label className="pv-label" style={{ color: th.soft }}>
-          Логин
-          <input value={login} onChange={(e) => setLogin(e.target.value)} autoComplete="username"
-            className="mt-1 w-full rounded-2xl px-4 py-2.5 outline-none" style={{ background: th.phoneBg, color: th.inkText }} />
+          Пароль админки
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            autoFocus
+            className="mt-1 w-full rounded-2xl px-4 py-2.5 outline-none"
+            style={{ background: th.phoneBg, color: th.inkText }}
+          />
         </label>
-        <label className="pv-label" style={{ color: th.soft }}>
-          Пароль
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password"
-            className="mt-1 w-full rounded-2xl px-4 py-2.5 outline-none" style={{ background: th.phoneBg, color: th.inkText }} />
-        </label>
-        {needTotp && (
-          <label className="pv-label" style={{ color: th.soft }}>
-            Код 2FA
-            <input value={totp} onChange={(e) => setTotp(e.target.value)} inputMode="numeric" autoComplete="one-time-code"
-              className="mt-1 w-full rounded-2xl px-4 py-2.5 outline-none" style={{ background: th.phoneBg, color: th.inkText }} />
-          </label>
-        )}
-        <button type="submit" disabled={busy} className="pv-button w-full min-h-11 rounded-2xl text-white mt-1"
-          style={{ background: ACCENT, opacity: busy ? 0.7 : 1 }}>
-          {busy ? '…' : 'Войти в админку'}
+        <button type="submit" disabled={busy || !password} className="pv-button w-full min-h-11 rounded-2xl text-white mt-1"
+          style={{ background: ACCENT, opacity: busy || !password ? 0.7 : 1 }}>
+          {busy ? '…' : 'Войти'}
         </button>
         <p className="pv-micro leading-snug" style={{ color: th.soft }}>
-          Нужен staff-вход (не обычная сессия сайта). Пароль только по HTTPS.
+          Отдельный пароль панели — не пароль аккаунта на сайте. Только HTTPS.
         </p>
         <button type="button" className="pv-caption self-start" style={{ color: th.soft }}
           onClick={() => { clearAuthSession(); window.location.href = 'https://www.polevka.art/'; }}>
@@ -135,7 +120,7 @@ function StaffShell() {
   const { isLoggedIn } = useAuth();
   const { toast } = useUi();
   return (
-    <NavProvider isLoggedIn={isLoggedIn} onNeedAuth={() => toast('Нужен staff-вход')}>
+    <NavProvider isLoggedIn={isLoggedIn} onNeedAuth={() => toast('Нужен пароль админки')}>
       <StaffLoginGate>
         <StaffScreen mode="host" onBack={() => { window.location.href = 'https://www.polevka.art/'; }} />
       </StaffLoginGate>

@@ -105,9 +105,9 @@ export function StaffScreen({ onBack, mode = 'gate' }: { onBack: () => void; mod
               <p className="pv-heading" style={{ color: th.inkText }}>Staff</p>
             </div>
             <p className="pv-body leading-snug" style={{ color: th.muted }}>
-              Модерация, жалобы и опасные операции — только на отдельном хосте с staff-сессией.
+              Откройте панель и введите пароль админки — вход в обычный аккаунт сайта не нужен.
             </p>
-            <p className="pv-caption" style={{ color: th.soft }}>www.polevka.art/staff · JWT aud: staff</p>
+            <p className="pv-caption" style={{ color: th.soft }}>www.polevka.art/staff</p>
             <button type="button" onClick={openStaffHost} className="pv-button w-full min-h-11 rounded-2xl text-white mt-1"
               style={{ background: ACCENT }}>
               Открыть админку

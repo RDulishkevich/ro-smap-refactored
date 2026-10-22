@@ -1,16 +1,23 @@
-# DNS для staff.polevka.art (опционально)
+# Staff-панель Полёвки
 
-Сейчас админка живёт на **https://www.polevka.art/staff/** — отдельный поддомен не обязателен.
+## Как войти
 
-Чтобы включить `https://staff.polevka.art/`:
+1. Открой **https://www.polevka.art/staff/**
+2. Введи **пароль админки** (не логин/пароль обычного аккаунта на сайте).
+3. Готово — сессия только для панели (`aud: staff`).
 
-1. В DNS домена `polevka.art` (Reg.ru / где A/CNAME для www):
-   - тип **CNAME**
-   - хост: `staff`
-   - значение: `rdulishkevich.github.io`
-   - TTL: 3600 или Auto
-2. GitHub → repo → Settings → Pages → Custom domain → добавить `staff.polevka.art` (рядом с www).
-3. Дождаться зелёного DNS check + HTTPS.
-4. Проверка: `Resolve-DnsName staff.polevka.art -Type CNAME` → `rdulishkevich.github.io`.
+Пароль на сервере: env `STAFF_PANEL_PASSWORD`. Если не задан — используется `ADMIN_PASSWORD` (тот же bootstrap, что для admin).
 
-Не трогать A/AAAA apex и CNAME `www` — только новая запись `staff`.
+Задать отдельный пароль (на машине с `yc`, значение не светить в чат):
+
+```powershell
+# пример: перед deploy-api.ps1
+$env:STAFF_PANEL_PASSWORD = "…"   # только локально
+# или дописать ключ в envMap внутри deploy / yc version create --environment
+```
+
+## DNS staff.polevka.art (опционально)
+
+Сейчас достаточно `/staff/` на www. Отдельный поддомен упирается в SSL GitHub Pages (сертификат на www).
+
+Если всё же нужен CNAME: хост `staff` → `rdulishkevich.github.io` (уже может быть в DNS), но HTTPS без своего cert/Cloudflare не заведётся, пока custom domain в Pages — `www`.

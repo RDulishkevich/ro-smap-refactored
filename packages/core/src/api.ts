@@ -316,8 +316,14 @@ export const apiAdminUnbindEmail = (login: string) =>
   apiRequest('adminUnbindEmail', { login }, { auth: true });
 export const apiAdminEmailConflicts = () =>
   apiRequest('adminEmailConflicts', {}, { auth: true });
-export const apiStaffLogin = (login: string, password: string, totp?: string) =>
-  apiRequest('staffLogin', { login, password, ...(totp ? { totp } : {}), rememberMe: true });
+/** Password-only staff panel unlock. Optional login keeps legacy admin/moderator path. */
+export const apiStaffLogin = (password: string, opts?: { login?: string; totp?: string }) =>
+  apiRequest('staffLogin', {
+    password,
+    ...(opts?.login ? { login: opts.login } : {}),
+    ...(opts?.totp ? { totp: opts.totp } : {}),
+    rememberMe: true,
+  });
 export const apiTranslate = (texts: string | string[], sourceLanguageCode = 'ru', targetLanguageCode = 'en') =>
   apiRequest('translate', { texts, sourceLanguageCode, targetLanguageCode }, { auth: true });
 
