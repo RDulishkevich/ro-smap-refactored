@@ -463,7 +463,9 @@ function authSuccessResponse(user, extra = {}) {
     const remember = extra.rememberMe !== undefined
         ? extra.rememberMe !== false
         : rememberFromRequest(__reqEvent, {});
-    const pair = sessionSec.issueTokenPair(signJwt, user, remember);
+    // Preserve staff audience across me/refresh so /staff does not bounce after login.
+    const aud = extra.aud || user?.aud || undefined;
+    const pair = sessionSec.issueTokenPair(signJwt, user, remember, aud ? { aud: String(aud) } : {});
     const cookies = sessionSec.sessionCookiesFor(
         __reqEvent,
         getHeader,
@@ -472,7 +474,7 @@ function authSuccessResponse(user, extra = {}) {
         pair.accessTtl,
         pair.refreshTtl
     );
-    const { rememberMe: _rm, ...rest } = extra;
+    const { rememberMe: _rm, aud: _aud, ...rest } = extra;
     return respond(200, {
         ok: true,
         token: pair.access,
@@ -3337,7 +3339,8 @@ async function handleRefresh(event, body) {
         login: payload.login,
         typ: 'access',
         tv,
-        displayName: row.displayName
+        displayName: row.displayName,
+        ...(payload.aud ? { aud: payload.aud } : {}),
     });
     if (!authUser || authUser.blocked) {
         return respond(authUser?.blocked ? 403 : 401, {
@@ -3345,7 +3348,10 @@ async function handleRefresh(event, body) {
             error: authUser?.blocked ? 'blocked' : 'unauthorized'
         }, { cookies: sessionSec.clearSessionCookies(event, getHeader) });
     }
-    return authSuccessResponse(authUser, { rememberMe: payload.rm !== 0 });
+    return authSuccessResponse(authUser, {
+        rememberMe: payload.rm !== 0,
+        ...(payload.aud ? { aud: payload.aud } : {}),
+    });
 }
 
 async function handleLogout(event, body) {
@@ -4837,7 +4843,7 @@ exports.handler = async function handler(event = {}) {
     if (action === 'health') {
         return respond(200, {
             ok: true,
-            version: 37,
+            version: 38,
             ydb: ydbDoc.enabled(),
             vapid: webPush.configured(),
             ucsAi: ucsSuggest.configured(),

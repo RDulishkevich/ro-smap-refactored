@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
-  apiStaffLogin, clearAuthSession, getAuthToken, setAuthSession, setRememberMe,
-  userFromApi, type SessionUser,
+  apiStaffLogin, clearAuthSession, getAuthToken, setAuthSession, setCookieConsent,
+  setRememberMe, userFromApi, type SessionUser,
 } from '@polevka/core';
 import { color } from '@polevka/design';
 import { ThemeProvider, useTh } from './state/ThemeContext';
@@ -10,6 +10,7 @@ import { UiProvider, useUi } from './state/UiContext';
 import { AuthProvider, useAuth } from './state/AuthContext';
 import { DataProvider } from './state/DataContext';
 import { NavProvider } from './state/NavContext';
+import { CookieBanner } from './primitives/CookieBanner';
 import { StaffScreen } from './screens/StaffScreen';
 import BrandMark from '@/brand/BrandMark';
 
@@ -64,6 +65,8 @@ function StaffLoginGate({ children }: { children: React.ReactNode }) {
       };
       const next = userFromApi(data.user) as SessionUser | null;
       if (!data.token || !next) throw Object.assign(new Error('Нет сессии'), { code: 'oauth_failed' });
+      // AuthProvider clears tokens without consent=all; staff needs a session cookie.
+      setCookieConsent('all');
       setRememberMe(true);
       setAuthSession(String(data.token), next, true);
       window.location.reload();
@@ -139,6 +142,7 @@ export function StaffApp() {
           <AuthProvider>
             <DataProvider>
               <StaffShell />
+              <CookieBanner />
             </DataProvider>
           </AuthProvider>
         </UiProvider>
