@@ -1,8 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import {
   apiAdminEmailConflicts, apiGetSecurityEvents, apiSyncJson,
-  pendingSounds, rejectedSounds, roleAtLeast,
-  SUPPORT_AVATAR, SUPPORT_LOGIN, SUPPORT_NAME,
+  pendingSounds, rejectedSounds, roleAtLeast, supportDeskPeers,
+  SUPPORT_LOGIN, SUPPORT_NAME, SUPPORT_AVATAR,
   type Profile, type Sound,
 } from '@polevka/core';
 import { color, type ThemeTokens } from '@polevka/design';
@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { getRejectSuggestionChips } from '../../../../src/data/publishRules.js';
 import { EmptyNote } from '../primitives/EmptyNote';
-import { MessagesScreen } from '../screens/stack';
 import { useAuth } from '../state/AuthContext';
 import { useData } from '../state/DataContext';
 import { useNav } from '../state/NavContext';
@@ -323,42 +322,77 @@ export function ReportsModule({ onFocus }: { onFocus: (s: Sound | null) => void 
 
 export function InboxModule() {
   const th = useTh();
-  const { mail } = useData();
+  const { mail, profiles } = useData();
   const { push } = useNav();
-  const tickets = mail.flatMap((box) => (box.inbox || [])
+  const [q, setQ] = useState('');
+  const desk = supportDeskPeers(mail, profiles);
+  const filtered = desk.filter((p) => {
+    if (!q.trim()) return true;
+    const n = q.trim().toLowerCase();
+    return p.name.toLowerCase().includes(n) || p.login.toLowerCase().includes(n) || (p.lastText || '').toLowerCase().includes(n);
+  });
+  const tickets = (mail.find((b) => b.loginName === SUPPORT_LOGIN)?.inbox || [])
     .filter((m) => m._ticket || m.ticketNumber)
-    .map((m) => ({ box: box.loginName, msg: m })));
+    .map((m) => ({ from: String(m.fromId || ''), msg: m }));
+
+  const openSupportChat = (login: string, name: string, avatar: string) => {
+    push({
+      type: 'conversation',
+      name,
+      avatar,
+      peer: login,
+      asLogin: SUPPORT_LOGIN,
+    });
+  };
 
   return (
     <div className="flex flex-col gap-4 h-full min-h-0">
-      <div className="flex items-end justify-between gap-3 flex-shrink-0">
-        <div>
-          <p className="pv-page" style={{ color: th.inkText }}>Сообщения</p>
-          <p className="pv-caption mt-1" style={{ color: th.muted }}>Тикеты и переписки</p>
-        </div>
-        <button type="button" className="pv-caption px-3 py-2 rounded-2xl text-white" style={{ background: ACCENT }}
-          onClick={() => push({ type: 'conversation', name: SUPPORT_NAME, avatar: SUPPORT_AVATAR, peer: SUPPORT_LOGIN })}>
-          Поддержка
-        </button>
+      <div className="flex-shrink-0">
+        <p className="pv-page" style={{ color: th.inkText }}>Сообщения</p>
+        <p className="pv-caption mt-1" style={{ color: th.muted }}>
+          От лица «{SUPPORT_NAME}» — обращения в поддержку, не личные чаты сотрудника
+        </p>
       </div>
 
       {tickets.length > 0 && (
         <div className="flex flex-col gap-2 flex-shrink-0">
           <p className="pv-subtitle" style={{ color: th.inkText }}>Тикеты ({tickets.length})</p>
-          {tickets.slice(0, 20).map((row) => (
+          {tickets.slice(0, 16).map((row) => (
             <button key={row.msg.id} type="button"
               className="rounded-2xl p-3 text-left"
               style={{ background: th.cardBg, border: `1px solid ${th.border}` }}
-              onClick={() => push({ type: 'conversation', name: row.box, avatar: '🛟', peer: row.box })}>
-              <p className="pv-caption" style={{ color: th.inkText }}>№{row.msg.ticketNumber || '—'} · {row.box}</p>
+              onClick={() => openSupportChat(row.from, row.from, SUPPORT_AVATAR)}>
+              <p className="pv-caption" style={{ color: th.inkText }}>№{row.msg.ticketNumber || '—'} · @{row.from}</p>
               <p className="pv-micro mt-1 line-clamp-2" style={{ color: th.muted }}>{row.msg.text}</p>
             </button>
           ))}
         </div>
       )}
 
-      <div className="flex-1 min-h-[280px] rounded-3xl overflow-hidden" style={{ border: `1px solid ${th.border}` }}>
-        <MessagesScreen embed />
+      <label className="flex items-center gap-2 h-11 rounded-2xl px-3.5 flex-shrink-0" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
+        <Search size={16} color={th.soft} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Поиск по обращениям"
+          className="flex-1 min-w-0 bg-transparent outline-none pv-caption" style={{ color: th.inkText }} />
+      </label>
+
+      <div className="flex-1 overflow-y-auto flex flex-col gap-1.5 pb-2">
+        {filtered.map((p) => (
+          <button key={p.login} type="button"
+            className="rounded-2xl px-3 py-3 text-left flex gap-3 items-center"
+            style={{ background: th.cardBg, border: `1px solid ${th.border}` }}
+            onClick={() => openSupportChat(p.login, p.name, p.avatar || SUPPORT_AVATAR)}>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{p.name}</p>
+                {p.unread > 0 && (
+                  <span className="pv-micro px-1.5 py-0.5 rounded-full text-white" style={{ background: ACCENT }}>{p.unread}</span>
+                )}
+              </div>
+              <p className="pv-micro truncate" style={{ color: th.muted }}>@{p.login} · {p.lastText || '—'}</p>
+            </div>
+          </button>
+        ))}
+        {!filtered.length && <EmptyNote title="Нет обращений" hint="Когда пользователи напишут в поддержку — чаты появятся здесь" />}
       </div>
     </div>
   );

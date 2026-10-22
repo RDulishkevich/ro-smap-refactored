@@ -83,7 +83,7 @@ export function ScreenContent({ screen, onBack }: { screen: ScreenConfig; onBack
     case 'record': return <RecordScreen onBack={onBack} />;
     case 'add-sound': return <AddSoundScreen onBack={onBack} edit={screen.edit} />;
     case 'messages': return <MessagesScreen onBack={onBack} />;
-    case 'conversation': return <ConversationScreen name={screen.name} avatar={screen.avatar} peer={screen.peer} onBack={onBack} />;
+    case 'conversation': return <ConversationScreen name={screen.name} avatar={screen.avatar} peer={screen.peer} asLogin={screen.asLogin} onBack={onBack} />;
     case 'notifications': return <NotificationsScreen onBack={onBack} />;
     case 'search': return <SearchScreen onBack={onBack} />;
     case 'edit-profile': return <EditProfileScreen onBack={onBack} />;

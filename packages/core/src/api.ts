@@ -359,6 +359,27 @@ export const apiTotpConfirm = (totpCode: string) => apiRequest('totpConfirm', { 
 export const apiTotpDisable = (password: string, totpCode: string) =>
   apiRequest('totpDisable', { password, totpCode }, { auth: true });
 export const apiGetSecurityEvents = () => apiRequest('getSecurityEvents', {}, { auth: true });
+export const apiStaffUserDossier = (login: string) =>
+  apiRequest('staffUserDossier', { login }, { auth: true });
+
+export function readJwtAud(token?: string): string | null {
+  try {
+    const raw = token || getAuthToken();
+    if (!raw) return null;
+    const part = raw.split('.')[1];
+    if (!part) return null;
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
+    const payload = JSON.parse(json) as { aud?: string };
+    return payload.aud ? String(payload.aud) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** True only with JWT from staffLogin (aud=staff). Role alone is not enough. */
+export function hasStaffAudience(token?: string): boolean {
+  return readJwtAud(token) === 'staff';
+}
 export const apiSavePushSubscription = (subscription: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
   apiRequest('savePushSubscription', { subscription }, { auth: true });
 export const apiDeletePushSubscription = (endpoint?: string) =>

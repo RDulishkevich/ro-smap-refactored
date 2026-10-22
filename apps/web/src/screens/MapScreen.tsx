@@ -26,7 +26,7 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
   const { push } = useNav();
   const { openMenu, toast, confirm } = useUi();
   const { prefs } = usePrefs();
-  const { isLoggedIn, isStaff } = useAuth();
+  const { isLoggedIn, isStaffSession } = useAuth();
   const th = useTh();
   const mapChromeBg = th.isDark ? '#F2F2F2' : th.cardBg;
   const mapChromeInk = th.isDark ? '#1A1A1A' : th.muted;
@@ -59,7 +59,7 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
         { label: 'Слушать', onClick: () => togglePlay(s) },
         { label: 'Подробнее', onClick: () => push({ type: 'sound-detail', sound: s }) },
       ];
-      if (isStaff && s.status === 'pending') {
+      if (isStaffSession && s.status === 'pending') {
         items.push(
           { label: 'Одобрить', onClick: () => {
             void (async () => {
@@ -91,7 +91,7 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
         push({ type: 'add-sound' });
       } },
     ], 'Карта', at);
-  }, [setActive, togglePlay, push, isStaff, isLoggedIn, setPickedPoint, toast, openMenu, reload, confirm]);
+  }, [setActive, togglePlay, push, isStaffSession, isLoggedIn, setPickedPoint, toast, openMenu, reload, confirm]);
 
   const routes = useMemo(() => {
     if (routePreview.length) return routePreview;
@@ -112,7 +112,7 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
       toast('Точка маршрута добавлена');
       return;
     }
-    if (sound && isStaff) {
+    if (sound && isStaffSession) {
       setActive(sound);
       return;
     }
@@ -124,12 +124,12 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
     setPickedPoint(pt);
     push({ type: 'add-sound' });
     toast('Точка для публикации');
-  }, [pickMode, setPickedPoint, setPickMode, setRouteDraft, isStaff, isLoggedIn, push, toast, openMenu, allSounds, reload, confirm]);
+  }, [pickMode, setPickedPoint, setPickMode, setRouteDraft, isStaffSession, isLoggedIn, push, toast, openMenu, allSounds, reload, confirm]);
 
   const uniquePins = useMemo(() => {
-    const pins = isStaff ? [...filteredSounds, ...pendingSounds(allSounds)] : filteredSounds;
+    const pins = isStaffSession ? [...filteredSounds, ...pendingSounds(allSounds)] : filteredSounds;
     return pins.filter((s, i, arr) => arr.findIndex((x) => String(x.id) === String(s.id)) === i);
-  }, [isStaff, filteredSounds, allSounds]);
+  }, [isStaffSession, filteredSounds, allSounds]);
 
   const walks = useMemo(() => {
     return uniquePins

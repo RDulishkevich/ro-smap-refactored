@@ -14,7 +14,7 @@ export type ScreenConfig =
   | { type: 'record' }
   | { type: 'add-sound'; edit?: Sound }
   | { type: 'messages' }
-  | { type: 'conversation'; name: string; avatar: string; peer: string }
+  | { type: 'conversation'; name: string; avatar: string; peer: string; asLogin?: string }
   | { type: 'notifications' }
   | { type: 'search' }
   | { type: 'edit-profile' }

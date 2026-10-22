@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
-  apiLogin, apiLogout, apiMe, apiRegister, clearAuthSession, hasCookieConsentForAuth,
+  apiLogin, apiLogout, apiMe, apiRegister, clearAuthSession, hasCookieConsentForAuth, hasStaffAudience,
   persistRefreshToken, persistUser, readRememberMe, restoreAuthSession, setAuthSession, setRememberMe,
   userFromApi, type SessionUser,
 } from '@polevka/core';
@@ -12,7 +12,10 @@ import { CONSENT_NECESSARY_EVENT } from '../primitives/CookieBanner';
 type AuthCtx = {
   user: SessionUser | null;
   isLoggedIn: boolean;
+  /** Role is moderator/admin/owner (for 2FA prompts). Not console privileges. */
   isStaff: boolean;
+  /** True only with staffLogin JWT (aud=staff) — use for moderation / support desk UI. */
+  isStaffSession: boolean;
   login: (login: string, password: string, totp?: string, rememberMe?: boolean, captchaToken?: string) => Promise<void>;
   register: (
     login: string,
@@ -221,13 +224,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setDeviceUnlockReady(false);
   }, []);
 
+  const isStaff = user?.role === 'owner' || user?.role === 'admin' || user?.role === 'moderator';
+  const isStaffSession = !!user && isStaff && hasStaffAudience();
   const value = useMemo(() => ({
     user,
     isLoggedIn: !!user,
-    isStaff: user?.role === 'owner' || user?.role === 'admin' || user?.role === 'moderator',
+    isStaff,
+    isStaffSession,
     login, register, applySession, logout, refreshUser, patchUser, restoring,
     needsUnlock, unlockWithDevice, resumeStoredSession, skipDeviceUnlock, offerDeviceUnlock, disableDeviceUnlock, deviceUnlockReady,
-  }), [user, login, register, applySession, logout, refreshUser, patchUser, restoring, needsUnlock, unlockWithDevice, resumeStoredSession, skipDeviceUnlock, offerDeviceUnlock, disableDeviceUnlock, deviceUnlockReady]);
+  }), [user, isStaff, isStaffSession, login, register, applySession, logout, refreshUser, patchUser, restoring, needsUnlock, unlockWithDevice, resumeStoredSession, skipDeviceUnlock, offerDeviceUnlock, disableDeviceUnlock, deviceUnlockReady]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

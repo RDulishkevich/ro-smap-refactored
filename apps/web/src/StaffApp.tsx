@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  apiStaffLogin, clearAuthSession, getAuthToken, setAuthSession, setCookieConsent,
+  apiStaffLogin, clearAuthSession, hasStaffAudience, setAuthSession, setCookieConsent,
   setRememberMe, userFromApi, type SessionUser,
 } from '@polevka/core';
 import { color } from '@polevka/design';
@@ -17,23 +17,6 @@ import BrandMark from '@/brand/BrandMark';
 
 const ACCENT = color.accent;
 
-function readJwtAud(token: string): string | null {
-  try {
-    const part = token.split('.')[1];
-    if (!part) return null;
-    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
-    const payload = JSON.parse(json) as { aud?: string };
-    return payload.aud ? String(payload.aud) : null;
-  } catch {
-    return null;
-  }
-}
-
-function hasStaffAudience() {
-  const t = getAuthToken();
-  return !!t && readJwtAud(t) === 'staff';
-}
-
 function StaffLoginGate({ children }: { children: React.ReactNode }) {
   const th = useTh();
   const { toast } = useUi();
@@ -42,6 +25,7 @@ function StaffLoginGate({ children }: { children: React.ReactNode }) {
   const [totp, setTotp] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // aud=staff is issued only by staffLogin (role checked server-side).
   if (hasStaffAudience()) {
     return (
       <div className="h-dvh w-screen flex flex-col" style={{ background: th.isDark ? '#000' : '#F3F4F6' }}>
@@ -74,6 +58,7 @@ function StaffLoginGate({ children }: { children: React.ReactNode }) {
     } catch (e: unknown) {
       const err = e as { code?: string; message?: string };
       if (err.code === 'totp_required') toast(err.message || 'Включите 2FA в кабинете на сайте');
+      else if (err.code === 'forbidden') toast(err.message || 'Только сотрудники. Обычный аккаунт сюда не пускаем.');
       else toast(err.message || 'Неверный логин или код');
     } finally {
       setBusy(false);

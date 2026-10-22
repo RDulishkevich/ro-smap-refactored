@@ -27,10 +27,11 @@
  *   | sync | commit | presign | patchSound | translate | suggestUcs
  *   | requestEmailVerification | confirmEmailVerification
  *   | requestPasswordReset | confirmPasswordReset | adminDeleteUser | adminUnbindEmail | adminSendEmail
- *   | totpSetup | totpConfirm | totpDisable | getSecurityEvents
+ *   | totpSetup | totpConfirm | totpDisable | getSecurityEvents | staffUserDossier
  *   | deleteAccount | exportMyData
  *   | savePushSubscription | deletePushSubscription
  *   login rememberMe → persistent refresh cookie (14d); false → session cookie
+ *   Staff console privileges (moderation / full mail / admin tools) require JWT aud=staff
  */
 
 const crypto = require('crypto');
@@ -184,6 +185,15 @@ function isAdminUser(user) {
 
 function isStaffUser(user) {
     return roleAtLeast(user, 'moderator');
+}
+
+/** Elevated console ops — only after staffLogin (JWT aud=staff). Role alone is not enough. */
+function hasStaffConsole(user) {
+    return isStaffUser(user) && user?.aud === 'staff';
+}
+
+function hasAdminConsole(user) {
+    return isAdminUser(user) && user?.aud === 'staff';
 }
 
 function forbidUnlessRole(user, minRole) {
@@ -643,6 +653,7 @@ function actionRateLimit(action, ip, login = '') {
     if ((action === 'totpSetup' || action === 'totpConfirm' || action === 'totpDisable')
         && !rateLimit(`totp:${who}`, 20, 600000)) return false;
     if (action === 'getSecurityEvents' && !rateLimit(`secevt:${who}`, 30, 60000)) return false;
+    if (action === 'staffUserDossier' && !rateLimit(`dossier:${who}`, 60, 60000)) return false;
     if ((action === 'savePushSubscription' || action === 'deletePushSubscription')
         && !rateLimit(`pushsub:${who}`, 30, 600000)) return false;
     return true;
@@ -1282,7 +1293,7 @@ async function listMailBoxes() {
 
 async function applyMailMerge(proposed, user) {
     if (!Array.isArray(proposed) || !proposed.length) {
-        if (isStaffUser(user)) return (await listMailBoxes()).map(sanitizeMailRecord);
+        if (hasStaffConsole(user)) return (await listMailBoxes()).map(sanitizeMailRecord);
         const mine = await loadMailBox(user.login);
         const boxes = [mine];
         for (const p of mine.partners || []) boxes.push(await loadMailBox(p));
@@ -1376,7 +1387,7 @@ async function applyMailMerge(proposed, user) {
     }
 
     const extra = [];
-    if (!isStaffUser(user)) {
+    if (!hasStaffConsole(user)) {
         for (const p of partners) {
             if (merged.some((r) => normalizeLogin(r.loginName) === p)) continue;
             extra.push(await loadMailBox(p));
@@ -1452,7 +1463,7 @@ async function resolveAuthUser(payload) {
 /** Клиенту не отдаём чужие ящики целиком — только свои + исходящие (для UI чатов). */
 function projectMailForClient(mail, user) {
     if (!user) return [];
-    if (isStaffUser(user)) return (mail || []).map(sanitizeMailRecord);
+    if (hasStaffConsole(user)) return (mail || []).map(sanitizeMailRecord);
     const login = user.login;
     const out = [];
     for (const row of mail || []) {
@@ -2000,7 +2011,7 @@ function sanitizeInbox(cloudInbox = [], proposedInbox = [], actorLogin) {
 }
 
 function sanitizeProfiles(fresh, merged, user, knownLogins) {
-    if (isAdminUser(user)) {
+    if (hasAdminConsole(user)) {
         return (merged || []).map((p) => {
             const login = String(p.loginName || '').toLowerCase();
             return sanitizeProfileCard({
@@ -2059,7 +2070,8 @@ function sanitizeProfiles(fresh, merged, user, knownLogins) {
 }
 
 function sanitizeMail(fresh, merged, user) {
-    if (isStaffUser(user)) {
+    // Staff console (aud=staff) may write as support when answering desk tickets.
+    if (hasStaffConsole(user)) {
         return (merged || []).map(sanitizeMailRecord);
     }
     const freshMap = new Map((fresh || []).map((p) => [String(p.loginName || '').toLowerCase(), p]));
@@ -2175,7 +2187,7 @@ function sanitizeCommentsForActor(cloudComments = [], proposedComments = [], act
 
 function sanitizeMapData(fresh, merged, user) {
     const freshMap = new Map((fresh || []).map((s) => [s.id, s]));
-    if (isStaffUser(user)) {
+    if (hasStaffConsole(user)) {
         return (merged || []).map((s) => {
             const cloud = freshMap.get(s.id);
             if (!cloud) return sanitizeSoundRecord(s);
@@ -2231,7 +2243,7 @@ function sanitizeMapData(fresh, merged, user) {
 }
 
 function sanitizeFeed(fresh, merged, user) {
-    if (isStaffUser(user)) return merged;
+    if (hasStaffConsole(user)) return merged;
     const freshMap = new Map((fresh || []).map((p) => [p.id, p]));
     const out = [];
     for (const p of merged || []) {
@@ -2267,7 +2279,7 @@ function sanitizeFeed(fresh, merged, user) {
 }
 
 function sanitizeEvents(fresh, merged, user) {
-    if (isAdminUser(user)) return merged;
+    if (hasAdminConsole(user)) return merged;
     const freshMap = new Map((fresh || []).map((e) => [e.id, e]));
     const out = [];
     for (const e of merged || []) {
@@ -3510,6 +3522,125 @@ async function handleGetSecurityEvents(event, body) {
     });
 }
 
+/** Full user dossier for staff console (activity + PII for admin). */
+async function handleStaffUserDossier(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const actor = await resolveAuthUser(payload);
+    if (!actor || !isStaffUser(actor)) return respond(403, { ok: false, error: 'forbidden' });
+    if (actor.blocked) return respond(403, { ok: false, error: 'blocked' });
+    const audBlock = assertStaffAudience(payload, actor);
+    if (audBlock) return audBlock;
+
+    const target = normalizeLogin(body.login);
+    if (!target) return respond(400, { ok: false, error: 'bad_login' });
+
+    const users = await loadAuthUsers();
+    const row = users[target];
+    if (!row) return respond(404, { ok: false, error: 'no_user' });
+
+    const profiles = await getJson('profiles.json', []);
+    const profile = (profiles || []).find((p) => String(p.loginName || '').toLowerCase() === target) || null;
+    const metaAll = await loadPrivateMeta();
+    const meta = metaAll[target] && typeof metaAll[target] === 'object' ? { ...metaAll[target] } : {};
+    const canSeePii = isAdminUser(actor);
+    const email = normalizeEmail(meta.email);
+    const privateView = canSeePii ? {
+        email: email || null,
+        emailMasked: email ? maskEmail(email) : null,
+        emailVerified: !!meta.emailVerified,
+        emailVerifiedAt: meta.emailVerifiedAt || null,
+        pdConsent: !!meta.pdConsent,
+        pdConsentAt: meta.pdConsentAt || null,
+    } : {
+        emailMasked: email ? maskEmail(email) : null,
+        emailVerified: !!meta.emailVerified,
+    };
+
+    const sounds = await getJson('map_data.json', []);
+    const authored = [];
+    const liked = [];
+    const comments = [];
+    for (const s of sounds || []) {
+        if (!s || s.deleted) continue;
+        const rid = String(s.recordistId || '').toLowerCase();
+        if (rid === target) {
+            authored.push({
+                id: s.id,
+                title: s.title,
+                status: s.status || 'published',
+                date: s.date || s.createdAt || null,
+                plays: s.plays || 0,
+            });
+        }
+        if (Array.isArray(s.likedBy) && s.likedBy.map(String).map((x) => x.toLowerCase()).includes(target)) {
+            liked.push({ id: s.id, title: s.title, status: s.status || 'published' });
+        }
+        for (const c of s.comments || []) {
+            if (String(c.authorId || '').toLowerCase() !== target) continue;
+            comments.push({
+                soundId: s.id,
+                soundTitle: s.title,
+                id: c.id,
+                text: String(c.text || '').slice(0, 240),
+                date: c.date || c.at || null,
+            });
+            for (const r of c.replies || []) {
+                if (String(r.authorId || '').toLowerCase() !== target) continue;
+                comments.push({
+                    soundId: s.id,
+                    soundTitle: s.title,
+                    id: r.id,
+                    text: String(r.text || '').slice(0, 240),
+                    date: r.date || r.at || null,
+                    reply: true,
+                });
+            }
+        }
+    }
+
+    const [userBox, supportBox] = await Promise.all([loadMailBox(target), loadMailBox('support')]);
+    const supportThread = [
+        ...(supportBox.inbox || []).filter((m) => normalizeLogin(m.fromId) === target && !m.deleted),
+        ...(userBox.inbox || []).filter((m) => normalizeLogin(m.fromId) === 'support' && !m.deleted),
+    ].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()).slice(0, 40);
+
+    const secAll = await getJson(sessionSec.SECURITY_EVENTS_KEY, []);
+    const securityEvents = (Array.isArray(secAll) ? secAll : [])
+        .filter((ev) => {
+            const login = normalizeLogin(ev?.login || ev?.from || '');
+            const to = normalizeLogin(ev?.to || ev?.newLogin || '');
+            return login === target || to === target;
+        })
+        .slice(0, 80);
+
+    return respond(200, {
+        ok: true,
+        login: target,
+        userId: row.userId || null,
+        role: normalizeStaffRole(row.role, target),
+        blocked: !!row.blocked,
+        totpEnabled: !!row.totpEnabled,
+        oauth: oauthBindingsPublic(row),
+        oauthOnly: !!row.oauthOnly,
+        tokenVersion: Number(row.tokenVersion || 0) || 0,
+        displayName: profile?.displayName || row.displayName || target,
+        profile: profile ? sanitizeProfileCard(profile) : null,
+        private: privateView,
+        activityLog: (userBox.activityLog || []).slice(0, 60),
+        securityEvents,
+        sounds: {
+            authored: authored.slice(0, 80),
+            liked: liked.slice(0, 80),
+            authoredCount: authored.length,
+            likedCount: liked.length,
+            commentCount: comments.length,
+        },
+        comments: comments.slice(0, 60),
+        supportThread,
+    });
+}
+
 function isSmtpConfigured() {
     return !!(SMTP_HOST && SMTP_USER && SMTP_PASS && MAIL_FROM && nodemailer);
 }
@@ -4265,13 +4396,12 @@ async function handleGetMail(event, body) {
     const user = await resolveAuthUser(payload);
     if (!user) return respond(401, { ok: false, error: 'unauthorized' });
     if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
-    const totpBlock = await assertStaffTotp(user);
-    if (totpBlock) return totpBlock;
-    if (isAdminUser(user)) {
+    // Elevated mail (all boxes / support desk) only inside staff console JWT.
+    if (hasAdminConsole(user)) {
         const all = await listMailBoxes();
         return respond(200, { ok: true, data: all.map(sanitizeMailRecord) });
     }
-    if (isStaffUser(user)) {
+    if (hasStaffConsole(user)) {
         const [mine, support] = await Promise.all([loadMailBox(user.login), loadMailBox('support')]);
         return respond(200, { ok: true, data: [mine, support].map(sanitizeMailRecord) });
     }
@@ -4305,7 +4435,7 @@ async function handleSync(event, body) {
     if (
         smartCaptcha.configured()
         && fileName === 'map_data.json'
-        && !isStaffUser(user)
+        && !hasStaffConsole(user)
         && proposed.some((row) => row && String(row.status || '') === 'pending')
     ) {
         const captchaBlock = await assertSmartCaptcha(event, body);
@@ -4322,7 +4452,7 @@ async function handleSync(event, body) {
         });
     }
 
-    if (!isStaffUser(user) && proposed.length > MAX_SYNC_ROWS) {
+    if (!hasStaffConsole(user) && proposed.length > MAX_SYNC_ROWS) {
         return respond(413, {
             ok: false,
             error: 'too_many_rows',
@@ -4612,7 +4742,7 @@ async function handleCommit(event, body) {
     if (
         smartCaptcha.configured()
         && fileName === 'map_data.json'
-        && !isStaffUser(user)
+        && !hasStaffConsole(user)
         && proposed.some((row) => row && String(row.status || '') === 'pending')
     ) {
         const captchaBlock = await assertSmartCaptcha(event, body);
@@ -4843,7 +4973,7 @@ exports.handler = async function handler(event = {}) {
     if (action === 'health') {
         return respond(200, {
             ok: true,
-            version: 38,
+            version: 39,
             ydb: ydbDoc.enabled(),
             vapid: webPush.configured(),
             ucsAi: ucsSuggest.configured(),
@@ -4879,7 +5009,7 @@ exports.handler = async function handler(event = {}) {
         'suggestUcs',
         'getMail', 'requestEmailVerification', 'confirmEmailVerification',
         'adminDeleteUser', 'adminUnbindEmail', 'adminSendEmail', 'adminEmailConflicts',
-        'logoutAll', 'totpSetup', 'totpConfirm', 'totpDisable', 'getSecurityEvents',
+        'logoutAll', 'totpSetup', 'totpConfirm', 'totpDisable', 'getSecurityEvents', 'staffUserDossier',
         'deleteAccount', 'exportMyData', 'savePushSubscription', 'deletePushSubscription',
         'oauthLink', 'oauthUnlink',
     ]);
@@ -4924,6 +5054,7 @@ exports.handler = async function handler(event = {}) {
         if (action === 'adminUnbindEmail') return await handleAdminUnbindEmail(event, body);
         if (action === 'adminSendEmail') return await handleAdminSendEmail(event, body);
         if (action === 'adminEmailConflicts') return await handleAdminEmailConflicts(event, body);
+        if (action === 'staffUserDossier') return await handleStaffUserDossier(event, body);
         if (action === 'totpSetup') return await handleTotpSetup(event, body);
         if (action === 'totpConfirm') return await handleTotpConfirm(event, body);
         if (action === 'totpDisable') return await handleTotpDisable(event, body);
