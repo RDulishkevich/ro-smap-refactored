@@ -11,7 +11,8 @@ import { AuthProvider, useAuth } from './state/AuthContext';
 import { DataProvider } from './state/DataContext';
 import { NavProvider } from './state/NavContext';
 import { CookieBanner } from './primitives/CookieBanner';
-import { StaffScreen } from './screens/StaffScreen';
+import { Overlays } from './primitives/chrome';
+import { StaffHost } from './staff/StaffHost';
 import BrandMark from '@/brand/BrandMark';
 
 const ACCENT = color.accent;
@@ -128,8 +129,9 @@ function StaffShell() {
   return (
     <NavProvider isLoggedIn={isLoggedIn} onNeedAuth={() => toast('Нужен вход staff')}>
       <StaffLoginGate>
-        <StaffScreen mode="host" onBack={() => { window.location.href = 'https://www.polevka.art/'; }} />
+        <StaffHost />
       </StaffLoginGate>
+      <Overlays />
     </NavProvider>
   );
 }
