@@ -2249,7 +2249,23 @@ function sanitizeFeed(fresh, merged, user) {
     for (const p of merged || []) {
         const cloud = freshMap.get(p.id);
         if (!cloud) {
-            // Non-admins cannot create feed posts
+            // Logged-in users may create their own posts
+            const title = String(p.title || '').trim().slice(0, 200);
+            const text = String(p.text || '').trim().slice(0, 8000);
+            if (!title && !text) continue;
+            out.push({
+                ...p,
+                id: p.id || `fp${Date.now().toString(36)}`,
+                title: title || 'Пост',
+                text,
+                authorId: user.login,
+                author: String(p.author || user.displayName || user.login).slice(0, 80),
+                images: Array.isArray(p.images) ? p.images.map(String).filter(Boolean).slice(0, 8) : [],
+                comments: sanitizeCommentsForActor([], p.comments || [], user.login),
+                reactedBy: forceActorInList([], p.reactedBy, user.login),
+                createdAt: p.createdAt || new Date().toISOString(),
+                updatedAt: p.updatedAt || new Date().toISOString(),
+            });
             continue;
         }
         if (String(cloud.authorId || '').toLowerCase() === user.login) {
@@ -2278,22 +2294,101 @@ function sanitizeFeed(fresh, merged, user) {
     return out;
 }
 
+function normalizeEventParticipants(raw) {
+    if (!Array.isArray(raw)) return [];
+    const seen = new Set();
+    const out = [];
+    for (const row of raw) {
+        let login = '';
+        let name = '';
+        if (typeof row === 'string') {
+            login = String(row || '').toLowerCase().trim();
+            name = String(row || '').trim();
+        } else if (row && typeof row === 'object') {
+            login = String(row.login || row.loginName || '').toLowerCase().trim();
+            name = String(row.name || row.displayName || row.login || '').trim();
+        }
+        if (!login || seen.has(login)) continue;
+        seen.add(login);
+        out.push({ login, name: name || login });
+    }
+    return out;
+}
+
 function sanitizeEvents(fresh, merged, user) {
-    if (hasAdminConsole(user)) return merged;
+    if (hasStaffConsole(user)) return merged;
     const freshMap = new Map((fresh || []).map((e) => [e.id, e]));
     const out = [];
     for (const e of merged || []) {
         const cloud = freshMap.get(e.id);
-        if (!cloud) continue; // non-admin cannot create events
-        // Users may only update their own participant row
-        const cloudParts = cloud.participants || [];
-        const nextParts = e.participants || [];
-        const mine = nextParts.find((p) => String(p.login || '').toLowerCase() === user.login);
-        const others = cloudParts.filter((p) => String(p.login || '').toLowerCase() !== user.login);
-        const participants = mine
-            ? [...others, { ...mine, login: user.login, name: mine.name || user.displayName || user.login }]
-            : cloudParts;
-        out.push({ ...cloud, participants, updatedAt: e.updatedAt || cloud.updatedAt });
+        if (!cloud) {
+            const title = String(e.title || '').trim().slice(0, 200);
+            if (!title) continue;
+            const participants = normalizeEventParticipants(e.participants || e.attendees || [])
+                .filter((p) => p.login === user.login);
+            out.push({
+                ...e,
+                id: e.id || `ev${Date.now().toString(36)}`,
+                title,
+                loc: String(e.loc || e.location || '').trim().slice(0, 200),
+                location: String(e.location || e.loc || '').trim().slice(0, 200),
+                date: String(e.date || '').trim().slice(0, 40),
+                time: String(e.time || '').trim().slice(0, 40),
+                tag: String(e.tag || 'встреча').trim().slice(0, 40),
+                desc: String(e.desc || e.text || '').trim().slice(0, 4000),
+                text: String(e.text || e.desc || '').trim().slice(0, 4000),
+                status: String(e.status || 'open').slice(0, 32),
+                ownerLogin: user.login,
+                participants,
+                attendees: participants.map((p) => p.login),
+                n: participants.length,
+                createdAt: e.createdAt || new Date().toISOString(),
+                updatedAt: e.updatedAt || new Date().toISOString(),
+            });
+            continue;
+        }
+        const cloudParts = normalizeEventParticipants(cloud.participants || cloud.attendees || []);
+        const touchedParticipants = Object.prototype.hasOwnProperty.call(e, 'participants')
+            || Object.prototype.hasOwnProperty.call(e, 'attendees');
+        const nextParts = touchedParticipants
+            ? normalizeEventParticipants(e.participants || e.attendees || [])
+            : null;
+        const others = cloudParts.filter((p) => p.login !== user.login);
+        let participants = cloudParts;
+        if (nextParts) {
+            const mine = nextParts.find((p) => p.login === user.login);
+            participants = mine
+                ? [...others, { login: user.login, name: mine.name || user.displayName || user.login }]
+                : others;
+        }
+        const isOwner = String(cloud.ownerLogin || '').toLowerCase() === user.login;
+        if (isOwner) {
+            out.push({
+                ...cloud,
+                title: String(e.title != null ? e.title : cloud.title || '').trim().slice(0, 200) || cloud.title,
+                loc: String(e.loc != null ? e.loc : (e.location != null ? e.location : cloud.loc || '')).trim().slice(0, 200),
+                location: String(e.location != null ? e.location : (e.loc != null ? e.loc : cloud.location || '')).trim().slice(0, 200),
+                date: String(e.date != null ? e.date : cloud.date || '').trim().slice(0, 40),
+                time: String(e.time != null ? e.time : cloud.time || '').trim().slice(0, 40),
+                tag: String(e.tag != null ? e.tag : cloud.tag || 'встреча').trim().slice(0, 40),
+                desc: String(e.desc != null ? e.desc : (e.text != null ? e.text : cloud.desc || '')).trim().slice(0, 4000),
+                text: String(e.text != null ? e.text : (e.desc != null ? e.desc : cloud.text || '')).trim().slice(0, 4000),
+                status: String(e.status != null ? e.status : cloud.status || 'open').slice(0, 32),
+                ownerLogin: user.login,
+                participants,
+                attendees: participants.map((p) => p.login),
+                n: participants.length,
+                updatedAt: e.updatedAt || new Date().toISOString(),
+            });
+            continue;
+        }
+        out.push({
+            ...cloud,
+            participants,
+            attendees: participants.map((p) => p.login),
+            n: participants.length,
+            updatedAt: e.updatedAt || cloud.updatedAt,
+        });
     }
     for (const [id, cloud] of freshMap.entries()) {
         if (!out.some((e) => e.id === id) && !cloud.deleted) out.push(cloud);
@@ -4973,7 +5068,7 @@ exports.handler = async function handler(event = {}) {
     if (action === 'health') {
         return respond(200, {
             ok: true,
-            version: 39,
+            version: 40,
             ydb: ydbDoc.enabled(),
             vapid: webPush.configured(),
             ucsAi: ucsSuggest.configured(),

@@ -127,7 +127,14 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
   }, [pickMode, setPickedPoint, setPickMode, setRouteDraft, isStaffSession, isLoggedIn, push, toast, openMenu, allSounds, reload, confirm]);
 
   const uniquePins = useMemo(() => {
-    const pins = isStaffSession ? [...filteredSounds, ...pendingSounds(allSounds)] : filteredSounds;
+    // Catalog filter for published + all pending pins (download gated until published).
+    const pins = [
+      ...filteredSounds,
+      ...pendingSounds(allSounds),
+      ...(isStaffSession
+        ? allSounds.filter((s) => !s.deleted && (s.status === 'draft' || s.status === 'rejected'))
+        : []),
+    ];
     return pins.filter((s, i, arr) => arr.findIndex((x) => String(x.id) === String(s.id)) === i);
   }, [isStaffSession, filteredSounds, allSounds]);
 

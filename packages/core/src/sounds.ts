@@ -108,6 +108,30 @@ export function publishedSounds(list: Sound[]) {
   return list.filter((s) => !s.deleted && (!s.status || s.status === 'published'));
 }
 
+/** Pins visible on the public map / marker feed: published or awaiting moderation. */
+export function mapVisibleSounds(list: Sound[]) {
+  return list.filter((s) => {
+    if (s.deleted) return false;
+    const st = String(s.status || 'published');
+    return st === 'published' || st === 'pending';
+  });
+}
+
+export function canDownloadSound(sound: Sound) {
+  const st = String(sound.status || 'published');
+  return !sound.deleted && st === 'published' && !!String(sound.url || '').trim();
+}
+
+export function downloadWaitMessage(sound?: Sound) {
+  const st = String(sound?.status || '');
+  if (st === 'pending') {
+    return 'Запись на модерации. Скачивание откроется после проверки — обычно 1–2 рабочих дня.';
+  }
+  if (st === 'draft') return 'Черновик ещё не отправлен на модерацию.';
+  if (st === 'rejected') return 'Запись отклонена — скачивание недоступно.';
+  return 'Скачивание пока недоступно.';
+}
+
 export function pendingSounds(list: Sound[]) {
   return list.filter((s) => !s.deleted && s.status === 'pending');
 }

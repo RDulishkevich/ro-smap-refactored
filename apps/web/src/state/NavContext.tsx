@@ -9,6 +9,7 @@ export type ScreenConfig =
   | { type: 'expedition-edit'; exp?: Expedition }
   | { type: 'settings' }
   | { type: 'events'; focusId?: string }
+  | { type: 'event-detail'; eventId: string }
   | { type: 'auth'; mode?: 'in' | 'up' }
   | { type: 'feed-post'; post: FeedPost }
   | { type: 'record' }
@@ -65,6 +66,7 @@ function urlForScreen(s?: ScreenConfig | null): string | null {
   if (s.type === 'sound-detail') return pathForSound(s.sound.id);
   if (s.type === 'user-profile') return pathForUser(s.username);
   if (s.type === 'events') return s.focusId ? pathForEvent(s.focusId) : '/events';
+  if (s.type === 'event-detail') return pathForEvent(s.eventId);
   if (s.type === 'catalog') return '/catalog';
   if (s.type === 'feed') return '/feed';
   if (s.type === 'expeditions') return '/expeditions';
@@ -229,8 +231,16 @@ export function NavProvider({ children, isLoggedIn, onNeedAuth }: { children: Re
     }
     if (route.kind === 'events') {
       setTab(desk ? 'map' : 'menu');
-      setStack(screen({ type: 'events', focusId: route.id }));
-      writeUrl(route.id ? pathForEvent(route.id) : '/events', 'replace');
+      if (route.id) {
+        setStack([
+          ...screen({ type: 'events' }),
+          ...screen({ type: 'event-detail', eventId: route.id }),
+        ]);
+        writeUrl(pathForEvent(route.id), 'replace');
+      } else {
+        setStack(screen({ type: 'events' }));
+        writeUrl('/events', 'replace');
+      }
       return;
     }
     if (route.kind === 'messages') {

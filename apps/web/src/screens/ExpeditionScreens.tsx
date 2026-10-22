@@ -4,7 +4,7 @@ import {
   type Comment, type Expedition, type ExpeditionInvite, type Sound,
 } from '@polevka/core';
 import { color, pinColor, typeMeta } from '@polevka/design';
-import { ChevronDown, Clock, ImagePlus, MapPin, Search, UserPlus, X } from 'lucide-react';
+import { ChevronDown, Clock, ImagePlus, MapPin, MessageCircle, Route as RouteIcon, Search, UserPlus, X } from 'lucide-react';
 import { EXPEDITION_KINDS, locLabel } from '../lib/onboarding';
 import { usePrefs } from '../state/PrefsContext';
 import { ScreenHeader } from '../primitives/ui';
@@ -19,8 +19,10 @@ import { useUi } from '../state/UiContext';
 import { useLeaveGuard } from '../lib/use-leave-guard';
 import { SoundRow } from '../primitives/SoundRow';
 import { CommentsThread } from '../primitives/CommentsThread';
+import { Avatar } from '../primitives/Avatar';
 
 const ACCENT = color.accent;
+const EXP_TINT = color.mist;
 
 export function ExpeditionDetailScreen({ exp, onBack }: { exp: Expedition; onBack: () => void }) {
   const th = useTh();
@@ -33,8 +35,14 @@ export function ExpeditionDetailScreen({ exp, onBack }: { exp: Expedition; onBac
   const live = (ownerProfile?.sessions || []).find((s) => String(s.id) === String(exp.id)) || exp;
   const route = live.route || [];
   const linked = sounds.filter((s) => (live.soundIds || []).map(String).includes(String(s.id)) || String(s.sessionId) === String(live.id));
-  const mine = ownerLogin === user?.loginName;
+  const mine = !!user && ownerLogin === String(user.loginName || '').toLowerCase();
   const comments = (live.comments || []).map((c) => normalizeComment(c));
+  const photos = (live.photos || []).map(String).filter(Boolean);
+  const cover = photos[0] || '';
+  const kindLabel = live.kind ? (EXPEDITION_KINDS.find((k) => k.id === live.kind)?.ru || live.kind) : '';
+  const ownerName = String(ownerProfile?.displayName || ownerProfile?.username || ownerLogin || 'Автор');
+  const points = Number(live.n || route.length || linked.length || 0);
+  const metaBits = [kindLabel, live.date, live.place].filter(Boolean);
 
   const saveComments = async (next: Comment[]) => {
     if (!ownerProfile && !ownerLogin) throw new Error('Нет владельца экспедиции');
@@ -65,49 +73,98 @@ export function ExpeditionDetailScreen({ exp, onBack }: { exp: Expedition; onBac
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       <ScreenHeader title={live.title} onBack={onBack} right={mine ? (
-        <button className="text-[10px] font-semibold" style={{ color: ACCENT }} onClick={() => push({ type: 'expedition-edit', exp: live })}>Изменить</button>
+        <button type="button" className="pv-caption cursor-pointer px-2" style={{ color: ACCENT }}
+          onClick={() => push({ type: 'expedition-edit', exp: live })}>Изменить</button>
       ) : undefined} />
-      <div className="flex-1 overflow-y-auto scrollbar-none p-4">
-        <div className="rounded-3xl p-5 mb-3 text-center" style={{ background: th.cardBg }}>
-          <div className="text-5xl mb-3">{live.emoji || '🗺️'}</div>
-          <p className="text-sm font-bold mb-1" style={{ color: th.inkText }}>{live.title}</p>
-          <p className="text-xs mb-4" style={{ color: th.muted }}>{live.preview || live.desc}</p>
-          {(live.place || live.date || live.kind) && (
-            <p className="text-[11px] mb-3" style={{ color: th.soft }}>
-              {[live.kind && (EXPEDITION_KINDS.find((k) => k.id === live.kind)?.ru || live.kind), live.date, live.place].filter(Boolean).join(' · ')}
-            </p>
+      <div className="flex-1 overflow-y-auto scrollbar-none">
+        <div className="relative aspect-[16/10] mx-4 mt-2 rounded-3xl overflow-hidden shadow-sm" style={{ background: EXP_TINT }}>
+          {cover
+            ? <img src={cover} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-5xl opacity-90">{live.emoji || '🗺️'}</span>
+              </div>
+            )}
+        </div>
+
+        <div className="mx-4 mt-3 rounded-3xl p-4 shadow-sm" style={{ background: th.cardBg }}>
+          <button type="button" className="flex items-center gap-2.5 mb-3 cursor-pointer"
+            onClick={() => {
+              if (!ownerLogin) return;
+              push({
+                type: 'user-profile',
+                name: ownerName,
+                avatar: String(ownerProfile?.avatar || '🎙️'),
+                username: `@${ownerLogin}`,
+              });
+            }}>
+            <Avatar src={ownerProfile?.avatar} name={ownerName} size={36} rounded="rounded-full" />
+            <div className="min-w-0 text-left">
+              <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{ownerName}</p>
+              {ownerLogin ? <p className="pv-micro truncate" style={{ color: th.soft }}>@{ownerLogin}</p> : null}
+            </div>
+          </button>
+          <p className="pv-heading" style={{ color: th.inkText }}>{live.title}</p>
+          {(live.preview || live.desc) ? (
+            <p className="pv-body mt-2 leading-relaxed" style={{ color: th.muted }}>{live.preview || live.desc}</p>
+          ) : null}
+          {!!metaBits.length && (
+            <p className="pv-caption mt-3" style={{ color: th.soft }}>{metaBits.join(' · ')}</p>
           )}
           {!!(live.members || []).length && (
-            <p className="text-[11px] mb-3" style={{ color: th.muted }}>Участники: {(live.members || []).join(', ')}</p>
+            <p className="pv-caption mt-2" style={{ color: th.muted }}>
+              Участники: {(live.members || []).join(', ')}
+            </p>
           )}
-          <div className="flex justify-around">
-            {[{ icon: <Clock size={13} />, val: live.dur || '—', label: 'Время' },
-              { icon: <MapPin size={13} />, val: String(live.n || route.length || '—'), label: 'Точек' }].map(({ icon, val, label }) => (
-              <div key={label} className="text-center">
-                <div className="flex justify-center mb-0.5" style={{ color: th.soft }}>{icon}</div>
-                <p className="text-sm font-bold" style={{ color: th.inkText }}>{val}</p>
-                <p className="text-[9px]" style={{ color: th.soft }}>{label}</p>
+          <div className="flex gap-4 mt-4 pt-3" style={{ borderTop: `1px solid ${th.border}` }}>
+            {[
+              { icon: <Clock size={13} />, val: live.dur || '—', label: 'время' },
+              { icon: <MapPin size={13} />, val: String(points || '—'), label: 'точек' },
+              { icon: <MessageCircle size={13} />, val: String(comments.length), label: 'коммент.' },
+            ].map(({ icon, val, label }) => (
+              <div key={label} className="flex-1 text-center">
+                <div className="flex items-center justify-center gap-1 mb-0.5" style={{ color: th.soft }}>
+                  {icon}
+                  <span className="pv-subtitle" style={{ color: th.inkText }}>{val}</span>
+                </div>
+                <p className="pv-micro" style={{ color: th.soft }}>{label}</p>
               </div>
             ))}
           </div>
         </div>
+
         {!!route.length && (
-          <div className="relative h-48 rounded-3xl overflow-hidden mb-3">
-            <SoundMap sounds={linked} activeId={null} onSelect={(s) => push({ type: 'sound-detail', sound: s })} route={route} />
+          <div className="mx-4 mt-3">
+            <div className="relative h-48 rounded-3xl overflow-hidden shadow-sm">
+              <SoundMap sounds={linked} activeId={null} onSelect={(s) => push({ type: 'sound-detail', sound: s })} route={route} />
+            </div>
+            <button type="button"
+              className="pv-button mt-2 w-full h-11 rounded-2xl inline-flex items-center justify-center gap-2 cursor-pointer"
+              style={{ background: th.cardBg, color: ACCENT }}
+              onClick={() => { setRoutePreview(route); push({ type: 'pick-location', mode: 'route' }); }}>
+              <RouteIcon size={14} /> Показать маршрут на карте
+            </button>
           </div>
         )}
-        {!!(live.photos || []).length && (
-          <PhotoStrip images={(live.photos || []).filter(Boolean)} title={live.title} />
+
+        {photos.length > 1 && (
+          <div className="mx-4 mt-3">
+            <PhotoStrip images={photos} title={live.title} />
+          </div>
         )}
-        <div className="flex flex-col gap-2 mb-3">
-          {linked.map((s) => (
-            <SoundRow key={String(s.id)} item={s} onOpen={() => push({ type: 'sound-detail', sound: s })} />
-          ))}
-        </div>
-        {!!route.length && (
-          <button className="text-[10px] font-semibold mb-3" style={{ color: ACCENT }} onClick={() => { setRoutePreview(route); push({ type: 'pick-location', mode: 'route' }); }}>Показать маршрут на карте</button>
+
+        {!!linked.length && (
+          <div className="mx-4 mt-3 mb-1">
+            <p className="pv-subtitle mb-2 px-0.5" style={{ color: th.inkText }}>Звуки маршрута</p>
+            <div className="flex flex-col gap-2">
+              {linked.map((s) => (
+                <SoundRow key={String(s.id)} item={s} onOpen={() => push({ type: 'sound-detail', sound: s })} />
+              ))}
+            </div>
+          </div>
         )}
-        <div className="rounded-3xl p-4 mb-2" style={{ background: th.cardBg }}>
+
+        <div className="mx-4 mt-3 mb-6 rounded-3xl p-4 shadow-sm" style={{ background: th.cardBg }}>
           <CommentsThread
             comments={comments}
             onSave={async (next) => {

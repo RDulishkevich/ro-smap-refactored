@@ -45,12 +45,13 @@ import { SettingsScreen } from './SettingsScreen';
 import { CatalogPage, ExpeditionsPage, FeedPage } from './FeedScreen';
 import { StaffScreen } from './StaffScreen';
 import { ExpeditionDetailScreen, ExpeditionEditScreen, PickLocationScreen } from './ExpeditionScreens';
+import { EventDetailScreen, EventsScreen } from './EventScreens';
 import { downloadLegalPrint } from '../lib/legal-print';
 import { pathForSound } from '../lib/routes';
 import { shareLink } from '../lib/share';
 import { SEARCH_KIND_LABEL, searchAll } from '../lib/search-all';
 import { useIsDesktop } from '../lib/use-media';
-import { downloadSound } from '../lib/download-sound';
+import { canDownloadSound, downloadSound, downloadWaitMessage } from '../lib/download-sound';
 import { usePrefs, useT } from '../state/PrefsContext';
 import { resolveExpeditionInvite } from '../lib/expedition-invite';
 import { isAmbisonicSound, isSoundwalkPrinciple, soundAuthor, soundRoute } from '../lib/sound-media';
@@ -77,6 +78,7 @@ export function ScreenContent({ screen, onBack }: { screen: ScreenConfig; onBack
     case 'expedition-edit': return <ExpeditionEditScreen exp={screen.exp} onBack={onBack} />;
     case 'settings': return <SettingsScreen onBack={onBack} />;
     case 'events': return <EventsScreen onBack={onBack} focusId={screen.focusId} />;
+    case 'event-detail': return <EventDetailScreen eventId={screen.eventId} onBack={onBack} />;
     case 'auth': return <AuthScreen onBack={onBack} mode={screen.mode} />;
     case 'reset-password': return <AuthScreen onBack={onBack} mode="in" panel="reset" />;
     case 'feed-post': return <FeedPostScreen post={screen.post} onBack={onBack} />;
@@ -152,6 +154,8 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
   };
 
   const download = () => downloadSound(live, toast);
+  const downloadOk = canDownloadSound(live);
+  const isPendingMod = String(live.status || '') === 'pending';
 
   const goToMap = () => {
     setFocused(live);
@@ -179,7 +183,10 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
     // Walk CTA is inline on the card — avoid a second «На карте» when that button is shown.
     ...(!hasWalk || desktop ? [{ label: 'На карте', onClick: goToMap }] : []),
     // Download is inline on mobile sheet; keep in ⋯ for desktop header.
-    ...(desktop ? [{ label: 'Скачать WAV', onClick: download }] : []),
+    ...(desktop ? [{
+      label: downloadOk ? 'Скачать WAV' : 'Скачать (после модерации)',
+      onClick: download,
+    }] : []),
   ];
 
   const cardBody = (
@@ -194,6 +201,11 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
           </div>
           <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
             <SoundTypeTag type={String(live.type)} />
+            {isPendingMod && (
+              <span className="pv-micro px-2 py-0.5 rounded-full" style={{ background: th.lightBg, color: ACCENT }} title={downloadWaitMessage(live)}>
+                На модерации
+              </span>
+            )}
             {meta.durationSec > 0 && (
               <span className="pv-micro" style={{ color: th.soft }}>{meta.durationLabel}</span>
             )}
@@ -266,8 +278,11 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
             Не нравится
           </motion.button>
           {!desktop && (
-            <motion.button whileTap={{ scale: 0.92 }} className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}
-              aria-label="Скачать" onClick={download}>
+            <motion.button whileTap={{ scale: 0.92 }} className="w-11 h-11 rounded-2xl flex items-center justify-center"
+              style={{ background: th.lightBg, opacity: downloadOk ? 1 : 0.55 }}
+              aria-label={downloadOk ? 'Скачать' : downloadWaitMessage(live)}
+              title={downloadOk ? 'Скачать' : downloadWaitMessage(live)}
+              onClick={download}>
               <Download size={16} style={{ color: th.muted }} />
             </motion.button>
           )}
@@ -415,133 +430,6 @@ function Row({ label, right, th, onClick }: { label: string; right?: ReactNode; 
       <span className="text-xs font-semibold" style={{ color: th.inkText }}>{label}</span>
       {right}
     </button>
-  );
-}
-
-function EventsScreen({ onBack, focusId }: { onBack: () => void; focusId?: string }) {
-  const { events, reload, loading, patchEventsLocal } = useData();
-  const th = useTh();
-  const { isLoggedIn, user } = useAuth();
-  const { toast } = useUi();
-  const { push } = useNav();
-  const t = useT();
-  const canCreate = !!isLoggedIn && !!user;
-  const [creating, setCreating] = useState(false);
-  const [title, setTitle] = useState('');
-  const [loc, setLoc] = useState('');
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
-  const [tag, setTag] = useState('встреча');
-  const [busy, setBusy] = useState(false);
-  useLeaveGuard(creating && !!(title.trim() || loc.trim() || date.trim() || time.trim()));
-
-  const signup = async (ev: (typeof events)[number], i: number) => {
-    if (!isLoggedIn || !user) { push({ type: 'auth' }); return; }
-    const guard = spamGuardCheck('comment');
-    if (!guard.ok) { toast(spamGuardMessage(guard)); return; }
-    const id = String(ev.id || `e${i}`);
-    const participants = Array.isArray(ev.participants) ? ev.participants.map(String)
-      : Array.isArray(ev.attendees) ? ev.attendees.map(String) : [];
-    if (participants.includes(user.loginName)) { toast('Вы уже записаны'); return; }
-    const patched = {
-      ...ev,
-      id: ev.id || id,
-      participants: [...participants, user.loginName],
-      n: (Number(ev.n) || participants.length) + 1,
-      updatedAt: new Date().toISOString(),
-    };
-    patchEventsLocal((prev) => prev.map((row, j) => (j === i || String(row.id) === id ? patched : row)));
-    try {
-      await apiSyncJson('events.json', [patched]);
-      toast('Заявка отправлена');
-    } catch (e: unknown) {
-      await reload();
-      toast((e as Error).message || 'Не удалось записаться');
-    }
-  };
-
-  const createEvent = async () => {
-    if (!canCreate || !title.trim()) { toast('Укажите название'); return; }
-    setBusy(true);
-    const id = `ev${Date.now().toString(36)}`;
-    const next = {
-      id,
-      title: title.trim(),
-      loc: loc.trim(),
-      location: loc.trim(),
-      date: date.trim(),
-      time: time.trim(),
-      tag: tag.trim() || 'встреча',
-      status: 'open',
-      n: 0,
-      participants: [] as string[],
-      ownerLogin: user.loginName,
-      emoji: '🎟️',
-      createdAt: new Date().toISOString(),
-    };
-    patchEventsLocal((prev) => [next, ...prev]);
-    try {
-      await apiSyncJson('events.json', [next]);
-      toast('Ивент создан');
-      setCreating(false);
-      setTitle('');
-      setLoc('');
-      setDate('');
-      setTime('');
-    } catch (e: unknown) {
-      await reload();
-      toast((e as Error).message || 'Не удалось создать');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <ScreenHeader title={t('events')} onBack={onBack} right={(
-        <button type="button" className="pv-button px-3 h-10 rounded-2xl text-white" style={{ background: ACCENT }}
-          onClick={() => {
-            if (!canCreate) { push({ type: 'auth' }); return; }
-            setCreating((v) => !v);
-          }}>{creating ? 'Скрыть' : 'Создать'}</button>
-      )} />
-      <div className="flex-1 overflow-y-auto scrollbar-none p-4 flex flex-col gap-3">
-        {creating && canCreate && (
-          <div className="rounded-3xl p-4 flex flex-col gap-2" style={{ background: th.cardBg }}>
-            <p className="pv-subtitle" style={{ color: th.inkText }}>Новый ивент</p>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Название"
-              className="rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-            <input value={loc} onChange={(e) => setLoc(e.target.value)} placeholder="Место"
-              className="rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-            <div className="flex gap-2">
-              <input value={date} onChange={(e) => setDate(e.target.value)} placeholder="Дата" type="date"
-                className="flex-1 rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-              <input value={time} onChange={(e) => setTime(e.target.value)} placeholder="Время" type="time"
-                className="w-28 rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-            </div>
-            <input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Тег"
-              className="rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-            <button type="button" disabled={busy} onClick={() => void createEvent()}
-              className="pv-button w-full py-2.5 rounded-2xl text-white" style={{ background: ACCENT }}>
-              {busy ? '…' : 'Опубликовать'}
-            </button>
-          </div>
-        )}
-        {loading && !events.length && <ListSkeleton rows={3} />}
-        {!loading && !events.length && (
-          <EmptyNote title={t('eventsEmpty')} hint={canCreate ? 'Создайте первый ивент кнопкой выше.' : t('eventsEmptyHint')} />
-        )}
-        {events.map((ev, i) => (
-          <div key={String(ev.id || i)} className="rounded-3xl p-4" style={{ background: th.cardBg, outline: focusId && String(ev.id || `e${i}`) === focusId ? `2px solid ${ACCENT}` : undefined }}>
-            <p className="pv-micro uppercase" style={{ color: th.soft }}>{String(ev.tag || ev.status || t('kindEvent'))}</p>
-            <p className="pv-subtitle" style={{ color: th.inkText }}>{ev.title}</p>
-            <p className="pv-caption mb-3" style={{ color: th.muted }}>{String(ev.loc || ev.location || '')} · {String(ev.date || '')} {String(ev.time || '')}</p>
-            <button className="pv-button w-full py-2 rounded-2xl text-white" style={{ background: ACCENT }}
-              onClick={() => void signup(ev, i)}>Записаться</button>
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
 

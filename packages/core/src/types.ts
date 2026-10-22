@@ -126,6 +126,11 @@ export type FeedPost = {
   [key: string]: unknown;
 };
 
+export type EventParticipant = {
+  login: string;
+  name?: string;
+};
+
 export type AppEvent = {
   id?: string;
   title: string;
@@ -137,8 +142,11 @@ export type AppEvent = {
   emoji?: string;
   tag?: string;
   status?: string;
+  desc?: string;
+  text?: string;
+  ownerLogin?: string;
   attendees?: string[];
-  participants?: string[];
+  participants?: Array<string | EventParticipant>;
   [key: string]: unknown;
 };
 
