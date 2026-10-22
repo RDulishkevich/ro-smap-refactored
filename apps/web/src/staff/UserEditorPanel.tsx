@@ -7,9 +7,9 @@ import { color } from '@polevka/design';
 import { MessageCircle, X } from 'lucide-react';
 import { useAuth } from '../state/AuthContext';
 import { useData } from '../state/DataContext';
-import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useUi } from '../state/UiContext';
+import { useStaff } from './StaffContext';
 import { Avatar } from '../primitives/Avatar';
 
 const ACCENT = color.accent;
@@ -67,7 +67,7 @@ export function UserEditorPanel({
   const th = useTh();
   const { user } = useAuth();
   const { allSounds, reload } = useData();
-  const { push } = useNav();
+  const { openChat, openSound } = useStaff();
   const { toast, confirm } = useUi();
   const canAdmin = roleAtLeast(user?.role, 'admin');
   const canOwner = roleAtLeast(user?.role, 'owner');
@@ -335,7 +335,7 @@ export function UserEditorPanel({
                     <button key={String(s.id)} type="button"
                       className="text-left rounded-xl px-3 py-2 pv-caption"
                       style={{ background: th.phoneBg, color: th.inkText }}
-                      onClick={() => push({ type: 'sound-detail', sound: s })}>
+                      onClick={() => openSound(s)}>
                       {s.title} · {s.status || 'published'}
                     </button>
                   ))}
@@ -366,14 +366,8 @@ export function UserEditorPanel({
             <div className="flex flex-wrap gap-2 pt-1">
               <button type="button" className="pv-caption px-3 py-2 rounded-xl flex items-center gap-1.5"
                 style={{ background: th.lightBg, color: th.inkText }}
-                onClick={() => push({
-                  type: 'conversation',
-                  name: displayName || login,
-                  avatar: avatar || String(profile.avatar || ''),
-                  peer: login,
-                  asLogin: SUPPORT_LOGIN,
-                })}>
-                <MessageCircle size={14} /> Как поддержка
+                onClick={() => openChat(login, displayName || login, avatar || String(profile.avatar || ''))}>
+                <MessageCircle size={14} /> Написать как Поддержка
               </button>
               {canAdmin && (
                 <button type="button" className="pv-caption px-3 py-2 rounded-xl"

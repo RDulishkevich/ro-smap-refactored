@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-import { apiAdminEmailConflicts, roleAtLeast, type Sound } from '@polevka/core';
-import { color, spring } from '@polevka/design';
+import { apiAdminEmailConflicts, roleAtLeast, SUPPORT_LOGIN, type Sound } from '@polevka/core';
+import { color } from '@polevka/design';
+import { X } from 'lucide-react';
 import { useAuth } from '../state/AuthContext';
 import { useData } from '../state/DataContext';
-import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useUi } from '../state/UiContext';
 import { useIsDesktop } from '../lib/use-media';
+import { ConversationScreen } from '../screens/ConversationScreen';
 import { ScreenContent } from '../screens/stack';
-import { SwipeBack } from '../lib/swipe-back';
 import { StaffPlayerBar } from './StaffPlayerBar';
+import { StaffProvider, useStaff } from './StaffContext';
+import { UserEditorPanel } from './UserEditorPanel';
 import {
   AnalyticsModule, ConsoleModule, InboxModule, OverviewModule, QueueModule, ReportsModule,
   STAFF_MODULES, UsersModule, type StaffModuleId,
@@ -18,6 +19,7 @@ import {
 
 const ACCENT = color.accent;
 const RAIL_W = 200;
+const PANEL_W = 440;
 
 function loadMetrika(counterId: string) {
   if (typeof window === 'undefined' || !counterId) return;
@@ -36,13 +38,69 @@ function loadMetrika(counterId: string) {
   stub(Number(counterId), 'init', { clickmap: true, trackLinks: true, accurateTrackBounce: true });
 }
 
-export function StaffHost() {
+function StaffSidePanel() {
+  const th = useTh();
+  const desktop = useIsDesktop();
+  const { panel, closePanel } = useStaff();
+  if (!panel) return null;
+
+  const body = (() => {
+    if (panel.type === 'chat') {
+      return (
+        <ConversationScreen
+          name={panel.name}
+          avatar={panel.avatar}
+          peer={panel.peer}
+          asLogin={SUPPORT_LOGIN}
+          embed
+          onBack={closePanel}
+        />
+      );
+    }
+    if (panel.type === 'sound') {
+      return (
+        <div className="h-full overflow-y-auto">
+          <div className="flex items-center justify-between px-4 h-12 flex-shrink-0" style={{ borderBottom: `1px solid ${th.border}` }}>
+            <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{panel.sound.title}</p>
+            <button type="button" className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: th.lightBg }}
+              onClick={closePanel} aria-label="Закрыть">
+              <X size={16} color={th.muted} />
+            </button>
+          </div>
+          <ScreenContent screen={{ type: 'sound-detail', sound: panel.sound }} onBack={closePanel} />
+        </div>
+      );
+    }
+    return (
+      <UserEditorPanel profile={panel.profile} onClose={closePanel} />
+    );
+  })();
+
+  if (!desktop) {
+    return (
+      <div className="fixed inset-0 z-[180] flex flex-col" style={{ background: th.phoneBg }}>
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <aside
+      className="flex-shrink-0 flex flex-col min-h-0 h-full"
+      style={{ width: PANEL_W, background: th.cardBg, borderLeft: `1px solid ${th.border}` }}
+    >
+      {body}
+    </aside>
+  );
+}
+
+function StaffWorkspace() {
   const th = useTh();
   const desktop = useIsDesktop();
   const { user } = useAuth();
   const { toast, confirm } = useUi();
-  const { stack, pop, push } = useNav();
   const { playingId, allSounds } = useData();
+  const { panel, openSound, closePanel } = useStaff();
   const [module, setModule] = useState<StaffModuleId>('overview');
   const [focus, setFocus] = useState<Sound | null>(null);
 
@@ -54,12 +112,16 @@ export function StaffHost() {
     if (id) loadMetrika(id);
   }, []);
 
-  // Keep dock in sync with audio engine when playing from queue.
   useEffect(() => {
     if (playingId == null) return;
     const live = allSounds.find((s) => String(s.id) === String(playingId));
     if (live) setFocus(live);
   }, [playingId, allSounds]);
+
+  // Switching module keeps panel unless leaving inbox with chat — keep panel for multitask.
+  useEffect(() => {
+    if (module !== 'inbox' && panel?.type === 'chat' && !desktop) closePanel();
+  }, [module, panel, desktop, closePanel]);
 
   const modules = useMemo(
     () => STAFF_MODULES.filter((m) => {
@@ -112,17 +174,18 @@ export function StaffHost() {
     }
   })();
 
-  const showPlayer = !!focus;
-
   return (
-    <div className="relative h-full w-full flex flex-col min-h-0" style={{ background: th.phoneBg }}>
+    <div className="h-full w-full flex flex-col min-h-0" style={{ background: th.phoneBg }}>
       <div className="flex flex-1 min-h-0">
         {desktop && (
           <aside
             className="flex-shrink-0 flex flex-col py-4 px-3 gap-1"
             style={{ width: RAIL_W, background: th.cardBg, borderRight: `1px solid ${th.border}` }}
           >
-            <p className="pv-micro px-3 mb-2" style={{ color: th.soft }}>{roleLabel}</p>
+            <p className="pv-micro px-3 mb-1" style={{ color: th.soft }}>{roleLabel}</p>
+            <p className="pv-micro px-3 mb-3 leading-snug" style={{ color: ACCENT }}>
+              Действия от лица Поддержки
+            </p>
             {modules.map(({ id, label, Icon }) => {
               const on = module === id;
               return (
@@ -160,40 +223,30 @@ export function StaffHost() {
               ))}
             </div>
           )}
-          <div className={`flex-1 min-h-0 overflow-y-auto ${desktop ? 'p-6' : 'p-4'}`}>
-            {body}
+          <div className={`flex-1 min-h-0 overflow-hidden flex flex-col ${desktop ? 'p-5' : 'p-3'}`}>
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              {body}
+            </div>
+            {focus && (
+              <StaffPlayerBar
+                sound={focus}
+                onOpen={() => openSound(focus)}
+                onClose={() => setFocus(null)}
+              />
+            )}
           </div>
-          {showPlayer && focus && (
-            <StaffPlayerBar
-              sound={focus}
-              onOpen={() => push({ type: 'sound-detail', sound: focus })}
-              onClose={() => setFocus(null)}
-            />
-          )}
         </div>
-      </div>
 
-      <AnimatePresence>
-        {stack.map((screen, i) => {
-          const underTop = i < stack.length - 1;
-          return (
-            <motion.div
-              key={screen._id}
-              className="absolute inset-0"
-              aria-hidden={underTop || undefined}
-              style={{ zIndex: 100 + i, background: th.phoneBg }}
-              initial={screen.type === 'sound-detail' ? { opacity: 0, y: 48 } : { opacity: 0, x: 36 }}
-              animate={{ opacity: 1, x: 0, y: 0 }}
-              exit={screen.type === 'sound-detail' ? { opacity: 0, y: 40 } : { opacity: 0, x: 20 }}
-              transition={screen.type === 'sound-detail' ? spring.sheet : spring.stack}
-            >
-              <SwipeBack className="h-full" onBack={pop} enabled={screen.type !== 'sound-detail'}>
-                <ScreenContent screen={screen} onBack={pop} />
-              </SwipeBack>
-            </motion.div>
-          );
-        })}
-      </AnimatePresence>
+        <StaffSidePanel />
+      </div>
     </div>
+  );
+}
+
+export function StaffHost() {
+  return (
+    <StaffProvider>
+      <StaffWorkspace />
+    </StaffProvider>
   );
 }

@@ -31,7 +31,10 @@ function StaffLoginGate({ children }: { children: React.ReactNode }) {
       <div className="h-dvh w-screen flex flex-col" style={{ background: th.isDark ? '#000' : '#F3F4F6' }}>
         <header className="flex items-center gap-3 px-5 h-14 flex-shrink-0" style={{ background: th.cardBg, borderBottom: `1px solid ${th.border}` }}>
           <div className="w-8 h-8"><BrandMark /></div>
-          <p className="pv-subtitle flex-1" style={{ color: th.inkText }}>Staff · Полёвка</p>
+          <div className="flex-1 min-w-0">
+            <p className="pv-subtitle" style={{ color: th.inkText }}>Staff · Полёвка</p>
+            <p className="pv-micro" style={{ color: ACCENT }}>от лица Поддержки</p>
+          </div>
           <a href="https://www.polevka.art/" className="pv-caption" style={{ color: th.soft }}>К сайту</a>
           <button type="button" className="pv-caption" style={{ color: ACCENT }} onClick={() => void logout()}>Выйти</button>
         </header>

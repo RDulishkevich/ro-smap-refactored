@@ -3,7 +3,7 @@ import {
   apiAdminEmailConflicts, apiGetSecurityEvents, apiSyncJson,
   pendingSounds, rejectedSounds, roleAtLeast, supportDeskPeers,
   SUPPORT_LOGIN, SUPPORT_NAME, SUPPORT_AVATAR,
-  type Profile, type Sound,
+  type Sound,
 } from '@polevka/core';
 import { color, type ThemeTokens } from '@polevka/design';
 import {
@@ -13,11 +13,10 @@ import { getRejectSuggestionChips } from '../../../../src/data/publishRules.js';
 import { EmptyNote } from '../primitives/EmptyNote';
 import { useAuth } from '../state/AuthContext';
 import { useData } from '../state/DataContext';
-import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
 import { useUi } from '../state/UiContext';
+import { useStaff } from './StaffContext';
 import { useStaffStats } from './useStaffStats';
-import { UserEditorPanel } from './UserEditorPanel';
 
 const ACCENT = color.accent;
 
@@ -180,7 +179,7 @@ export function QueueModule({
   const th = useTh();
   const { allSounds, reload, togglePlay, playing, playingId } = useData();
   const { toast, confirm } = useUi();
-  const { push } = useNav();
+  const { openSound } = useStaff();
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<'pending' | 'rejected' | 'published' | 'all'>('pending');
   const chips = getRejectSuggestionChips() as Array<{ id: string; text: string }>;
@@ -238,7 +237,7 @@ export function QueueModule({
               key={id}
               s={s}
               selected={focusId === id}
-              onSelect={() => { onFocus(s); push({ type: 'sound-detail', sound: s }); }}
+              onSelect={() => { onFocus(s); openSound(s); }}
               onPlay={() => { onFocus(s); togglePlay(s); }}
               playing={!!isPlaying}
               chips={chips}
@@ -272,7 +271,7 @@ export function ReportsModule({ onFocus }: { onFocus: (s: Sound | null) => void 
   const th = useTh();
   const { allSounds, reload, togglePlay, playing, playingId } = useData();
   const { toast } = useUi();
-  const { push } = useNav();
+  const { openSound } = useStaff();
   const reported = allSounds.filter((s) => !s.deleted && Array.isArray(s.reports) && s.reports.length > 0);
 
   return (
@@ -300,7 +299,7 @@ export function ReportsModule({ onFocus }: { onFocus: (s: Sound | null) => void 
             </div>
             <div className="flex gap-1.5 flex-wrap">
               <button type="button" className="pv-caption px-3 py-2 rounded-2xl text-white" style={{ background: ACCENT }}
-                onClick={() => { onFocus(s); push({ type: 'sound-detail', sound: s }); }}>
+                onClick={() => { onFocus(s); openSound(s); }}>
                 К записи
               </button>
               <button type="button" className="pv-caption px-3 py-2 rounded-2xl" style={{ background: th.lightBg, color: th.muted }}
@@ -323,7 +322,7 @@ export function ReportsModule({ onFocus }: { onFocus: (s: Sound | null) => void 
 export function InboxModule() {
   const th = useTh();
   const { mail, profiles } = useData();
-  const { push } = useNav();
+  const { panel, openChat } = useStaff();
   const [q, setQ] = useState('');
   const desk = supportDeskPeers(mail, profiles);
   const filtered = desk.filter((p) => {
@@ -334,34 +333,25 @@ export function InboxModule() {
   const tickets = (mail.find((b) => b.loginName === SUPPORT_LOGIN)?.inbox || [])
     .filter((m) => m._ticket || m.ticketNumber)
     .map((m) => ({ from: String(m.fromId || ''), msg: m }));
-
-  const openSupportChat = (login: string, name: string, avatar: string) => {
-    push({
-      type: 'conversation',
-      name,
-      avatar,
-      peer: login,
-      asLogin: SUPPORT_LOGIN,
-    });
-  };
+  const activePeer = panel?.type === 'chat' ? panel.peer : '';
 
   return (
-    <div className="flex flex-col gap-4 h-full min-h-0">
+    <div className="flex flex-col gap-3 h-full min-h-0">
       <div className="flex-shrink-0">
         <p className="pv-page" style={{ color: th.inkText }}>Сообщения</p>
         <p className="pv-caption mt-1" style={{ color: th.muted }}>
-          От лица «{SUPPORT_NAME}» — обращения в поддержку, не личные чаты сотрудника
+          Чат справа · пишете как «{SUPPORT_NAME}»
         </p>
       </div>
 
       {tickets.length > 0 && (
-        <div className="flex flex-col gap-2 flex-shrink-0">
+        <div className="flex flex-col gap-2 flex-shrink-0 max-h-36 overflow-y-auto">
           <p className="pv-subtitle" style={{ color: th.inkText }}>Тикеты ({tickets.length})</p>
           {tickets.slice(0, 16).map((row) => (
             <button key={row.msg.id} type="button"
               className="rounded-2xl p-3 text-left"
-              style={{ background: th.cardBg, border: `1px solid ${th.border}` }}
-              onClick={() => openSupportChat(row.from, row.from, SUPPORT_AVATAR)}>
+              style={{ background: th.cardBg, border: `1px solid ${activePeer === row.from ? ACCENT : th.border}` }}
+              onClick={() => openChat(row.from, row.from, SUPPORT_AVATAR)}>
               <p className="pv-caption" style={{ color: th.inkText }}>№{row.msg.ticketNumber || '—'} · @{row.from}</p>
               <p className="pv-micro mt-1 line-clamp-2" style={{ color: th.muted }}>{row.msg.text}</p>
             </button>
@@ -379,8 +369,8 @@ export function InboxModule() {
         {filtered.map((p) => (
           <button key={p.login} type="button"
             className="rounded-2xl px-3 py-3 text-left flex gap-3 items-center"
-            style={{ background: th.cardBg, border: `1px solid ${th.border}` }}
-            onClick={() => openSupportChat(p.login, p.name, p.avatar || SUPPORT_AVATAR)}>
+            style={{ background: th.cardBg, border: `1px solid ${activePeer === p.login ? ACCENT : th.border}` }}
+            onClick={() => openChat(p.login, p.name, p.avatar || SUPPORT_AVATAR)}>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{p.name}</p>
@@ -402,9 +392,10 @@ export function UsersModule() {
   const th = useTh();
   const { profiles } = useData();
   const { user } = useAuth();
+  const { panel, openUser } = useStaff();
   const canAdmin = roleAtLeast(user?.role, 'admin');
   const [q, setQ] = useState('');
-  const [selected, setSelected] = useState<Profile | null>(null);
+  const activeLogin = panel?.type === 'user' ? String(panel.profile.loginName || '') : '';
 
   const found = profiles.filter((p) => {
     const hay = `${p.loginName} ${p.displayName} ${p.role}`.toLowerCase();
@@ -416,51 +407,33 @@ export function UsersModule() {
   }
 
   return (
-    <div className="flex gap-3 h-full min-h-0">
-      <div className={`flex flex-col gap-3 min-w-0 ${selected ? 'w-full lg:w-[42%] lg:flex-shrink-0' : 'w-full'}`}>
-        <div>
-          <p className="pv-page" style={{ color: th.inkText }}>Люди</p>
-          <p className="pv-caption mt-1" style={{ color: th.muted }}>Полные настройки аккаунта</p>
-        </div>
-        <label className="flex items-center gap-2 h-11 rounded-2xl px-3.5" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
-          <Search size={16} color={th.soft} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Логин или имя"
-            className="flex-1 min-w-0 bg-transparent outline-none pv-caption" style={{ color: th.inkText }} />
-        </label>
-        <div className="flex-1 overflow-y-auto flex flex-col gap-1.5">
-          {found.slice(0, 80).map((p) => {
-            const login = String(p.loginName || '');
-            const on = selected && String(selected.loginName) === login;
-            return (
-              <button key={login} type="button" onClick={() => setSelected(p)}
-                className="rounded-2xl px-3 py-3 text-left"
-                style={{ background: on ? th.lightBg : th.cardBg, border: `1px solid ${on ? ACCENT : th.border}` }}>
-                <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{p.displayName || login}</p>
-                <p className="pv-micro" style={{ color: th.muted }}>
-                  @{login} · {p.role || 'user'}{p.blocked ? ' · blocked' : ''}
-                </p>
-              </button>
-            );
-          })}
-          {!found.length && <EmptyNote title="Никого" hint="Измените запрос" />}
-        </div>
+    <div className="flex flex-col gap-3 h-full min-h-0">
+      <div>
+        <p className="pv-page" style={{ color: th.inkText }}>Люди</p>
+        <p className="pv-caption mt-1" style={{ color: th.muted }}>Карточка справа · переписка от Поддержки</p>
       </div>
-      {selected && (
-        <div className="hidden lg:flex flex-1 min-w-0 rounded-3xl overflow-hidden" style={{ border: `1px solid ${th.border}` }}>
-          <UserEditorPanel
-            profile={profiles.find((p) => String(p.loginName) === String(selected.loginName)) || selected}
-            onClose={() => setSelected(null)}
-          />
-        </div>
-      )}
-      {selected && (
-        <div className="lg:hidden fixed inset-0 z-[200] flex flex-col" style={{ background: th.phoneBg }}>
-          <UserEditorPanel
-            profile={profiles.find((p) => String(p.loginName) === String(selected.loginName)) || selected}
-            onClose={() => setSelected(null)}
-          />
-        </div>
-      )}
+      <label className="flex items-center gap-2 h-11 rounded-2xl px-3.5" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
+        <Search size={16} color={th.soft} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Логин или имя"
+          className="flex-1 min-w-0 bg-transparent outline-none pv-caption" style={{ color: th.inkText }} />
+      </label>
+      <div className="flex-1 overflow-y-auto flex flex-col gap-1.5">
+        {found.slice(0, 80).map((p) => {
+          const login = String(p.loginName || '');
+          const on = activeLogin === login;
+          return (
+            <button key={login} type="button" onClick={() => openUser(p)}
+              className="rounded-2xl px-3 py-3 text-left"
+              style={{ background: on ? th.lightBg : th.cardBg, border: `1px solid ${on ? ACCENT : th.border}` }}>
+              <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{p.displayName || login}</p>
+              <p className="pv-micro" style={{ color: th.muted }}>
+                @{login} · {p.role || 'user'}{p.blocked ? ' · blocked' : ''}
+              </p>
+            </button>
+          );
+        })}
+        {!found.length && <EmptyNote title="Никого" hint="Измените запрос" />}
+      </div>
     </div>
   );
 }
