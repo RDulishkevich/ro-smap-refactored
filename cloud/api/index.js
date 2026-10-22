@@ -1472,7 +1472,7 @@ function publicUser(user, extras = {}) {
 function assertStaffAudience(payload, authUser) {
     if (!isStaffUser(authUser)) return respond(403, { ok: false, error: 'forbidden' });
     if (payload?.aud !== 'staff') {
-        return respond(403, { ok: false, error: 'staff_aud_required', message: 'Откройте staff.polevka.art' });
+        return respond(403, { ok: false, error: 'staff_aud_required', message: 'Откройте www.polevka.art/staff (staffLogin)' });
     }
     return null;
 }

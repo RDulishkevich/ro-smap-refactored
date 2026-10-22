@@ -60,6 +60,7 @@
 
 ## Staff host
 
-- UI: `apps/web/staff.html` → `StaffApp` (сборка кладёт также `dist/staff/index.html`).
-- DNS: `staff.polevka.art` → тот же Pages (или отдельный origin); CORS включает этот origin.
+- UI: `apps/web/staff.html` → `StaffApp` (сборка: `dist/staff/index.html` → Pages `/staff/`).
+- **Сейчас:** https://www.polevka.art/staff/ (без отдельного DNS).
+- **Опционально:** DNS CNAME `staff` → `rdulishkevich.github.io`, затем в GitHub Pages → Custom domain добавить `staff.polevka.art` (CORS уже готов).
 - Вход: `staffLogin` → JWT `aud: staff`. Обычный user JWT на admin-actions отклоняется.

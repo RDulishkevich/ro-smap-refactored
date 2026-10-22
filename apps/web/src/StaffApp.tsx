@@ -95,7 +95,7 @@ function StaffLoginGate({ children }: { children: React.ReactNode }) {
           <div className="w-9 h-9"><BrandMark /></div>
           <div>
             <p className="pv-heading" style={{ color: th.inkText }}>Staff</p>
-            <p className="pv-micro" style={{ color: th.soft }}>staff.polevka.art</p>
+            <p className="pv-micro" style={{ color: th.soft }}>Staff · /staff</p>
           </div>
         </div>
         <label className="pv-label" style={{ color: th.soft }}>
