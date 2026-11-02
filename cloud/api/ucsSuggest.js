@@ -1,35 +1,54 @@
 /**
- * UCS naming helpers via Groq free-tier (Llama + Whisper) with keyword fallback.
+ * UCS catalog helper for Полёвка: closed CatID from UCS 8.2.1,
+ * kind/eco from ucsMap, Whisper only when the author marked speech.
  * Set GROQ_API_KEY in the Cloud Function environment.
  */
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 const GROQ_CHAT = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_STT = 'https://api.groq.com/openai/v1/audio/transcriptions';
-// llama-3.1-8b-instant shut down 2026-08-16 — free-tier replacement:
 const CHAT_MODEL = process.env.GROQ_CHAT_MODEL || 'openai/gpt-oss-20b';
 const STT_MODEL = process.env.GROQ_STT_MODEL || 'whisper-large-v3-turbo';
 
-const KIND_SET = new Set(['nature', 'water', 'urban', 'forest', 'birds']);
-const ECO_SET = new Set(['geophony', 'biophony', 'anthrophony']);
+const index = require('./ucsIndex');
+const { mapCatId } = require('./ucsMap');
+
+const FIELD_PRIORITY = [
+  'AMBIENCE', 'WATER', 'WEATHER', 'WIND', 'RAIN', 'BIRDS', 'ANIMALS',
+  'VEGETATION', 'VEHICLES', 'CROWDS', 'TRAINS', 'FOOTSTEPS', 'SNOW', 'ICE',
+];
 
 const HEURISTICS = [
-  { re: /птиц|пение|birds?|songbird|воронь|чирик/i, catId: 'AMBBird', kind: 'birds', eco: 'biophony', fx: 'Birdsong' },
-  { re: /лес|дерев|forest|чащ|рощ/i, catId: 'AMBForst', kind: 'forest', eco: 'biophony', fx: 'Forest_Ambience' },
-  { re: /дожд|ливень|капл|rain/i, catId: 'RAIN', kind: 'water', eco: 'geophony', fx: 'Rain' },
-  { re: /ветер|wind|порыв/i, catId: 'WIND', kind: 'nature', eco: 'geophony', fx: 'Wind' },
-  { re: /гром|гроза|thunder|storm/i, catId: 'THUN', kind: 'nature', eco: 'geophony', fx: 'Thunder' },
-  { re: /река|руч(ей|ья)|поток|stream|river|водопад|waterfall/i, catId: 'WATRFlow', kind: 'water', eco: 'geophony', fx: 'Water_Flow' },
-  { re: /море|волн|surf|seaside|прибой|берег/i, catId: 'AMBSea', kind: 'water', eco: 'geophony', fx: 'Seaside' },
-  { re: /город|улиц|traffic|urban|трафик|машин/i, catId: 'AMBUrbn', kind: 'urban', eco: 'anthrophony', fx: 'Urban_Ambience' },
-  { re: /парк|park/i, catId: 'AMBPark', kind: 'nature', eco: 'biophony', fx: 'Park_Ambience' },
-  { re: /насеком|insect|сверч|цикад/i, catId: 'AMBInsc', kind: 'nature', eco: 'biophony', fx: 'Insects' },
-  { re: /болот|swamp/i, catId: 'AMBSwmp', kind: 'nature', eco: 'biophony', fx: 'Swamp' },
-  { re: /деревн|rural|село/i, catId: 'AMBRurl', kind: 'nature', eco: 'anthrophony', fx: 'Rural' },
+  { re: /птиц|пение|birds?|songbird|воронь|чирик|скворец|синиц/i, catId: 'AMBBird', fx: 'Birdsong' },
+  { re: /певч(ие|их)|соловей|жавор/i, catId: 'BIRDSong', fx: 'Songbirds' },
+  { re: /лягуш|квака|amphib/i, catId: 'ANMLAmph', fx: 'Frogs' },
+  { re: /насеком|insect|сверч|цикад|комар/i, catId: 'AMBInsc', fx: 'Insects' },
+  { re: /дожд|ливень|капл|rain/i, catId: 'RAIN', fx: 'Rain' },
+  { re: /гром|гроза|thunder|storm/i, catId: 'THUN', fx: 'Thunder' },
+  { re: /ветер|wind|порыв/i, catId: 'WIND', fx: 'Wind' },
+  { re: /водопад|waterfall/i, catId: 'WATRFall', fx: 'Waterfall' },
+  { re: /река|руч(ей|ья)|поток|stream|river/i, catId: 'WATRFlow', fx: 'Water_Flow' },
+  { re: /море|волн|surf|seaside|прибой|берег/i, catId: 'AMBSea', fx: 'Seaside' },
+  { re: /озер/i, catId: 'AMBLake', fx: 'Lakeside' },
+  { re: /болот|камыш|тростник|swamp/i, catId: 'AMBSwmp', fx: 'Swamp' },
+  { re: /лист|кроны|листв|leaves|foliage/i, catId: 'VEGELeaf', fx: 'Leaves' },
+  { re: /трактор/i, catId: 'VEHFarm', fx: 'Tractor' },
+  { re: /трамвай|tram/i, catId: 'TRNTram', fx: 'Tram' },
+  { re: /поезд|электричка|train|железн/i, catId: 'TRNDiesl', fx: 'Train' },
+  { re: /лес|дерев|forest|чащ|рощ|рассвет|dawn/i, catId: 'AMBForst', fx: 'Forest_Ambience' },
+  { re: /город|улиц|traffic|urban|трафик|машин/i, catId: 'AMBUrbn', fx: 'Urban_Ambience' },
+  { re: /парк|park/i, catId: 'AMBPark', fx: 'Park_Ambience' },
+  { re: /деревн|rural|село/i, catId: 'AMBRurl', fx: 'Rural' },
+  { re: /шаг(и|ов)|footstep/i, catId: 'FEETHmn', fx: 'Footsteps' },
+  { re: /колокол/i, catId: 'BELLLrg', fx: 'Bells' },
 ];
 
 function configured() {
   return !!GROQ_API_KEY;
+}
+
+function lookup(catId) {
+  return index.byId[String(catId || '')] || null;
 }
 
 function sanitizeFx(raw) {
@@ -41,30 +60,37 @@ function sanitizeFx(raw) {
   return s || 'Untitled';
 }
 
+function decorate(partial, source) {
+  const catId = String(partial.catId || '').trim();
+  const meta = lookup(catId);
+  if (!meta) return null;
+  const mapped = mapCatId(catId, meta.category);
+  return {
+    catId,
+    category: meta.category,
+    fxName: sanitizeFx(partial.fxName || partial.FXName || 'Untitled'),
+    title: String(partial.title || '').trim().slice(0, 120),
+    kind: mapped.kind,
+    ecoCategory: mapped.eco,
+    source,
+    rationale: String(partial.rationale || '').trim().slice(0, 240),
+  };
+}
+
 function heuristicSuggest(text) {
   const src = String(text || '');
   for (const rule of HEURISTICS) {
     if (rule.re.test(src)) {
-      return {
-        catId: rule.catId,
-        fxName: rule.fx,
-        title: '',
-        kind: rule.kind,
-        ecoCategory: rule.eco,
-        source: 'heuristic',
-        rationale: 'Подобрано по ключевым словам описания',
-      };
+      const hit = decorate({ catId: rule.catId, fxName: rule.fx, title: '', rationale: 'Подобрано по ключевым словам описания' }, 'heuristic');
+      if (hit) return hit;
     }
   }
-  return {
+  return decorate({
     catId: 'AMBMisc',
     fxName: 'Field_Recording',
     title: '',
-    kind: 'nature',
-    ecoCategory: 'geophony',
-    source: 'heuristic',
     rationale: 'Нейтральный AMBMisc — уточните вручную',
-  };
+  }, 'heuristic');
 }
 
 function parseModelJson(raw) {
@@ -78,46 +104,50 @@ function parseModelJson(raw) {
   }
 }
 
+function isUsefulTranscript(text) {
+  const t = String(text || '').trim();
+  if (t.length < 12) return false;
+  const lower = t.toLowerCase();
+  if (/продолжение следует|thank you for watching|subscribe|подпишись|www\.|http/.test(lower)) return false;
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length < 3) return false;
+  const uniq = new Set(words.map((w) => w.toLowerCase()));
+  if (uniq.size <= 2 && words.length >= 6) return false;
+  return true;
+}
+
 function normalizeSuggestion(raw, source) {
   if (!raw || typeof raw !== 'object') return null;
   const catId = String(raw.catId || raw.CatID || '').trim();
-  if (!/^[A-Za-z][A-Za-z0-9]{2,24}$/.test(catId)) return null;
-  const kind = KIND_SET.has(String(raw.kind || '')) ? String(raw.kind) : 'nature';
-  const ecoCategory = ECO_SET.has(String(raw.ecoCategory || raw.eco || ''))
-    ? String(raw.ecoCategory || raw.eco)
-    : 'geophony';
-  return {
+  if (!lookup(catId)) return null;
+  return decorate({
     catId,
-    fxName: sanitizeFx(raw.fxName || raw.FXName || 'Untitled'),
-    title: String(raw.title || '').trim().slice(0, 120),
-    kind,
-    ecoCategory,
-    source,
-    rationale: String(raw.rationale || '').trim().slice(0, 240),
-  };
+    fxName: raw.fxName || raw.FXName,
+    title: raw.title,
+    rationale: raw.rationale,
+  }, source);
 }
 
-async function groqChatOnce(userPrompt, withJsonFormat) {
+function normalizeAlternatives(rawList, primaryId, source) {
+  const seen = new Set([String(primaryId || '')]);
+  const out = [];
+  for (const item of Array.isArray(rawList) ? rawList : []) {
+    const raw = typeof item === 'string' ? { catId: item } : item;
+    const next = normalizeSuggestion(raw, source);
+    if (!next || seen.has(next.catId)) continue;
+    seen.add(next.catId);
+    out.push(next);
+    if (out.length >= 2) break;
+  }
+  return out;
+}
+
+async function groqChatOnce(messages, withJsonFormat) {
   const payload = {
     model: CHAT_MODEL,
     temperature: 0.2,
     max_tokens: 400,
-    messages: [
-      {
-        role: 'system',
-        content: [
-          'You catalog field recordings for Полёвка using UCS 8.2.1.',
-          'Reply with ONLY compact JSON:',
-          '{"catId":"AMBForst","fxName":"Forest_Dawn_Birds","title":"Утренний лес","kind":"forest","ecoCategory":"biophony","rationale":"..."}',
-          'Rules: catId must be a real UCS CatID (e.g. AMBForst, AMBBird, WATRFlow, AMBUrbn, RAIN, WIND, THUN, AMBMisc).',
-          'fxName: English Title_Case words joined by underscores, max 8 words.',
-          'title: short Russian display title.',
-          'kind: nature|water|urban|forest|birds.',
-          'ecoCategory: geophony|biophony|anthrophony.',
-        ].join(' '),
-      },
-      { role: 'user', content: userPrompt },
-    ],
+    messages,
   };
   if (withJsonFormat) payload.response_format = { type: 'json_object' };
 
@@ -142,14 +172,74 @@ async function groqChatOnce(userPrompt, withJsonFormat) {
   return parseModelJson(content);
 }
 
-async function groqChat(userPrompt) {
+async function groqChat(messages) {
   try {
-    return await groqChatOnce(userPrompt, true);
+    return await groqChatOnce(messages, true);
   } catch (e) {
-    // Some models reject response_format — retry plain.
-    if (e && e.status === 400) return groqChatOnce(userPrompt, false);
+    if (e && e.status === 400) return groqChatOnce(messages, false);
     throw e;
   }
+}
+
+function categoryListForPrompt() {
+  const rest = index.categories.filter((c) => !FIELD_PRIORITY.includes(c));
+  return [...FIELD_PRIORITY.filter((c) => index.categories.includes(c)), ...rest].join(', ');
+}
+
+function catIdListForPrompt(category) {
+  const ids = index.byCategory[category] || [];
+  return ids.map((id) => {
+    const meta = index.byId[id] || {};
+    return `${id} — ${meta.sub || ''}${meta.ru ? ` (${meta.ru})` : ''}`.trim();
+  }).join('\n');
+}
+
+function contextPrompt(input, audioNotes) {
+  return [
+    input.title ? `Title: ${input.title}` : '',
+    input.description ? `Description: ${input.description}` : '',
+    input.location ? `Location: ${input.location}` : '',
+    input.weather ? `Weather: ${input.weather}` : '',
+    audioNotes ? `Spoken notes from the recording: ${audioNotes.slice(0, 1200)}` : '',
+  ].filter(Boolean).join('\n');
+}
+
+async function groqPickCategory(userPrompt) {
+  const parsed = await groqChat([
+    {
+      role: 'system',
+      content: [
+        'You catalog field recordings for Полёвка using UCS 8.2.1.',
+        'Reply with ONLY compact JSON: {"category":"AMBIENCE"}',
+        `Prefer field categories when evidence is weak: ${FIELD_PRIORITY.join(', ')}.`,
+        `Allowed category values (exact): ${categoryListForPrompt()}`,
+      ].join(' '),
+    },
+    { role: 'user', content: userPrompt },
+  ]);
+  const category = String(parsed?.category || '').trim();
+  if (!index.byCategory[category]) return null;
+  return category;
+}
+
+async function groqPickCatId(userPrompt, category) {
+  const parsed = await groqChat([
+    {
+      role: 'system',
+      content: [
+        'You catalog field recordings for Полёвка using UCS 8.2.1.',
+        'Reply with ONLY compact JSON:',
+        '{"catId":"AMBForst","fxName":"Forest_Dawn_Birds","title":"Утренний лес","rationale":"...","alternatives":["AMBBird","VEGELeaf"]}',
+        `Use category ${category}. catId MUST be one of the allowed CatIDs.`,
+        'fxName: English Title_Case words joined by underscores, max 8 words.',
+        'title: short Russian display title.',
+        'alternatives: 0–2 other allowed CatIDs, not the primary.',
+        `Allowed CatIDs:\n${catIdListForPrompt(category)}`,
+      ].join('\n'),
+    },
+    { role: 'user', content: userPrompt },
+  ]);
+  return parsed;
 }
 
 function multipartBody(fields, file) {
@@ -207,61 +297,83 @@ async function groqTranscribe(audioBase64, mimeType) {
 }
 
 /**
- * @param {{ description?: string, title?: string, location?: string, audioBase64?: string, audioMime?: string, mode?: 'text'|'audio' }} input
+ * @param {{ description?: string, title?: string, location?: string, weather?: string, audioBase64?: string, audioMime?: string, voice?: boolean }} input
  */
 async function suggestUcs(input = {}) {
   const description = String(input.description || '').trim();
   const title = String(input.title || '').trim();
   const location = String(input.location || '').trim();
-  const mode = input.mode === 'audio' ? 'audio' : 'text';
-  const hay = [title, description, location].filter(Boolean).join('\n');
+  const weather = String(input.weather || '').trim();
+  const voice = input.voice === true;
+  const hay = [title, description, location, weather].filter(Boolean).join('\n');
 
-  if (mode === 'text' && hay.length < 8) {
+  if (!voice && hay.length < 8) {
     const err = new Error('need_description');
     err.status = 400;
     throw err;
   }
 
   if (!configured()) {
-    if (mode === 'audio') {
+    if (voice && !hay) {
       const err = new Error('ucs_ai_unconfigured');
       err.status = 503;
       throw err;
     }
-    return heuristicSuggest(hay);
+    const fallback = heuristicSuggest(hay);
+    return { suggestion: fallback, alternatives: [], usedVoice: false };
   }
+
+  let audioNotes = '';
+  let usedVoice = false;
+  if (voice && input.audioBase64) {
+    try {
+      const raw = await groqTranscribe(input.audioBase64, input.audioMime || 'audio/wav');
+      if (isUsefulTranscript(raw)) {
+        audioNotes = raw;
+        usedVoice = true;
+      }
+    } catch (e) {
+      if (e && e.message === 'audio_too_large') throw e;
+      // Speech failed — continue from text.
+    }
+  }
+
+  if (!usedVoice && hay.length < 8) {
+    const err = new Error('need_description');
+    err.status = 400;
+    throw err;
+  }
+
+  const userPrompt = contextPrompt({ title, description, location, weather }, audioNotes) || hay;
+  const source = usedVoice ? 'groq-voice' : 'groq';
 
   try {
-    let audioNotes = '';
-    if (mode === 'audio' && input.audioBase64) {
-      audioNotes = await groqTranscribe(input.audioBase64, input.audioMime || 'audio/wav');
-    }
-    const prompt = [
-      title ? `Title: ${title}` : '',
-      description ? `Description: ${description}` : '',
-      location ? `Location: ${location}` : '',
-      audioNotes ? `Audio analysis / transcript notes: ${audioNotes.slice(0, 1200)}` : '',
-      mode === 'audio' && !audioNotes ? 'Audio provided but empty transcript — infer from metadata only.' : '',
-    ].filter(Boolean).join('\n');
-
-    const parsed = await groqChat(prompt || hay);
-    const normalized = normalizeSuggestion(parsed, mode === 'audio' ? 'groq-audio' : 'groq');
-    if (normalized) {
-      if (audioNotes) normalized.audioNotes = audioNotes.slice(0, 400);
-      return normalized;
+    const category = await groqPickCategory(userPrompt);
+    if (category) {
+      const parsed = await groqPickCatId(userPrompt, category);
+      const normalized = normalizeSuggestion(parsed, source);
+      if (normalized) {
+        if (audioNotes) normalized.audioNotes = audioNotes.slice(0, 400);
+        const alternatives = normalizeAlternatives(parsed?.alternatives, normalized.catId, source);
+        return { suggestion: normalized, alternatives, usedVoice };
+      }
     }
   } catch (e) {
-    if (mode === 'audio') throw e;
-    // text mode soft-falls back
+    if (e && e.message === 'audio_too_large') throw e;
   }
 
-  const fallback = heuristicSuggest(hay);
-  fallback.source = configured() ? 'heuristic-fallback' : 'heuristic';
-  return fallback;
+  const fallback = heuristicSuggest(hay || audioNotes);
+  fallback.source = 'heuristic-fallback';
+  return { suggestion: fallback, alternatives: [], usedVoice };
 }
 
 module.exports = {
   configured,
   suggestUcs,
   heuristicSuggest,
+  normalizeSuggestion,
+  normalizeAlternatives,
+  isUsefulTranscript,
+  groqTranscribe,
+  lookup,
 };

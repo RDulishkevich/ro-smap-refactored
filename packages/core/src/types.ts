@@ -58,6 +58,7 @@ export type Sound = {
   rejectNote?: string;
   deleted?: boolean;
   timeMarkers?: TimeMarker[];
+  premodFlag?: 'profanity' | 'speech' | 'clean' | 'skip';
   [key: string]: unknown;
 };
 

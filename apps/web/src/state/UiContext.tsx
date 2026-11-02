@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 
 type MenuItem = { label: string; danger?: boolean; onClick: () => void };
 type MenuAt = { x: number; y: number; caret?: 'left' | 'right' | 'center'; sheet?: boolean };
@@ -25,11 +25,12 @@ export function UiProvider({ children }: { children: ReactNode }) {
   const [resolver, setResolver] = useState<((v: boolean) => void) | null>(null);
   const [menu, setMenu] = useState<UiCtx['menu']>(null);
   const toastTimer = useRef(0);
+  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
 
   const toast = useCallback((msg: string, opts?: { undo?: () => void }) => {
     window.clearTimeout(toastTimer.current);
     setToastState({ msg, undo: opts?.undo });
-    toastTimer.current = window.setTimeout(() => setToastState(null), opts?.undo ? 4200 : 2800);
+    toastTimer.current = window.setTimeout(() => setToastState(null), 5000);
   }, []);
 
   const dismissToast = useCallback(() => {
@@ -50,6 +51,11 @@ export function UiProvider({ children }: { children: ReactNode }) {
     setResolver(null);
   }, [resolver]);
 
+  const closeMenu = useCallback(() => setMenu(null), []);
+  const openMenu = useCallback((items: MenuItem[], title?: string, at?: MenuAt) => {
+    setMenu({ items, title, at });
+  }, []);
+
   return (
     <Ctx.Provider value={{
       toast,
@@ -59,9 +65,9 @@ export function UiProvider({ children }: { children: ReactNode }) {
       confirm,
       confirmState,
       resolveConfirm,
-      openMenu: (items, title, at) => setMenu({ items, title, at }),
+      openMenu,
       menu,
-      closeMenu: () => setMenu(null),
+      closeMenu,
     }}>
       {children}
     </Ctx.Provider>

@@ -319,23 +319,58 @@ export const apiTranslate = (texts: string | string[], sourceLanguageCode = 'ru'
 
 export type UcsSuggestion = {
   catId: string;
+  category?: string;
   fxName: string;
   title?: string;
-  kind?: string;
-  ecoCategory?: string;
+  kind: string;
+  ecoCategory: string;
   source?: string;
   rationale?: string;
   audioNotes?: string;
 };
 
 export const apiSuggestUcs = (payload: {
+  voice?: boolean;
   mode?: 'text' | 'audio';
   description?: string;
   title?: string;
   location?: string;
+  weather?: string;
   audioBase64?: string;
   audioMime?: string;
 }) => apiRequest('suggestUcs', payload, { auth: true, timeoutMs: 55_000 });
+
+export type PremodFlag = 'profanity' | 'speech' | 'clean' | 'skip';
+
+export type PremodReport = {
+  flag: PremodFlag;
+  speech?: boolean;
+  profanity?: boolean;
+  hits?: string[];
+  transcript?: string;
+  author?: string;
+  skipped?: boolean;
+  at?: string;
+};
+
+export const apiPremoderate = (payload: {
+  soundId: string;
+  title?: string;
+  description?: string;
+  audioBase64?: string;
+  audioMime?: string;
+}) => apiRequest('premoderate', payload, { auth: true, timeoutMs: 55_000 }) as Promise<{
+  ok: boolean;
+  flag: PremodFlag;
+  speech?: boolean;
+  skipped?: boolean;
+}>;
+
+export const apiGetPremod = (ids: Array<string | number>) =>
+  apiRequest('getPremod', { ids: ids.map(String) }, { auth: true, timeoutMs: 25_000 }) as Promise<{
+    ok: boolean;
+    reports: Record<string, PremodReport>;
+  }>;
 export const apiTotpSetup = () => apiRequest('totpSetup', {}, { auth: true });
 export const apiTotpConfirm = (totpCode: string) => apiRequest('totpConfirm', { totpCode }, { auth: true });
 export const apiTotpDisable = (password: string, totpCode: string) =>

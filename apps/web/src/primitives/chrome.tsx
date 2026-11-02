@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { MapPin, Mic, Plus } from 'lucide-react';
+import { MapPin, Mic, Plus, X } from 'lucide-react';
 import { color, spring, tap, type ThemeTokens } from '@polevka/design';
 import { useNav } from '../state/NavContext';
 import { useUi } from '../state/UiContext';
@@ -123,6 +123,114 @@ export function MapFab({ open, onToggle, from = 'corner' }: { open: boolean; onT
   );
 }
 
+function focusables(root: HTMLElement | null) {
+  if (!root) return [];
+  return [...root.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')];
+}
+
+function useMenuKeys(closeMenu: () => void) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const items = () => [...(rootRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
+    items()[0]?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeMenu();
+        return;
+      }
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return;
+      const list = items();
+      if (!list.length) return;
+      e.preventDefault();
+      const i = list.indexOf(document.activeElement as HTMLElement);
+      if (e.key === 'Home') { list[0]?.focus(); return; }
+      if (e.key === 'End') { list[list.length - 1]?.focus(); return; }
+      const dir = e.key === 'ArrowDown' ? 1 : -1;
+      const next = i < 0 ? (dir > 0 ? 0 : list.length - 1) : (i + dir + list.length) % list.length;
+      list[next]?.focus();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [closeMenu]);
+  return rootRef;
+}
+
+function ConfirmCard({
+  confirmState,
+  resolveConfirm,
+  th,
+  desktop,
+}: {
+  confirmState: { title: string; body?: string; ok?: string };
+  resolveConfirm: (v: boolean) => void;
+  th: ThemeTokens;
+  desktop: boolean;
+}) {
+  const t = useT();
+  const cardRef = useRef<HTMLDivElement>(null);
+  const prev = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    prev.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    focusables(cardRef.current)[0]?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        resolveConfirm(false);
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const list = focusables(cardRef.current);
+      if (!list.length) return;
+      const first = list[0];
+      const last = list[list.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      prev.current?.focus?.();
+    };
+  }, [resolveConfirm]);
+
+  return (
+    <motion.div
+      ref={cardRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pv-confirm-title"
+      initial={desktop ? { opacity: 0, scale: 0.98 } : { y: 24, opacity: 0 }}
+      animate={desktop ? { opacity: 1, scale: 1 } : { y: 0, opacity: 1 }}
+      transition={spring.sheet}
+      className={`w-full ${desktop ? 'max-w-sm rounded-3xl p-5' : 'rounded-t-3xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]'}`}
+      style={{ background: th.cardBg }}
+      onClick={(e) => e.stopPropagation()}>
+      {!desktop && <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: th.border }} />}
+      <div className="flex items-start gap-1 mb-2">
+        <p id="pv-confirm-title" className="pv-heading flex-1 pt-1.5" style={{ color: th.inkText }}>{confirmState.title}</p>
+        <button
+          type="button"
+          className="min-h-11 min-w-11 -mt-1 -mr-2 flex items-center justify-center"
+          aria-label={t('close')}
+          onClick={() => resolveConfirm(false)}>
+          <X size={18} style={{ color: th.muted }} />
+        </button>
+      </div>
+      {confirmState.body && <p className="pv-body mb-4" style={{ color: th.muted }}>{confirmState.body}</p>}
+      <div className="flex gap-2">
+        <button type="button" className="pv-button flex-1 min-h-11 py-2.5 rounded-2xl" style={{ background: th.lightBg, color: th.muted }} onClick={() => resolveConfirm(false)}>Отмена</button>
+        <button type="button" className="pv-button flex-1 min-h-11 py-2.5 rounded-2xl text-white" style={{ background: color.accent }} onClick={() => resolveConfirm(true)}>{confirmState.ok || 'ОК'}</button>
+      </div>
+    </motion.div>
+  );
+}
+
 export function Overlays() {
   const { toastState, confirmState, resolveConfirm, menu, closeMenu, dismissToast } = useUi();
   const th = useTh();
@@ -134,14 +242,21 @@ export function Overlays() {
         {toastState && (
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} transition={spring.fade}
             role="status"
-            className="pv-caption fixed left-1/2 z-[300] -translate-x-1/2 bottom-28 md:bottom-6 px-4 py-2 rounded-2xl font-semibold text-white shadow-lg flex items-center gap-3"
+            className="pv-caption fixed left-1/2 z-[300] -translate-x-1/2 bottom-28 md:bottom-6 pl-4 pr-1 py-1 rounded-2xl font-semibold text-white shadow-lg flex items-center gap-1"
             style={{ background: th.isDark ? th.solid : color.dark }}>
-            <span>{toastState.msg}</span>
+            <span className="py-1 pr-2">{toastState.msg}</span>
             {toastState.undo && (
-              <button type="button" className="underline min-h-11 px-1" onClick={() => { const undo = toastState.undo; dismissToast(); undo?.(); }}>
+              <button type="button" className="underline min-h-11 px-2" onClick={() => { const undo = toastState.undo; dismissToast(); undo?.(); }}>
                 {t('undo')}
               </button>
             )}
+            <button
+              type="button"
+              className="min-h-11 min-w-11 flex items-center justify-center"
+              aria-label={t('close')}
+              onClick={dismissToast}>
+              <X size={16} />
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -149,21 +264,7 @@ export function Overlays() {
         {confirmState && (
           <motion.div className={`fixed inset-0 z-[9999] flex ${desktop ? 'items-center justify-center p-6' : 'items-end'}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             style={{ background: 'rgba(26,26,26,0.4)' }} onClick={() => resolveConfirm(false)}>
-            <motion.div
-              initial={desktop ? { opacity: 0, scale: 0.98 } : { y: 24, opacity: 0 }}
-              animate={desktop ? { opacity: 1, scale: 1 } : { y: 0, opacity: 1 }}
-              transition={spring.sheet}
-              className={`w-full ${desktop ? 'max-w-sm rounded-3xl p-5' : 'rounded-t-3xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]'}`}
-              style={{ background: th.cardBg }}
-              onClick={(e) => e.stopPropagation()}>
-              {!desktop && <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: th.border }} />}
-              <p className="pv-heading mb-2" style={{ color: th.inkText }}>{confirmState.title}</p>
-              {confirmState.body && <p className="pv-body mb-4" style={{ color: th.muted }}>{confirmState.body}</p>}
-              <div className="flex gap-2">
-                <button className="pv-button flex-1 min-h-11 py-2.5 rounded-2xl" style={{ background: th.lightBg, color: th.muted }} onClick={() => resolveConfirm(false)}>Отмена</button>
-                <button className="pv-button flex-1 min-h-11 py-2.5 rounded-2xl text-white" style={{ background: color.accent }} onClick={() => resolveConfirm(true)}>{confirmState.ok || 'ОК'}</button>
-              </div>
-            </motion.div>
+            <ConfirmCard confirmState={confirmState} resolveConfirm={resolveConfirm} th={th} desktop={desktop} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -192,10 +293,12 @@ function MenuPanel({
   closeMenu: () => void;
 }) {
   const [hot, setHot] = useState<string | null>(null);
+  const rootRef = useMenuKeys(closeMenu);
   const left = Math.max(12, Math.min(menu.at?.x ?? 24, (typeof window !== 'undefined' ? window.innerWidth : 400) - 232));
   const top = Math.max(12, Math.min(menu.at?.y ?? 24, (typeof window !== 'undefined' ? window.innerHeight : 400) - 220));
   return (
     <motion.div
+      ref={rootRef}
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={spring.fade}
@@ -243,13 +346,10 @@ function MenuSheet({
   closeMenu: () => void;
 }) {
   const [hot, setHot] = useState<string | null>(null);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeMenu(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [closeMenu]);
+  const rootRef = useMenuKeys(closeMenu);
   return (
     <motion.div
+      ref={rootRef}
       role="menu"
       initial={{ y: 32, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}

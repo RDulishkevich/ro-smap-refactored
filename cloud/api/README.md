@@ -9,7 +9,7 @@
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | проверка живости (`version: 33`, `ydb`, `vapid`, `ucsAi`, `smartCaptcha`) |
+| `health` | нет | проверка живости (`version: 36`, `ydb`, `vapid`, `ucsAi`, `smartCaptcha`) |
 | `publicConfig` | нет | публичные ключи (Maps + VAPID + OAuth + SmartCaptcha sitekey) |
 | `oauthFinish` | нет | обмен code VK/Яндекс → сессия (нужен `pdConsent` для нового аккаунта) |
 | `oauthLink` | access | привязать VK/Яндекс к текущему аккаунту (забирает orphan `oauthOnly` stub) |
@@ -35,7 +35,9 @@
 | `deleteAccount` | access | самоудаление: пароль + TOTP, или `oauthOnly`+`confirmLogin`; purge снимает `oauth.*`; нельзя `admin`/`support` |
 | `exportMyData` | access | JSON своих данных (без хешей пароля) |
 | `translate` | access | Yandex Translate RU→EN (UCS FXName) |
-| `suggestUcs` | access | UCS CatID/FXName from description (Groq `openai/gpt-oss-20b` + Whisper beta; keyword fallback). Needs `GROQ_API_KEY`. |
+| `suggestUcs` | access | UCS CatID/FXName из каталога 8.2.1 (Groq chat; Whisper только при `voice: true`; kind/eco из CatID; keyword fallback). Needs `GROQ_API_KEY`. |
+| `premoderate` | access | Whisper-клип + скан мата при отправке на модерацию. Отчёт в `_auth/premod/{id}.json`; в каталог только `premodFlag`. При мате — уведомление staff без расшифровки в push. |
+| `getPremod` | access staff TOTP | расшифровки по id (до 24). |
 | `requestEmailVerification` | access | 6-значный код на email (SMTP); хеш в `_auth/email_codes/{login}.json` |
 | `confirmEmailVerification` | access | проверка кода → `email` + `emailVerified` в private_meta |
 | `adminDeleteUser` | access admin | полное удаление учётки + PII; профиль → «Удалённый аккаунт» |
@@ -88,7 +90,7 @@
 | Пароль | мин. 8 символов |
 | Access JWT / refresh | 30 мин / 14 суток при «запомнить меня»; иначе refresh — session cookie |
 | Login lockout | 8 fails → 15 мин (IP+login) |
-| Rate limit | IP 360/мин (без health); login 25; refresh 60; sync/commit 120; patchSound 180; presign 90; translate 40; suggestUcs 12; getMail 120; email/reset request 5/10мин на логин, 20/час на IP; confirm 20/10мин; totp 20/10мин |
+| Rate limit | IP 360/мин (без health); login 25; refresh 60; sync/commit 120; patchSound 180; presign 90; translate 40; suggestUcs 12; premoderate 8; getPremod 40; getMail 120; email/reset request 5/10мин на логин, 20/час на IP; confirm 20/10мин; totp 20/10мин |
 | Cooldown | sync 400 мс; сообщение 1.6 с; лайк 280 мс; play 800 мс |
 
 ## Переменные окружения функции
@@ -116,7 +118,7 @@ VAPID_PRIVATE_KEY=
 VAPID_SUBJECT=mailto:support@polevka.art
 SMARTCAPTCHA_CLIENT_KEY=ysc1_…   # публичный sitekey
 SMARTCAPTCHA_SERVER_KEY=ysc2_…   # только на сервере
-GROQ_API_KEY=…                   # опц. UCS AI
+GROQ_API_KEY=…                   # опц. UCS AI + Whisper премодерация
 ```
 
 Без пары SmartCaptcha ключей проверка отключена (удобно для локалки). С ключами — обязательна на `register` / `login` / `requestPasswordReset` и на `sync`/`commit` звука со `status: pending`.
@@ -141,7 +143,7 @@ v17: YDB Document API — источник правды (строки звуко
 ```bash
 cd cloud/api
 npm install --omit=dev
-zip -r ../rosmap-api.zip index.js sessionSecurity.js mailTemplates.js ydbDoc.js mailCrypto.js webPush.js oauthProviders.js ucsSuggest.js smartCaptcha.js package.json node_modules
+zip -r ../rosmap-api.zip index.js sessionSecurity.js mailTemplates.js ydbDoc.js mailCrypto.js webPush.js oauthProviders.js ucsSuggest.js ucsMap.js ucsIndex.js premod.js smartCaptcha.js package.json node_modules
 ```
 
 

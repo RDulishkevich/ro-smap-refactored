@@ -31,13 +31,14 @@ export function Avatar({
     <div
       className={`${rounded} overflow-hidden flex items-center justify-center flex-shrink-0 ${className}`}
       style={{ width: size, height: size, background: th.lightBg, color: th.muted }}
-      aria-hidden={!show}
+      role={!show && name ? 'img' : undefined}
+      aria-label={!show && name ? name : undefined}
     >
       {show
-        ? <img src={url} alt="" className="w-full h-full object-cover" onError={() => setBroken(true)} />
+        ? <img src={url} alt={name || ''} className="w-full h-full object-cover" onError={() => setBroken(true)} />
         : fallback === 'icon'
           ? <User size={iconSize} strokeWidth={1.75} aria-hidden />
-          : <span className="pv-subtitle leading-none">{letter}</span>}
+          : <span className="pv-subtitle leading-none" aria-hidden>{letter}</span>}
     </div>
   );
 }

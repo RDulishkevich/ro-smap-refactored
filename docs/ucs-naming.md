@@ -43,6 +43,17 @@ On upload, the app reads bext / iXML / filename: date, time, keywords, CatID and
 
 Cloud object keys stay `uploads/{login}/audio_{soundId}.wav`. The UCS name is stored in `fileName`, used as download name, and on publish the full add-sound form snapshot is embedded into WAV metadata (bext + Open iXML `USER`/`ROSMAP_JSON` + LIST INFO).
 
+## ИИ-подбор UCS
+
+Кнопка **Подобрать UCS** на экране добавления — помощник автора, не модерация и не автопубликация.
+
+- CatID берётся только из каталога UCS 8.2.1 (`cloud/api/ucsIndex.js`). Выдуманные коды отбрасываются.
+- Категория Полёвки (`nature` / `water` / `urban` / `forest` / `birds`) и эко (`geophony` / `biophony` / `anthrophony`) выставляются **из CatID**, не из свободного ответа модели (`cloud/api/ucsMap.js`).
+- По умолчанию модель смотрит описание, название, место и погоду. Whisper (речь) включается только галкой «В записи есть голос»: для леса и дождя без комментария её не ставят.
+- Отдельно, при отправке на модерацию, тот же короткий клип уходит в Whisper для премодерации речи. Расшифровка и совпадения мата пишутся в приватный `_auth/premod/{id}.json` и показываются только staff. В `map_data.json` остаётся флаг `premodFlag` (`profanity` / `speech` / `clean` / `skip`).
+- Автор подтверждает поля вручную; можно выбрать одну из 1–2 альтернатив CatID.
+- Если Groq недоступен — эвристика по ключевым словам, не «анализ записи».
+
 ### Expedition archive
 
 From the expedition description view, **Скачать архив** packs all published recordings linked via `sessionId` into a ZIP (owners/admins also get their unpublished files with a URL).

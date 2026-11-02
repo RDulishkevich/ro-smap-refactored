@@ -20,6 +20,7 @@ export default defineConfig({
       'apps/web/src/**/*.test.{ts,tsx}',
       'packages/core/src/**/*.test.ts',
       'packages/design/src/**/*.test.ts',
+      'cloud/api/**/*.test.js',
     ],
     exclude: ['e2e/**', 'node_modules/**', 'apps/web/dist/**'],
     css: false,

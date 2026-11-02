@@ -27,6 +27,11 @@ export function openNotification(
   const from = String(n.fromId || '').replace(/^@/, '').toLowerCase();
   const soundId = n.soundId != null ? String(n.soundId) : '';
 
+  if (n.type === 'premod') {
+    push({ type: 'staff' });
+    return true;
+  }
+
   if (soundId) {
     const sound = sounds.find((s) => String(s.id) === soundId);
     if (sound) {

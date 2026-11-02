@@ -89,7 +89,7 @@ Object Storage
 
 - Баннер `#cookie-consent-banner`: «Принять» (сессия + локальные настройки) / «Только необходимые».
 - Флаг в `localStorage` (`polevka_cookie_consent`, versioned). Вход без «Принять» блокируется (`requireCookieConsentForAuth`).
-- Политика: [`docs/privacy-policy.md`](privacy-policy.md) §2.1; UI — `legalDocs.js` v2026.10.
+- Политика: [`docs/privacy-policy.md`](privacy-policy.md) §2.1; UI — `legalDocs.js` v2026.11.
 - Повтор: Настройки → «Cookies и согласие».
 
 ### 3.4 Login lockout и rate limit
@@ -122,7 +122,15 @@ Object Storage
 - Получатель может выставить `read` / `readAt` на входящих; отправитель видит галочки по своей копии в ящике собеседника.
 - Ответ (`replyTo`) и реакции (фиксированный набор эмодзи, только свой логин) пишутся в то же сообщение; чужой текст получатель менять не может.
 
-### 3.6.1 Web Push
+### 3.6.1 Премодерация речи (`_auth/premod/{soundId}.json`)
+
+- При отправке звука в `pending` клиент шлёт короткий клип (~45 с) в `premoderate`. Whisper-транскрипт сканируется на мат; полный отчёт лежит в **private** bucket / YDB kv.
+- Публичный каталог получает только `premodFlag`. Поля `premod` / `premodTranscript` с клиента стираются.
+- Файл привязан к автору: чужой логин не может перезаписать отчёт по id.
+- Staff читает расшифровку через `getPremod` (TOTP). Push/уведомление при мате — без текста расшифровки.
+- Если Groq недоступен, публикация не блокируется (`premodFlag: skip`); мат в названии/описании всё равно поднимает флаг.
+
+### 3.6.2 Web Push
 
 - Подписка устройства: `savePushSubscription` → `_auth/push/{login}.json` (до 5 endpoint). Снимается при выходе и `deletePushSubscription`.
 - При новом входящем API шлёт VAPID-push: имя отправителя + «Новое сообщение» / «Фото» / «Видео», без полного текста.

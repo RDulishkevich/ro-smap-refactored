@@ -53,4 +53,40 @@ describe('UiContext overlays', () => {
     await user.click(screen.getByRole('button', { name: 'menu' }));
     expect(screen.getByRole('menuitem', { name: 'На карте' })).toBeInTheDocument();
   });
+
+  it('lets you dismiss a toast', async () => {
+    const user = userEvent.setup();
+    renderUi(<Probe />);
+    await user.click(screen.getByRole('button', { name: 'toast' }));
+    expect(screen.getByText('Сохранено')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Закрыть' }));
+    await waitFor(() => {
+      expect(screen.queryByText('Сохранено')).not.toBeInTheDocument();
+    });
+  });
+
+  it('closes confirm on Escape and returns focus', async () => {
+    const user = userEvent.setup();
+    renderUi(<Probe />);
+    const trigger = screen.getByRole('button', { name: 'confirm' });
+    await user.click(trigger);
+    expect(screen.getByRole('dialog', { name: 'Удалить?' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Закрыть' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    expect(trigger).toHaveFocus();
+  });
+
+  it('closes the ⋯ menu with Escape', async () => {
+    const user = userEvent.setup();
+    renderUi(<Probe />);
+    await user.click(screen.getByRole('button', { name: 'menu' }));
+    expect(screen.getByRole('menuitem', { name: 'На карте' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('menuitem', { name: 'На карте' })).not.toBeInTheDocument();
+    });
+  });
 });

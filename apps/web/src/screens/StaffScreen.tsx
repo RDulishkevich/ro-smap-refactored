@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  apiAdminDeleteUser, apiAdminSendEmail, apiAdminUnbindEmail, apiSyncJson,
+  apiAdminDeleteUser, apiAdminSendEmail, apiAdminUnbindEmail, apiGetPremod, apiSyncJson,
   pendingSounds, rejectedSounds,
-  SUPPORT_AVATAR, SUPPORT_LOGIN, SUPPORT_NAME, type Profile, type Sound,
+  SUPPORT_AVATAR, SUPPORT_LOGIN, SUPPORT_NAME, type PremodReport, type Profile, type Sound,
 } from '@polevka/core';
 import { getRejectSuggestionChips } from '../../../../src/data/publishRules.js';
 import { color, type ThemeTokens } from '@polevka/design';
@@ -32,6 +32,7 @@ export function StaffScreen({ onBack }: { onBack: () => void }) {
   const [tab, setTab] = useState<Tab>('sounds');
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<'all' | 'pending' | 'rejected' | 'published'>('pending');
+  const [premod, setPremod] = useState<Record<string, PremodReport>>({});
   const chips = getRejectSuggestionChips() as Array<{ id: string; label: string; text: string }>;
   const isAdmin = user?.role === 'admin';
 
@@ -44,8 +45,23 @@ export function StaffScreen({ onBack }: { onBack: () => void }) {
       const n = q.toLowerCase();
       s = s.filter((x) => `${x.title} ${x.user} ${x.ucsCat}`.toLowerCase().includes(n));
     }
-    return s;
+    const rank = (x: Sound) => (x.premodFlag === 'profanity' ? 0 : x.premodFlag === 'speech' ? 1 : 2);
+    return [...s].sort((a, b) => rank(a) - rank(b));
   }, [allSounds, status, q]);
+
+  useEffect(() => {
+    if (tab !== 'sounds') return;
+    const ids = list
+      .filter((s) => s.premodFlag === 'profanity' || s.premodFlag === 'speech' || s.status === 'pending')
+      .map((s) => String(s.id))
+      .slice(0, 24);
+    if (!ids.length) return;
+    let cancelled = false;
+    void apiGetPremod(ids).then((res) => {
+      if (!cancelled) setPremod(res.reports || {});
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [tab, list]);
 
     const reported = allSounds.filter((s) => !s.deleted && Array.isArray(s.reports) && s.reports.length > 0);
   const tickets = mail.flatMap((box) => (box.inbox || [])
@@ -91,7 +107,8 @@ export function StaffScreen({ onBack }: { onBack: () => void }) {
               ))}
             </div>
             {list.map((s) => (
-              <SoundModRow key={String(s.id)} s={s} th={th} chips={chips} onOpen={() => push({ type: 'sound-detail', sound: s })}
+              <SoundModRow key={String(s.id)} s={s} th={th} chips={chips} report={premod[String(s.id)]}
+                onOpen={() => push({ type: 'sound-detail', sound: s })}
                 onApprove={() => void patchStatus(s.id, 'published').then(() => toast('Опубликовано')).catch((e: Error) => toast(e.message))}
                 onReject={(note) => void (async () => {
                   const ok = await confirm({ title: 'Отклонить запись?', body: note, ok: 'Отклонить' });
@@ -163,17 +180,38 @@ export function StaffScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
-function SoundModRow({ s, th, chips, onOpen, onApprove, onReject, onDelete }: {
+function premodBadge(flag: string | undefined) {
+  if (flag === 'profanity') return { label: 'Нецензурная речь', color: ACCENT };
+  if (flag === 'speech') return { label: 'Есть речь', color: '#8a6a3a' };
+  if (flag === 'skip') return { label: 'Проверка речи не прошла', color: undefined };
+  return null;
+}
+
+function SoundModRow({ s, th, chips, report, onOpen, onApprove, onReject, onDelete }: {
   s: Sound; th: ThemeTokens;
   chips: Array<{ id: string; text: string }>;
+  report?: PremodReport;
   onOpen: () => void; onApprove: () => void; onReject: (note: string) => void; onDelete: () => void;
 }) {
+  const flag = report?.flag || s.premodFlag;
+  const badge = premodBadge(flag);
   return (
     <div className="rounded-3xl p-4 mb-3 shadow-sm" style={{ background: th.cardBg }}>
       <button className="text-left w-full" onClick={onOpen}>
         <p className="text-sm font-bold" style={{ color: th.inkText }}>{s.title}</p>
-        <p className="text-xs mb-3" style={{ color: th.muted }}>{s.user} · {s.status} · {s.ucsCatId || s.ucsCat || s.type}</p>
+        <p className="text-xs mb-2" style={{ color: th.muted }}>{s.user} · {s.status} · {s.ucsCatId || s.ucsCat || s.type}</p>
       </button>
+      {badge && (
+        <p className="text-[10px] font-semibold mb-2" style={{ color: badge.color || th.muted }}>{badge.label}</p>
+      )}
+      {report?.transcript ? (
+        <div className="rounded-2xl px-3 py-2 mb-3" style={{ background: th.lightBg }}>
+          <p className="text-[10px] font-semibold mb-1" style={{ color: report.profanity ? ACCENT : th.muted }}>
+            Расшифровка{report.profanity ? ' · есть мат' : ''}
+          </p>
+          <p className="text-xs leading-snug" style={{ color: th.inkText }}>{report.transcript}</p>
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-1.5">
         <button className="text-xs font-semibold text-white px-3 py-2 rounded-2xl" style={{ background: ACCENT }} onClick={onApprove}>Одобрить</button>
         {chips.slice(0, 4).map((c) => (

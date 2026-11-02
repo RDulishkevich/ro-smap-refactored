@@ -13,7 +13,7 @@
  *   YC_TRANSLATE_API_KEY — Yandex Cloud Translate API key (Api-Key …)
  *   YC_FOLDER_ID      — folder id (required with some key types)
  *   YANDEX_MAPS_API_KEY — browser Maps JS key (HTTP Referer lock); exposed only via publicConfig
- *   GROQ_API_KEY      — free-tier Groq key for UCS suggest (Llama) + optional Whisper beta
+ *   GROQ_API_KEY      — Groq key: UCS suggest + Whisper pre-moderation on pending publish
  *   SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / MAIL_FROM — transactional email
  *   VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT — Web Push (device notifications)
  *   ALLOW_DEMO_EMAIL_CODES — set to 1 on staging only: return demoCode when SMTP missing
@@ -24,7 +24,7 @@
  * Actions (POST JSON { action, ... }):
  *   health | publicConfig | register | login | oauthFinish | oauthLink | oauthUnlink
  *   | refresh | logout | logoutAll | changePassword | changeLogin | me | getMail
- *   | sync | commit | presign | patchSound | translate | suggestUcs
+ *   | sync | commit | presign | patchSound | translate | suggestUcs | premoderate | getPremod
  *   | requestEmailVerification | confirmEmailVerification
  *   | requestPasswordReset | confirmPasswordReset | adminDeleteUser | adminUnbindEmail | adminSendEmail
  *   | totpSetup | totpConfirm | totpDisable | getSecurityEvents
@@ -43,6 +43,7 @@ const mailCrypto = require('./mailCrypto');
 const webPush = require('./webPush');
 const oauthProviders = require('./oauthProviders');
 const ucsSuggest = require('./ucsSuggest');
+const premod = require('./premod');
 const smartCaptcha = require('./smartCaptcha');
 
 let nodemailer = null;
@@ -377,6 +378,17 @@ function extractProfilePii(p = {}) {
     return out;
 }
 
+const PREMOD_FLAGS = new Set(['profanity', 'speech', 'clean', 'skip']);
+
+function safeSoundId(raw) {
+    const id = String(raw || '').trim().slice(0, 80);
+    return /^[a-zA-Z0-9._-]+$/.test(id) ? id : '';
+}
+
+function premodKey(soundId) {
+    return `_auth/premod/${soundId}.json`;
+}
+
 function sanitizeSoundRecord(s) {
     if (!s || typeof s !== 'object') return s;
     const out = { ...s };
@@ -387,6 +399,9 @@ function sanitizeSoundRecord(s) {
             .filter(Boolean)
             .slice(0, 3);
     }
+    delete out.premod;
+    delete out.premodTranscript;
+    if (!PREMOD_FLAGS.has(String(out.premodFlag || ''))) delete out.premodFlag;
     return out;
 }
 
@@ -589,6 +604,8 @@ function actionRateLimit(action, ip, login = '') {
     if (action === 'patchSound' && !rateLimit(`patch:${who}`, 180, 60000)) return false;
     if (action === 'translate' && !rateLimit(`translate:${who}`, 40, 60000)) return false;
     if (action === 'suggestUcs' && !rateLimit(`suggestucs:${who}`, 12, 60000)) return false;
+    if (action === 'premoderate' && !rateLimit(`premod:${who}`, 8, 60000)) return false;
+    if (action === 'getPremod' && !rateLimit(`getpremod:${who}`, 40, 60000)) return false;
     if (action === 'getMail' && !rateLimit(`getmail:${who}`, 120, 60000)) return false;
     if (action === 'requestEmailVerification' && !rateLimit(`emailreq:${who}`, 5, 600000)) return false;
     if (action === 'requestEmailVerification' && !rateLimit(`emailreqip:${base}`, 20, 3600000)) return false;
@@ -4318,6 +4335,147 @@ async function handleTranslate(event, body) {
     return respond(200, { ok: true, translations, sourceLanguageCode, targetLanguageCode });
 }
 
+function listStaffLogins(users) {
+    const out = [];
+    for (const [login, row] of Object.entries(users || {})) {
+        const u = row && typeof row === 'object' ? row : {};
+        if (isStaffUser({ ...u, login: u.login || login })) out.push(normalizeLogin(login));
+    }
+    return [...new Set(out.filter(Boolean))];
+}
+
+async function notifyStaffPremod({ soundId, title, author }) {
+    const users = await loadAuthUsers();
+    const staff = listStaffLogins(users);
+    const note = {
+        id: `premod-${soundId}-${Date.now()}`,
+        type: 'premod',
+        fromId: author,
+        fromName: author,
+        text: `Нецензурная речь в записи «${String(title || soundId).slice(0, 80)}»`,
+        date: new Date().toISOString(),
+        soundId,
+        soundTitle: String(title || '').slice(0, 120),
+        read: false,
+    };
+    await Promise.all(staff.map(async (login) => {
+        if (login === author) return;
+        try {
+            await mutateJson(mailBoxKey(login), emptyMailBox(login), (cur) => {
+                const box = mailCrypto.decryptMailBox(cur && cur.loginName ? cur : emptyMailBox(login));
+                const next = sanitizeMailRecord(box);
+                next.notifications = [note, ...(next.notifications || [])].slice(0, MAX_NOTIFICATIONS);
+                return mailCrypto.encryptMailBox(next);
+            }, { privateObject: true });
+        } catch (_) { /* staff mailbox write is best-effort */ }
+        await notifyUserPush(login, {
+            title: 'Премодерация',
+            body: 'В очереди запись с нецензурной речью',
+            tag: `premod-${soundId}`,
+            url: '/staff',
+        }).catch(() => {});
+    }));
+}
+
+async function handlePremoderate(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const user = await resolveAuthUser(payload);
+    if (!user) return respond(401, { ok: false, error: 'unauthorized' });
+    if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
+    const totpBlock = await assertStaffTotp(user);
+    if (totpBlock) return totpBlock;
+
+    const soundId = safeSoundId(body.soundId);
+    if (!soundId) return respond(400, { ok: false, error: 'bad_sound_id' });
+
+    const title = String(body.title || '').slice(0, 200);
+    const description = String(body.description || '').slice(0, 4000);
+    const audioBase64 = String(body.audioBase64 || '');
+    const audioMime = String(body.audioMime || 'audio/wav').slice(0, 64);
+
+    let report;
+    try {
+        report = await premod.analyzeClip({ audioBase64, audioMime, title, description });
+    } catch (err) {
+        const code = String(err && err.message || '');
+        if (code === 'audio_too_large') {
+            return respond(400, { ok: false, error: 'audio_too_large', message: 'Клип для проверки слишком большой' });
+        }
+        const fallback = premod.inspectTexts({ transcript: '', title, description });
+        report = { skipped: true, ...fallback, flag: premod.flagFor(fallback, true) };
+    }
+
+    const stored = {
+        soundId,
+        author: user.login,
+        title: title.slice(0, 120),
+        flag: report.flag,
+        speech: !!report.speech,
+        profanity: !!report.profanity,
+        hits: Array.isArray(report.hits) ? report.hits.slice(0, 12) : [],
+        transcript: String(report.transcript || '').slice(0, 800),
+        skipped: !!report.skipped,
+        at: new Date().toISOString(),
+    };
+
+    try {
+        await mutateJson(premodKey(soundId), { author: user.login }, (cur) => {
+            if (cur && typeof cur === 'object' && cur.author && normalizeLogin(cur.author) !== user.login) {
+                const err = new Error('premod_owner');
+                err.status = 403;
+                throw err;
+            }
+            return stored;
+        }, { privateObject: true });
+    } catch (err) {
+        if (String(err && err.message) === 'premod_owner') {
+            return respond(403, { ok: false, error: 'forbidden' });
+        }
+        throw err;
+    }
+
+    if (report.profanity) {
+        await notifyStaffPremod({ soundId, title: title || soundId, author: user.login });
+    }
+
+    return respond(200, {
+        ok: true,
+        flag: report.flag,
+        speech: !!report.speech,
+        skipped: !!report.skipped,
+    });
+}
+
+async function handleGetPremod(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const user = await resolveAuthUser(payload);
+    if (!user || !isStaffUser(user)) return respond(403, { ok: false, error: 'forbidden' });
+    if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
+    const totpBlock = await assertStaffTotp(user);
+    if (totpBlock) return totpBlock;
+
+    const raw = Array.isArray(body.ids) ? body.ids : (body.soundId ? [body.soundId] : []);
+    const ids = [...new Set(raw.map(safeSoundId).filter(Boolean))].slice(0, 24);
+    const reports = {};
+    await Promise.all(ids.map(async (id) => {
+        const row = await getJson(premodKey(id), null);
+        if (!row || typeof row !== 'object') return;
+        reports[id] = {
+            flag: PREMOD_FLAGS.has(String(row.flag)) ? row.flag : 'skip',
+            speech: !!row.speech,
+            profanity: !!row.profanity,
+            hits: Array.isArray(row.hits) ? row.hits.slice(0, 12) : [],
+            transcript: String(row.transcript || '').slice(0, 800),
+            author: String(row.author || '').slice(0, 40),
+            skipped: !!row.skipped,
+            at: String(row.at || ''),
+        };
+    }));
+    return respond(200, { ok: true, reports });
+}
+
 async function handleSuggestUcs(event, body) {
     const payload = verifyJwt(extractToken(event, body));
     if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
@@ -4327,19 +4485,22 @@ async function handleSuggestUcs(event, body) {
     const totpBlock = await assertStaffTotp(user);
     if (totpBlock) return totpBlock;
 
-    const mode = body.mode === 'audio' ? 'audio' : 'text';
+    const voice = body.voice === true || body.mode === 'audio';
     try {
-        const suggestion = await ucsSuggest.suggestUcs({
-            mode,
+        const result = await ucsSuggest.suggestUcs({
+            voice,
             description: String(body.description || '').slice(0, 4000),
             title: String(body.title || '').slice(0, 200),
             location: String(body.location || '').slice(0, 200),
-            audioBase64: mode === 'audio' ? String(body.audioBase64 || '') : '',
+            weather: String(body.weather || '').slice(0, 200),
+            audioBase64: voice ? String(body.audioBase64 || '') : '',
             audioMime: String(body.audioMime || 'audio/wav').slice(0, 64),
         });
         return respond(200, {
             ok: true,
-            suggestion,
+            suggestion: result.suggestion,
+            alternatives: result.alternatives || [],
+            usedVoice: !!result.usedVoice,
             groq: ucsSuggest.configured(),
         });
     } catch (err) {
@@ -4384,7 +4545,7 @@ exports.handler = async function handler(event = {}) {
     if (action === 'health') {
         return respond(200, {
             ok: true,
-            version: 34,
+            version: 36,
             ydb: ydbDoc.enabled(),
             vapid: webPush.configured(),
             ucsAi: ucsSuggest.configured(),
@@ -4417,7 +4578,7 @@ exports.handler = async function handler(event = {}) {
 
     const authActions = new Set([
         'sync', 'commit', 'presign', 'me', 'changePassword', 'changeLogin', 'patchSound', 'translate',
-        'suggestUcs',
+        'suggestUcs', 'premoderate', 'getPremod',
         'getMail', 'requestEmailVerification', 'confirmEmailVerification',
         'adminDeleteUser', 'adminUnbindEmail', 'adminSendEmail',
         'logoutAll', 'totpSetup', 'totpConfirm', 'totpDisable', 'getSecurityEvents',
@@ -4452,6 +4613,8 @@ exports.handler = async function handler(event = {}) {
         if (action === 'patchSound') return await handlePatchSound(event, body);
         if (action === 'translate') return await handleTranslate(event, body);
         if (action === 'suggestUcs') return await handleSuggestUcs(event, body);
+        if (action === 'premoderate') return await handlePremoderate(event, body);
+        if (action === 'getPremod') return await handleGetPremod(event, body);
         if (action === 'requestEmailVerification') return await handleRequestEmailVerification(event, body);
         if (action === 'confirmEmailVerification') return await handleConfirmEmailVerification(event, body);
         if (action === 'requestPasswordReset') return await handleRequestPasswordReset(event, body);

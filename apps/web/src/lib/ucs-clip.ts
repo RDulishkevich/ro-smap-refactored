@@ -1,4 +1,4 @@
-/** Build a short base64 clip (~45s / ≤2.8MB) for experimental UCS audio catalogize. */
+/** Short 16 kHz mono clip (~45s / ≤2.8MB) for optional speech-to-text UCS notes. */
 
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
