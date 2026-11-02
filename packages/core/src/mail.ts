@@ -203,6 +203,11 @@ export function conversationPeers(boxes: MailBox[], me: string, profiles: Profil
   }).sort((a, b) => new Date(b.lastDate || 0).getTime() - new Date(a.lastDate || 0).getTime());
 }
 
+/** Support desk view: peers who wrote to / got replies from support (not the staff member's private DMs). */
+export function supportDeskPeers(boxes: MailBox[], profiles: Profile[]) {
+  return conversationPeers(boxes, SUPPORT_LOGIN, profiles).filter((p) => p.login !== SUPPORT_LOGIN);
+}
+
 export function markBoxNotificationsRead(boxes: MailBox[], login: string): { boxes: MailBox[]; patch: MailBox | null } {
   const key = String(login || '').toLowerCase();
   const box = boxes.find((b) => b.loginName === key);

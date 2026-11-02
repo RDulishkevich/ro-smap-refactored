@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
-  apiLogin, apiLogout, apiMe, apiRegister, clearAuthSession, hasCookieConsentForAuth,
+  apiLogin, apiLogout, apiMe, apiRegister, clearAuthSession, hasCookieConsentForAuth, hasStaffAudience,
   persistRefreshToken, persistUser, readRememberMe, restoreAuthSession, setAuthSession, setRememberMe,
   userFromApi, type SessionUser,
 } from '@polevka/core';
@@ -12,9 +12,20 @@ import { CONSENT_NECESSARY_EVENT } from '../primitives/CookieBanner';
 type AuthCtx = {
   user: SessionUser | null;
   isLoggedIn: boolean;
+  /** Role is moderator/admin/owner (for 2FA prompts). Not console privileges. */
   isStaff: boolean;
+  /** True only with staffLogin JWT (aud=staff) — use for moderation / support desk UI. */
+  isStaffSession: boolean;
   login: (login: string, password: string, totp?: string, rememberMe?: boolean, captchaToken?: string) => Promise<void>;
-  register: (login: string, password: string, displayName?: string, pdConsent?: boolean, captchaToken?: string) => Promise<void>;
+  register: (
+    login: string,
+    password: string,
+    displayName?: string,
+    pdConsent?: boolean,
+    captchaToken?: string,
+    email?: string,
+    emailCode?: string,
+  ) => Promise<void>;
   applySession: (data: { token?: string; refreshToken?: string; user?: Record<string, unknown>; rememberMe?: boolean }) => void;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -70,8 +81,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!hasCookieConsentForAuth()) throw Object.assign(new Error('Нужно принять cookies сессии'), { code: 'consent' });
     setRememberMe(rememberMe);
     const data = await apiLogin(loginName, password, totp, rememberMe, captchaToken) as {
-      token?: string; refreshToken?: string; user?: Record<string, unknown>; needsTotp?: boolean;
+      token?: string; refreshToken?: string; user?: Record<string, unknown>;
+      needsTotp?: boolean; needsEmailStepUp?: boolean; toMasked?: string; demoCode?: string;
     };
+    if (data.needsEmailStepUp) {
+      throw Object.assign(new Error('Вход из новой страны — код на почту'), {
+        code: 'email_stepup',
+        data,
+      });
+    }
     if (data.needsTotp) {
       throw Object.assign(new Error('Введите код 2FA'), { code: 'totp_required' });
     }
@@ -92,11 +110,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     displayName?: string,
     pdConsent?: boolean,
     captchaToken?: string,
+    email?: string,
+    emailCode?: string,
   ) => {
     if (!hasCookieConsentForAuth()) throw Object.assign(new Error('Нужно принять cookies сессии'), { code: 'consent' });
     if (!pdConsent) throw Object.assign(new Error('Нужно согласие на обработку персональных данных'), { code: 'pd_consent' });
     // Register already returns a session — do not login again (captcha token is one-shot).
-    const data = await apiRegister(loginName, password, displayName, true, captchaToken) as {
+    const data = await apiRegister(loginName, password, displayName, true, captchaToken, email, emailCode) as {
       token?: string; refreshToken?: string; user?: Record<string, unknown>;
     };
     setRememberMe(true);
@@ -204,13 +224,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setDeviceUnlockReady(false);
   }, []);
 
+  const isStaff = user?.role === 'owner' || user?.role === 'admin' || user?.role === 'moderator';
+  const isStaffSession = !!user && isStaff && hasStaffAudience();
   const value = useMemo(() => ({
     user,
     isLoggedIn: !!user,
-    isStaff: user?.role === 'admin' || user?.role === 'moderator',
+    isStaff,
+    isStaffSession,
     login, register, applySession, logout, refreshUser, patchUser, restoring,
     needsUnlock, unlockWithDevice, resumeStoredSession, skipDeviceUnlock, offerDeviceUnlock, disableDeviceUnlock, deviceUnlockReady,
-  }), [user, login, register, applySession, logout, refreshUser, patchUser, restoring, needsUnlock, unlockWithDevice, resumeStoredSession, skipDeviceUnlock, offerDeviceUnlock, disableDeviceUnlock, deviceUnlockReady]);
+  }), [user, isStaff, isStaffSession, login, register, applySession, logout, refreshUser, patchUser, restoring, needsUnlock, unlockWithDevice, resumeStoredSession, skipDeviceUnlock, offerDeviceUnlock, disableDeviceUnlock, deviceUnlockReady]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

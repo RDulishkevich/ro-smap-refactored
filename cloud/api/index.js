@@ -27,10 +27,11 @@
  *   | sync | commit | presign | patchSound | translate | suggestUcs | premoderate | getPremod
  *   | requestEmailVerification | confirmEmailVerification
  *   | requestPasswordReset | confirmPasswordReset | adminDeleteUser | adminUnbindEmail | adminSendEmail
- *   | totpSetup | totpConfirm | totpDisable | getSecurityEvents
+ *   | totpSetup | totpConfirm | totpDisable | getSecurityEvents | staffUserDossier
  *   | deleteAccount | exportMyData
  *   | savePushSubscription | deletePushSubscription
  *   login rememberMe → persistent refresh cookie (14d); false → session cookie
+ *   Staff console privileges (moderation / full mail / admin tools) require JWT aud=staff
  */
 
 const crypto = require('crypto');
@@ -42,6 +43,8 @@ const ydbDoc = require('./ydbDoc');
 const mailCrypto = require('./mailCrypto');
 const webPush = require('./webPush');
 const oauthProviders = require('./oauthProviders');
+const ids = require('./ids');
+const passwordPolicy = require('./passwordPolicy');
 const ucsSuggest = require('./ucsSuggest');
 const premod = require('./premod');
 const smartCaptcha = require('./smartCaptcha');
@@ -58,9 +61,12 @@ const PRIVATE_BUCKET = process.env.PRIVATE_BUCKET || 'rosmap2026-private';
 const ENDPOINT = process.env.STORAGE_ENDPOINT || 'https://storage.yandexcloud.net';
 const JWT_SECRET = process.env.JWT_SECRET || '';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+/** Separate password for /staff panel (preferred). Falls back to ADMIN_PASSWORD. */
+const STAFF_PANEL_PASSWORD = process.env.STAFF_PANEL_PASSWORD || '';
 const DEFAULT_ALLOWED_ORIGINS = [
     'https://polevka.art',
     'https://www.polevka.art',
+    'https://staff.polevka.art',
     'http://localhost',
     'http://127.0.0.1'
 ].join(',');
@@ -89,11 +95,13 @@ const PASSWORD_RESET_TTL_MS = 15 * 60 * 1000;
 const AUTH_KEY = '_auth/users.json';
 const PRIVATE_META_KEY = '_auth/private_meta.json';
 const EMAIL_CODES_PREFIX = '_auth/email_codes/';
+const REGISTER_CODES_PREFIX = '_auth/register_codes/';
+const LOGIN_STEPUP_PREFIX = '_auth/login_stepup/';
 const PASSWORD_RESET_PREFIX = '_auth/password_resets/';
 const ALLOWED_JSON = new Set(['map_data.json', 'profiles.json', 'feed.json', 'mail.json', 'events.json']);
-const MEDIA_PREFIXES = ['uploads/', 'audio/', 'images/'];
+const MEDIA_PREFIXES = ['uploads/', 'audio/', 'images/', 'media/'];
 const TOKEN_TTL_SEC = sessionSec.ACCESS_TTL_SEC; // access JWT (short); refresh via cookie
-const MIN_PASSWORD_LEN = 8;
+const MIN_PASSWORD_LEN = passwordPolicy.MIN_LEN;
 const MAX_IMAGE_BYTES = 30 * 1024 * 1024;      // 30 MB — фото/обложки с телефона
 const MAX_VIDEO_BYTES = 80 * 1024 * 1024;      // 80 MB — короткое видео в чате
 const MAX_AUDIO_BYTES = 1024 * 1024 * 1024;    // 1 GB — длинные WAV / амбисоник
@@ -143,21 +151,57 @@ class ClientError extends Error {
 const DATA_OR_BLOB_RE = /^(data:|blob:)/i;
 const HTTP_URL_RE = /^https?:\/\//i;
 
-function normalizeStaffRole(role, login = '') {
-    if (String(login || '').toLowerCase() === 'admin') return 'admin';
+/** Rank: user=0, moderator=1, admin=2, owner=3 */
+function roleRank(role) {
     const r = String(role || '').toLowerCase();
+    if (r === 'owner' || r === 'superadmin') return 3;
+    if (r === 'admin') return 2;
+    if (r === 'moderator') return 1;
+    return 0;
+}
+
+function normalizeStaffRole(role, login = '') {
+    // Bootstrap login `admin` is the platform owner
+    if (String(login || '').toLowerCase() === 'admin') return 'owner';
+    const r = String(role || '').toLowerCase();
+    if (r === 'owner' || r === 'superadmin') return 'owner';
     if (r === 'admin') return 'admin';
     if (r === 'moderator') return 'moderator';
     return 'user';
 }
 
+function roleAtLeast(user, minRole) {
+    if (!user) return false;
+    return roleRank(normalizeStaffRole(user.role, user.login)) >= roleRank(minRole);
+}
+
+function isOwnerUser(user) {
+    return roleAtLeast(user, 'owner');
+}
+
+/** admin or owner */
 function isAdminUser(user) {
-    return !!user && normalizeStaffRole(user.role, user.login) === 'admin';
+    return roleAtLeast(user, 'admin');
 }
 
 function isStaffUser(user) {
-    const r = user ? normalizeStaffRole(user.role, user.login) : 'user';
-    return r === 'admin' || r === 'moderator';
+    return roleAtLeast(user, 'moderator');
+}
+
+/** Elevated console ops — only after staffLogin (JWT aud=staff). Role alone is not enough. */
+function hasStaffConsole(user) {
+    return isStaffUser(user) && user?.aud === 'staff';
+}
+
+function hasAdminConsole(user) {
+    return isAdminUser(user) && user?.aud === 'staff';
+}
+
+function forbidUnlessRole(user, minRole) {
+    if (!roleAtLeast(user, minRole)) {
+        return respond(403, { ok: false, error: 'forbidden', message: 'Недостаточно прав' });
+    }
+    return null;
 }
 
 /** Request-scoped event for CORS Origin reflection (set at handler entry). */
@@ -444,7 +488,9 @@ function authSuccessResponse(user, extra = {}) {
     const remember = extra.rememberMe !== undefined
         ? extra.rememberMe !== false
         : rememberFromRequest(__reqEvent, {});
-    const pair = sessionSec.issueTokenPair(signJwt, user, remember);
+    // Preserve staff audience across me/refresh so /staff does not bounce after login.
+    const aud = extra.aud || user?.aud || undefined;
+    const pair = sessionSec.issueTokenPair(signJwt, user, remember, aud ? { aud: String(aud) } : {});
     const cookies = sessionSec.sessionCookiesFor(
         __reqEvent,
         getHeader,
@@ -453,7 +499,7 @@ function authSuccessResponse(user, extra = {}) {
         pair.accessTtl,
         pair.refreshTtl
     );
-    const { rememberMe: _rm, ...rest } = extra;
+    const { rememberMe: _rm, aud: _aud, ...rest } = extra;
     return respond(200, {
         ok: true,
         token: pair.access,
@@ -593,7 +639,10 @@ function actionRateLimit(action, ip, login = '') {
     const base = String(ip || 'unknown');
     const who = login || base;
     if (action === 'register' && !rateLimit(`reg:${base}`, 8, 60000)) return false;
+    if (action === 'requestRegisterEmail' && !rateLimit(`regemail:${base}`, 8, 600000)) return false;
     if (action === 'login' && !rateLimit(`login:${base}`, 25, 60000)) return false;
+    if (action === 'confirmLoginEmailStepUp' && !rateLimit(`loginstep:${base}`, 20, 600000)) return false;
+    if (action === 'staffLogin' && !rateLimit(`stafflogin:${base}`, 20, 600000)) return false;
     if ((action === 'oauthFinish' || action === 'oauthLink' || action === 'oauthUnlink')
         && !rateLimit(`oauth:${base}`, 20, 60000)) return false;
     if (action === 'refresh' && !rateLimit(`refresh:${base}`, 60, 60000)) return false;
@@ -621,6 +670,7 @@ function actionRateLimit(action, ip, login = '') {
     if ((action === 'totpSetup' || action === 'totpConfirm' || action === 'totpDisable')
         && !rateLimit(`totp:${who}`, 20, 600000)) return false;
     if (action === 'getSecurityEvents' && !rateLimit(`secevt:${who}`, 30, 60000)) return false;
+    if (action === 'staffUserDossier' && !rateLimit(`dossier:${who}`, 60, 60000)) return false;
     if ((action === 'savePushSubscription' || action === 'deletePushSubscription')
         && !rateLimit(`pushsub:${who}`, 30, 600000)) return false;
     return true;
@@ -941,14 +991,27 @@ function stripLoginFromList(list, login) {
 
 function withAdmin(users) {
     const next = users && typeof users === 'object' ? { ...users } : {};
-    if (!ADMIN_PASSWORD) return next;
-    if (next.admin && next.admin.hash) return next;
+    if (!ADMIN_PASSWORD) {
+        if (next.admin && next.admin.role === 'admin') {
+            next.admin = { ...next.admin, role: 'owner' };
+        }
+        return next;
+    }
+    if (next.admin && next.admin.hash) {
+        // Migrate legacy bootstrap admin → owner
+        if (normalizeStaffRole(next.admin.role, 'admin') === 'owner' && next.admin.role !== 'owner') {
+            next.admin = { ...next.admin, role: 'owner' };
+        } else if (!next.admin.role || next.admin.role === 'admin') {
+            next.admin = { ...next.admin, role: 'owner' };
+        }
+        return next;
+    }
     const { salt, hash } = hashPassword(ADMIN_PASSWORD);
     next.admin = {
         salt,
         hash,
-        displayName: 'Admin',
-        role: 'admin',
+        displayName: 'Owner',
+        role: 'owner',
         createdAt: new Date().toISOString()
     };
     return next;
@@ -1247,7 +1310,7 @@ async function listMailBoxes() {
 
 async function applyMailMerge(proposed, user) {
     if (!Array.isArray(proposed) || !proposed.length) {
-        if (isStaffUser(user)) return (await listMailBoxes()).map(sanitizeMailRecord);
+        if (hasStaffConsole(user)) return (await listMailBoxes()).map(sanitizeMailRecord);
         const mine = await loadMailBox(user.login);
         const boxes = [mine];
         for (const p of mine.partners || []) boxes.push(await loadMailBox(p));
@@ -1341,7 +1404,7 @@ async function applyMailMerge(proposed, user) {
     }
 
     const extra = [];
-    if (!isStaffUser(user)) {
+    if (!hasStaffConsole(user)) {
         for (const p of partners) {
             if (merged.some((r) => normalizeLogin(r.loginName) === p)) continue;
             extra.push(await loadMailBox(p));
@@ -1402,11 +1465,13 @@ async function resolveAuthUser(payload) {
     if (profile?.role === 'user' && login !== 'admin') role = 'user';
     const resolved = {
         login,
+        userId: row.userId || null,
         role,
         displayName: profile?.displayName || row.displayName || payload.displayName || login,
         blocked: false,
         tokenVersion: tv,
-        totpEnabled: !!row.totpEnabled
+        totpEnabled: !!row.totpEnabled,
+        aud: payload.aud || null,
     };
     authUserCache.set(login, { at: Date.now(), tv, user: resolved });
     return resolved;
@@ -1415,7 +1480,7 @@ async function resolveAuthUser(payload) {
 /** Клиенту не отдаём чужие ящики целиком — только свои + исходящие (для UI чатов). */
 function projectMailForClient(mail, user) {
     if (!user) return [];
-    if (isStaffUser(user)) return (mail || []).map(sanitizeMailRecord);
+    if (hasStaffConsole(user)) return (mail || []).map(sanitizeMailRecord);
     const login = user.login;
     const out = [];
     for (const row of mail || []) {
@@ -1451,7 +1516,8 @@ function issueToken(user) {
         login: user.login,
         role: normalizeStaffRole(user.role, user.login),
         displayName: user.displayName || user.login,
-        tokenVersion: user.tokenVersion || 0
+        tokenVersion: user.tokenVersion || 0,
+        userId: user.userId || undefined,
     });
     return pair.access;
 }
@@ -1470,12 +1536,151 @@ function publicUser(user, extras = {}) {
     return {
         login: user.login,
         loginName: user.login,
+        userId: user.userId || extras.userId || undefined,
         username: user.displayName || user.login,
         displayName: user.displayName || user.login,
         role: normalizeStaffRole(user.role, user.login),
         ...(avatar ? { avatar } : {}),
         ...(extras.bio != null && String(extras.bio) ? { bio: String(extras.bio).slice(0, MAX_BIO) } : {})
     };
+}
+
+/** Dedicated staff actions require JWT aud=staff (issued by staffLogin on staff.polevka.art). */
+function assertStaffAudience(payload, authUser) {
+    if (!isStaffUser(authUser)) return respond(403, { ok: false, error: 'forbidden' });
+    if (payload?.aud !== 'staff') {
+        return respond(403, { ok: false, error: 'staff_aud_required', message: 'Откройте www.polevka.art/staff (staffLogin)' });
+    }
+    return null;
+}
+
+/** Backfill opaque usr_… on legacy auth rows (idempotent CAS). */
+async function ensureUserId(login) {
+    const key = normalizeLogin(login);
+    if (!key) return null;
+    let assigned = null;
+    await mutateAuth((users) => {
+        const row = users[key];
+        if (!row || typeof row !== 'object') return users;
+        if (row.userId) {
+            assigned = row.userId;
+            return users;
+        }
+        assigned = ids.newUserId();
+        users[key] = { ...row, userId: assigned };
+        return users;
+    });
+    return assigned;
+}
+
+async function handleAdminEmailConflicts(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const actor = await resolveAuthUser(payload);
+    if (!actor || !isAdminUser(actor)) return respond(403, { ok: false, error: 'forbidden' });
+    const audBlock = assertStaffAudience(payload, actor);
+    if (audBlock) return audBlock;
+    const totpBlock = await assertStaffTotp(actor);
+    if (totpBlock) return totpBlock;
+
+    const meta = await loadPrivateMeta();
+    const users = await loadAuthUsers();
+    const byEmail = new Map();
+    for (const [login, row] of Object.entries(meta || {})) {
+        const email = normalizeEmail(row?.email);
+        if (!email) continue;
+        if (!byEmail.has(email)) byEmail.set(email, []);
+        byEmail.get(email).push({
+            login,
+            userId: users[login]?.userId || null,
+            emailVerified: !!row.emailVerified,
+            oauth: oauthBindingsPublic(users[login] || {}),
+        });
+    }
+    const conflicts = [];
+    for (const [email, rows] of byEmail.entries()) {
+        if (rows.length > 1) conflicts.push({ email, accounts: rows });
+    }
+    return respond(200, { ok: true, conflicts, totalEmails: byEmail.size });
+}
+
+function secretPasswordEquals(provided, expected) {
+    const a = Buffer.from(String(provided || ''), 'utf8');
+    const b = Buffer.from(String(expected || ''), 'utf8');
+    if (!expected || !a.length || a.length !== b.length) {
+        try {
+            const dummy = Buffer.alloc(32);
+            crypto.timingSafeEqual(dummy, dummy);
+        } catch (_) { /* ignore */ }
+        return false;
+    }
+    return crypto.timingSafeEqual(a, b);
+}
+
+async function issueStaffSession(event, user, extras = {}) {
+    const remember = extras.rememberMe !== false;
+    const pair = sessionSec.issueTokenPair(signJwt, user, remember, { aud: 'staff' });
+    const cookies = sessionSec.sessionCookiesFor(
+        event,
+        getHeader,
+        pair.access,
+        pair.refresh,
+        pair.accessTtl,
+        pair.refreshTtl
+    );
+    await sessionSec.appendSecurityEvent(putJson, getJson, {
+        type: 'staff_login_ok',
+        login: user.login,
+        via: extras.via || 'staff',
+    });
+    return respond(200, {
+        ok: true,
+        token: pair.access,
+        refreshToken: remember ? pair.refresh : undefined,
+        tokenExpiresIn: pair.accessTtl,
+        rememberMe: remember,
+        user: { ...publicUser(user), totpEnabled: !!extras.totpEnabled },
+    }, { cookies });
+}
+
+/**
+ * Staff panel: login + TOTP only (no password).
+ */
+async function handleStaffLogin(event, body) {
+    const captchaBlock = await assertSmartCaptcha(event, body);
+    if (captchaBlock) return captchaBlock;
+    const login = normalizeLogin(body.login || body.username);
+    const totp = String(body.totp || body.code || '').trim();
+    if (!login) return respond(400, { ok: false, error: 'missing_fields', message: 'Введите логин' });
+    if (!/^\d{6}$/.test(totp)) {
+        return respond(400, { ok: false, error: 'totp_required', message: 'Введите код из аутентификатора' });
+    }
+
+    const users = await loadAuthUsers();
+    const row = users[login];
+    if (!row) return respond(401, { ok: false, error: 'bad_credentials' });
+    const role = normalizeStaffRole(row.role, login);
+    if (!isStaffUser({ login, role })) {
+        return respond(403, { ok: false, error: 'forbidden', message: 'Только сотрудники' });
+    }
+    if (row.blocked) return respond(403, { ok: false, error: 'blocked' });
+    if (!row.totpEnabled || !row.totpSecret) {
+        return respond(403, {
+            ok: false,
+            error: 'totp_required',
+            message: 'Сначала включите 2FA в кабинете на сайте, затем войдите сюда',
+        });
+    }
+    if (!sessionSec.verifyTotp(row.totpSecret, totp)) {
+        return respond(401, { ok: false, error: 'bad_totp', message: 'Неверный код аутентификатора' });
+    }
+    return issueStaffSession(event, {
+        login,
+        userId: row.userId || null,
+        role,
+        displayName: row.displayName || login,
+        tokenVersion: Number(row.tokenVersion || 0) || 0,
+    }, { rememberMe: body.rememberMe !== false, via: 'staff_totp', totpEnabled: true });
 }
 
 function recordTime(item) {
@@ -1823,7 +2028,7 @@ function sanitizeInbox(cloudInbox = [], proposedInbox = [], actorLogin) {
 }
 
 function sanitizeProfiles(fresh, merged, user, knownLogins) {
-    if (isAdminUser(user)) {
+    if (hasAdminConsole(user)) {
         return (merged || []).map((p) => {
             const login = String(p.loginName || '').toLowerCase();
             return sanitizeProfileCard({
@@ -1882,7 +2087,8 @@ function sanitizeProfiles(fresh, merged, user, knownLogins) {
 }
 
 function sanitizeMail(fresh, merged, user) {
-    if (isStaffUser(user)) {
+    // Staff console (aud=staff) may write as support when answering desk tickets.
+    if (hasStaffConsole(user)) {
         return (merged || []).map(sanitizeMailRecord);
     }
     const freshMap = new Map((fresh || []).map((p) => [String(p.loginName || '').toLowerCase(), p]));
@@ -1998,7 +2204,7 @@ function sanitizeCommentsForActor(cloudComments = [], proposedComments = [], act
 
 function sanitizeMapData(fresh, merged, user) {
     const freshMap = new Map((fresh || []).map((s) => [s.id, s]));
-    if (isStaffUser(user)) {
+    if (hasStaffConsole(user)) {
         return (merged || []).map((s) => {
             const cloud = freshMap.get(s.id);
             if (!cloud) return sanitizeSoundRecord(s);
@@ -2054,13 +2260,29 @@ function sanitizeMapData(fresh, merged, user) {
 }
 
 function sanitizeFeed(fresh, merged, user) {
-    if (isStaffUser(user)) return merged;
+    if (hasStaffConsole(user)) return merged;
     const freshMap = new Map((fresh || []).map((p) => [p.id, p]));
     const out = [];
     for (const p of merged || []) {
         const cloud = freshMap.get(p.id);
         if (!cloud) {
-            // Non-admins cannot create feed posts
+            // Logged-in users may create their own posts
+            const title = String(p.title || '').trim().slice(0, 200);
+            const text = String(p.text || '').trim().slice(0, 8000);
+            if (!title && !text) continue;
+            out.push({
+                ...p,
+                id: p.id || `fp${Date.now().toString(36)}`,
+                title: title || 'Пост',
+                text,
+                authorId: user.login,
+                author: String(p.author || user.displayName || user.login).slice(0, 80),
+                images: Array.isArray(p.images) ? p.images.map(String).filter(Boolean).slice(0, 8) : [],
+                comments: sanitizeCommentsForActor([], p.comments || [], user.login),
+                reactedBy: forceActorInList([], p.reactedBy, user.login),
+                createdAt: p.createdAt || new Date().toISOString(),
+                updatedAt: p.updatedAt || new Date().toISOString(),
+            });
             continue;
         }
         if (String(cloud.authorId || '').toLowerCase() === user.login) {
@@ -2089,27 +2311,166 @@ function sanitizeFeed(fresh, merged, user) {
     return out;
 }
 
+function normalizeEventParticipants(raw) {
+    if (!Array.isArray(raw)) return [];
+    const seen = new Set();
+    const out = [];
+    for (const row of raw) {
+        let login = '';
+        let name = '';
+        if (typeof row === 'string') {
+            login = String(row || '').toLowerCase().trim();
+            name = String(row || '').trim();
+        } else if (row && typeof row === 'object') {
+            login = String(row.login || row.loginName || '').toLowerCase().trim();
+            name = String(row.name || row.displayName || row.login || '').trim();
+        }
+        if (!login || seen.has(login)) continue;
+        seen.add(login);
+        out.push({ login, name: name || login });
+    }
+    return out;
+}
+
 function sanitizeEvents(fresh, merged, user) {
-    if (isAdminUser(user)) return merged;
+    if (hasStaffConsole(user)) return merged;
     const freshMap = new Map((fresh || []).map((e) => [e.id, e]));
     const out = [];
     for (const e of merged || []) {
         const cloud = freshMap.get(e.id);
-        if (!cloud) continue; // non-admin cannot create events
-        // Users may only update their own participant row
-        const cloudParts = cloud.participants || [];
-        const nextParts = e.participants || [];
-        const mine = nextParts.find((p) => String(p.login || '').toLowerCase() === user.login);
-        const others = cloudParts.filter((p) => String(p.login || '').toLowerCase() !== user.login);
-        const participants = mine
-            ? [...others, { ...mine, login: user.login, name: mine.name || user.displayName || user.login }]
-            : cloudParts;
-        out.push({ ...cloud, participants, updatedAt: e.updatedAt || cloud.updatedAt });
+        if (!cloud) {
+            const title = String(e.title || '').trim().slice(0, 200);
+            if (!title) continue;
+            const participants = normalizeEventParticipants(e.participants || e.attendees || [])
+                .filter((p) => p.login === user.login);
+            out.push({
+                ...e,
+                id: e.id || `ev${Date.now().toString(36)}`,
+                title,
+                loc: String(e.loc || e.location || '').trim().slice(0, 200),
+                location: String(e.location || e.loc || '').trim().slice(0, 200),
+                date: String(e.date || '').trim().slice(0, 40),
+                time: String(e.time || '').trim().slice(0, 40),
+                tag: String(e.tag || 'встреча').trim().slice(0, 40),
+                desc: String(e.desc || e.text || '').trim().slice(0, 4000),
+                text: String(e.text || e.desc || '').trim().slice(0, 4000),
+                status: String(e.status || 'open').slice(0, 32),
+                ownerLogin: user.login,
+                participants,
+                attendees: participants.map((p) => p.login),
+                n: participants.length,
+                createdAt: e.createdAt || new Date().toISOString(),
+                updatedAt: e.updatedAt || new Date().toISOString(),
+            });
+            continue;
+        }
+        const cloudParts = normalizeEventParticipants(cloud.participants || cloud.attendees || []);
+        const touchedParticipants = Object.prototype.hasOwnProperty.call(e, 'participants')
+            || Object.prototype.hasOwnProperty.call(e, 'attendees');
+        const nextParts = touchedParticipants
+            ? normalizeEventParticipants(e.participants || e.attendees || [])
+            : null;
+        const others = cloudParts.filter((p) => p.login !== user.login);
+        let participants = cloudParts;
+        if (nextParts) {
+            const mine = nextParts.find((p) => p.login === user.login);
+            participants = mine
+                ? [...others, { login: user.login, name: mine.name || user.displayName || user.login }]
+                : others;
+        }
+        const isOwner = String(cloud.ownerLogin || '').toLowerCase() === user.login;
+        if (isOwner) {
+            out.push({
+                ...cloud,
+                title: String(e.title != null ? e.title : cloud.title || '').trim().slice(0, 200) || cloud.title,
+                loc: String(e.loc != null ? e.loc : (e.location != null ? e.location : cloud.loc || '')).trim().slice(0, 200),
+                location: String(e.location != null ? e.location : (e.loc != null ? e.loc : cloud.location || '')).trim().slice(0, 200),
+                date: String(e.date != null ? e.date : cloud.date || '').trim().slice(0, 40),
+                time: String(e.time != null ? e.time : cloud.time || '').trim().slice(0, 40),
+                tag: String(e.tag != null ? e.tag : cloud.tag || 'встреча').trim().slice(0, 40),
+                desc: String(e.desc != null ? e.desc : (e.text != null ? e.text : cloud.desc || '')).trim().slice(0, 4000),
+                text: String(e.text != null ? e.text : (e.desc != null ? e.desc : cloud.text || '')).trim().slice(0, 4000),
+                status: String(e.status != null ? e.status : cloud.status || 'open').slice(0, 32),
+                ownerLogin: user.login,
+                participants,
+                attendees: participants.map((p) => p.login),
+                n: participants.length,
+                updatedAt: e.updatedAt || new Date().toISOString(),
+            });
+            continue;
+        }
+        out.push({
+            ...cloud,
+            participants,
+            attendees: participants.map((p) => p.login),
+            n: participants.length,
+            updatedAt: e.updatedAt || cloud.updatedAt,
+        });
     }
     for (const [id, cloud] of freshMap.entries()) {
         if (!out.some((e) => e.id === id) && !cloud.deleted) out.push(cloud);
     }
     return out;
+}
+
+async function handleRequestRegisterEmail(event, body) {
+    const captchaBlock = await assertSmartCaptcha(event, body);
+    if (captchaBlock) return captchaBlock;
+    const email = normalizeEmail(body.email);
+    if (!isValidEmail(email)) return respond(400, { ok: false, error: 'bad_email' });
+
+    const privateMeta = await loadPrivateMeta();
+    if (verifiedEmailOwner(privateMeta, email)) {
+        // Same generic response — no enumeration
+        return respond(200, { ok: true, expiresAt: Date.now() + EMAIL_CODE_TTL_MS });
+    }
+
+    const smtpOk = isSmtpConfigured();
+    if (!smtpOk && !canReturnDemoCode(event)) {
+        return respond(503, { ok: false, error: 'mail_not_configured', message: 'Email delivery is not configured yet' });
+    }
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = Date.now() + EMAIL_CODE_TTL_MS;
+    await putJson(registerCodeKey(email), {
+        email,
+        codeHash: hashEmailCode(`reg:${email}`, code),
+        expiresAt,
+        createdAt: new Date().toISOString(),
+    }, { privateObject: true });
+
+    if (smtpOk) {
+        try {
+            await sendVerificationMail(email, code);
+        } catch (err) {
+            smtpLog('SMTP register code failed', err);
+            await deletePrivateObject(registerCodeKey(email));
+            return respond(502, { ok: false, error: 'mail_send_failed' });
+        }
+        return respond(200, { ok: true, expiresAt });
+    }
+    return respond(200, { ok: true, expiresAt, demoCode: code, demo: true });
+}
+
+async function consumeRegisterEmailCode(email, code) {
+    const row = await getJson(registerCodeKey(email), null);
+    if (!row || !row.codeHash) return { ok: false, error: 'no_pending_code' };
+    if (Date.now() > Number(row.expiresAt || 0)) {
+        await deletePrivateObject(registerCodeKey(email));
+        return { ok: false, error: 'code_expired' };
+    }
+    const expect = hashEmailCode(`reg:${email}`, String(code || '').trim());
+    try {
+        const a = Buffer.from(expect, 'hex');
+        const b = Buffer.from(String(row.codeHash), 'hex');
+        if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+            return { ok: false, error: 'bad_code' };
+        }
+    } catch (_) {
+        return { ok: false, error: 'bad_code' };
+    }
+    await deletePrivateObject(registerCodeKey(email));
+    return { ok: true };
 }
 
 async function handleRegister(event, body) {
@@ -2118,19 +2479,37 @@ async function handleRegister(event, body) {
     const login = normalizeLogin(body.login || body.username);
     const password = String(body.password || '');
     const displayName = String(body.displayName || body.username || login).trim().slice(0, 40) || login;
+    const email = normalizeEmail(body.email);
+    const emailCode = String(body.emailCode || body.code || '').trim();
     if (!login || login.length < 2) return respond(400, { ok: false, error: 'bad_login' });
-    if (password.length < MIN_PASSWORD_LEN) return respond(400, { ok: false, error: 'weak_password' });
-    if (login === 'admin') return respond(403, { ok: false, error: 'reserved_login' });
+    if (!isValidEmail(email)) return respond(400, { ok: false, error: 'bad_email', message: 'Укажите email' });
+    if (!/^\d{6}$/.test(emailCode)) {
+        return respond(400, { ok: false, error: 'bad_code', message: 'Подтвердите email кодом из письма' });
+    }
+    const strength = passwordPolicy.assertPasswordStrength(password, { login, email });
+    if (!strength.ok) return respond(400, { ok: false, error: strength.error, message: strength.message });
+    if (login === 'admin' || login === 'support') return respond(403, { ok: false, error: 'reserved_login' });
     if (!body.pdConsent) return respond(400, { ok: false, error: 'pd_consent' });
 
+    const privateMeta = await loadPrivateMeta();
+    if (verifiedEmailOwner(privateMeta, email)) {
+        return respond(409, { ok: false, error: 'email_taken', message: 'Этот email уже занят' });
+    }
+    const codeOk = await consumeRegisterEmailCode(email, emailCode);
+    if (!codeOk.ok) {
+        return respond(400, { ok: false, error: codeOk.error, message: 'Неверный или просроченный код email' });
+    }
+
     const { salt, hash } = hashPassword(password);
+    const userId = ids.newUserId();
     let created = false;
     for (let attempt = 0; attempt < WRITE_RETRIES; attempt++) {
         const usersCas = await getJsonCas(AUTH_KEY, {});
         let users = usersCas.data && typeof usersCas.data === 'object' ? { ...usersCas.data } : {};
         users = await ensureAdminUser(users);
-        if (users[login]) return respond(409, { ok: false, error: 'login_taken' });
+        if (users[login]) return respond(409, { ok: false, error: 'login_taken', message: 'Этот логин уже занят' });
         users[login] = {
+            userId,
             salt,
             hash,
             displayName,
@@ -2149,11 +2528,19 @@ async function handleRegister(event, body) {
     }
     if (!created) return respond(409, { ok: false, error: 'write_conflict' });
 
+    const ip = clientIp(event);
+    const country = await lookupIpCountry(ip);
     await mutateMeta((meta) => {
         meta[login] = {
             ...(meta[login] || {}),
+            email,
+            emailVerified: true,
+            emailVerifiedAt: new Date().toISOString(),
             pdConsent: true,
             pdConsentAt: String(body.pdConsentAt || new Date().toISOString()),
+            loginCountries: country ? [country] : [],
+            lastLoginCountry: country || '',
+            lastLoginIp: ip || '',
             updatedAt: new Date().toISOString()
         };
         return meta;
@@ -2180,8 +2567,14 @@ async function handleRegister(event, body) {
         return emptyMailBox(login);
     }, { privateObject: true });
 
-    const user = { login, displayName, role: 'user', tokenVersion: 0 };
-    return authSuccessResponse(user);
+    const user = { login, userId, displayName, role: 'user', tokenVersion: 0 };
+    return authSuccessResponse(user, {
+        user: {
+            ...publicUser(user),
+            email,
+            emailVerified: true,
+        },
+    });
 }
 
 function oauthLoginCandidate(provider, subject) {
@@ -2263,6 +2656,7 @@ async function handleOauthFinish(event, body) {
         login = candidate;
         const { salt, hash } = hashPassword(crypto.randomBytes(32).toString('hex'));
         users[login] = {
+            userId: ids.newUserId(),
             salt,
             hash,
             displayName: profile.displayName || login,
@@ -2337,6 +2731,7 @@ async function handleOauthFinish(event, body) {
                 return sanitizeProfileCard({ ...p, avatar: profile.avatar, profileUpdatedAt: new Date().toISOString() });
             }));
         }
+        // Never overwrite an existing email (even unverified) with OAuth provider email.
         if (profile.email) {
             await mutateMeta((meta) => {
                 const cur = meta[login] && typeof meta[login] === 'object' ? meta[login] : {};
@@ -2356,8 +2751,13 @@ async function handleOauthFinish(event, body) {
 
     const row = users[login] || {};
     const role = normalizeStaffRole(row.role, login);
+    let userId = row.userId || null;
+    if (!userId) {
+        try { userId = await ensureUserId(login); } catch (_) { /* best-effort */ }
+    }
     const user = {
         login,
+        userId: userId || undefined,
         displayName: row.displayName || profile.displayName || login,
         role,
         tokenVersion: Number(row.tokenVersion || 0) || 0,
@@ -2499,6 +2899,7 @@ async function handleOauthLink(event, body) {
         });
     }
 
+    // Link OAuth: attach email only when account has none — never replace existing.
     if (profile.email) {
         await mutateMeta((meta) => {
             const cur = meta[authUser.login] && typeof meta[authUser.login] === 'object' ? meta[authUser.login] : {};
@@ -2644,27 +3045,7 @@ async function handleLogin(event, body) {
     let role = normalizeStaffRole(row.role, login);
     if (profile?.role) role = normalizeStaffRole(profile.role, login);
     if (profile?.role === 'user' && login !== 'admin') role = 'user';
-
-    if (row.totpEnabled && row.totpSecret) {
-        if (!totpCode) {
-            return respond(200, {
-                ok: true,
-                needsTotp: true,
-                login,
-                message: 'Введите код из приложения 2FA'
-            });
-        }
-        if (!sessionSec.verifyTotp(row.totpSecret, totpCode)) {
-            const fail = sessionSec.recordLoginFailure(ipKey, login);
-            if (fail.lockedUntil && fail.lockedUntil > Date.now()) await persistLoginLock(ipKey, login, fail.lockedUntil);
-            await sessionSec.appendSecurityEvent(putJson, getJson, {
-                type: 'totp_fail',
-                login,
-                ip: ipKey
-            });
-            return respond(401, { ok: false, error: 'bad_totp' });
-        }
-    }
+    // Site login never requires TOTP — authenticator is only for /staff.
 
     sessionSec.clearLoginFailures(ipKey, login);
     void mutateJson(LOGIN_LOCKS_KEY, {}, (locks) => {
@@ -2673,26 +3054,103 @@ async function handleLogin(event, body) {
         return next;
     }, { privateObject: true }).catch(() => {});
 
+    const privateMeta = await loadPrivateMeta();
+    const pii = privateMeta[login] && typeof privateMeta[login] === 'object' ? privateMeta[login] : {};
+    const country = await lookupIpCountry(ipKey);
+    const known = Array.isArray(pii.loginCountries)
+        ? pii.loginCountries.map((c) => String(c || '').toUpperCase()).filter(Boolean)
+        : (pii.lastLoginCountry ? [String(pii.lastLoginCountry).toUpperCase()] : []);
+    const isNewCountry = !!(country && country !== 'LOCAL' && known.length && !known.includes(country));
+
+    if (isNewCountry) {
+        if (!pii.emailVerified || !normalizeEmail(pii.email)) {
+            return respond(403, {
+                ok: false,
+                error: 'email_required',
+                message: 'Вход из новой страны: привяжите и подтвердите email в кабинете',
+            });
+        }
+        const smtpOk = isSmtpConfigured();
+        if (!smtpOk && !canReturnDemoCode(event)) {
+            return respond(503, { ok: false, error: 'mail_not_configured' });
+        }
+        const code = String(Math.floor(100000 + Math.random() * 900000));
+        const expiresAt = Date.now() + EMAIL_CODE_TTL_MS;
+        await putJson(loginStepUpKey(login), {
+            codeHash: hashEmailCode(`stepup:${login}`, code),
+            expiresAt,
+            country,
+            ip: ipKey,
+            rememberMe: body.rememberMe !== false,
+            createdAt: new Date().toISOString(),
+        }, { privateObject: true });
+        if (smtpOk) {
+            try {
+                await sendVerificationMail(normalizeEmail(pii.email), code);
+            } catch (err) {
+                smtpLog('SMTP login step-up failed', err);
+                await deletePrivateObject(loginStepUpKey(login));
+                return respond(502, { ok: false, error: 'mail_send_failed' });
+            }
+        }
+        await sessionSec.appendSecurityEvent(putJson, getJson, {
+            type: 'login_geo_stepup',
+            login,
+            ip: ipKey,
+            country,
+        });
+        return respond(200, {
+            ok: true,
+            needsEmailStepUp: true,
+            login,
+            toMasked: maskEmail(pii.email),
+            expiresAt,
+            ...(canReturnDemoCode(event) && !smtpOk ? { demoCode: code, demo: true } : {}),
+            message: 'Вход из новой страны — введите код с почты',
+        });
+    }
+
+    return finalizeUserLogin(event, body, {
+        login, row, profile, role, privateMeta: pii, ip: ipKey, country,
+    });
+}
+
+async function finalizeUserLogin(event, body, ctx) {
+    const { login, row, profile, role, privateMeta: pii, ip, country } = ctx;
+    let userId = row.userId || null;
+    if (!userId) {
+        try { userId = await ensureUserId(login); } catch (_) { /* best-effort */ }
+    }
     const user = {
         login,
+        userId: userId || undefined,
         displayName: profile?.displayName || row.displayName || login,
         role,
         tokenVersion: Number(row.tokenVersion || 0) || 0
     };
-    const privateMeta = await loadPrivateMeta();
-    const pii = privateMeta[login] && typeof privateMeta[login] === 'object' ? privateMeta[login] : {};
     const fromPublic = extractProfilePii(profile || {});
     const mergedPii = { ...fromPublic, ...pii };
-    if (PROFILE_PII_KEYS.some((k) => pii[k] === undefined && fromPublic[k] !== undefined)) {
-        await mutateMeta((meta) => {
-            meta[login] = { ...(meta[login] || {}), ...mergedPii, updatedAt: new Date().toISOString() };
-            return meta;
-        });
+    const countries = Array.isArray(pii.loginCountries) ? [...pii.loginCountries] : [];
+    if (country && country !== 'LOCAL' && !countries.map((c) => String(c).toUpperCase()).includes(country)) {
+        countries.push(country);
     }
+    await mutateMeta((meta) => {
+        meta[login] = {
+            ...(meta[login] || {}),
+            ...mergedPii,
+            loginCountries: countries.slice(-8),
+            lastLoginCountry: country || pii.lastLoginCountry || '',
+            lastLoginIp: ip || '',
+            lastLoginAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+        };
+        return meta;
+    });
     await sessionSec.appendSecurityEvent(putJson, getJson, {
         type: 'login_ok',
         login,
-        ip: ipKey
+        ip,
+        country: country || '',
     });
     const mustEnableTotp = isStaffUser({ login, role }) && !row.totpEnabled;
     return authSuccessResponse(user, {
@@ -2708,8 +3166,58 @@ async function handleLogin(event, body) {
     });
 }
 
+async function handleConfirmLoginEmailStepUp(event, body) {
+    const captchaBlock = await assertSmartCaptcha(event, body);
+    if (captchaBlock) return captchaBlock;
+    const login = normalizeLogin(body.login || body.username);
+    const code = String(body.code || body.emailCode || '').trim();
+    if (!login || !/^\d{6}$/.test(code)) {
+        return respond(400, { ok: false, error: 'bad_code' });
+    }
+    const step = await getJson(loginStepUpKey(login), null);
+    if (!step || !step.codeHash) return respond(400, { ok: false, error: 'no_pending_code' });
+    if (Date.now() > Number(step.expiresAt || 0)) {
+        await deletePrivateObject(loginStepUpKey(login));
+        return respond(400, { ok: false, error: 'code_expired' });
+    }
+    const expect = hashEmailCode(`stepup:${login}`, code);
+    try {
+        const a = Buffer.from(expect, 'hex');
+        const b = Buffer.from(String(step.codeHash), 'hex');
+        if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+            return respond(400, { ok: false, error: 'bad_code' });
+        }
+    } catch (_) {
+        return respond(400, { ok: false, error: 'bad_code' });
+    }
+    await deletePrivateObject(loginStepUpKey(login));
+
+    const users = await loadAuthUsers();
+    const row = users[login];
+    if (!row) return respond(401, { ok: false, error: 'bad_credentials' });
+    const profiles = await getJson('profiles.json', []);
+    const profile = profiles.find((p) => String(p.loginName || '').toLowerCase() === login);
+    if (profile?.blocked && login !== 'admin') return respond(403, { ok: false, error: 'blocked' });
+    let role = normalizeStaffRole(row.role, login);
+    if (profile?.role) role = normalizeStaffRole(profile.role, login);
+    if (profile?.role === 'user' && login !== 'admin') role = 'user';
+    const privateMeta = await loadPrivateMeta();
+    const pii = privateMeta[login] && typeof privateMeta[login] === 'object' ? privateMeta[login] : {};
+    return finalizeUserLogin(event, { rememberMe: step.rememberMe !== false }, {
+        login,
+        row,
+        profile,
+        role,
+        privateMeta: pii,
+        ip: step.ip || clientIp(event),
+        country: step.country || '',
+    });
+}
+
 async function assertStaffTotp(authUser) {
     if (!isStaffUser(authUser)) return null;
+    // /staff JWT already proved TOTP at staffLogin
+    if (authUser.aud === 'staff') return null;
     const users = await loadAuthUsers();
     const row = users[authUser.login];
     if (row?.totpEnabled) return null;
@@ -2729,7 +3237,8 @@ async function handleChangePassword(event, body) {
 
     const currentPassword = String(body.currentPassword || '');
     const newPassword = String(body.newPassword || '');
-    if (newPassword.length < MIN_PASSWORD_LEN) return respond(400, { ok: false, error: 'weak_password' });
+    const strength = passwordPolicy.assertPasswordStrength(newPassword, { login: authUser.login });
+    if (!strength.ok) return respond(400, { ok: false, error: strength.error, message: strength.message });
 
     const { salt, hash } = hashPassword(newPassword);
     let nextTv = 0;
@@ -2954,7 +3463,8 @@ async function handleRefresh(event, body) {
         login: payload.login,
         typ: 'access',
         tv,
-        displayName: row.displayName
+        displayName: row.displayName,
+        ...(payload.aud ? { aud: payload.aud } : {}),
     });
     if (!authUser || authUser.blocked) {
         return respond(authUser?.blocked ? 403 : 401, {
@@ -2962,7 +3472,10 @@ async function handleRefresh(event, body) {
             error: authUser?.blocked ? 'blocked' : 'unauthorized'
         }, { cookies: sessionSec.clearSessionCookies(event, getHeader) });
     }
-    return authSuccessResponse(authUser, { rememberMe: payload.rm !== 0 });
+    return authSuccessResponse(authUser, {
+        rememberMe: payload.rm !== 0,
+        ...(payload.aud ? { aud: payload.aud } : {}),
+    });
 }
 
 async function handleLogout(event, body) {
@@ -3108,15 +3621,135 @@ async function handleGetSecurityEvents(event, body) {
     const authUser = await resolveAuthUser(payload);
     if (!authUser) return respond(401, { ok: false, error: 'unauthorized' });
     if (authUser.blocked) return respond(403, { ok: false, error: 'blocked' });
+    if (!isAdminUser(authUser)) return respond(403, { ok: false, error: 'forbidden' });
+    const audBlock = assertStaffAudience(payload, authUser);
+    if (audBlock) return audBlock;
     const totpBlock = await assertStaffTotp(authUser);
     if (totpBlock) return totpBlock;
-
-    if (authUser.role !== 'admin') return respond(403, { ok: false, error: 'forbidden' });
 
     const list = await getJson(sessionSec.SECURITY_EVENTS_KEY, []);
     return respond(200, {
         ok: true,
         events: Array.isArray(list) ? list.slice(0, 100) : []
+    });
+}
+
+/** Full user dossier for staff console (activity + PII for admin). */
+async function handleStaffUserDossier(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const actor = await resolveAuthUser(payload);
+    if (!actor || !isStaffUser(actor)) return respond(403, { ok: false, error: 'forbidden' });
+    if (actor.blocked) return respond(403, { ok: false, error: 'blocked' });
+    const audBlock = assertStaffAudience(payload, actor);
+    if (audBlock) return audBlock;
+
+    const target = normalizeLogin(body.login);
+    if (!target) return respond(400, { ok: false, error: 'bad_login' });
+
+    const users = await loadAuthUsers();
+    const row = users[target];
+    if (!row) return respond(404, { ok: false, error: 'no_user' });
+
+    const profiles = await getJson('profiles.json', []);
+    const profile = (profiles || []).find((p) => String(p.loginName || '').toLowerCase() === target) || null;
+    const metaAll = await loadPrivateMeta();
+    const meta = metaAll[target] && typeof metaAll[target] === 'object' ? { ...metaAll[target] } : {};
+    const canSeePii = isAdminUser(actor);
+    const email = normalizeEmail(meta.email);
+    const privateView = canSeePii ? {
+        email: email || null,
+        emailMasked: email ? maskEmail(email) : null,
+        emailVerified: !!meta.emailVerified,
+        emailVerifiedAt: meta.emailVerifiedAt || null,
+        pdConsent: !!meta.pdConsent,
+        pdConsentAt: meta.pdConsentAt || null,
+    } : {
+        emailMasked: email ? maskEmail(email) : null,
+        emailVerified: !!meta.emailVerified,
+    };
+
+    const sounds = await getJson('map_data.json', []);
+    const authored = [];
+    const liked = [];
+    const comments = [];
+    for (const s of sounds || []) {
+        if (!s || s.deleted) continue;
+        const rid = String(s.recordistId || '').toLowerCase();
+        if (rid === target) {
+            authored.push({
+                id: s.id,
+                title: s.title,
+                status: s.status || 'published',
+                date: s.date || s.createdAt || null,
+                plays: s.plays || 0,
+            });
+        }
+        if (Array.isArray(s.likedBy) && s.likedBy.map(String).map((x) => x.toLowerCase()).includes(target)) {
+            liked.push({ id: s.id, title: s.title, status: s.status || 'published' });
+        }
+        for (const c of s.comments || []) {
+            if (String(c.authorId || '').toLowerCase() !== target) continue;
+            comments.push({
+                soundId: s.id,
+                soundTitle: s.title,
+                id: c.id,
+                text: String(c.text || '').slice(0, 240),
+                date: c.date || c.at || null,
+            });
+            for (const r of c.replies || []) {
+                if (String(r.authorId || '').toLowerCase() !== target) continue;
+                comments.push({
+                    soundId: s.id,
+                    soundTitle: s.title,
+                    id: r.id,
+                    text: String(r.text || '').slice(0, 240),
+                    date: r.date || r.at || null,
+                    reply: true,
+                });
+            }
+        }
+    }
+
+    const [userBox, supportBox] = await Promise.all([loadMailBox(target), loadMailBox('support')]);
+    const supportThread = [
+        ...(supportBox.inbox || []).filter((m) => normalizeLogin(m.fromId) === target && !m.deleted),
+        ...(userBox.inbox || []).filter((m) => normalizeLogin(m.fromId) === 'support' && !m.deleted),
+    ].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()).slice(0, 40);
+
+    const secAll = await getJson(sessionSec.SECURITY_EVENTS_KEY, []);
+    const securityEvents = (Array.isArray(secAll) ? secAll : [])
+        .filter((ev) => {
+            const login = normalizeLogin(ev?.login || ev?.from || '');
+            const to = normalizeLogin(ev?.to || ev?.newLogin || '');
+            return login === target || to === target;
+        })
+        .slice(0, 80);
+
+    return respond(200, {
+        ok: true,
+        login: target,
+        userId: row.userId || null,
+        role: normalizeStaffRole(row.role, target),
+        blocked: !!row.blocked,
+        totpEnabled: !!row.totpEnabled,
+        oauth: oauthBindingsPublic(row),
+        oauthOnly: !!row.oauthOnly,
+        tokenVersion: Number(row.tokenVersion || 0) || 0,
+        displayName: profile?.displayName || row.displayName || target,
+        profile: profile ? sanitizeProfileCard(profile) : null,
+        private: privateView,
+        activityLog: (userBox.activityLog || []).slice(0, 60),
+        securityEvents,
+        sounds: {
+            authored: authored.slice(0, 80),
+            liked: liked.slice(0, 80),
+            authoredCount: authored.length,
+            likedCount: liked.length,
+            commentCount: comments.length,
+        },
+        comments: comments.slice(0, 60),
+        supportThread,
     });
 }
 
@@ -3152,6 +3785,40 @@ async function saveEmailCode(login, row) {
 
 async function clearEmailCode(login) {
     await deletePrivateObject(emailCodeKey(login));
+}
+
+function emailHashKey(email) {
+    return crypto.createHash('sha256').update(normalizeEmail(email)).digest('hex').slice(0, 40);
+}
+
+function registerCodeKey(email) {
+    return `${REGISTER_CODES_PREFIX}${emailHashKey(email)}.json`;
+}
+
+function loginStepUpKey(login) {
+    return `${LOGIN_STEPUP_PREFIX}${normalizeLogin(login)}.json`;
+}
+
+async function lookupIpCountry(ip) {
+    const raw = String(ip || '').split(',')[0].trim();
+    if (!raw || raw === 'unknown' || raw === '127.0.0.1' || raw === '::1' || raw.startsWith('10.') || raw.startsWith('192.168.')) {
+        return 'LOCAL';
+    }
+    try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 2500);
+        const res = await fetch(
+            `http://ip-api.com/json/${encodeURIComponent(raw)}?fields=status,countryCode`,
+            { signal: ctrl.signal }
+        );
+        clearTimeout(t);
+        if (!res.ok) return '';
+        const data = await res.json();
+        if (data && data.status === 'success' && data.countryCode) {
+            return String(data.countryCode).toUpperCase().slice(0, 2);
+        }
+    } catch (_) { /* best-effort */ }
+    return '';
 }
 
 async function sendTransactionalMail(to, { subject, text, html, replyTo }) {
@@ -3271,7 +3938,11 @@ async function handleConfirmPasswordReset(body) {
     const code = String(body.code || '').trim();
     const newPassword = String(body.newPassword || '');
     if (!/^\d{6}$/.test(code)) return respond(400, { ok: false, error: 'bad_code' });
-    if (newPassword.length < MIN_PASSWORD_LEN) return respond(400, { ok: false, error: 'weak_password' });
+    const strength = passwordPolicy.assertPasswordStrength(newPassword, {
+        login: String(loginOrEmail || '').split('@')[0],
+        email: loginOrEmail.includes('@') ? loginOrEmail : '',
+    });
+    if (!strength.ok) return respond(400, { ok: false, error: strength.error, message: strength.message });
 
     const login = await findLoginByEmailOrLogin(loginOrEmail);
     if (!login || login === 'admin') return respond(400, { ok: false, error: 'bad_code' });
@@ -3475,7 +4146,9 @@ async function handleAdminDeleteUser(event, body) {
     const payload = verifyJwt(extractToken(event, body));
     if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
     const actor = await resolveAuthUser(payload);
-    if (!actor || !isAdminUser(actor)) return respond(403, { ok: false, error: 'forbidden' });
+    if (!actor || !isOwnerUser(actor)) return respond(403, { ok: false, error: 'forbidden', message: 'Только владелец' });
+    const audBlock = assertStaffAudience(payload, actor);
+    if (audBlock) return audBlock;
     const totpBlock = await assertStaffTotp(actor);
     if (totpBlock) return totpBlock;
 
@@ -3589,6 +4262,8 @@ async function handleAdminUnbindEmail(event, body) {
     if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
     const actor = await resolveAuthUser(payload);
     if (!actor || !isAdminUser(actor)) return respond(403, { ok: false, error: 'forbidden' });
+    const audBlock = assertStaffAudience(payload, actor);
+    if (audBlock) return audBlock;
     const totpBlock = await assertStaffTotp(actor);
     if (totpBlock) return totpBlock;
 
@@ -3616,6 +4291,8 @@ async function handleAdminSendEmail(event, body) {
     const actor = await resolveAuthUser(payload);
     if (!actor || !isStaffUser(actor)) return respond(403, { ok: false, error: 'forbidden' });
     if (actor.blocked) return respond(403, { ok: false, error: 'blocked' });
+    const audBlock = assertStaffAudience(payload, actor);
+    if (audBlock) return audBlock;
     const totpBlock = await assertStaffTotp(actor);
     if (totpBlock) return totpBlock;
 
@@ -3831,13 +4508,12 @@ async function handleGetMail(event, body) {
     const user = await resolveAuthUser(payload);
     if (!user) return respond(401, { ok: false, error: 'unauthorized' });
     if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
-    const totpBlock = await assertStaffTotp(user);
-    if (totpBlock) return totpBlock;
-    if (isAdminUser(user)) {
+    // Elevated mail (all boxes / support desk) only inside staff console JWT.
+    if (hasAdminConsole(user)) {
         const all = await listMailBoxes();
         return respond(200, { ok: true, data: all.map(sanitizeMailRecord) });
     }
-    if (isStaffUser(user)) {
+    if (hasStaffConsole(user)) {
         const [mine, support] = await Promise.all([loadMailBox(user.login), loadMailBox('support')]);
         return respond(200, { ok: true, data: [mine, support].map(sanitizeMailRecord) });
     }
@@ -3871,7 +4547,7 @@ async function handleSync(event, body) {
     if (
         smartCaptcha.configured()
         && fileName === 'map_data.json'
-        && !isStaffUser(user)
+        && !hasStaffConsole(user)
         && proposed.some((row) => row && String(row.status || '') === 'pending')
     ) {
         const captchaBlock = await assertSmartCaptcha(event, body);
@@ -3888,7 +4564,7 @@ async function handleSync(event, body) {
         });
     }
 
-    if (!isStaffUser(user) && proposed.length > MAX_SYNC_ROWS) {
+    if (!hasStaffConsole(user) && proposed.length > MAX_SYNC_ROWS) {
         return respond(413, {
             ok: false,
             error: 'too_many_rows',
@@ -4178,7 +4854,7 @@ async function handleCommit(event, body) {
     if (
         smartCaptcha.configured()
         && fileName === 'map_data.json'
-        && !isStaffUser(user)
+        && !hasStaffConsole(user)
         && proposed.some((row) => row && String(row.status || '') === 'pending')
     ) {
         const captchaBlock = await assertSmartCaptcha(event, body);
@@ -4238,9 +4914,17 @@ async function handlePresign(event, body) {
         const allowed = MEDIA_PREFIXES.some((p) => fileName.startsWith(p));
         if (!allowed) return respond(403, { ok: false, error: 'bad_prefix' });
         const safe = fileName.replace(/[^a-zA-Z0-9_\-./]/g, '_');
-        key = safe.startsWith(`uploads/${user.login}/`)
-            ? safe
-            : `uploads/${user.login}/${safe.split('/').pop()}`;
+        const uid = String(user.userId || user.login || '').replace(/[^a-zA-Z0-9_\-]/g, '_');
+        // Prefer opaque media/ layout; keep legacy uploads/{login}/ for dual-read clients.
+        if (safe.startsWith('media/sounds/') || safe.startsWith('media/avatars/')) {
+            key = safe;
+        } else if (safe.startsWith(`uploads/${user.login}/`) || safe.startsWith(`uploads/${uid}/`)) {
+            key = safe;
+        } else if (safe.startsWith('media/')) {
+            key = `media/avatars/${uid}/${safe.split('/').pop()}`;
+        } else {
+            key = `uploads/${user.login}/${safe.split('/').pop()}`;
+        }
 
         const isImage = /^image\//i.test(contentType);
         const isVideo = /^video\//i.test(contentType);
@@ -4545,7 +5229,7 @@ exports.handler = async function handler(event = {}) {
     if (action === 'health') {
         return respond(200, {
             ok: true,
-            version: 36,
+            version: 41,
             ydb: ydbDoc.enabled(),
             vapid: webPush.configured(),
             ucsAi: ucsSuggest.configured(),
@@ -4580,8 +5264,8 @@ exports.handler = async function handler(event = {}) {
         'sync', 'commit', 'presign', 'me', 'changePassword', 'changeLogin', 'patchSound', 'translate',
         'suggestUcs', 'premoderate', 'getPremod',
         'getMail', 'requestEmailVerification', 'confirmEmailVerification',
-        'adminDeleteUser', 'adminUnbindEmail', 'adminSendEmail',
-        'logoutAll', 'totpSetup', 'totpConfirm', 'totpDisable', 'getSecurityEvents',
+        'adminDeleteUser', 'adminUnbindEmail', 'adminSendEmail', 'adminEmailConflicts',
+        'logoutAll', 'totpSetup', 'totpConfirm', 'totpDisable', 'getSecurityEvents', 'staffUserDossier',
         'deleteAccount', 'exportMyData', 'savePushSubscription', 'deletePushSubscription',
         'oauthLink', 'oauthUnlink',
     ]);
@@ -4595,8 +5279,11 @@ exports.handler = async function handler(event = {}) {
     if (rateDirty) void flushRateBuckets(false);
 
     try {
+        if (action === 'requestRegisterEmail') return await handleRequestRegisterEmail(event, body);
         if (action === 'register') return await handleRegister(event, body);
         if (action === 'login') return await handleLogin(event, body);
+        if (action === 'confirmLoginEmailStepUp') return await handleConfirmLoginEmailStepUp(event, body);
+        if (action === 'staffLogin') return await handleStaffLogin(event, body);
         if (action === 'oauthFinish') return await handleOauthFinish(event, body);
         if (action === 'oauthLink') return await handleOauthLink(event, body);
         if (action === 'oauthUnlink') return await handleOauthUnlink(event, body);
@@ -4624,6 +5311,8 @@ exports.handler = async function handler(event = {}) {
         if (action === 'adminDeleteUser') return await handleAdminDeleteUser(event, body);
         if (action === 'adminUnbindEmail') return await handleAdminUnbindEmail(event, body);
         if (action === 'adminSendEmail') return await handleAdminSendEmail(event, body);
+        if (action === 'adminEmailConflicts') return await handleAdminEmailConflicts(event, body);
+        if (action === 'staffUserDossier') return await handleStaffUserDossier(event, body);
         if (action === 'totpSetup') return await handleTotpSetup(event, body);
         if (action === 'totpConfirm') return await handleTotpConfirm(event, body);
         if (action === 'totpDisable') return await handleTotpDisable(event, body);

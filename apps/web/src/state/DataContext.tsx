@@ -53,6 +53,7 @@ type DataCtx = {
   clearMapPick: () => void;
   patchSoundLocal: (id: string | number, patch: Partial<Sound> | ((s: Sound) => Sound)) => void;
   patchFeedLocal: (id: string | number | undefined, patch: Partial<FeedPost> | ((p: FeedPost) => FeedPost)) => void;
+  patchFeedListLocal: (updater: (prev: FeedPost[]) => FeedPost[]) => void;
   patchProfilesLocal: (updater: (prev: Profile[]) => Profile[]) => void;
   patchEventsLocal: (updater: (prev: AppEvent[]) => AppEvent[]) => void;
 };
@@ -246,6 +247,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const patchFeedListLocal = useCallback((updater: (prev: FeedPost[]) => FeedPost[]) => {
+    setFeed(updater);
+  }, []);
+
   const patchProfilesLocal = useCallback((updater: (prev: Profile[]) => Profile[]) => {
     setProfiles(updater);
   }, []);
@@ -305,11 +310,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     playingId, playing, progress, volume, muted, togglePlay, seek, setVolume, toggleMute,
     focused, setFocused,
     pickMode, setPickMode, pickedPoint, setPickedPoint, routeDraft, setRouteDraft, routePreview, setRoutePreview,
-    clearMapPick, patchSoundLocal, patchFeedLocal, patchProfilesLocal, patchEventsLocal,
+    clearMapPick, patchSoundLocal, patchFeedLocal, patchFeedListLocal, patchProfilesLocal, patchEventsLocal,
   }), [
     sounds, allSounds, filteredSounds, filter, feed, events, profiles, mail, loading, catalogStatus, reload, reloadMail, applyMail, absorbMail, markNotificationsRead,
     playingId, playing, progress, volume, muted, togglePlay, seek, setVolume, toggleMute,
-    focused, patchSoundLocal, patchFeedLocal, patchProfilesLocal, patchEventsLocal, clearMapPick,
+    focused, patchSoundLocal, patchFeedLocal, patchFeedListLocal, patchProfilesLocal, patchEventsLocal, clearMapPick,
     pickMode, pickedPoint, routeDraft, routePreview,
   ]);
 

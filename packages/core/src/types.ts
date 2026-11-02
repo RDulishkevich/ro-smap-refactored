@@ -1,4 +1,4 @@
-export type StaffRole = 'admin' | 'moderator' | 'user';
+export type StaffRole = 'owner' | 'admin' | 'moderator' | 'user';
 
 export type Comment = {
   id: string;
@@ -127,6 +127,11 @@ export type FeedPost = {
   [key: string]: unknown;
 };
 
+export type EventParticipant = {
+  login: string;
+  name?: string;
+};
+
 export type AppEvent = {
   id?: string;
   title: string;
@@ -138,8 +143,11 @@ export type AppEvent = {
   emoji?: string;
   tag?: string;
   status?: string;
+  desc?: string;
+  text?: string;
+  ownerLogin?: string;
   attendees?: string[];
-  participants?: string[];
+  participants?: Array<string | EventParticipant>;
   [key: string]: unknown;
 };
 
@@ -207,6 +215,8 @@ export type OauthBindings = {
 export type SessionUser = {
   username: string;
   loginName: string;
+  /** Opaque usr_… when issued by API */
+  userId?: string;
   role: StaffRole;
   totpEnabled?: boolean;
   email?: string;

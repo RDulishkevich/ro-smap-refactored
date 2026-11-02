@@ -1,5 +1,5 @@
 import { FUNCTION_URL, REFRESH_KEY, REMEMBER_KEY, TOKEN_KEY, USER_KEY } from './config';
-import type { SessionUser } from './types';
+import type { SessionUser, StaffRole } from './types';
 
 export type ApiError = Error & { code?: string; status?: number; data?: unknown };
 
@@ -159,11 +159,15 @@ export const apiRegister = (
   displayName?: string,
   pdConsent?: boolean,
   captchaToken?: string,
+  email?: string,
+  emailCode?: string,
 ) =>
   apiRequest('register', {
     login,
     password,
     displayName: displayName || login,
+    email: email || '',
+    emailCode: emailCode || '',
     ...(pdConsent ? { pdConsent: true, pdConsentAt: new Date().toISOString() } : {}),
     ...(captchaToken ? { captchaToken } : {}),
   });
@@ -314,6 +318,20 @@ export const apiAdminDeleteUser = (login: string) =>
   apiRequest('adminDeleteUser', { login }, { auth: true });
 export const apiAdminUnbindEmail = (login: string) =>
   apiRequest('adminUnbindEmail', { login }, { auth: true });
+export const apiAdminEmailConflicts = () =>
+  apiRequest('adminEmailConflicts', {}, { auth: true });
+/** Staff panel: login + TOTP only (no password). */
+export const apiStaffLogin = (login: string, totp: string) =>
+  apiRequest('staffLogin', { login, totp, rememberMe: true });
+export const apiRequestRegisterEmail = (email: string, captchaToken?: string) =>
+  apiRequest('requestRegisterEmail', { email, ...(captchaToken ? { captchaToken } : {}) });
+export const apiConfirmLoginEmailStepUp = (login: string, code: string, captchaToken?: string) =>
+  apiRequest('confirmLoginEmailStepUp', {
+    login,
+    code,
+    rememberMe: true,
+    ...(captchaToken ? { captchaToken } : {}),
+  });
 export const apiTranslate = (texts: string | string[], sourceLanguageCode = 'ru', targetLanguageCode = 'en') =>
   apiRequest('translate', { texts, sourceLanguageCode, targetLanguageCode }, { auth: true });
 
@@ -376,6 +394,27 @@ export const apiTotpConfirm = (totpCode: string) => apiRequest('totpConfirm', { 
 export const apiTotpDisable = (password: string, totpCode: string) =>
   apiRequest('totpDisable', { password, totpCode }, { auth: true });
 export const apiGetSecurityEvents = () => apiRequest('getSecurityEvents', {}, { auth: true });
+export const apiStaffUserDossier = (login: string) =>
+  apiRequest('staffUserDossier', { login }, { auth: true });
+
+export function readJwtAud(token?: string): string | null {
+  try {
+    const raw = token || getAuthToken();
+    if (!raw) return null;
+    const part = raw.split('.')[1];
+    if (!part) return null;
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
+    const payload = JSON.parse(json) as { aud?: string };
+    return payload.aud ? String(payload.aud) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** True only with JWT from staffLogin (aud=staff). Role alone is not enough. */
+export function hasStaffAudience(token?: string): boolean {
+  return readJwtAud(token) === 'staff';
+}
 export const apiSavePushSubscription = (subscription: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
   apiRequest('savePushSubscription', { subscription }, { auth: true });
 export const apiDeletePushSubscription = (endpoint?: string) =>
@@ -383,7 +422,22 @@ export const apiDeletePushSubscription = (endpoint?: string) =>
 
 export function normalizeRole(role: unknown): SessionUser['role'] {
   const r = String(role || '').toLowerCase();
-  return r === 'admin' || r === 'moderator' ? r : 'user';
+  if (r === 'owner' || r === 'superadmin') return 'owner';
+  if (r === 'admin') return 'admin';
+  if (r === 'moderator') return 'moderator';
+  return 'user';
+}
+
+export function roleRank(role: unknown): number {
+  const r = normalizeRole(role);
+  if (r === 'owner') return 3;
+  if (r === 'admin') return 2;
+  if (r === 'moderator') return 1;
+  return 0;
+}
+
+export function roleAtLeast(role: unknown, min: StaffRole): boolean {
+  return roleRank(role) >= roleRank(min);
 }
 
 export function userFromApi(user: Record<string, unknown> | undefined | null): SessionUser | null {
@@ -391,9 +445,11 @@ export function userFromApi(user: Record<string, unknown> | undefined | null): S
   const login = String(user.loginName || user.login || user.username || '');
   if (!login) return null;
   const oauthRaw = user.oauth && typeof user.oauth === 'object' ? user.oauth as Record<string, unknown> : null;
+  const userId = user.userId != null ? String(user.userId) : (user.uid != null ? String(user.uid) : undefined);
   return {
     username: String(user.username || user.displayName || login),
     loginName: login,
+    ...(userId ? { userId } : {}),
     role: normalizeRole(user.role),
     totpEnabled: !!user.totpEnabled,
     email: user.email != null ? String(user.email) : undefined,

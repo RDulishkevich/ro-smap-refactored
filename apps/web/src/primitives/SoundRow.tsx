@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight, Download, MoreHorizontal } from 'lucide-react';
-import type { Sound } from '@polevka/core';
+import { canDownloadSound, type Sound } from '@polevka/core';
 import { color, pinColor } from '@polevka/design';
 import { useData } from '../state/DataContext';
 import { useNav } from '../state/NavContext';
@@ -187,7 +187,7 @@ export function SoundRow({
       <div className="flex items-center gap-0.5 flex-shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
         <button type="button" onClick={() => void downloadSound(item, toast)}
           className="w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer"
-          style={{ background: 'rgba(146,179,177,0.18)' }}
+          style={{ background: 'rgba(146,179,177,0.18)', opacity: canDownloadSound(item) ? 1 : 0.5 }}
           aria-label={t('download')}>
           <Download size={15} color={color.mist} />
         </button>

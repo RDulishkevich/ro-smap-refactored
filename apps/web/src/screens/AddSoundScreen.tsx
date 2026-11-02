@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   apiHealth, apiPremoderate, apiSuggestUcs, apiSyncJson, apiTranslate, buildUcsFileName, FIELD_MICROPHONES, FIELD_RECORDERS,
   normalizeTimeMarkers, preparePublishWav, remapMarkersAfterTrim, spamGuardCheck,
-  spamGuardMessage, ucsByCatId, ucsCategories, ucsStructure, uploadUserMedia,
-  type Sound, type TimeMarker, type UcsSuggestion,
+  spamGuardMessage, ucsByCatId, ucsCategories, ucsStructure, uploadUserMedia, newSoundId,
+  type Sound, type TimeMarker, type UcsSuggestion, type UploadProgress,
 } from '@polevka/core';
 import { color, spring, tap, type ThemeTokens } from '@polevka/design';
 import { AnimatePresence, motion } from 'motion/react';
@@ -11,7 +11,8 @@ import { ImagePlus, Route, Sparkles, X } from 'lucide-react';
 import { ScreenHeader } from '../primitives/ui';
 import { PhotoLightbox } from '../primitives/PhotoCarousel';
 import { AudioEditor } from '../primitives/AudioEditor';
-import { BusySpinner, FillProgress, FormField, SelectField } from '../primitives/form';
+import { BusySpinner, FormField, SelectField } from '../primitives/form';
+import { UploadProgressBar } from '../primitives/UploadProgress';
 import { useAuth } from '../state/AuthContext';
 import { useData } from '../state/DataContext';
 import { useNav } from '../state/NavContext';
@@ -69,6 +70,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
   const [sessionId, setSessionId] = useState(String(edit?.sessionId || ''));
   const [busy, setBusy] = useState(false);
   const [pubPhase, setPubPhase] = useState<PubPhase>(null);
+  const [uploadProg, setUploadProg] = useState<UploadProgress | null>(null);
   const [ucsBusy, setUcsBusy] = useState(false);
   const [ucsAiOn, setUcsAiOn] = useState<boolean | null>(null);
   const [ucsNote, setUcsNote] = useState('');
@@ -304,6 +306,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
     }
     setBusy(true);
     setPubPhase('prepare');
+    setUploadProg(null);
     try {
       const captchaToken = status === 'pending'
         ? ((await runSmartCaptcha()) || undefined)
@@ -312,7 +315,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
       let formatLabel = String(edit?.formatLabel || '');
       let dur = String(edit?.duration || '0:01');
       let premodSource: Blob | string | null = rec?.blob || (edit?.url ? String(edit.url) : null);
-      const soundId = String(edit?.id ?? `p${Date.now()}`);
+      let mediaSoundId = '';
       if (rec?.blob) {
         const trimmed = await applyTrimGain(rec.blob, rec.trimStart ?? 0, rec.trimEnd ?? 1, rec.gain ?? 1);
         premodSource = trimmed.blob;
@@ -329,7 +332,10 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
           ucsCategory: ucsCat,
         });
         setPubPhase('upload');
-        url = await uploadUserMedia(prepared.blob, prepared.fileName, 'audio/wav');
+        mediaSoundId = String(edit?.id && /^snd_/i.test(String(edit.id)) ? edit.id : newSoundId());
+        url = await uploadUserMedia(prepared.blob, prepared.fileName, 'audio/wav', setUploadProg, {
+          kind: 'sound', soundId: mediaSoundId,
+        });
         formatLabel = prepared.formatLabel;
         dur = `${Math.floor(trimmed.durationSec / 60)}:${String(trimmed.durationSec % 60).padStart(2, '0')}`;
       }
@@ -338,19 +344,26 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
         : normalizeTimeMarkers(markers);
       const images: string[] = [...keptImages];
       const toUpload = photos.slice(0, Math.max(0, 3 - keptImages.length));
+      if (!mediaSoundId) {
+        mediaSoundId = String(edit?.id && /^snd_/i.test(String(edit.id)) ? edit.id : newSoundId());
+      }
       if (toUpload.length) {
         setPubPhase('photos');
         for (const photo of toUpload) {
-          images.push(await uploadUserMedia(photo, photo.name, photo.type || 'image/jpeg'));
+          images.push(await uploadUserMedia(photo, photo.name, photo.type || 'image/jpeg', setUploadProg, {
+            kind: 'sound', soundId: mediaSoundId,
+          }));
         }
       }
+      setUploadProg(null);
+      const catalogId = String(edit?.id || mediaSoundId);
       let premodFlag: Sound['premodFlag'] = status === 'pending' ? 'skip' : undefined;
       if (status === 'pending') {
         setPubPhase('premod');
         try {
           const clip = premodSource ? await buildUcsAudioClip(premodSource) : undefined;
           const result = await apiPremoderate({
-            soundId,
+            soundId: catalogId,
             title: title.trim(),
             description: desc.trim(),
             audioBase64: clip?.audioBase64,
@@ -379,7 +392,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
       }
       const gear = [recorder, microphone].filter(Boolean).join(' · ');
       const record = {
-        id: soundId,
+        id: catalogId,
         title: title.trim(),
         description: desc.trim(),
         location: location.trim() || (walkRoute.length ? 'Маршрут звуковой прогулки' : ''),
@@ -776,24 +789,11 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
 
           <AnimatePresence>
             {busy && pubPhase && (
-              <motion.div
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={spring.fade}
-                className="rounded-2xl px-4 py-3 flex items-center gap-3"
-                style={{ background: th.cardBg, border: `1px solid ${th.border}` }}
-              >
-                <BusySpinner label={PUB_LABEL[pubPhase]} />
-                <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: th.phoneBg }}>
-                  <motion.div
-                    className="h-full rounded-full"
-                    style={{ background: ACCENT }}
-                    animate={{ width: pubPhase === 'prepare' ? '18%' : pubPhase === 'upload' ? '40%' : pubPhase === 'photos' ? '58%' : pubPhase === 'premod' ? '78%' : '95%' }}
-                    transition={spring.pill}
-                  />
-                </div>
-              </motion.div>
+              <UploadProgressBar
+                label={PUB_LABEL[pubPhase]}
+                progress={uploadProg}
+                phaseHint={PUB_LABEL[pubPhase]}
+              />
             )}
           </AnimatePresence>
 

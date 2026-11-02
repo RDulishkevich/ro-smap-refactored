@@ -13,6 +13,13 @@ function spaFallback() {
     closeBundle() {
       const index = path.join(dist, 'index.html');
       if (fs.existsSync(index)) fs.copyFileSync(index, path.join(dist, '404.html'));
+      // staff.polevka.art can point at the same Pages deploy; prefer /staff.html entry.
+      const staff = path.join(dist, 'staff.html');
+      if (fs.existsSync(staff)) {
+        const staffDir = path.join(dist, 'staff');
+        fs.mkdirSync(staffDir, { recursive: true });
+        fs.copyFileSync(staff, path.join(staffDir, 'index.html'));
+      }
     },
   };
 }
@@ -21,7 +28,16 @@ export default defineConfig({
   root: path.resolve(__dirname),
   publicDir: path.resolve(__dirname, 'public'),
   appType: 'spa',
-  build: { outDir: dist, emptyOutDir: true },
+  build: {
+    outDir: dist,
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        staff: path.resolve(__dirname, 'staff.html'),
+      },
+    },
+  },
   plugins: [react(), tailwindcss(), spaFallback()],
   resolve: {
     alias: {

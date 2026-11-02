@@ -53,7 +53,7 @@ if (-not $envMap.ContainsKey("VAPID_PUBLIC_KEY") -or -not $envMap["VAPID_PUBLIC_
     if (-not $envMap["VAPID_SUBJECT"]) { $envMap["VAPID_SUBJECT"] = "mailto:support@polevka.art" }
     Write-Host "vapid=existing"
 }
-Compress-Archive -Path index.js, sessionSecurity.js, mailTemplates.js, ydbDoc.js, mailCrypto.js, webPush.js, oauthProviders.js, ucsSuggest.js, ucsMap.js, ucsIndex.js, premod.js, smartCaptcha.js, package.json, package-lock.json, node_modules -DestinationPath $zip -Force
+Compress-Archive -Path index.js, sessionSecurity.js, mailTemplates.js, ydbDoc.js, mailCrypto.js, webPush.js, oauthProviders.js, ucsSuggest.js, ucsMap.js, ucsIndex.js, premod.js, smartCaptcha.js, ids.js, passwordPolicy.js, package.json, package-lock.json, node_modules -DestinationPath $zip -Force
 Pop-Location
 
 $ycArgs = @(
@@ -68,6 +68,14 @@ $ycArgs = @(
     "--format", "json"
 )
 $envMap["INTEGRITY_ALLOW_UNSIGNED"] = "0"
+# Keep staff console origin on the CORS allow-list
+$needOrigins = @("https://staff.polevka.art", "https://www.polevka.art", "https://polevka.art")
+$cors = [string]$envMap["ALLOWED_ORIGIN"]
+if (-not $cors) { $cors = ($needOrigins -join ",") }
+foreach ($o in $needOrigins) {
+    if ($cors -notmatch [regex]::Escape($o)) { $cors = "$cors,$o" }
+}
+$envMap["ALLOWED_ORIGIN"] = ($cors -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ } | Select-Object -Unique) -join ","
 if (-not $YdbEndpoint) { $YdbEndpoint = [string]$env:YDB_DOCAPI_ENDPOINT }
 if ($YdbEndpoint) {
     $envMap["YDB_DOCAPI_ENDPOINT"] = $YdbEndpoint.Trim()

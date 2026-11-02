@@ -77,13 +77,16 @@ function clearCookie(name, event, getHeader) {
     return buildSetCookie(name, '', 0, event, getHeader);
 }
 
-function issueTokenPair(signJwt, user, remember = true) {
+function issueTokenPair(signJwt, user, remember = true, opts = {}) {
     const now = Math.floor(Date.now() / 1000);
     const tv = Number(user.tokenVersion || 0) || 0;
+    const aud = opts.aud ? String(opts.aud) : undefined;
     const base = {
         login: user.login,
         role: user.role,
         displayName: user.displayName || user.login,
+        ...(user.userId ? { uid: user.userId } : {}),
+        ...(aud ? { aud } : {}),
         tv,
         rm: remember ? 1 : 0,
         iat: now
@@ -94,6 +97,7 @@ function issueTokenPair(signJwt, user, remember = true) {
         tv,
         typ: 'refresh',
         rm: remember ? 1 : 0,
+        ...(aud ? { aud } : {}),
         iat: now,
         exp: now + REFRESH_TTL_SEC
     });

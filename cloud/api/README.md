@@ -9,7 +9,7 @@
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | проверка живости (`version: 36`, `ydb`, `vapid`, `ucsAi`, `smartCaptcha`) |
+| `health` | нет | проверка живости (`version: 41`, `ydb`, `vapid`, `ucsAi`, `smartCaptcha`) |
 | `publicConfig` | нет | публичные ключи (Maps + VAPID + OAuth + SmartCaptcha sitekey) |
 | `oauthFinish` | нет | обмен code VK/Яндекс → сессия (нужен `pdConsent` для нового аккаунта) |
 | `oauthLink` | access | привязать VK/Яндекс к текущему аккаунту (забирает orphan `oauthOnly` stub) |
@@ -143,7 +143,7 @@ v17: YDB Document API — источник правды (строки звуко
 ```bash
 cd cloud/api
 npm install --omit=dev
-zip -r ../rosmap-api.zip index.js sessionSecurity.js mailTemplates.js ydbDoc.js mailCrypto.js webPush.js oauthProviders.js ucsSuggest.js ucsMap.js ucsIndex.js premod.js smartCaptcha.js package.json node_modules
+zip -r ../rosmap-api.zip index.js sessionSecurity.js mailTemplates.js ydbDoc.js mailCrypto.js webPush.js oauthProviders.js ucsSuggest.js ucsMap.js ucsIndex.js premod.js smartCaptcha.js ids.js passwordPolicy.js package.json node_modules
 ```
 
 

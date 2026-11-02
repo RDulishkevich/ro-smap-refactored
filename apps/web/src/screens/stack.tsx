@@ -6,15 +6,18 @@ import {
 } from 'lucide-react';
 import { color, type ThemeTokens } from '@polevka/design';
 import {
-  apiChangeLogin, apiChangePassword, apiConfirmEmailVerification, apiConfirmPasswordReset,
+  apiChangeLogin, apiChangePassword, apiConfirmEmailVerification, apiConfirmLoginEmailStepUp,
+  apiConfirmPasswordReset,
   apiDeleteAccount, apiOauthUnlink,
   apiGetSecurityEvents, apiPatchSound, apiRequestEmailVerification, apiRequestPasswordReset,
+  apiRequestRegisterEmail,
   readLastLogin, hasCookieConsentForAuth,
   apiSyncJson, apiTotpConfirm, apiTotpDisable, apiTotpSetup, conversationPeers, makeMailMsg,
   matchSupportBotFaq,   normalizeComment, normalizeTimeMarkers, spamGuardCheck, spamGuardMessage, SUPPORT_AVATAR, SUPPORT_LOGIN,
-  SUPPORT_NAME, uploadUserMedia, upsertInboxPatch, formatPlays,
-  type ApiError, type Comment, type FeedPost, type Sound,
+  SUPPORT_NAME, uploadUserMedia, upsertInboxPatch, formatPlays, assertPasswordStrength,
+  type ApiError, type Comment, type FeedPost, type Sound, type UploadProgress,
 } from '@polevka/core';
+import { UploadProgressBar } from '../primitives/UploadProgress';
 import { LEGAL_DOCS } from '../../../../src/data/legalDocs.js';
 import { PUBLISH_RULE_SECTIONS } from '../../../../src/data/publishRules.js';
 import { useAuth } from '../state/AuthContext';
@@ -42,12 +45,13 @@ import { SettingsScreen } from './SettingsScreen';
 import { CatalogPage, ExpeditionsPage, FeedPage } from './FeedScreen';
 import { StaffScreen } from './StaffScreen';
 import { ExpeditionDetailScreen, ExpeditionEditScreen, PickLocationScreen } from './ExpeditionScreens';
+import { EventDetailScreen, EventsScreen } from './EventScreens';
 import { downloadLegalPrint } from '../lib/legal-print';
 import { pathForSound } from '../lib/routes';
 import { shareLink } from '../lib/share';
 import { SEARCH_KIND_LABEL, searchAll } from '../lib/search-all';
 import { useIsDesktop } from '../lib/use-media';
-import { downloadSound } from '../lib/download-sound';
+import { canDownloadSound, downloadSound, downloadWaitMessage } from '../lib/download-sound';
 import { usePrefs, useT } from '../state/PrefsContext';
 import { resolveExpeditionInvite } from '../lib/expedition-invite';
 import { isAmbisonicSound, isSoundwalkPrinciple, soundAuthor, soundRoute } from '../lib/sound-media';
@@ -74,13 +78,14 @@ export function ScreenContent({ screen, onBack }: { screen: ScreenConfig; onBack
     case 'expedition-edit': return <ExpeditionEditScreen exp={screen.exp} onBack={onBack} />;
     case 'settings': return <SettingsScreen onBack={onBack} />;
     case 'events': return <EventsScreen onBack={onBack} focusId={screen.focusId} />;
+    case 'event-detail': return <EventDetailScreen eventId={screen.eventId} onBack={onBack} />;
     case 'auth': return <AuthScreen onBack={onBack} mode={screen.mode} />;
     case 'reset-password': return <AuthScreen onBack={onBack} mode="in" panel="reset" />;
     case 'feed-post': return <FeedPostScreen post={screen.post} onBack={onBack} />;
     case 'record': return <RecordScreen onBack={onBack} />;
     case 'add-sound': return <AddSoundScreen onBack={onBack} edit={screen.edit} />;
     case 'messages': return <MessagesScreen onBack={onBack} />;
-    case 'conversation': return <ConversationScreen name={screen.name} avatar={screen.avatar} peer={screen.peer} onBack={onBack} />;
+    case 'conversation': return <ConversationScreen name={screen.name} avatar={screen.avatar} peer={screen.peer} asLogin={screen.asLogin} onBack={onBack} />;
     case 'notifications': return <NotificationsScreen onBack={onBack} />;
     case 'search': return <SearchScreen onBack={onBack} />;
     case 'edit-profile': return <EditProfileScreen onBack={onBack} />;
@@ -149,6 +154,8 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
   };
 
   const download = () => downloadSound(live, toast);
+  const downloadOk = canDownloadSound(live);
+  const isPendingMod = String(live.status || '') === 'pending';
 
   const goToMap = () => {
     setFocused(live);
@@ -176,7 +183,10 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
     // Walk CTA is inline on the card — avoid a second «На карте» when that button is shown.
     ...(!hasWalk || desktop ? [{ label: 'На карте', onClick: goToMap }] : []),
     // Download is inline on mobile sheet; keep in ⋯ for desktop header.
-    ...(desktop ? [{ label: 'Скачать WAV', onClick: download }] : []),
+    ...(desktop ? [{
+      label: downloadOk ? 'Скачать WAV' : 'Скачать (после модерации)',
+      onClick: download,
+    }] : []),
   ];
 
   const cardBody = (
@@ -191,6 +201,11 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
           </div>
           <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
             <SoundTypeTag type={String(live.type)} />
+            {isPendingMod && (
+              <span className="pv-micro px-2 py-0.5 rounded-full" style={{ background: th.lightBg, color: ACCENT }} title={downloadWaitMessage(live)}>
+                На модерации
+              </span>
+            )}
             {meta.durationSec > 0 && (
               <span className="pv-micro" style={{ color: th.soft }}>{meta.durationLabel}</span>
             )}
@@ -263,8 +278,11 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
             Не нравится
           </motion.button>
           {!desktop && (
-            <motion.button whileTap={{ scale: 0.92 }} className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}
-              aria-label="Скачать" onClick={download}>
+            <motion.button whileTap={{ scale: 0.92 }} className="w-11 h-11 rounded-2xl flex items-center justify-center"
+              style={{ background: th.lightBg, opacity: downloadOk ? 1 : 0.55 }}
+              aria-label={downloadOk ? 'Скачать' : downloadWaitMessage(live)}
+              title={downloadOk ? 'Скачать' : downloadWaitMessage(live)}
+              onClick={download}>
               <Download size={16} style={{ color: th.muted }} />
             </motion.button>
           )}
@@ -415,133 +433,6 @@ function Row({ label, right, th, onClick }: { label: string; right?: ReactNode; 
   );
 }
 
-function EventsScreen({ onBack, focusId }: { onBack: () => void; focusId?: string }) {
-  const { events, reload, loading, patchEventsLocal } = useData();
-  const th = useTh();
-  const { isLoggedIn, user } = useAuth();
-  const { toast } = useUi();
-  const { push } = useNav();
-  const t = useT();
-  const canCreate = !!isLoggedIn && !!user;
-  const [creating, setCreating] = useState(false);
-  const [title, setTitle] = useState('');
-  const [loc, setLoc] = useState('');
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
-  const [tag, setTag] = useState('встреча');
-  const [busy, setBusy] = useState(false);
-  useLeaveGuard(creating && !!(title.trim() || loc.trim() || date.trim() || time.trim()));
-
-  const signup = async (ev: (typeof events)[number], i: number) => {
-    if (!isLoggedIn || !user) { push({ type: 'auth' }); return; }
-    const guard = spamGuardCheck('comment');
-    if (!guard.ok) { toast(spamGuardMessage(guard)); return; }
-    const id = String(ev.id || `e${i}`);
-    const participants = Array.isArray(ev.participants) ? ev.participants.map(String)
-      : Array.isArray(ev.attendees) ? ev.attendees.map(String) : [];
-    if (participants.includes(user.loginName)) { toast('Вы уже записаны'); return; }
-    const patched = {
-      ...ev,
-      id: ev.id || id,
-      participants: [...participants, user.loginName],
-      n: (Number(ev.n) || participants.length) + 1,
-      updatedAt: new Date().toISOString(),
-    };
-    patchEventsLocal((prev) => prev.map((row, j) => (j === i || String(row.id) === id ? patched : row)));
-    try {
-      await apiSyncJson('events.json', [patched]);
-      toast('Заявка отправлена');
-    } catch (e: unknown) {
-      await reload();
-      toast((e as Error).message || 'Не удалось записаться');
-    }
-  };
-
-  const createEvent = async () => {
-    if (!canCreate || !title.trim()) { toast('Укажите название'); return; }
-    setBusy(true);
-    const id = `ev${Date.now().toString(36)}`;
-    const next = {
-      id,
-      title: title.trim(),
-      loc: loc.trim(),
-      location: loc.trim(),
-      date: date.trim(),
-      time: time.trim(),
-      tag: tag.trim() || 'встреча',
-      status: 'open',
-      n: 0,
-      participants: [] as string[],
-      ownerLogin: user.loginName,
-      emoji: '🎟️',
-      createdAt: new Date().toISOString(),
-    };
-    patchEventsLocal((prev) => [next, ...prev]);
-    try {
-      await apiSyncJson('events.json', [next]);
-      toast('Ивент создан');
-      setCreating(false);
-      setTitle('');
-      setLoc('');
-      setDate('');
-      setTime('');
-    } catch (e: unknown) {
-      await reload();
-      toast((e as Error).message || 'Не удалось создать');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <ScreenHeader title={t('events')} onBack={onBack} right={(
-        <button type="button" className="pv-button px-3 h-10 rounded-2xl text-white" style={{ background: ACCENT }}
-          onClick={() => {
-            if (!canCreate) { push({ type: 'auth' }); return; }
-            setCreating((v) => !v);
-          }}>{creating ? 'Скрыть' : 'Создать'}</button>
-      )} />
-      <div className="flex-1 overflow-y-auto scrollbar-none p-4 flex flex-col gap-3">
-        {creating && canCreate && (
-          <div className="rounded-3xl p-4 flex flex-col gap-2" style={{ background: th.cardBg }}>
-            <p className="pv-subtitle" style={{ color: th.inkText }}>Новый ивент</p>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Название"
-              className="rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-            <input value={loc} onChange={(e) => setLoc(e.target.value)} placeholder="Место"
-              className="rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-            <div className="flex gap-2">
-              <input value={date} onChange={(e) => setDate(e.target.value)} placeholder="Дата" type="date"
-                className="flex-1 rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-              <input value={time} onChange={(e) => setTime(e.target.value)} placeholder="Время" type="time"
-                className="w-28 rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-            </div>
-            <input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Тег"
-              className="rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-            <button type="button" disabled={busy} onClick={() => void createEvent()}
-              className="pv-button w-full py-2.5 rounded-2xl text-white" style={{ background: ACCENT }}>
-              {busy ? '…' : 'Опубликовать'}
-            </button>
-          </div>
-        )}
-        {loading && !events.length && <ListSkeleton rows={3} />}
-        {!loading && !events.length && (
-          <EmptyNote title={t('eventsEmpty')} hint={canCreate ? 'Создайте первый ивент кнопкой выше.' : t('eventsEmptyHint')} />
-        )}
-        {events.map((ev, i) => (
-          <div key={String(ev.id || i)} className="rounded-3xl p-4" style={{ background: th.cardBg, outline: focusId && String(ev.id || `e${i}`) === focusId ? `2px solid ${ACCENT}` : undefined }}>
-            <p className="pv-micro uppercase" style={{ color: th.soft }}>{String(ev.tag || ev.status || t('kindEvent'))}</p>
-            <p className="pv-subtitle" style={{ color: th.inkText }}>{ev.title}</p>
-            <p className="pv-caption mb-3" style={{ color: th.muted }}>{String(ev.loc || ev.location || '')} · {String(ev.date || '')} {String(ev.time || '')}</p>
-            <button className="pv-button w-full py-2 rounded-2xl text-white" style={{ background: ACCENT }}
-              onClick={() => void signup(ev, i)}>Записаться</button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function FeedPostScreen({ post, onBack }: { post: FeedPost; onBack: () => void }) {
   const th = useTh();
   const t = useT();
@@ -600,7 +491,7 @@ function AuthScreen({
 }) {
   const th = useTh();
   const desktop = useIsDesktop();
-  const { login, register, offerDeviceUnlock, resumeStoredSession } = useAuth();
+  const { login, register, offerDeviceUnlock, resumeStoredSession, applySession } = useAuth();
   const { toast, confirm } = useUi();
   const { push, pop } = useNav();
   const { reload } = useData();
@@ -614,6 +505,11 @@ function AuthScreen({
   const [totp, setTotp] = useState('');
   const [needTotp, setNeedTotp] = useState(false);
   const [totpError, setTotpError] = useState(false);
+  const [email, setEmail] = useState('');
+  const [emailCode, setEmailCode] = useState('');
+  const [emailCodeSent, setEmailCodeSent] = useState(false);
+  const [needEmailStepUp, setNeedEmailStepUp] = useState(false);
+  const [stepUpMasked, setStepUpMasked] = useState('');
   const [busy, setBusy] = useState(false);
   const [oauthBusy, setOauthBusy] = useState<'yandex' | 'vk' | null>(null);
   const [seen, setSeen] = useState({ login: false, password: false, first: false, last: false });
@@ -651,11 +547,16 @@ function AuthScreen({
   }, [mode]);
 
   const loginErr = seen.login && !loginName.trim() ? t('loginNeed') : '';
-  const passwordErr = seen.password && password.length < 8 ? t('passwordNeed') : '';
+  const passwordStrength = mode === 'up'
+    ? assertPasswordStrength(password, { login: loginName })
+    : (password.length >= 1 ? { ok: true as const } : { ok: false as const, message: t('passwordNeed') });
+  const passwordErr = seen.password && !passwordStrength.ok
+    ? ('message' in passwordStrength ? passwordStrength.message : t('passwordNeed'))
+    : '';
   const firstErr = mode === 'up' && seen.first && !firstName.trim() ? t('nameNeed') : '';
   const lastErr = mode === 'up' && seen.last && !lastName.trim() ? t('nameNeed') : '';
-  const missing = !loginName.trim() || password.length < 8
-    || (mode === 'up' && (!firstName.trim() || !lastName.trim()));
+  const missing = !loginName.trim() || !passwordStrength.ok
+    || (mode === 'up' && (!firstName.trim() || !lastName.trim() || !email.trim() || emailCode.trim().length < 6));
 
   useEffect(() => {
     if (mode !== 'in') return;
@@ -690,13 +591,27 @@ function AuthScreen({
       const captchaToken = (await runSmartCaptcha()) || undefined;
       const code = (totpCode ?? totp).trim();
       if (mode === 'up') {
-        await register(nextLogin, nextPassword, nextName || nextLogin, pdConsent, captchaToken);
+        await register(
+          nextLogin,
+          nextPassword,
+          nextName || nextLogin,
+          pdConsent,
+          captchaToken,
+          email.trim(),
+          emailCode.trim(),
+        );
         await apiSyncJson('profiles.json', [{
           loginName: nextLogin,
           displayName: nextName || nextLogin,
           profileUpdatedAt: new Date().toISOString(),
         }]);
         await reload();
+      } else if (needEmailStepUp) {
+        const data = await apiConfirmLoginEmailStepUp(nextLogin, emailCode.trim() || code, captchaToken) as {
+          token?: string; refreshToken?: string; user?: Record<string, unknown>; rememberMe?: boolean;
+        };
+        applySession({ ...data, rememberMe });
+        setNeedEmailStepUp(false);
       }
       else await login(nextLogin, nextPassword, code || undefined, rememberMe, captchaToken);
       if (rememberMe) {
@@ -714,7 +629,12 @@ function AuthScreen({
       pop();
     } catch (e: unknown) {
       const err = e as ApiError;
-      if (err.code === 'totp_required') {
+      if (err.code === 'email_stepup') {
+        setNeedEmailStepUp(true);
+        const masked = (err.data as { toMasked?: string } | undefined)?.toMasked || '';
+        setStepUpMasked(masked);
+        toast(err.message || 'Код отправлен на почту');
+      } else if (err.code === 'totp_required') {
         setNeedTotp(true);
         toast('Введите код из приложения-аутентификатора');
       } else if (err.code === 'consent') {
@@ -940,6 +860,56 @@ function AuthScreen({
             />
           </div>
         )}
+        {mode === 'up' && (
+          <>
+            <FormField
+              label="Email"
+              value={email}
+              onChange={setEmail}
+              name="email"
+              autoComplete="email"
+              inputMode="email"
+              compact={desktop}
+              tip="На него придёт код подтверждения"
+            />
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <FormField
+                  label="Код из письма"
+                  value={emailCode}
+                  onChange={setEmailCode}
+                  name="email-code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  compact={desktop}
+                  maxLength={6}
+                />
+              </div>
+              <button
+                type="button"
+                disabled={busy || !email.trim()}
+                className="pv-caption px-3 min-h-11 rounded-2xl shrink-0"
+                style={{ background: th.lightBg, color: th.inkText, opacity: !email.trim() ? 0.5 : 1 }}
+                onClick={() => void (async () => {
+                  setBusy(true);
+                  try {
+                    const captchaToken = (await runSmartCaptcha()) || undefined;
+                    const data = await apiRequestRegisterEmail(email.trim(), captchaToken) as { demoCode?: string };
+                    setEmailCodeSent(true);
+                    if (data.demoCode) {
+                      setEmailCode(data.demoCode);
+                      toast(`Демо-код: ${data.demoCode}`);
+                    } else toast('Код отправлен на почту');
+                  } catch (e: unknown) {
+                    toast((e as Error).message || 'Не удалось отправить код');
+                  } finally { setBusy(false); }
+                })()}
+              >
+                {emailCodeSent ? 'Ещё раз' : 'Код'}
+              </button>
+            </div>
+          </>
+        )}
         <FormField
           label={t('loginName')}
           value={loginName}
@@ -982,6 +952,23 @@ function AuthScreen({
               {t('forgotPassword')}
             </button>
           </div>
+        )}
+        {mode === 'in' && needEmailStepUp && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl p-3 flex flex-col gap-2"
+            style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
+            <p className="pv-caption" style={{ color: th.muted }}>
+              Вход из новой страны. Код отправлен{stepUpMasked ? ` на ${stepUpMasked}` : ' на почту'}.
+            </p>
+            <FormField
+              label="Код с почты"
+              value={emailCode}
+              onChange={setEmailCode}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              compact={desktop}
+              maxLength={6}
+            />
+          </motion.div>
         )}
         {mode === 'in' && needTotp && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl p-3"
@@ -1425,6 +1412,7 @@ function EditProfileScreen({ onBack }: { onBack: () => void }) {
   const [loginTotp, setLoginTotp] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarProg, setAvatarProg] = useState<UploadProgress | null>(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -1445,7 +1433,16 @@ function EditProfileScreen({ onBack }: { onBack: () => void }) {
     try {
       const login = user.loginName;
       let avatarUrl = user.avatar || mine?.avatar;
-      if (avatarFile) avatarUrl = await uploadUserMedia(avatarFile, avatarFile.name, avatarFile.type || 'image/jpeg');
+      if (avatarFile) {
+        avatarUrl = await uploadUserMedia(
+          avatarFile,
+          avatarFile.name,
+          avatarFile.type || 'image/jpeg',
+          setAvatarProg,
+          { kind: 'avatar' },
+        );
+        setAvatarProg(null);
+      }
       const idx = profiles.findIndex((p) => String(p.loginName || '').toLowerCase() === login);
       const prev = idx >= 0 ? profiles[idx] : {};
       const record = {
@@ -1465,7 +1462,10 @@ function EditProfileScreen({ onBack }: { onBack: () => void }) {
       onBack();
     } catch (e: unknown) {
       toast((e as Error).message || 'Не удалось сохранить');
-    } finally { setBusy(false); }
+    } finally {
+      setAvatarProg(null);
+      setBusy(false);
+    }
   };
   const changeLogin = async () => {
     if (!user) return;
@@ -1521,6 +1521,11 @@ function EditProfileScreen({ onBack }: { onBack: () => void }) {
             <p className="pv-caption" style={{ color: th.soft }}>@{user?.loginName}</p>
           </div>
         </div>
+        {avatarProg && (
+          <div className="mb-4">
+            <UploadProgressBar label="Аватар" progress={avatarProg} />
+          </div>
+        )}
         <div className="rounded-3xl p-4 flex flex-col gap-3.5 mb-4" style={{ background: th.cardBg }}>
           <FormField label="Имя" value={name} onChange={setName} maxLength={48} autoComplete="nickname" />
           <label className="pv-label block" style={{ color: th.soft }}>

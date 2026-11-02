@@ -5,7 +5,7 @@ import { color, spring, tap, type ThemeTokens } from '@polevka/design';
 import {
   apiSyncJson, applyThreadReadLocal, makeMailMsg, markThreadReadPatch, messageHomeBox,
   patchInboxMessage, previewReply, REACTION_EMOJIS, removeInboxMessage,
-  spamGuardCheck, spamGuardMessage, SUPPORT_LOGIN,
+  spamGuardCheck, spamGuardMessage, SUPPORT_LOGIN, SUPPORT_NAME,
   threadWith, toggleMailReaction, uploadUserMedia, upsertInbox,
   type MailMsg, type MailReplyTo,
 } from '@polevka/core';
@@ -20,6 +20,7 @@ import { PhotoLightbox } from '../primitives/PhotoCarousel';
 import { Avatar } from '../primitives/Avatar';
 import { useKeyboardInset } from '../lib/keyboard-inset';
 import { formatPresenceLabel, isUserOnline } from '../lib/presence';
+import { useStaffOptional } from '../staff/StaffContext';
 
 const ACCENT = color.accent;
 const MAX_IMAGE = 12 * 1024 * 1024;
@@ -45,8 +46,8 @@ function replySnippet(m: Pick<MailMsg, 'fromId' | 'fromName' | 'text' | 'image' 
   };
 }
 
-export function ConversationScreen({ name, avatar, peer, onBack }: {
-  name: string; avatar: string; peer: string; onBack: () => void;
+export function ConversationScreen({ name, avatar, peer, asLogin, embed = false, onBack }: {
+  name: string; avatar: string; peer: string; asLogin?: string; embed?: boolean; onBack: () => void;
 }) {
   const th = useTh();
   const t = useT();
@@ -55,6 +56,7 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
   const { mail, profiles, reloadMail, applyMail, absorbMail } = useData();
   const { toast, confirm } = useUi();
   const { push } = useNav();
+  const staff = useStaffOptional();
   const locale = prefs.locale === 'en' ? 'en' : 'ru';
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -71,7 +73,12 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
   const seenRef = useRef<Set<string>>(new Set());
   const bootRef = useRef(true);
   const kb = useKeyboardInset();
-  const live = user ? threadWith(mail, user.loginName, peer) : [];
+  /** Staff desk: speak as support; otherwise as the signed-in user. */
+  const meLogin = String(asLogin || user?.loginName || '').toLowerCase();
+  const meName = asLogin === SUPPORT_LOGIN
+    ? SUPPORT_NAME
+    : (user?.displayName || user?.username || meLogin);
+  const live = meLogin ? threadWith(mail, meLogin, peer) : [];
   const liveIdsKey = live.map((m) => m.id).join('|');
   const liveIds = new Set(liveIdsKey ? liveIdsKey.split('|') : []);
   const pendingById = new Map(pending.map((m) => [m.id, m]));
@@ -119,14 +126,14 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
   }, [msgs]);
 
   useEffect(() => {
-    if (!user) return;
-    const patch = markThreadReadPatch(mail, user.loginName, peer);
+    if (!meLogin) return;
+    const patch = markThreadReadPatch(mail, meLogin, peer);
     if (!patch) return;
-    applyMail((prev) => applyThreadReadLocal(prev, user.loginName, peer));
+    applyMail((prev) => applyThreadReadLocal(prev, meLogin, peer));
     void apiSyncJson('mail.json', [patch])
       .then((res) => { if (Array.isArray(res?.data)) absorbMail(res.data); })
       .catch(() => {});
-  }, [peer, user?.loginName, live.filter((m) => !m.mine && !m.read).length]);
+  }, [peer, meLogin, live.filter((m) => !m.mine && !m.read).length]);
 
   useEffect(() => {
     const t = window.setInterval(() => { void reloadMail(); }, 15000);
@@ -144,6 +151,14 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
 
   const openProfile = () => {
     if (support) return;
+    if (staff && profile) {
+      staff.openUser(profile);
+      return;
+    }
+    if (staff) {
+      staff.openUser({ loginName: peer, displayName: name, avatar });
+      return;
+    }
     push({
       type: 'user-profile',
       name: String(profile?.displayName || name),
@@ -165,9 +180,9 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
   };
 
   const react = (m: ThreadMsg, emoji: string) => {
-    if (!user || !isLoggedIn) { push({ type: 'auth' }); return; }
-    const box = messageHomeBox(user.loginName, peer, m.mine);
-    const reactions = toggleMailReaction(m.reactions, emoji, user.loginName);
+    if (!meLogin || !isLoggedIn) { push({ type: 'auth' }); return; }
+    const box = messageHomeBox(meLogin, peer, m.mine);
+    const reactions = toggleMailReaction(m.reactions, emoji, meLogin);
     applyMail((prev) => patchInboxMessage(prev, box, m.id, { reactions }));
     const row = (mail.find((b) => b.loginName === box)?.inbox || []).find((row) => row.id === m.id);
     const next = { ...(row || m), reactions };
@@ -189,10 +204,10 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
   };
 
   const removeMsg = async (m: ThreadMsg) => {
-    if (!user || !m.mine) return;
+    if (!meLogin || !m.mine) return;
     const ok = await confirm({ title: 'Удалить сообщение?', body: 'Оно исчезнет из переписки.', ok: 'Удалить' });
     if (!ok) return;
-    const box = messageHomeBox(user.loginName, peer, true);
+    const box = messageHomeBox(meLogin, peer, true);
     applyMail((prev) => patchInboxMessage(prev, box, m.id, { deleted: true, text: '', image: undefined, video: undefined, reactions: {} }));
     void apiSyncJson('mail.json', [{
       loginName: box,
@@ -207,7 +222,7 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
 
   const send = async () => {
     const t = text.trim();
-    if ((!t && !file) || !user) return;
+    if ((!t && !file) || !meLogin) return;
     if (!isLoggedIn) { push({ type: 'auth' }); return; }
     const guard = spamGuardCheck('comment');
     if (!guard.ok) { toast(spamGuardMessage(guard)); return; }
@@ -244,7 +259,7 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
       }
     }
 
-    const msg = makeMailMsg(user.loginName, user.displayName || user.username, draftText, {
+    const msg = makeMailMsg(meLogin, meName, draftText, {
       ...(image ? { image } : {}),
       ...(video ? { video } : {}),
       ...(reply ? { replyTo: reply } : {}),
@@ -253,9 +268,9 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
     const notif = support ? undefined : {
       id: `n${Date.now()}`,
       type: 'message',
-      text: `${user.username} написал(а) вам`,
-      fromId: user.loginName,
-      fromName: user.username,
+      text: `${meName} написал(а) вам`,
+      fromId: meLogin,
+      fromName: meName,
       date: msg.date,
       read: false,
     };
@@ -281,23 +296,40 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
   };
 
   return (
-    <div className="flex flex-col h-full" style={{ background: th.phoneBg, paddingBottom: kb }}>
-      <ScreenHeader
-        title={name}
-        subtitle={presence}
-        onBack={onBack}
-        onTitleClick={support ? undefined : openProfile}
-        right={support ? undefined : (
-          <button type="button" onClick={openProfile}
-            className="relative flex-shrink-0" aria-label="Открыть профиль">
-            <Avatar src={profile?.avatar || avatar} name={name || letter} size={44} rounded="rounded-full" fallback="icon" />
-            {online && (
-              <span className="absolute bottom-0.5 right-0.5 w-3 h-3 rounded-full border-2"
-                style={{ background: color.olive, borderColor: th.headerBg }} aria-hidden />
-            )}
+    <div className="flex flex-col h-full min-h-0" style={{ background: th.phoneBg, paddingBottom: kb }}>
+      {embed ? (
+        <div className="flex items-center gap-3 px-3 h-14 flex-shrink-0" style={{ borderBottom: `1px solid ${th.border}`, background: th.cardBg }}>
+          <button type="button" onClick={onBack} className="pv-caption px-2 py-1.5 rounded-xl" style={{ color: th.muted }}>←</button>
+          <button type="button" className="flex-1 min-w-0 text-left" onClick={support ? undefined : openProfile}>
+            <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{name}</p>
+            <p className="pv-micro truncate" style={{ color: th.soft }}>
+              {asLogin === SUPPORT_LOGIN ? 'ответ от Поддержки' : presence}
+            </p>
           </button>
-        )}
-      />
+          {!support && (
+            <button type="button" onClick={openProfile} className="relative flex-shrink-0" aria-label="Профиль">
+              <Avatar src={profile?.avatar || avatar} name={name || letter} size={36} rounded="rounded-full" fallback="icon" />
+            </button>
+          )}
+        </div>
+      ) : (
+        <ScreenHeader
+          title={name}
+          subtitle={presence}
+          onBack={onBack}
+          onTitleClick={support ? undefined : openProfile}
+          right={support ? undefined : (
+            <button type="button" onClick={openProfile}
+              className="relative flex-shrink-0" aria-label="Открыть профиль">
+              <Avatar src={profile?.avatar || avatar} name={name || letter} size={44} rounded="rounded-full" fallback="icon" />
+              {online && (
+                <span className="absolute bottom-0.5 right-0.5 w-3 h-3 rounded-full border-2"
+                  style={{ background: color.olive, borderColor: th.headerBg }} aria-hidden />
+              )}
+            </button>
+          )}
+        />
+      )}
       <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-2 scrollbar-none">
         {msgs.length === 0 && <p className="pv-caption text-center py-8" style={{ color: th.soft }}>Начните переписку</p>}
         {msgs.map((m) => (
@@ -306,7 +338,7 @@ export function ConversationScreen({ name, avatar, peer, onBack }: {
             msg={m}
             fresh={freshIds.has(m.id)}
             th={th}
-            me={user?.loginName || ''}
+            me={meLogin}
             onLightbox={setLightbox}
             onReply={() => startReply(m)}
             onReact={(emoji) => react(m, emoji)}

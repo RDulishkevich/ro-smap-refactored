@@ -1,7 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bell, Download, Heart, Headphones, MapPin, MessageCircle, Plus, Search, SlidersHorizontal } from 'lucide-react';
-import { formatPlays, type Expedition, type FeedPost, type Sound } from '@polevka/core';
+import { Bell, Download, Heart, Headphones, ImagePlus, MapPin, MessageCircle, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
+import {
+  apiSyncJson, canDownloadSound, downloadWaitMessage, formatPlays, mapVisibleSounds,
+  spamGuardCheck, spamGuardMessage, uploadUserMedia,
+  type Expedition, type FeedPost, type Sound,
+} from '@polevka/core';
 import { color, pinColor, spring, tap } from '@polevka/design';
 import { useNav } from '../state/NavContext';
 import { useTh } from '../state/ThemeContext';
@@ -13,6 +17,7 @@ import { ListSkeleton, NavBar, PlayPauseIcon, ScreenHeader } from '../primitives
 import { EmptyNote } from '../primitives/EmptyNote';
 import { PullToRefresh } from '../primitives/PullToRefresh';
 import { useScrollMemory } from '../lib/use-scroll-memory';
+import { useLeaveGuard } from '../lib/use-leave-guard';
 import BrandMark from '@/brand/BrandMark';
 import { CatalogSoundList } from './CatalogScreen';
 import { downloadSound } from '../lib/download-sound';
@@ -150,8 +155,153 @@ function postTime(p: FeedPost) {
   return Number.isNaN(t) ? 0 : t;
 }
 
+function ComposePostCard({ onPublished }: { onPublished?: () => void }) {
+  const th = useTh();
+  const { isLoggedIn, user } = useAuth();
+  const { push } = useNav();
+  const { toast } = useUi();
+  const { patchFeedListLocal, reload } = useData();
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState('');
+  const [text, setText] = useState('');
+  const [images, setImages] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const dirty = !!(title.trim() || text.trim() || images.length);
+  useLeaveGuard(open && dirty && !busy);
+
+  if (!isLoggedIn) {
+    return (
+      <button type="button" onClick={() => push({ type: 'auth' })}
+        className="pv-button rounded-3xl px-4 py-3.5 text-left shadow-sm cursor-pointer inline-flex items-center gap-2 w-full"
+        style={{ background: th.cardBg, color: ACCENT }}>
+        <Plus size={16} /> Войдите, чтобы написать пост
+      </button>
+    );
+  }
+
+  const reset = () => {
+    setTitle('');
+    setText('');
+    setImages([]);
+    setOpen(false);
+  };
+
+  const addPhotos = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const list = Array.from(files).slice(0, 4 - images.length);
+    setBusy(true);
+    try {
+      const urls: string[] = [];
+      for (const file of list) {
+        urls.push(await uploadUserMedia(file, file.name, file.type || 'image/jpeg'));
+      }
+      setImages((prev) => [...prev, ...urls].slice(0, 4));
+    } catch (e: unknown) {
+      toast((e as Error).message || 'Не удалось загрузить фото');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const publish = async () => {
+    if (!user) return;
+    if (!title.trim() && !text.trim()) { toast('Напишите текст или заголовок'); return; }
+    const guard = spamGuardCheck('comment');
+    if (!guard.ok) { toast(spamGuardMessage(guard)); return; }
+    setBusy(true);
+    const id = `fp${Date.now().toString(36)}`;
+    const next: FeedPost = {
+      id,
+      title: title.trim() || 'Пост',
+      text: text.trim(),
+      author: user.username || user.loginName,
+      authorId: user.loginName,
+      images,
+      comments: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    patchFeedListLocal((prev) => [next, ...prev]);
+    try {
+      await apiSyncJson('feed.json', [next]);
+      toast('Пост опубликован');
+      reset();
+      onPublished?.();
+    } catch (e: unknown) {
+      await reload();
+      toast((e as Error).message || 'Не удалось опубликовать');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)}
+        className="rounded-3xl px-4 py-3.5 shadow-sm cursor-pointer flex items-center gap-3 w-full text-left"
+        style={{ background: th.cardBg }}>
+        <Avatar src={user?.avatar} name={user?.username || user?.loginName || '?'} size={36} rounded="rounded-full" />
+        <span className="pv-body flex-1" style={{ color: th.soft }}>Что у вас нового?</span>
+        <span className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: th.lightBg, color: ACCENT }}>
+          <Plus size={16} />
+        </span>
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-3xl p-4 shadow-sm flex flex-col gap-2.5" style={{ background: th.cardBg }}>
+      <div className="flex items-center gap-2.5">
+        <Avatar src={user?.avatar} name={user?.username || user?.loginName || '?'} size={36} rounded="rounded-full" />
+        <p className="pv-subtitle flex-1 truncate" style={{ color: th.inkText }}>{user?.username || user?.loginName}</p>
+        <button type="button" onClick={reset} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer"
+          style={{ background: th.lightBg }} aria-label="Закрыть">
+          <X size={15} color={th.soft} />
+        </button>
+      </div>
+      <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Заголовок"
+        className="rounded-2xl px-3.5 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }}
+        maxLength={200} />
+      <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Текст поста"
+        rows={4} maxLength={8000}
+        className="rounded-2xl px-3.5 py-2.5 text-sm outline-none resize-none leading-relaxed"
+        style={{ background: th.lightBg, color: th.inkText }} />
+      {!!images.length && (
+        <div className="flex gap-2 overflow-x-auto scrollbar-none">
+          {images.map((src) => (
+            <div key={src} className="relative w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0" style={{ background: th.lightBg }}>
+              <img src={src} alt="" className="absolute inset-0 w-full h-full object-cover" />
+              <button type="button" className="absolute top-1 right-1 w-6 h-6 rounded-lg flex items-center justify-center cursor-pointer"
+                style={{ background: 'rgba(0,0,0,0.45)' }}
+                onClick={() => setImages((prev) => prev.filter((x) => x !== src))} aria-label="Убрать фото">
+                <X size={12} color="#fff" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex items-center gap-2 pt-0.5">
+        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
+          onChange={(e) => { void addPhotos(e.target.files); e.target.value = ''; }} />
+        <button type="button" disabled={busy || images.length >= 4}
+          onClick={() => fileRef.current?.click()}
+          className="h-10 px-3 rounded-2xl inline-flex items-center gap-1.5 cursor-pointer pv-caption"
+          style={{ background: th.lightBg, color: th.muted }}>
+          <ImagePlus size={14} /> Фото
+        </button>
+        <button type="button" disabled={busy} onClick={() => void publish()}
+          className="pv-button ml-auto h-10 px-4 rounded-2xl text-white cursor-pointer"
+          style={{ background: ACCENT, opacity: busy ? 0.7 : 1 }}>
+          {busy ? '…' : 'Опубликовать'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function PostsList({ onCatalog }: { onCatalog: () => void }) {
-  const { feed, sounds, playingId, playing, togglePlay, loading } = useData();
+  const { feed, allSounds, playingId, playing, togglePlay, loading } = useData();
   const { push } = useNav();
   const { toast } = useUi();
   const th = useTh();
@@ -159,6 +309,7 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<FeedSort>('new');
   const sortLabel = { new: t('new'), popular: t('popular'), discussed: t('discussed') };
+  const visible = useMemo(() => mapVisibleSounds(allSounds), [allSounds]);
 
   const items = useMemo(() => {
     const posts: FeedEntry[] = feed.filter((p) => p.title || p.text).map((p) => ({
@@ -169,7 +320,7 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
       talk: Array.isArray(p.comments) ? p.comments.length : 0,
       post: p,
     }));
-    const markers: FeedEntry[] = sounds.map((s) => ({
+    const markers: FeedEntry[] = visible.map((s) => ({
       kind: 'marker' as const,
       id: `marker-${s.id}`,
       at: soundTime(s),
@@ -191,20 +342,15 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
       return b.at - a.at;
     });
     return all;
-  }, [feed, sounds, q, sort]);
+  }, [feed, visible, q, sort]);
 
-  if (loading && !feed.length && !sounds.length) {
+  if (loading && !feed.length && !visible.length) {
     return <ListSkeleton rows={6} />;
-  }
-
-  if (!feed.length && !sounds.length) {
-    return (
-      <EmptyNote title={t('noPosts')} hint={t('noPostsHint')} actionLabel={t('openCatalog')} onAction={onCatalog} />
-    );
   }
 
   return (
     <div className="flex flex-col gap-3 pt-1">
+      <ComposePostCard />
       <label className="flex items-center gap-2 h-12 rounded-2xl px-3.5" style={{ background: th.cardBg }}>
         <Search size={16} color={th.soft} className="flex-shrink-0" />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('searchFeed')}
@@ -220,6 +366,9 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
           </button>
         ))}
       </div>
+      {!feed.length && !visible.length && (
+        <EmptyNote title={t('noPosts')} hint={t('noPostsHint')} actionLabel={t('openCatalog')} onAction={onCatalog} />
+      )}
       {items.map((item) => item.kind === 'post' ? (
         <FeedPostCard key={item.id} post={item.post} onOpen={() => push({ type: 'feed-post', post: item.post })} />
       ) : (
@@ -228,7 +377,9 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
           onOpen={() => push({ type: 'sound-detail', sound: item.sound })}
           onDownload={() => downloadSound(item.sound, toast)} />
       ))}
-      {!items.length && <EmptyNote title={t('nothingFound')} hint={t('nothingFoundHint')} />}
+      {!!(feed.length || visible.length) && !items.length && (
+        <EmptyNote title={t('nothingFound')} hint={t('nothingFoundHint')} />
+      )}
     </div>
   );
 }
@@ -245,10 +396,8 @@ function FeedPostCard({ post, onOpen }: { post: FeedPost; onOpen: () => void }) 
     <button type="button" onClick={onOpen} className="rounded-3xl overflow-hidden shadow-sm text-left w-full cursor-pointer"
       style={{ background: th.cardBg }}>
       <div className="px-4 pt-3.5 pb-2.5 flex items-center gap-2.5">
-        <span className="w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold flex-shrink-0" style={{ background: th.lightBg, color: ACCENT }}>
-          {author.slice(0, 1).toUpperCase()}
-        </span>
-        <div className="min-w-0">
+        <Avatar name={author} size={36} rounded="rounded-full" />
+        <div className="min-w-0 flex-1">
           <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{author}</p>
           {when ? <p className="pv-micro" style={{ color: th.soft }}>{when}</p> : null}
         </div>
@@ -256,11 +405,17 @@ function FeedPostCard({ post, onOpen }: { post: FeedPost; onOpen: () => void }) 
       {!!images.length && (
         <div className="relative aspect-[16/10]" style={{ background: th.lightBg }}>
           <img src={images[0]} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          {images.length > 1 && (
+            <span className="absolute bottom-2 right-2 pv-micro px-2 py-0.5 rounded-full"
+              style={{ background: 'rgba(0,0,0,0.45)', color: '#fff' }}>+{images.length - 1}</span>
+          )}
         </div>
       )}
       <div className="px-4 py-3.5">
         <p className="pv-heading" style={{ color: th.inkText }}>{String(post.title || t('kindPost'))}</p>
-        {text ? <p className="pv-body mt-1.5" style={{ color: th.muted }}>{text}</p> : null}
+        {text ? (
+          <p className="pv-body mt-1.5 line-clamp-3" style={{ color: th.muted }}>{text}</p>
+        ) : null}
         <div className="flex items-center gap-1.5 mt-3" style={{ color: th.soft }}>
           <MessageCircle size={11} />
           <span className="pv-micro">{comments} {t('comments')}</span>
@@ -286,6 +441,8 @@ function MarkerFeedCard({ sound, playing, onPlay, onOpen, onDownload }: {
   const c = pinColor[String(sound.type)] || ACCENT;
   const likes = Number(sound.likes || 0);
   const comments = Array.isArray(sound.comments) ? sound.comments.length : 0;
+  const pending = String(sound.status || '') === 'pending';
+  const dlOk = canDownloadSound(sound);
   return (
     <article className="rounded-3xl p-3.5 shadow-sm" style={{ background: th.cardBg }}>
       <div className="flex items-center gap-2.5 mb-3">
@@ -304,6 +461,13 @@ function MarkerFeedCard({ sound, playing, onPlay, onOpen, onDownload }: {
           <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{author}</p>
           {when ? <p className="pv-micro" style={{ color: th.soft }}>{when}</p> : null}
         </div>
+        {pending && (
+          <span className="pv-micro px-2 py-0.5 rounded-full flex-shrink-0"
+            style={{ background: th.lightBg, color: ACCENT }}
+            title={downloadWaitMessage(sound)}>
+            На модерации
+          </span>
+        )}
       </div>
       <div className="flex gap-3">
         <button type="button" onClick={onOpen} className="relative w-[88px] h-[88px] rounded-2xl overflow-hidden flex-shrink-0 cursor-pointer" style={{ background: c }} aria-label={sound.title}>
@@ -329,7 +493,11 @@ function MarkerFeedCard({ sound, playing, onPlay, onOpen, onDownload }: {
               <button type="button" onClick={onPlay} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer" style={{ background: c }} aria-label={playing ? t('pause') : t('listen')}>
                 <PlayPauseIcon playing={playing} size={11} />
               </button>
-              <button type="button" onClick={() => void onDownload()} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer" style={{ background: 'rgba(146,179,177,0.22)' }} aria-label={t('download')}>
+              <button type="button" onClick={() => void onDownload()}
+                className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer"
+                style={{ background: 'rgba(146,179,177,0.22)', opacity: dlOk ? 1 : 0.5 }}
+                aria-label={dlOk ? t('download') : downloadWaitMessage(sound)}
+                title={dlOk ? t('download') : downloadWaitMessage(sound)}>
                 <Download size={13} color={color.mist} />
               </button>
             </div>
@@ -528,14 +696,23 @@ function ExpeditionsList() {
   if (!list.length) {
     return (
       <div className="flex flex-col gap-3 pt-1">
-        {isLoggedIn && (
+        {isLoggedIn ? (
           <button type="button" onClick={() => push({ type: 'expedition-edit' })}
-            className="pv-button rounded-3xl p-4 text-left shadow-sm cursor-pointer inline-flex items-center gap-2"
-            style={{ background: th.lightBg, color: ACCENT }}>
-            <Plus size={16} /> {t('firstExpedition')}
+            className="rounded-3xl px-4 py-3.5 text-left shadow-sm cursor-pointer flex items-center gap-3 w-full"
+            style={{ background: th.cardBg }}>
+            <span className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
+              style={{ background: th.lightBg, color: ACCENT }}>
+              <Plus size={18} />
+            </span>
+            <span className="min-w-0">
+              <span className="pv-subtitle block" style={{ color: th.inkText }}>{t('firstExpedition')}</span>
+              <span className="pv-caption block mt-0.5" style={{ color: th.soft }}>{t('expEmptyHint')}</span>
+            </span>
           </button>
+        ) : (
+          <EmptyNote title={t('expEmpty')} hint={t('expEmptyHint')}
+            actionLabel="Войти" onAction={() => push({ type: 'auth' })} />
         )}
-        <EmptyNote title={t('expEmpty')} hint={t('expEmptyHint')} />
       </div>
     );
   }
