@@ -11,7 +11,7 @@ import { ImagePlus, Route, Sparkles, X } from 'lucide-react';
 import { ScreenHeader } from '../primitives/ui';
 import { PhotoLightbox } from '../primitives/PhotoCarousel';
 import { AudioEditor } from '../primitives/AudioEditor';
-import { BusySpinner, FormField, SelectField } from '../primitives/form';
+import { BusySpinner, FillProgress, FormField, SelectField } from '../primitives/form';
 import { UploadProgressBar } from '../primitives/UploadProgress';
 import { useAuth } from '../state/AuthContext';
 import { useData } from '../state/DataContext';
