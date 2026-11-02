@@ -10,6 +10,7 @@ export type PublishWavMeta = {
   creatorId?: string;
   sourceId?: string;
   channels?: string;
+  principle?: string;
   ucsCategory?: string;
   ucsSubCategory?: string;
 };
@@ -33,6 +34,7 @@ export async function preparePublishWav(
     creatorId: meta.creatorId || meta.recordist || 'Anon',
     sourceId: meta.sourceId || 'NONE',
     channels: meta.channels,
+    principle: meta.principle,
     location: meta.location,
   }) as string;
   const buf = await wav.file.arrayBuffer();

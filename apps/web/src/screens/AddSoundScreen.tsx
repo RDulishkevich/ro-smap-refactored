@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  apiHealth, apiPremoderate, apiSuggestUcs, apiSyncJson, apiTranslate, buildUcsFileName, FIELD_MICROPHONES, FIELD_RECORDERS,
-  normalizeTimeMarkers, preparePublishWav, remapMarkersAfterTrim, spamGuardCheck,
+  apiHealth, apiPremoderate, apiSuggestUcs, apiSyncJson, apiTranslate, firstTranslatedText, buildUcsFileName, FIELD_MICROPHONES, FIELD_RECORDERS,
+  normalizeTimeMarkers, preparePublishWav, remapMarkersAfterTrim, sanitizeFxName, spamGuardCheck,
   spamGuardMessage, ucsByCatId, ucsCategories, ucsStructure, uploadUserMedia, newSoundId,
   type Sound, type TimeMarker, type UcsSuggestion, type UploadProgress,
 } from '@polevka/core';
@@ -53,6 +53,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
   const { push, reset, requireAuth } = useNav();
   const askedRef = useRef(false);
   const saved = edit ? {} : readAddDraft();
+  const fxManualRef = useRef(!!String(edit?.fxName || saved.fxName || '').trim());
   const [title, setTitle] = useState(edit?.title || saved.title || '');
   const [desc, setDesc] = useState(String(edit?.description || saved.desc || ''));
   const [location, setLocation] = useState(edit?.location || saved.location || '');
@@ -161,8 +162,9 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
     creatorId: user?.loginName || 'Anon',
     sourceId: mySessions.find((s) => s.id === sessionId)?.title || 'NONE',
     channels,
+    principle,
     location,
-  }) as string, [ucsId, fxName, title, user, mySessions, sessionId, channels, location]);
+  }) as string, [ucsId, fxName, title, user, mySessions, sessionId, channels, principle, location]);
 
   const onPickFile = async (file: File | null) => {
     if (!file) return;
@@ -208,18 +210,46 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
     }
   };
 
-  const translateFx = async () => {
-    const src = (fxName || title).trim();
-    if (!src) { toast('Сначала введите FXName'); return; }
+  const applyFxName = (raw: string, fromAuto = false) => {
+    const next = sanitizeFxName(raw);
+    fxManualRef.current = !fromAuto;
+    setFxName(next);
+    return next;
+  };
+
+  const translateFx = async (opts: { silent?: boolean; onlyIfAuto?: boolean } = {}) => {
+    if (opts.onlyIfAuto && fxManualRef.current) return;
+    const src = (desc.trim() || title.trim() || fxName).trim();
+    if (!src) {
+      if (!opts.silent) toast('Сначала опишите звук');
+      return;
+    }
+    if (!isLoggedIn) {
+      if (!opts.silent) {
+        toast('Войдите, чтобы перевести FXName');
+        requireAuth({ type: 'add-sound', edit });
+      }
+      return;
+    }
     try {
-      const data = await apiTranslate(src) as { translations?: Array<{ text?: string }> };
-      const text = String(data.translations?.[0]?.text || '').trim();
-      if (text) { setFxName(text); toast('Переведено'); }
-      else toast('Пустой ответ перевода');
+      const data = await apiTranslate(src.slice(0, 500));
+      if (opts.onlyIfAuto && fxManualRef.current) return;
+      const text = firstTranslatedText(data);
+      if (text) {
+        applyFxName(text, true);
+        if (!opts.silent) toast('FXName обновлён');
+      } else if (!opts.silent) toast('Пустой ответ перевода');
     } catch (e: unknown) {
-      toast((e as Error).message || 'Перевод недоступен');
+      if (!opts.silent) toast((e as Error).message || 'Перевод недоступен');
     }
   };
+
+  useEffect(() => {
+    if (edit || fxManualRef.current || !isLoggedIn) return;
+    if (desc.trim().length < 12) return;
+    const id = window.setTimeout(() => { void translateFx({ silent: true, onlyIfAuto: true }); }, 700);
+    return () => window.clearTimeout(id);
+  }, [desc, isLoggedIn, edit]);
 
   const applyUcsSuggestion = (s: UcsSuggestion) => {
     const meta = (ucsByCatId as Record<string, { category?: string } | undefined>)[s.catId];
@@ -230,7 +260,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
     } else {
       toast(`CatID ${s.catId} не найден в каталоге — проверьте вручную`);
     }
-    if (s.fxName) setFxName(s.fxName.replace(/\s+/g, '_'));
+    if (s.fxName) applyFxName(s.fxName);
     if (s.title && !title.trim()) setTitle(s.title);
     if (s.kind) setKind(s.kind);
     if (s.ecoCategory) setEco(s.ecoCategory);
@@ -325,10 +355,11 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
           location: location.trim(),
           recordist: user?.username,
           catId: ucsId,
-          fxName: fxName || title,
+          fxName: sanitizeFxName(fxName || title),
           creatorId: user?.loginName,
           sourceId: mySessions.find((s) => s.id === sessionId)?.title || 'NONE',
           channels,
+          principle,
           ucsCategory: ucsCat,
         });
         setPubPhase('upload');
@@ -400,7 +431,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
         ecoCategory: eco,
         ucsCat,
         ucsCatId: ucsId,
-        fxName: fxName || title,
+        fxName: sanitizeFxName(fxName || title),
         gear,
         recorder,
         microphone,
@@ -530,9 +561,16 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
             <div className={desktop ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-3'}>
               <FormField label="Название" value={title} onChange={setTitle} inset />
               <div>
-                <FormField label="FXName" value={fxName} onChange={setFxName} tip="Английское имя в UCS-файле (слова через _)." inset />
+                <FormField
+                  label="FXName"
+                  value={fxName}
+                  onChange={(v) => { fxManualRef.current = true; setFxName(v); }}
+                  onBlurValidate={() => { if (fxName.trim()) applyFxName(fxName, false); }}
+                  tip="Английское название звука (Title Case, слова через пробел). Подчёркивание только между блоками UCS-имени."
+                  inset
+                />
                 <button type="button" className="pv-caption mt-1.5 font-medium" style={{ color: ACCENT }} onClick={() => void translateFx()}>
-                  Перевести FXName
+                  Перевести из описания
                 </button>
               </div>
               <label className="pv-label col-span-2 block" style={{ color: th.soft }}>Описание

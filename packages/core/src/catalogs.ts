@@ -20,6 +20,7 @@ export {
 export {
   buildUcsFileName,
   sanitizeFxName,
+  parseUcsFileName,
   resolveProjectSourceId,
   UCS_PLATFORM_ID,
 } from '../../../src/core/ucsName.js';

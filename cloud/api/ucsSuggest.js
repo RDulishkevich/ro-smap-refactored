@@ -19,28 +19,28 @@ const FIELD_PRIORITY = [
 ];
 
 const HEURISTICS = [
-  { re: /птиц|пение|birds?|songbird|воронь|чирик|скворец|синиц/i, catId: 'AMBBird', fx: 'Birdsong' },
-  { re: /певч(ие|их)|соловей|жавор/i, catId: 'BIRDSong', fx: 'Songbirds' },
-  { re: /лягуш|квака|amphib/i, catId: 'ANMLAmph', fx: 'Frogs' },
-  { re: /насеком|insect|сверч|цикад|комар/i, catId: 'AMBInsc', fx: 'Insects' },
-  { re: /дожд|ливень|капл|rain/i, catId: 'RAIN', fx: 'Rain' },
-  { re: /гром|гроза|thunder|storm/i, catId: 'THUN', fx: 'Thunder' },
-  { re: /ветер|wind|порыв/i, catId: 'WIND', fx: 'Wind' },
-  { re: /водопад|waterfall/i, catId: 'WATRFall', fx: 'Waterfall' },
-  { re: /река|руч(ей|ья)|поток|stream|river/i, catId: 'WATRFlow', fx: 'Water_Flow' },
-  { re: /море|волн|surf|seaside|прибой|берег/i, catId: 'AMBSea', fx: 'Seaside' },
-  { re: /озер/i, catId: 'AMBLake', fx: 'Lakeside' },
-  { re: /болот|камыш|тростник|swamp/i, catId: 'AMBSwmp', fx: 'Swamp' },
-  { re: /лист|кроны|листв|leaves|foliage/i, catId: 'VEGELeaf', fx: 'Leaves' },
-  { re: /трактор/i, catId: 'VEHFarm', fx: 'Tractor' },
-  { re: /трамвай|tram/i, catId: 'TRNTram', fx: 'Tram' },
-  { re: /поезд|электричка|train|железн/i, catId: 'TRNDiesl', fx: 'Train' },
-  { re: /лес|дерев|forest|чащ|рощ|рассвет|dawn/i, catId: 'AMBForst', fx: 'Forest_Ambience' },
-  { re: /город|улиц|traffic|urban|трафик|машин/i, catId: 'AMBUrbn', fx: 'Urban_Ambience' },
-  { re: /парк|park/i, catId: 'AMBPark', fx: 'Park_Ambience' },
-  { re: /деревн|rural|село/i, catId: 'AMBRurl', fx: 'Rural' },
-  { re: /шаг(и|ов)|footstep/i, catId: 'FEETHmn', fx: 'Footsteps' },
-  { re: /колокол/i, catId: 'BELLLrg', fx: 'Bells' },
+  { re: /птиц|пение|birds?|songbird|воронь|чирик|скворец|синиц/i, catId: 'AMBBird', fx: 'Dawn Birdsong' },
+  { re: /певч(ие|их)|соловей|жавор/i, catId: 'BIRDSong', fx: 'Songbirds Chorus' },
+  { re: /лягуш|квака|amphib/i, catId: 'ANMLAmph', fx: 'Frogs At Dusk' },
+  { re: /насеком|insect|сверч|цикад|комар/i, catId: 'AMBInsc', fx: 'Insects Night' },
+  { re: /дожд|ливень|капл|rain/i, catId: 'RAIN', fx: 'Rain On Surface' },
+  { re: /гром|гроза|thunder|storm/i, catId: 'THUN', fx: 'Distant Thunder' },
+  { re: /ветер|wind|порыв/i, catId: 'WIND', fx: 'Wind Through Trees' },
+  { re: /водопад|waterfall/i, catId: 'WATRFall', fx: 'Waterfall Close' },
+  { re: /река|руч(ей|ья)|поток|stream|river/i, catId: 'WATRFlow', fx: 'River Flow' },
+  { re: /море|волн|surf|seaside|прибой|берег/i, catId: 'AMBSea', fx: 'Seaside Surf' },
+  { re: /озер/i, catId: 'AMBLake', fx: 'Lakeside Ambience' },
+  { re: /болот|камыш|тростник|swamp/i, catId: 'AMBSwmp', fx: 'Swamp Reeds' },
+  { re: /лист|кроны|листв|leaves|foliage/i, catId: 'VEGELeaf', fx: 'Leaves In Wind' },
+  { re: /трактор/i, catId: 'VEHFarm', fx: 'Tractor Pass By' },
+  { re: /трамвай|tram/i, catId: 'TRNTram', fx: 'Tram Pass By' },
+  { re: /поезд|электричка|train|железн/i, catId: 'TRNDiesl', fx: 'Train Pass By' },
+  { re: /лес|дерев|forest|чащ|рощ|рассвет|dawn/i, catId: 'AMBForst', fx: 'Forest Dawn Ambience' },
+  { re: /город|улиц|traffic|urban|трафик|машин/i, catId: 'AMBUrbn', fx: 'Urban Street Ambience' },
+  { re: /парк|park/i, catId: 'AMBPark', fx: 'City Park Ambience' },
+  { re: /деревн|rural|село/i, catId: 'AMBRurl', fx: 'Rural Village' },
+  { re: /шаг(и|ов)|footstep/i, catId: 'FEETHmn', fx: 'Footsteps On Ground' },
+  { re: /колокол/i, catId: 'BELLLrg', fx: 'Church Bells' },
 ];
 
 function configured() {
@@ -51,12 +51,24 @@ function lookup(catId) {
   return index.byId[String(catId || '')] || null;
 }
 
+function titleCaseWord(word) {
+  const w = String(word || '');
+  if (!w) return w;
+  if (/^[0-9]/.test(w)) return w;
+  return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+}
+
+/** UCS FXName is one filename block: Title Case with spaces, never `_`. */
 function sanitizeFx(raw) {
   let s = String(raw || 'Untitled').trim();
-  s = s.replace(/[^a-zA-Z0-9 \-_']/g, ' ').replace(/\s+/g, ' ').trim();
-  const words = s.split(/[\s_-]+/).filter(Boolean).slice(0, 8);
-  s = words.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join('_');
-  if (s.length > 48) s = s.slice(0, 48).replace(/_+$/, '');
+  s = s.replace(/[_]+/g, ' ');
+  s = s.replace(/[^a-zA-Z0-9 \-']/g, ' ').replace(/\s+/g, ' ').trim();
+  const words = s.split(' ').filter(Boolean).map(titleCaseWord);
+  s = words.join(' ');
+  if (s.length > 72) {
+    const cut = s.slice(0, 72).replace(/\s+\S*$/, '').trim();
+    s = cut || words[0].slice(0, 72);
+  }
   return s || 'Untitled';
 }
 
@@ -87,7 +99,7 @@ function heuristicSuggest(text) {
   }
   return decorate({
     catId: 'AMBMisc',
-    fxName: 'Field_Recording',
+    fxName: 'Field Recording',
     title: '',
     rationale: 'Нейтральный AMBMisc — уточните вручную',
   }, 'heuristic');
@@ -229,9 +241,9 @@ async function groqPickCatId(userPrompt, category) {
       content: [
         'You catalog field recordings for Полёвка using UCS 8.2.1.',
         'Reply with ONLY compact JSON:',
-        '{"catId":"AMBForst","fxName":"Forest_Dawn_Birds","title":"Утренний лес","rationale":"...","alternatives":["AMBBird","VEGELeaf"]}',
+        '{"catId":"AMBForst","fxName":"Forest Dawn Birds Near River","title":"Утренний лес","rationale":"...","alternatives":["AMBBird","VEGELeaf"]}',
         `Use category ${category}. catId MUST be one of the allowed CatIDs.`,
-        'fxName: English Title_Case words joined by underscores, max 8 words.',
+        'fxName: complete English Title Case phrase with SPACES, not underscores. Underscore only separates UCS filename blocks, so spaces keep the whole title as one FXName. Describe what/where/when at a glance. Do not repeat CatID. Prefer under 60 characters.',
         'title: short Russian display title.',
         'alternatives: 0–2 other allowed CatIDs, not the primary.',
         `Allowed CatIDs:\n${catIdListForPrompt(category)}`,

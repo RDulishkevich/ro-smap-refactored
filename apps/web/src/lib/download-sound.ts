@@ -37,6 +37,7 @@ export function ucsDownloadName(sound: Sound) {
     creatorId: String(sound.recordistId || sound.recordist || sound.user || 'Anon').replace(/^@/, ''),
     sourceId: resolveProjectSourceId(sound.sessionId, sourceTitle),
     channels: sound.channels,
+    principle: sound.principle,
     location: sound.location,
   }) || '');
   const base = built.replace(/\.wav$/i, '') || safeName(String(sound.fileName || '').replace(/\.[a-z0-9]+$/i, '')) || safeName(sound.title) || 'sound';

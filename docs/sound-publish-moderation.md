@@ -59,6 +59,8 @@
 
 ```
 CatID_FXName_CreatorID_SourceID[_UserData].wav
+
+FXName — английская фраза с пробелами (Title Case). Подчёркивание только между блоками, иначе UCS-парсер возьмёт из названия одно слово.
 ```
 
 - **SourceID** = проект из названия экспедиции (`sessionId` → sanitize title). Без экспедиции → `NONE`.

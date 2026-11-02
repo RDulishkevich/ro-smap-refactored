@@ -2,6 +2,8 @@
  * Read BWF bext / iXML / LIST INFO and UCS filename hints from a WAV ArrayBuffer.
  */
 
+import { parseUcsFileName } from './ucsName.js';
+
 function readFourCC(view, offset) {
     return String.fromCharCode(
         view.getUint8(offset),
@@ -45,68 +47,7 @@ function extractIxmlField(xml, tag) {
     return unescapeXml(m[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/<[^>]+>/g, '')).trim();
 }
 
-/**
- * Parse UCS-style filename: CatID_FXName_CreatorID_SourceID[_UserData]
- * FXName may contain underscores (RO.SMap convention).
- */
-export function parseUcsFileName(fileName) {
-    const base = String(fileName || '').replace(/^.*[\\/]/, '').replace(/\.wav$/i, '');
-    if (!base) return null;
-    const parts = base.split('_').filter(Boolean);
-    if (parts.length < 2) return null;
-
-    let catBlock = parts[0];
-    let userCategory = '';
-    const dash = catBlock.indexOf('-');
-    if (dash > 0) {
-        userCategory = catBlock.slice(dash + 1);
-        catBlock = catBlock.slice(0, dash);
-    }
-
-    const byId = (typeof window !== 'undefined' && window.ucsByCatId) || {};
-    if (!byId[catBlock] && parts.length < 4) {
-        // Unknown CatID — still return raw head
-    }
-
-    let userData = '';
-    let sourceId = '';
-    let creatorId = '';
-    let fxParts = [];
-
-    if (parts.length >= 4) {
-        // Assume last is UserData only if SourceID is ROSMAP at -2, else last is SourceID
-        const last = parts[parts.length - 1];
-        const prev = parts[parts.length - 2];
-        if (prev.toUpperCase() === 'ROSMAP' || prev.toUpperCase() === 'NONE') {
-            sourceId = prev;
-            userData = last;
-            creatorId = parts[parts.length - 3];
-            fxParts = parts.slice(1, -3);
-        } else {
-            sourceId = last;
-            creatorId = prev;
-            fxParts = parts.slice(1, -2);
-        }
-    } else if (parts.length === 3) {
-        fxParts = [parts[1]];
-        creatorId = parts[2];
-    } else {
-        fxParts = parts.slice(1);
-    }
-
-    const fxName = fxParts.join('_');
-    const meta = byId[catBlock] || {};
-    return {
-        catId: catBlock,
-        userCategory,
-        fxName,
-        creatorId,
-        sourceId,
-        userData,
-        category: meta.category || '',
-        subCategory: meta.subCategory || ''
-    };
-}
+export { parseUcsFileName };
 
 export function readWavMetadataBuffer(buffer) {
     const view = new DataView(buffer);

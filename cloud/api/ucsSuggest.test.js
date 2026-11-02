@@ -44,7 +44,7 @@ describe('ucsSuggest normalize', () => {
     expect(s?.category).toBe('AMBIENCE');
     expect(s?.kind).toBe('forest');
     expect(s?.ecoCategory).toBe('biophony');
-    expect(s?.fxName).toBe('Forest_Dawn');
+    expect(s?.fxName).toBe('Forest Dawn');
   });
 
   it('keeps two unique alternative CatIDs', () => {

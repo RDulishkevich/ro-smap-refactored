@@ -335,6 +335,20 @@ export const apiConfirmLoginEmailStepUp = (login: string, code: string, captchaT
 export const apiTranslate = (texts: string | string[], sourceLanguageCode = 'ru', targetLanguageCode = 'en') =>
   apiRequest('translate', { texts, sourceLanguageCode, targetLanguageCode }, { auth: true });
 
+/** Secure API returns `translations: string[]`; tolerate a Yandex-shaped `{ text }` item. */
+export function firstTranslatedText(data: unknown): string {
+  const translations = data && typeof data === 'object'
+    ? (data as { translations?: unknown }).translations
+    : null;
+  if (!Array.isArray(translations) || !translations.length) return '';
+  const first = translations[0];
+  if (typeof first === 'string') return first.trim();
+  if (first && typeof first === 'object' && 'text' in first) {
+    return String((first as { text?: unknown }).text || '').trim();
+  }
+  return '';
+}
+
 export type UcsSuggestion = {
   catId: string;
   category?: string;

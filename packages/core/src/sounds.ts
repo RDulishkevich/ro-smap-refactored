@@ -99,6 +99,7 @@ export function formatSound(s: Sound): Sound {
       creatorId: String(s.recordistId || s.recordist || s.user || 'Anon').replace(/^@/, ''),
       sourceId: resolveProjectSourceId(s.sessionId),
       channels: s.channels,
+      principle: s.principle,
       location: location,
     }) || ''),
   };
