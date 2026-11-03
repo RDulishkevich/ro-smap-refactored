@@ -224,7 +224,7 @@ export function RecordScreen({ onBack }: { onBack: () => void }) {
           {desktop && (
             <div className="grid grid-cols-2 gap-2 mb-3">
               <label className="rounded-2xl px-3 py-2" style={{ background: th.cardBg }}>
-                <span className="pv-micro uppercase" style={{ color: th.soft }}>{t('recInput')}</span>
+                <span className="pv-micro" style={{ color: th.soft }}>{t('recInput')}</span>
                 <select value={inputId} onChange={(e) => changeInput(e.target.value)}
                   className="w-full bg-transparent outline-none pv-caption mt-1" style={{ color: th.inkText }}
                   onFocus={() => void refreshDevices()}>
@@ -233,7 +233,7 @@ export function RecordScreen({ onBack }: { onBack: () => void }) {
                 </select>
               </label>
               <label className="rounded-2xl px-3 py-2" style={{ background: th.cardBg }}>
-                <span className="pv-micro uppercase" style={{ color: th.soft }}>{t('recOutput')}</span>
+                <span className="pv-micro" style={{ color: th.soft }}>{t('recOutput')}</span>
                 <select value={outputId} onChange={(e) => changeOutput(e.target.value)}
                   className="w-full bg-transparent outline-none pv-caption mt-1" style={{ color: th.inkText }}
                   onFocus={() => void refreshDevices()}>
@@ -249,7 +249,7 @@ export function RecordScreen({ onBack }: { onBack: () => void }) {
             </div>
           )}
           <div className="rounded-[24px] p-4 flex flex-col gap-4" style={{ background: th.cardBg }}>
-            <p className="text-[40px] font-bold tabular-nums leading-none text-center" style={{ color: th.inkText }}>{formatClock(sec)}</p>
+            <p className="pv-timer text-center" style={{ color: th.inkText }}>{formatClock(sec)}</p>
             <LiveTape analyser={mix} color={stage === 'rec' ? ACCENT : SAGE} h={96} />
             <div className="flex flex-col items-center gap-2">
               <motion.button whileTap={tap.cta} onClick={() => { if (stage === 'rec') stop(); else void start(); }}

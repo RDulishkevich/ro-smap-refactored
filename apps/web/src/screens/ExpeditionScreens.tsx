@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  apiSyncJson, normalizeComment, soundsByAuthor, uploadUserMedia,
+  apiSyncJson, normalizeComment, roleAtLeast, soundsByAuthor, uploadUserMedia,
   type Comment, type Expedition, type ExpeditionInvite, type Sound,
 } from '@polevka/core';
 import { color, pinColor, typeMeta } from '@polevka/design';
-import { ChevronDown, Clock, ImagePlus, MapPin, MessageCircle, Route as RouteIcon, Search, UserPlus, X } from 'lucide-react';
+import { ChevronDown, Clock, ImagePlus, MapPin, MessageCircle, MoreHorizontal, Route as RouteIcon, Search, UserPlus, X } from 'lucide-react';
 import { EXPEDITION_KINDS, locLabel } from '../lib/onboarding';
 import { usePrefs } from '../state/PrefsContext';
+import { FormField } from '../primitives/form';
 import { ScreenHeader } from '../primitives/ui';
 import { PhotoLightbox, PhotoStrip } from '../primitives/PhotoCarousel';
 import { SoundMap } from '../lib/SoundMap';
@@ -20,22 +21,58 @@ import { useLeaveGuard } from '../lib/use-leave-guard';
 import { SoundRow } from '../primitives/SoundRow';
 import { CommentsThread } from '../primitives/CommentsThread';
 import { Avatar } from '../primitives/Avatar';
+import { HoverMenu } from '../primitives/HoverMenu';
+import { persistExpeditionDelete } from '../lib/owned-delete';
+import { stock } from '../lib/stock';
 
 const ACCENT = color.accent;
 const EXP_TINT = color.mist;
 
 export function ExpeditionDetailScreen({ exp, onBack }: { exp: Expedition; onBack: () => void }) {
   const th = useTh();
-  const { sounds, setRoutePreview, profiles, reload, patchProfilesLocal } = useData();
-  const { user } = useAuth();
+  const { sounds, setRoutePreview, profiles, reload, patchProfilesLocal, patchSoundLocal } = useData();
+  const { user, isStaffSession } = useAuth();
   const { push } = useNav();
-  const { toast } = useUi();
+  const { toast, confirm } = useUi();
   const ownerLogin = String(exp.ownerLogin || '').toLowerCase();
   const ownerProfile = profiles.find((p) => String(p.loginName || '').toLowerCase() === ownerLogin);
   const live = (ownerProfile?.sessions || []).find((s) => String(s.id) === String(exp.id)) || exp;
+  const canAdminDelete = isStaffSession && roleAtLeast(user?.role, 'admin');
+  const canManage = (!!user && ownerLogin === String(user.loginName || '').toLowerCase()) || canAdminDelete;
   const route = live.route || [];
   const linked = sounds.filter((s) => (live.soundIds || []).map(String).includes(String(s.id)) || String(s.sessionId) === String(live.id));
   const mine = !!user && ownerLogin === String(user.loginName || '').toLowerCase();
+
+  const removeExpedition = async () => {
+    if (!canManage || !user) return;
+    const ok = await confirm({
+      title: 'Удалить экспедицию?',
+      body: 'Карточка пропадёт. Связанные записи останутся в каталоге, но без этой экспедиции.',
+      ok: 'Удалить',
+    });
+    if (!ok) return;
+    const profile = ownerProfile || { loginName: ownerLogin, displayName: ownerLogin, sessions: [] };
+    try {
+      const { profile: next, unlinked } = await persistExpeditionDelete({
+        profile,
+        expedition: live,
+        sounds,
+        asAdmin: canAdminDelete,
+        actorLogin: user.loginName,
+      });
+      patchProfilesLocal((prev) => {
+        const i = prev.findIndex((p) => String(p.loginName || '').toLowerCase() === ownerLogin);
+        if (i < 0) return [...prev, next];
+        return prev.map((p, j) => (j === i ? { ...p, ...next } : p));
+      });
+      for (const s of unlinked) patchSoundLocal(s.id, { sessionId: null });
+      toast('Экспедиция удалена');
+      onBack();
+    } catch (e: unknown) {
+      await reload();
+      toast((e as Error).message || 'Не удалось удалить');
+    }
+  };
   const comments = (live.comments || []).map((c) => normalizeComment(c));
   const photos = (live.photos || []).map(String).filter(Boolean);
   const cover = photos[0] || '';
@@ -72,19 +109,21 @@ export function ExpeditionDetailScreen({ exp, onBack }: { exp: Expedition; onBac
 
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <ScreenHeader title={live.title} onBack={onBack} right={mine ? (
-        <button type="button" className="pv-caption cursor-pointer px-2" style={{ color: ACCENT }}
-          onClick={() => push({ type: 'expedition-edit', exp: live })}>Изменить</button>
+      <ScreenHeader title={live.title} onBack={onBack} right={canManage ? (
+        <HoverMenu
+          title={live.title}
+          items={[
+            ...(mine ? [{ label: 'Изменить', onClick: () => push({ type: 'expedition-edit', exp: live }) }] : []),
+            { label: 'Удалить экспедицию', danger: true, onClick: () => void removeExpedition() },
+          ]}>
+          <span className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}>
+            <MoreHorizontal size={16} color={th.muted} />
+          </span>
+        </HoverMenu>
       ) : undefined} />
       <div className="flex-1 overflow-y-auto scrollbar-none">
         <div className="relative aspect-[16/10] mx-4 mt-2 rounded-3xl overflow-hidden shadow-sm" style={{ background: EXP_TINT }}>
-          {cover
-            ? <img src={cover} alt="" className="absolute inset-0 w-full h-full object-cover" />
-            : (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-5xl opacity-90">{live.emoji || '🗺️'}</span>
-              </div>
-            )}
+          <img src={cover || stock.expeditions} alt="" className="absolute inset-0 w-full h-full object-cover" />
         </div>
 
         <div className="mx-4 mt-3 rounded-3xl p-4 shadow-sm" style={{ background: th.cardBg }}>
@@ -109,7 +148,7 @@ export function ExpeditionDetailScreen({ exp, onBack }: { exp: Expedition; onBac
             <p className="pv-body mt-2 leading-relaxed" style={{ color: th.muted }}>{live.preview || live.desc}</p>
           ) : null}
           {!!metaBits.length && (
-            <p className="pv-caption mt-3" style={{ color: th.soft }}>{metaBits.join(' · ')}</p>
+            <p className="pv-caption mt-3" style={{ color: th.soft }}>{metaBits.join(', ')}</p>
           )}
           {!!(live.members || []).length && (
             <p className="pv-caption mt-2" style={{ color: th.muted }}>
@@ -334,40 +373,27 @@ export function ExpeditionEditScreen({ exp, onBack }: { exp?: Expedition; onBack
       <ScreenHeader title={exp ? 'Экспедиция' : 'Новая экспедиция'} onBack={onBack} />
       <div className="flex-1 overflow-y-auto scrollbar-none px-4 pb-8 pt-3 flex flex-col gap-4">
         <section className="rounded-3xl p-4 flex flex-col gap-3" style={{ background: th.cardBg }}>
-          <div className="flex items-center gap-3">
+          <div className="flex items-start gap-3">
             <input value={emoji} onChange={(e) => setEmoji(e.target.value.slice(0, 4))} aria-label="Эмодзи"
-              className="w-14 h-14 rounded-2xl text-center text-2xl outline-none" style={{ background: th.lightBg }} />
-            <label className="flex-1 min-w-0 text-[10px] font-semibold" style={{ color: th.soft }}>Название
-              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Например, Дон на рассвете"
-                className="mt-1 w-full rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-            </label>
+              className="w-14 h-14 rounded-2xl text-center pv-title pv-inset-focus mt-5" style={{ background: th.phoneBg }} />
+            <div className="flex-1 min-w-0">
+              <FormField label="Название" value={title} onChange={setTitle} placeholder="Например, Дон на рассвете" inset />
+            </div>
           </div>
-          <label className="text-[10px] font-semibold" style={{ color: th.soft }}>Описание
-            <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Куда идём и что записываем"
-              className="mt-1 w-full rounded-2xl px-3 py-2.5 text-sm outline-none min-h-[88px]" style={{ background: th.lightBg, color: th.inkText }} />
-          </label>
+          <FormField label="Описание" value={desc} onChange={setDesc} placeholder="Куда идём и что записываем" multiline rows={4} inset />
           <div className="grid grid-cols-2 gap-2">
-            <label className="text-[10px] font-semibold" style={{ color: th.soft }}>Дата
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-                className="mt-1 w-full rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-            </label>
-            <label className="text-[10px] font-semibold" style={{ color: th.soft }}>Длительность
-              <input value={dur} onChange={(e) => setDur(e.target.value)} placeholder="2–3 часа"
-                className="mt-1 w-full rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-            </label>
+            <FormField label="Дата" value={date} onChange={setDate} type="date" inset />
+            <FormField label="Длительность" value={dur} onChange={setDur} placeholder="2–3 часа" inset />
           </div>
-          <label className="text-[10px] font-semibold" style={{ color: th.soft }}>Место сбора
-            <input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="Площадь, станция, ориентир"
-              className="mt-1 w-full rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-          </label>
+          <FormField label="Место сбора" value={place} onChange={setPlace} placeholder="Площадь, станция, ориентир" inset />
           <div>
-            <p className="text-[10px] font-semibold mb-1.5" style={{ color: th.soft }}>Тип экспедиции</p>
+            <p className="pv-label mb-1.5" style={{ color: th.muted }}>Тип экспедиции</p>
             <div className="flex flex-wrap gap-1.5">
               {EXPEDITION_KINDS.map((k) => {
                 const on = kind === k.id;
                 return (
                   <button key={k.id} type="button" onClick={() => setKind(on ? '' : k.id)}
-                    className="h-8 px-3 rounded-full text-[11px] font-semibold"
+                    className="pv-label h-8 px-3 rounded-full"
                     style={{ background: on ? ACCENT : th.lightBg, color: on ? '#fff' : th.muted }}>
                     {locLabel(k, loc)}
                   </button>
@@ -378,8 +404,8 @@ export function ExpeditionEditScreen({ exp, onBack }: { exp?: Expedition; onBack
         </section>
 
         <section className="rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <p className="text-[10px] font-bold uppercase tracking-wide mb-2" style={{ color: th.soft }}>Фото</p>
-          <p className="text-[11px] mb-3" style={{ color: th.muted }}>До шести кадров. Перетащите или выберите файлы.</p>
+          <p className="pv-label mb-2" style={{ color: th.muted }}>Фото</p>
+          <p className="pv-caption mb-3" style={{ color: th.muted }}>До шести кадров. Перетащите или выберите файлы.</p>
           <div className="grid grid-cols-3 gap-2">
             {keptPhotos.map((src, i) => (
               <div key={src} className="relative aspect-[4/3] rounded-2xl overflow-hidden" style={{ background: th.phoneBg }}>
@@ -409,7 +435,7 @@ export function ExpeditionEditScreen({ exp, onBack }: { exp?: Expedition; onBack
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => { e.preventDefault(); addPhotos(Array.from(e.dataTransfer.files || [])); }}>
                 <ImagePlus size={18} color={th.soft} />
-                <span className="text-[10px] font-semibold" style={{ color: th.soft }}>Добавить</span>
+                <span className="pv-micro" style={{ color: th.muted }}>Добавить</span>
                 <input type="file" accept="image/*" multiple className="hidden"
                   onChange={(e) => { addPhotos(Array.from(e.target.files || [])); e.target.value = ''; }} />
               </label>
@@ -418,11 +444,11 @@ export function ExpeditionEditScreen({ exp, onBack }: { exp?: Expedition; onBack
         </section>
 
         <section className="rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <p className="text-[10px] font-bold uppercase tracking-wide mb-2" style={{ color: th.soft }}>Метки</p>
+          <p className="pv-label mb-2" style={{ color: th.muted }}>Метки</p>
           <div className="flex gap-1 p-1 rounded-2xl mb-2" style={{ background: th.lightBg }}>
             {([['mine', 'Мои метки'], ['all', 'Все метки']] as const).map(([id, label]) => (
               <button key={id} type="button" onClick={() => setScope(id)}
-                className="flex-1 py-2 rounded-xl text-[11px] font-semibold"
+                className="flex-1 py-2 min-h-11 rounded-xl pv-label"
                 style={{ background: scope === id ? th.cardBg : 'transparent', color: scope === id ? ACCENT : th.muted }}>
                 {label}
               </button>
@@ -431,13 +457,13 @@ export function ExpeditionEditScreen({ exp, onBack }: { exp?: Expedition; onBack
           <button type="button" onClick={() => setOpenList((v) => !v)}
             className="w-full h-11 rounded-2xl px-3 flex items-center gap-2 text-left" style={{ background: th.lightBg }}>
             <Search size={15} color={th.soft} />
-            <span className="flex-1 text-[13px]" style={{ color: q ? th.inkText : th.soft }}>{q || 'Выбрать метку'}</span>
+            <span className="flex-1 pv-caption" style={{ color: q ? th.inkText : th.muted }}>{q || 'Выбрать метку'}</span>
             <ChevronDown size={14} color={th.muted} />
           </button>
           {openList && (
             <div className="mt-2 rounded-2xl overflow-hidden" style={{ background: th.lightBg }}>
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Название или место"
-                className="w-full px-3 py-2.5 text-[13px] outline-none bg-transparent" style={{ color: th.inkText }}
+                className="w-full px-3 py-2.5 pv-caption pv-inset-focus bg-transparent" style={{ color: th.inkText }}
                 aria-label="Поиск меток" />
               <div className="max-h-52 overflow-y-auto scrollbar-none">
                 {filtered.map((s) => (
@@ -445,15 +471,15 @@ export function ExpeditionEditScreen({ exp, onBack }: { exp?: Expedition; onBack
                     className="w-full text-left px-3 py-2.5 flex items-center gap-2" style={{ borderTop: `1px solid ${th.border}` }}>
                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: pinColor[String(s.type)] || ACCENT }} />
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[12px] font-semibold truncate" style={{ color: th.inkText }}>{s.title}</span>
-                      <span className="block text-[10px] truncate" style={{ color: th.soft }}>
-                        {typeMeta[String(s.type || '')]?.label || 'Метка'} · {s.location}
-                        {!isOwnSound(s, user?.loginName || '', profiles) ? ' · приглашение' : ''}
+                      <span className="block pv-caption font-medium truncate" style={{ color: th.inkText }}>{s.title}</span>
+                      <span className="block pv-micro truncate" style={{ color: th.muted }}>
+                        {typeMeta[String(s.type || '')]?.label || 'Метка'}{s.location ? `, ${s.location}` : ''}
+                        {!isOwnSound(s, user?.loginName || '', profiles) ? ', приглашение' : ''}
                       </span>
                     </span>
                   </button>
                 ))}
-                {!filtered.length && <p className="px-3 py-4 text-[11px] text-center" style={{ color: th.soft }}>Нет подходящих меток</p>}
+                {!filtered.length && <p className="px-3 py-4 pv-caption text-center" style={{ color: th.muted }}>Нет подходящих меток</p>}
               </div>
             </div>
           )}
@@ -463,8 +489,8 @@ export function ExpeditionEditScreen({ exp, onBack }: { exp?: Expedition; onBack
               return (
                 <div key={String(s.id)} className="rounded-2xl px-3 py-2 flex items-center gap-2" style={{ background: th.lightBg }}>
                   <span className="min-w-0 flex-1">
-                    <p className="text-[12px] font-semibold truncate" style={{ color: th.inkText }}>{s.title}</p>
-                    <p className="text-[10px]" style={{ color: inv?.status === 'pending' ? ACCENT : th.soft }}>
+                    <p className="pv-caption font-medium truncate" style={{ color: th.inkText }}>{s.title}</p>
+                    <p className="pv-micro" style={{ color: inv?.status === 'pending' ? ACCENT : th.muted }}>
                       {inv?.status === 'pending' ? 'Ждём подтверждения владельца' : s.location}
                     </p>
                   </span>
@@ -481,18 +507,18 @@ export function ExpeditionEditScreen({ exp, onBack }: { exp?: Expedition; onBack
         </section>
 
         <section className="rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <p className="text-[10px] font-bold uppercase tracking-wide mb-2" style={{ color: th.soft }}>Участники</p>
-          <p className="text-[11px] mb-3" style={{ color: th.muted }}>Добавьте людей из Полёвки. Владельцы чужих меток получат приглашение отдельно.</p>
+          <p className="pv-label mb-2" style={{ color: th.muted }}>Участники</p>
+          <p className="pv-caption mb-3" style={{ color: th.muted }}>Добавьте людей из Полёвки. Владельцы чужих меток получат приглашение отдельно.</p>
           <button type="button" onClick={() => setOpenPeople((v) => !v)}
             className="w-full h-11 rounded-2xl px-3 flex items-center gap-2 text-left" style={{ background: th.lightBg }}>
             <UserPlus size={15} color={th.soft} />
-            <span className="flex-1 text-[13px]" style={{ color: memberQ ? th.inkText : th.soft }}>{memberQ || 'Выбрать пользователя'}</span>
+            <span className="flex-1 pv-caption" style={{ color: memberQ ? th.inkText : th.muted }}>{memberQ || 'Выбрать пользователя'}</span>
             <ChevronDown size={14} color={th.muted} />
           </button>
           {openPeople && (
             <div className="mt-2 rounded-2xl overflow-hidden" style={{ background: th.lightBg }}>
               <input value={memberQ} onChange={(e) => setMemberQ(e.target.value)} placeholder="Имя или логин"
-                className="w-full px-3 py-2.5 text-[13px] outline-none bg-transparent" style={{ color: th.inkText }}
+                className="w-full px-3 py-2.5 pv-caption pv-inset-focus bg-transparent" style={{ color: th.inkText }}
                 aria-label="Поиск участников" />
               <div className="max-h-52 overflow-y-auto scrollbar-none">
                 {people.map((p) => {
@@ -505,18 +531,18 @@ export function ExpeditionEditScreen({ exp, onBack }: { exp?: Expedition; onBack
                       setMemberQ('');
                     }}
                       className="w-full text-left px-3 py-2.5" style={{ borderTop: `1px solid ${th.border}` }}>
-                      <span className="block text-[12px] font-semibold truncate" style={{ color: th.inkText }}>{name}</span>
-                      <span className="block text-[10px]" style={{ color: th.soft }}>@{login}</span>
+                      <span className="block pv-caption font-medium truncate" style={{ color: th.inkText }}>{name}</span>
+                      <span className="block pv-micro" style={{ color: th.muted }}>@{login}</span>
                     </button>
                   );
                 })}
-                {!people.length && <p className="px-3 py-4 text-[11px] text-center" style={{ color: th.soft }}>Никого не нашлось</p>}
+                {!people.length && <p className="px-3 py-4 pv-caption text-center" style={{ color: th.muted }}>Никого не нашлось</p>}
               </div>
             </div>
           )}
           <div className="flex flex-wrap gap-1.5 mt-3">
             {members.map((login) => (
-              <span key={login} className="h-8 pl-3 pr-1.5 rounded-full inline-flex items-center gap-1 text-[11px] font-semibold" style={{ background: th.lightBg, color: th.muted }}>
+              <span key={login} className="h-8 pl-3 pr-1.5 rounded-full inline-flex items-center gap-1 pv-label" style={{ background: th.lightBg, color: th.muted }}>
                 @{login}
                 <button type="button" aria-label="Убрать участника" onClick={() => setMembers((prev) => prev.filter((m) => m !== login))}>
                   <X size={12} />
@@ -527,15 +553,15 @@ export function ExpeditionEditScreen({ exp, onBack }: { exp?: Expedition; onBack
         </section>
 
         <section className="rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <p className="text-[10px] font-bold uppercase tracking-wide mb-2" style={{ color: th.soft }}>Маршрут</p>
-          <p className="text-[11px] mb-3" style={{ color: th.muted }}>{route.length ? `${route.length} точек на карте` : 'Маршрут пока не нарисован'}</p>
-          <button type="button" className="w-full py-3 rounded-2xl text-[12px] font-semibold" style={{ background: th.lightBg, color: th.muted }}
+          <p className="pv-label mb-2" style={{ color: th.muted }}>Маршрут</p>
+          <p className="pv-caption mb-3" style={{ color: th.muted }}>{route.length ? `${route.length} точек на карте` : 'Маршрут пока не нарисован'}</p>
+          <button type="button" className="pv-button w-full py-3 min-h-11 rounded-2xl" style={{ background: th.lightBg, color: th.muted }}
             onClick={() => { setPickMode('route'); push({ type: 'pick-location', mode: 'route' }); }}>
             {route.length ? 'Править маршрут' : 'Нарисовать маршрут на карте'}
           </button>
         </section>
 
-        <button disabled={busy} className="w-full py-3.5 rounded-2xl text-sm font-bold text-white" style={{ background: ACCENT }} onClick={() => void save()}>
+        <button disabled={busy} className="pv-button w-full py-3.5 min-h-11 rounded-2xl text-white" style={{ background: ACCENT }} onClick={() => void save()}>
           {busy ? 'Сохранение…' : 'Сохранить экспедицию'}
         </button>
       </div>
@@ -577,7 +603,7 @@ export function PickLocationScreen({ mode = 'point', onBack }: { mode?: 'point' 
           }} />
       </div>
       {mode === 'route' && (
-        <button className="m-3 py-3 rounded-2xl text-sm font-bold text-white" style={{ background: ACCENT }}
+        <button className="pv-button m-3 py-3 min-h-11 rounded-2xl text-white" style={{ background: ACCENT }}
           onClick={() => { setPickMode(null); onBack(); }}>Готово ({routeDraft.length})</button>
       )}
     </div>

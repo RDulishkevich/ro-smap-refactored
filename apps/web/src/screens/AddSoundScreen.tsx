@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   apiHealth, apiPremoderate, apiSuggestUcs, apiSyncJson, apiTranslate, firstTranslatedText, buildUcsFileName, FIELD_MICROPHONES, FIELD_RECORDERS,
-  normalizeTimeMarkers, preparePublishWav, remapMarkersAfterTrim, sanitizeFxName, spamGuardCheck,
+  normalizePeaks, normalizeTimeMarkers, preparePublishWav, remapMarkersAfterTrim, sanitizeFxName, spamGuardCheck,
   spamGuardMessage, ucsByCatId, ucsCategories, ucsStructure, uploadUserMedia, newSoundId,
   type Sound, type TimeMarker, type UcsSuggestion, type UploadProgress,
 } from '@polevka/core';
@@ -21,7 +21,7 @@ import { useUi } from '../state/UiContext';
 import { useIsDesktop } from '../lib/use-media';
 import { getDraftRecording, setDraftRecording } from '../lib/record-buffer';
 import { clearAddDraft, readAddDraft, writeAddDraft } from '../lib/add-draft';
-import { applyTrimGain, parseDurationLabel } from '../lib/waveform';
+import { applyTrimGain, parseDurationLabel, peaksFromWavArrayBuffer } from '../lib/waveform';
 import { isAmbisonicChannels, isSoundwalkPrinciple, normalizeRoute } from '../lib/sound-media';
 import { useLeaveGuard } from '../lib/use-leave-guard';
 import { buildUcsAudioClip } from '../lib/ucs-clip';
@@ -346,6 +346,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
       let dur = String(edit?.duration || '0:01');
       let premodSource: Blob | string | null = rec?.blob || (edit?.url ? String(edit.url) : null);
       let mediaSoundId = '';
+      let peaks = normalizePeaks(edit?.peaks);
       if (rec?.blob) {
         const trimmed = await applyTrimGain(rec.blob, rec.trimStart ?? 0, rec.trimEnd ?? 1, rec.gain ?? 1);
         premodSource = trimmed.blob;
@@ -362,6 +363,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
           principle,
           ucsCategory: ucsCat,
         });
+        peaks = normalizePeaks(peaksFromWavArrayBuffer(await prepared.blob.arrayBuffer(), 64)) || peaks;
         setPubPhase('upload');
         mediaSoundId = String(edit?.id && /^snd_/i.test(String(edit.id)) ? edit.id : newSoundId());
         url = await uploadUserMedia(prepared.blob, prepared.fileName, 'audio/wav', setUploadProg, {
@@ -421,7 +423,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
           lng = pos.coords.longitude;
         } catch { /* keep form coords */ }
       }
-      const gear = [recorder, microphone].filter(Boolean).join(' · ');
+      const gear = [recorder, microphone].filter(Boolean).join(', ');
       const record = {
         id: catalogId,
         title: title.trim(),
@@ -449,6 +451,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
         lat, lng, duration: dur, url, comments: edit?.comments || [],
         route: walkRoute.length >= 2 ? walkRoute : undefined,
         timeMarkers,
+        peaks,
         premodFlag,
       };
       await apiSyncJson('map_data.json', [record], captchaToken ? { captchaToken } : undefined);
@@ -505,7 +508,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
 
           {edit?.status === 'rejected' && (
             <div className="rounded-3xl px-4 py-3.5" style={{ background: th.cardBg, border: `1px solid ${ACCENT}55` }}>
-              <p className="pv-label uppercase" style={{ color: ACCENT }}>Причина отклонения</p>
+              <p className="pv-label" style={{ color: ACCENT }}>Причина отклонения</p>
               <p className="pv-body mt-1.5" style={{ color: th.inkText }}>
                 {String(edit.rejectNote || '').trim() || 'Модератор отклонил запись без подробного комментария.'}
               </p>
@@ -577,8 +580,8 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
                 <textarea
                   value={desc}
                   onChange={(e) => setDesc(e.target.value)}
-                  className="mt-1 w-full rounded-2xl px-3 py-3 pv-body outline-none min-h-[88px]"
-                  style={{ background: th.phoneBg, color: th.inkText, boxShadow: `inset 0 0 0 1px ${th.border}` }}
+                  className="mt-1 w-full rounded-2xl px-3 py-3 pv-body outline-none min-h-[88px] pv-inset-focus"
+                  style={{ background: th.phoneBg, color: th.inkText }}
                 />
               </label>
             </div>
@@ -874,7 +877,7 @@ export function AddSoundScreen({ onBack, edit }: { onBack: () => void; edit?: So
 function Section({ title, th, children }: { title: string; th: ThemeTokens; children: ReactNode }) {
   return (
     <section className="rounded-[24px] p-4" style={{ background: th.cardBg }}>
-      <p className="pv-label uppercase mb-3" style={{ color: th.soft }}>{title}</p>
+      <p className="pv-label mb-3" style={{ color: th.soft }}>{title}</p>
       {children}
     </section>
   );

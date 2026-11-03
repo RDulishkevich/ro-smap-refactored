@@ -9,7 +9,7 @@
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | проверка живости (`version: 41`, `ydb`, `vapid`, `ucsAi`, `smartCaptcha`) |
+| `health` | нет | проверка живости (`version: 43`, `ydb`, `vapid`, `ucsAi`, `smartCaptcha`) |
 | `publicConfig` | нет | публичные ключи (Maps + VAPID + OAuth + SmartCaptcha sitekey) |
 | `oauthFinish` | нет | обмен code VK/Яндекс → сессия (нужен `pdConsent` для нового аккаунта) |
 | `oauthLink` | access | привязать VK/Яндекс к текущему аккаунту (забирает orphan `oauthOnly` stub) |
@@ -29,7 +29,8 @@
 | `confirmPasswordReset` | нет | код + новый пароль (снимает `oauthOnly`) |
 | `sync` | access | CAS (If-Match) → merge → sanitize → PUT JSON (+ HMAC); 409 `write_conflict` |
 | `patchSound` | access | лёгкий патч plays/downloads/лайков без полной перезаписи `map_data.json` |
-| `presign` | access | presigned PUT; медиа и staging JSON требуют `contentLength` (≤ 30 MB / 1 GB / 2.5 MB) |
+| `presign` | access | presigned PUT; медиа и staging JSON требуют `contentLength` (≤ 30 MB / 1 GB / 2.5 MB). Новые ключи — `media/…` (opaque id), legacy `uploads/{login}/` ещё подписывается |
+| `deleteMedia` | access | fail-closed DeleteObject: только `media/` и `uploads/`; владелец ключа или staff JWT `aud=staff` + admin |
 | `commit` | access | взять staging → merge → sanitize → PUT публичный JSON |
 | `getMail` | access | свой ящик + партнёры; admin — все; moderator — свой + `support` |
 | `deleteAccount` | access | самоудаление: пароль + TOTP, или `oauthOnly`+`confirmLogin`; purge снимает `oauth.*`; нельзя `admin`/`support` |
@@ -71,7 +72,7 @@
 | `_auth/push/{login}.json` | private | Web Push-подписки устройства (endpoint + ключи) |
 | `_auth/integrity/*.sig` | private | HMAC-SHA256 критичных JSON. Каталог / users / meta / `_mail/` без `.sig` → 503, кроме `INTEGRITY_ALLOW_UNSIGNED=1` |
 
-Медиа только в `uploads/{login}/…`. **data-URL и blob: в базах запрещены.**
+Медиа: новые объекты в `media/sounds/{snd_}/…` и `media/avatars/{usr_}/…`. Legacy `uploads/{login}/…` читается (dual-read), без массового wipe. Tombstone письма и удаление экспедиции (только `photos[]`) вызывают `deleteMedia`. Опубликованный wav при unlink экспедиции **не** удаляется. **data-URL и blob: в базах запрещены.**
 
 Письма: `cloud/api/mailTemplates.js` (обязателен в zip деплоя).  
 Сессии / TOTP / lockout / HMAC: `cloud/api/sessionSecurity.js` (обязателен в zip деплоя).
@@ -90,7 +91,7 @@
 | Пароль | мин. 8 символов |
 | Access JWT / refresh | 30 мин / 14 суток при «запомнить меня»; иначе refresh — session cookie |
 | Login lockout | 8 fails → 15 мин (IP+login) |
-| Rate limit | IP 360/мин (без health); login 25; refresh 60; sync/commit 120; patchSound 180; presign 90; translate 40; suggestUcs 12; premoderate 8; getPremod 40; getMail 120; email/reset request 5/10мин на логин, 20/час на IP; confirm 20/10мин; totp 20/10мин |
+| Rate limit | IP 360/мин (без health); login 25; refresh 60; sync/commit 120; patchSound 180; presign 90; deleteMedia 60; translate 40; suggestUcs 12; premoderate 8; getPremod 40; getMail 120; email/reset request 5/10мин на логин, 20/час на IP; confirm 20/10мин; totp 20/10мин |
 | Cooldown | sync 400 мс; сообщение 1.6 с; лайк 280 мс; play 800 мс |
 
 ## Переменные окружения функции
@@ -143,7 +144,7 @@ v17: YDB Document API — источник правды (строки звуко
 ```bash
 cd cloud/api
 npm install --omit=dev
-zip -r ../rosmap-api.zip index.js sessionSecurity.js mailTemplates.js ydbDoc.js mailCrypto.js webPush.js oauthProviders.js ucsSuggest.js ucsMap.js ucsIndex.js premod.js smartCaptcha.js ids.js passwordPolicy.js package.json node_modules
+zip -r ../rosmap-api.zip index.js sessionSecurity.js mailTemplates.js ydbDoc.js mailCrypto.js webPush.js oauthProviders.js ucsSuggest.js ucsMap.js ucsIndex.js premod.js smartCaptcha.js ids.js passwordPolicy.js mediaGc.js package.json node_modules
 ```
 
 

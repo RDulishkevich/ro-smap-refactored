@@ -5,7 +5,7 @@ import type { Sound } from './types';
 const sound = (over: Partial<Sound> = {}): Sound => ({
   id: '1',
   title: 'Река Дон',
-  location: 'Ростов-на-Дону',
+  location: 'Набережная',
   type: 'water',
   ecoCategory: 'geophony',
   ucsCat: 'WATER',

@@ -44,7 +44,9 @@ describe('production invariants', () => {
 
 describe('closed audit gaps', () => {
   it('Vite shell has a CSP meta', () => {
-    expect(read('apps/web/index.html')).toMatch(/Content-Security-Policy/);
+    const html = read('apps/web/index.html');
+    expect(html).toMatch(/Content-Security-Policy/);
+    expect(html).not.toMatch(/unsafe-eval/);
   });
 
   it('App root wires MotionConfig to reduceMotion', () => {

@@ -328,10 +328,10 @@ export function AudioEditor({
   return (
     <div className="rounded-3xl p-4" style={{ background: th.cardBg }}>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-[11px] font-semibold" style={{ color: th.soft }}>
+        <p className="pv-label" style={{ color: th.soft }}>
           {allowTrim ? `Обрезка · ${formatClock(cut)}` : 'Превью'}
         </p>
-        <p className="text-[10px] tabular-nums" style={{ color: th.muted }}>{formatClock(progress * dur)} / {formatClock(dur)}</p>
+        <p className="pv-micro tabular-nums" style={{ color: th.muted }}>{formatClock(progress * dur)} / {formatClock(dur)}</p>
       </div>
       <div
         ref={waveRef}
@@ -374,7 +374,7 @@ export function AudioEditor({
               style={{ left: `${pct}%` }}
               onClick={(e) => { e.stopPropagation(); seekTo(m.t / dur); }}>
               <span className="w-2 h-2 rounded-full" style={{ background: color.dark }} />
-              <span className="mt-0.5 max-w-[72px] truncate text-[8px] font-semibold px-1 rounded" style={{ background: th.cardBg, color: th.muted }}>{m.label}</span>
+              <span className="mt-0.5 max-w-[72px] truncate pv-micro px-1 rounded" style={{ background: th.cardBg, color: th.muted }}>{m.label}</span>
             </button>
           );
         })}
@@ -387,7 +387,7 @@ export function AudioEditor({
         </motion.button>
         <div className="flex-1 min-w-0">
           {allowTrim && (
-            <p className="text-[10px] font-semibold mb-1" style={{ color: th.soft }}>
+            <p className="pv-micro mb-1" style={{ color: th.soft }}>
               {formatClock(a * dur)} — {formatClock(b * dur)} · тяните ручки на волне
             </p>
           )}
@@ -396,7 +396,7 @@ export function AudioEditor({
             <input type="range" min={0.2} max={2} step={0.05} value={gain}
               className="flex-1 accent-[#B5613F] h-1" aria-label="Громкость фрагмента"
               onChange={(e) => onChange({ trimStart: a, trimEnd: b, gain: Number(e.target.value) })} />
-            <span className="text-[10px] w-10 text-right tabular-nums" style={{ color: th.soft }}>{Math.round(gain * 100)}%</span>
+            <span className="pv-micro w-10 text-right tabular-nums" style={{ color: th.soft }}>{Math.round(gain * 100)}%</span>
           </div>
         </div>
       </div>
@@ -405,11 +405,11 @@ export function AudioEditor({
           <div className="flex gap-2">
             <input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={160}
               placeholder="Метка: крик чайки, гудок…"
-              className="flex-1 min-w-0 rounded-2xl px-3 py-2.5 text-[12px] outline-none"
+              className="flex-1 min-w-0 rounded-2xl px-3 py-2.5 pv-caption pv-inset-focus outline-none"
               style={{ background: th.phoneBg, color: th.inkText }}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addMarker(); } }} />
             <button type="button" onClick={addMarker}
-              className="h-11 px-3 rounded-2xl text-[11px] font-semibold flex items-center gap-1 flex-shrink-0"
+              className="h-11 px-3 rounded-2xl pv-button flex items-center gap-1 flex-shrink-0"
               style={{ background: th.phoneBg, color: ACCENT }}>
               <Flag size={13} /> Здесь
             </button>
@@ -418,9 +418,9 @@ export function AudioEditor({
             <ul className="mt-2 flex flex-col gap-1">
               {markers.map((m, i) => (
                 <li key={`${m.t}-${m.label}-${i}`} className="flex items-center gap-2">
-                  <button type="button" className="text-[11px] font-semibold tabular-nums" style={{ color: ACCENT }}
+                  <button type="button" className="pv-label tabular-nums" style={{ color: ACCENT }}
                     onClick={() => seekTo(m.t / dur)}>{formatClock(m.t)}</button>
-                  <span className="flex-1 min-w-0 truncate text-[11px]" style={{ color: th.inkText }}>{m.label}</span>
+                  <span className="flex-1 min-w-0 truncate pv-caption" style={{ color: th.inkText }}>{m.label}</span>
                   <button type="button" aria-label="Удалить метку" className="w-8 h-8 rounded-full flex items-center justify-center"
                     onClick={() => onMarkers(markers.filter((_, n) => n !== i))}>
                     <X size={12} color={th.muted} />

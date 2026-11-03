@@ -116,8 +116,8 @@ export function CatalogBrowse() {
       {grouped.map((g) => (
         <section key={g.type} className="flex flex-col gap-2">
           {!filter.type && (
-            <p className="pv-label uppercase px-1" style={{ color: th.soft }}>
-              {g.type === 'other' ? t('other') : t(typeI18nKey(g.type))} · {g.items.length}
+            <p className="pv-label px-1" style={{ color: th.soft }}>
+              {g.type === 'other' ? t('other') : t(typeI18nKey(g.type))}, {g.items.length}
             </p>
           )}
           {g.items.map((item) => (

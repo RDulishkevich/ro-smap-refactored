@@ -46,20 +46,24 @@ export function probeDuration(url: string): Promise<number> {
 }
 
 export function useSoundMeta(
-  sound?: { id?: unknown; url?: string; duration?: string } | null,
+  sound?: { id?: unknown; url?: string; duration?: string; peaks?: number[] } | null,
   opts?: { peaks?: boolean; probe?: boolean },
 ) {
   const stored = parseDurationLabel(sound?.duration);
-  const wantPeaks = !!opts?.peaks;
+  const storedPeaks = Array.isArray(sound?.peaks) && sound.peaks.length >= 8 ? sound.peaks : null;
+  const wantPeaks = !!opts?.peaks && !storedPeaks;
   const wantProbe = !!opts?.probe;
   const [durationSec, setDurationSec] = useState(stored);
-  const [peaks, setPeaks] = useState<number[] | null>(null);
+  const [peaks, setPeaks] = useState<number[] | null>(storedPeaks);
   useEffect(() => {
     const next = parseDurationLabel(sound?.duration);
     if (next) setDurationSec(next);
     const url = String(sound?.url || '');
+    if (storedPeaks) {
+      setPeaks(storedPeaks);
+    }
     if (!url) {
-      setPeaks(null);
+      if (!storedPeaks) setPeaks(null);
       return;
     }
     let dead = false;
@@ -72,11 +76,11 @@ export function useSoundMeta(
       void peaksFromUrl(url, 64).then((p) => {
         if (!dead && p.length) setPeaks(p);
       }).catch(() => {});
-    } else {
+    } else if (!storedPeaks) {
       setPeaks(null);
     }
     return () => { dead = true; };
-  }, [sound?.url, sound?.id, sound?.duration, wantPeaks, wantProbe]);
+  }, [sound?.url, sound?.id, sound?.duration, wantPeaks, wantProbe, storedPeaks]);
   return {
     durationSec,
     peaks,

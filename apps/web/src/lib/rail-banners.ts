@@ -18,8 +18,8 @@ export const RAIL_BANNERS: RailBanner[] = [
     title: 'Слушайте мир вокруг',
     hint: 'Новые метки на карте',
     tint: color.mist,
-    image: '/banners/walk.png',
-    objectPosition: 'center 35%',
+    image: '/stock/feed.svg',
+    objectPosition: 'center',
     action: 'library',
   },
   {
@@ -27,8 +27,8 @@ export const RAIL_BANNERS: RailBanner[] = [
     title: 'Идите в экспедицию',
     hint: 'Маршруты и совместные записи',
     tint: color.olive,
-    image: '/banners/listen.png',
-    objectPosition: 'left 80%',
+    image: '/stock/expeditions.svg',
+    objectPosition: 'center',
     action: 'expeditions',
   },
   {
@@ -36,8 +36,8 @@ export const RAIL_BANNERS: RailBanner[] = [
     title: 'Угадайка',
     hint: 'Угадайте место по звуку',
     tint: color.accent,
-    image: '/banners/guess.png',
-    objectPosition: 'center 48%',
+    image: '/stock/guessr.svg',
+    objectPosition: 'center',
     action: 'guessr',
   },
 ];

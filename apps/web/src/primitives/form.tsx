@@ -21,10 +21,14 @@ type FieldProps = {
   /** Inset fill on card surfaces (phoneBg). */
   inset?: boolean;
   onBlurValidate?: () => void;
-} & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'>;
+  multiline?: boolean;
+  rows?: number;
+} & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'> & {
+  type?: InputHTMLAttributes<HTMLInputElement>['type'];
+};
 
 export function FormField({
-  label, value, onChange, hint, tip, error, password, compact, inset, onBlurValidate, ...input
+  label, value, onChange, hint, tip, error, password, compact, inset, onBlurValidate, multiline, rows, type, ...input
 }: FieldProps) {
   const th = useTh();
   const t = useT();
@@ -34,15 +38,26 @@ export function FormField({
   const fieldId = input.id || autoId;
   const tipId = `${fieldId}-tip`;
   const described = error ? `${fieldId}-err` : hint ? `${fieldId}-hint` : tip ? tipId : undefined;
+  const fieldCls = `w-full rounded-2xl px-4 pv-inset-focus ${compact ? 'py-2 min-h-9' : 'py-3 min-h-11'}${multiline ? ' resize-none pv-body' : ''}`;
+  const fieldStyle = {
+    background: inset ? th.phoneBg : th.cardBg,
+    color: th.inkText,
+    boxShadow: error
+      ? `inset 0 0 0 1.5px ${ACCENT}`
+      : focused
+        ? `inset 0 0 0 1.5px ${ACCENT}`
+        : `inset 0 0 0 1px ${th.border}`,
+  } as const;
+
   return (
-    <div className="pv-label block" style={{ color: th.soft }}>
+    <div className="pv-label block" style={{ color: th.muted }}>
       <label htmlFor={fieldId} className="inline-flex items-center gap-1 max-w-full">
         <span>{label}</span>
         {tip ? (
           <span className="relative inline-flex group/tip shrink-0">
             <button
               type="button"
-              className="w-5 h-5 rounded-full flex items-center justify-center"
+              className="w-11 h-11 -m-3 rounded-full flex items-center justify-center"
               aria-label={tip}
               aria-describedby={tipId}
               tabIndex={0}
@@ -61,28 +76,40 @@ export function FormField({
         ) : null}
       </label>
       <span className={`relative block ${compact ? 'mt-0.5' : 'mt-1'}`}>
-        <input
-          {...input}
-          id={fieldId}
-          type={password && !show ? 'password' : input.inputMode === 'email' ? 'email' : 'text'}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onFocus={(e) => { setFocused(true); input.onFocus?.(e); }}
-          onBlur={(e) => { setFocused(false); onBlurValidate?.(); input.onBlur?.(e); }}
-          aria-invalid={!!error}
-          aria-describedby={described}
-          className={`w-full rounded-2xl px-4 outline-none ${compact ? 'py-2 min-h-9' : 'py-3 min-h-11'}`}
-          style={{
-            background: inset ? th.phoneBg : th.cardBg,
-            color: th.inkText,
-            boxShadow: error
-              ? `inset 0 0 0 1.5px ${ACCENT}`
-              : focused
-                ? `inset 0 0 0 1.5px ${ACCENT}`
-                : `inset 0 0 0 1px ${th.border}`,
-          }}
-        />
-        {password && (
+        {multiline ? (
+          <textarea
+            id={fieldId}
+            name={input.name}
+            autoComplete={input.autoComplete}
+            placeholder={input.placeholder}
+            maxLength={input.maxLength}
+            disabled={input.disabled}
+            rows={rows || 4}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => { setFocused(false); onBlurValidate?.(); }}
+            aria-invalid={!!error}
+            aria-describedby={described}
+            className={fieldCls}
+            style={fieldStyle}
+          />
+        ) : (
+          <input
+            {...input}
+            id={fieldId}
+            type={password && !show ? 'password' : type || (input.inputMode === 'email' ? 'email' : 'text')}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onFocus={(e) => { setFocused(true); input.onFocus?.(e); }}
+            onBlur={(e) => { setFocused(false); onBlurValidate?.(); input.onBlur?.(e); }}
+            aria-invalid={!!error}
+            aria-describedby={described}
+            className={fieldCls}
+            style={fieldStyle}
+          />
+        )}
+        {password && !multiline && (
           <button
             type="button"
             className="absolute right-2 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center"
@@ -95,7 +122,7 @@ export function FormField({
       {error ? (
         <p id={`${fieldId}-err`} className="pv-caption mt-1" style={{ color: ACCENT }}>{error}</p>
       ) : hint ? (
-        <p id={`${fieldId}-hint`} className="pv-caption mt-1" style={{ color: th.soft }}>{hint}</p>
+        <p id={`${fieldId}-hint`} className="pv-caption mt-1" style={{ color: th.muted }}>{hint}</p>
       ) : null}
     </div>
   );
@@ -147,7 +174,7 @@ export function SelectField({
   }, [open]);
 
   return (
-    <div ref={rootRef} className="pv-label relative block" style={{ color: th.soft }}>
+    <div ref={rootRef} className="pv-label relative block" style={{ color: th.muted }}>
       <span className="inline-flex items-center gap-1 max-w-full">
         <span>{label}</span>
         {tip ? (
@@ -172,7 +199,7 @@ export function SelectField({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`w-full rounded-2xl px-3 flex items-center gap-2 text-left outline-none cursor-pointer ${compact ? 'py-2 min-h-9' : 'py-2.5 min-h-11'}`}
+        className={`w-full rounded-2xl px-3 flex items-center gap-2 text-left pv-inset-focus cursor-pointer ${compact ? 'py-2 min-h-9' : 'py-2.5 min-h-11'}`}
         style={{
           background: th.phoneBg,
           color: th.inkText,

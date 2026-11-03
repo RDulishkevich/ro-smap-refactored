@@ -1,8 +1,8 @@
 ---
 name: polevka-design
 description: >-
-  Полёвка (polevka.art) design system for the React/TSX app: Figma earth-tone
-  tokens, Klukva (screen titles) + Geist 400/500 (UI), Lucide, Motion springs, desktop rail+map vs mobile
+  Полёвка (polevka.art) design system for the React/TSX app: field-kit tokens,
+  Geist Variable 400/500, Lucide, Motion springs, desktop rail+map vs mobile
   tabs+stack. Use when building, restyling, or reviewing UI in apps/web,
   packages/design, DESIGN.md, or native Expo chrome.
 ---
@@ -15,31 +15,34 @@ Public name is **Полёвка**. Never show RO·SMap / «Карта Звуко
 
 Canonical tokens live in `packages/design` (`tokens.ts`, `tokens.css`, `motion.ts`). Do not invent a second palette.
 
+Subject: field recordings on a map. Visual vernacular is topographic paper + river clay, not wellness sage cream and not a novelty display face. Never bind copy or chrome to Rostov or a single region.
+
 ## Color
 
 | Token | Hex | Role |
 |-------|-----|------|
 | accent | `#B5613F` | CTA, active nav, likes |
-| dark | `#2D3C39` | Ink accents, forest pins |
-| olive | `#6F7C4E` | Secondary text |
-| sage | `#9DB170` | Muted labels |
-| mist | `#92B3B1` | Water, cool accents, banners |
-| light | `#D9E2C3` | Chip / header fills |
-| cream | `#F4E8D8` | Warm surfaces |
+| dark | `#2A3230` | Ink accents, forest pins |
+| olive | `#5C6750` | Secondary text |
+| sage | `#8A9278` | Decorative only |
+| mist | `#7F9B99` | Water, cool accents, banners |
+| light | `#E3E5DF` | Chip / header fills |
+| cream | `#F2F0EA` | Warm paper |
 | ink | `#1A1A1A` | Primary text (light) |
-| phoneBg | `#E8EDEA` | App canvas |
+| phoneBg | `#E7E8E4` | App canvas |
+| muted | `#5A6354` | Readable secondary (~4.5:1) |
 
-Dark theme: `makeTheme(true)` — `#0B0B0B` canvas, `#171717` cards, `#111111` chrome, `#2E2E2E` elevated, `#3A3A3A` solid CTA (neutral black, no green). Map tiles inverted; map chrome light.
+Dark: canvas `#131513`, cards `#1C1F1D`, chrome `#171917`. Solid CTA `#3A3A3A`.
 
-No peach Wellness (`#FBAB57`), no Wispr lavender, no glow rings.
+No peach Wellness (`#FBAB57`), no Wispr lavender, no glow rings, no Klukva.
 
 ## Type and icons
 
-- **Klukva говорит, Geist работает.** Klukva 400: `.pv-display` / `.pv-title` / `.pv-page` (имена экранов, ScreenHeader, пустые состояния) / `.pv-wordmark`. Never `font-bold` on Klukva.
-- Geist Variable (`--pv-font-ui`): lists, buttons, forms — weights **400** and **500** only (no 450/550/600).
+- **One family: Geist Variable** (`--pv-font-ui` = `--pv-font-brand`). Weights **400** (body) and **500** (titles, UI). No 450/550/600.
 - Roles: `.pv-display` … `.pv-micro` — `docs/typography.md` and `typeRoles` in `tokens.ts`.
-- Empty states: `EmptyNote` (title + hint, no Lucide chip in a card).
-- Icons: **Lucide** (shared with future React Native). Do not add Iconsax to the React app.
+- Empty states: `EmptyNote` (title + hint). Prefer a real photo later over Lucide-in-a-card.
+- Icons: **Lucide**. Do not add Iconsax to the React app.
+- Do not use ALL CAPS for type tags or eyebrows.
 
 ## Radii and motion
 
@@ -49,9 +52,9 @@ Motion package `motion/react`. Springs: tabs 380/36, stack 320/32, FAB 420/26, n
 
 ## Two layouts (breakpoint 768)
 
-**Mobile:** tabs Лента / Карта / Профиль. Stack screens slide from the right (`push`/`pop`). Map center FAB → запись / добавить звук. Feed sub-tabs: Публикации / Каталог / Экспедиции.
+**Mobile:** tabs Меню / Карта / Сообщения / Профиль. Stack screens slide from the right (`push`/`pop`). Map center FAB → запись / добавить звук.
 
-**Desktop:** padded gray canvas, 32px rounded app window, 72px rail, top search + profile. Map view is full-width; lists keep a 360px panel on the left. Sound / expedition / profile / record cards use a wide left pane with map stacked over the player on the right. Auth covers the window. Same screens and tokens. Never center a 390px phone mock on production desktop.
+**Desktop:** padded canvas, 32px rounded app window, rail, top search + profile. Map view is full-width; lists keep a 360px panel on the left. Sound / expedition / profile / record / event-detail cards use a wide left pane with map over the player on the right. Auth covers the window. Never center a 390px phone mock on production desktop.
 
 ## Primitives
 

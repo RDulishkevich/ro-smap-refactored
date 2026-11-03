@@ -41,9 +41,9 @@ const WORKSPACE = new Set([
   'expedition-detail', 'expedition-edit',
   'user-profile', 'cabinet', 'edit-profile', 'delete-account',
   'staff', 'legal', 'help', 'messages', 'conversation', 'settings',
-  'feed-post', 'notifications', 'events', 'drafts', 'my-sounds',
+  'feed-post', 'notifications', 'event-detail', 'event-edit', 'drafts', 'my-sounds',
 ]);
-const VIEW_WORKSPACE = new Set<DesktopView>(['library', 'feed', 'expeditions', 'cabinet']);
+const VIEW_WORKSPACE = new Set<DesktopView>(['cabinet']);
 
 type ChromeMode = 'map' | 'list' | 'workspace';
 
@@ -135,9 +135,9 @@ export function DesktopShell() {
   const { toast } = useUi();
   const { prefs } = usePrefs();
   const { isLoggedIn, user, logout } = useAuth();
-  const { desktopView, setDesktopView, push, stack, pop, reset } = useNav();
+  const { desktopView, setDesktopView, push, stack, pop, reset, goDesktopView } = useNav();
   const {
-    filter, setFilter, mail, pickMode, clearMapPick, pickedPoint, routeDraft,
+    mail, pickMode, clearMapPick, pickedPoint, routeDraft,
     playing, playingId, progress, togglePlay, seek, volume, muted, setVolume, toggleMute, allSounds,
     focused, setFocused, profiles,
   } = useData();
@@ -146,7 +146,7 @@ export function DesktopShell() {
     if (pickMode || pickedPoint || routeDraft.length) clearMapPick();
   };
   const t = useT();
-  const [q, setQ] = useState(filter.tag);
+  const [q, setQ] = useState('');
   const [notifyOpen, setNotifyOpen] = useState(false);
 
   const chipBg = th.isDark ? th.lightBg : '#F4F5F7';
@@ -176,20 +176,20 @@ export function DesktopShell() {
 
   const goView = (id: DesktopView) => {
     if (desktopView === id && !vis) {
-      void reset().then((ok) => { if (ok) { dropMapPick(); setDesktopView('map'); } });
+      void goDesktopView('map').then((ok) => { if (ok) dropMapPick(); });
       return;
     }
-    void reset().then((ok) => { if (ok) { dropMapPick(); setDesktopView(id); } });
+    void goDesktopView(id).then((ok) => { if (ok) dropMapPick(); });
   };
 
   const openMessages = () => {
     if (vis?.type === 'messages') { void reset(); return; }
-    void reset().then((ok) => { if (ok) { dropMapPick(); push({ type: 'messages' }); } });
+    void reset({ type: 'messages' }).then((ok) => { if (ok) dropMapPick(); });
   };
 
   const toggleStack = (type: 'help' | 'settings' | 'drafts' | 'events') => {
     if (vis?.type === type) { void reset(); return; }
-    void reset().then((ok) => { if (ok) { dropMapPick(); push({ type }); } });
+    void reset({ type }).then((ok) => { if (ok) dropMapPick(); });
   };
 
   const openLegal = (doc: 'privacy' | 'terms' | 'publish') => {
@@ -218,13 +218,13 @@ export function DesktopShell() {
       <div className="flex h-full w-full overflow-hidden rounded-[32px] shadow-[0_24px_64px_rgba(45,60,57,0.14)]"
         style={{ background: th.cardBg }}>
         <nav className="flex flex-col py-5 px-2.5 flex-shrink-0" style={{ width: RAIL_W, borderRight: `1px solid ${th.border}` }}>
-          <button onClick={() => { void reset().then((ok) => { if (ok) setDesktopView('map'); }); }}
+          <button onClick={() => { void goDesktopView('map').then((ok) => { if (ok) dropMapPick(); }); }}
             className="flex items-center gap-2 pl-1 pr-2 mb-5 text-left w-full min-w-0">
             <div className="w-14 h-14 flex-shrink-0 relative">
               <BrandMark />
             </div>
             <div className="min-w-0 leading-none -ml-0.5">
-              <p className="pv-heading truncate" style={{ color: th.inkText, fontSize: '1.2rem' }}>Полёвка</p>
+              <p className="pv-wordmark truncate" style={{ color: th.inkText }}>Полёвка</p>
               <p className="pv-micro mt-1 truncate" style={{ color: th.soft }}>{t('soundMap')}</p>
             </div>
           </button>
@@ -247,14 +247,13 @@ export function DesktopShell() {
             <div className="flex-1 flex justify-center min-w-0">
               <label className="flex items-center gap-2 w-full max-w-[420px] h-11 rounded-full px-4" style={{ background: chipBg }}>
                 <Search size={15} color={th.soft} className="flex-shrink-0" />
-                <input value={q} placeholder={t('searchSounds')}
+                <input value={q} placeholder={t('searchGlobal')}
                   className="flex-1 min-w-0 bg-transparent outline-none" style={{ color: th.inkText }}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setQ(v);
-                    setFilter((f) => ({ ...f, tag: v, q: v }));
-                  }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') push({ type: 'search' }); }} />
+                  aria-label={t('searchGlobalAria')}
+                  onChange={(e) => setQ(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && q.trim()) push({ type: 'search', q: q.trim() });
+                  }} />
               </label>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -291,8 +290,8 @@ export function DesktopShell() {
               {isLoggedIn ? (
                 <div className="flex items-center gap-1 pl-1 pr-1.5 py-1 rounded-full" style={{ background: chipBg }}>
                   <button type="button" onClick={() => {
-                    if (desktopView === 'cabinet' && !vis) { setDesktopView('map'); return; }
-                    void reset().then((ok) => { if (ok) setDesktopView('cabinet'); });
+                    if (desktopView === 'cabinet' && !vis) { void goDesktopView('map'); return; }
+                    void goDesktopView('cabinet');
                   }} className="flex items-center gap-2.5">
                     <Avatar src={user?.avatar || myProfile?.avatar} name={user?.displayName || user?.username} size={36} rounded="rounded-full" />
                     <div className="text-left hidden lg:block pr-1">
@@ -301,8 +300,8 @@ export function DesktopShell() {
                     </div>
                   </button>
                   <HoverMenu items={[
-                    { label: t('profile'), onClick: () => { void reset().then((ok) => { if (ok) setDesktopView('cabinet'); }); } },
-                    { label: t('logout'), danger: true, onClick: () => { void logout().then(() => { void reset().then((ok) => { if (ok) setDesktopView('map'); toast(t('loggedOut')); }); }); } },
+                    { label: t('profile'), onClick: () => { void goDesktopView('cabinet'); } },
+                    { label: t('logout'), danger: true, onClick: () => { void logout().then(() => { void goDesktopView('map').then((ok) => { if (ok) toast(t('loggedOut')); }); }); } },
                   ]}>
                     <span className="w-8 h-8 rounded-full flex items-center justify-center">
                       <ChevronDown size={14} color={th.soft} />

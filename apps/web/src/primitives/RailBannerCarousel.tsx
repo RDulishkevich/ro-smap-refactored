@@ -8,7 +8,7 @@ import { useTh } from '../state/ThemeContext';
 
 export function RailBannerCarousel() {
   const th = useTh();
-  const { setDesktopView, reset, push } = useNav();
+  const { goDesktopView, reset } = useNav();
   const [i, setI] = useState(0);
   const [broken, setBroken] = useState<Record<string, boolean>>({});
   const n = RAIL_BANNERS.length;
@@ -21,10 +21,10 @@ export function RailBannerCarousel() {
 
   const open = (item: RailBanner) => {
     if (item.action === 'guessr') {
-      void reset().then((ok) => { if (ok) push({ type: 'guessr' }); });
+      void reset({ type: 'guessr' });
       return;
     }
-    void reset().then((ok) => { if (ok) setDesktopView(item.action as DesktopView); });
+    void goDesktopView(item.action as DesktopView);
   };
 
   const prev = (e: MouseEvent) => {
@@ -60,7 +60,7 @@ export function RailBannerCarousel() {
                 style={{ objectPosition: banner.objectPosition || 'center' }}
                 onError={() => setBroken((m) => ({ ...m, [banner.id]: true }))} />
             )}
-            <span className="absolute inset-0" style={{ background: showImg ? 'linear-gradient(180deg, rgba(26,26,26,0) 42%, rgba(26,26,26,0.48) 100%)' : 'transparent' }} />
+            <span className="absolute inset-0" style={{ background: showImg ? 'linear-gradient(180deg, rgba(19,21,19,0.06) 28%, rgba(19,21,19,0.7) 100%)' : 'transparent' }} />
             <span className="absolute inset-x-2.5 bottom-2.5">
               <span className="pv-caption block font-semibold" style={{ color: '#fff' }}>{banner.title}</span>
               <span className="pv-micro block mt-0.5" style={{ color: 'rgba(255,255,255,0.84)' }}>{banner.hint}</span>

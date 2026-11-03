@@ -173,9 +173,9 @@ export function CommentsThread({
 
   return (
     <div>
-      <p className="pv-label uppercase mb-3" style={{ color: th.soft }}>
-        {t('comments')} · {local.length}
-        {staff ? ' · Поддержка' : ''}
+      <p className="pv-label mb-3" style={{ color: th.soft }}>
+        {t('comments')}, {local.length}
+        {staff ? ', поддержка' : ''}
       </p>
       {!local.length && <EmptyNote title={t('noComments')} hint={t('noCommentsHint')} />}
       <div className="flex flex-col gap-4">
@@ -246,7 +246,7 @@ export function CommentsThread({
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
                       placeholder={staff ? `Ответ поддержки для ${cm.author}…` : `Ответ для ${cm.author}…`}
-                      className="flex-1 rounded-2xl px-3 py-2 text-xs outline-none min-h-11"
+                      className="flex-1 rounded-2xl px-3 py-2 pv-caption pv-inset-focus outline-none min-h-11"
                       style={{ background: th.lightBg, color: th.inkText }}
                       onKeyDown={(e) => { if (e.key === 'Enter') void postReply(cm.id); }}
                     />
@@ -268,7 +268,7 @@ export function CommentsThread({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder={staff ? 'Комментарий от Поддержки…' : 'Написать комментарий…'}
-            className="flex-1 text-sm rounded-2xl px-4 py-2.5 outline-none min-h-11"
+            className="flex-1 pv-caption rounded-2xl px-4 py-2.5 pv-inset-focus outline-none min-h-11"
             style={{ background: th.lightBg, color: th.inkText }}
             onKeyDown={(e) => { if (e.key === 'Enter') void postRoot(); }}
           />

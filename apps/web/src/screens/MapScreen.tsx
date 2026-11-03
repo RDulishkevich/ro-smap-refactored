@@ -13,7 +13,8 @@ import { HoverMenu } from '../primitives/HoverMenu';
 import { MapFab } from '../primitives/chrome';
 import { SoundMap, type MapContext, type MapHover, type MapPoint } from '../lib/SoundMap';
 import { CatalogFilters } from '../primitives/filters';
-import { normalizeRoute, soundRoute } from '../lib/sound-media';
+import { normalizeRoute, soundCover, soundRoute } from '../lib/sound-media';
+import { stock } from '../lib/stock';
 import { downloadSound } from '../lib/download-sound';
 import { usePrefs } from '../state/PrefsContext';
 
@@ -183,7 +184,7 @@ export function MapScreen({ showNav = true, desktop = false, hidePlayer = false,
         </AnimatePresence>
         )}
         {pickMode && (
-          <div className="absolute top-[4.25rem] left-3 right-3 z-[399] rounded-3xl px-3 py-2.5 text-[11px] font-semibold text-white" style={{ background: color.accent }}>
+          <div className="absolute top-[4.25rem] left-3 right-3 z-[399] rounded-3xl px-3 py-2.5 pv-label text-white" style={{ background: color.accent }}>
             {pickMode === 'route' ? 'Маршрут: нажимайте точки. Долгое нажатие или ПКМ.' : 'Выберите точку на карте (клик или долгое нажатие).'}
             <button className="ml-2 underline" onClick={() => setPickMode(null)}>готово</button>
           </div>
@@ -238,7 +239,7 @@ const ECO: Record<string, string> = {
 
 function MarkerHover({ sound, x, y }: { sound: Sound; x: number; y: number }) {
   const th = useTh();
-  const photo = (sound.images || []).find(Boolean);
+  const photo = soundCover(sound);
   const desc = (sound.description || '').trim();
   const short = desc.length > 90 ? `${desc.slice(0, 87)}…` : desc;
   const type = typeMeta[String(sound.type)];
@@ -247,25 +248,23 @@ function MarkerHover({ sound, x, y }: { sound: Sound; x: number; y: number }) {
   return (
     <div className="fixed z-[450] pointer-events-none w-64 rounded-2xl overflow-hidden shadow-[0_12px_32px_rgba(45,60,57,0.22)]"
       style={{ left, top, transform: 'translateY(-100%)', background: th.cardBg, border: `1px solid ${th.border}` }}>
-      {photo && (
-        <div className="h-28 overflow-hidden">
-          <img src={photo} alt="" className="w-full h-full object-cover" />
-        </div>
-      )}
+      <div className="h-28 overflow-hidden" style={{ background: th.lightBg }}>
+        <img src={photo || stock.empty} alt="" className="w-full h-full object-cover" />
+      </div>
       <div className="p-3">
         <div className="flex items-center gap-1.5 mb-1">
           <SoundTypeTag type={String(sound.type)} />
           {sound.ecoCategory && (
-            <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: th.lightBg, color: th.muted }}>
+            <span className="pv-micro px-1.5 py-0.5 rounded-full" style={{ background: th.lightBg, color: th.muted }}>
               {ECO[sound.ecoCategory] || type?.label || 'Звук'}
             </span>
           )}
         </div>
-        <p className="text-xs font-bold leading-snug" style={{ color: th.inkText }}>{sound.title || 'Без названия'}</p>
-        <p className="text-[10px] mt-0.5 truncate" style={{ color: th.muted }}>
-          {[sound.duration, sound.recordist || sound.user, sound.location].filter(Boolean).join(' · ')}
+        <p className="pv-heading leading-snug" style={{ color: th.inkText }}>{sound.title || 'Без названия'}</p>
+        <p className="pv-micro mt-0.5 truncate" style={{ color: th.muted }}>
+          {[sound.location, sound.duration].filter(Boolean).join(', ')}
         </p>
-        {short && <p className="text-[10px] mt-1.5 leading-snug" style={{ color: th.soft }}>{short}</p>}
+        {short && <p className="pv-caption mt-1.5 leading-snug" style={{ color: th.muted }}>{short}</p>}
       </div>
     </div>
   );

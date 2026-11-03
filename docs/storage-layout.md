@@ -32,9 +32,9 @@
 |------|------------|
 | `map_data.json` / `catalog/sounds.json` | кэш каталога (+ YDB SoT) |
 | `profiles.json`, `feed.json`, `events.json` | кэш |
-| `media/sounds/{soundId}/…` | audio / photos звука |
-| `media/avatars/{userId}/…` | аватары |
-| `uploads/{login}/…` | **legacy** медиа (ещё пишутся до cutover media/) |
+| `media/sounds/{soundId}/…` | audio / photos звука (новые PUT) |
+| `media/avatars/{userId}/…` | аватары, фото чата / экспедиции |
+| `uploads/{login}/…` | **legacy** медиа (dual-read GET; новые клиенты не пишут) |
 
 ## Opaque ID
 
@@ -54,9 +54,10 @@
 
 1. PII и credentials никогда не класть рядом с публичными wav.
 2. Presign: только whitelist префиксов (`media/`, `uploads/`, `staging/`).
-3. Новые объекты — opaque ID; legacy paths читаются, пока migrate-скрипт не перенесёт.
-4. Один verified email → один `userId`; один login → один `userId`.
-5. Backfill: `ensureUserId` на login/OAuth; ops helper `cloud/ops/migrate-user-ids.cjs`.
+3. Новые объекты — opaque ID; GET dual-read: URL из каталога/почты может быть `uploads/{login}/…` или `media/…` — оба публичны, без rewrite.
+4. `deleteMedia`: только `media/` и `uploads/`; владелец или staff admin (`aud=staff`). Не трогать `_auth/`, staging JSON, корневые каталоги, опубликованные wav при unlink экспедиции.
+5. Один verified email → один `userId`; один login → один `userId`.
+6. Backfill: `ensureUserId` на login/OAuth; ops helper `cloud/ops/migrate-user-ids.cjs`.
 
 ## Staff host
 

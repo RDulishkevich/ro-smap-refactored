@@ -29,7 +29,7 @@ export function searchAll(q: string, data: {
       kind: 'sound',
       id: `s-${sound.id}`,
       title: String(sound.title || 'Без названия'),
-      hint: [sound.location, sound.user || sound.recordist].filter(Boolean).join(' · '),
+      hint: [sound.location, sound.user || sound.recordist].filter(Boolean).join(', '),
       sound,
     });
     if (hits.filter((h) => h.kind === 'sound').length >= KIND_LIMIT) break;
@@ -57,7 +57,7 @@ export function searchAll(q: string, data: {
       kind: 'event',
       id: `e-${event.id || event.title}`,
       title: event.title,
-      hint: [event.loc || event.location, event.date].filter(Boolean).join(' · ') || 'Событие',
+      hint: [event.loc || event.location, event.date].filter(Boolean).join(', ') || 'Событие',
       event,
     });
     if (hits.filter((h) => h.kind === 'event').length >= KIND_LIMIT) break;

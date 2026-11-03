@@ -312,7 +312,7 @@ function MenuPanel({
       }}
       onClick={(e) => e.stopPropagation()}>
       <PopoverCaret align={menu.at?.caret || 'left'} offset={16} fill={th.cardBg} border={th.border} />
-      {menu.title && <p className="pv-micro uppercase px-2.5 py-1.5" style={{ color: th.soft }}>{menu.title}</p>}
+      {menu.title && <p className="pv-micro px-2.5 py-1.5" style={{ color: th.soft }}>{menu.title}</p>}
       {menu.items.map((it) => (
         <motion.button
           key={it.label}
@@ -358,7 +358,7 @@ function MenuSheet({
       style={{ background: th.cardBg, border: `1px solid ${th.border}` }}
       onClick={(e) => e.stopPropagation()}>
       <div className="w-10 h-1 rounded-full mx-auto mb-3" style={{ background: th.border }} />
-      {menu.title && <p className="pv-micro uppercase px-3 py-1.5" style={{ color: th.soft }}>{menu.title}</p>}
+      {menu.title && <p className="pv-micro px-3 py-1.5" style={{ color: th.soft }}>{menu.title}</p>}
       {menu.items.map((it) => (
         <motion.button
           key={it.label}

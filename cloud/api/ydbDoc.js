@@ -311,6 +311,16 @@ async function scanKind(kind) {
     return items.map(fromItem).filter((r) => r != null);
 }
 
+async function getRowBody(kind, id) {
+    if (!enabled()) return null;
+    try {
+        const it = await getRow(kind, String(id || ''));
+        return fromItem(it);
+    } catch (_) {
+        return null;
+    }
+}
+
 module.exports = {
     enabled,
     resolveKey,
@@ -319,5 +329,6 @@ module.exports = {
     deleteJson,
     mutateRow,
     scanKind,
+    getRowBody,
     PUBLIC_KEYS
 };

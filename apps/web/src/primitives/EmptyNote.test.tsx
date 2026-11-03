@@ -14,7 +14,16 @@ describe('EmptyNote', () => {
     expect(screen.getByText('Пока тихо')).toHaveClass('pv-title');
     expect(screen.getByText('Напишите первым')).toHaveClass('pv-body');
     expect(container.querySelector('svg')).toBeNull();
+    expect(container.querySelector('img')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Написать' }));
     expect(onAction).toHaveBeenCalledOnce();
+  });
+
+  it('can show a decorative cover without replacing the title', () => {
+    const { container } = renderUi(
+      <EmptyNote title="Черновиков нет" hint="Запишите в поле" image="/stock/drafts.svg" />,
+    );
+    expect(container.querySelector('img')).toHaveAttribute('src', '/stock/drafts.svg');
+    expect(screen.getByText('Черновиков нет')).toHaveClass('pv-title');
   });
 });

@@ -1,9 +1,1 @@
 @import '@fontsource-variable/geist';
-
-@font-face {
-  font-family: Klukva;
-  src: url('/fonts/klukva.otf') format('opentype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: block;
-}

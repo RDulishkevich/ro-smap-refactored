@@ -65,7 +65,7 @@ export function SoundTypeTag({ type }: { type: string }) {
   return (
     <span className="flex items-center gap-1 flex-shrink-0 whitespace-nowrap">
       <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: s.color }} />
-      <span className="pv-micro uppercase" style={{ color: s.color }}>{type ? t(typeI18nKey(type)) : s.label}</span>
+      <span className="pv-micro" style={{ color: s.color }}>{type ? t(typeI18nKey(type)) : s.label}</span>
     </span>
   );
 }
@@ -97,7 +97,7 @@ export function ScreenHeader({ title, subtitle, onBack, right, onTitleClick }: {
           <p className="pv-micro truncate mt-0.5" style={{ color: subtitle === t('online') ? color.olive : th.soft }}>{subtitle}</p>
         ) : null}
       </div>
-      {right}
+      {right ? <div className="flex items-center justify-end min-h-11 min-w-11 flex-shrink-0">{right}</div> : null}
     </header>
   );
 }
@@ -293,8 +293,7 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
   /** Side-scoped layoutId so the pill never flies through the center FAB. */
   const renderTab = ({ id, Icon, label }: (typeof tabs)[number], side: 'L' | 'R' | 'C') => {
     const on = activeTab === id;
-    // Hollow: keep label beside the icon, but use short copy so pills fit in side slots.
-    const showLabel = on ? (hollowCenter && id === 'messages' ? 'Чаты' : label) : '';
+    const showLabel = hollowCenter && id === 'messages' ? 'Чаты' : label;
     return (
       <motion.button
         key={id}
@@ -306,7 +305,7 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
         aria-label={label}
         aria-current={on ? 'page' : undefined}
         className={`relative z-0 flex items-center justify-center h-11 max-w-full min-w-0 overflow-hidden cursor-pointer ${
-          on ? (hollowCenter ? 'px-2.5 gap-1' : 'px-3.5 gap-1.5') : 'w-11 shrink-0'
+          hollowCenter ? 'px-2 gap-1' : 'px-2.5 gap-1'
         }`}
       >
         {on && (
@@ -326,21 +325,12 @@ export function NavBar({ hollowCenter }: { hollowCenter?: boolean }) {
             />
           )}
         </span>
-        <AnimatePresence initial={false} mode="popLayout">
-          {on && showLabel && (
-            <motion.span
-              key={`${id}-label`}
-              initial={{ opacity: 0, x: side === 'R' ? 6 : -6 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: side === 'R' ? 4 : -4 }}
-              transition={spring.pill}
-              className={`relative z-[1] whitespace-nowrap ${hollowCenter ? 'pv-caption' : 'pv-subtitle'}`}
-              style={{ color: th.inkText }}
-            >
-              {showLabel}
-            </motion.span>
-          )}
-        </AnimatePresence>
+        <span
+          className={`relative z-[1] whitespace-nowrap ${hollowCenter ? 'pv-caption' : 'pv-micro'}`}
+          style={{ color: on ? th.inkText : th.muted }}
+        >
+          {showLabel}
+        </span>
       </motion.button>
     );
   };
@@ -440,7 +430,8 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
   const compact = !useIsDesktop();
   const { toast } = useUi();
   const c = pinColor[String(sound.type)] ?? color.accent;
-  const [peaksOn, setPeaksOn] = useState(false);
+  const hasStoredPeaks = Array.isArray(sound.peaks) && sound.peaks.length >= 8;
+  const [peaksOn, setPeaksOn] = useState(hasStoredPeaks);
   const meta = useSoundMeta(sound, { peaks: peaksOn });
   const peaks = meta.peaks && meta.peaks.length ? meta.peaks : PLACEHOLDER_PEAKS;
   const t = useT();
@@ -466,10 +457,14 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
     ambiGen.current += 1;
     if (audioService.ambisonic) void audioService.setAmbisonic(false);
     if (sound.url) audioService.preload(sound.id, String(sound.url));
+    if (hasStoredPeaks) {
+      setPeaksOn(true);
+      return;
+    }
     setPeaksOn(false);
     const later = window.setTimeout(() => setPeaksOn(true), 1400);
     return () => window.clearTimeout(later);
-  }, [sound.id, sound.url]);
+  }, [sound.id, sound.url, hasStoredPeaks]);
   const toggleAnalyzers = async () => {
     if (analyzers) { setAnalyzers(false); return; }
     const ok = await audioService.ensureGraph();
@@ -510,7 +505,7 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
           <p className="pv-caption tabular-nums mt-0.5 truncate" style={{ color: th.muted }}>
             <span className="font-medium" style={{ color: th.inkText }}>{formatClock(nowSec)}</span>
             <span> / {totalLabel}</span>
-            {sound.location ? <span> · {sound.location}</span> : null}
+            {sound.location ? <span>, {sound.location}</span> : null}
           </p>
         </div>
         <div className="relative z-20 flex items-center gap-1 flex-shrink-0 pointer-events-auto">
@@ -553,7 +548,7 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
           );
         })}
         {markTip && (
-          <div className="absolute z-[4] -top-8 -translate-x-1/2 pointer-events-none px-2 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap"
+          <div className="absolute z-[4] -top-8 -translate-x-1/2 pointer-events-none px-2 py-1 rounded-lg pv-micro whitespace-nowrap"
             style={{ left: `${markTip.left}%`, background: th.isDark ? th.solid : color.dark, color: '#fff' }}>
             {markTip.label}
           </div>

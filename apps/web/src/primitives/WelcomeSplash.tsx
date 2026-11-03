@@ -4,21 +4,23 @@ import { ScanFace } from 'lucide-react';
 import { color, spring, tap } from '@polevka/design';
 import { useAuth } from '../state/AuthContext';
 import { useData } from '../state/DataContext';
-import { useTh } from '../state/ThemeContext';
 import { useT } from '../state/PrefsContext';
 import { isStandaloneApp } from '../lib/standalone';
-import LogoApp from '@/brand/LogoApp';
 
 const ACCENT = color.accent;
 
 function hideHtmlSplash() {
-  document.getElementById('welcome-splash')?.classList.remove('is-on');
-  document.getElementById('welcome-splash')?.setAttribute('aria-hidden', 'true');
+  const el = document.getElementById('welcome-splash');
+  if (!el) return;
+  el.classList.remove('is-on');
+  el.setAttribute('aria-hidden', 'true');
+  el.setAttribute('hidden', '');
+  el.style.display = 'none';
+  el.remove();
 }
 
 export function WelcomeSplash() {
   hideHtmlSplash();
-  const th = useTh();
   const t = useT();
   const { needsUnlock, unlockWithDevice, skipDeviceUnlock } = useAuth();
   const { loading } = useData();
@@ -65,24 +67,32 @@ export function WelcomeSplash() {
       {visible && (
         <motion.div
           key="welcome"
-          className="fixed inset-0 z-[200] flex flex-col items-center justify-center px-8"
-          style={{ background: th.isDark ? '#000000' : '#E8EDEA' }}
+          className="fixed inset-0 z-[200] flex flex-col items-center justify-end px-8 pb-16"
+          style={{ background: '#131513' }}
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={spring.fade}
         >
+          <img
+            src="/auth/field.jpg"
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ objectPosition: '28% 42%' }}
+          />
+          <span
+            className="absolute inset-0"
+            style={{ background: 'linear-gradient(180deg, rgba(19,21,19,0.22) 0%, rgba(19,21,19,0.5) 46%, rgba(19,21,19,0.88) 100%)' }}
+          />
           <motion.div
-            initial={{ opacity: 0, scale: 0.92 }}
-            animate={{ opacity: 1, scale: 1 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={spring.mount}
-            className="w-[88px] h-[88px] rounded-[28px] overflow-hidden shadow-xl mb-5"
+            className="relative z-[1] w-full max-w-[320px]"
           >
-            <LogoApp />
-          </motion.div>
-          <h1 className="pv-display mb-2" style={{ color: th.inkText }}>
+          <h1 className="pv-display mb-2" style={{ color: '#F2F0EA', textShadow: '0 1px 18px rgba(0,0,0,0.55)' }}>
             Полёвка
           </h1>
-          <p className="pv-caption text-center max-w-[260px] mb-8" style={{ color: th.soft }}>
+          <p className="pv-caption max-w-[260px] mb-8" style={{ color: '#E7E8E4', textShadow: '0 1px 14px rgba(0,0,0,0.5)' }}>
             {needsUnlock ? t('unlockDeviceHint') : t('welcomeTag')}
           </p>
           {needsUnlock ? (
@@ -103,15 +113,16 @@ export function WelcomeSplash() {
                 disabled={busy}
                 onClick={() => void skipDeviceUnlock()}
                 className="pv-button w-full h-11 rounded-2xl"
-                style={{ color: th.soft }}
+                style={{ color: 'rgba(242,240,234,0.78)' }}
               >
                 {t('unlockPassword')}
               </button>
-              {err ? <p className="pv-caption text-center" style={{ color: ACCENT }}>{err}</p> : null}
+              {err ? <p className="pv-caption" style={{ color: '#E7D5C8' }}>{err}</p> : null}
             </div>
           ) : (
             <div className="w-8 h-8 rounded-full border-2 border-transparent animate-spin" style={{ borderTopColor: ACCENT }} />
           )}
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>

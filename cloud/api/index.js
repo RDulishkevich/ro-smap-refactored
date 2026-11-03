@@ -24,7 +24,7 @@
  * Actions (POST JSON { action, ... }):
  *   health | publicConfig | register | login | oauthFinish | oauthLink | oauthUnlink
  *   | refresh | logout | logoutAll | changePassword | changeLogin | me | getMail
- *   | sync | commit | presign | patchSound | translate | suggestUcs | premoderate | getPremod
+ *   | sync | commit | presign | deleteMedia | patchSound | translate | suggestUcs | premoderate | getPremod
  *   | requestEmailVerification | confirmEmailVerification
  *   | requestPasswordReset | confirmPasswordReset | adminDeleteUser | adminUnbindEmail | adminSendEmail
  *   | totpSetup | totpConfirm | totpDisable | getSecurityEvents | staffUserDossier
@@ -48,6 +48,7 @@ const passwordPolicy = require('./passwordPolicy');
 const ucsSuggest = require('./ucsSuggest');
 const premod = require('./premod');
 const smartCaptcha = require('./smartCaptcha');
+const mediaGc = require('./mediaGc');
 
 let nodemailer = null;
 try {
@@ -373,6 +374,12 @@ function applyActorReactions(prev, proposed, actor) {
 function sanitizeMessageMedia(msg) {
     if (!msg || typeof msg !== 'object') return msg;
     const out = { ...msg };
+    if (out.deleted) {
+        out.text = '';
+        delete out.image;
+        delete out.video;
+        out.reactions = {};
+    }
     if (out.image !== undefined) {
         const url = sanitizeMediaUrl(out.image, { allowEmpty: true });
         if (url) out.image = url;
@@ -433,6 +440,18 @@ function premodKey(soundId) {
     return `_auth/premod/${soundId}.json`;
 }
 
+function sanitizePeaks(raw) {
+    if (!Array.isArray(raw)) return undefined;
+    const out = [];
+    for (const n of raw) {
+        if (out.length >= 80) break;
+        const v = Number(n);
+        if (!Number.isFinite(v)) continue;
+        out.push(Math.round(Math.max(0, Math.min(1, v)) * 1000) / 1000);
+    }
+    return out.length >= 8 ? out : undefined;
+}
+
 function sanitizeSoundRecord(s) {
     if (!s || typeof s !== 'object') return s;
     const out = { ...s };
@@ -443,6 +462,9 @@ function sanitizeSoundRecord(s) {
             .filter(Boolean)
             .slice(0, 3);
     }
+    const peaks = sanitizePeaks(out.peaks);
+    if (peaks) out.peaks = peaks;
+    else delete out.peaks;
     delete out.premod;
     delete out.premodTranscript;
     if (!PREMOD_FLAGS.has(String(out.premodFlag || ''))) delete out.premodFlag;
@@ -650,6 +672,7 @@ function actionRateLimit(action, ip, login = '') {
     // Authenticated write budget — keyed by login so shared NAT doesn't starve one user.
     if ((action === 'sync' || action === 'commit') && !rateLimit(`sync:${who}`, 120, 60000)) return false;
     if (action === 'presign' && !rateLimit(`presign:${who}`, 90, 60000)) return false;
+    if (action === 'deleteMedia' && !rateLimit(`delmedia:${who}`, 60, 60000)) return false;
     if (action === 'patchSound' && !rateLimit(`patch:${who}`, 180, 60000)) return false;
     if (action === 'translate' && !rateLimit(`translate:${who}`, 40, 60000)) return false;
     if (action === 'suggestUcs' && !rateLimit(`suggestucs:${who}`, 12, 60000)) return false;
@@ -1325,6 +1348,7 @@ async function applyMailMerge(proposed, user) {
     const fresh = await Promise.all([...targets].map((login) => loadMailBox(login)));
     let merged = mergeMailArrays(fresh, proposed);
     merged = sanitizeMail(fresh, merged, user);
+    const gcUrls = mediaGc.collectTombstonedMediaUrls(fresh, merged);
 
     const actorFresh = fresh.find((r) => normalizeLogin(r.loginName) === actor) || emptyMailBox(actor);
     const partners = new Set([...(actorFresh.partners || [])]);
@@ -1401,6 +1425,10 @@ async function applyMailMerge(proposed, user) {
             tag: job.tag,
             url: '/messages'
         }).catch(() => {})));
+    }
+
+    if (gcUrls.length) {
+        await gcOwnedMediaBestEffort(user, gcUrls);
     }
 
     const extra = [];
@@ -1866,10 +1894,12 @@ function mergeEventsArrays(fresh = [], proposed = []) {
     const upsert = (e) => {
         if (e?.id == null) return;
         if (e.deleted) {
-            map.delete(e.id);
+            const prev = map.get(e.id) || {};
+            map.set(e.id, { id: e.id, deleted: true, updatedAt: e.updatedAt || prev.updatedAt || new Date().toISOString() });
             return;
         }
         const prev = map.get(e.id);
+        if (prev?.deleted) return;
         if (!prev) {
             map.set(e.id, { ...e, participants: [...(e.participants || [])], prizes: [...(e.prizes || [])], conditions: [...(e.conditions || [])], winners: [...(e.winners || [])] });
             return;
@@ -1996,16 +2026,21 @@ function sanitizeInbox(cloudInbox = [], proposedInbox = [], actorLogin) {
             const reactions = applyActorReactions(prev.reactions, msg.reactions, actorLogin);
             if (String(prev.fromId || '').toLowerCase() === actorLogin) {
                 const deleted = !!(prev.deleted || msg.deleted);
-                out.push({
+                const row = {
                     ...prev,
                     ...msg,
                     fromId: prev.fromId,
                     id: prev.id,
-                    reactions,
+                    reactions: deleted ? {} : reactions,
                     replyTo: sanitizeReplyTo(msg.replyTo || prev.replyTo),
                     deleted: deleted || undefined,
                     text: deleted ? '' : String(msg.text != null ? msg.text : prev.text || '').slice(0, MAX_MSG_TEXT)
-                });
+                };
+                if (deleted) {
+                    delete row.image;
+                    delete row.video;
+                }
+                out.push(row);
             } else {
                 const read = !!(prev.read || msg.read);
                 const readAt = read
@@ -2332,13 +2367,24 @@ function normalizeEventParticipants(raw) {
     return out;
 }
 
+function compactDeletedEvent(e) {
+    return {
+        id: e.id,
+        deleted: true,
+        updatedAt: e.updatedAt || new Date().toISOString(),
+    };
+}
+
 function sanitizeEvents(fresh, merged, user) {
-    if (hasStaffConsole(user)) return merged;
+    if (hasStaffConsole(user)) {
+        return (merged || []).map((e) => (e?.deleted ? compactDeletedEvent(e) : e));
+    }
     const freshMap = new Map((fresh || []).map((e) => [e.id, e]));
     const out = [];
     for (const e of merged || []) {
         const cloud = freshMap.get(e.id);
         if (!cloud) {
+            if (e.deleted) continue;
             const title = String(e.title || '').trim().slice(0, 200);
             if (!title) continue;
             const participants = normalizeEventParticipants(e.participants || e.attendees || [])
@@ -2379,6 +2425,10 @@ function sanitizeEvents(fresh, merged, user) {
                 : others;
         }
         const isOwner = String(cloud.ownerLogin || '').toLowerCase() === user.login;
+        if (isOwner && e.deleted) {
+            out.push(compactDeletedEvent(e));
+            continue;
+        }
         if (isOwner) {
             out.push({
                 ...cloud,
@@ -4002,13 +4052,86 @@ async function handleConfirmPasswordReset(body) {
 }
 
 function mediaObjectKey(url) {
-    const s = String(url || '').split('?')[0];
-    const abs = s.match(/storage\.yandexcloud\.net\/rosmap2026\/(.+)$/i);
-    if (abs) {
-        try { return decodeURIComponent(abs[1]); } catch (_) { return abs[1]; }
+    return mediaGc.parsePublicMediaKey(url, { bucket: BUCKET });
+}
+
+async function loadSoundRecord(soundId) {
+    const sid = String(soundId || '');
+    if (!sid) return null;
+    if (ydbDoc.enabled()) {
+        const row = await ydbDoc.getRowBody('sound', sid);
+        if (row) return row;
     }
-    if (s.startsWith('uploads/')) return s.replace(/^\/+/, '');
-    return '';
+    const list = await getJson('map_data.json', []);
+    return (Array.isArray(list) ? list : []).find((s) => s && String(s.id) === sid) || null;
+}
+
+async function actorOwnsDeletableKey(user, key) {
+    if (!mediaGc.isDeletableMediaKey(key)) return false;
+    if (hasAdminConsole(user)) return true;
+    if (mediaGc.actorOwnsMediaKey(key, {
+        login: user.login,
+        userId: user.userId,
+        admin: false
+    })) return true;
+    const hint = mediaGc.mediaKeyOwnerHint(key);
+    if (hint.type !== 'sound' || !hint.id) return false;
+    try {
+        const sound = await loadSoundRecord(hint.id);
+        return isOwnedSound(sound, user.login);
+    } catch (_) {
+        return false;
+    }
+}
+
+async function deletePublicMediaKeys(keys) {
+    const unique = [...new Set((keys || []).map((k) => String(k || '').replace(/^\/+/, '')).filter(Boolean))];
+    if (!unique.length) return [];
+    await deleteStorageKeys(BUCKET, unique);
+    return unique;
+}
+
+async function gcOwnedMediaBestEffort(user, urls) {
+    const keys = [];
+    for (const url of urls || []) {
+        const key = mediaObjectKey(url);
+        if (!key) continue;
+        try {
+            if (await actorOwnsDeletableKey(user, key)) keys.push(key);
+        } catch (_) { /* skip this object */ }
+    }
+    if (!keys.length) return;
+    try { await deletePublicMediaKeys(keys); } catch (_) { /* mail write already committed */ }
+}
+
+async function handleDeleteMedia(event, body) {
+    const payload = verifyJwt(extractToken(event, body));
+    if (!payload) return respond(401, { ok: false, error: 'unauthorized' });
+    const user = await resolveAuthUser(payload);
+    if (!user) return respond(401, { ok: false, error: 'unauthorized' });
+    if (user.blocked) return respond(403, { ok: false, error: 'blocked' });
+    const totpBlock = await assertStaffTotp(user);
+    if (totpBlock) return totpBlock;
+
+    const raw = []
+        .concat(body.urls || [])
+        .concat(body.keys || [])
+        .concat(body.url || [])
+        .concat(body.key || [])
+        .concat(body.fileName || []);
+    const keys = [...new Set(raw.map((u) => mediaObjectKey(u) || String(u || '').replace(/^\/+/, '')).filter(Boolean))].slice(0, 24);
+    if (!keys.length) return respond(400, { ok: false, error: 'bad_key' });
+    for (const key of keys) {
+        if (!mediaGc.isDeletableMediaKey(key)) {
+            return respond(403, { ok: false, error: 'bad_prefix', message: 'Only media/ and uploads/ objects can be deleted' });
+        }
+    }
+    for (const key of keys) {
+        const ok = await actorOwnsDeletableKey(user, key);
+        if (!ok) return respond(403, { ok: false, error: 'forbidden_key' });
+    }
+    const deleted = await deletePublicMediaKeys(keys);
+    return respond(200, { ok: true, deleted });
 }
 
 async function listPrefixKeys(bucket, prefix) {
@@ -5229,7 +5352,7 @@ exports.handler = async function handler(event = {}) {
     if (action === 'health') {
         return respond(200, {
             ok: true,
-            version: 41,
+            version: 43,
             ydb: ydbDoc.enabled(),
             vapid: webPush.configured(),
             ucsAi: ucsSuggest.configured(),
@@ -5261,7 +5384,7 @@ exports.handler = async function handler(event = {}) {
     }
 
     const authActions = new Set([
-        'sync', 'commit', 'presign', 'me', 'changePassword', 'changeLogin', 'patchSound', 'translate',
+        'sync', 'commit', 'presign', 'deleteMedia', 'me', 'changePassword', 'changeLogin', 'patchSound', 'translate',
         'suggestUcs', 'premoderate', 'getPremod',
         'getMail', 'requestEmailVerification', 'confirmEmailVerification',
         'adminDeleteUser', 'adminUnbindEmail', 'adminSendEmail', 'adminEmailConflicts',
@@ -5297,6 +5420,7 @@ exports.handler = async function handler(event = {}) {
         if (action === 'sync') return await handleSync(event, body);
         if (action === 'commit') return await handleCommit(event, body);
         if (action === 'presign') return await handlePresign(event, body);
+        if (action === 'deleteMedia') return await handleDeleteMedia(event, body);
         if (action === 'patchSound') return await handlePatchSound(event, body);
         if (action === 'translate') return await handleTranslate(event, body);
         if (action === 'suggestUcs') return await handleSuggestUcs(event, body);

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Calendar, MapPin, Users } from 'lucide-react';
-import { apiSyncJson, spamGuardCheck, spamGuardMessage, type AppEvent, type EventParticipant } from '@polevka/core';
+import { Calendar, MapPin, MoreHorizontal, Users } from 'lucide-react';
+import { apiSyncJson, newEventId, roleAtLeast, spamGuardCheck, spamGuardMessage, type AppEvent, type EventParticipant } from '@polevka/core';
 import { color } from '@polevka/design';
 import { useAuth } from '../state/AuthContext';
 import { useData } from '../state/DataContext';
@@ -10,8 +10,12 @@ import { useUi } from '../state/UiContext';
 import { useT } from '../state/PrefsContext';
 import { useLeaveGuard } from '../lib/use-leave-guard';
 import { EmptyNote } from '../primitives/EmptyNote';
+import { FormField } from '../primitives/form';
 import { ListSkeleton, ScreenHeader } from '../primitives/ui';
+import { HoverMenu } from '../primitives/HoverMenu';
 import { pathForEvent } from '../lib/routes';
+import { persistEventDelete } from '../lib/owned-delete';
+import { stock } from '../lib/stock';
 
 const ACCENT = color.accent;
 
@@ -40,139 +44,108 @@ function eventPlace(ev: AppEvent) {
 }
 
 function eventWhen(ev: AppEvent) {
-  return [String(ev.date || '').trim(), String(ev.time || '').trim()].filter(Boolean).join(' · ');
+  return [String(ev.date || '').trim(), String(ev.time || '').trim()].filter(Boolean).join(', ');
+}
+
+const MONTHS_RU = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+
+function agendaDate(ev: AppEvent) {
+  const raw = String(ev.date || '').trim();
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    return { day: String(Number(iso[3])), month: MONTHS_RU[Number(iso[2]) - 1] || '', soon: false };
+  }
+  const parsed = Date.parse(raw);
+  if (!Number.isNaN(parsed)) {
+    const d = new Date(parsed);
+    return { day: String(d.getDate()), month: MONTHS_RU[d.getMonth()], soon: false };
+  }
+  return { day: '', month: '', soon: true };
 }
 
 export function EventsScreen({ onBack, focusId }: { onBack: () => void; focusId?: string }) {
-  const { events, reload, loading, patchEventsLocal } = useData();
+  const { events, loading } = useData();
   const th = useTh();
   const { isLoggedIn, user } = useAuth();
   const { toast } = useUi();
   const { push } = useNav();
   const t = useT();
   const canCreate = !!isLoggedIn && !!user;
-  const [creating, setCreating] = useState(false);
-  const [title, setTitle] = useState('');
-  const [loc, setLoc] = useState('');
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
-  const [tag, setTag] = useState('встреча');
-  const [desc, setDesc] = useState('');
-  const [busy, setBusy] = useState(false);
-  useLeaveGuard(creating && !!(title.trim() || loc.trim() || date.trim() || time.trim() || desc.trim()));
 
   const sorted = useMemo(() => {
-    return [...events].sort((a, b) => {
+    return [...events].filter((ev) => !ev.deleted).sort((a, b) => {
       const ta = Date.parse(String(a.date || a.createdAt || '')) || 0;
       const tb = Date.parse(String(b.date || b.createdAt || '')) || 0;
       return tb - ta;
     });
   }, [events]);
 
-  const createEvent = async () => {
-    if (!canCreate || !user) { push({ type: 'auth' }); return; }
-    if (!title.trim()) { toast('Укажите название'); return; }
-    setBusy(true);
-    const id = `ev${Date.now().toString(36)}`;
-    const next: AppEvent = {
-      id,
-      title: title.trim(),
-      loc: loc.trim(),
-      location: loc.trim(),
-      date: date.trim(),
-      time: time.trim(),
-      tag: tag.trim() || 'встреча',
-      desc: desc.trim(),
-      text: desc.trim(),
-      status: 'open',
-      n: 0,
-      participants: [],
-      attendees: [],
-      ownerLogin: user.loginName,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    patchEventsLocal((prev) => [next, ...prev]);
-    try {
-      await apiSyncJson('events.json', [next]);
-      toast('Ивент создан');
-      setCreating(false);
-      setTitle('');
-      setLoc('');
-      setDate('');
-      setTime('');
-      setTag('встреча');
-      setDesc('');
-      push({ type: 'event-detail', eventId: id });
-    } catch (e: unknown) {
-      await reload();
-      toast((e as Error).message || 'Не удалось создать');
-    } finally {
-      setBusy(false);
+  const openCreate = () => {
+    if (!canCreate) {
+      toast('Войдите, чтобы создать ивент');
+      push({ type: 'auth' });
+      return;
     }
+    push({ type: 'event-edit' });
   };
 
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       <ScreenHeader title={t('events')} onBack={onBack} right={(
-        <button type="button" className="pv-button px-3 h-10 rounded-2xl text-white cursor-pointer" style={{ background: ACCENT }}
-          onClick={() => {
-            if (!canCreate) { push({ type: 'auth' }); return; }
-            setCreating((v) => !v);
-          }}>{creating ? 'Скрыть' : 'Создать'}</button>
+        <button type="button" className="pv-button px-3 min-h-11 rounded-2xl text-white cursor-pointer" style={{ background: ACCENT }}
+          onClick={openCreate}>Создать</button>
       )} />
-      <div className="flex-1 overflow-y-auto scrollbar-none p-4 flex flex-col gap-3">
-        {creating && canCreate && (
-          <div className="rounded-3xl p-4 flex flex-col gap-2 shadow-sm" style={{ background: th.cardBg }}>
-            <p className="pv-subtitle" style={{ color: th.inkText }}>Новый ивент</p>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Название"
-              className="rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-            <input value={loc} onChange={(e) => setLoc(e.target.value)} placeholder="Место"
-              className="rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-            <div className="flex gap-2">
-              <input value={date} onChange={(e) => setDate(e.target.value)} placeholder="Дата" type="date"
-                className="flex-1 rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-              <input value={time} onChange={(e) => setTime(e.target.value)} placeholder="Время" type="time"
-                className="w-28 rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-            </div>
-            <input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Тег"
-              className="rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-            <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Краткое описание"
-              rows={3} maxLength={4000}
-              className="rounded-2xl px-3 py-2.5 text-sm outline-none resize-none"
-              style={{ background: th.lightBg, color: th.inkText }} />
-            <button type="button" disabled={busy} onClick={() => void createEvent()}
-              className="pv-button w-full py-2.5 rounded-2xl text-white cursor-pointer" style={{ background: ACCENT, opacity: busy ? 0.7 : 1 }}>
-              {busy ? '…' : 'Опубликовать'}
-            </button>
-          </div>
-        )}
+      <div className="flex-1 overflow-y-auto scrollbar-none p-4 flex flex-col gap-2">
         {loading && !events.length && <ListSkeleton rows={3} />}
         {!loading && !events.length && (
-          <EmptyNote title={t('eventsEmpty')} hint={canCreate ? 'Создайте первый ивент кнопкой выше.' : t('eventsEmptyHint')} />
+          <EmptyNote
+            title={t('eventsEmpty')}
+            hint={canCreate ? 'Соберите людей на запись или прогулку.' : t('eventsEmptyHint')}
+            image={stock.events}
+            actionLabel={canCreate ? 'Создать ивент' : undefined}
+            onAction={canCreate ? openCreate : undefined}
+          />
         )}
         {sorted.map((ev, i) => {
           const id = String(ev.id || `e${i}`);
           const parts = normalizeParticipants(ev.participants || ev.attendees);
           const focused = focusId && id === focusId;
+          const { day, month, soon } = agendaDate(ev);
+          const place = eventPlace(ev);
+          const time = String(ev.time || '').trim();
           return (
             <button
               key={id}
               type="button"
               onClick={() => push({ type: 'event-detail', eventId: id })}
-              className="rounded-3xl p-4 text-left shadow-sm cursor-pointer w-full"
+              className="rounded-2xl px-3 py-3 text-left shadow-sm cursor-pointer w-full flex gap-3 items-stretch"
               style={{
                 background: th.cardBg,
-                outline: focused ? `2px solid ${ACCENT}` : undefined,
+                boxShadow: focused ? `inset 0 0 0 2px ${ACCENT}` : undefined,
               }}>
-              <p className="pv-micro uppercase" style={{ color: th.soft }}>{String(ev.tag || ev.status || t('kindEvent'))}</p>
-              <p className="pv-heading mt-1" style={{ color: th.inkText }}>{ev.title}</p>
-              <p className="pv-caption mt-1.5" style={{ color: th.muted }}>
-                {[eventPlace(ev), eventWhen(ev)].filter(Boolean).join(' · ') || 'Дата уточняется'}
-              </p>
-              <div className="flex items-center gap-1.5 mt-3" style={{ color: th.soft }}>
-                <Users size={12} />
-                <span className="pv-micro">{parts.length || Number(ev.n) || 0} участников</span>
+              <div
+                className="w-12 flex-shrink-0 rounded-xl flex flex-col items-center justify-center py-1.5"
+                style={{ background: th.lightBg }}>
+                {soon ? (
+                  <>
+                    <Calendar size={16} color={th.muted} strokeWidth={1.75} />
+                    <span className="pv-micro mt-1" style={{ color: th.muted }}>скоро</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="pv-heading tabular-nums leading-none" style={{ color: th.inkText }}>{day}</span>
+                    {month ? <span className="pv-micro mt-1" style={{ color: th.muted }}>{month}</span> : null}
+                  </>
+                )}
+              </div>
+              <div className="min-w-0 flex-1 py-0.5">
+                <p className="pv-heading truncate" style={{ color: th.inkText }}>{ev.title}</p>
+                <p className="pv-caption mt-0.5 truncate" style={{ color: th.muted }}>
+                  {[place, time].filter(Boolean).join(', ') || 'Место уточняется'}
+                </p>
+                <p className="pv-micro mt-1.5" style={{ color: th.muted }}>
+                  {parts.length || Number(ev.n) || 0} участников
+                </p>
               </div>
             </button>
           );
@@ -185,67 +158,18 @@ export function EventsScreen({ onBack, focusId }: { onBack: () => void; focusId?
 export function EventDetailScreen({ eventId, onBack }: { eventId: string; onBack: () => void }) {
   const { events, reload, patchEventsLocal } = useData();
   const th = useTh();
-  const { isLoggedIn, user } = useAuth();
-  const { toast } = useUi();
+  const { isLoggedIn, user, isStaffSession } = useAuth();
+  const { toast, confirm } = useUi();
   const { push } = useNav();
   const t = useT();
-  const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const live = events.find((e) => String(e.id) === String(eventId));
+  const live = events.find((e) => String(e.id) === String(eventId) && !e.deleted);
   const participants = normalizeParticipants(live?.participants || live?.attendees);
   const mine = !!user && participants.some((p) => p.login === user.loginName.toLowerCase());
   const isOwner = !!user && String(live?.ownerLogin || '').toLowerCase() === user.loginName.toLowerCase();
-
-  const [title, setTitle] = useState('');
-  const [loc, setLoc] = useState('');
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
-  const [tag, setTag] = useState('');
-  const [desc, setDesc] = useState('');
-
-  const startEdit = () => {
-    if (!live) return;
-    setTitle(String(live.title || ''));
-    setLoc(eventPlace(live));
-    setDate(String(live.date || ''));
-    setTime(String(live.time || ''));
-    setTag(String(live.tag || 'встреча'));
-    setDesc(String(live.desc || live.text || ''));
-    setEditing(true);
-  };
-
-  const saveEdit = async () => {
-    if (!live || !user) return;
-    setBusy(true);
-    const patched: AppEvent = {
-      ...live,
-      title: title.trim() || live.title,
-      loc: loc.trim(),
-      location: loc.trim(),
-      date: date.trim(),
-      time: time.trim(),
-      tag: tag.trim() || 'встреча',
-      desc: desc.trim(),
-      text: desc.trim(),
-      participants,
-      attendees: participants.map((p) => p.login),
-      n: participants.length,
-      ownerLogin: user.loginName,
-      updatedAt: new Date().toISOString(),
-    };
-    patchEventsLocal((prev) => prev.map((row) => (String(row.id) === String(live.id) ? patched : row)));
-    try {
-      await apiSyncJson('events.json', [patched]);
-      toast('Сохранено');
-      setEditing(false);
-    } catch (e: unknown) {
-      await reload();
-      toast((e as Error).message || 'Не удалось сохранить');
-    } finally {
-      setBusy(false);
-    }
-  };
+  const canAdminDelete = isStaffSession && roleAtLeast(user?.role, 'admin');
+  const canManage = isOwner || canAdminDelete;
 
   const toggleSignup = async () => {
     if (!live) return;
@@ -272,6 +196,28 @@ export function EventDetailScreen({ eventId, onBack }: { eventId: string; onBack
     }
   };
 
+  const removeEvent = async () => {
+    if (!live || !canManage) return;
+    const ok = await confirm({
+      title: 'Удалить ивент?',
+      body: 'Он исчезнет из списка для всех участников.',
+      ok: 'Удалить',
+    });
+    if (!ok) return;
+    setBusy(true);
+    patchEventsLocal((prev) => prev.filter((row) => String(row.id) !== String(live.id)));
+    try {
+      await persistEventDelete(live);
+      toast('Ивент удалён');
+      onBack();
+    } catch (e: unknown) {
+      await reload();
+      toast((e as Error).message || 'Не удалось удалить');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (!live) {
     return (
       <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
@@ -292,38 +238,22 @@ export function EventDetailScreen({ eventId, onBack }: { eventId: string; onBack
       <ScreenHeader
         title={String(live.title || t('kindEvent'))}
         onBack={onBack}
-        right={isOwner ? (
-          <button type="button" className="pv-caption cursor-pointer px-2" style={{ color: ACCENT }}
-            onClick={() => (editing ? setEditing(false) : startEdit())}>
-            {editing ? 'Отмена' : 'Изменить'}
-          </button>
+        right={canManage ? (
+          <HoverMenu
+            title={String(live.title || t('kindEvent'))}
+            items={[
+              ...(isOwner ? [{ label: 'Изменить', onClick: () => push({ type: 'event-edit', eventId: String(live.id) }) }] : []),
+              { label: 'Удалить ивент', danger: true, onClick: () => void removeEvent() },
+            ]}>
+            <span className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}>
+              <MoreHorizontal size={16} color={th.muted} />
+            </span>
+          </HoverMenu>
         ) : undefined}
       />
       <div className="flex-1 overflow-y-auto scrollbar-none p-4 flex flex-col gap-3">
-        {editing ? (
-          <div className="rounded-3xl p-4 flex flex-col gap-2 shadow-sm" style={{ background: th.cardBg }}>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Название"
-              className="rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-            <input value={loc} onChange={(e) => setLoc(e.target.value)} placeholder="Место"
-              className="rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-            <div className="flex gap-2">
-              <input value={date} onChange={(e) => setDate(e.target.value)} type="date"
-                className="flex-1 rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-              <input value={time} onChange={(e) => setTime(e.target.value)} type="time"
-                className="w-28 rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-            </div>
-            <input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Тег"
-              className="rounded-2xl px-3 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }} />
-            <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Описание" rows={4}
-              className="rounded-2xl px-3 py-2.5 text-sm outline-none resize-none" style={{ background: th.lightBg, color: th.inkText }} />
-            <button type="button" disabled={busy} onClick={() => void saveEdit()}
-              className="pv-button w-full py-2.5 rounded-2xl text-white cursor-pointer" style={{ background: ACCENT }}>
-              {busy ? '…' : 'Сохранить'}
-            </button>
-          </div>
-        ) : (
           <div className="rounded-3xl p-5 shadow-sm" style={{ background: th.cardBg }}>
-            <p className="pv-micro uppercase" style={{ color: th.soft }}>{String(live.tag || live.status || t('kindEvent'))}</p>
+            <p className="pv-micro" style={{ color: th.muted }}>{String(live.tag || live.status || t('kindEvent'))}</p>
             <p className="pv-heading mt-1.5" style={{ color: th.inkText }}>{live.title}</p>
             <div className="mt-4 flex flex-col gap-2.5">
               {place && (
@@ -358,12 +288,11 @@ export function EventDetailScreen({ eventId, onBack }: { eventId: string; onBack
               Скопировать ссылку
             </button>
           </div>
-        )}
 
         <div className="rounded-3xl p-4 shadow-sm" style={{ background: th.cardBg }}>
           <p className="pv-subtitle mb-3" style={{ color: th.inkText }}>Участники</p>
           {!participants.length && (
-            <p className="pv-caption" style={{ color: th.soft }}>Пока никого нет — будьте первым.</p>
+            <p className="pv-caption" style={{ color: th.muted }}>Пока никого нет — будьте первым.</p>
           )}
           <ul className="flex flex-col gap-2">
             {participants.map((p) => (
@@ -374,11 +303,149 @@ export function EventDetailScreen({ eventId, onBack }: { eventId: string; onBack
                 </span>
                 <div className="min-w-0">
                   <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{p.name || p.login}</p>
-                  <p className="pv-micro truncate" style={{ color: th.soft }}>@{p.login}</p>
+                  <p className="pv-micro truncate" style={{ color: th.muted }}>@{p.login}</p>
                 </div>
               </li>
             ))}
           </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function EventEditScreen({ eventId, onBack }: { eventId?: string; onBack: () => void }) {
+  const { events, reload, patchEventsLocal } = useData();
+  const th = useTh();
+  const { isLoggedIn, user } = useAuth();
+  const { toast } = useUi();
+  const { push, replaceTop } = useNav();
+  const t = useT();
+  const live = eventId ? events.find((e) => String(e.id) === String(eventId) && !e.deleted) : undefined;
+  const editing = !!live;
+
+  const [title, setTitle] = useState(() => String(live?.title || ''));
+  const [loc, setLoc] = useState(() => (live ? eventPlace(live) : ''));
+  const [date, setDate] = useState(() => String(live?.date || ''));
+  const [time, setTime] = useState(() => String(live?.time || ''));
+  const [tag, setTag] = useState(() => String(live?.tag || 'встреча'));
+  const [desc, setDesc] = useState(() => String(live?.desc || live?.text || ''));
+  const [busy, setBusy] = useState(false);
+  const baseline = {
+    title: String(live?.title || ''),
+    loc: live ? eventPlace(live) : '',
+    date: String(live?.date || ''),
+    time: String(live?.time || ''),
+    tag: String(live?.tag || 'встреча'),
+    desc: String(live?.desc || live?.text || ''),
+  };
+  const dirty = title !== baseline.title
+    || loc !== baseline.loc
+    || date !== baseline.date
+    || time !== baseline.time
+    || tag !== baseline.tag
+    || desc !== baseline.desc;
+  useLeaveGuard(dirty && !busy);
+
+  const save = async () => {
+    if (!isLoggedIn || !user) {
+      toast('Войдите, чтобы создать ивент');
+      push({ type: 'auth' });
+      return;
+    }
+    if (!title.trim()) { toast('Укажите название'); return; }
+    setBusy(true);
+    if (editing && live) {
+      const participants = normalizeParticipants(live.participants || live.attendees);
+      const patched: AppEvent = {
+        ...live,
+        title: title.trim(),
+        loc: loc.trim(),
+        location: loc.trim(),
+        date: date.trim(),
+        time: time.trim(),
+        tag: tag.trim() || 'встреча',
+        desc: desc.trim(),
+        text: desc.trim(),
+        participants,
+        attendees: participants.map((p) => p.login),
+        n: participants.length,
+        updatedAt: new Date().toISOString(),
+      };
+      patchEventsLocal((prev) => prev.map((row) => (String(row.id) === String(live.id) ? patched : row)));
+      try {
+        await apiSyncJson('events.json', [patched]);
+        toast('Сохранено');
+        replaceTop({ type: 'event-detail', eventId: String(live.id) });
+      } catch (e: unknown) {
+        await reload();
+        toast((e as Error).message || 'Не удалось сохранить');
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    const id = newEventId();
+    const next: AppEvent = {
+      id,
+      title: title.trim(),
+      loc: loc.trim(),
+      location: loc.trim(),
+      date: date.trim(),
+      time: time.trim(),
+      tag: tag.trim() || 'встреча',
+      desc: desc.trim(),
+      text: desc.trim(),
+      status: 'open',
+      n: 0,
+      participants: [],
+      attendees: [],
+      ownerLogin: user.loginName,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    patchEventsLocal((prev) => [next, ...prev]);
+    try {
+      await apiSyncJson('events.json', [next]);
+      toast('Ивент создан');
+      replaceTop({ type: 'event-detail', eventId: id });
+    } catch (e: unknown) {
+      await reload();
+      toast((e as Error).message || 'Не удалось создать');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (eventId && !live) {
+    return (
+      <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
+        <ScreenHeader title={t('events')} onBack={onBack} />
+        <div className="p-4">
+          <EmptyNote title="Ивент не найден" hint="Возможно, он был удалён." actionLabel="К списку" onAction={onBack} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
+      <ScreenHeader title={editing ? 'Ивент' : 'Новый ивент'} onBack={onBack} />
+      <div className="flex-1 overflow-y-auto scrollbar-none p-4 flex flex-col gap-3">
+        <div className="rounded-3xl p-4 flex flex-col gap-3 shadow-sm" style={{ background: th.cardBg }}>
+          <FormField label="Название" value={title} onChange={setTitle} placeholder="Вечерняя прогулка" inset />
+          <FormField label="Место" value={loc} onChange={setLoc} placeholder="Парк, площадь, ориентир" inset />
+          <div className="grid grid-cols-2 gap-2">
+            <FormField label="Дата" value={date} onChange={setDate} type="date" inset />
+            <FormField label="Время" value={time} onChange={setTime} type="time" inset />
+          </div>
+          <FormField label="Тег" value={tag} onChange={setTag} placeholder="встреча" inset />
+          <FormField label="Описание" value={desc} onChange={setDesc} placeholder="Кратко, что будет" multiline rows={4} maxLength={4000} inset />
+          <button type="button" disabled={busy} onClick={() => void save()}
+            className="pv-button w-full py-3 min-h-11 rounded-2xl text-white cursor-pointer"
+            style={{ background: ACCENT, opacity: busy ? 0.7 : 1 }}>
+            {busy ? '…' : editing ? 'Сохранить' : 'Опубликовать'}
+          </button>
         </div>
       </div>
     </div>

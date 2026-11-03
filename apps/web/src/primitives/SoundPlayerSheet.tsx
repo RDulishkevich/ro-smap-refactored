@@ -14,6 +14,7 @@ import { formatClock, parseDurationLabel } from '../lib/waveform';
 import { PLACEHOLDER_PEAKS, useSoundMeta } from '../lib/audio-meta';
 import { audioService } from '../lib/audio-player';
 import { resolveMediaUrl } from '../lib/media-url';
+import { stock } from '../lib/stock';
 
 const DISMISS = 96;
 
@@ -205,10 +206,10 @@ export function SoundPlayerSheet({
         style={{ WebkitOverflowScrolling: 'touch' }}>
         <div className="px-4 pt-1">
           {images.length ? (
-            <PhotoCarousel images={images} title={sound.title} aspect="1 / 1" className="rounded-3xl" />
+            <PhotoCarousel images={images} title={sound.title} aspect="16 / 10" className="rounded-3xl" />
           ) : (
-            <div className="rounded-3xl flex items-center justify-center" style={{ aspectRatio: '1 / 1', background: th.lightBg }}>
-              <p className="pv-heading" style={{ color: th.soft }}>{(sound.title || '?').slice(0, 1)}</p>
+            <div className="relative rounded-3xl overflow-hidden" style={{ aspectRatio: '16 / 10', background: th.lightBg }}>
+              <img src={stock.empty} alt="" className="absolute inset-0 w-full h-full object-cover" />
             </div>
           )}
         </div>
@@ -217,6 +218,9 @@ export function SoundPlayerSheet({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="pv-heading" style={{ color: th.inkText }}>{sound.title}</p>
+              {sound.location ? (
+                <p className="pv-caption mt-1" style={{ color: th.muted }}>{sound.location}</p>
+              ) : null}
               <p className="pv-body mt-1" style={{ color: th.muted }}>{author}</p>
             </div>
             {onLike && (

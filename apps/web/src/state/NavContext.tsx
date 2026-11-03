@@ -10,6 +10,7 @@ export type ScreenConfig =
   | { type: 'settings' }
   | { type: 'events'; focusId?: string }
   | { type: 'event-detail'; eventId: string }
+  | { type: 'event-edit'; eventId?: string }
   | { type: 'auth'; mode?: 'in' | 'up' }
   | { type: 'feed-post'; post: FeedPost }
   | { type: 'record' }
@@ -17,7 +18,7 @@ export type ScreenConfig =
   | { type: 'messages' }
   | { type: 'conversation'; name: string; avatar: string; peer: string; asLogin?: string }
   | { type: 'notifications' }
-  | { type: 'search' }
+  | { type: 'search'; q?: string }
   | { type: 'edit-profile' }
   | { type: 'map-location'; sound: Sound }
   | { type: 'pick-location'; mode?: 'point' | 'route' }
@@ -42,7 +43,11 @@ export type LeaveGuard = () => boolean | Promise<boolean>;
 type NavCtx = {
   push: (s: ScreenConfig) => void;
   pop: () => void;
+  /** Replace the top stack screen without a leave-guard race against a following push. */
+  replaceTop: (s: ScreenConfig) => void;
   reset: (s?: ScreenConfig) => Promise<boolean>;
+  /** Clear the stack and switch the desktop rail view in one update (no empty-panel flash). */
+  goDesktopView: (v: DesktopView) => Promise<boolean>;
   applyRoute: (route: DeepRoute) => void;
   stack: Array<ScreenConfig & { _id: number }>;
   activeTab: TabId;
@@ -159,6 +164,16 @@ export function NavProvider({ children, isLoggedIn, onNeedAuth }: { children: Re
       });
     })();
   }, [sync, runLeaveGuard]);
+  const replaceTop = useCallback((s: ScreenConfig) => {
+    leaveGuardRef.current = null;
+    setStack((p) => {
+      const base = p.length ? p.slice(0, -1) : [];
+      const next = [...base, { ...s, _id: nextId.current++ }];
+      skipUrl.current = false;
+      sync(next, tabRef.current, viewRef.current, 'replace');
+      return next;
+    });
+  }, [sync]);
   const reset = useCallback((s?: ScreenConfig) => (
     (async () => {
       if (!(await runLeaveGuard())) return false;
@@ -190,6 +205,20 @@ export function NavProvider({ children, isLoggedIn, onNeedAuth }: { children: Re
     skipUrl.current = false;
     sync([], tabRef.current, v, 'push');
   }, [sync]);
+  const goDesktopView = useCallback((v: DesktopView) => (
+    (async () => {
+      if (!(await runLeaveGuard())) return false;
+      leaveGuardRef.current = null;
+      setDesktopViewState(v);
+      viewRef.current = v;
+      setStack(() => {
+        skipUrl.current = false;
+        sync([], tabRef.current, v, 'push');
+        return [];
+      });
+      return true;
+    })()
+  ), [sync, runLeaveGuard]);
 
   const applyRoute = useCallback((route: DeepRoute) => {
     const desk = isDesktop();
@@ -327,8 +356,8 @@ export function NavProvider({ children, isLoggedIn, onNeedAuth }: { children: Re
   }, []);
 
   const value = useMemo(() => ({
-    push, pop, reset, applyRoute, stack, activeTab, setActiveTab, prevTab, desktopView, setDesktopView, requireAuth, setLeaveGuard,
-  }), [push, pop, reset, applyRoute, stack, activeTab, setActiveTab, prevTab, desktopView, setDesktopView, requireAuth, setLeaveGuard]);
+    push, pop, reset, replaceTop, goDesktopView, applyRoute, stack, activeTab, setActiveTab, prevTab, desktopView, setDesktopView, requireAuth, setLeaveGuard,
+  }), [push, pop, reset, replaceTop, goDesktopView, applyRoute, stack, activeTab, setActiveTab, prevTab, desktopView, setDesktopView, requireAuth, setLeaveGuard]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

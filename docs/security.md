@@ -66,7 +66,7 @@ Object Storage
 - **Access JWT** TTL **30 минут** (`typ: access`); **refresh JWT** TTL **14 суток** (`typ: refresh`) при «Запомнить меня»; иначе refresh — session cookie (`rm: 0` в JWT).
 - Быстрый вход с домашнего экрана: WebAuthn platform authenticator (Face ID / отпечаток / PIN) на устройстве; биометрия на сервер не уходит.
 - Оба токена в **HttpOnly** cookies (`rosmap_at` / `rosmap_rt`), `Secure; SameSite=None` (SPA на другом origin).
-- Клиент шлёт `credentials: 'include'`. Access JWT дублируется в storage/`memory` для `X-Rosmap-Token`. При «Запомнить меня» access и refresh лежат в `localStorage` (iOS ITP часто режет сторонние cookies Function-хоста). Без галочки — только `sessionStorage`.
+- Клиент шлёт `credentials: 'include'`. Access JWT дублируется в storage/`memory` для `X-Rosmap-Token`. При «Запомнить меня» access и refresh лежат в `localStorage` (iOS ITP часто режет сторонние cookies Function-хоста). Без галочки — только `sessionStorage`. HttpOnly cookies предпочтительны, когда браузер их сохраняет; вырывать JWT из `localStorage` нельзя — это обход ITP, без него «Запомнить меня» на iOS ломает вход.
 - Подпись JWT проверяется с `timingSafeEqual`.
 - `tokenVersion` (`tv` в JWT): смена пароля, **сброс пароля**, logout everywhere и отключение 2FA инвалидируют все старые токены.
 - Логин: нет такого пользователя = тот же `401 bad_credentials`, что и неверный пароль (без enumeration).
@@ -122,7 +122,7 @@ Object Storage
 - Ящик одного человека в **private** bucket. Старый монолит `mail.json` читается только для миграции.
 - Публичный объект удалён; bucket policy запрещает анонимный `GetObject` на `mail.json` (SA исключён).
 - Чтение: `action=getMail` (сессия) — свой ящик + `partners`; poll/bootstrap **не** ходят в публичный CDN. Staff — все ящики + TOTP.
-- Клиент: каталог ~90 с (`cache: 'no-cache'`), почта ~20 с если есть сессия.
+- Клиент: каталог ~90 с (`cache: 'no-cache'`, If-None-Match / ETag, без `JSON.stringify` всего каталога), почта ~20 с если есть сессия. Outage не превращается в `[]` — остаётся last-good.
 - Ответ sync/commit: **проекция** — свой ящик + свои исходящие; полный снимок у staff.
 - Текст, фото/видео URL и тексты уведомлений шифруются **at rest** AES-256-GCM (`enc:v1:`, ключ из `MAIL_ENC_KEY` или `JWT_SECRET`). Это не E2E: API расшифровывает для владельца и staff.
 - Получатель может выставить `read` / `readAt` на входящих; отправитель видит галочки по своей копии в ящике собеседника.
@@ -167,17 +167,20 @@ node cloud/ops/migrate-mail-private.cjs
 | Комментарии | `authorId` = JWT login | полный | полный |
 | Лайки | только своё имя в списках | полный | полный |
 | Feed | create запрещён; social ограничены | полный merge | полный |
-| Events | RSVP | RSVP | полный merge (create/edit/delete) |
+| Events | RSVP + свои create/edit/`deleted` | RSVP | полный merge (create/edit/delete) |
 
 Клиент: escape HTML в комментариях к звукам (защита от stored XSS).
 
 ### 3.9 Медиа и uploads
 
-- Presign только для `uploads/{login}/…` и `staging/{login}/…`.
+- Presign: `media/…`, `uploads/{login}/…` (legacy) и `staging/{login}/…`. Новые PUT — opaque `media/sounds/{snd_}/` и `media/avatars/{usr_}/`.
+- `deleteMedia` (v43): DeleteObject только для `media/` и `uploads/`. Владелец ключа (`userId` в аватарах, автор `snd_`, или `uploads/{login}/`) либо staff JWT `aud=staff` + **admin**. `_auth/`, staging JSON и корневые каталоги — 403.
+- Tombstone письма стирает text **и** image/video, затем GC объекта, если он owned. Удаление экспедиции чистит `photos[]`, не опубликованные wav.
 - `_auth/` и корневые JSON через presign недоступны (`use_sync`).
 - Path traversal (`..`) режется.
 - В JSON запрещены `data:` / `blob:` URL медиа — только `https` или относительные пути.
 - Лимиты: изображение ≤ 30 MB, аудио ≤ 1 GB. Presign медиа **требует** `contentLength`; без размера — `400`. `application/octet-stream` для медиа не допускается.
+- Клиент перед PUT жмёт фото до 1600px по длинной стороне (JPEG/WebP ~0.82, ориентация из EXIF).
 
 ### 3.10 Целостность JSON (HMAC)
 
@@ -238,7 +241,7 @@ Env: `ALLOWED_ORIGIN=comma,separated,list` (см. `cloud/api/.env.example`).
 
 ### 3.14 Клиент: CSP, SRI, Tailwind
 
-- Content-Security-Policy в `index.html`: **без `unsafe-eval`** (Play CDN Tailwind убран).
+- Content-Security-Policy в `index.html`: **без `unsafe-eval`** (Vite production / self-host CSS). `'unsafe-inline'` остаётся для boot-скрипта. GitHub Pages origin в CORS не входит.
 - Self-hosted CSS: `src/tailwind.built.css` (`npm run build:css`).
 - SRI (`integrity` + `crossorigin`) на Font Awesome / Omnitone / React / ReactDOM.
 - `script-src` допускает `https:` для карт (Яндекс / MapLibre / 2GIS и т.д.) + `'unsafe-inline'` для inline boot; `object-src 'none'`, `frame-ancestors 'none'`.
@@ -339,7 +342,7 @@ Private bucket: без публичного чтения; CORS только дл
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | версия / живость (`version: 19`, поле `ydb`) |
+| `health` | нет | версия / живость (`version: 43`, поле `ydb`) |
 | `publicConfig` | нет | Maps key + bucket URL (browser-safe) |
 | `register` / `login` | нет | учётка → cookies + access JWT (+ optional TOTP) |
 | `refresh` | refresh cookie | новая пара токенов |
@@ -350,7 +353,8 @@ Private bucket: без публичного чтения; CORS только дл
 | `getSecurityEvents` | access admin | журнал security events |
 | `getMail` | access | проекция почты |
 | `sync` / `commit` | access | merge + sanitize JSON |
-| `presign` | access | upload URL |
+| `presign` | access | upload URL (`media/` + legacy `uploads/`) |
+| `deleteMedia` | access | owned DeleteObject (`media/` / `uploads/` only) |
 | `patchSound` | access | plays / downloads / реакции |
 | `translate` | access | Yandex Translate |
 | `requestEmailVerification` / `confirmEmailVerification` | access | email-коды (SMTP) |
@@ -379,6 +383,7 @@ Private bucket: без публичного чтения; CORS только дл
 | **v13 frontend** | Self-host Tailwind, CSP без `unsafe-eval` |
 | **v14 consent + staff 2FA** | Cookie banner; TOTP обязателен для staff write/admin |
 | **v18 integrity + limits** | HMAC обязателен и на публичный каталог; лимиты/лок переживают cold start; scale-policy |
+| **v43 media GC** | `deleteMedia`; mail tombstone drop image/video; catalog ETag poll; photo downscale 1600px |
 
 ---
 

@@ -21,21 +21,21 @@ CatID_FXName_CreatorID_SourceID[_UserData]
 | FXName | English Title Case phrase with **spaces** (UCS: `_` only between blocks). Auto-translated from the description. |
 | CreatorID | Recordist / login (latin, no spaces) |
 | SourceID | **Project** from the linked expedition/session title (sanitized). Without expedition → `NONE` |
-| UserData | `{channelCode}-{locationSlug}` e.g. `XY-Rostov` |
+| UserData | `{channelCode}-{locationSlug}` e.g. `XY-Meadow` |
 
-Example with expedition «Дон 2026»:
+Example with expedition «Field 2026»:
 
 ```
-AMBCity_Rostov Market Day Crowd_romaflay_Don2026_XY-Rostov.wav
+AMBCity_Meadow Market Day Crowd_romaflay_Field2026_XY-Meadow.wav
 ```
 
 Without expedition:
 
 ```
-AMBCity_Rostov Market Day Crowd_romaflay_NONE_XY-Rostov.wav
+AMBCity_Meadow Market Day Crowd_romaflay_NONE_XY-Meadow.wav
 ```
 
-Spaces inside FXName are required by UCS: a parser splits only on `_`, so `Rostov_Market_Day_Crowd` would become FXName=`Rostov` and the rest of the title would be lost.
+Spaces inside FXName are required by UCS: a parser splits only on `_`, so `Meadow_Market_Day_Crowd` would become FXName=`Meadow` and the rest of the title would be lost.
 
 ### Platform ID is metadata-only
 

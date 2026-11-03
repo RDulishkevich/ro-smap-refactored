@@ -4,7 +4,7 @@ const ru = {
   lang: 'Русский',
   language: 'Язык',
   menu: 'Меню',
-  soundMap: 'Карта звуков',
+  soundMap: 'Полевые записи',
   map: 'Карта',
   messages: 'Сообщения',
   profile: 'Профиль',
@@ -165,7 +165,7 @@ const ru = {
   captchaFailed: 'Проверка SmartCaptcha не пройдена — попробуйте ещё раз.',
   captchaNotice: 'Защита от ботов: Yandex SmartCaptcha.',
   rememberMe: 'Запомнить меня',
-  welcomeTag: 'Записи с мест Ростовской области',
+  welcomeTag: 'Полевые записи на карте',
   unlockDevice: 'Разблокировать',
   unlockDeviceHint: 'Подтвердите вход защитой устройства — Face ID, Touch ID или PIN',
   unlockPassword: 'Войти паролем',
@@ -187,6 +187,9 @@ const ru = {
   recordingOne: 'запись',
   recordingFew: 'записи',
   recordingMany: 'записей',
+  pointOne: 'точка',
+  pointFew: 'точки',
+  pointMany: 'точек',
   pickSound: 'Выберите звук на карте',
   signInToSave: 'Чтобы оставлять записи и писать людям, войдите.',
   continueWithYandex: 'Войти через Яндекс',
@@ -290,7 +293,7 @@ const en: Record<keyof typeof ru, string> = {
   lang: 'English',
   language: 'Language',
   menu: 'Menu',
-  soundMap: 'Sound map',
+  soundMap: 'Field recordings',
   map: 'Map',
   messages: 'Messages',
   profile: 'Profile',
@@ -451,7 +454,7 @@ const en: Record<keyof typeof ru, string> = {
   captchaFailed: 'SmartCaptcha check failed — try again.',
   captchaNotice: 'Bot protection: Yandex SmartCaptcha.',
   rememberMe: 'Remember me',
-  welcomeTag: 'Recordings from places in Rostov Oblast',
+  welcomeTag: 'Field recordings on a map',
   unlockDevice: 'Unlock',
   unlockDeviceHint: 'Confirm with Face ID, Touch ID or your device PIN',
   unlockPassword: 'Sign in with password',
@@ -473,6 +476,9 @@ const en: Record<keyof typeof ru, string> = {
   recordingOne: 'recording',
   recordingFew: 'recordings',
   recordingMany: 'recordings',
+  pointOne: 'point',
+  pointFew: 'points',
+  pointMany: 'points',
   pickSound: 'Pick a sound on the map',
   signInToSave: 'Sign in to leave recordings and write to people.',
   continueWithYandex: 'Continue with Yandex',
@@ -593,12 +599,23 @@ export function kindI18nKey(kind: string): I18nKey {
   return 'kindPost';
 }
 
+function ruPlural(n: number, one: string, few: string, many: string) {
+  const m = n % 100;
+  if (m >= 11 && m <= 14) return many;
+  const d = n % 10;
+  if (d === 1) return one;
+  if (d >= 2 && d <= 4) return few;
+  return many;
+}
+
 export function recordingsLabel(n: number, t: (k: I18nKey) => string, locale: Locale) {
   if (locale === 'en') return n === 1 ? t('recordingOne') : t('recordingMany');
-  const m = n % 100;
-  if (m >= 11 && m <= 14) return t('recordingMany');
-  const d = n % 10;
-  if (d === 1) return t('recordingOne');
-  if (d >= 2 && d <= 4) return t('recordingFew');
-  return t('recordingMany');
+  return ruPlural(n, t('recordingOne'), t('recordingFew'), t('recordingMany'));
+}
+
+export function pointsLabel(n: number, t: (k: I18nKey) => string, locale: Locale) {
+  const word = locale === 'en'
+    ? (n === 1 ? t('pointOne') : t('pointMany'))
+    : ruPlural(n, t('pointOne'), t('pointFew'), t('pointMany'));
+  return `${n} ${word}`;
 }

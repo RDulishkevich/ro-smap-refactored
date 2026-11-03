@@ -1,6 +1,6 @@
 # Полёвка — Design
 
-**Reading this as:** sound map first — listen, find, and add field recordings. Earth-tone Figma system (terracotta accent, sage/olive, cream). Type: **Klukva speaks, Geist works** — Klukva 400 for screen titles / empty / wordmark, Geist 400/500 for UI. Scale: [`docs/typography.md`](docs/typography.md). Brand: **Полёвка**.
+**Reading this as:** sound map first — listen, find, and add field recordings. Field-kit tokens (clay accent, topographic paper). Type: **Geist Variable** 400/500 for all roles. Scale: [`docs/typography.md`](docs/typography.md). Brand: **Полёвка**. No Klukva.
 
 **Implementation:** React/TSX in `apps/web`, tokens in `packages/design`. Vanilla (`index.html`) is a frozen archive and is not deployed.
 
@@ -19,16 +19,17 @@
 | Token | Hex | Role |
 |-------|-----|------|
 | accent | `#B5613F` | CTA, active tab, likes (≤10% of UI) |
-| dark | `#2D3C39` | Strong fill, forest pins |
-| olive | `#6F7C4E` | Secondary text |
-| sage | `#9DB170` | Muted labels |
-| mist | `#92B3B1` | Water, cool accents, rail banners |
-| light | `#D9E2C3` | Soft fills |
-| cream | `#F4E8D8` | Warm cards |
+| dark | `#2A3230` | Strong fill, forest pins |
+| olive | `#5C6750` | Secondary text |
+| sage | `#8A9278` | Decorative only |
+| mist | `#7F9B99` | Water, cool accents, rail banners |
+| light | `#E3E5DF` | Soft fills |
+| cream | `#F2F0EA` | Warm paper |
 | ink | `#1A1A1A` | Text on light |
-| phoneBg | `#E8EDEA` | Canvas |
+| phoneBg | `#E7E8E4` | Canvas |
+| muted | `#5A6354` | Readable secondary |
 
-Dark: canvas `#0B0B0B`, cards `#171717`, chrome `#111111`, elevated `#2E2E2E`, solid CTA `#3A3A3A` (neutral black, no green). Map tiles inverted for contrast; map chrome buttons light.
+Dark: canvas `#131513`, cards `#1C1F1D`, chrome `#171917`, solid CTA `#3A3A3A`. Map tiles inverted; map chrome buttons light.
 
 Radii: 12 / 16 / 24 / pill FAB. Map FAB notch 36px. Icons: **Lucide**. Motion springs: see `packages/design/src/motion.ts`.
 

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bell, Download, Heart, Headphones, ImagePlus, MapPin, MessageCircle, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
+import { Bell, Download, Heart, Headphones, ImagePlus, MessageCircle, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 import {
   apiSyncJson, canDownloadSound, downloadWaitMessage, formatPlays, mapVisibleSounds,
   spamGuardCheck, spamGuardMessage, uploadUserMedia,
@@ -15,6 +15,8 @@ import { useUi } from '../state/UiContext';
 import { usePrefs } from '../state/PrefsContext';
 import { ListSkeleton, NavBar, PlayPauseIcon, ScreenHeader } from '../primitives/ui';
 import { EmptyNote } from '../primitives/EmptyNote';
+import { stock } from '../lib/stock';
+import { pointsLabel } from '../lib/i18n';
 import { PullToRefresh } from '../primitives/PullToRefresh';
 import { useScrollMemory } from '../lib/use-scroll-memory';
 import { useLeaveGuard } from '../lib/use-leave-guard';
@@ -77,7 +79,7 @@ export function FeedScreen({ showNav = true, embed = false, initialTab }: { show
         </div>
         <div className="relative flex gap-1 p-1 rounded-2xl mb-2" style={{ background: th.lightBg }}>
           {subTabs.map(({ id, label }) => (
-            <button key={id} onClick={() => setTab(id)} className="flex-1 py-2.5 rounded-xl text-[11px] font-semibold" style={{ background: tab === id ? th.cardBg : 'transparent', color: tab === id ? ACCENT : th.muted, boxShadow: tab === id ? '0 1px 4px rgba(45,60,57,0.08)' : 'none' }}>
+            <button key={id} onClick={() => setTab(id)} className="flex-1 py-2.5 rounded-xl pv-label" style={{ background: tab === id ? th.cardBg : 'transparent', color: tab === id ? ACCENT : th.muted, boxShadow: tab === id ? '0 1px 4px rgba(45,60,57,0.08)' : 'none' }}>
               {label}
             </button>
           ))}
@@ -261,11 +263,11 @@ function ComposePostCard({ onPublished }: { onPublished?: () => void }) {
         </button>
       </div>
       <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Заголовок"
-        className="rounded-2xl px-3.5 py-2.5 text-sm outline-none" style={{ background: th.lightBg, color: th.inkText }}
+        className="rounded-2xl px-3.5 py-2.5 pv-caption pv-inset-focus outline-none" style={{ background: th.lightBg, color: th.inkText }}
         maxLength={200} />
       <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Текст поста"
         rows={4} maxLength={8000}
-        className="rounded-2xl px-3.5 py-2.5 text-sm outline-none resize-none leading-relaxed"
+        className="rounded-2xl px-3.5 py-2.5 pv-caption pv-inset-focus outline-none resize-none leading-relaxed"
         style={{ background: th.lightBg, color: th.inkText }} />
       {!!images.length && (
         <div className="flex gap-2 overflow-x-auto scrollbar-none">
@@ -367,7 +369,7 @@ function PostsList({ onCatalog }: { onCatalog: () => void }) {
         ))}
       </div>
       {!feed.length && !visible.length && (
-        <EmptyNote title={t('noPosts')} hint={t('noPostsHint')} actionLabel={t('openCatalog')} onAction={onCatalog} />
+        <EmptyNote title={t('noPosts')} hint={t('noPostsHint')} image={stock.feed} actionLabel={t('openCatalog')} onAction={onCatalog} />
       )}
       {items.map((item) => item.kind === 'post' ? (
         <FeedPostCard key={item.id} post={item.post} onOpen={() => push({ type: 'feed-post', post: item.post })} />
@@ -469,17 +471,15 @@ function MarkerFeedCard({ sound, playing, onPlay, onOpen, onDownload }: {
           </span>
         )}
       </div>
-      <div className="flex gap-3">
-        <button type="button" onClick={onOpen} className="relative w-[88px] h-[88px] rounded-2xl overflow-hidden flex-shrink-0 cursor-pointer" style={{ background: c }} aria-label={sound.title}>
-          {cover && <img src={cover} alt="" className="absolute inset-0 w-full h-full object-cover" />}
-        </button>
-        <div className="min-w-0 flex-1 flex flex-col">
+      <button type="button" onClick={onOpen} className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden cursor-pointer" style={{ background: c }} aria-label={sound.title}>
+        <img src={cover || stock.empty} alt="" className="absolute inset-0 w-full h-full object-cover" />
+      </button>
+      <div className="min-w-0 flex-1 flex flex-col pt-3">
           <button type="button" className="text-left cursor-pointer" onClick={onOpen}>
             <p className="pv-subtitle" style={{ color: th.inkText }}>{sound.title}</p>
             <p className="pv-caption truncate mt-1" style={{ color: th.muted }}>
-              <MapPin size={10} className="inline -mt-0.5 mr-0.5" />
               {sound.location || t('onMap')}
-              {meta.durationSec > 0 ? ` · ${meta.durationLabel}` : ''}
+              {meta.durationSec > 0 ? `, ${meta.durationLabel}` : ''}
             </p>
           </button>
           <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
@@ -502,7 +502,6 @@ function MarkerFeedCard({ sound, playing, onPlay, onOpen, onDownload }: {
               </button>
             </div>
           </div>
-        </div>
       </div>
     </article>
   );
@@ -525,11 +524,7 @@ function collectExpeditions(profiles: ReturnType<typeof useData>['profiles']): E
     const photo = Array.isArray(s.photos) && s.photos[0] ? String(s.photos[0]) : '';
     const place = String(s.place || '').trim();
     const dur = String(s.dur || '').trim();
-    const subtitle = [
-      place,
-      points ? `${points} · ${dur || '—'}` : dur,
-      s.desc || s.preview || '',
-    ].filter(Boolean).join(' · ') || 'Экспедиция';
+    const subtitle = [place, dur].filter(Boolean).join(', ');
     return {
       ...s,
       title: s.title,
@@ -565,16 +560,24 @@ function PopularTile({ exp, onOpen }: { exp: ExpCard; onOpen: () => void }) {
   const th = useTh();
   return (
     <button type="button" onClick={onOpen}
-      className="flex flex-col items-center gap-2 w-[4.75rem] flex-shrink-0 cursor-pointer">
-      <span className="relative w-[4.75rem] h-[4.75rem] rounded-[1.35rem] overflow-hidden shadow-sm"
-        style={{ background: exp.tint }}>
-        {exp.photo
-          ? <img src={exp.photo} alt="" className="absolute inset-0 w-full h-full object-cover" />
-          : <span className="absolute inset-0 flex items-center justify-center text-2xl">{exp.emoji}</span>}
+      className="flex flex-col gap-2 w-[min(42vw,10.5rem)] flex-shrink-0 cursor-pointer text-left">
+      <span className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden shadow-sm"
+        style={{ background: exp.photo ? exp.tint : th.lightBg }}>
+        <img src={exp.photo || stock.expeditions} alt="" className="absolute inset-0 w-full h-full object-cover" />
       </span>
-      <span className="pv-caption text-center w-full truncate" style={{ color: th.inkText }}>{exp.title}</span>
+      <span className="pv-caption w-full truncate" style={{ color: th.inkText }}>{exp.title}</span>
     </button>
   );
+}
+
+function formatExpMeta(exp: ExpCard, t: ReturnType<typeof useT>, locale: 'ru' | 'en') {
+  const bits: string[] = [];
+  const place = String(exp.place || '').trim();
+  if (place) bits.push(place);
+  if (exp.points) bits.push(pointsLabel(exp.points, t, locale));
+  const dur = String(exp.dur || '').trim();
+  if (dur && dur !== '—') bits.push(dur);
+  return bits.join(', ');
 }
 
 function RecommendedCard({ exp, onOpen, onToggleSave, wide = false, saved }: {
@@ -586,6 +589,8 @@ function RecommendedCard({ exp, onOpen, onToggleSave, wide = false, saved }: {
 }) {
   const th = useTh();
   const t = useT();
+  const { locale } = usePrefs();
+  const meta = formatExpMeta(exp, t, locale === 'en' ? 'en' : 'ru');
   return (
     <div
       role="button"
@@ -594,14 +599,12 @@ function RecommendedCard({ exp, onOpen, onToggleSave, wide = false, saved }: {
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
       className={`rounded-[1.75rem] p-2.5 shadow-sm cursor-pointer ${wide ? 'w-full' : 'flex-shrink-0 w-[min(78vw,17.5rem)]'}`}
       style={{ background: th.cardBg }}>
-      <div className="relative aspect-[5/3.4] rounded-[1.35rem] overflow-hidden" style={{ background: exp.tint }}>
-        {exp.photo
-          ? <img src={exp.photo} alt="" className="absolute inset-0 w-full h-full object-cover" />
-          : <span className="absolute inset-0 flex items-center justify-center text-4xl opacity-90">{exp.emoji}</span>}
+      <div className="relative aspect-[16/10] rounded-3xl overflow-hidden" style={{ background: exp.photo ? exp.tint : th.lightBg }}>
+        <img src={exp.photo || stock.expeditions} alt="" className="absolute inset-0 w-full h-full object-cover" />
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onToggleSave(); }}
-          className="absolute top-2.5 right-2.5 w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer shadow-sm"
+          className="absolute top-2.5 right-2.5 w-11 h-11 rounded-xl flex items-center justify-center cursor-pointer shadow-sm"
           style={{ background: th.cardBg }}
           aria-label={saved ? t('expUnsave') : t('expSave')}
           aria-pressed={saved}>
@@ -610,7 +613,7 @@ function RecommendedCard({ exp, onOpen, onToggleSave, wide = false, saved }: {
       </div>
       <div className="px-1.5 pt-3 pb-1.5 text-left">
         <p className="pv-subtitle leading-snug" style={{ color: th.inkText }}>{exp.title}</p>
-        <p className="pv-caption mt-1 truncate" style={{ color: th.muted }}>{exp.subtitle}</p>
+        <p className="pv-caption mt-1 truncate" style={{ color: th.muted }}>{meta || exp.subtitle}</p>
       </div>
     </div>
   );
@@ -711,6 +714,7 @@ function ExpeditionsList() {
           </button>
         ) : (
           <EmptyNote title={t('expEmpty')} hint={t('expEmptyHint')}
+            image={stock.expeditions}
             actionLabel="Войти" onAction={() => push({ type: 'auth' })} />
         )}
       </div>
@@ -761,15 +765,15 @@ function ExpeditionsList() {
         </button>
       )}
 
-      {!searching && !!popularView.length && (
+      {!searching && popular.length >= 3 && (
         <section className="flex flex-col gap-3">
           <SectionHead
             title={t('popular')}
             action={t('showAll')}
             onAction={() => setShowPopularAll((v) => !v)} />
           <div className={showPopularAll
-            ? 'grid grid-cols-4 gap-x-3 gap-y-4'
-            : 'flex gap-3.5 overflow-x-auto scrollbar-none pb-1'}>
+            ? 'grid grid-cols-2 gap-3'
+            : 'flex gap-3 overflow-x-auto scrollbar-none pb-1'}>
             {popularView.map((exp) => (
               <PopularTile key={`pop-${exp.id || exp.title}`} exp={exp} onOpen={() => open(exp)} />
             ))}

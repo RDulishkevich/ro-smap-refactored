@@ -9,6 +9,7 @@ describe('i18n', () => {
   it('never shows legacy brand names', () => {
     const dump = `${JSON.stringify(DICT.ru)} ${JSON.stringify(DICT.en)}`;
     expect(dump).not.toMatch(/RO·SMap|RO\.SMap|rosmap/i);
+    expect(dump).not.toMatch(/Ростов|Rostov/i);
   });
 
   it('maps sound types and search kinds', () => {

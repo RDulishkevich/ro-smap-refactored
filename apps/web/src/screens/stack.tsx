@@ -27,6 +27,7 @@ import { useData } from '../state/DataContext';
 import { useUi } from '../state/UiContext';
 import { ListSkeleton, PinPlayer, ScreenHeader, SoundTypeTag, OtpInput } from '../primitives/ui';
 import { EmptyNote } from '../primitives/EmptyNote';
+import { stock } from '../lib/stock';
 import { SwipeRow } from '../primitives/SwipeRow';
 import { FormField, FormNeed } from '../primitives/form';
 import { PhotoCarousel } from '../primitives/PhotoCarousel';
@@ -45,7 +46,7 @@ import { SettingsScreen } from './SettingsScreen';
 import { CatalogPage, ExpeditionsPage, FeedPage } from './FeedScreen';
 import { StaffScreen } from './StaffScreen';
 import { ExpeditionDetailScreen, ExpeditionEditScreen, PickLocationScreen } from './ExpeditionScreens';
-import { EventDetailScreen, EventsScreen } from './EventScreens';
+import { EventDetailScreen, EventEditScreen, EventsScreen } from './EventScreens';
 import { downloadLegalPrint } from '../lib/legal-print';
 import { pathForSound } from '../lib/routes';
 import { shareLink } from '../lib/share';
@@ -79,6 +80,7 @@ export function ScreenContent({ screen, onBack }: { screen: ScreenConfig; onBack
     case 'settings': return <SettingsScreen onBack={onBack} />;
     case 'events': return <EventsScreen onBack={onBack} focusId={screen.focusId} />;
     case 'event-detail': return <EventDetailScreen eventId={screen.eventId} onBack={onBack} />;
+    case 'event-edit': return <EventEditScreen eventId={screen.eventId} onBack={onBack} />;
     case 'auth': return <AuthScreen onBack={onBack} mode={screen.mode} />;
     case 'reset-password': return <AuthScreen onBack={onBack} mode="in" panel="reset" />;
     case 'feed-post': return <FeedPostScreen post={screen.post} onBack={onBack} />;
@@ -87,7 +89,7 @@ export function ScreenContent({ screen, onBack }: { screen: ScreenConfig; onBack
     case 'messages': return <MessagesScreen onBack={onBack} />;
     case 'conversation': return <ConversationScreen name={screen.name} avatar={screen.avatar} peer={screen.peer} asLogin={screen.asLogin} onBack={onBack} />;
     case 'notifications': return <NotificationsScreen onBack={onBack} />;
-    case 'search': return <SearchScreen onBack={onBack} />;
+    case 'search': return <SearchScreen onBack={onBack} initial={screen.q} />;
     case 'edit-profile': return <EditProfileScreen onBack={onBack} />;
     case 'map-location': return <MapLocationScreen sound={screen.sound} onBack={onBack} />;
     case 'pick-location': return <PickLocationScreen mode={screen.mode} onBack={onBack} />;
@@ -231,8 +233,8 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
         )}
         {(live.principle || live.channels) && (
           <p className="pv-caption mb-2" style={{ color: th.soft }}>
-            {[live.principle, live.channels].filter(Boolean).join(' · ')}
-            {isAmbisonicSound(live) ? ' · сфера 360° в плеере' : ''}
+            {[live.principle, live.channels].filter(Boolean).join(', ')}
+            {isAmbisonicSound(live) ? ', сфера 360° в плеере' : ''}
           </p>
         )}
         {hasWalk && (
@@ -336,13 +338,19 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       <ScreenHeader title={live.title} onBack={onBack} right={
         <HoverMenu title={live.title} items={menuItems}>
-          <span className="w-9 h-9 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}>
+          <span className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}>
             <MoreHorizontal size={15} color={th.muted} />
           </span>
         </HoverMenu>
       } />
       <div className="flex-1 overflow-y-auto scrollbar-none">
-        <PhotoCarousel images={(live.images || []).filter(Boolean)} title={live.title} />
+        {(live.images || []).filter(Boolean).length ? (
+          <PhotoCarousel images={(live.images || []).filter(Boolean)} title={live.title} />
+        ) : (
+          <div className="relative mx-4 mt-4 rounded-3xl overflow-hidden" style={{ aspectRatio: '16 / 10', background: th.lightBg }}>
+            <img src={stock.empty} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          </div>
+        )}
         {cardBody}
       </div>
     </div>
@@ -448,13 +456,13 @@ function FeedPostScreen({ post, onBack }: { post: FeedPost; onBack: () => void }
       <div className="flex-1 overflow-y-auto scrollbar-none">
         {!!images.length && <PhotoCarousel images={images} title={String(live.title || '')} />}
         <div className="mx-4 mt-4 rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <p className="text-[11px] font-semibold" style={{ color: th.soft }}>{String(live.author || 'Полёвка')}</p>
-          {live.createdAt ? <p className="text-[10px] mt-0.5" style={{ color: th.soft }}>{(() => {
+          <p className="pv-caption" style={{ color: th.muted }}>{String(live.author || 'Полёвка')}</p>
+          {live.createdAt ? <p className="pv-micro mt-0.5" style={{ color: th.muted }}>{(() => {
             const ts = Date.parse(String(live.createdAt));
             return Number.isNaN(ts) ? String(live.createdAt) : new Date(ts).toLocaleString();
           })()}</p> : null}
           <p className="pv-heading mt-2" style={{ color: th.inkText }}>{String(live.title || t('kindPost'))}</p>
-          {live.text ? <p className="text-[13px] leading-relaxed mt-2" style={{ color: th.muted }}>{String(live.text)}</p> : null}
+          {live.text ? <p className="pv-body mt-2" style={{ color: th.muted }}>{String(live.text)}</p> : null}
           {linked && (
             <div className="mt-3">
               <SoundRow item={linked} onOpen={() => push({ type: 'sound-detail', sound: linked })} />
@@ -728,7 +736,7 @@ function AuthScreen({
           opacity: oauthBusy && oauthBusy !== 'yandex' ? 0.6 : 1,
         }}
       >
-        <span className="w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-semibold text-white" style={{ background: '#FC3F1D' }}>Я</span>
+        <span className="w-5 h-5 rounded-md flex items-center justify-center pv-micro text-white" style={{ background: '#FC3F1D' }}>Я</span>
         <span className="truncate">{oauthBusy === 'yandex' ? '…' : (desktop ? 'Яндекс' : t('continueWithYandex'))}</span>
       </button>
       <button
@@ -1041,12 +1049,11 @@ function AuthScreen({
           </header>
 
           <div className="flex-1 min-h-0 flex flex-col justify-center max-w-[360px] w-full overflow-hidden">
-            <p className="pv-micro uppercase tracking-[0.12em] mb-0.5" style={{ color: th.soft }}>
+            <p className="pv-caption mb-0.5" style={{ color: th.muted }}>
               {eyebrow}
             </p>
-            <h1 className="pv-title mb-1 text-[1.5rem] leading-tight" style={{ color: th.inkText }}>
+            <h1 className="pv-title mb-1" style={{ color: th.inkText }}>
               {title}
-              <span style={{ color: ACCENT }}>.</span>
             </h1>
             {mode !== 'reset' && (
               <p className="pv-caption mb-2 leading-snug" style={{ color: th.muted }}>
@@ -1122,32 +1129,6 @@ function AuthScreen({
   );
 }
 
-function Field({ label, value, onChange, th, password, inputMode, readOnly, autoComplete, name }: {
-  label: string; value: string; onChange: (v: string) => void; th: ThemeTokens;
-  password?: boolean; inputMode?: 'numeric' | 'email' | 'text'; readOnly?: boolean;
-  autoComplete?: string; name?: string;
-}) {
-  return (
-    <label className="pv-label" style={{ color: th.soft }}>
-      {label}
-      <input
-        type={password ? 'password' : 'text'}
-        id={name}
-        name={name}
-        autoComplete={autoComplete}
-        autoCapitalize={password ? 'off' : 'none'}
-        autoCorrect="off"
-        spellCheck={false}
-        inputMode={inputMode}
-        readOnly={readOnly}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={`mt-1 w-full rounded-2xl px-3 py-3 outline-none ${readOnly ? 'opacity-80' : ''}`}
-        style={{ background: th.cardBg, color: th.inkText }} />
-    </label>
-  );
-}
-
 export function MessagesScreen({ onBack, embed = false }: { onBack?: () => void; embed?: boolean }) {
   const th = useTh();
   const desktop = useIsDesktop();
@@ -1211,10 +1192,10 @@ export function MessagesScreen({ onBack, embed = false }: { onBack?: () => void;
           </>
         )}
         {!isLoggedIn && (
-          <EmptyNote title={t('msgNeedAuth')} hint={t('msgNeedAuthHint')} actionLabel={t('signIn')} onAction={() => push({ type: 'auth' })} />
+          <EmptyNote title={t('msgNeedAuth')} hint={t('msgNeedAuthHint')} image={stock.empty} actionLabel={t('signIn')} onAction={() => push({ type: 'auth' })} />
         )}
         {isLoggedIn && peers.length === 0 && (
-          <EmptyNote title={t('msgEmpty')} hint={t('msgEmptyHint')} />
+          <EmptyNote title={t('msgEmpty')} hint={t('msgEmptyHint')} image={stock.empty} actionLabel={t('openCatalog')} onAction={() => push({ type: 'catalog' })} />
         )}
         {isLoggedIn && peers.length > 0 && filtered.length === 0 && (
           <EmptyNote title={t('nothingFound')} hint={t('nothingFoundHint')} />
@@ -1310,9 +1291,9 @@ function NotificationsScreen({ onBack }: { onBack: () => void }) {
             <NotificationRow n={n} ctx={{ sounds: sounds as Sound[], profiles, events }} />
             {n.type === 'expedition-invite' && n.expeditionId && (
               <div className="flex gap-2 mt-2 px-1">
-                <button type="button" disabled={busy != null} className="flex-1 min-h-11 py-2 rounded-xl text-[11px] font-semibold text-white" style={{ background: ACCENT }}
+                <button type="button" disabled={busy != null} className="flex-1 min-h-11 py-2 rounded-xl pv-button text-white" style={{ background: ACCENT }}
                   onClick={() => void decide(n, true)}>{busy ? '…' : 'Принять'}</button>
-                <button type="button" disabled={busy != null} className="flex-1 min-h-11 py-2 rounded-xl text-[11px] font-semibold" style={{ background: th.lightBg, color: th.muted }}
+                <button type="button" disabled={busy != null} className="flex-1 min-h-11 py-2 rounded-xl pv-button" style={{ background: th.lightBg, color: th.muted }}
                   onClick={() => void decide(n, false)}>Отклонить</button>
               </div>
             )}
@@ -1325,18 +1306,18 @@ function NotificationsScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
-function SearchScreen({ onBack }: { onBack: () => void }) {
+function SearchScreen({ onBack, initial }: { onBack: () => void; initial?: string }) {
   const th = useTh();
   const t = useT();
   const { sounds, profiles, events, feed } = useData();
   const { push } = useNav();
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(initial || '');
   const hits = searchAll(q, { sounds, profiles, events, feed });
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
       <ScreenHeader title="Поиск" onBack={onBack} />
       <div className="p-4 flex-1 overflow-y-auto">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Звуки, люди, экспедиции, события…" className="w-full min-h-11 rounded-2xl px-3 py-3 text-sm outline-none mb-3" style={{ background: th.cardBg, color: th.inkText }} aria-label={t('search')} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Звуки, люди, экспедиции, события…" className="w-full min-h-11 rounded-2xl px-3 py-3 pv-caption pv-inset-focus outline-none mb-3" style={{ background: th.cardBg, color: th.inkText }} aria-label={t('search')} />
         {!q.trim() && <EmptyNote title="Поиск" hint="Начните вводить — ищем по всей Полёвке" />}
         {q.trim() && !hits.length && <EmptyNote title={t('nothingFound')} hint={t('nothingFoundHint')} />}
         {hits.map((hit) => (
@@ -1349,9 +1330,9 @@ function SearchScreen({ onBack }: { onBack: () => void }) {
               push({ type: 'user-profile', name: hit.title, avatar: String(hit.profile.avatar || '🎙️'), username: `@${login || hit.title}` });
             } else push({ type: 'feed' });
           }} className="w-full text-left rounded-2xl p-3 mb-2" style={{ background: th.cardBg }}>
-            <p className="text-[10px] font-semibold uppercase" style={{ color: th.soft }}>{SEARCH_KIND_LABEL[hit.kind]}</p>
-            <p className="text-xs font-bold" style={{ color: th.inkText }}>{hit.title}</p>
-            {hit.hint && <p className="text-[10px]" style={{ color: th.soft }}>{hit.hint}</p>}
+            <p className="pv-micro" style={{ color: th.muted }}>{SEARCH_KIND_LABEL[hit.kind]}</p>
+            <p className="pv-heading" style={{ color: th.inkText }}>{hit.title}</p>
+            {hit.hint && <p className="pv-caption" style={{ color: th.muted }}>{hit.hint}</p>}
           </button>
         ))}
       </div>
@@ -1536,7 +1517,7 @@ function EditProfileScreen({ onBack }: { onBack: () => void }) {
               rows={3}
               maxLength={280}
               placeholder="Коротко о себе и полевых записях"
-              className="mt-1 w-full rounded-2xl px-4 py-3 outline-none resize-none min-h-[88px] pv-body"
+              className="mt-1 w-full rounded-2xl px-4 py-3 outline-none resize-none min-h-[88px] pv-body pv-inset-focus"
               style={{ background: th.phoneBg, color: th.inkText }}
             />
           </label>
@@ -1672,17 +1653,17 @@ function HelpScreen({ onBack }: { onBack: () => void }) {
         </div>
         <div className="flex-1 min-h-[180px] flex flex-col gap-2">
           {log.map((m, i) => (
-            <div key={i} className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-[13px] leading-snug ${m.from === 'me' ? 'self-end text-white' : 'self-start'}`}
+            <div key={i} className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl pv-caption ${m.from === 'me' ? 'self-end text-white' : 'self-start'}`}
               style={{ background: m.from === 'me' ? ACCENT : th.cardBg, color: m.from === 'me' ? '#fff' : th.inkText }}>{m.text}</div>
           ))}
         </div>
         <div className="flex gap-2 pb-1">
-          <button className="text-[11px] font-semibold" style={{ color: th.soft }} onClick={() => push({ type: 'conversation', name: SUPPORT_NAME, avatar: SUPPORT_AVATAR, peer: SUPPORT_LOGIN })}>Чат с человеком</button>
+          <button className="pv-label" style={{ color: th.soft }} onClick={() => push({ type: 'conversation', name: SUPPORT_NAME, avatar: SUPPORT_AVATAR, peer: SUPPORT_LOGIN })}>Чат с человеком</button>
         </div>
       </div>
       <div className="p-4 flex gap-2" style={{ borderTop: `1px solid ${th.border}` }}>
         <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && send()}
-          placeholder="Вопрос или «обращение»" className="flex-1 rounded-2xl px-3.5 py-2.5 text-[13px] outline-none" style={{ background: th.cardBg, color: th.inkText }} />
+          placeholder="Вопрос или «обращение»" className="flex-1 rounded-2xl px-3.5 py-2.5 pv-caption pv-inset-focus outline-none" style={{ background: th.cardBg, color: th.inkText }} />
         <button onClick={send} className="w-11 h-11 rounded-2xl text-white flex items-center justify-center" style={{ background: ACCENT }} aria-label="Отправить"><Send size={15} /></button>
       </div>
     </div>
@@ -1701,11 +1682,11 @@ function LegalScreen({ doc, onBack }: { doc: 'privacy' | 'terms' | 'publish'; on
   };
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <ScreenHeader title={title} onBack={onBack} right={<button className="text-[10px] font-semibold" style={{ color: ACCENT }} onClick={print}>Скачать PDF</button>} />
-      <div className="flex-1 overflow-y-auto p-4 text-xs leading-relaxed" style={{ color: th.muted }}>
+      <ScreenHeader title={title} onBack={onBack} right={<button className="pv-button min-h-11 px-2" style={{ color: ACCENT }} onClick={print}>Скачать PDF</button>} />
+      <div className="flex-1 overflow-y-auto p-4 pv-caption leading-relaxed" style={{ color: th.muted }}>
         {sections.map((sec: { title: string; intro?: string; items?: Array<{ title: string; body: string }> }) => (
           <div key={sec.title} className="mb-4">
-            <p className="font-bold mb-2" style={{ color: th.inkText }}>{sec.title}</p>
+            <p className="pv-heading mb-2" style={{ color: th.inkText }}>{sec.title}</p>
             {sec.intro && <p className="mb-2 italic">{sec.intro}</p>}
             {sec.items?.map((it) => (
               <p key={it.title} className="mb-2"><strong>{it.title}.</strong> {it.body}</p>
@@ -1897,46 +1878,46 @@ function CabinetScreen({ onBack }: { onBack: () => void }) {
       <ScreenHeader title="Кабинет" onBack={onBack} />
       <div className="flex-1 overflow-y-auto scrollbar-none p-4 flex flex-col gap-3">
         <div className="rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <p className="text-xs font-bold mb-2" style={{ color: th.inkText }}>Email</p>
-          <p className="text-[10px] mb-2 font-semibold" style={{ color: verified ? ACCENT : th.soft }}>
+          <p className="pv-heading mb-2" style={{ color: th.inkText }}>Email</p>
+          <p className="pv-micro mb-2" style={{ color: verified ? ACCENT : th.muted }}>
             {verified ? 'Подтверждена' : 'Не подтверждена'}
           </p>
-          <Field label="Адрес" value={email} onChange={setEmail} th={th} inputMode="email" readOnly={verified} name="email" autoComplete="email" />
+          <FormField label="Адрес" value={email} onChange={setEmail} inputMode="email" readOnly={verified} name="email" autoComplete="email" inset />
           {!verified && (
             <>
-              <button disabled={busy} onClick={() => void sendEmailCode()} className="mt-2 w-full py-2.5 rounded-2xl text-xs font-semibold text-white" style={{ background: th.solid }}>Отправить код</button>
-              <Field label="Код из письма" value={code} onChange={setCode} th={th} inputMode="numeric" />
-              <button disabled={busy} onClick={() => void confirmEmail()} className="mt-2 w-full py-2.5 rounded-2xl text-xs font-semibold text-white" style={{ background: ACCENT }}>Подтвердить</button>
+              <button disabled={busy} onClick={() => void sendEmailCode()} className="pv-button mt-2 w-full py-2.5 min-h-11 rounded-2xl text-white" style={{ background: th.solid }}>Отправить код</button>
+              <FormField label="Код из письма" value={code} onChange={setCode} inputMode="numeric" inset />
+              <button disabled={busy} onClick={() => void confirmEmail()} className="pv-button mt-2 w-full py-2.5 min-h-11 rounded-2xl text-white" style={{ background: ACCENT }}>Подтвердить</button>
             </>
           )}
         </div>
 
         <div className="rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <p className="text-xs font-bold mb-2" style={{ color: th.inkText }}>Пароль</p>
+          <p className="pv-heading mb-2" style={{ color: th.inkText }}>Пароль</p>
           {user?.oauth?.oauthOnly ? (
-            <p className="text-[10px] mb-2" style={{ color: th.soft }}>
+            <p className="pv-caption mb-2" style={{ color: th.muted }}>
               Аккаунт через соцсеть — задайте пароль ниже (без текущего). Либо сброс на подтверждённый email с экрана входа.
             </p>
           ) : null}
           {!user?.oauth?.oauthOnly && (
-            <Field label="Текущий" value={curPw} onChange={setCurPw} th={th} password name="current-password" autoComplete="current-password" />
+            <FormField label="Текущий" value={curPw} onChange={setCurPw} password name="current-password" autoComplete="current-password" inset />
           )}
-          <Field label={user?.oauth?.oauthOnly ? 'Новый пароль' : 'Новый'} value={newPw} onChange={setNewPw} th={th} password name="new-password" autoComplete="new-password" />
-          <Field label="Повтор" value={newPw2} onChange={setNewPw2} th={th} password name="new-password-confirm" autoComplete="new-password" />
-          <button disabled={busy} onClick={() => void changePw()} className="mt-2 w-full py-2.5 rounded-2xl text-xs font-semibold text-white" style={{ background: ACCENT }}>
+          <FormField label={user?.oauth?.oauthOnly ? 'Новый пароль' : 'Новый'} value={newPw} onChange={setNewPw} password name="new-password" autoComplete="new-password" inset />
+          <FormField label="Повтор" value={newPw2} onChange={setNewPw2} password name="new-password-confirm" autoComplete="new-password" inset />
+          <button disabled={busy} onClick={() => void changePw()} className="pv-button mt-2 w-full py-2.5 min-h-11 rounded-2xl text-white" style={{ background: ACCENT }}>
             {user?.oauth?.oauthOnly ? 'Задать пароль' : 'Сменить пароль'}
           </button>
         </div>
 
         {(oauthCfg.yandex || oauthCfg.vk) && (
           <div className="rounded-3xl p-4" style={{ background: th.cardBg }}>
-            <p className="text-xs font-bold mb-1" style={{ color: th.inkText }}>{t('oauthLinkedAccounts')}</p>
-            <p className="text-[10px] mb-3" style={{ color: th.soft }}>{t('oauthLinkedHint')}</p>
+            <p className="pv-heading mb-1" style={{ color: th.inkText }}>{t('oauthLinkedAccounts')}</p>
+            <p className="pv-caption mb-3" style={{ color: th.muted }}>{t('oauthLinkedHint')}</p>
             {oauthCfg.yandex && (
               <div className="flex items-center justify-between gap-2 mb-2">
                 <div>
-                  <p className="text-xs font-semibold" style={{ color: th.inkText }}>Яндекс</p>
-                  <p className="text-[10px]" style={{ color: user?.oauth?.yandex ? ACCENT : th.soft }}>
+                  <p className="pv-subtitle" style={{ color: th.inkText }}>Яндекс</p>
+                  <p className="pv-micro" style={{ color: user?.oauth?.yandex ? ACCENT : th.muted }}>
                     {user?.oauth?.yandex ? t('oauthLinkedYes') : t('oauthLinkedNo')}
                   </p>
                 </div>
@@ -1944,9 +1925,9 @@ function CabinetScreen({ onBack }: { onBack: () => void }) {
                   type="button"
                   disabled={busy}
                   onClick={() => void (user?.oauth?.yandex ? unlinkOauth('yandex') : linkOauth('yandex'))}
-                  className="shrink-0 px-3 py-2 rounded-2xl text-[11px] font-semibold"
+                  className="pv-button shrink-0 px-3 py-2 min-h-11 rounded-2xl"
                   style={{
-                    background: user?.oauth?.yandex ? th.solid : (th.isDark ? '#2E2E2E' : '#F0F1F3'),
+                    background: user?.oauth?.yandex ? th.solid : (th.isDark ? th.lightBg : '#F0F1F3'),
                     color: user?.oauth?.yandex ? '#fff' : th.inkText,
                   }}
                 >
@@ -1957,8 +1938,8 @@ function CabinetScreen({ onBack }: { onBack: () => void }) {
             {oauthCfg.vk && (
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-xs font-semibold" style={{ color: th.inkText }}>VK</p>
-                  <p className="text-[10px]" style={{ color: user?.oauth?.vk ? ACCENT : th.soft }}>
+                  <p className="pv-subtitle" style={{ color: th.inkText }}>VK</p>
+                  <p className="pv-micro" style={{ color: user?.oauth?.vk ? ACCENT : th.muted }}>
                     {user?.oauth?.vk ? t('oauthLinkedYes') : t('oauthLinkedNo')}
                   </p>
                 </div>
@@ -1966,7 +1947,7 @@ function CabinetScreen({ onBack }: { onBack: () => void }) {
                   type="button"
                   disabled={busy}
                   onClick={() => void (user?.oauth?.vk ? unlinkOauth('vk') : linkOauth('vk'))}
-                  className="shrink-0 px-3 py-2 rounded-2xl text-[11px] font-semibold text-white"
+                  className="pv-button shrink-0 px-3 py-2 min-h-11 rounded-2xl text-white"
                   style={{ background: user?.oauth?.vk ? th.solid : '#0077FF' }}
                 >
                   {user?.oauth?.vk ? t('oauthUnlinkVk') : t('oauthLinkVk')}
@@ -1977,39 +1958,39 @@ function CabinetScreen({ onBack }: { onBack: () => void }) {
         )}
 
         <div className="rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <p className="text-xs font-bold mb-1" style={{ color: th.inkText }}>Двухфакторная защита</p>
-          <p className="text-[10px] mb-3" style={{ color: th.soft }}>{totpStatus}</p>
+          <p className="pv-heading mb-1" style={{ color: th.inkText }}>Двухфакторная защита</p>
+          <p className="pv-caption mb-3" style={{ color: th.muted }}>{totpStatus}</p>
           {!totpOn && (
             <>
-              <button disabled={busy} onClick={() => void startTotp()} className="w-full py-2.5 rounded-2xl text-xs font-semibold text-white" style={{ background: th.solid }}>Настроить 2FA</button>
+              <button disabled={busy} onClick={() => void startTotp()} className="pv-button w-full py-2.5 min-h-11 rounded-2xl text-white" style={{ background: th.solid }}>Настроить 2FA</button>
               {totpSecret && (
                 <div className="mt-3">
-                  <p className="text-[10px] break-all mb-1" style={{ color: th.muted }}>{totpSecret}</p>
-                  {otpauthUrl && <a href={otpauthUrl} className="text-[10px] underline" style={{ color: ACCENT }}>Открыть в приложении-аутентификаторе</a>}
+                  <p className="pv-micro break-all mb-1" style={{ color: th.muted }}>{totpSecret}</p>
+                  {otpauthUrl && <a href={otpauthUrl} className="pv-caption underline" style={{ color: ACCENT }}>Открыть в приложении-аутентификаторе</a>}
                   <OtpInput value={totpConfirm} autoFocus
                     onChange={setTotpConfirm}
                     onComplete={(code) => { setTotpConfirm(code); if (!busy) void confirmTotp(code); }} />
-                  <button disabled={busy} onClick={() => void confirmTotp()} className="mt-3 w-full py-2.5 rounded-2xl text-xs font-semibold text-white" style={{ background: ACCENT }}>Включить 2FA</button>
+                  <button disabled={busy} onClick={() => void confirmTotp()} className="pv-button mt-3 w-full py-2.5 min-h-11 rounded-2xl text-white" style={{ background: ACCENT }}>Включить 2FA</button>
                 </div>
               )}
             </>
           )}
           {totpOn && !isStaff && (
             <>
-              <Field label="Пароль" value={disPw} onChange={setDisPw} th={th} password />
+              <FormField label="Пароль" value={disPw} onChange={setDisPw} password inset />
               <div className="mt-2">
                 <OtpInput value={disCode} onChange={setDisCode} />
               </div>
-              <button disabled={busy} onClick={() => void disableTotp()} className="mt-3 w-full py-2.5 rounded-2xl text-xs font-semibold text-white" style={{ background: th.solid }}>Отключить 2FA</button>
+              <button disabled={busy} onClick={() => void disableTotp()} className="pv-button mt-3 w-full py-2.5 min-h-11 rounded-2xl text-white" style={{ background: th.solid }}>Отключить 2FA</button>
             </>
           )}
         </div>
 
         {user?.role === 'admin' && events.length > 0 && (
           <div className="rounded-3xl p-4" style={{ background: th.cardBg }}>
-            <p className="text-xs font-bold mb-2" style={{ color: th.inkText }}>События безопасности</p>
+            <p className="pv-heading mb-2" style={{ color: th.inkText }}>События безопасности</p>
             {events.slice(0, 12).map((ev, i) => (
-              <p key={i} className="text-[10px] mb-1" style={{ color: th.muted }}>{ev.type} · {ev.login} · {ev.at}</p>
+              <p key={i} className="pv-micro mb-1" style={{ color: th.muted }}>{ev.type} · {ev.login} · {ev.at}</p>
             ))}
           </div>
         )}
@@ -2076,37 +2057,37 @@ function DeleteAccountScreen({ onBack }: { onBack: () => void }) {
       <ScreenHeader title={t('deleteAccountTitle')} onBack={onBack} />
       <div className="flex-1 overflow-y-auto scrollbar-none p-4 flex flex-col gap-3">
         <div className="rounded-3xl p-4" style={{ background: th.cardBg }}>
-          <p className="text-xs leading-relaxed" style={{ color: th.soft }}>{t('deleteAccountBody')}</p>
+          <p className="pv-caption leading-relaxed" style={{ color: th.muted }}>{t('deleteAccountBody')}</p>
           {oauthOnly && (
-            <p className="text-[10px] mt-2" style={{ color: th.soft }}>
+            <p className="pv-caption mt-2" style={{ color: th.muted }}>
               Привязки Яндекс/VK удалятся вместе с аккаунтом — тот же соцаккаунт можно будет зарегистрировать заново.
             </p>
           )}
         </div>
         {protectedAcc ? (
-          <p className="text-xs" style={{ color: ACCENT }}>{t('deleteAccountProtected')}</p>
+          <p className="pv-caption" style={{ color: ACCENT }}>{t('deleteAccountProtected')}</p>
         ) : (
           <div className="rounded-3xl p-4 flex flex-col gap-3" style={{ background: th.cardBg }}>
             {oauthOnly ? (
-              <Field
+              <FormField
                 label={`Введите логин «${user?.loginName || ''}»`}
                 value={confirmLogin}
                 onChange={setConfirmLogin}
-                th={th}
                 name="confirm-login"
                 autoComplete="username"
+                inset
               />
             ) : (
-              <Field label={t('deleteAccountPw')} value={pw} onChange={setPw} th={th} password />
+              <FormField label={t('deleteAccountPw')} value={pw} onChange={setPw} password inset />
             )}
             {user?.totpEnabled && (
               <div>
-                <p className="text-[10px] font-semibold mb-1" style={{ color: th.soft }}>{t('deleteAccountTotp')}</p>
+                <p className="pv-label mb-1" style={{ color: th.muted }}>{t('deleteAccountTotp')}</p>
                 <OtpInput value={totp} onChange={setTotp} />
               </div>
             )}
             <button type="button" disabled={busy} onClick={() => void submit()}
-              className="w-full py-3 rounded-2xl text-xs font-semibold text-white cursor-pointer"
+              className="pv-button w-full py-3 min-h-11 rounded-2xl text-white cursor-pointer"
               style={{ background: ACCENT }}>
               {t('deleteAccountConfirm')}
             </button>
@@ -2138,7 +2119,7 @@ function GuessrScreen({ onBack }: { onBack: () => void }) {
       <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
         <ScreenHeader title={t('guessr')} onBack={onBack} />
         <div className="px-4">
-          <EmptyNote title={t('guessrEmpty')} hint={t('guessrEmptyHint')} />
+          <EmptyNote title={t('guessrEmpty')} hint={t('guessrEmptyHint')} image={stock.guessr} actionLabel={t('openCatalog')} onAction={() => push({ type: 'catalog' })} />
         </div>
       </div>
     );

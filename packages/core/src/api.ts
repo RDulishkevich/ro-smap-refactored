@@ -26,6 +26,7 @@ export function getAuthToken() {
   return accessToken || readStoredToken();
 }
 
+/** Remember-me keeps JWT in localStorage (iOS ITP drops Function-host cookies). Prefer cookies when they stick. */
 export function setAccessToken(token: string, remember = rememberTokens()) {
   accessToken = token;
   try {
@@ -242,6 +243,9 @@ export const apiCommit = (fileName: string, captchaToken?: string) =>
   }, { auth: true });
 export const apiPresignUpload = (fileName: string, contentType: string, contentLength: number) =>
   apiRequest('presign', { fileName, contentType, contentLength: Number(contentLength) || 0 }, { auth: true });
+/** Fail-closed owned DeleteObject for media/ and uploads/ only. Pass public URLs or object keys. */
+export const apiDeleteMedia = (urls: string | string[]) =>
+  apiRequest('deleteMedia', { urls: Array.isArray(urls) ? urls : [urls] }, { auth: true });
 
 function actorLogin() {
   try {

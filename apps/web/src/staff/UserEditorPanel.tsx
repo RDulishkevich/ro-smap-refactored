@@ -3,6 +3,7 @@ import {
   apiAdminDeleteUser, apiAdminSendEmail, apiAdminUnbindEmail, apiStaffUserDossier, apiSyncJson,
   roleAtLeast, SUPPORT_LOGIN, type Profile, type Sound, type StaffRole,
 } from '@polevka/core';
+import { persistEventDelete, persistExpeditionDelete } from '../lib/owned-delete';
 import { color } from '@polevka/design';
 import { MessageCircle, X } from 'lucide-react';
 import { useAuth } from '../state/AuthContext';
@@ -14,6 +15,12 @@ import { Avatar } from '../primitives/Avatar';
 
 const ACCENT = color.accent;
 const ROLES: StaffRole[] = ['user', 'moderator', 'admin', 'owner'];
+const ROLE_RU: Record<StaffRole, string> = {
+  user: 'пользователь',
+  moderator: 'модератор',
+  admin: 'админ',
+  owner: 'владелец',
+};
 
 type Dossier = {
   login?: string;
@@ -66,7 +73,7 @@ export function UserEditorPanel({
 }) {
   const th = useTh();
   const { user } = useAuth();
-  const { allSounds, reload } = useData();
+  const { allSounds, events, profiles, reload, patchEventsLocal, patchProfilesLocal, patchSoundLocal } = useData();
   const { openChat, openSound } = useStaff();
   const { toast, confirm } = useUi();
   const canAdmin = roleAtLeast(user?.role, 'admin');
@@ -109,11 +116,14 @@ export function UserEditorPanel({
     return () => { cancelled = true; };
   }, [login]);
 
+  const liveProfile = profiles.find((p) => String(p.loginName || '').toLowerCase() === login.toLowerCase()) || profile;
   const theirSounds = allSounds.filter((s) => {
     if (s.deleted) return false;
     const u = String(s.recordistId || s.user || '').toLowerCase();
     return u === login.toLowerCase();
   });
+  const theirExpeditions = liveProfile.sessions || [];
+  const theirEvents = events.filter((ev) => !ev.deleted && String(ev.ownerLogin || '').toLowerCase() === login.toLowerCase());
 
   const save = async () => {
     if (!canAdmin) return;
@@ -148,11 +158,11 @@ export function UserEditorPanel({
 
   const field = (label: string, el: React.ReactNode) => (
     <label className="flex flex-col gap-1">
-      <span className="pv-micro" style={{ color: th.soft }}>{label}</span>
+      <span className="pv-label" style={{ color: th.muted }}>{label}</span>
       {el}
     </label>
   );
-  const inputCls = 'w-full rounded-2xl px-3 py-2.5 outline-none pv-caption';
+  const inputCls = 'w-full rounded-2xl px-3 py-2.5 pv-inset-focus pv-caption';
   const inputStyle = { background: th.phoneBg, color: th.inkText, border: `1px solid ${th.border}` };
 
   const timeline: Array<{ at: string; title: string; detail?: string }> = [];
@@ -241,10 +251,10 @@ export function UserEditorPanel({
               <p className="pv-micro" style={{ color: th.soft }}>Аккаунт</p>
               <p className="pv-caption" style={{ color: th.inkText }}>
                 Роль {dossier?.role || role}
-                {dossier?.blocked || blocked ? ' · blocked' : ''}
+                {dossier?.blocked || blocked ? ' · заблокирован' : ''}
                 {dossier?.oauth?.yandex ? ' · Яндекс' : ''}
                 {dossier?.oauth?.vk ? ' · VK' : ''}
-                {dossier?.oauth?.oauthOnly ? ' · oauth-only' : ''}
+                {dossier?.oauth?.oauthOnly ? ' · только соцсеть' : ''}
               </p>
               <p className="pv-caption" style={{ color: th.muted }}>
                 Email: {dossier?.private?.email || dossier?.private?.emailMasked || '—'}
@@ -310,13 +320,13 @@ export function UserEditorPanel({
 
             {canAdmin && (
               <div className="flex flex-col gap-2">
-                <span className="pv-micro" style={{ color: th.soft }}>Роль доступа</span>
+                <span className="pv-label" style={{ color: th.muted }}>Роль доступа</span>
                 <div className="flex flex-wrap gap-1.5">
                   {ROLES.filter((r) => (r === 'owner' || r === 'admin' ? canOwner : true)).map((r) => (
                     <button key={r} type="button" onClick={() => setRole(r)}
                       className="pv-caption px-3 py-1.5 rounded-xl"
                       style={{ background: role === r ? ACCENT : th.lightBg, color: role === r ? '#fff' : th.muted }}>
-                      {r}
+                      {ROLE_RU[r] || r}
                     </button>
                   ))}
                 </div>
@@ -324,6 +334,70 @@ export function UserEditorPanel({
                   <input type="checkbox" checked={blocked} onChange={(e) => setBlocked(e.target.checked)} />
                   Заблокирован
                 </label>
+              </div>
+            )}
+
+            {theirExpeditions.length > 0 && canAdmin && (
+              <div>
+                <p className="pv-micro mb-2" style={{ color: th.soft }}>Экспедиции</p>
+                <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto">
+                  {theirExpeditions.map((exp) => (
+                    <div key={String(exp.id)} className="rounded-xl px-3 py-2 flex items-center gap-2" style={{ background: th.phoneBg }}>
+                      <p className="pv-caption truncate flex-1 min-w-0" style={{ color: th.inkText }}>{exp.title}</p>
+                      <button type="button" className="pv-micro px-2 py-1 rounded-lg flex-shrink-0"
+                        style={{ color: ACCENT }}
+                        onClick={() => void (async () => {
+                          const ok = await confirm({ title: 'Удалить экспедицию?', body: String(exp.title || ''), ok: 'Удалить' });
+                          if (!ok) return;
+                          try {
+                            const { profile: next, unlinked } = await persistExpeditionDelete({
+                              profile: liveProfile,
+                              expedition: exp,
+                              sounds: allSounds,
+                              asAdmin: true,
+                              actorLogin: String(user?.loginName || ''),
+                            });
+                            patchProfilesLocal((prev) => prev.map((p) => (
+                              String(p.loginName || '').toLowerCase() === login.toLowerCase() ? { ...p, ...next } : p
+                            )));
+                            for (const s of unlinked) patchSoundLocal(s.id, { sessionId: null });
+                            toast('Экспедиция удалена');
+                          } catch (e: unknown) { toast((e as Error).message); }
+                        })()}>
+                        Удалить
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {theirEvents.length > 0 && canAdmin && (
+              <div>
+                <p className="pv-micro mb-2" style={{ color: th.soft }}>Ивенты</p>
+                <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto">
+                  {theirEvents.map((ev) => (
+                    <div key={String(ev.id)} className="rounded-xl px-3 py-2 flex items-center gap-2" style={{ background: th.phoneBg }}>
+                      <p className="pv-caption truncate flex-1 min-w-0" style={{ color: th.inkText }}>{ev.title}</p>
+                      <button type="button" className="pv-micro px-2 py-1 rounded-lg flex-shrink-0"
+                        style={{ color: ACCENT }}
+                        onClick={() => void (async () => {
+                          const ok = await confirm({ title: 'Удалить ивент?', body: String(ev.title || ''), ok: 'Удалить' });
+                          if (!ok) return;
+                          patchEventsLocal((prev) => prev.filter((row) => String(row.id) !== String(ev.id)));
+                          try {
+                            await persistEventDelete(ev);
+                            toast('Ивент удалён');
+                          } catch (e: unknown) {
+                            await reload();
+                            toast((e as Error).message);
+                          }
+                        })()}>
+                        Удалить
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -378,7 +452,7 @@ export function UserEditorPanel({
                     try { await apiAdminUnbindEmail(login); toast('Email снят'); }
                     catch (e: unknown) { toast((e as Error).message); }
                   })()}>
-                  Unbind email
+                  Снять email
                 </button>
               )}
               {canOwner && (

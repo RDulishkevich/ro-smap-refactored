@@ -203,8 +203,8 @@ export function AnalyzersPanel({ playing }: { playing: boolean }) {
     return () => cancelAnimationFrame(raf);
   }, [playing, dark]);
 
-  const padBg = dark ? '#171717' : color.cream;
-  const canvasBg = dark ? '#0B0B0B' : th.phoneBg;
+  const padBg = dark ? th.cardBg : color.cream;
+  const canvasBg = th.phoneBg;
   const meter = (lab: string, rms: typeof lRms, peak: typeof lPeak) => (
     <div className="flex items-center gap-2">
       <span className="pv-micro w-3" style={{ color: th.soft }}>{lab}</span>
@@ -218,17 +218,17 @@ export function AnalyzersPanel({ playing }: { playing: boolean }) {
   return (
     <div className="mt-3 rounded-3xl overflow-hidden" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
       <div className="flex items-center justify-between px-3.5 py-2.5" style={{ background: padBg, borderBottom: `1px solid ${th.border}` }}>
-        <span className="pv-label uppercase" style={{ color: th.soft }}>{t('analyzers')}</span>
+        <span className="pv-label" style={{ color: th.soft }}>{t('analyzers')}</span>
         <span ref={dbRef} className="pv-caption tabular-nums" style={{ color: color.accent }}>−∞ dB</span>
       </div>
       <div className="grid grid-cols-[108px_minmax(0,1fr)] gap-2.5 p-3">
         <div>
-          <p className="pv-label uppercase mb-1.5" style={{ color: th.soft }}>{t('goniometer')}</p>
+          <p className="pv-label mb-1.5" style={{ color: th.soft }}>{t('goniometer')}</p>
           <canvas ref={gonioRef} width={200} height={200} className="w-full aspect-square rounded-2xl block" style={{ background: canvasBg }} />
         </div>
         <div className="min-w-0 flex flex-col gap-2">
           <div>
-            <p className="pv-label uppercase mb-1.5" style={{ color: th.soft }}>{t('spectrogram')}</p>
+            <p className="pv-label mb-1.5" style={{ color: th.soft }}>{t('spectrogram')}</p>
             <canvas ref={specRef} width={720} height={160} className="w-full h-[108px] rounded-2xl block" style={{ background: canvasBg }} />
           </div>
           <div className="flex flex-col gap-1.5">
@@ -399,8 +399,8 @@ export function LiveAnalyzers({
     return () => cancelAnimationFrame(raf);
   }, [active, dark, mix, left, right]);
 
-  const padBg = dark ? '#171717' : color.cream;
-  const canvasBg = dark ? '#0B0B0B' : th.phoneBg;
+  const padBg = dark ? th.cardBg : color.cream;
+  const canvasBg = th.phoneBg;
   const meter = (lab: string, rms: typeof lRms, peak: typeof lPeak) => (
     <div className="flex items-center gap-2">
       <span className="pv-micro w-3" style={{ color: th.soft }}>{lab}</span>
@@ -414,17 +414,17 @@ export function LiveAnalyzers({
   return (
     <div className="rounded-3xl overflow-hidden" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
       <div className="flex items-center justify-between px-3.5 py-2.5" style={{ background: padBg, borderBottom: `1px solid ${th.border}` }}>
-        <span className="pv-label uppercase" style={{ color: th.soft }}>{t('analyzers')}</span>
+        <span className="pv-label" style={{ color: th.soft }}>{t('analyzers')}</span>
         <span ref={dbRef} className="pv-caption tabular-nums" style={{ color: color.accent }}>−∞ dB</span>
       </div>
       <div className="grid grid-cols-[108px_minmax(0,1fr)] gap-2.5 p-3">
         <div>
-          <p className="pv-label uppercase mb-1.5" style={{ color: th.soft }}>{t('goniometer')}</p>
+          <p className="pv-label mb-1.5" style={{ color: th.soft }}>{t('goniometer')}</p>
           <canvas ref={gonioRef} width={200} height={200} className="w-full aspect-square rounded-2xl block" style={{ background: canvasBg }} />
         </div>
         <div className="min-w-0 flex flex-col gap-2">
           <div>
-            <p className="pv-label uppercase mb-1.5" style={{ color: th.soft }}>{t('spectrogram')}</p>
+            <p className="pv-label mb-1.5" style={{ color: th.soft }}>{t('spectrogram')}</p>
             <canvas ref={specRef} width={720} height={160} className="w-full h-[108px] rounded-2xl block" style={{ background: canvasBg }} />
           </div>
           <div className="flex flex-col gap-1.5">

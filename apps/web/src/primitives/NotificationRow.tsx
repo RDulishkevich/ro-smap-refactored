@@ -113,7 +113,7 @@ export function NotificationRow({
               {n.text}
             </button>
           )}
-          {n.date && <p className="text-[9px] mt-1" style={{ color: th.soft }}>{n.date}</p>}
+          {n.date && <p className="pv-micro mt-1" style={{ color: th.muted }}>{n.date}</p>}
         </div>
       </div>
     </div>

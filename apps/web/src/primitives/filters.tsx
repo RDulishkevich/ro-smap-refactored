@@ -50,11 +50,11 @@ export function CatalogFilters() {
       )}
       <div className="flex gap-1.5">
         <input value={filter.tag} onChange={(e) => set({ tag: e.target.value })} placeholder="тег"
-          className="flex-1 min-w-0 rounded-xl px-2 py-1.5 text-[10px] outline-none" style={{ background: th.lightBg, color: th.inkText }} />
+          className="flex-1 min-w-0 rounded-xl px-2 py-1.5 pv-micro pv-inset-focus" style={{ background: th.lightBg, color: th.inkText }} />
         <input value={filter.gear} onChange={(e) => set({ gear: e.target.value })} placeholder="техника"
-          className="flex-1 min-w-0 rounded-xl px-2 py-1.5 text-[10px] outline-none" style={{ background: th.lightBg, color: th.inkText }} />
+          className="flex-1 min-w-0 rounded-xl px-2 py-1.5 pv-micro pv-inset-focus" style={{ background: th.lightBg, color: th.inkText }} />
         <select value={filter.channels} onChange={(e) => set({ channels: e.target.value })}
-          className="rounded-xl px-2 py-1.5 text-[10px] outline-none" style={{ background: th.lightBg, color: th.inkText }}>
+          className="rounded-xl px-2 py-1.5 pv-micro pv-inset-focus" style={{ background: th.lightBg, color: th.inkText }}>
           {CHANNELS.map((c) => <option key={c || 'ch'} value={c}>{c || 'каналы'}</option>)}
         </select>
       </div>
@@ -62,12 +62,12 @@ export function CatalogFilters() {
       )}
       <div className="flex items-center gap-2">
         {!desktop && (
-          <button type="button" className="text-[10px] font-semibold" style={{ color: extra ? th.muted : ACCENT }} onClick={() => setMore((v) => !v)}>
+          <button type="button" className="pv-micro" style={{ color: extra ? th.muted : ACCENT }} onClick={() => setMore((v) => !v)}>
             {extra ? 'Свернуть фильтры' : 'Ещё фильтры'}
           </button>
         )}
         {(filter.eco || filter.ucs || filter.ucsSub || filter.tag || filter.gear || filter.channels || filter.q || filter.type) && (
-          <button className="text-[10px]" style={{ color: th.soft }} onClick={() => setFilter(EMPTY_FILTER)}>Сбросить</button>
+          <button className="pv-micro" style={{ color: th.muted }} onClick={() => setFilter(EMPTY_FILTER)}>Сбросить</button>
         )}
       </div>
     </div>
@@ -76,7 +76,7 @@ export function CatalogFilters() {
 
 function Chip({ on, onClick, label, th }: { on: boolean; onClick: () => void; label: string; th: ThemeTokens }) {
   return (
-    <button type="button" onClick={onClick} className="px-3 py-1.5 rounded-full text-[10px] font-semibold flex-shrink-0"
+    <button type="button" onClick={onClick} className="px-3 py-1.5 rounded-full pv-micro flex-shrink-0"
       style={{ background: on ? ACCENT : th.lightBg, color: on ? '#fff' : th.muted }}>{label}</button>
   );
 }

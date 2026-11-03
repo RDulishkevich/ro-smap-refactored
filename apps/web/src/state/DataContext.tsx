@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  apiGetMail, apiPatchSound, apiSyncJson, fetchEvents, fetchFeed, fetchMapData, fetchProfiles,
+  apiGetMail, apiPatchSound, apiSyncJson, fetchEventsCatalog, fetchFeedCatalog, fetchMapCatalog, fetchProfilesCatalog,
   filterSounds, markBoxNotificationsRead, mergeMailState, normalizeMail, publishedSounds, EMPTY_FILTER,
   type AppEvent, type CatalogFilter, type FeedPost, type MailBox, type Profile, type Sound,
 } from '@polevka/core';
@@ -116,40 +116,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [mail, reloadMail, user?.loginName]);
 
   const hadCatalog = useRef(false);
-  /** Skip setState when the public JSON fingerprint is unchanged — avoids list remounts. */
-  const catalogFp = useRef({ sounds: '', feed: '', events: '', profiles: '' });
   const reload = useCallback(async () => {
-    const results = await Promise.allSettled([fetchMapData(), fetchFeed(), fetchEvents(), fetchProfiles()]);
+    const results = await Promise.allSettled([
+      fetchMapCatalog(), fetchFeedCatalog(), fetchEventsCatalog(), fetchProfilesCatalog(),
+    ]);
     const [s, f, e, p] = results;
     if (s.status === 'fulfilled') {
-      const fp = JSON.stringify(s.value);
-      if (fp !== catalogFp.current.sounds) {
-        catalogFp.current.sounds = fp;
-        setAll(s.value);
-      }
+      if (!s.value.unchanged) setAll(s.value.data);
       hadCatalog.current = true;
     }
-    if (f.status === 'fulfilled') {
-      const fp = JSON.stringify(f.value);
-      if (fp !== catalogFp.current.feed) {
-        catalogFp.current.feed = fp;
-        setFeed(f.value);
-      }
-    }
-    if (e.status === 'fulfilled') {
-      const fp = JSON.stringify(e.value);
-      if (fp !== catalogFp.current.events) {
-        catalogFp.current.events = fp;
-        setEvents(e.value);
-      }
-    }
-    if (p.status === 'fulfilled') {
-      const fp = JSON.stringify(p.value);
-      if (fp !== catalogFp.current.profiles) {
-        catalogFp.current.profiles = fp;
-        setProfiles(p.value);
-        rememberSessionTitles(p.value);
-      }
+    if (f.status === 'fulfilled' && !f.value.unchanged) setFeed(f.value.data);
+    if (e.status === 'fulfilled' && !e.value.unchanged) setEvents(e.value.data);
+    if (p.status === 'fulfilled' && !p.value.unchanged) {
+      setProfiles(p.value.data);
+      rememberSessionTitles(p.value.data);
     }
     const failed = results.some((row) => row.status === 'rejected');
     if (!failed) setCatalogStatus('ok');

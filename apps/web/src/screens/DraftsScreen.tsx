@@ -8,6 +8,7 @@ import { useT } from '../state/PrefsContext';
 import { useUi } from '../state/UiContext';
 import { ScreenHeader } from '../primitives/ui';
 import { EmptyNote } from '../primitives/EmptyNote';
+import { stock } from '../lib/stock';
 import { SoundRow } from '../primitives/SoundRow';
 import { useIsDesktop } from '../lib/use-media';
 import { getDraftRecording } from '../lib/record-buffer';
@@ -54,7 +55,7 @@ export function DraftsScreen({ onBack }: { onBack: () => void }) {
               onClick={() => push({ type: 'add-sound' })}
               className="w-full text-left rounded-3xl p-4"
               style={{ background: th.cardBg }}>
-              <p className="pv-micro uppercase" style={{ color: ACCENT }}>{t('draftLocal')}</p>
+              <p className="pv-micro" style={{ color: ACCENT }}>{t('draftLocal')}</p>
               <p className="pv-subtitle mt-0.5" style={{ color: th.inkText }}>{t('draftContinue')}</p>
               <p className="pv-caption mt-1" style={{ color: th.soft }}>{formatClock(local.durationSec)}</p>
             </motion.button>
@@ -76,8 +77,11 @@ export function DraftsScreen({ onBack }: { onBack: () => void }) {
             <EmptyNote
               title={t('draftsEmpty')}
               hint={t('draftsHint')}
-              actionLabel={!isLoggedIn ? t('signIn') : undefined}
-              onAction={!isLoggedIn ? () => { toast('Войдите, чтобы видеть облачные черновики'); push({ type: 'auth' }); } : undefined}
+              image={stock.drafts}
+              actionLabel={!isLoggedIn ? t('signIn') : t('recordSound')}
+              onAction={!isLoggedIn
+                ? () => { toast('Войдите, чтобы видеть облачные черновики'); push({ type: 'auth' }); }
+                : () => push({ type: 'record' })}
             />
           )}
         </div>

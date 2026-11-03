@@ -58,6 +58,8 @@ export type Sound = {
   rejectNote?: string;
   deleted?: boolean;
   timeMarkers?: TimeMarker[];
+  /** 8–80 bars, 0–1. Written at publish so lists do not decode wav. */
+  peaks?: number[];
   premodFlag?: 'profanity' | 'speech' | 'clean' | 'skip';
   [key: string]: unknown;
 };
@@ -148,6 +150,7 @@ export type AppEvent = {
   ownerLogin?: string;
   attendees?: string[];
   participants?: Array<string | EventParticipant>;
+  deleted?: boolean;
   [key: string]: unknown;
 };
 

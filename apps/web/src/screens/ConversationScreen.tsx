@@ -57,6 +57,7 @@ export function ConversationScreen({ name, avatar, peer, asLogin, embed = false,
   const { toast, confirm } = useUi();
   const { push } = useNav();
   const staff = useStaffOptional();
+  const staffDesk = asLogin === SUPPORT_LOGIN && !!staff;
   const locale = prefs.locale === 'en' ? 'en' : 'ru';
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -204,10 +205,17 @@ export function ConversationScreen({ name, avatar, peer, asLogin, embed = false,
   };
 
   const removeMsg = async (m: ThreadMsg) => {
-    if (!meLogin || !m.mine) return;
-    const ok = await confirm({ title: 'Удалить сообщение?', body: 'Оно исчезнет из переписки.', ok: 'Удалить' });
+    if (!meLogin) return;
+    if (!m.mine && !staffDesk) return;
+    const ok = await confirm({
+      title: 'Удалить сообщение?',
+      body: staffDesk && !m.mine
+        ? 'Сообщение пропадёт из переписки у пользователя и в поддержке.'
+        : 'Оно исчезнет из переписки у вас и у собеседника.',
+      ok: 'Удалить',
+    });
     if (!ok) return;
-    const box = messageHomeBox(meLogin, peer, true);
+    const box = messageHomeBox(meLogin, peer, m.mine);
     applyMail((prev) => patchInboxMessage(prev, box, m.id, { deleted: true, text: '', image: undefined, video: undefined, reactions: {} }));
     void apiSyncJson('mail.json', [{
       loginName: box,
@@ -357,7 +365,7 @@ export function ConversationScreen({ name, avatar, peer, asLogin, embed = false,
             onReact={(emoji) => react(menu.msg, emoji)}
             onReply={() => startReply(menu.msg)}
             onCopy={() => void copyMsg(menu.msg)}
-            onDelete={menu.msg.mine ? () => void removeMsg(menu.msg) : undefined}
+            onDelete={(menu.msg.mine || staffDesk) ? () => void removeMsg(menu.msg) : undefined}
           />
         )}
       </AnimatePresence>
@@ -406,7 +414,7 @@ export function ConversationScreen({ name, avatar, peer, asLogin, embed = false,
           rows={1}
           enterKeyHint="send"
           placeholder={replyTo ? 'Ответ…' : 'Сообщение'}
-          className="flex-1 min-h-11 max-h-32 rounded-2xl px-3.5 py-2.5 outline-none resize-none pv-body"
+          className="flex-1 min-h-11 max-h-32 rounded-2xl px-3.5 py-2.5 outline-none resize-none pv-body pv-inset-focus"
           style={{ background: th.cardBg, color: th.inkText }}
           onChange={(e) => {
             setText(e.target.value);

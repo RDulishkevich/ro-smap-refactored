@@ -85,13 +85,13 @@ function StaffLoginGate({ children }: { children: React.ReactNode }) {
         <label className="pv-label" style={{ color: th.soft }}>
           Логин
           <input value={login} onChange={(e) => setLogin(e.target.value)} autoComplete="username" autoFocus
-            className="mt-1 w-full rounded-2xl px-4 py-2.5 outline-none" style={{ background: th.phoneBg, color: th.inkText }} />
+            className="mt-1 w-full rounded-2xl px-4 py-2.5 outline-none pv-caption pv-inset-focus" style={{ background: th.phoneBg, color: th.inkText }} />
         </label>
         <label className="pv-label" style={{ color: th.soft }}>
           Код из приложения
           <input value={totp} onChange={(e) => setTotp(e.target.value.replace(/\D/g, '').slice(0, 6))}
             inputMode="numeric" autoComplete="one-time-code" maxLength={6}
-            className="mt-1 w-full rounded-2xl px-4 py-2.5 outline-none tracking-widest"
+            className="mt-1 w-full rounded-2xl px-4 py-2.5 outline-none tracking-widest pv-caption pv-inset-focus"
             style={{ background: th.phoneBg, color: th.inkText }} />
         </label>
         <button type="submit" disabled={busy || !login.trim() || totp.length < 6}

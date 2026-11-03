@@ -1,33 +1,34 @@
-/** Figma Make mobile palette — canonical Полёвка DS (web + future RN). */
+/** Field-kit palette — topographic paper, river clay, one accent. */
 
 export const color = {
   accent: '#B5613F',
-  dark: '#2D3C39',
-  olive: '#6F7C4E',
-  sage: '#9DB170',
-  mist: '#92B3B1',
-  light: '#D9E2C3',
-  cream: '#F4E8D8',
+  dark: '#2A3230',
+  olive: '#5C6750',
+  sage: '#8A9278',
+  mist: '#7F9B99',
+  light: '#E3E5DF',
+  cream: '#F2F0EA',
   ink: '#1A1A1A',
-  phoneBg: '#E8EDEA',
-  birds: '#D78763',
-  birdsTag: '#B86A3A',
-  mapFill: '#E4EDE9',
-  mapPark: '#C8D8C2',
-  mapWater: '#92B3B1',
-  muted: '#B0B8A8',
+  phoneBg: '#E7E8E4',
+  birds: '#C47A58',
+  birdsTag: '#A45D38',
+  mapFill: '#E4E6E2',
+  mapPark: '#C9D0C4',
+  mapWater: '#7F9B99',
+  /** Readable secondary text (~4.5:1 on phoneBg / cream / white). Sage stays decorative. */
+  muted: '#5A6354',
 } as const;
 
 export const darkColor = {
-  phoneBg: '#0B0B0B',
-  cardBg: '#171717',
-  cream: '#1C1C1C',
-  inkText: '#F0F0F0',
-  headerBg: '#111111',
-  navBg: '#111111',
-  lightBg: '#2E2E2E',
-  muted: '#A0A0A0',
-  soft: '#B0B0B0',
+  phoneBg: '#131513',
+  cardBg: '#1C1F1D',
+  cream: '#222522',
+  inkText: '#F2F2F0',
+  headerBg: '#171917',
+  navBg: '#171917',
+  lightBg: '#262A27',
+  muted: '#B0B5A6',
+  soft: '#8A9278',
   /** Secondary solid CTA (logout, 2FA) — replaces forest `color.dark` in chrome. */
   solid: '#3A3A3A',
   mapBg: '#121212',
@@ -43,7 +44,7 @@ export const lightTheme = {
   headerBg: '#ffffff',
   navBg: '#ffffff',
   lightBg: color.light,
-  muted: color.olive,
+  muted: color.muted,
   soft: color.sage,
   solid: color.dark,
   mapBg: color.mapFill,
@@ -117,25 +118,26 @@ export const radius = {
 
 export const fonts = {
   ui: '"Geist Variable", system-ui, sans-serif',
-  brand: 'Klukva, Georgia, "Times New Roman", serif',
+  /** Same family as UI — hierarchy is size + 400/500, not a second display face. */
+  brand: '"Geist Variable", system-ui, sans-serif',
 } as const;
 
 /**
- * Klukva speaks (display / title / page / wordmark) — 400 only, never bold.
- * Geist works (heading → micro) — 400 body, 500 UI. No 450 / 550 / 600.
+ * One family: Geist Variable. 400 body, 500 titles/UI. No 450 / 550 / 600.
  */
 export const typeRoles = {
-  display: { fontFamily: fonts.brand, fontSize: 34, fontWeight: 400, lineHeight: 1.05, letterSpacing: '0em' },
-  title: { fontFamily: fonts.brand, fontSize: 26, fontWeight: 400, lineHeight: 1.15, letterSpacing: '0em' },
-  page: { fontFamily: fonts.brand, fontSize: 22, fontWeight: 400, lineHeight: 1.15, letterSpacing: '0em' },
-  wordmark: { fontFamily: fonts.brand, fontSize: 20, fontWeight: 400, lineHeight: 1, letterSpacing: '0.02em' },
+  display: { fontFamily: fonts.ui, fontSize: 32, fontWeight: 500, lineHeight: 1.1, letterSpacing: '-0.03em' },
+  title: { fontFamily: fonts.ui, fontSize: 24, fontWeight: 500, lineHeight: 1.2, letterSpacing: '-0.025em' },
+  page: { fontFamily: fonts.ui, fontSize: 18, fontWeight: 500, lineHeight: 1.25, letterSpacing: '-0.02em' },
+  wordmark: { fontFamily: fonts.ui, fontSize: 17, fontWeight: 500, lineHeight: 1.1, letterSpacing: '-0.02em' },
   heading: { fontFamily: fonts.ui, fontSize: 16, fontWeight: 500, lineHeight: 1.3, letterSpacing: '-0.01em' },
   subtitle: { fontFamily: fonts.ui, fontSize: 15, fontWeight: 500, lineHeight: 1.35, letterSpacing: '-0.005em' },
   body: { fontFamily: fonts.ui, fontSize: 15, fontWeight: 400, lineHeight: 1.5, letterSpacing: '0em' },
   button: { fontFamily: fonts.ui, fontSize: 14, fontWeight: 500, lineHeight: 1.2, letterSpacing: '0em' },
-  label: { fontFamily: fonts.ui, fontSize: 11, fontWeight: 500, lineHeight: 1.3, letterSpacing: '0.04em' },
+  label: { fontFamily: fonts.ui, fontSize: 12, fontWeight: 500, lineHeight: 1.3, letterSpacing: '0.01em' },
   caption: { fontFamily: fonts.ui, fontSize: 13, fontWeight: 400, lineHeight: 1.45, letterSpacing: '0em' },
-  micro: { fontFamily: fonts.ui, fontSize: 10, fontWeight: 500, lineHeight: 1.3, letterSpacing: '0.02em' },
+  micro: { fontFamily: fonts.ui, fontSize: 11, fontWeight: 500, lineHeight: 1.3, letterSpacing: '0.01em' },
+  timer: { fontFamily: fonts.ui, fontSize: 40, fontWeight: 500, lineHeight: 1, letterSpacing: '-0.03em' },
 } as const;
 
 export type TypeRole = keyof typeof typeRoles;

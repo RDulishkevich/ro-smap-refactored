@@ -69,7 +69,7 @@ export function PhotoLightbox({
       transition={closing ? spring.fade : { type: 'tween', duration: y ? 0 : 0.22, ease: [0.16, 1, 0.3, 1] }}
       style={{ position: 'fixed', inset: 0, zIndex: 800, background: '#000', touchAction: 'none' }}>
       <div className="flex items-center justify-between px-3 pv-safe-top" style={{ paddingBottom: 8 }}>
-        <p className="text-[12px] font-semibold text-white/80 truncate px-2">{title || 'Фото'} · {index + 1}/{n}</p>
+        <p className="pv-label text-white/80 truncate px-2">{title || 'Фото'} · {index + 1}/{n}</p>
         <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); finish(); }}
           className="w-11 h-11 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.12)' }} aria-label="Закрыть">
           <X size={18} color="#fff" />

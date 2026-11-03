@@ -139,8 +139,8 @@ html.dark .pv-map .leaflet-tile-pane {
   filter: invert(0.92) hue-rotate(180deg) brightness(0.95) contrast(0.95) saturate(0.25);
 }
 html.dark .pv-map .leaflet-control-attribution {
-  background: rgba(23, 23, 23, 0.88) !important;
-  color: #b0b0b0;
+  background: rgba(26, 34, 28, 0.88) !important;
+  color: #A8B392;
 }
 
 html.pv-reduce-motion *,
@@ -167,10 +167,7 @@ html.pv-reduce-motion *::after {
   transform: none;
 }
 
-:focus-visible {
-  outline: 2px solid var(--pv-accent);
-  outline-offset: 2px;
-}
+/* Focus ring: canonical rule lives in packages/design tokens.css */
 
 /* Catalog / list tag chips — light gray hover for clickability */
 .pv-tag-hit {
@@ -214,7 +211,7 @@ html.pv-reduce-motion *::after {
     box-shadow: none;
   }
   html.dark .pv-desktop nav .pv-desk-hit:hover {
-    background-color: #2E2E2E !important;
+    background-color: #243028 !important;
   }
   .pv-desktop footer a,
   .pv-desktop footer button {

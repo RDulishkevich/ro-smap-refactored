@@ -60,6 +60,22 @@ const TYPE_FROM_UCS: Record<string, string> = {
   PLANTS: 'forest',
 };
 
+const PEAKS_MIN = 8;
+const PEAKS_MAX = 80;
+
+/** Compact waveform bars for catalog rows. Drops junk / oversized payloads. */
+export function normalizePeaks(raw: unknown): number[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: number[] = [];
+  for (const n of raw) {
+    if (out.length >= PEAKS_MAX) break;
+    const v = typeof n === 'number' ? n : Number(n);
+    if (!Number.isFinite(v)) continue;
+    out.push(Math.round(Math.max(0, Math.min(1, v)) * 1000) / 1000);
+  }
+  return out.length >= PEAKS_MIN ? out : undefined;
+}
+
 export function inferSoundType(s: Sound): string {
   if (s.type && ['nature', 'water', 'urban', 'forest', 'birds'].includes(String(s.type))) return String(s.type);
   const ucs = String(s.ucsCat || '').toUpperCase();
@@ -93,6 +109,7 @@ export function formatSound(s: Sound): Sound {
     principle: String(s.principle || (s as Sound & { recPrinciple?: string }).recPrinciple || ''),
     channels: String(s.channels || ''),
     timeMarkers: normalizeTimeMarkers(s.timeMarkers),
+    peaks: normalizePeaks(s.peaks),
     fileName: String(s.fileName || '') || String(buildUcsFileName({
       catId: s.ucsCatId || s.ucsCat || 'AMBMisc',
       fxName: s.fxName || s.title || 'Untitled',

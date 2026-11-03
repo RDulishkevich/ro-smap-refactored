@@ -4,7 +4,7 @@ import { firstTranslatedText } from './api';
 
 describe('sanitizeFxName', () => {
   it('keeps a complete Title Case phrase with spaces, not underscores', () => {
-    expect(sanitizeFxName('Rostov_Market_Day_Crowd')).toBe('Rostov Market Day Crowd');
+    expect(sanitizeFxName('Meadow_Market_Day_Crowd')).toBe('Meadow Market Day Crowd');
     expect(sanitizeFxName('forest dawn birds near river')).toBe('Forest Dawn Birds Near River');
   });
 
@@ -22,31 +22,31 @@ describe('buildUcsFileName', () => {
   it('puts the whole FXName in one underscore block', () => {
     const name = buildUcsFileName({
       catId: 'AMBCity',
-      fxName: 'Rostov Market Day Crowd',
+      fxName: 'Meadow Market Day Crowd',
       creatorId: 'romaflay',
-      sourceId: 'Don2026',
+      sourceId: 'Field2026',
       principle: 'стерео XY',
-      location: 'Ростов',
+      location: 'Meadow',
     });
-    expect(name).toBe('AMBCity_Rostov Market Day Crowd_romaflay_Don2026_XY-Rostov.wav');
+    expect(name).toBe('AMBCity_Meadow Market Day Crowd_romaflay_Field2026_XY-Meadow.wav');
   });
 });
 
 describe('parseUcsFileName', () => {
   it('reads a UCS name with spaces in FXName', () => {
-    const parsed = parseUcsFileName('AMBCity_Rostov Market Day Crowd_romaflay_Don2026_XY-Rostov.wav');
+    const parsed = parseUcsFileName('AMBCity_Meadow Market Day Crowd_romaflay_Field2026_XY-Meadow.wav');
     expect(parsed?.catId).toBe('AMBCity');
-    expect(parsed?.fxName).toBe('Rostov Market Day Crowd');
+    expect(parsed?.fxName).toBe('Meadow Market Day Crowd');
     expect(parsed?.creatorId).toBe('romaflay');
-    expect(parsed?.sourceId).toBe('Don2026');
-    expect(parsed?.userData).toBe('XY-Rostov');
+    expect(parsed?.sourceId).toBe('Field2026');
+    expect(parsed?.userData).toBe('XY-Meadow');
   });
 
   it('rebuilds a legacy underscored FXName into one phrase', () => {
-    const parsed = parseUcsFileName('AMBCity_Rostov_Market_Day_Crowd_romaflay_Don2026_XY-Rostov.wav');
-    expect(parsed?.fxName).toBe('Rostov Market Day Crowd');
+    const parsed = parseUcsFileName('AMBCity_Meadow_Market_Day_Crowd_romaflay_Field2026_XY-Meadow.wav');
+    expect(parsed?.fxName).toBe('Meadow Market Day Crowd');
     expect(parsed?.creatorId).toBe('romaflay');
-    expect(parsed?.sourceId).toBe('Don2026');
+    expect(parsed?.sourceId).toBe('Field2026');
   });
 });
 

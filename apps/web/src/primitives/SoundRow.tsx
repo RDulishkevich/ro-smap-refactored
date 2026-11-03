@@ -18,6 +18,7 @@ import { shareLink } from '../lib/share';
 import { SoundTagLines } from './SoundTagLines';
 import { Avatar } from './Avatar';
 import { HoverMenu } from './HoverMenu';
+import { stock } from '../lib/stock';
 
 const ACCENT = color.accent;
 
@@ -36,18 +37,22 @@ function useRowVisible() {
   return [ref, seen] as const;
 }
 
-function useRowPeaks(url: string | undefined, seed: string, enabled: boolean) {
-  const fallback = useMemo(() => seedPeaks(seed, 64), [seed]);
+function useRowPeaks(url: string | undefined, seed: string, enabled: boolean, stored?: number[]) {
+  const fallback = useMemo(
+    () => (stored && stored.length >= 8 ? stored : seedPeaks(seed, 64)),
+    [seed, stored],
+  );
   const [peaks, setPeaks] = useState<number[]>(fallback);
   useEffect(() => { setPeaks(fallback); }, [fallback]);
   useEffect(() => {
+    if (stored && stored.length >= 8) return;
     if (!enabled || !url) return;
     let dead = false;
     void peaksFromWavPreview(url, 64).then((p) => {
       if (!dead && p?.length) setPeaks(p);
     }).catch(() => {});
     return () => { dead = true; };
-  }, [url, enabled]);
+  }, [url, enabled, stored]);
   return peaks;
 }
 
@@ -70,7 +75,7 @@ export function SoundRow({
   const { profiles, playingId, playing, togglePlay, progress, seek } = useData();
   const { toast } = useUi();
   const [rowRef, seen] = useRowVisible();
-  const peaks = useRowPeaks(item.url, String(item.id || item.title || 's'), seen);
+  const peaks = useRowPeaks(item.url, String(item.id || item.title || 's'), seen, item.peaks);
   const cover = soundCover(item);
   const author = soundAuthor(item);
   const ownerLogin = soundOwnerLogin(item);
@@ -116,20 +121,18 @@ export function SoundRow({
       style={{ background: th.cardBg }}
     >
       {badge ? (
-        <p className="w-full pv-micro uppercase px-0.5" style={{ color: th.soft }}>{badge}</p>
+        <p className="w-full pv-micro px-0.5" style={{ color: th.soft }}>{badge}</p>
       ) : null}
 
       <button type="button" onClick={(e) => { e.stopPropagation(); togglePlay(item); }}
         className="group w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 cursor-pointer relative isolate"
         style={{ background: tint }}
         aria-label={on ? t('pause') : t('listen')}>
-        {cover
-          ? <img
-              src={cover}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover transition-[filter,transform] duration-200 ease-out group-hover:scale-105 group-hover:blur-[1.25px] group-focus-visible:scale-105 group-focus-visible:blur-[1.25px]"
-            />
-          : <span className="absolute inset-0 flex items-center justify-center pv-subtitle text-white">{String(item.title || '?').slice(0, 1)}</span>}
+        <img
+          src={cover || stock.empty}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover transition-[filter,transform] duration-200 ease-out group-hover:scale-105 group-hover:blur-[1.25px] group-focus-visible:scale-105 group-focus-visible:blur-[1.25px]"
+        />
         <span
           className={`absolute inset-0 rounded-xl overflow-hidden flex items-center justify-center transition-opacity duration-200 ${on ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100'}`}
           style={{ background: 'rgba(26,26,26,0.38)' }}
@@ -144,6 +147,9 @@ export function SoundRow({
       {/* Title needs room — wider than before so mobile truncates later */}
       <div className="min-w-0 flex-[1.35] basis-[9.5rem] max-w-[14rem] sm:max-w-[16rem]">
         <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{item.title || '—'}</p>
+        {item.location ? (
+          <p className="pv-micro truncate mt-0.5" style={{ color: th.muted }}>{item.location}</p>
+        ) : null}
         <button
           type="button"
           className="flex items-center gap-1.5 mt-0.5 max-w-full text-left cursor-pointer rounded-lg px-1 -mx-1"
@@ -159,7 +165,7 @@ export function SoundRow({
           }}
         >
           <Avatar src={ownerProfile?.avatar} name={author} size={18} rounded="rounded-full" fallback="icon" />
-          <span className="pv-micro uppercase truncate" style={{ color: th.soft }}>{author}</span>
+          <span className="pv-micro truncate" style={{ color: th.muted }}>{author}</span>
         </button>
       </div>
 

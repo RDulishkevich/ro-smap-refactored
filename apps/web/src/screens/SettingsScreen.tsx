@@ -157,7 +157,7 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
 function Section({ title, children, th }: { title: string; children: ReactNode; th: ThemeTokens }) {
   return (
     <section>
-      <p className="pv-label uppercase px-1 mb-1.5" style={{ color: th.soft }}>{title}</p>
+      <p className="pv-label px-1 mb-1.5" style={{ color: th.soft }}>{title}</p>
       <div className="rounded-3xl overflow-hidden" style={{ background: th.cardBg }}>{children}</div>
     </section>
   );

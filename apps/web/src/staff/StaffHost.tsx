@@ -14,7 +14,7 @@ import { StaffProvider, useStaff } from './StaffContext';
 import { UserEditorPanel } from './UserEditorPanel';
 import {
   AnalyticsModule, ConsoleModule, InboxModule, OverviewModule, QueueModule, ReportsModule,
-  STAFF_MODULES, UsersModule, type StaffModuleId,
+  SocialModule, STAFF_MODULES, UsersModule, type StaffModuleId,
 } from './modules';
 
 const ACCENT = color.accent;
@@ -166,6 +166,7 @@ function StaffWorkspace() {
       case 'reports': return <ReportsModule onFocus={setFocus} />;
       case 'inbox': return <InboxModule />;
       case 'users': return <UsersModule />;
+      case 'social': return <SocialModule />;
       case 'analytics': return <AnalyticsModule />;
       case 'console': return canOwner
         ? <ConsoleModule scanEmailConflicts={scanEmailConflicts} />

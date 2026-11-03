@@ -3,12 +3,13 @@ import {
   apiAdminEmailConflicts, apiGetPremod, apiGetSecurityEvents, apiSyncJson,
   pendingSounds, rejectedSounds, roleAtLeast, supportDeskPeers,
   SUPPORT_LOGIN, SUPPORT_NAME, SUPPORT_AVATAR,
-  type PremodReport, type Sound,
+  type Expedition, type PremodReport, type Profile, type Sound,
 } from '@polevka/core';
 import { color, type ThemeTokens } from '@polevka/design';
 import {
-  AlertTriangle, BarChart3, Check, Inbox, Play, Search, Shield, Trash2, Users,
+  AlertTriangle, BarChart3, Calendar, Check, Inbox, Play, Search, Shield, Trash2, Users,
 } from 'lucide-react';
+import { persistEventDelete, persistExpeditionDelete } from '../lib/owned-delete';
 import { getRejectSuggestionChips } from '../../../../src/data/publishRules.js';
 import { EmptyNote } from '../primitives/EmptyNote';
 import { useAuth } from '../state/AuthContext';
@@ -26,6 +27,7 @@ export type StaffModuleId =
   | 'reports'
   | 'inbox'
   | 'users'
+  | 'social'
   | 'analytics'
   | 'console';
 
@@ -42,6 +44,7 @@ export const STAFF_MODULES: StaffModuleMeta[] = [
   { id: 'reports', label: 'Жалобы', Icon: AlertTriangle },
   { id: 'inbox', label: 'Сообщения', Icon: Inbox },
   { id: 'users', label: 'Люди', Icon: Users, minRole: 'admin' },
+  { id: 'social', label: 'Ивенты', Icon: Calendar, minRole: 'admin' },
   { id: 'analytics', label: 'Аналитика', Icon: BarChart3 },
   { id: 'console', label: 'Консоль', Icon: Shield, minRole: 'owner' },
 ];
@@ -456,12 +459,150 @@ export function UsersModule() {
               style={{ background: on ? th.lightBg : th.cardBg, border: `1px solid ${on ? ACCENT : th.border}` }}>
               <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{p.displayName || login}</p>
               <p className="pv-micro" style={{ color: th.muted }}>
-                @{login} · {p.role || 'user'}{p.blocked ? ' · blocked' : ''}
+                @{login} · {p.role || 'user'}{p.blocked ? ' · заблокирован' : ''}
               </p>
             </button>
           );
         })}
         {!found.length && <EmptyNote title="Никого" hint="Измените запрос" />}
+      </div>
+    </div>
+  );
+}
+
+export function SocialModule() {
+  const th = useTh();
+  const { events, profiles, allSounds, reload, patchEventsLocal, patchProfilesLocal, patchSoundLocal } = useData();
+  const { user } = useAuth();
+  const { toast, confirm } = useUi();
+  const [q, setQ] = useState('');
+  const actor = String(user?.loginName || '');
+
+  const expeditions = useMemo(() => {
+    const rows: Array<{ exp: Expedition; profile: Profile }> = [];
+    for (const p of profiles) {
+      for (const s of p.sessions || []) {
+        if (!s) continue;
+        rows.push({
+          exp: { ...s, ownerLogin: String(s.ownerLogin || p.loginName || '') },
+          profile: p,
+        });
+      }
+    }
+    return rows;
+  }, [profiles]);
+
+  const nq = q.trim().toLowerCase();
+  const eventList = events.filter((ev) => {
+    if (ev.deleted) return false;
+    if (!nq) return true;
+    return `${ev.title} ${ev.ownerLogin} ${ev.loc} ${ev.location}`.toLowerCase().includes(nq);
+  });
+  const expList = expeditions.filter((row) => {
+    if (!nq) return true;
+    return `${row.exp.title} ${row.exp.ownerLogin} ${row.profile.loginName} ${row.profile.displayName}`.toLowerCase().includes(nq);
+  });
+
+  const delEvent = async (ev: (typeof events)[number]) => {
+    const ok = await confirm({
+      title: 'Удалить ивент?',
+      body: String(ev.title || ev.id),
+      ok: 'Удалить',
+    });
+    if (!ok) return;
+    patchEventsLocal((prev) => prev.filter((row) => String(row.id) !== String(ev.id)));
+    try {
+      await persistEventDelete(ev);
+      toast('Ивент удалён');
+    } catch (e: unknown) {
+      await reload();
+      toast((e as Error).message || 'Не удалось удалить');
+    }
+  };
+
+  const delExp = async (row: { exp: Expedition; profile: Profile }) => {
+    const ok = await confirm({
+      title: 'Удалить экспедицию?',
+      body: `${row.exp.title || 'Экспедиция'} · @${row.profile.loginName}`,
+      ok: 'Удалить',
+    });
+    if (!ok) return;
+    try {
+      const { profile: next, unlinked } = await persistExpeditionDelete({
+        profile: row.profile,
+        expedition: row.exp,
+        sounds: allSounds,
+        asAdmin: true,
+        actorLogin: actor,
+      });
+      const login = String(row.profile.loginName || '').toLowerCase();
+      patchProfilesLocal((prev) => prev.map((p) => (
+        String(p.loginName || '').toLowerCase() === login ? { ...p, ...next } : p
+      )));
+      for (const s of unlinked) patchSoundLocal(s.id, { sessionId: null });
+      toast('Экспедиция удалена');
+    } catch (e: unknown) {
+      await reload();
+      toast((e as Error).message || 'Не удалось удалить');
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-3 h-full min-h-0">
+      <div>
+        <p className="pv-page" style={{ color: th.inkText }}>Ивенты и экспедиции</p>
+        <p className="pv-caption mt-1" style={{ color: th.muted }}>Удаление от admin · карточки пропадают у всех</p>
+      </div>
+      <label className="flex items-center gap-2 h-11 rounded-2xl px-3.5 flex-shrink-0" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
+        <Search size={16} color={th.soft} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Название или автор"
+          className="flex-1 min-w-0 bg-transparent outline-none pv-caption" style={{ color: th.inkText }} />
+      </label>
+      <div className="flex-1 overflow-y-auto flex flex-col gap-4 pb-2">
+        <div>
+          <p className="pv-subtitle mb-2" style={{ color: th.inkText }}>Ивенты ({eventList.length})</p>
+          <div className="flex flex-col gap-1.5">
+            {eventList.slice(0, 80).map((ev) => (
+              <div key={String(ev.id)} className="rounded-2xl px-3 py-3 flex items-center gap-2"
+                style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
+                <div className="min-w-0 flex-1">
+                  <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{ev.title || 'Ивент'}</p>
+                  <p className="pv-micro truncate" style={{ color: th.muted }}>
+                    @{ev.ownerLogin || '—'} · {ev.date || 'без даты'}
+                  </p>
+                </div>
+                <button type="button" className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: th.lightBg }} aria-label="Удалить ивент"
+                  onClick={() => void delEvent(ev)}>
+                  <Trash2 size={15} color={ACCENT} />
+                </button>
+              </div>
+            ))}
+            {!eventList.length && <EmptyNote title="Нет ивентов" hint="Созданные встречи появятся здесь" />}
+          </div>
+        </div>
+        <div>
+          <p className="pv-subtitle mb-2" style={{ color: th.inkText }}>Экспедиции ({expList.length})</p>
+          <div className="flex flex-col gap-1.5">
+            {expList.slice(0, 80).map((row) => (
+              <div key={`${row.profile.loginName}-${row.exp.id}`} className="rounded-2xl px-3 py-3 flex items-center gap-2"
+                style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
+                <div className="min-w-0 flex-1">
+                  <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{row.exp.title || 'Экспедиция'}</p>
+                  <p className="pv-micro truncate" style={{ color: th.muted }}>
+                    @{row.profile.loginName} · {(row.exp.soundIds || []).length} меток
+                  </p>
+                </div>
+                <button type="button" className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: th.lightBg }} aria-label="Удалить экспедицию"
+                  onClick={() => void delExp(row)}>
+                  <Trash2 size={15} color={ACCENT} />
+                </button>
+              </div>
+            ))}
+            {!expList.length && <EmptyNote title="Нет экспедиций" hint="Карточки из профилей появятся здесь" />}
+          </div>
+        </div>
       </div>
     </div>
   );
