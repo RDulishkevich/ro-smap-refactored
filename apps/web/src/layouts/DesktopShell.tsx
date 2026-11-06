@@ -357,7 +357,7 @@ export function DesktopShell() {
                 <MapScreen showNav={false} desktop hidePlayer />
               </div>
               {dockSound ? (
-                <div className="flex-shrink-0 mt-3 rounded-2xl overflow-y-auto max-h-[56vh]" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
+                <div className="flex-shrink-0 min-w-0 mt-3 rounded-2xl overflow-x-hidden overflow-y-auto max-h-[56vh]" style={{ background: th.cardBg, border: `1px solid ${th.border}` }}>
                   <PinPlayer sound={dockSound} simple
                     onClose={() => setFocused(null)}
                     playing={playing && String(playingId) === String(dockSound.id)}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ScanFace } from 'lucide-react';
 import { color, spring, tap } from '@polevka/design';
@@ -20,7 +20,6 @@ function hideHtmlSplash() {
 }
 
 export function WelcomeSplash() {
-  hideHtmlSplash();
   const t = useT();
   const { needsUnlock, unlockWithDevice, skipDeviceUnlock } = useAuth();
   const { loading } = useData();
@@ -30,7 +29,7 @@ export function WelcomeSplash() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
-  useEffect(() => { hideHtmlSplash(); }, []);
+  useLayoutEffect(() => { hideHtmlSplash(); }, []);
 
   useEffect(() => {
     const ms = standalone ? 900 : 400;
@@ -67,7 +66,7 @@ export function WelcomeSplash() {
       {visible && (
         <motion.div
           key="welcome"
-          className="fixed inset-0 z-[200] flex flex-col items-center justify-end px-8 pb-16"
+          className="fixed inset-0 z-[200] flex flex-col items-start justify-end px-8 pb-16"
           style={{ background: '#131513' }}
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -83,12 +82,7 @@ export function WelcomeSplash() {
             className="absolute inset-0"
             style={{ background: 'linear-gradient(180deg, rgba(19,21,19,0.22) 0%, rgba(19,21,19,0.5) 46%, rgba(19,21,19,0.88) 100%)' }}
           />
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={spring.mount}
-            className="relative z-[1] w-full max-w-[320px]"
-          >
+          <div className="relative z-[1] w-full max-w-[320px]">
           <h1 className="pv-display mb-2" style={{ color: '#F2F0EA', textShadow: '0 1px 18px rgba(0,0,0,0.55)' }}>
             Полёвка
           </h1>
@@ -122,7 +116,7 @@ export function WelcomeSplash() {
           ) : (
             <div className="w-8 h-8 rounded-full border-2 border-transparent animate-spin" style={{ borderTopColor: ACCENT }} />
           )}
-          </motion.div>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>

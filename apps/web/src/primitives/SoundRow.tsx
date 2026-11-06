@@ -144,9 +144,8 @@ export function SoundRow({
         </span>
       </button>
 
-      {/* Title needs room — wider than before so mobile truncates later */}
-      <div className="min-w-0 flex-[1.35] basis-[9.5rem] max-w-[14rem] sm:max-w-[16rem]">
-        <p className="pv-subtitle truncate" style={{ color: th.inkText }}>{item.title || '—'}</p>
+      <div className="min-w-0 flex-[1.6] basis-[10rem]">
+        <p className="pv-subtitle whitespace-normal break-words" style={{ color: th.inkText }}>{item.title || '—'}</p>
         {item.location ? (
           <p className="pv-micro truncate mt-0.5" style={{ color: th.muted }}>{item.location}</p>
         ) : null}

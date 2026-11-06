@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { peaksFromWavArrayBuffer } from './waveform';
+import { encodeWavFromChannels, peaksFromWavArrayBuffer } from './waveform';
 
 function pcmWav(frames: number, sampleRate = 8000) {
   const dataSize = frames * 2;
@@ -46,5 +46,21 @@ describe('peaksFromWavArrayBuffer', () => {
 
   it('rejects non-wav buffers', () => {
     expect(peaksFromWavArrayBuffer(new ArrayBuffer(64))).toBeNull();
+  });
+});
+
+describe('encodeWavFromChannels', () => {
+  it('writes a discrete multi-channel PCM header', () => {
+    const left = new Float32Array([0.5, -0.5]);
+    const right = new Float32Array([0.25, -0.25]);
+    const extra = new Float32Array([1, -1]);
+    const blob = encodeWavFromChannels([left, right, extra], 48000);
+    expect(blob.type).toBe('audio/wav');
+    return blob.arrayBuffer().then((ab) => {
+      const view = new DataView(ab);
+      expect(view.getUint16(22, true)).toBe(3);
+      expect(view.getUint32(24, true)).toBe(48000);
+      expect(view.getUint32(40, true)).toBe(2 * 3 * 2);
+    });
   });
 });

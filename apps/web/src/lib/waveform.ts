@@ -56,6 +56,16 @@ export async function peaksFromBuffer(buffer: AudioBuffer, bars = 80): Promise<n
   return barsFromChannel(buffer.getChannelData(0), bars);
 }
 
+export async function peakLanesFromBuffer(buffer: AudioBuffer, bars = 80): Promise<number[][]> {
+  const n = Math.max(1, buffer.numberOfChannels);
+  return Array.from({ length: n }, (_, i) => barsFromChannel(buffer.getChannelData(i), bars));
+}
+
+export async function peakLanesFromBlob(blob: Blob, bars = 80): Promise<number[][]> {
+  const buffer = await decode(await blob.arrayBuffer());
+  return peakLanesFromBuffer(buffer, bars);
+}
+
 export async function peaksFromBlob(blob: Blob, bars = 80): Promise<number[]> {
   const key = `blob:${blob.size}:${blob.type}:${bars}`;
   const hit = cache.get(key);
@@ -197,10 +207,10 @@ export async function peaksFromUrl(url: string, bars = 80): Promise<number[]> {
   return peaks;
 }
 
-export function encodeWav(buffer: AudioBuffer): Blob {
-  const ch = buffer.numberOfChannels;
-  const sr = buffer.sampleRate;
-  const len = buffer.length;
+export function encodeWavFromChannels(channels: Float32Array[], sampleRate: number): Blob {
+  const ch = Math.max(1, channels.length);
+  const sr = Math.max(1, Math.round(sampleRate) || 48000);
+  const len = channels[0]?.length || 0;
   const bytes = len * ch * 2;
   const ab = new ArrayBuffer(44 + bytes);
   const view = new DataView(ab);
@@ -220,16 +230,22 @@ export function encodeWav(buffer: AudioBuffer): Blob {
   view.setUint16(34, 16, true);
   write(36, 'data');
   view.setUint32(40, bytes, true);
-  const channels = Array.from({ length: ch }, (_, i) => buffer.getChannelData(i));
   let o = 44;
   for (let i = 0; i < len; i++) {
     for (let c = 0; c < ch; c++) {
-      const s = Math.max(-1, Math.min(1, channels[c][i]));
+      const s = Math.max(-1, Math.min(1, channels[c]?.[i] || 0));
       view.setInt16(o, s < 0 ? s * 0x8000 : s * 0x7fff, true);
       o += 2;
     }
   }
   return new Blob([ab], { type: 'audio/wav' });
+}
+
+export function encodeWav(buffer: AudioBuffer): Blob {
+  return encodeWavFromChannels(
+    Array.from({ length: buffer.numberOfChannels }, (_, i) => buffer.getChannelData(i)),
+    buffer.sampleRate,
+  );
 }
 
 export async function applyTrimGain(blob: Blob, start: number, end: number, gain: number): Promise<{ blob: Blob; durationSec: number }> {

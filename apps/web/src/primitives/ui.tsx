@@ -70,13 +70,14 @@ export function SoundTypeTag({ type }: { type: string }) {
   );
 }
 
-export function ScreenHeader({ title, subtitle, onBack, right, onTitleClick }: {
-  title: string; subtitle?: string; onBack: () => void; right?: ReactNode; onTitleClick?: () => void;
+export function ScreenHeader({ title, subtitle, onBack, right, onTitleClick, wrapTitle = false }: {
+  title: string; subtitle?: string; onBack: () => void; right?: ReactNode; onTitleClick?: () => void; wrapTitle?: boolean;
 }) {
   const th = useTh();
   const t = useT();
+  const titleClass = wrapTitle ? 'pv-page whitespace-normal break-words' : 'pv-page truncate';
   return (
-    <header data-no-swipe className="sticky top-0 z-30 flex items-center gap-3 px-4 pv-safe-top pb-3 flex-shrink-0 relative" style={{ background: th.headerBg, borderBottom: `1px solid ${th.border}` }}>
+    <header data-no-swipe className={`sticky top-0 z-30 flex gap-3 px-4 pv-safe-top pb-3 flex-shrink-0 relative ${wrapTitle ? 'items-start' : 'items-center'}`} style={{ background: th.headerBg, borderBottom: `1px solid ${th.border}` }}>
       <motion.button
         type="button"
         data-no-swipe
@@ -89,9 +90,9 @@ export function ScreenHeader({ title, subtitle, onBack, right, onTitleClick }: {
       </motion.button>
       <div className="flex-1 min-w-0">
         {onTitleClick ? (
-          <button type="button" onClick={onTitleClick} className="pv-page block w-full truncate text-left" style={{ color: th.inkText }}>{title}</button>
+          <button type="button" onClick={onTitleClick} className={`${titleClass} block w-full text-left`} style={{ color: th.inkText }}>{title}</button>
         ) : (
-          <p className="pv-page truncate" style={{ color: th.inkText }}>{title}</p>
+          <p className={titleClass} style={{ color: th.inkText }}>{title}</p>
         )}
         {subtitle ? (
           <p className="pv-micro truncate mt-0.5" style={{ color: subtitle === t('online') ? color.olive : th.soft }}>{subtitle}</p>
@@ -488,7 +489,7 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
     toast(t('ambisonicOn'));
   };
   return (
-    <div className={`px-3.5 ${simple ? 'py-2.5' : 'pt-3 pb-9'}`}
+    <div className={`px-3.5 min-w-0 ${simple ? 'py-2.5' : 'pt-3 pb-9'}`}
       style={simple ? { background: th.cardBg } : {
         background: th.cardBg,
         borderRadius: '24px 24px 0 0',
@@ -496,19 +497,20 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
         maskImage: analyzers || ambiUi ? undefined : 'radial-gradient(circle 36px at 50% 100%, transparent 34px, black 36px)',
         WebkitMaskImage: analyzers || ambiUi ? undefined : 'radial-gradient(circle 36px at 50% 100%, transparent 34px, black 36px)',
       }}>
-      <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex items-start gap-2.5 min-w-0">
         <button type="button" onClick={onToggle} className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer" style={{ backgroundColor: c }} aria-label={playing ? t('pause') : t('listen')}>
           <PlayPauseIcon playing={!!playing} size={14} />
         </button>
         <div className="flex-1 min-w-0">
-          <button type="button" className="pv-subtitle block w-full text-left truncate" style={{ color: th.inkText }} onClick={onOpen}>{sound.title}</button>
-          <p className="pv-caption tabular-nums mt-0.5 truncate" style={{ color: th.muted }}>
+          <button type="button" className="pv-subtitle block w-full text-left whitespace-normal break-words" style={{ color: th.inkText }} onClick={onOpen}>{sound.title}</button>
+          <p className="pv-caption tabular-nums mt-0.5" style={{ color: th.muted }}>
             <span className="font-medium" style={{ color: th.inkText }}>{formatClock(nowSec)}</span>
             <span> / {totalLabel}</span>
             {sound.location ? <span>, {sound.location}</span> : null}
           </p>
         </div>
-        <div className="relative z-20 flex items-center gap-1 flex-shrink-0 pointer-events-auto">
+      </div>
+      <div className="relative z-20 mt-2 flex items-center justify-end gap-1 pointer-events-auto">
         {onVolume && onMute && <VolumeKnob volume={volume} muted={muted} onVolume={onVolume} onMute={onMute} compact={compact} tone={c} />}
         <PlayerAction on={analyzers} label={t('analyzers')} onClick={() => void toggleAnalyzers()} tone={c}>
           <AudioLines size={14} color={c} />
@@ -526,7 +528,6 @@ export function PinPlayer({ sound, onClose, simple = false, playing, onToggle, p
         <PlayerAction on={false} label={t('close')} onClick={onClose} tone={c}>
           <X size={15} color={c} />
         </PlayerAction>
-        </div>
       </div>
       <div className="relative mt-2.5">
         <WaveformSVG data={peaks} color={c} progress={progress} h={28} onSeek={onSeek} />

@@ -196,7 +196,7 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
       <div className="mx-4 mt-2 rounded-3xl p-4" style={{ background: th.cardBg }}>
         <div className="flex items-start justify-between gap-3 mb-2">
           <div className="min-w-0">
-            {desktop && <p className="pv-heading" style={{ color: th.inkText }}>{live.title}</p>}
+            {desktop && <p className="pv-heading whitespace-normal break-words" style={{ color: th.inkText }}>{live.title}</p>}
             <div className="flex items-center gap-1.5 mt-0.5">
               <MapPin size={11} style={{ color: th.soft }} /><span className="pv-caption" style={{ color: th.muted }}>{live.location}</span>
             </div>
@@ -336,7 +336,7 @@ function SoundDetailScreen({ sound, onBack }: { sound: Sound; onBack: () => void
 
   return (
     <div className="flex flex-col h-full" style={{ background: th.phoneBg }}>
-      <ScreenHeader title={live.title} onBack={onBack} right={
+      <ScreenHeader title={live.title} wrapTitle onBack={onBack} right={
         <HoverMenu title={live.title} items={menuItems}>
           <span className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: th.lightBg }}>
             <MoreHorizontal size={15} color={th.muted} />

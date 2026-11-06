@@ -5,78 +5,113 @@ import { color } from '@polevka/design';
 import { normalizeTimeMarkers, spamGuardCheck, spamGuardMessage, type TimeMarker } from '@polevka/core';
 import { useTh } from '../state/ThemeContext';
 import { useUi } from '../state/UiContext';
-import { durationFromBlob, formatClock, peaksFromBlob, peaksFromUrl, playLength } from '../lib/waveform';
-import { applyCtxSink, applySinkId } from '../lib/record-devices';
+import { durationFromBlob, formatClock, peakLanesFromBlob, peaksFromUrl, playLength } from '../lib/waveform';
+import { applyCtxSink, applySinkId, channelLaneLabel } from '../lib/record-devices';
 import { WaveformSVG } from './ui';
 
 const ACCENT = color.accent;
 const MIN = 0.02;
 
-export function LiveTape({ analyser, color: c = ACCENT, h = 96 }: { analyser: AnalyserNode | null; color?: string; h?: number }) {
+function drawLane(ctx: CanvasRenderingContext2D, peaks: number[], x: number, y: number, w: number, h: number, fill: string) {
+  const mid = y + h / 2;
+  ctx.fillStyle = fill;
+  if (!peaks.length) {
+    ctx.globalAlpha = 0.22;
+    ctx.fillRect(x, mid - 1, w, 2);
+    ctx.globalAlpha = 1;
+    return;
+  }
+  const bar = 2;
+  const used = peaks.length * bar;
+  if (used <= w) {
+    for (let i = 0; i < peaks.length; i++) {
+      const bh = Math.max(1.5, peaks[i] * (h * 0.46));
+      ctx.globalAlpha = 0.92;
+      ctx.fillRect(x + i * bar, mid - bh, 1.35, bh * 2);
+    }
+  } else {
+    for (let px = 0; px < w; px++) {
+      const i0 = Math.floor((px / w) * peaks.length);
+      const i1 = Math.max(i0 + 1, Math.floor(((px + 1) / w) * peaks.length));
+      let peak = 0;
+      for (let i = i0; i < i1; i++) peak = Math.max(peak, peaks[i] || 0);
+      const bh = Math.max(1.5, peak * (h * 0.46));
+      ctx.globalAlpha = 0.92;
+      ctx.fillRect(x + px, mid - bh, 1, bh * 2);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+export function LiveTape({
+  analysers,
+  color: c = ACCENT,
+  laneH = 44,
+}: {
+  analysers: AnalyserNode[];
+  color?: string;
+  laneH?: number;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const lanes = Math.max(1, analysers.length);
+  const cssH = analysers.length > 1 ? lanes * laneH : Math.max(96, laneH);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const hist = new Float32Array(280);
-    let hi = 0;
-    let raf = 0;
+    const gutter = analysers.length > 1 ? 36 : 8;
     const drawIdle = () => {
-      const w = canvas.width, hh = canvas.height;
-      ctx.clearRect(0, 0, w, hh);
-      ctx.strokeStyle = c;
-      ctx.globalAlpha = 0.25;
-      ctx.beginPath();
-      ctx.moveTo(0, hh / 2);
-      ctx.lineTo(w, hh / 2);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawLane(ctx, [], gutter, 8, canvas.width - gutter - 8, canvas.height - 16, c);
     };
-    if (!analyser) {
+    if (!analysers.length) {
       drawIdle();
       return;
     }
-    const td = new Float32Array(analyser.fftSize);
-    const tick = () => {
-      analyser.getFloatTimeDomainData(td);
-      let peak = 0;
-      for (let i = 0; i < td.length; i++) peak = Math.max(peak, Math.abs(td[i]));
-      hist[hi % hist.length] = peak;
-      hi += 1;
-      const w = canvas.width, hh = canvas.height;
-      ctx.clearRect(0, 0, w, hh);
-      const mid = hh / 2;
-      ctx.strokeStyle = c;
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      const n = td.length;
-      for (let i = 0; i < n; i += 2) {
-        const x = (i / n) * w;
-        const y = mid - td[i] * mid * 0.92;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-      ctx.globalAlpha = 0.35;
-      ctx.beginPath();
-      for (let i = 0; i < hist.length; i++) {
-        const v = hist[(hi + i) % hist.length];
-        const x = (i / hist.length) * w;
-        const y = hh - 6 - v * 18;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-      ctx.globalAlpha = 1;
+    const hist = analysers.map(() => [] as number[]);
+    const td = new Float32Array(Math.max(...analysers.map((a) => a.fftSize), 2048));
+    let raf = 0;
+    let last = 0;
+    const tick = (ts: number) => {
       raf = requestAnimationFrame(tick);
+      if (ts - last < 32) return;
+      last = ts;
+      for (let i = 0; i < analysers.length; i++) {
+        analysers[i].getFloatTimeDomainData(td);
+        let peak = 0;
+        for (let k = 0; k < td.length; k++) peak = Math.max(peak, Math.abs(td[k]));
+        hist[i].push(peak);
+      }
+      const w = canvas.width;
+      const hh = canvas.height;
+      ctx.clearRect(0, 0, w, hh);
+      const lanePx = hh / analysers.length;
+      for (let i = 0; i < analysers.length; i++) {
+        const y = i * lanePx;
+        if (i > 0) {
+          ctx.globalAlpha = 0.12;
+          ctx.fillStyle = c;
+          ctx.fillRect(gutter, y, w - gutter - 8, 1);
+          ctx.globalAlpha = 1;
+        }
+        drawLane(ctx, hist[i], gutter, y + 6, w - gutter - 10, lanePx - 12, c);
+      }
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [analyser, c]);
+  }, [analysers, c]);
   return (
-    <canvas ref={canvasRef} width={720} height={h * 2} className="w-full rounded-2xl block"
-      style={{ height: h, background: 'rgba(45,60,57,0.06)' }} />
+    <div className="relative">
+      <canvas ref={canvasRef} width={720} height={cssH * 2} className="w-full rounded-2xl block"
+        style={{ height: cssH, background: 'rgba(45,60,57,0.06)' }} />
+      {analysers.length > 1 && analysers.map((_, i) => (
+        <span key={i} className="absolute pv-micro pointer-events-none"
+          style={{ left: 8, top: i * laneH + 6, color: c, opacity: 0.7 }}>
+          {channelLaneLabel(i, analysers.length)}
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -132,7 +167,7 @@ export function AudioEditor({
 }) {
   const th = useTh();
   const { toast } = useUi();
-  const [peaks, setPeaks] = useState<number[]>(() => Array.from({ length: 96 }, () => 0.2));
+  const [lanes, setLanes] = useState<number[][]>(() => [Array.from({ length: 96 }, () => 0.2)]);
   const [decodedDur, setDecodedDur] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(trimStart);
@@ -159,10 +194,10 @@ export function AudioEditor({
     let dead = false;
     setDecodedDur(0);
     if (blob) {
-      void peaksFromBlob(blob, 96).then((p) => { if (!dead && p.length) setPeaks(p); }).catch(() => {});
+      void peakLanesFromBlob(blob, 96).then((p) => { if (!dead && p.length) setLanes(p); }).catch(() => {});
       void durationFromBlob(blob).then((d) => { if (!dead && Number.isFinite(d) && d > 0.05) setDecodedDur(d); }).catch(() => {});
     } else if (url) {
-      void peaksFromUrl(url, 96).then((p) => { if (!dead && p.length) setPeaks(p); }).catch(() => {});
+      void peaksFromUrl(url, 96).then((p) => { if (!dead && p.length) setLanes([p]); }).catch(() => {});
     }
     return () => { dead = true; };
   }, [blob, url]);
@@ -345,7 +380,18 @@ export function AudioEditor({
             <div className="absolute inset-y-0 z-[1] pointer-events-none" style={{ left: `${a * 100}%`, width: `${(b - a) * 100}%`, boxShadow: `inset 0 0 0 1.5px ${ACCENT}` }} />
           </>
         )}
-        <WaveformSVG data={peaks} color={ACCENT} progress={progress} h={64} onSeek={seekTo} />
+        <div className="flex flex-col gap-1">
+          {lanes.map((lane, i) => (
+            <div key={i} className="flex items-center gap-1.5">
+              {lanes.length > 1 && (
+                <span className="pv-micro w-4 flex-shrink-0 text-center" style={{ color: th.soft }}>{channelLaneLabel(i, lanes.length)}</span>
+              )}
+              <div className="flex-1 min-w-0">
+                <WaveformSVG data={lane} color={ACCENT} progress={progress} h={lanes.length > 1 ? 36 : 64} onSeek={seekTo} />
+              </div>
+            </div>
+          ))}
+        </div>
         <div className="absolute top-1 bottom-1 z-[3] pointer-events-none" style={{ left: `${Math.max(0, Math.min(100, progress * 100))}%`, transform: 'translateX(-50%)' }}>
           <span className="block w-2.5 h-2.5 rounded-full mx-auto" style={{ background: ACCENT, boxShadow: '0 0 0 2px rgba(255,255,255,0.85)' }} />
           <span className="block w-0.5 h-[calc(100%-10px)] mx-auto" style={{ background: ACCENT }} />
