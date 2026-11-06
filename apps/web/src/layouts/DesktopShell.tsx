@@ -41,9 +41,9 @@ const WORKSPACE = new Set([
   'expedition-detail', 'expedition-edit',
   'user-profile', 'cabinet', 'edit-profile', 'delete-account',
   'staff', 'legal', 'help', 'messages', 'conversation', 'settings',
-  'feed-post', 'notifications', 'event-detail', 'event-edit', 'drafts', 'my-sounds',
+  'feed-post', 'notifications', 'events', 'event-detail', 'event-edit', 'drafts', 'my-sounds',
 ]);
-const VIEW_WORKSPACE = new Set<DesktopView>(['cabinet']);
+const VIEW_WORKSPACE = new Set<DesktopView>(['library', 'feed', 'expeditions', 'cabinet']);
 
 type ChromeMode = 'map' | 'list' | 'workspace';
 
