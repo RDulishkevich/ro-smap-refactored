@@ -42,7 +42,7 @@ type AuthCtx = {
 
 const Ctx = createContext<AuthCtx | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children, deviceUnlockGate = true }: { children: ReactNode; deviceUnlockGate?: boolean }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [restoring, setRestoring] = useState(true);
   const [needsUnlock, setNeedsUnlock] = useState(false);
@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRestoring(false);
       return;
     }
-    const gate = readRememberMe() && hasDeviceUnlock();
+    const gate = deviceUnlockGate && readRememberMe() && hasDeviceUnlock();
     if (gate) {
       setNeedsUnlock(true);
       setRestoring(false);
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!cancelled) setRestoring(false);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [deviceUnlockGate]);
 
   const login = useCallback(async (
     loginName: string,

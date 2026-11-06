@@ -129,7 +129,7 @@ export function StaffApp() {
     <ThemeProvider>
       <PrefsProvider>
         <UiProvider>
-          <AuthProvider>
+          <AuthProvider deviceUnlockGate={false}>
             <DataProvider>
               <StaffShell />
               <CookieBanner />

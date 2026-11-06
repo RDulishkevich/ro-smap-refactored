@@ -1474,7 +1474,8 @@ async function resolveAuthUser(payload) {
     const tvHint = payload.tv != null ? Number(payload.tv) : null;
     const cached = authUserCache.get(login);
     if (cached && Date.now() - cached.at < AUTH_USER_TTL_MS && (tvHint == null || cached.tv === tvHint)) {
-        return cached.user;
+        // aud is per-JWT (staff console vs site). Do not reuse it from another request.
+        return { ...cached.user, aud: payload.aud || null };
     }
     const users = await loadAuthUsers();
     const row = users[login];
@@ -4614,6 +4615,7 @@ async function handleMe(event, body) {
     const users = await loadAuthUsers();
     const authRow = users[user.login] || {};
     return authSuccessResponse(user, {
+        aud: payload.aud || user.aud || undefined,
         mustEnableTotp,
         user: {
             ...publicUser(user, { avatar: profile?.avatar, bio: profile?.bio }),
@@ -5352,7 +5354,7 @@ exports.handler = async function handler(event = {}) {
     if (action === 'health') {
         return respond(200, {
             ok: true,
-            version: 43,
+            version: 44,
             ydb: ydbDoc.enabled(),
             vapid: webPush.configured(),
             ucsAi: ucsSuggest.configured(),

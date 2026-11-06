@@ -28,6 +28,10 @@ export function getAuthToken() {
 
 /** Remember-me keeps JWT in localStorage (iOS ITP drops Function-host cookies). Prefer cookies when they stick. */
 export function setAccessToken(token: string, remember = rememberTokens()) {
+  if (token && hasStaffAudience() && !hasStaffAudience(token)) {
+    // me/refresh from the public site must not silently drop the staff console JWT.
+    return;
+  }
   accessToken = token;
   try {
     const store = remember ? localStorage : sessionStorage;

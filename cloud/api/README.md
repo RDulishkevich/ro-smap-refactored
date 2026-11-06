@@ -9,7 +9,7 @@
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | проверка живости (`version: 43`, `ydb`, `vapid`, `ucsAi`, `smartCaptcha`) |
+| `health` | нет | проверка живости (`version: 44`, `ydb`, `vapid`, `ucsAi`, `smartCaptcha`) |
 | `publicConfig` | нет | публичные ключи (Maps + VAPID + OAuth + SmartCaptcha sitekey) |
 | `oauthFinish` | нет | обмен code VK/Яндекс → сессия (нужен `pdConsent` для нового аккаунта) |
 | `oauthLink` | access | привязать VK/Яндекс к текущему аккаунту (забирает orphan `oauthOnly` stub) |
@@ -52,6 +52,8 @@
 | `admin` | всё staff + роли, block, events full merge, `adminDeleteUser` / `adminUnbindEmail` |
 | `moderator` | модерация map/feed/mail, жалобы, поддержка |
 | `user` | обычный продукт |
+
+Консоль (`staffLogin`, JWT `aud=staff`) не должна сбрасываться `me`/`refresh` с обычного сайта: если cookie и заголовок расходятся, берётся staff-токен; `aud` не кэшируется вместе с ролью.
 
 Хеши паролей, staging, коды email/сброса и **ящики `_mail/boxes/{login}.json`** живут в **приватном** бакете `rosmap2026-private`. Публичный бакет `rosmap2026` — каталог и медиа (без личных сообщений).
 

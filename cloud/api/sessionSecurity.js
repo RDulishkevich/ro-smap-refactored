@@ -40,13 +40,36 @@ function parseCookies(event, getHeader) {
     return out;
 }
 
+function decodeJwtAud(token) {
+    try {
+        const part = String(token || '').split('.')[1];
+        if (!part) return '';
+        const b64 = part.replace(/-/g, '+').replace(/_/g, '/');
+        const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4));
+        const json = Buffer.from(b64 + pad, 'base64').toString('utf8');
+        return String(JSON.parse(json).aud || '');
+    } catch (_) {
+        return '';
+    }
+}
+
+/** Prefer a staffLogin JWT if cookie/header/body disagree — cookie can lag after console login. */
+function pickAccessToken(cookieTok, headerTok, bodyTok) {
+    const cookie = String(cookieTok || '').trim();
+    const header = String(headerTok || '').trim();
+    const body = String(bodyTok || '').trim();
+    const cands = [header, body, cookie].filter(Boolean);
+    const staff = cands.find((t) => decodeJwtAud(t) === 'staff');
+    if (staff) return staff;
+    return cookie || header || body;
+}
+
 function extractTokenFromRequest(event, body, getHeader) {
     const cookies = parseCookies(event, getHeader);
-    if (cookies[ACCESS_COOKIE]) return String(cookies[ACCESS_COOKIE]).trim();
-    const custom = getHeader(event, 'x-rosmap-token');
-    if (custom) return String(custom).trim();
-    if (body && body.token) return String(body.token);
-    return '';
+    const cookie = cookies[ACCESS_COOKIE] ? String(cookies[ACCESS_COOKIE]).trim() : '';
+    const header = String(getHeader(event, 'x-rosmap-token') || '').trim();
+    const fromBody = body && body.token ? String(body.token).trim() : '';
+    return pickAccessToken(cookie, header, fromBody);
 }
 
 function extractRefreshToken(event, body, getHeader) {
@@ -275,6 +298,7 @@ module.exports = {
     SECURITY_EVENTS_KEY,
     parseCookies,
     extractTokenFromRequest,
+    pickAccessToken,
     extractRefreshToken,
     buildSetCookie,
     clearCookie,

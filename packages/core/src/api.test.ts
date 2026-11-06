@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { TOKEN_KEY, apiRequest, apiSyncJson, setAccessToken } from './api';
+import { TOKEN_KEY, apiRequest, apiSyncJson, hasStaffAudience, setAccessToken } from './api';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -36,6 +36,18 @@ describe('Secure API client', () => {
     localStorage.setItem(TOKEN_KEY, 'jwt-audit');
     await expect(apiSyncJson('map_data.json', [{ id: '1' }])).rejects.toMatchObject({ code: 'write_conflict' });
     expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it('does not replace a staff JWT with a site session token', () => {
+    const enc = (obj: object) => btoa(JSON.stringify(obj)).replace(/=+$/, '');
+    const staff = `${enc({ alg: 'none' })}.${enc({ aud: 'staff' })}.sig`;
+    const site = `${enc({ alg: 'none' })}.${enc({})}.sig`;
+    setAccessToken(staff);
+    expect(hasStaffAudience()).toBe(true);
+    setAccessToken(site);
+    expect(hasStaffAudience()).toBe(true);
+    setAccessToken('');
+    expect(hasStaffAudience()).toBe(false);
   });
 
   it('surfaces integrity_mismatch without swallowing it', async () => {

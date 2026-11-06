@@ -115,6 +115,7 @@ export async function restoreAuthSession(): Promise<SessionUser | null> {
         /* ignore */
       }
     }
+    if (e.code === 'staff_aud_required') return null;
     if (e.code === 'unauthorized' || e.code === 'blocked' || e.status === 401 || e.status === 403) {
       clearAuthSession();
     }

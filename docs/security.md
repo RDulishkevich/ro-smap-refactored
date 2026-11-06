@@ -342,7 +342,7 @@ Private bucket: без публичного чтения; CORS только дл
 
 | action | Auth | Назначение |
 |--------|------|------------|
-| `health` | нет | версия / живость (`version: 43`, поле `ydb`) |
+| `health` | нет | версия / живость (`version: 44`, поле `ydb`) |
 | `publicConfig` | нет | Maps key + bucket URL (browser-safe) |
 | `register` / `login` | нет | учётка → cookies + access JWT (+ optional TOTP) |
 | `refresh` | refresh cookie | новая пара токенов |
@@ -384,6 +384,7 @@ Private bucket: без публичного чтения; CORS только дл
 | **v14 consent + staff 2FA** | Cookie banner; TOTP обязателен для staff write/admin |
 | **v18 integrity + limits** | HMAC обязателен и на публичный каталог; лимиты/лок переживают cold start; scale-policy |
 | **v43 media GC** | `deleteMedia`; mail tombstone drop image/video; catalog ETag poll; photo downscale 1600px |
+| **v44 staff session** | `me`/`refresh` keep JWT `aud=staff`; cookie vs header: staff token wins |
 
 ---
 
